@@ -1,9 +1,7 @@
 # CHARIS CAT 2025
 
 import torch
-
-def relu(x):
-    return torch.relu(x)
+from config import *
 
 class NEURON:
     def __init__(self, numInputs, activationFunction):
@@ -22,8 +20,7 @@ class NEURON:
     
 if __name__ == "__main__":
     TESTnumInputs = 5
-    TESTactivationFunction = relu
-    neuron = NEURON(numInputs = TESTnumInputs, activationFunction = TESTactivationFunction)
+    neuron = NEURON(numInputs = TESTnumInputs, activationFunction = activationFunction)
 
     TESTinputs = [0.5, 0.1, -0.2, 0.8, -0.9]
     outputActivation = neuron.forward(TESTinputs)
