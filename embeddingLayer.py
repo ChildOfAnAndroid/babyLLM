@@ -1,9 +1,9 @@
-# CHARIS CAT 2024
+# CHARIS CAT 2025
 
 import torch
 from config import *
 
-class embedLayerFUNK:
+class EMBEDLAYER:
     def __init__(self, vocabSize, embedData):
         self.vocabSize = vocabSize
         self.embedData = embedData
@@ -16,7 +16,7 @@ class embedLayerFUNK:
         return embedVector
     
 if __name__ == "__main__":
-    embedLayer = embedLayerFUNK(vocabSize, embedDimension)
+    embedLayer = EMBEDLAYER(vocabSize, embedDimension)
     TESTtokenIndex = 500 
     embedVector = embedLayer.forward(TESTtokenIndex)
 
