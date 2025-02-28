@@ -1,5 +1,6 @@
 # Charis Cat 2025
 from collections import Counter
+from config import *
 
 # LOAD TRAINING DATA
 def loadTrainingDataFUNK(filepaths):
@@ -17,7 +18,7 @@ def whitespaceTokenizer(text):
     return tokens
 
 # TOP 2000 TOKENS
-def buildVocab(tokens, vocabSize = 2000):
+def buildVocab(tokens, vocabSize):
     wordCounts = Counter(tokens)
     mostCommonWords = wordCounts.most_common(vocabSize)
     vocabList = [word for word, count in mostCommonWords]
@@ -35,17 +36,18 @@ def createIndexToToken(vocabList):
 # EXAMPLE RUNNING
 if __name__ == "__main__":
     #loading data
-    dataFilepaths = ["data/DISSERTATIONONAI.txt", 
-                     "data/GEEPYENTIRE_1.txt", 
-                     "data/GEEPYENTIRE_2.txt", 
-                     "data/GEEPYENTIRE_3.txt", 
-                     "data/GEEPYENTIRE_4.txt", 
-                     "data/GEEPYENTIRE_5.txt", 
-                     "data/GEEPYENTIRE_6.txt", 
-                     "data/GEEPYENTIRE_7.txt", 
-                     "data/GEEPYENTIRE_8.txt", 
-                     "data/GEEPYENTIRE_9.txt", 
-                     "data/GEEPYENTIRE_10.txt"]
+    dataFilepaths = ["data/CHARIS/CHARISENTIREclean.txt",
+                      "data/CHARIS/DISSERTATIONONAI.txt"]
+                     #"data/GEEPYENTIRE_1.txt", 
+                     #"data/GEEPYENTIRE_2.txt", 
+                     #"data/GEEPYENTIRE_3.txt", 
+                     #"data/GEEPYENTIRE_4.txt", 
+                     #"data/GEEPYENTIRE_5.txt", 
+                     #"data/GEEPYENTIRE_6.txt", 
+                     #"data/GEEPYENTIRE_7.txt", 
+                     #"data/GEEPYENTIRE_8.txt", 
+                     #"data/GEEPYENTIRE_9.txt", 
+                     #"data/GEEPYENTIRE_10.txt"]
     trainingData = loadTrainingDataFUNK(dataFilepaths)
     print(f"Loaded {len(trainingData)} characters of training data.")
 
@@ -55,9 +57,9 @@ if __name__ == "__main__":
     print(f"First 20 tokens: {tokens[:20]}")
 
     #build vocabulary
-    vocab = buildVocab(tokens, vocabSize = 2000)
+    vocab = buildVocab(tokens, vocabSize)
     print(f"Vocabulary size: {len(vocab)}")
-    print(f"First 50 vocabulary words: {vocab[:2000]}")
+    print(f"Vocabulary words: {vocab[:vocabSize]}")
 
     #create token/index dictionarys
     tokenToIndex = createTokenToIndex(vocab)
