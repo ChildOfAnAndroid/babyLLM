@@ -5,17 +5,19 @@ from neuron import NEURON
 from config import *
 
 class TRANSFORMERLAYER:
-    def __init__(self, numNeurons, numInputsPerNeuron, activationFunction):
+    def __init__(self, numNeurons, embedDimension, activationFunction):
         self.numNeurons = numNeurons
-        self.numInputsPerNeuron = numInputsPerNeuron
+        self.embedDimension = embedDimension
         self.activationFunction = activationFunction
 
+        # iterates through initialisation for each neuron, into an array
         self.neurons = []
         for _ in range(numNeurons):
-            neuron = NEURON(numInputs = numInputsPerNeuron, activationFunction = activationFunction)
+            neuron = NEURON(embedDimension = embedDimension, activationFunction = activationFunction)
             self.neurons.append(neuron)
 
     def forward(self, inputEmbedsList):
+        # iterates through every neuron on list, does functions, outputs 1 number per neuron
         layerActivations = []
         for neuron in self.neurons:
             neuronOutput = neuron.forward(inputEmbedsList)
@@ -23,19 +25,17 @@ class TRANSFORMERLAYER:
         return layerActivations
     
 if __name__ == "__main__":
-    transformerLayer = TRANSFORMERLAYER(numNeurons = numNeurons_L1, numInputsPerNeuron = embedDimension, activationFunction = activationFunction)
+    transformerLayer = TRANSFORMERLAYER(numNeurons = numNeurons, embedDimension = embedDimension, activationFunction = activationFunction)
 
     TESTinputEmbeds = torch.randn(embedDimension)
-    #!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #TESTinputEmbedsList = [TESTinputEmbeds] # for future when more input tokens, currently 1 can ignore
 
     layerOutputActivations = transformerLayer.forward(TESTinputEmbeds)
 
     print("--- Transformer Layer Testing ---")
     print(f"Transformer Layer created with {transformerLayer.numNeurons} neurons.")
-    print(f"Each neuron has {transformerLayer.numInputsPerNeuron} inputs.")
-    print(f"Output Activations (first 10 neurons - simplified for testing):") # Just print first 10 for brevity
-    print(layerOutputActivations[:10]) # Print first 10 neuron activations (or just the first neuron's activation if using Option 2)
-    print(f"Output Activations Shape (if returning all activations - Option 1): {len(layerOutputActivations)}") # Check length of activations list (should be num_neurons)
-
-
+    print(f"Inputs per Neuron (embed dimension): {transformerLayer.embedDimension}")
+    print(f"Output Activations (first 10):")
+    print(layerOutputActivations[:10])
+    print(f"Output Activations Shape: {len(layerOutputActivations)}")
     print("\n--- Transformer Layer Testing Completed ---")
