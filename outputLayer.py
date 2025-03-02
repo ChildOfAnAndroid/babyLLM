@@ -18,7 +18,7 @@ class OUTPUTLAYER:
         print(f"Debugging: activationsTensor shape: {activationsTensor.shape}")
         linearOutput = torch.matmul(activationsTensor, self.weights) + self.bias
         print(f"Debug: linearOutput shape: {linearOutput.shape}")
-        probabilityDist = torch.softmax(linearOutput, dim=0)
+        probabilityDist = torch.softmax(linearOutput, dim=1)
 
         return probabilityDist
     

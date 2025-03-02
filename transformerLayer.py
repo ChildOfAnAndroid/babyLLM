@@ -13,14 +13,15 @@ class TRANSFORMERLAYER:
         # iterates through initialisation for each neuron, into an array
         self.neurons = []
         for _ in range(numNeurons):
-            neuron = NEURON(embedDimension = embedDimension, activationFunction = activationFunction)
-            self.neurons.append(neuron)
+            self.neuron = NEURON(embedDimension = embedDimension, activationFunction = activationFunction)
+            self.neurons.append(self.neuron)
 
     def forward(self, inputEmbedsList):
         # iterates through every neuron on list, does functions, outputs 1 number per neuron
         layerActivations = []
-        for neuron in self.neurons:
-            neuronOutput = neuron.forward(inputEmbedsList)
+        for embedVector in inputEmbedsList:
+            #neuronOutput = self.neuron.forward(embedVector)
+            neuronOutput = torch.tensor([self.neuron.forward(embedVector) for self.neuron in self.neurons])
             layerActivations.append(neuronOutput)
         return layerActivations
     
