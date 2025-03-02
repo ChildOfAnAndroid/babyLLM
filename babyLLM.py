@@ -28,11 +28,20 @@ class BABYLLM:
                         lr=0.001)
 
     def forward(self, inputSeq):
+        print(f"Debug: Input to forward: {inputSeq}")
+        if isinstance(inputSeq[0], int):
+            print(f"🚨 ERROR: inputSeq is ALREADY tokenized! {inputSeq}")  # 🔥 DEBUG
         # Convert input tokens into embedding vectors
         #inputEmbeds = self.embedLayer.forward(inputSeq) 
         inputEmbeds = [] # creates list of each embed vector
         for token in inputSeq:
-            tokenIndex = vocab.tokenToIndex[token]
+            print(f"Debug: Processing token: {token}")  # 🔥 DEBUG
+            #self.tokenIndex = vocab.tokenToIndex[token]
+            if isinstance(token, int):  # 🚨 If token is already an index, skip lookup
+                token = token
+            else:
+                tokenIndex = vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"])  # Use UNK if missing
+
             embedVector = self.embedLayer.forward(tokenIndex)
             inputEmbeds.append(embedVector)
 
@@ -40,15 +49,24 @@ class BABYLLM:
         self.transformerOutput = self.transformerLayer.forward(inputEmbeds) 
 
         # Convert transformer activations to probability distribution
-         #probabilityDist = self.outputLayer.forward(transformerOutput)
-        self.transformerOutputTensor = torch.cat(self.transformerOutput, dim=0).view(1, -1)
-        self.probabilityDist = self.outputLayer.forward(self.transformerOutputTensor)
+        #probabilityDist = self.outputLayer.forward(transformerOutput)
+        #self.transformerOutputTensor = torch.cat(self.transformerOutput, dim=0).view(1, -1)
+        #self.probabilityDist = self.outputLayer.forward(self.transformerOutputTensor)
+        lastTokenActivations = self.transformerOutput[-1]  # Get the LAST tensor from the list
+
+        print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
+        
+        self.probabilityDist = self.outputLayer.forward(lastTokenActivations) # Pass SINGLE tensor
 
         return self.probabilityDist
     
     def computeLoss(self, predictions, targetTokenIndex):
         self.target = torch.tensor([targetTokenIndex], dtype=torch.long)  # Convert target to tensor
-        self.loss = F.cross_entropy(predictions, self.target)  # Compute loss
+
+        if predictions.dim() == 1: 
+            predictions = predictions.unsqueeze(0) 
+
+        self.loss = F.cross_entropy(predictions, self.target) 
         return self.loss
     
     def backward(self, loss):
@@ -57,21 +75,35 @@ class BABYLLM:
         self.optimize.step()  # Update weights
 
     def train(self, trainingData, epochs):
+        print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
+        print("--- Training Started ---")
 
         for epoch in range(epochs):
+            print(f"--- Epoch {epoch+1}/{epochs} Started ---")
             totalLoss = 0
 
-            for inputSeq, target in trainingData:
-                # Convert input words to token indices
-                inputTokenIndices = [vocab.tokenToIndex[word] for word in inputSeq]
-                targetTokenIndex = vocab.tokenToIndex[target]
+            for i, (inputSeq, target) in enumerate(trainingData):
+                print(f"  Processing training example {i+1}/{len(trainingData)}...")
+
+                inputTokenIndices = inputSeq
+                targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"]) # Keep UNK handling for target
+
+                if isinstance(target, int):
+                    targetTokenIndex = target  # 🚀 Already an index
+                else:
+                    targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
+
+                #inputTokenIndices = [vocab.tokenToIndex[word] for word in inputSeq]
+                #targetTokenIndex = vocab.tokenToIndex[target]
                 predictions = self.forward(inputTokenIndices)
                 loss = self.computeLoss(predictions, targetTokenIndex)
-
                 self.backward(loss)
                 totalLoss += loss.item()
+                print(f"    Example {i+1}/{len(trainingData)} Loss: {loss.item():.4f}") # ADD THIS LINE - Example loss
 
-        print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss:.4f}")
+            print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss:.4f}") # Keep epoch loss print
+
+        print("--- Training Completed ---") # ADD THIS LINE - End of training
     
 if __name__ == "__main__":
     vocab = VOCAB(vocabSize = vocabSize)

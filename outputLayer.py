@@ -1,24 +1,32 @@
 # CHARIS CAT 2025
 
 import torch
+import torch.nn as nn
 from config import *
 
-class OUTPUTLAYER:
+class OUTPUTLAYER(nn.Module):
     def __init__(self, numNeurons, vocabSize):
+        super().__init__()
         self.numNeurons = numNeurons
         self.vocabSize = vocabSize
 
-        self.weights = torch.randn(numNeurons, vocabSize)
-        self.bias = torch.randn(vocabSize)
+        self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize))
+        self.bias = nn.Parameter(torch.randn(vocabSize))
 
     def forward(self, layerActivations):
-        print(f"Debug: layerActivations shape: {len(layerActivations)}")
+        print(f"Debug: layerActivations shape: {layerActivations.shape}")
         print(f"Debug: layerActivations (first 10): {layerActivations[:10]}")
-        activationsTensor = torch.tensor(layerActivations).clone().detach()
-        print(f"Debugging: activationsTensor shape: {activationsTensor.shape}")
-        linearOutput = torch.matmul(activationsTensor, self.weights) + self.bias
+
+        #activationsTensor = torch.tensor(layerActivations).clone().detach()
+        self.activationsTensor = layerActivations
+
+        print(f"Debugging: activationsTensor shape: {self.activationsTensor.shape}")
+
+        linearOutput = torch.matmul(self.activationsTensor, self.weights) + self.bias
+
         print(f"Debug: linearOutput shape: {linearOutput.shape}")
-        probabilityDist = torch.softmax(linearOutput, dim=1)
+
+        probabilityDist = torch.softmax(linearOutput, dim=0)
 
         return probabilityDist
     

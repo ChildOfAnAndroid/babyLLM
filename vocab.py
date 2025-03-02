@@ -2,19 +2,51 @@
 from collections import Counter
 from config import *
 from nltk.tokenize import word_tokenize
+import os
+import json
+import datetime
 
 class VOCAB:
     def __init__(self, vocabSize):
-        self.vocabSize = vocabSize
+        self.vocabSize = vocabSize-1
         self.vocabList = []
         self.tokenToIndex = {}
         self.indexToToken = {}
-        self.trainingData = self.loadTrainingDataFUNK(dataFilepaths)
-        #self.tokens = self.whitespaceTokenizer(self.trainingData)
+        self.unkToken = "<UNK>"
+
+        self.vocabCache = "vocabCache" # Directory to store vocab files
+        self.vocabFilename = f"vocab_{vocabSize}"
+        #self.vocabFilename = f"vocab_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}"
+        self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
+        self.tokenToIndexFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_index.json")
+        self.indexToTokenFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_token.json")
+
+        if not os.path.exists(self.vocabCache):
+            os.makedirs(self.vocabCache)
+
+        if self.loadVocab():
+            print(f"Loaded vocabulary from cache directory: {self.vocabCache}")
+            self.trainingData = self.loadTrainingDataFUNK(dataFilepaths)
+            print(f"Debug: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")  # 🔥 PRINT DICTIONARY KEYS
+
+        else:
+            print(f"Building vocabulary from training data (vocab size: {vocabSize})...")
+            self.trainingData = self.loadTrainingDataFUNK(dataFilepaths)
+            self.initTokens = self.nltkTokenizerInit(self.trainingData)
+            self.tokens = self.initTokens
+            self.vocabList = self.buildVocab()
+            self.tokenToIndex = self.createTokenToIndex()
+            self.indexToToken = self.createIndexToToken()
+            self.vocabList.append(self.unkToken)  # Add UNK to vocab list
+            self.tokenToIndex[self.unkToken] = len(self.vocabList) - 1
+            self.indexToToken[len(self.vocabList) - 1] = self.unkToken
+            self.tokens = self.nltkTokenizer(self.trainingData) # Tokenize with UNK
+            self.saveVocab() # Save vocabulary to files
+            print(f"Saved vocabulary to cache directory: {self.vocabCache}")
+        print(f"Debug VOCAB.__init__: Length of vocabList AFTER buildVocab: {len(self.vocabList)}")
+        print(f"Debug VOCAB.__init__: First 20 tokens in vocabList: {self.vocabList[:20]}")
         self.tokens = self.nltkTokenizer(self.trainingData)
-        self.vocabList = self.buildVocab()
-        self.tokenToIndex = self.createTokenToIndex()
-        self.indexToToken = self.createIndexToToken()
+        self.trainingDataGen = self.genTrainingData(trainingWindow=2)
 
     # LOAD TRAINING DATA
     def loadTrainingDataFUNK(self, filepaths):
@@ -31,12 +63,24 @@ class VOCAB:
         tokens = textLower.split()
         return tokens
     
-    def nltkTokenizer(self, text):
-        text_lower = text.lower()
-        tokens = word_tokenize(text_lower)
+    def nltkTokenizerInit(self, text):
+        textLower = text.lower()
+        tokens = word_tokenize(textLower)
         return tokens
+    
+    def nltkTokenizer(self, text):
+        textLower = text.lower()
+        tokens = word_tokenize(textLower)
+        processedTokens = [] # New list to hold processed tokens
+        for token in tokens:
+            if token in self.vocabList: # Check if token is in vocab
+                processedTokens.append(token) # Use token as is if in vocab
+            else:
+                processedTokens.append(self.unkToken) # Replace with <UNK> if OOV
+        return processedTokens # Return processed tokens list
 
-    # TOP 2000 TOKENS
+
+    # TOP 1999 TOKENS + UNK
     def buildVocab(self):
         wordCounts = Counter(self.tokens)
         mostCommonWords = wordCounts.most_common(self.vocabSize)
@@ -57,15 +101,45 @@ class VOCAB:
 
         return indexToToken
     
-    def genTrainingData(self, trainingWindow=2): # Example window size: input sequence of 2 words
+    def genTrainingData(self, trainingWindow=2):
         trainingData = []
         for i in range(trainingWindow, len(self.tokens)):
             inputSeq = self.tokens[i-trainingWindow:i]
             target = self.tokens[i]
-            # Ensure all tokens in the sequence and target are in our vocabulary
+            # Check tokens in the sequence are in our vocabulary
             if all(token in self.vocabList for token in inputSeq) and target in self.vocabList:
                 trainingData.append((inputSeq, target))
+            else:
+                print(f"Debug VOCAB.genTrainingData: Skipping UNK example - Input Seq: {inputSeq}, Target: {target}") 
         return trainingData
+    
+    def loadVocab(self):
+        try:
+            # Load lists from JSON files
+            with open(self.vocabListFile, 'r', encoding='utf-8') as f:
+                self.vocabList = json.load(f)
+            with open(self.tokenToIndexFile, 'r', encoding='utf-8') as f:
+                self.tokenToIndex = json.load(f)
+            with open(self.indexToTokenFile, 'r', encoding='utf-8') as f:
+                self.indexToToken = json.load(f)
+
+            print("Vocabulary files loaded successfully.")
+            return True
+
+        except FileNotFoundError:
+            print("Vocabulary files not found. Building new vocabulary.")
+            return False
+        except json.JSONDecodeError:
+            print("Error decoding vocabulary files. Rebuilding vocabulary.")
+            return False
+
+    def saveVocab(self):
+        with open(self.vocabListFile, 'w', encoding='utf-8') as f:
+            json.dump(self.vocabList, f, indent=4)
+        with open(self.tokenToIndexFile, 'w', encoding='utf-8') as f:
+            json.dump(self.tokenToIndex, f, indent=4)
+        with open(self.indexToTokenFile, 'w', encoding='utf-8') as f:
+            json.dump(self.indexToToken, f, indent=4)
 
 # EXAMPLE RUNNING
 if __name__ == "__main__":

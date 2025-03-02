@@ -1,14 +1,16 @@
 # CHARIS CAT 2025
 
 import torch
+import torch.nn as nn
 from config import *
 
-class EMBEDLAYER:
+class EMBEDLAYER(nn.Module):
     def __init__(self, vocabSize, embedDimension):
+        super().__init__()
         self.vocabSize = vocabSize
         self.embedDimension = embedDimension # keep in self for later use
 
-        self.weights = torch.randn(vocabSize, embedDimension)
+        self.weights = nn.Parameter(torch.randn(vocabSize, embedDimension))
         return
 
     def forward(self, tokenIndex):

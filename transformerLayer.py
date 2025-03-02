@@ -1,28 +1,36 @@
 # CHARIS CAT 2025
 
 import torch
+import torch.nn as nn
 from neuron import NEURON
 from config import *
 
-class TRANSFORMERLAYER:
+class TRANSFORMERLAYER(nn.Module):
     def __init__(self, numNeurons, embedDimension, activationFunction):
+        super().__init__()
         self.numNeurons = numNeurons
         self.embedDimension = embedDimension
         self.activationFunction = activationFunction
 
         # iterates through initialisation for each neuron, into an array
-        self.neurons = []
-        for _ in range(numNeurons):
-            self.neuron = NEURON(embedDimension = embedDimension, activationFunction = activationFunction)
-            self.neurons.append(self.neuron)
+        #self.neurons = []
+        #for _ in range(numNeurons):
+        #    self.neuron = NEURON(embedDimension = embedDimension, activationFunction = activationFunction)
+        #    self.neurons.append(self.neuron)
+        self.neurons = nn.ModuleList(
+            [NEURON(embedDimension=embedDimension, activationFunction=activationFunction) 
+            for _ in range(numNeurons)])
 
     def forward(self, inputEmbedsList):
         # iterates through every neuron on list, does functions, outputs 1 number per neuron
         layerActivations = []
         for embedVector in inputEmbedsList:
             #neuronOutput = self.neuron.forward(embedVector)
-            neuronOutput = torch.tensor([self.neuron.forward(embedVector) for self.neuron in self.neurons])
-            layerActivations.append(neuronOutput)
+            neuronOutputs = [neuron(embedVector) for neuron in self.neurons]
+            #neuronOutputTensor = torch.stack(neuronOutputs)
+            neuronOutputTensor = torch.tensor(neuronOutputs) # list to tensor
+            print(f"Debug TRANSFORMERLAYER: Shape of neuronOutputTensor: {neuronOutputTensor.shape}")
+            layerActivations.append(neuronOutputTensor)
         return layerActivations
     
 if __name__ == "__main__":

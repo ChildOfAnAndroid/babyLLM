@@ -1,20 +1,22 @@
 # CHARIS CAT 2025
 
 import torch
+import torch.nn as nn
 from config import *
 
-class NEURON:
+class NEURON(nn.Module):
     def __init__(self, embedDimension, activationFunction):
+        super().__init__()
         self.embedDimension = embedDimension
         self.activationFunction = activationFunction
 
         # initialises itself with 32-dimension weights list
-        self.weights = torch.randn(embedDimension)
+        self.weights = nn.Parameter(torch.randn(embedDimension))
         # small number that is added after activation function
-        self.bias = torch.randn(1)
+        self.bias = nn.Parameter(torch.randn(1))
 
     def forward(self, embedVector):
-        embedVector = torch.tensor(embedVector)
+        #embedVector = torch.tensor(embedVector)
         # takes embed vector (iteratively) * its own weights and adds bias
         weightedSum = torch.sum(embedVector * self.weights) + self.bias
         # magic reLU outputs a single number from the neuron
