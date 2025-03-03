@@ -11,24 +11,26 @@ class OUTPUTLAYER(nn.Module):
         self.vocabSize = vocabSize
 
         self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize))
-        self.bias = nn.Parameter(torch.randn(vocabSize))
+        self.weights.data *= 0.01
+        self.bias = nn.Parameter(torch.zeros(vocabSize))
 
     def forward(self, layerActivations):
-        print(f"Debug: layerActivations shape: {layerActivations.shape}")
-        print(f"Debug: layerActivations (first 10): {layerActivations[:10]}")
 
-        #activationsTensor = torch.tensor(layerActivations).clone().detach()
-        self.activationsTensor = layerActivations
+        if isinstance(layerActivations, list):
+            self.activationsTensor = torch.stack(layerActivations, dim=0) 
+        else:
+            self.activationsTensor = layerActivations
 
-        print(f"Debugging: activationsTensor shape: {self.activationsTensor.shape}")
+        if self.activationsTensor.dim() == 1:
+            self.activationsTensor = self.activationsTensor.unsqueeze(0) 
 
-        linearOutput = torch.matmul(self.activationsTensor, self.weights) + self.bias
+        self.activationsTensor = self.activationsTensor.view(1, -1) 
 
-        print(f"Debug: linearOutput shape: {linearOutput.shape}")
+        logits = self.activationsTensor @ self.weights + self.bias
 
-        probabilityDist = torch.softmax(linearOutput, dim=0)
+        # Ensure we return logits (not softmax) for better gradient computation in cross-entropy loss
+        return logits
 
-        return probabilityDist
     
 if __name__ == "__main__":
     TESTlayerActivations = torch.randn(numNeurons)

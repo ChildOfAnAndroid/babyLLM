@@ -11,6 +11,7 @@ class EMBEDLAYER(nn.Module):
         self.embedDimension = embedDimension # keep in self for later use
 
         self.weights = nn.Parameter(torch.randn(vocabSize, embedDimension))
+        self.weights.data *= 0.01
         return
 
     def forward(self, tokenIndex):

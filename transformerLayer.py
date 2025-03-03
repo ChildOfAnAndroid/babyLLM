@@ -26,12 +26,15 @@ class TRANSFORMERLAYER(nn.Module):
         layerActivations = []
         for embedVector in inputEmbedsList:
             #neuronOutput = self.neuron.forward(embedVector)
-            neuronOutputs = [neuron(embedVector) for neuron in self.neurons]
+            #neuronOutputs = [neuron(embedVector) for neuron in self.neurons]
+            neuronOutputs = torch.stack([neuron(embedVector) for neuron in self.neurons])
             #neuronOutputTensor = torch.stack(neuronOutputs)
-            neuronOutputTensor = torch.tensor(neuronOutputs) # list to tensor
-            print(f"Debug TRANSFORMERLAYER: Shape of neuronOutputTensor: {neuronOutputTensor.shape}")
-            layerActivations.append(neuronOutputTensor)
-        return layerActivations
+            #neuronOutputTensor = torch.stack(neuronOutputs) # list to tensor
+            #print(f"Debug TRANSFORMERLAYER: Shape of neuronOutputTensor: {neuronOutputTensor.shape}")
+            layerActivations.append(neuronOutputs)
+            layerActivationsTensor = torch.stack(layerActivations, dim=0)  # Now shape: [seq_len, numNeurons]
+            layerActivationsTensor = layerActivationsTensor.mean(dim=0, keepdim=True)  # Reduce to [1, numNeurons]
+        return layerActivationsTensor
     
 if __name__ == "__main__":
     transformerLayer = TRANSFORMERLAYER(numNeurons = numNeurons, embedDimension = embedDimension, activationFunction = activationFunction)

@@ -1,10 +1,14 @@
 # Charis Cat 2025
 from collections import Counter
 from config import *
+import nltk
 from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 import os
 import json
-import datetime
+
+nltk.download('punkt')
+nltk.download('wordnet')
 
 class VOCAB:
     def __init__(self, vocabSize):
@@ -12,6 +16,7 @@ class VOCAB:
         self.vocabList = []
         self.tokenToIndex = {}
         self.indexToToken = {}
+        self.lemmatizer = WordNetLemmatizer()
         self.unkToken = "<UNK>"
 
         self.vocabCache = "vocabCache" # Directory to store vocab files
@@ -63,10 +68,30 @@ class VOCAB:
         tokens = textLower.split()
         return tokens
     
+    def splitPlural(self, token):
+        if token.endswith("s") and len(token) > 3:  # Avoid "is", "us", "as"
+            singular = self.lemmatizer.lemmatize(token)
+            
+            if singular in self.vocabList:
+                # Handle special plural cases
+                if token.endswith("ies") and singular.endswith("y"):  # "parties" → ["party", "ies"]
+                    return [singular, "ies"]
+                elif token.endswith("es") and singular not in ["she", "he"]:  # "boxes" → ["box", "es"]
+                    return [singular, "es"]
+                else:  # Default case: "cats" → ["cat", "s"]
+                    return [singular, "s"]
+                
+        return [token]
+
     def nltkTokenizerInit(self, text):
         textLower = text.lower()
         tokens = word_tokenize(textLower)
-        return tokens
+        initTokens = []
+        for token in tokens:
+            plural_split = self.splitPlural(token)
+            initTokens.extend(plural_split)
+
+        return initTokens
     
     def nltkTokenizer(self, text):
         textLower = text.lower()
@@ -101,14 +126,15 @@ class VOCAB:
 
         return indexToToken
     
-    def genTrainingData(self, trainingWindow=2):
+    def genTrainingData(self, trainingWindow):
         trainingData = []
-        for i in range(trainingWindow, len(self.tokens)):
+        for i in range(trainingWindow, len(self.tokens) - trainingWindow):
             inputSeq = self.tokens[i-trainingWindow:i]
             target = self.tokens[i]
             # Check tokens in the sequence are in our vocabulary
             if all(token in self.vocabList for token in inputSeq) and target in self.vocabList:
                 trainingData.append((inputSeq, target))
+                #print(f"Debug VOCAB.genTrainingData: Added example: Input Seq: {inputSeq}, Target: {target}") # ADDED
             else:
                 print(f"Debug VOCAB.genTrainingData: Skipping UNK example - Input Seq: {inputSeq}, Target: {target}") 
         return trainingData
