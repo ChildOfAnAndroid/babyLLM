@@ -1,0 +1,10 @@
+__pycache__
+__pycache__/*
+*.pyc
+.DS_Store
+archive
+archive*
+archive/*
+babyLLM_epoch*.pth
+trainingData.txt
+data/CHARIS/old_fb_messages.htm
