@@ -1,10 +1,18 @@
+# System & Python cache files
 __pycache__
 __pycache__/*
 *.pyc
 .DS_Store
+**/.DS_Store
+# Archive folders
 archive
 archive*
 archive/*
+**/archive
+# Backup during training
 babyLLM_epoch*.pth
+# Generated
 trainingData.txt
+# No need to commit those, they are raw files
 data/CHARIS/old_fb_messages.htm
+data/CHARIS/discord
