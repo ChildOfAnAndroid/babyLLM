@@ -27,7 +27,7 @@ class BABYLLM(nn.Module):
                         list(self.embedLayer.parameters()) +
                         list(self.transformerLayer.parameters()) + # ADDED transformerLayer parameters
                         list(self.outputLayer.parameters()),
-                        lr=0.0001)
+                        lr=0.001)
 
     def forward(self, inputSeq):
         #print(f"Debug: Input to forward: {inputSeq}")
@@ -86,9 +86,6 @@ class BABYLLM(nn.Module):
             totalLoss = 0
 
             for i, (inputSeq, target) in enumerate(trainingData):
-                print(f" Processing training example {i+1}/{len(trainingData)}...")
-                print(f" Training on: {inputSeq} -> {target}")
-
                 inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
                 targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
 
@@ -99,14 +96,20 @@ class BABYLLM(nn.Module):
 
                 self.optimizer.zero_grad()
                 logits = self.forward(inputTokenIndices)
-                self.getResponseFromLogits(logits)
+                tokenGuessed = self.getResponseFromLogits(logits)
                 loss = self.computeLoss(logits, targetTokenIndex)
                 loss.backward()
                 self.optimizer.step()
                 totalLoss += loss.item()
-                print(f"    Example {i+1}/{len(trainingData)} Loss: {loss.item():.4f}")
-                if i > 0 and int(i % (len(trainingData) / 700)) == 0:
-                    self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingData) / 700))}.pth")
+                
+                print(f"\nEPOCH: {epoch}: {i+1}/{len(trainingData)}")
+                print(f"TRAINING ON: {inputSeq}")
+                print(f"TARGET vs GUESS -> {target} : {self.getReadableToken(tokenGuessed)}")
+                print(f"---")
+                print(f"total loss: {loss.item():.4f}")
+
+                if i > 0 and int(i % 250) == 0:
+                    # self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingData) / 2000))}.pth")
                     self.saveModel()
 
             print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss:.4f}")
@@ -137,7 +140,7 @@ class BABYLLM(nn.Module):
                 tokenGuessed = tokenIndex
                 topProb = prob
         
-        print(f"(probability {softmaxed[0][tokenGuessed].item()}) Got word ---> \"{self.getReadableToken(tokenGuessed)}\" ")
+        # print(f"(probability {softmaxed[0][tokenGuessed].item()}) Got word ---> \"{self.getReadableToken(tokenGuessed)}\" ")
 
         return tokenGuessed
     

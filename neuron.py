@@ -12,7 +12,7 @@ class NEURON(nn.Module):
 
         # initialises itself with 32-dimension weights list
         self.weights = nn.Parameter(torch.randn(embedDimension))
-        self.weights.data *= 0.01
+        #self.weights.data *= 0.01
         # small number that is added after activation function
         self.bias = nn.Parameter(torch.zeros(1))
 

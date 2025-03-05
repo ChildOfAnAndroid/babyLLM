@@ -33,7 +33,7 @@ class VOCAB:
             print(f"Loaded vocabulary from cache directory: {self.vocabCache}")
             self.trainingData = self.loadTrainingDataFUNK(dataFilepaths)
             print(f"Debug: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")  # 🔥 PRINT DICTIONARY KEYS
-
+            self.tokens = self.nltkTokenizer(self.trainingData)
         else:
             print(f"Building vocabulary from training data (vocab size: {vocabSize})...")
             self.trainingData = self.loadTrainingDataFUNK(dataFilepaths)
@@ -50,8 +50,9 @@ class VOCAB:
             print(f"Saved vocabulary to cache directory: {self.vocabCache}")
         print(f"Debug VOCAB.__init__: Length of vocabList AFTER buildVocab: {len(self.vocabList)}")
         print(f"Debug VOCAB.__init__: First 20 tokens in vocabList: {self.vocabList[:20]}")
-        self.tokens = self.nltkTokenizer(self.trainingData)
-        self.trainingDataGen = self.genTrainingData(trainingWindow=2)
+        # That variable is NOT USED right now, the babyLLM file regenerates it before running the training...
+        # That'll speed up the infer loading
+        # self.trainingDataGen = self.genTrainingData(trainingWindow)
 
     # LOAD TRAINING DATA
     def loadTrainingDataFUNK(self, filepaths):
@@ -70,9 +71,11 @@ class VOCAB:
     
     def splitPlural(self, token):
         if token.endswith("s") and len(token) > 3:  # Avoid "is", "us", "as"
+            print(f"does this ever run? (token ends with s)")
             singular = self.lemmatizer.lemmatize(token)
             
             if singular in self.vocabList:
+                print(f"does this ever run? (split plural when singular)")
                 # Handle special plural cases
                 if token.endswith("ies") and singular.endswith("y"):  # "parties" → ["party", "ies"]
                     return [singular, "ies"]
@@ -88,8 +91,8 @@ class VOCAB:
         tokens = word_tokenize(textLower)
         initTokens = []
         for token in tokens:
-            plural_split = self.splitPlural(token)
-            initTokens.extend(plural_split)
+            pluralSplit = self.splitPlural(token)
+            initTokens.extend(pluralSplit)
 
         return initTokens
     
