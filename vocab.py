@@ -15,7 +15,7 @@ class VOCAB:
         self.tokenToIndex = {}
         self.indexToToken = {}
         self.unkToken = "<UNK>"
-        
+
         self.vocabCache = "vocabCache"
         self.vocabFilename = f"vocab_{vocabSize}"
         self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
@@ -61,6 +61,10 @@ class VOCAB:
 
         if self.loadVocab():
             print(f"Loaded vocab: {self.vocabCache}")
+            self.trainingData = self.loadTrainingDataFUNK(dataFilepaths)  # Load text data
+            self.tokens = self.huggingTokenizer(self.trainingData)  # Tokenize the text
+            print(f"DEBUG: Tokens exist? {hasattr(self, 'tokens')} (Length: {len(self.tokens) if hasattr(self, 'tokens') else 'N/A'})")
+            
             print(f"Debug: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")
         else:
             print(f"Building vocab from scratch (size: {vocabSize})...")
