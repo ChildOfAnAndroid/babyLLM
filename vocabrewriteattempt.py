@@ -1,85 +1,75 @@
 # Charis Cat 2025
 from collections import Counter
 from config import *
-from transformers import AutoTokenizer, PreTrainedTokenizerFast  # Import PreTrainedTokenizerFast
-from tokenizers import ByteLevelBPETokenizer
-from tokenizers.processors import ByteLevel
+from transformers import AutoTokenizer
 import os
 import re
 import json
 
 class VOCAB:
-    def __init__(self, vocabSize, vocabPath=None):
+    def __init__(self, vocabSize):
         self.vocabSize = vocabSize - 1
         self.vocabList = []
         self.tokenToIndex = {}
         self.indexToToken = {}
         self.unkToken = "<UNK>"
-        
-        self.vocabCache = "vocabCache"
+
+        self.vocabCache = "vocabCache"  # Directory to store vocab files
         self.vocabFilename = f"vocab_{vocabSize}"
         self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
         self.tokenToIndexFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_index.json")
         self.indexToTokenFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_token.json")
 
-        if vocabPath:
-            # Directly load tokenizer from given path (for inference mode)
-            tokenizerSavePath = vocabPath
-        else:
-            # Default path for training mode
-            tokenizerSavePath = os.path.join(self.vocabCache, self.vocabFilename)
+        if not os.path.exists(self.vocabCache):
+            os.makedirs(self.vocabCache)
 
-            if not os.path.exists(self.vocabCache):
-                os.makedirs(self.vocabCache)
+        #self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        
+        self.tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        self.tokenizer.backend_tokenizer.post_processor = None  # Nukes BPE merge rules
+        self.tokenizer.model_max_length = 9000000
 
-        if os.path.exists(tokenizerSavePath):
-            print("Tokenizer found, loading from disk...")
-            self.tokenizer = AutoTokenizer.from_pretrained(tokenizerSavePath)
-        else:
-            if vocabPath:
-                raise FileNotFoundError(f"Tokenizer not found at {tokenizerSavePath}. Cannot train tokenizer without data!")
-            
-            print("Tokenizer not found, training now...")
-            tokenizerTrainer = ByteLevelBPETokenizer(lowercase=True)
-            tokenizerTrainer.train(
-                files=dataFilepaths,
-                vocab_size=self.vocabSize,
-                min_frequency=20,
-            )
-            tokenizerTrainer.post_processor = ByteLevel(trim_offsets=True)
+        # 🚨 Define special tokens
+        custom_tokens = ["charis", "elodie", "froggy", "kevin", "pete", "george", "geepy"]
 
-            wrappedTokenizer = PreTrainedTokenizerFast(
-                tokenizer_object=tokenizerTrainer,
-                unk_token = self.unkToken,
-                model_max_length=9000000,
-            )
+        # 🚀 Step 1: Register tokens
+        self.tokenizer.add_special_tokens({"additional_special_tokens": custom_tokens})
 
-            wrappedTokenizer.save_pretrained(tokenizerSavePath)
-            self.tokenizer = AutoTokenizer.from_pretrained(tokenizerSavePath)
+        # 🚀 Step 2: Force single-word tokens
+        self.tokenizer.add_tokens(custom_tokens, special_tokens=True)
 
-        print(f"Vocab length: {len(self.tokenizer)}")
+        # 🚀 Step 3: Save and reload tokenizer
+        self.tokenizer.save_pretrained("babyLLM")
+        self.tokenizer = AutoTokenizer.from_pretrained("babyLLM")
+
+        # 🔍 Check if it worked
+        print("🚨 Custom Tokens Now Exist:", self.tokenizer.convert_tokens_to_ids(custom_tokens))
+        print("🔎 Tokenized Output:", self.tokenizer.tokenize("charis and elodie are cool"))
 
         if self.loadVocab():
             print(f"Loaded vocab: {self.vocabCache}")
+            self.trainingData = None
             print(f"Debug: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")
         else:
-            print(f"Building vocab from scratch (size: {vocabSize})...")
-            self.vocabList = list(self.tokenizer.get_vocab().keys())
-            self.tokenToIndex = self.tokenizer.get_vocab()
-            self.indexToToken = {v: k for k, v in self.tokenToIndex.items()}
-            if self.unkToken not in self.tokenToIndex:
-                self.vocabList.append(self.unkToken)
-                self.tokenToIndex[self.unkToken] = len(self.vocabList) - 1
-                self.indexToToken[len(self.vocabList) - 1] = self.unkToken
-            
-            print(f"Vocab length: {len(self.tokenizer)}")
+            print(f"Building vocab from data (size: {vocabSize})...")
+            self.trainingData = self.loadTrainingDataFUNK(dataFilepaths)
+            self.tokens = self.huggingTokenizer(self.trainingData) # using huggingface now
+            print("TOTAL TOKENS PROCESSED:", len(self.tokens))
+            print("🔍 TOKENIZATION PREVIEW:", self.tokens[:100])
+            print("⚠️ STANDALONE Ġ COUNT:", self.tokens.count("Ġ"))
+            self.vocabList = self.buildVocab()
+            self.tokenToIndex = self.createTokenToIndex()
+            self.indexToToken = self.createIndexToToken()
+            self.vocabList.append(self.unkToken)
+            self.tokenToIndex[self.unkToken] = len(self.vocabList) - 1
+            self.indexToToken[len(self.vocabList) - 1] = self.unkToken
             self.saveVocab()
-            print(f"Saved vocab: {self.vocabCache}")
+            print(f"Saved vocabulary to cache directory: {self.vocabCache}")
 
         print(f"Debug VOCAB.__init__: Length of vocabList AFTER buildVocab: {len(self.vocabList)}")
         print(f"Debug VOCAB.__init__: First 20 tokens in vocabList: {self.vocabList[:20]}")
 
-    # HUGGING FACE TOKENIZER (now uses the newly trained tokenizer)
+    # HUGGING FACE TOKENIZER
     def huggingTokenizer(self, text):
         return self.tokenizer.tokenize(text)
 
@@ -96,20 +86,6 @@ class VOCAB:
         print(f"Loaded {len(loadTrainingData)} characters of training data.")
         loadTrainingData = re.sub(r'\s+', ' ', loadTrainingData)
         return loadTrainingData
-    
-    # GENERATE TRAINING DATA
-    def genTrainingData(self, trainingWindow):
-        trainingData = []
-        for i in range(trainingWindow, len(self.tokens) - trainingWindow):
-            inputSeq = self.tokens[i-trainingWindow:i]
-            target = self.tokens[i]
-            # Check tokens in the sequence are in our vocabulary
-            if all(token in self.vocabList for token in inputSeq) and target in self.vocabList:
-                trainingData.append((inputSeq, target))
-                #print(f"Debug VOCAB.genTrainingData: Added example: Input Seq: {inputSeq}, Target: {target}") # ADDED
-            else:
-                print(f"Debug VOCAB.genTrainingData: Skipping UNK example - Input Seq: {inputSeq}, Target: {target}") 
-        return trainingData
 
     # TOP 1999 TOKENS + UNK
     def buildVocab(self):
@@ -157,6 +133,24 @@ class VOCAB:
         except json.JSONDecodeError:
             print("Error decoding vocabulary files. Rebuilding vocabulary.")
             return False
+        
+    # WHITESPACE TOKENISER
+    #def whitespaceTokenizer(self, text):
+    #    textLower = text.lower() # lowercase conversion
+    #    tokens = textLower.split()
+    #    return tokens
+
+    #NLTK TOKENIZER
+    #def nltkTokenizer(self, text):
+    #    textLower = text.lower()
+    #    tokens = word_tokenize(textLower)
+    #    processedTokens = [] # New list to hold processed tokens
+    #    for token in tokens:
+    #        if token in self.vocabList: # Check if token is in vocab
+    #            processedTokens.append(token) # Use token as is if in vocab
+    #        else:
+    #            processedTokens.append(self.unkToken) # Replace with <UNK> if OOV
+    #    return processedTokens # Return processed tokens list
 
 # EXAMPLE RUNNING
 if __name__ == "__main__":
