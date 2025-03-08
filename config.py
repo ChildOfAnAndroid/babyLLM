@@ -18,7 +18,14 @@ dataFilepaths = ["data/CHARIS/trainingData.txt"]
 
 printFreq = 1
 PURPLE = "\033[94m"  # purple
+LIGHT_PURPLE = "\033[38;5;225m"
 RESET = "\033[0m"    # normal temrinal
 BLUE = "\033[34m"    # blue
 GOLD = "\033[93m"    # gold
 DIM = "\033[2m"      # dimmed terminal
+RED = "\033[91m"
+FLASHING_RED = "\033[5;91m"
+
+# visualisation colour boundaries for low and very low loss
+lowLoss = 0.06
+veryLowLoss = 0.02
