@@ -7,6 +7,7 @@ from tokenizers.processors import ByteLevel
 import os
 import re
 import json
+import random
 
 class VOCAB:
     def __init__(self, vocabSize, vocabPath=None):
@@ -104,16 +105,21 @@ class VOCAB:
     # GENERATE TRAINING DATA
     def genTrainingData(self, trainingWindow):
         trainingData = []
-        for i in range(trainingWindow, len(self.tokens) - trainingWindow):
-            inputSeq = self.tokens[i-trainingWindow:i]
+        if len(self.tokens) < trainingWindow:
+            print("Warning: Not enough tokens to generate training data!")
+            return trainingData
+            # 🎲 Pick a random starting index
+        startIndex = random.randint(0, len(self.tokens) - trainingWindow - 1)
+        for i in range(startIndex, len(self.tokens) - trainingWindow):
+            inputSeq = self.tokens[i - trainingWindow:i]
             target = self.tokens[i]
             # Check tokens in the sequence are in our vocabulary
             if all(token in self.vocabList for token in inputSeq) and target in self.vocabList:
                 trainingData.append((inputSeq, target))
-                #print(f"Debug VOCAB.genTrainingData: Added example: Input Seq: {inputSeq}, Target: {target}") # ADDED
             else:
-                print(f"Debug VOCAB.genTrainingData: Skipping UNK example - Input Seq: {inputSeq}, Target: {target}") 
+                print(f"Skipping UNK - Input: {inputSeq}, Target: {target}")
         return trainingData
+
 
     # TOP 1999 TOKENS + UNK
     def buildVocab(self):
