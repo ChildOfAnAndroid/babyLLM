@@ -19,15 +19,17 @@ class BABYLLM(nn.Module):
         self.embedDimension = embedDimension
         self.numNeurons = numNeurons
         self.activationFunction = activationFunction
+        optimizerClass = getattr(optim, optimizerName)
 
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
         self.transformerLayer = TRANSFORMERLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
-        self.optimizer = optim.Adam(
-                        list(self.embedLayer.parameters()) +
-                        list(self.transformerLayer.parameters()) + # ADDED transformerLayer parameters
-                        list(self.outputLayer.parameters()),
-                        lr=0.001)
+        self.optimizer = optimizerClass(
+            list(self.embedLayer.parameters()) +
+            list(self.transformerLayer.parameters()) + 
+            list(self.outputLayer.parameters()),
+            lr=0.0005, weight_decay=0.001
+        )
 
     def forward(self, inputSeq):
         #print(f"Debug: Input to forward: {inputSeq}")
@@ -102,11 +104,27 @@ class BABYLLM(nn.Module):
                 self.optimizer.step()
                 totalLoss += loss.item()
                 
-                print(f"\nEPOCH: {epoch}: {i+1}/{len(trainingData)}")
-                print(f"TRAINING ON: {inputSeq}")
-                print(f"TARGET vs GUESS -> {target} : {self.getReadableToken(tokenGuessed)}")
-                print(f"---")
-                print(f"total loss: {loss.item():.4f}")
+                if (i + 1) % printFreq == 0:  
+                #print(f"[EPOCH {epoch+1} | Step {i+1}/{len(trainingData)}] 🎯 TARGET: '{target}' → 🤖 GUESS: '{self.getReadableToken(tokenGuessed)}' | Loss: {loss.item():.4f}")
+                #print(f"TRAINING ON: {inputSeq}")
+                #print(f"TARGET vs GUESS -> {target} : {self.getReadableToken(tokenGuessed)}")
+                #print(f"---")
+                #print(f"total loss: {loss.item():.4f}")
+                    inputSentence = " ".join(inputSeq).replace("Ġ", "").replace("  ", " ")
+                    targetWord = target.replace("Ġ", "")
+                    guessedWord = self.getReadableToken(tokenGuessed).replace("Ġ", "")
+                    isCorrect = (targetWord == guessedWord)
+                    isPerfect = isCorrect and loss.item() == 0.000
+                    #print(f"DEBUG -> Step {i+1}: Target='{targetWord}', Guess='{guessedWord}', Loss={loss.item():.4f}, isCorrect={isCorrect}, isPerfect={isPerfect}")
+                    if isPerfect:
+                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence} → {targetWord}  {guessedWord} | Loss: {loss.item():.4f} {RESET}"
+                    elif isCorrect:
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence} → {targetWord}  {guessedWord}{RESET} {DIM}| Loss: {loss.item():.4f}{RESET}" # both match WHOLE LINE PURPLE
+                    else:
+                        formattedWords = f"{DIM}Step {i+1}:{RESET} {inputSentence} → {targetWord}  {BLUE}{guessedWord}{RESET} {DIM}| Loss: {loss.item():.4f}{RESET}" # rest of the terminal is less bright 
+  
+                print(formattedWords)
+                #print(f"Loss debug: {loss.item()} (Raw) | Rounded: {round(loss.item(), 6)}")
 
                 if i > 0 and int(i % 250) == 0:
                     # self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingData) / 2000))}.pth")
@@ -145,7 +163,7 @@ class BABYLLM(nn.Module):
         return tokenGuessed
     
     def getReadableToken(self, token):
-        return self.vocab.indexToToken[token.__str__()]
+        return self.vocab.indexToToken[token.__str__()] # i dont really know why this is a string. but right now it doesnt work if i change it (take the .__str__() out)
     
     def getNextToken(self, inputSeq):
         return self.getResponseFromLogits(self.forward(inputSeq))
