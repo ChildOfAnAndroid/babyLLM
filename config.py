@@ -37,3 +37,25 @@ veryLowLoss = 0.5
 
 # TRAINING DATA
 dataFilepaths = ["data/CHARIS/trainingData.txt"]
+
+rawDataFilepaths = [
+    #("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/mixedwrittenanddefs.txt"),
+    #("text", "data/CHARIS/shortestwrittenexamples.txt"),
+    #("text", "data/CHARIS/shorterwrittenexamples.txt"),
+    #("text", "data/CHARIS/writtenexamples.txt"),
+    #("text", "data/CHARIS/longerwrittenexamples.txt"),
+    #("text", "data/CHARIS/longestwrittenexamples.txt"),
+    #("text", "data/CHARIS/DISSERTATIONONAI.txt"),
+    #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
+    #("json", "data/CHARIS/discord.json"), # discord message history
+    #("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
+    #("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
+    #("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments
+    #("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
+]
+
+outputFile = "data/CHARIS/trainingData.txt"
+
+# Convert to dictionary format when needed
+dataFiles = [{"type": ftype, "in": fname, "out": outputFile} for ftype, fname in rawDataFilepaths]
