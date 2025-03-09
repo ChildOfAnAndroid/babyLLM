@@ -120,23 +120,23 @@ class BABYLLM(nn.Module):
                     self.veryLowLoss = veryLowLoss
                     #print(f"DEBUG -> Step {i+1}: Target='{targetWord}', Guess='{guessedWord}', Loss={loss.item():.4f}, isCorrect={isCorrect}, isPerfect={isPerfect}")
                     if isPerfect:
-                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{targetWord}  {guessedWord}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.4f} {RESET}"
+                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{guessedWord}{RESET}{DIM}[!] {RESET}{GOLD}{targetWord}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.4f} {RESET}"
                     elif isCorrect and loss.item() < self.veryLowLoss:  # correct, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{targetWord}  {guessedWord}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.4f}{RESET}"
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedWord}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.4f}{RESET}"
                     elif isCorrect and loss.item() < self.lowLoss:  # correct, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{targetWord}  {guessedWord}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.4f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedWord}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.4f}{RESET}"  
                     elif loss.item() < self.veryLowLoss:  # incorrect, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {targetWord}  {guessedWord} | {RESET}{PURPLE}Loss: {loss.item():.4f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.4f}{RESET}"  
                     elif loss.item() < self.lowLoss:  # incorrect, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {targetWord}  {guessedWord} | {RESET}{PURPLE}Loss: {loss.item():.4f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.4f}{RESET}"  
                     elif loss.item() > 3.0:  # pretty high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {targetWord}  {guessedWord} | {RESET}{RED}Loss: {loss.item():.4f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{RED}Loss: {loss.item():.4f}{RESET}"  
                     elif loss.item() > 7.0:  # super high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {targetWord}  {guessedWord} | {RESET}{FLASHING_RED}LOSS: {loss.item():.4f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{FLASHING_RED}LOSS: {loss.item():.4f}{RESET}"  
                     elif isCorrect:  # correct, normal loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{targetWord}  {RESET}{PURPLE}{guessedWord}{RESET} {DIM}| Loss: {loss.item():.4f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedWord}{RESET}{DIM}[!]  {RESET}{PURPLE}{targetWord}{RESET} {DIM}| Loss: {loss.item():.4f}{RESET}"  
                     else:  # default
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {targetWord}  {guessedWord} | Loss: {loss.item():.4f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | Loss: {loss.item():.4f}{RESET}"  
   
                 print(formattedWords)
                 #print(f"Loss debug: {loss.item()} (Raw) | Rounded: {round(loss.item(), 6)}")
