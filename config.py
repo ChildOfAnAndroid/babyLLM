@@ -27,12 +27,13 @@ RESET = "\033[0m"    # normal temrinal
 BLUE = "\033[34m"    # blue
 GOLD = "\033[93m"    # gold
 DIM = "\033[2m"      # dimmed terminal
-RED = "\033[91m"
+RED = "\033[38;5;124m"
 FLASHING_RED = "\033[5;91m"
+ORANGE = "\033[38;5;52m"
 
 # visualisation colour boundaries for low and very low loss
-lowLoss = 0.06
-veryLowLoss = 0.02
+lowLoss = 1
+veryLowLoss = 0.5
 
 # TRAINING DATA
 dataFilepaths = ["data/CHARIS/trainingData.txt"]
