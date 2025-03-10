@@ -110,11 +110,11 @@ class BABYLLM(nn.Module):
                 if (i + 1) % printLossFreq == 0:  
                     avg_loss = totalLoss / 1000  # Compute average loss
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    lossLog = f"{timestamp} | Context Window: {trainingWindow} | Step {i+1} | Avg Loss: {avg_loss:.4f}\\n"
+                    lossLog = f"{timestamp} | Context: {trainingWindow} | LR: {learningRate} | Step {i+1} | Avg Loss: {avg_loss:.4f}\\n"
                     print(f"🔥 {lossLog.strip()}")
                     with open("trainingLog.txt", "a") as log_file:
                         log_file.write(lossLog)
-
+                    totalLoss = 0
                 
                 if (i + 1) % printFreq == 0:  
                 #print(f"[EPOCH {epoch+1} | Step {i+1}/{len(trainingData)}] 🎯 TARGET: '{target}' → 🤖 GUESS: '{self.getReadableToken(tokenGuessed)}' | Loss: {loss.item():.4f}")

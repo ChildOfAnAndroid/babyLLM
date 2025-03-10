@@ -12,7 +12,7 @@ temperature = 0.7
 # OPTIMIZER
 optimizerName = "AdamW" # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam" # good for initial fast training, likely to do overfitting stuff
-learningRate = 0.0001
+learningRate = 0.00001
 
 # ACTIVATION FUNCTION
 #leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
@@ -43,7 +43,7 @@ dataFilepaths = ["data/CHARIS/trainingData.txt"]
 rawDataFilepaths = [
     #("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
-    ("text", "data/CHARIS/lineSortedData.txt"),
+    #("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
     #("text", "data/CHARIS/shorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),
@@ -51,7 +51,7 @@ rawDataFilepaths = [
     #("text", "data/CHARIS/longestwrittenexamples.txt"),
     #("text", "data/CHARIS/DISSERTATIONONAI.txt"),
     #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
-    #("json", "data/CHARIS/discord.json"), # discord message history
+    ("json", "data/CHARIS/discord.json"), # discord message history
     #("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
     #("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
     #("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments

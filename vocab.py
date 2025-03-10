@@ -104,7 +104,7 @@ class VOCAB:
         return loadTrainingData
     
     # GENERATE TRAINING DATA
-    def genTrainingData(self, trainingWindow, startIndex='0'):
+    def genTrainingData(self, trainingWindow, startIndex='random'):
         trainingData = []
         if isinstance(trainingWindow, torch.Tensor):
             trainingWindow = trainingWindow.item()
