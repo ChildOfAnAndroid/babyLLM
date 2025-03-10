@@ -1,2 +1,11 @@
 2025-03-09 23:15:39 | Context Window: 8 | Step 1000 | Avg Loss: 5.1204
 2025-03-09 23:44:10 | Context Window: 8 | Step 2000 | Avg Loss: 10.7354
+2025-03-10 00:12:36 | Context Window: 8 | Step 3000 | Avg Loss: 16.3400
+2025-03-10 00:48:13 | Context Window: 7 | Step 1000 | Avg Loss: 5.0273
+2025-03-10 01:13:29 | Context Window: 7 | Step 2000 | Avg Loss: 10.3407
+2025-03-10 01:54:12 | Context Window: 7 | Step 1000 | Avg Loss: 6.1151
+2025-03-10 02:19:19 | Context Window: 7 | Step 2000 | Avg Loss: 12.6907
+2025-03-10 02:44:43 | Context Window: 7 | Step 3000 | Avg Loss: 18.5006
+2025-03-10 03:10:00 | Context Window: 7 | Step 4000 | Avg Loss: 25.4026
+2025-03-10 03:54:20 | Context Window: 7 | Step 1000 | Avg Loss: 9.9144
+2025-03-10 04:19:44 | Context Window: 7 | Step 2000 | Avg Loss: 19.3854

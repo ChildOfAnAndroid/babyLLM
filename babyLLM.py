@@ -177,7 +177,7 @@ class BABYLLM(nn.Module):
 
     def getResponseFromLogits(self, logits, temperature=None):
         if temperature is None:
-            temperature = self.temperatur
+            temperature = self.temperature
         logits = logits / temperature
         softmaxed = torch.softmax(logits, dim=1)  # Convert to probabilities after scaling
         topProb = 0

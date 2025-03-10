@@ -6,13 +6,13 @@ vocabSize = 2000
 embedDimension = 32
 numNeurons = 10000
 epochs = 20
-trainingWindow = 8
+trainingWindow = 7 # 8 is too high rn
 temperature = 0.7
 
 # OPTIMIZER
 optimizerName = "AdamW" # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam" # good for initial fast training, likely to do overfitting stuff
-learningRate = 0.0005
+learningRate = 0.0001
 
 # ACTIVATION FUNCTION
 #leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
@@ -42,7 +42,8 @@ dataFilepaths = ["data/CHARIS/trainingData.txt"]
 
 rawDataFilepaths = [
     #("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
-    ("text", "data/CHARIS/mixedwrittenanddefs.txt"),
+    #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
+    ("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
     #("text", "data/CHARIS/shorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),

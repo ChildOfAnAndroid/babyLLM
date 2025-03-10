@@ -8,6 +8,7 @@ import os
 import re
 import json
 import random
+import torch
 
 class VOCAB:
     def __init__(self, vocabSize, vocabPath=None):
@@ -103,22 +104,27 @@ class VOCAB:
         return loadTrainingData
     
     # GENERATE TRAINING DATA
-    def genTrainingData(self, trainingWindow):
+    def genTrainingData(self, trainingWindow, startIndex='0'):
         trainingData = []
-        if len(self.tokens) < trainingWindow:
-            print("Warning: Not enough tokens to generate training data!")
-            return trainingData
-            # 🎲 Pick a random starting index
-        startIndex = random.randint(0, len(self.tokens) - trainingWindow - 1)
-        for i in range(startIndex, len(self.tokens) - trainingWindow):
-            inputSeq = self.tokens[i - trainingWindow:i]
-            target = self.tokens[i]
-            # Check tokens in the sequence are in our vocabulary
+        if isinstance(trainingWindow, torch.Tensor):
+            trainingWindow = trainingWindow.item()
+        else:
+            trainingWindow = int(trainingWindow)
+        if startIndex == 'random':
+            startIndex = random.randint(0, len(self.tokens) - trainingWindow - 1)
+        else:
+            startIndex = int(startIndex)
+        endIndex = len(self.tokens) - trainingWindow
+        for i in range(startIndex, endIndex):
+            inputSeq = self.tokens[i:i + trainingWindow]
+            target = self.tokens[i + trainingWindow]
+
             if all(token in self.vocabList for token in inputSeq) and target in self.vocabList:
                 trainingData.append((inputSeq, target))
             else:
                 print(f"Skipping UNK - Input: {inputSeq}, Target: {target}")
         return trainingData
+
 
 
     # TOP 1999 TOKENS + UNK
