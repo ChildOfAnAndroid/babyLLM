@@ -12,7 +12,7 @@ temperature = 0.7
 # OPTIMIZER
 optimizerName = "AdamW" # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam" # good for initial fast training, likely to do overfitting stuff
-learningRate = 0.00015
+learningRate = 0.0002
 
 # ACTIVATION FUNCTION
 #leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
