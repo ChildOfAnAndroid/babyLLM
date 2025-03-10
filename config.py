@@ -6,7 +6,8 @@ vocabSize = 2000
 embedDimension = 32
 numNeurons = 10000
 epochs = 20
-trainingWindow = 7
+trainingWindow = 8
+temperature = 0.7
 
 # OPTIMIZER
 optimizerName = "AdamW" # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
@@ -21,6 +22,7 @@ activationFunction = leakyRelu
 
 # VISUALISATIONS
 printFreq = 1
+printLossFreq = 1000
 LIGHT_PURPLE = "\033[94m"  # purple
 PURPLE = "\033[38;5;225m" # light purple (yes i know they're marked backwards)
 RESET = "\033[0m"    # normal temrinal

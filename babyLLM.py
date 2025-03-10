@@ -10,6 +10,7 @@ from transformerLayer import TRANSFORMERLAYER
 from outputLayer import OUTPUTLAYER
 from neuron import NEURON
 from config import *
+from datetime import datetime
 
 class BABYLLM(nn.Module):
     def __init__(self, vocab, embedDimension, numNeurons, activationFunction):
@@ -19,6 +20,7 @@ class BABYLLM(nn.Module):
         self.embedDimension = embedDimension
         self.numNeurons = numNeurons
         self.learningRate = learningRate
+        self.temperature = temperature
         self.activationFunction = activationFunction
         optimizerClass = getattr(optim, optimizerName)
 
@@ -104,6 +106,15 @@ class BABYLLM(nn.Module):
                 loss.backward()
                 self.optimizer.step()
                 totalLoss += loss.item()
+                # Track loss every 1000 steps
+                if (i + 1) % printLossFreq == 0:  
+                    avg_loss = totalLoss / 1000  # Compute average loss
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
+                    lossLog = f"{timestamp} | Context Window: {trainingWindow} | Step {i+1} | Avg Loss: {avg_loss:.4f}\\n"
+                    print(f"🔥 {lossLog.strip()}")
+                    with open("trainingLog.txt", "a") as log_file:
+                        log_file.write(lossLog)
+
                 
                 if (i + 1) % printFreq == 0:  
                 #print(f"[EPOCH {epoch+1} | Step {i+1}/{len(trainingData)}] 🎯 TARGET: '{target}' → 🤖 GUESS: '{self.getReadableToken(tokenGuessed)}' | Loss: {loss.item():.4f}")
@@ -164,9 +175,11 @@ class BABYLLM(nn.Module):
         except FileNotFoundError:
             print("⚠ No saved model found.")
 
-    def getResponseFromLogits(self, logits):
-        softmaxed = torch.softmax(logits, dim=1)
-
+    def getResponseFromLogits(self, logits, temperature=None):
+        if temperature is None:
+            temperature = self.temperatur
+        logits = logits / temperature
+        softmaxed = torch.softmax(logits, dim=1)  # Convert to probabilities after scaling
         topProb = 0
         tokenGuessed = None
         for tokenIndex in range(vocabSize):
@@ -174,16 +187,15 @@ class BABYLLM(nn.Module):
             if prob > topProb or tokenGuessed is None:
                 tokenGuessed = tokenIndex
                 topProb = prob
-        
-        # print(f"(probability {softmaxed[0][tokenGuessed].item()}) Got word ---> \"{self.getReadableToken(tokenGuessed)}\" ")
-
         return tokenGuessed
     
     def getReadableToken(self, token):
         return self.vocab.indexToToken[token.__str__()] # i dont really know why this is a string. but right now it doesnt work if i change it (take the .__str__() out)
     
-    def getNextToken(self, inputSeq):
-        return self.getResponseFromLogits(self.forward(inputSeq))
+    def getNextToken(self, inputSeq, temperature=None):  
+        if temperature is None:
+            temperature = self.temperature  # Grab from self.temperature (config)
+        return self.getResponseFromLogits(self.forward(inputSeq), temperature)
     
 if __name__ == "__main__":
     vocab = VOCAB(vocabSize = vocabSize)

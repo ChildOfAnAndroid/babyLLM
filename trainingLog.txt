@@ -1,0 +1,2 @@
+2025-03-09 23:15:39 | Context Window: 8 | Step 1000 | Avg Loss: 5.1204
+2025-03-09 23:44:10 | Context Window: 8 | Step 2000 | Avg Loss: 10.7354
