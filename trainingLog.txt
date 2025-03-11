@@ -54,3 +54,5 @@
 2025-03-10 19:44:19 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 10.5021
 2025-03-10 20:10:02 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 9.7964
 2025-03-10 20:35:40 | Context: 7 | LR: 0.0002 | Step 3000 | Avg Loss: 8.9085
+2025-03-10 21:00:30 | Context: 7 | LR: 0.0002 | Step 4000 | Avg Loss: 8.8527
+2025-03-10 21:25:00 | Context: 7 | LR: 0.0002 | Step 5000 | Avg Loss: 9.0459\n2025-03-10 21:49:29 | Context: 7 | LR: 0.0002 | Step 6000 | Avg Loss: 9.4331\n2025-03-10 22:14:04 | Context: 7 | LR: 0.0002 | Step 7000 | Avg Loss: 9.1874\n2025-03-10 22:38:43 | Context: 7 | LR: 0.0002 | Step 8000 | Avg Loss: 6.9172\n2025-03-10 23:03:24 | Context: 7 | LR: 0.0002 | Step 9000 | Avg Loss: 8.3440\n2025-03-10 23:28:04 | Context: 7 | LR: 0.0002 | Step 10000 | Avg Loss: 7.6954\n2025-03-10 23:52:45 | Context: 7 | LR: 0.0002 | Step 11000 | Avg Loss: 8.4106\n
