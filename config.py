@@ -51,7 +51,8 @@ rawDataFilepaths = [
     #("text", "data/CHARIS/longestwrittenexamples.txt"),
     #("text", "data/CHARIS/DISSERTATIONONAI.txt"),
     #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
-    ("json", "data/CHARIS/discord.json"), # discord message history
+    #("json", "data/CHARIS/discord.json"), # discord message history
+    ("text", "data/CHARIS/shitpoems.txt"),
     #("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
     #("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
     #("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments
