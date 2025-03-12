@@ -20,6 +20,11 @@ leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01)
 #activationFunction = relu
 activationFunction = leakyRelu
 
+# MULTI WINDOW SIZES
+window1 = 3
+window2 = 7
+window3 = 11
+
 # VISUALISATIONS
 printFreq = 1
 printLossFreq = 1000

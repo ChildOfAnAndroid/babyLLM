@@ -4,23 +4,21 @@ import torch
 import torch.nn as nn
 from config import *
 
+"""defines a single neuron that processes an embedding vector (in parallelNeuronLayer)"""
 class NEURON(nn.Module):
     def __init__(self, embedDimension, activationFunction):
         super().__init__()
         self.embedDimension = embedDimension
         self.activationFunction = activationFunction
-
-        # initialises itself with 32-dimension weights list
+        """initialises the weights and bias for a single neuron"""
         self.weights = nn.Parameter(torch.randn(embedDimension))
-        #self.weights.data *= 0.01
-        # small number that is added after activation function
+        #self.weights.data *= 0.01 # start weights at smaller random values for stable training
         self.bias = nn.Parameter(torch.zeros(1))
 
     def forward(self, embedVector):
-        #embedVector = torch.tensor(embedVector)
-        # takes embed vector (iteratively) * its own weights and adds bias
+        """neurons forward pass, weighted sum + activation"""
         weightedSum = torch.sum(embedVector * self.weights) + self.bias
-        # magic reLU outputs a single number from the neuron
+        """magic activation function applied to this weighted sum, which outputs a single number from the neuron"""
         output = self.activationFunction(weightedSum)
 
         return output
@@ -30,12 +28,12 @@ if __name__ == "__main__":
     TESTembedVector = [0.5, 0.1, -0.2, 0.8, -0.9]
     
     neuron = NEURON(embedDimension = TESTembedDimension, activationFunction = activationFunction)
-    # output activation
     outputActivation = neuron.forward(TESTembedVector)
 
-    print("--- Neuron Testing ---")
-    print(f"Neuron created with {neuron.embedDimension} inputs and ReLU activation.")
+    print("--- NEURON TESTING START ---")
+    print(f"Neuron created with {neuron.embedDimension} inputs and {activationFunction.__name__} activation.")
     print(f"Weights shape: {neuron.weights.shape}") # Check weights shape
-    print(f"Bias value: {neuron.bias.item():.4f}") # Check bias value (formatted to 4 decimal places)
+    print(f"Bias value: {neuron.bias.item():.4f}") # Check bias value
     print(f"Example inputs: {TESTembedVector}")
-    print(f"Output Activation Value: {outputActivation.item():.4f}") # Check output activation (formatted to 4 decimal places)
+    print(f"Output Activation Value: {outputActivation.item():.4f}") # Check output activation
+    print("--- NEURON TESTING COMPLETE ---")

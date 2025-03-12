@@ -6,9 +6,10 @@ import torch.nn as nn
 import torch.optim as optim 
 from vocab import VOCAB
 from embedLayer import EMBEDLAYER
-from transformerLayer import TRANSFORMERLAYER
+from parallelNeuronLayer import PARALLELNEURONLAYER
 from outputLayer import OUTPUTLAYER
 from neuron import NEURON
+from multiWindowLayer import MULTIWINDOWLAYER
 from config import *
 from datetime import datetime
 
@@ -23,13 +24,14 @@ class BABYLLM(nn.Module):
         self.temperature = temperature
         self.activationFunction = activationFunction
         optimizerClass = getattr(optim, optimizerName)
-
+        
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
-        self.transformerLayer = TRANSFORMERLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
+        self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
+        self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
         self.optimizer = optimizerClass(
             list(self.embedLayer.parameters()) +
-            list(self.transformerLayer.parameters()) + 
+            list(self.parallelNeuronLayer.parameters()) + 
             list(self.outputLayer.parameters()),
             lr=self.learningRate, weight_decay=0.001
         )
@@ -42,22 +44,43 @@ class BABYLLM(nn.Module):
         #print(f"Debug BABYLLM.forward: inputIndices: {inputIndices}")
 
         # Convert indices to embeddings
-        inputEmbeds = self.embedLayer.forward(torch.tensor(inputIndices))
+        #inputEmbeds = self.embedLayer.forward(torch.tensor(inputIndices))
+        inputEmbeds = []
+        for index in inputIndices:
+            embedVector = self.embedLayer.forward(torch.tensor(index))
+            inputEmbeds.append(embedVector)
         #print(f"Debug BABYLLM.forward: inputEmbeds shape: {inputEmbeds.shape}")
         #print(f"Debug BABYLLM.forward: inputEmbeds (first few):\n{inputEmbeds[:5]}")
 
+        print(f"Debug BABYLLM.forward: Length of inputEmbeds list: {len(inputEmbeds)}") # DEBUG - LENGTH OF INPUTEMBEDS LIST
+        if inputEmbeds: # Check if inputEmbeds is not empty
+            print(f"Debug BABYLLM.forward: Type of first element in inputEmbeds: {type(inputEmbeds[0])}") # DEBUG - TYPE OF FIRST ELEMENT
+            print(f"Debug BABYLLM.forward: Shape of first element in inputEmbeds: {inputEmbeds[0].shape}") # DEBUG - SHAPE OF FIRST ELEMENT
+            print(f"Debug BABYLLM.forward: Shapes of first 5 elements in inputEmbeds: {[embed.shape for embed in inputEmbeds[:min(5, len(inputEmbeds))] ]}... (first 5)") # DEBUG - SHAPES OF FIRST 5 ELEMENTS
+        else:
+            print(f"Debug BABYLLM.forward: inputEmbeds list is EMPTY!")
+
         # Process embeddings through Transformer Layer
-        transformerOutput = self.transformerLayer.forward(inputEmbeds) 
+        transformerOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
         #print(f"Debug BABYLLM.forward: transformerOutput length: {len(transformerOutput)}") # ADDED - should be same as input seq len
+
+        # make sure inputEmbeds is a LIST of tensors
+        if not isinstance(inputEmbeds, list):
+            inputEmbeds = [inputEmbeds] 
+
+        # multi window input/processing
+        contextVectors_multiWindow = self.multiWindowLayer.forward(inputEmbeds)
 
         # Take last token's activations
         #lastTokenActivations = transformerOutput[-1]  
-        combinedActivations = torch.mean(transformerOutput, dim=0, keepdim=True)
 
+        # combine activation vectors
+        combinedActivations = torch.mean(transformerOutput, dim=0, keepdim=True)
+        combinedActivations_multiWindow = self.combineOutputs(combinedActivations, contextVectors_multiWindow)
         #print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
 
         # Convert activations to probability distribution
-        logits = self.outputLayer.forward(combinedActivations)  
+        logits = self.outputLayer.forward(combinedActivations_multiWindow)  
         #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}") # ADDED
 
         return logits
@@ -101,7 +124,7 @@ class BABYLLM(nn.Module):
 
                 self.optimizer.zero_grad()
                 logits = self.forward(inputTokenIndices)
-                tokenGuessed = self.getResponseFromLogits(logits)
+                guessedTokenIndex = self.getResponseFromLogits(logits)
                 loss = self.computeLoss(logits, targetTokenIndex)
                 loss.backward()
                 self.optimizer.step()
@@ -116,40 +139,36 @@ class BABYLLM(nn.Module):
                         log_file.write(lossLog)
                     totalLoss = 0
                 
+                """PRINTING GUESSES TO THE TERMINAL"""
                 if (i + 1) % printFreq == 0:  
-                #print(f"[EPOCH {epoch+1} | Step {i+1}/{len(trainingData)}] 🎯 TARGET: '{target}' → 🤖 GUESS: '{self.getReadableToken(tokenGuessed)}' | Loss: {loss.item():.4f}")
-                #print(f"TRAINING ON: {inputSeq}")
-                #print(f"TARGET vs GUESS -> {target} : {self.getReadableToken(tokenGuessed)}")
-                #print(f"---")
-                #print(f"total loss: {loss.item():.4f}")
                     inputSentence = "".join(inputSeq).replace("Ġ", " ").lstrip()
                     targetWord = target.replace("Ġ", "")
-                    guessedWord = self.getReadableToken(tokenGuessed).replace("Ġ", "")
-                    isCorrect = (targetWord == guessedWord)
+                    guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", "")
+                    isCorrect = (targetWord == guessedTokenString)
                     isPerfect = isCorrect and loss.item() == 0.01
                     self.lowLoss = lowLoss
                     self.veryLowLoss = veryLowLoss
-                    #print(f"DEBUG -> Step {i+1}: Target='{targetWord}', Guess='{guessedWord}', Loss={loss.item():.4f}, isCorrect={isCorrect}, isPerfect={isPerfect}")
+                    #print(f"DEBUG -> Step {i+1}: Target='{targetWord}', Guess='{guessedTokenString}', Loss={loss.item():.4f}, isCorrect={isCorrect}, isPerfect={isPerfect}")
                     if isPerfect:
-                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{guessedWord}{RESET}{DIM}[!] {RESET}{GOLD}{targetWord}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.3f} {RESET}"
+                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{guessedTokenString}{RESET}{DIM}[!] {RESET}{GOLD}{targetWord}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.3f} {RESET}"
                     elif isCorrect and loss.item() < self.veryLowLoss:  # correct, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedWord}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"
                     elif isCorrect and loss.item() < self.lowLoss:  # correct, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedWord}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() > 30.0:  # super high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{FLASHING_RED}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{FLASHING_RED}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() > 10.0:  # high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{RED}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{RED}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() > 5.0:  # pretty high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{ORANGE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{ORANGE}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() < self.veryLowLoss:  # incorrect, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() < self.lowLoss:  # incorrect, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
                     elif isCorrect:  # correct, normal loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedWord}{RESET}{DIM}[!]  {RESET}{PURPLE}{targetWord}{RESET} {DIM}| Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!]  {RESET}{PURPLE}{targetWord}{RESET} {DIM}| Loss: {loss.item():.3f}{RESET}"  
                     else:  # default
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedWord}[?] {targetWord} | Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | Loss: {loss.item():.3f}{RESET}"  
   
                 print(formattedWords)
                 #print(f"Loss debug: {loss.item()} (Raw) | Rounded: {round(loss.item(), 6)}")
@@ -181,21 +200,34 @@ class BABYLLM(nn.Module):
         logits = logits / temperature
         softmaxed = torch.softmax(logits, dim=1)  # Convert to probabilities after scaling
         topProb = 0
-        tokenGuessed = None
+        guessedTokenIndex = None
         for tokenIndex in range(vocabSize):
             prob = softmaxed[0][tokenIndex].item()
-            if prob > topProb or tokenGuessed is None:
-                tokenGuessed = tokenIndex
+            if prob > topProb or guessedTokenIndex is None:
+                guessedTokenIndex = tokenIndex
                 topProb = prob
-        return tokenGuessed
+        return guessedTokenIndex
     
-    def getReadableToken(self, token):
-        return self.vocab.indexToToken[token.__str__()] # i dont really know why this is a string. but right now it doesnt work if i change it (take the .__str__() out)
+    def getTokenIndexAsString(self, tokenIndex):
+        return self.vocab.indexToToken[tokenIndex] # i dont really know why this is a string. but right now it doesnt work if i change it (take the .__str__() out)
     
     def getNextToken(self, inputSeq, temperature=None):  
         if temperature is None:
             temperature = self.temperature  # Grab from self.temperature (config)
         return self.getResponseFromLogits(self.forward(inputSeq), temperature)
+    
+    def combineOutputs(self, output1, output2):
+        print(f"Debug combineOutputs: Shape of output1: {output1.shape}")
+        print(f"Debug combineOutputs: Shape of output2: {output2.shape}")
+        output1Flat = output1.squeeze(dim=2) # Shape: [1, 10000]
+        print(f"Debug combineOutputs: Shape of output1_flattened: {output1Flat.shape}")
+        # output2 is already [1, 32]
+        concatenatedOutput = torch.cat((output1Flat, output2), dim=1) # Concatenate along dim=1 (feature dimension) - 2D tensors
+        if not hasattr(self, 'outputCombinationLayer'):
+            combined_dim = output1Flat.shape[1] + output2.shape[1] # dim=1 is the feature dimension
+            self.outputCombinationLayer = nn.Linear(combined_dim, embedDimension) # Output dimension should be embedDimension
+        finalOutput = self.outputCombinationLayer(concatenatedOutput)
+        return finalOutput
     
 if __name__ == "__main__":
     vocab = VOCAB(vocabSize = vocabSize)
