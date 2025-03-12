@@ -25,6 +25,7 @@ class MULTIWINDOWLAYER(nn.Module):
                 windowContextVectors.extend(windowPooledVectors)
             else:
                 #print(f"Debug MULTIWINDOWLAYER.forward: windowPooledVectors is EMPTY TENSOR - NOT APPENDING to windowContextVectors")
+                pass
         """combines the output of the windows into a single vector"""
         combinedContextVector = self.combineWindowVectors(windowContextVectors)
         #print(f"Debug MULTIWINDOWLAYER.forward: After combineWindowVectors, combinedContextVector shape: {combinedContextVector.shape}")
@@ -51,12 +52,16 @@ class MULTIWINDOWLAYER(nn.Module):
             if isinstance(window, list):
                 if window:
                     #print(f"Debug createWindows (i={i}): Shape of first element in window: {window[0].shape}")
+                    pass
                 else:
                     #print(f"Debug createWindows (i={i}): window is an EMPTY LIST!")
+                    pass
             elif isinstance(window, torch.Tensor):
                 #print(f"Debug createWindows (i={i}): Shape of window (Tensor): {window.shape}")
+                pass
             else:
                 #print(f"Debug createWindows (i={i}): window is of UNEXPECTED TYPE: {type(window)}")
+                pass
             """ZERO PADDING - ensures all windows are the correct size, even at the edges of the data"""
             paddingNeededStart = max(0, windowSize // 2 - i)
             paddingNeededEnd = max(0, (i + windowSize - windowSize // 2) - seqLen)
@@ -89,17 +94,20 @@ class MULTIWINDOWLAYER(nn.Module):
         """returns a list of pooled context vectors, where each tensor has shape (embedDimension)"""
         return windowPooledVectors
 
-    # COMBINING THE WINDOWS INTO ONE LAYER
+    """COMBINING THE WINDOWS INTO ONE LAYER"""
     def combineWindowVectors(self, windowContextVectors):
-        print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: Input windowContextVectors length: {len(windowContextVectors)}") # ADDED
+        #print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: Input windowContextVectors length: {len(windowContextVectors)}")
         if windowContextVectors:
-            print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: Shape of first element in windowContextVectors: {windowContextVectors[0].shape}") # ADDED
+            #print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: Shape of first element in windowContextVectors: {windowContextVectors[0].shape}")
+            pass
+        """this takes a list of window context vectors, and concatenates them into a single vector"""
         concatenatedVectors = torch.cat(windowContextVectors, dim = 0)
-        print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: After torch.cat, concatenatedVectors shape: {concatenatedVectors.shape}") # ADDED
-        # this linear layer reduces dimensionality for future calcs
+        #print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: After torch.cat, concatenatedVectors shape: {concatenatedVectors.shape}") 
+        """this creates a 2D linear layer, reducing dimensionality for future calcs"""
         if not hasattr(self, 'combinationLayer'):
             self.combinationLayer = nn.Linear(concatenatedVectors.shape[0], self.embedDimension)
         combinedVector = self.combinationLayer(concatenatedVectors)
-        combinedVector = combinedVector.unsqueeze(0) # ADD THIS LINE - Ensure output is 2D
-        print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: After combinationLayer, combinedVector shape: {combinedVector.shape}") # ADDED
+        combinedVector = combinedVector.unsqueeze(0) # Ensure output is 2D
+        #print(f"Debug MULTIWINDOWLAYER.combineWindowVectors: After combinationLayer, combinedVector shape: {combinedVector.shape}")
+        """returns a single combined context vector of shape (1, embedDimension)"""
         return combinedVector
