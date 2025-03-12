@@ -31,11 +31,13 @@ class BABYLLM(nn.Module):
         self.temperature = temperature
         self.activationFunction = activationFunction
         optimizerClass = getattr(optim, optimizerName)
+
         """LAYERS"""
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
         self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
         self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
+        
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         self.optimizer = optimizerClass(
             list(self.embedLayer.parameters()) +
@@ -48,64 +50,65 @@ class BABYLLM(nn.Module):
         """processes input sequence of tokens (str) to generate logits to predict the next token"""
         #print(f"Debug: Input to forward: {inputSeq}")
 
-        # Convert tokens to indices (batch processing instead of looping)
-        inputIndices = [self.vocab.tokenToIndex.get(token, self.vocab.tokenToIndex["<UNK>"]) if not isinstance(token, int) else token for token in inputSeq]
+        """convert inputted tokens to indices (batch processing instead of looping)"""
+        inputIndices = [self.vocab.tokenToIndex.get(tokenString, self.vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
         #print(f"Debug BABYLLM.forward: inputIndices: {inputIndices}")
 
-        # Convert indices to embeddings
-        #inputEmbeds = self.embedLayer.forward(torch.tensor(inputIndices))
+        """convert indices to embeddings"""
         inputEmbeds = []
-        for index in inputIndices:
-            embedVector = self.embedLayer.forward(torch.tensor(index))
+        for tokenIndex in inputIndices:
+            """get embedding vector for each tokenIndex from embedding layer"""
+            embedVector = self.embedLayer.forward(torch.tensor(tokenIndex))
             inputEmbeds.append(embedVector)
-        #print(f"Debug BABYLLM.forward: inputEmbeds shape: {inputEmbeds.shape}")
-        #print(f"Debug BABYLLM.forward: inputEmbeds (first few):\n{inputEmbeds[:5]}")
 
-        print(f"Debug BABYLLM.forward: Length of inputEmbeds list: {len(inputEmbeds)}") # DEBUG - LENGTH OF INPUTEMBEDS LIST
+        """DEBUG PRINTS"""
         if inputEmbeds: # Check if inputEmbeds is not empty
-            print(f"Debug BABYLLM.forward: Type of first element in inputEmbeds: {type(inputEmbeds[0])}") # DEBUG - TYPE OF FIRST ELEMENT
-            print(f"Debug BABYLLM.forward: Shape of first element in inputEmbeds: {inputEmbeds[0].shape}") # DEBUG - SHAPE OF FIRST ELEMENT
-            print(f"Debug BABYLLM.forward: Shapes of first 5 elements in inputEmbeds: {[embed.shape for embed in inputEmbeds[:min(5, len(inputEmbeds))] ]}... (first 5)") # DEBUG - SHAPES OF FIRST 5 ELEMENTS
+            #print(f"Debug BABYLLM.forward: Type of first element in inputEmbeds: {type(inputEmbeds[0])}")
+            #print(f"Debug BABYLLM.forward: Shape of first element in inputEmbeds: {inputEmbeds[0].shape}")
+            #print(f"Debug BABYLLM.forward: Shapes of first 5 elements in inputEmbeds: {[embed.shape for embed in inputEmbeds[:min(5, len(inputEmbeds))] ]}... (first 5)")
+            pass
         else:
-            print(f"Debug BABYLLM.forward: inputEmbeds list is EMPTY!")
+            #print(f"Debug BABYLLM.forward: inputEmbeds list is EMPTY!")
+            pass
 
-        # Process embeddings through Transformer Layer
+        """PARALLEL NEURON LAYER input/processing (feature extraction)"""
         transformerOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
         #print(f"Debug BABYLLM.forward: transformerOutput length: {len(transformerOutput)}") # ADDED - should be same as input seq len
 
-        # make sure inputEmbeds is a LIST of tensors
+        """make sure inputEmbeds is a LIST of tensors"""
         if not isinstance(inputEmbeds, list):
             inputEmbeds = [inputEmbeds] 
 
-        # multi window input/processing
+        """MULTI WINDOW LAYER input/processing (context)"""
         contextVectors_multiWindow = self.multiWindowLayer.forward(inputEmbeds)
 
-        # Take last token's activations
-        #lastTokenActivations = transformerOutput[-1]  
-
-        # combine activation vectors
+        """COMBINE ACTIVATIONS"""
+        """takes the mean of the transformer output activations across the sequence dimension"""
         combinedActivations = torch.mean(transformerOutput, dim=0, keepdim=True)
         combinedActivations_multiWindow = self.combineOutputs(combinedActivations, contextVectors_multiWindow)
         #print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
 
         # Convert activations to probability distribution
         logits = self.outputLayer.forward(combinedActivations_multiWindow)  
-        #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}") # ADDED
+        #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}")
         """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
         return logits
     
+    """computes the cross-entropy loss between the models logits and the target token index."""
     def computeLoss(self, logits, targetTokenIndex):
-        self.target = torch.tensor([targetTokenIndex], dtype=torch.long)
-        #print(f"Debug BABYLLM.computeLoss: predictions shape: {logits.shape}") # ADDED
-        #print(f"Debug BABYLLM.computeLoss: predictions (first 10): {logits[:10]}") # ADDED
-        #print(f"Debug BABYLLM.computeLoss: targetTokenIndex: {targetTokenIndex}") # ADDED
-        #print(f"Debug BABYLLM.computeLoss: self.target: {self.target}") # ADDED
-
+        self.targetTokenIndex = torch.tensor([targetTokenIndex], dtype=torch.long)
+        #print(f"Debug BABYLLM.computeLoss: predictions shape: {logits.shape}")
+        #print(f"Debug BABYLLM.computeLoss: predictions (first 10): {logits[:10]}")
+        #print(f"Debug BABYLLM.computeLoss: targetTokenIndex: {targetTokenIndex}")
+        #print(f"Debug BABYLLM.computeLoss: self.target: {self.target}")
+        """Handle cases where logits might be 1D (unsqueeze to make it 2D for cross_entropy)"""
+        """SUS!!"""
         if logits.dim() == 1: 
             logits = logits.unsqueeze(0) 
 
-        self.loss = F.cross_entropy(logits, self.target) 
-        #print(f"Debug BABYLLM.computeLoss: Loss value: {self.loss.item():.4f}") # ADDED
+        self.loss = F.cross_entropy(logits, self.targetTokenIndex) 
+        #print(f"Debug BABYLLM.computeLoss: Loss value: {self.loss.item():.4f}")
+        """returns a scalar tensor representing the cross-entropy loss value"""
         return self.loss
     
     def backward(self, loss):
