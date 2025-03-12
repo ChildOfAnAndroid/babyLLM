@@ -13,9 +13,16 @@ from multiWindowLayer import MULTIWINDOWLAYER
 from config import *
 from datetime import datetime
 
+"""this class combines all the core components of the babyLLM:"""
+"""EMBEDLAYER: token embedding layer"""
+"""PARALLELNEURONLAYER: layer of parallel neurons for feature extraction"""
+"""OUTPUTLAYER: output layer to generate logits"""
+"""MULTIWINDOWLAYER: (New) layer to incorporate multi-window context"""
+"""it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
     def __init__(self, vocab, embedDimension, numNeurons, activationFunction):
         super().__init__()
+        """CONFIG"""
         self.vocabSize = vocabSize
         self.vocab = vocab
         self.embedDimension = embedDimension
@@ -24,11 +31,12 @@ class BABYLLM(nn.Module):
         self.temperature = temperature
         self.activationFunction = activationFunction
         optimizerClass = getattr(optim, optimizerName)
-        
+        """LAYERS"""
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
         self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
         self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
+        """OPTIMIZER - this updates all of the layers learnable parameters"""
         self.optimizer = optimizerClass(
             list(self.embedLayer.parameters()) +
             list(self.parallelNeuronLayer.parameters()) + 
@@ -37,6 +45,7 @@ class BABYLLM(nn.Module):
         )
 
     def forward(self, inputSeq):
+        """processes input sequence of tokens (str) to generate logits to predict the next token"""
         #print(f"Debug: Input to forward: {inputSeq}")
 
         # Convert tokens to indices (batch processing instead of looping)
@@ -82,7 +91,7 @@ class BABYLLM(nn.Module):
         # Convert activations to probability distribution
         logits = self.outputLayer.forward(combinedActivations_multiWindow)  
         #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}") # ADDED
-
+        """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
         return logits
     
     def computeLoss(self, logits, targetTokenIndex):
