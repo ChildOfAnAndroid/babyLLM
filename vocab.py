@@ -77,8 +77,8 @@ class VOCAB:
 
         if self.loadVocab():
             print(f"Loaded vocab: {self.vocabCache}")
-            self.trainingData = self.loadTrainingData(dataFilepaths)  # Load text data
-            self.tokens = self.huggingTokenizer(self.trainingData)  # Tokenize the text
+            self.trainingDataPairs = self.loadTrainingData(dataFilepaths)  # Load text data
+            self.tokens = self.huggingTokenizer(self.trainingDataPairs)  # Tokenize the text
             print(f"DEBUG: Tokens exist? {hasattr(self, 'tokens')} (Length: {len(self.tokens) if hasattr(self, 'tokens') else 'N/A'})")
             print(f"DEBUG: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")
         else:
@@ -123,7 +123,7 @@ class VOCAB:
     """GENERATE TRAINING DATA"""
     def genTrainingData(self, trainingWindow, startIndex = trainingStartIndex):
         """generates training data pairs (input sequences and target tokens)"""
-        trainingData = []
+        trainingDataPairs = []
         if isinstance(trainingWindow, torch.Tensor):
             trainingWindow = trainingWindow.item()
         else:
@@ -134,28 +134,19 @@ class VOCAB:
         else:
             startIndex = int(startIndex)
         endIndex = len(self.tokens) - trainingWindow
-        """creates sliding windows from the tokenized training data (`self.tokens`) to form input sequences, 
-        using the next token as target."""
+        """creates sliding windows from the tokenized training data (`self.tokens`) to form input sequences, using the next token as target."""
         for i in range(startIndex, endIndex):
-            inputSeq = self.tokens[i:i + trainingWindow]
-            target = self.tokens[i + trainingWindow]
+            inputSeq = self.tokens[i:i + trainingWindow] # a list of tokens (str) of length `trainingWindow`
+            targetToken= self.tokens[i + trainingWindow] # a single token (str) that follows the input_sequence.
 
-            if all(token in self.vocabList for token in inputSeq) and target in self.vocabList:
-                trainingData.append((inputSeq, target))
+            if all(token in self.vocabList for token in inputSeq) and targetTokenin self.vocabList:
+                trainingDataPairs.append((inputSeq, targetToken))
             else:
-                print(f"Skipping UNK - Input: {inputSeq}, Target: {target}")
-        return trainingData
+                print(f"Skipping UNK - Input: {inputSeq}, Target: {targetToken}")
+        """returns a list of tuples: (inputSeq, targetToken)"""
+        return trainingDataPairs
 
-    """creates token-to-index mapping dictionary"""
-    def getTokenToIndexMapping(self):
-        """returns a dictionary where keys are tokens (str) and values are their corresponding indices (int)"""
-        return {token: index for index, token in enumerate(self.vocabList)}
-
-    """creates index-to-token mapping dictionary"""
-    def getIndexToTokenMapping(self):
-        print("Debug: Type of keys in self.indexToToken (first 10):")
-        return {index: token for token, index in self.tokenToIndex.items()}
-
+    """saves vocab data to JSON files in vocabCache directory, meaning it can be reloaded without tokenization"""
     def saveVocab(self):
         os.makedirs(self.vocabCache, exist_ok=True)  # Ensure directory exists
         with open(self.vocabListFile, "w", encoding="utf-8") as f:
@@ -165,6 +156,7 @@ class VOCAB:
         with open(self.indexToTokenFile, "w", encoding="utf-8") as f:
             json.dump(self.indexToToken, f, indent=4)
     
+    """loads vocab data from JSON files in vocabCache directory"""
     def loadVocab(self):
         try:
             # Load vocab lists from JSON files
@@ -190,17 +182,6 @@ if __name__ == "__main__":
 
     vocab = VOCAB(vocabSize = vocabSize)
 
-    #loading data
-    #trainingData = loadTrainingData(dataFilepaths)
-    #print(f"Loaded {len(trainingData)} characters of training data.")
-
-    #tokenisation
-    #tokens = whitespaceTokenizer(trainingData)
-    #print(f"Created {len(tokens)} tokens.")
-    #print(f"First 20 tokens: {tokens[:20]}")
-
-    #build vocabulary
-    #vocabList = buildVocab(tokens, vocabSize)
     print(f"Vocabulary size: {len(vocab.vocabList)}")
     print(f"---1701-2000---: {vocab.vocabList[1701:2000]}")
     print(f"---1001-1700---: {vocab.vocabList[301:1700]}")
@@ -209,9 +190,3 @@ if __name__ == "__main__":
     print(f"---Top 100---: {vocab.vocabList[:100]}")
 
     print(vocab.huggingTokenizer("charis and elodie are very cool, elodie and charis are very suave, sexy bitches, we love these girls and we want to see them living their best lives bruv"))
-
-    #create token/index dictionarys
-    #tokenToIndex = getTokenToIndexMapping(vocabList)
-    #indexToToken = getIndexToTokenMapping(vocabList)
-    #print(f"Token to index mapping (first 10): {dict(list(tokenToIndex.items())[:10])}")
-    #print(f"Index to token mapping (first 10): {dict(list(indexToToken.items())[:10])}")
