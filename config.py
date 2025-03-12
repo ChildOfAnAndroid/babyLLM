@@ -8,6 +8,8 @@ numNeurons = 10000 # number of neurons in the parallel neuron layer
 epochs = 20 # number of training epochs
 trainingWindow = 7 # context window size (number of input tokens) for training - 8 is too high rn
 temperature = 0.7 # temperature for softmax in response generation (controls randomness)
+saveModelFreq = 250 # saves the model every x number of turns
+topP = 0 # top P (probability), default is 0
 
 """OPTIMIZER"""
 optimizerName = "AdamW" # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
@@ -41,6 +43,9 @@ ORANGE = "\033[38;5;52m"
 """visualisation colour boundaries"""
 lowLoss = 1
 veryLowLoss = 0.5
+prettyHighLoss = 5.0
+highLoss = 10.0
+superHighLoss = 30.0
 
 """TOKENIZER"""
 minTokenFreq = 20 # the amount of repeats of a token needed to create a split during tokenizer training
@@ -73,3 +78,5 @@ rawDataFilepaths = [
 outputFile = "data/CHARIS/trainingData.txt" # output path for fully processed training data
 
 dataFiles = [{"type": ftype, "in": fname, "out": outputFile} for ftype, fname in rawDataFilepaths] # Convert to dictionary format when needed
+
+modelPath = "babyLLM.pth" # where your currently trained saved boi is :)

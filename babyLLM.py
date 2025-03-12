@@ -117,37 +117,44 @@ class BABYLLM(nn.Module):
         loss.backward()
         self.optimizer.step()  # Update weights
 
+    """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def train(self, trainingData, epochs):
         babyLLM.loadModel()
         print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
         print("--- Training Started ---")
 
+        """EPOCH LOOP"""
         for epoch in range(epochs):
             print(f"--- Epoch {epoch+1}/{epochs} Started ---")
-            totalLoss = 0
+            totalLoss = 0 # this is total loss PER 1000 STEPS
 
+            """TRAINING DATA (batches)"""
             for i, (inputSeq, target) in enumerate(trainingData):
                 inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
                 targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
-
+                """handles cases where the target might already be an index, or converts to an index"""
+                """SUS!!!"""
                 if isinstance(target, int):
                     targetTokenIndex = target
                 else:
                     targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
 
-                self.optimizer.zero_grad()
+                """TRAINING STEP"""
+                self.optimizer.zero_grad() # reset gradients from previous step
                 logits = self.forward(inputTokenIndices)
                 guessedTokenIndex = self.getResponseFromLogits(logits)
                 loss = self.computeLoss(logits, targetTokenIndex)
                 loss.backward()
                 self.optimizer.step()
                 totalLoss += loss.item()
+
+                """PRINTING LOSS TO LOGS AND TERMINAL"""
                 # Track loss every 1000 steps
                 if (i + 1) % printLossFreq == 0:  
-                    avg_loss = totalLoss / 1000  # Compute average loss
+                    avgLoss = totalLoss / 1000  # Compute average loss
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    lossLog = f"{timestamp} | Context: {trainingWindow} | LR: {learningRate} | Step {i+1} | Avg Loss: {avg_loss:.4f}\\n"
-                    print(f"🔥 {lossLog.strip()}")
+                    lossLog = f"{timestamp} | Context: {trainingWindow} | LR: {learningRate} | Step {i+1} | Avg Loss: {avgLoss:.4f}\\n"
+                    print(f" {lossLog.strip()}")
                     with open("trainingLog.txt", "a") as log_file:
                         log_file.write(lossLog)
                     totalLoss = 0
@@ -168,11 +175,11 @@ class BABYLLM(nn.Module):
                         formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"
                     elif isCorrect and loss.item() < self.lowLoss:  # correct, low loss
                         formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() > 30.0:  # super high loss
+                    elif loss.item() > superHighLoss:  # super high loss
                         formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{FLASHING_RED}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() > 10.0:  # high loss
+                    elif loss.item() > highLoss:  # high loss
                         formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{RED}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() > 5.0:  # pretty high loss
+                    elif loss.item() > prettyHighLoss:  # pretty high loss
                         formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{ORANGE}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() < self.veryLowLoss:  # incorrect, very low loss
                         formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
@@ -186,7 +193,8 @@ class BABYLLM(nn.Module):
                 print(formattedWords)
                 #print(f"Loss debug: {loss.item()} (Raw) | Rounded: {round(loss.item(), 6)}")
 
-                if i > 0 and int(i % 250) == 0:
+                """SAVE THE MODEL EVERY x STEPS"""
+                if i > 0 and int(i % saveModelFreq) == 0:
                     # self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingData) / 2000))}.pth")
                     self.saveModel()
 
@@ -196,50 +204,60 @@ class BABYLLM(nn.Module):
         babyLLM.saveModel()
         print("--- Training Completed ---")
         
+    """saves the model to a file"""    
     def saveModel(self, filePath="babyLLM.pth"):
         torch.save(self.state_dict(), filePath)
         print(f"✅ Model saved to {filePath}!")
 
-    def loadModel(self, filePath="babyLLM.pth"):
+    """loads the model from a file"""
+    def loadModel(self, filePath = modelPath):
         try:
             self.load_state_dict(torch.load(filePath))
-            print(f"🔄 Model loaded from {filePath}!")
+            print(f"Model loaded from {filePath}!")
         except FileNotFoundError:
-            print("⚠ No saved model found.")
+            print("No saved model found.")
 
+    """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, 
+    and then selects most likely response token"""
     def getResponseFromLogits(self, logits, temperature=None):
         if temperature is None:
             temperature = self.temperature
         logits = logits / temperature
-        softmaxed = torch.softmax(logits, dim=1)  # Convert to probabilities after scaling
-        topProb = 0
+        softmaxed = torch.softmax(logits, dim=1)  # apply softmax to logits to convert to probabilities (along vocab dimension - dim=1)
+        topProb = topP
         guessedTokenIndex = None
         for tokenIndex in range(vocabSize):
             prob = softmaxed[0][tokenIndex].item()
             if prob > topProb or guessedTokenIndex is None:
                 guessedTokenIndex = tokenIndex
                 topProb = prob
+        """return the token index with the highest probability of being next"""
         return guessedTokenIndex
     
+    """convert token index to string"""
     def getTokenIndexAsString(self, tokenIndex):
         return self.vocab.indexToToken[tokenIndex] # i dont really know why this is a string. but right now it doesnt work if i change it (take the .__str__() out)
     
+    """generates the chosen next token using getResponseFromLogits"""
     def getNextToken(self, inputSeq, temperature=None):  
         if temperature is None:
             temperature = self.temperature  # Grab from self.temperature (config)
+        """returns an integer token index showing the models predicted next token."""
         return self.getResponseFromLogits(self.forward(inputSeq), temperature)
     
+    """combines the parallelNeronLayer output and the multiWindowLayer output into one output"""
     def combineOutputs(self, output1, output2):
-        print(f"Debug combineOutputs: Shape of output1: {output1.shape}")
-        print(f"Debug combineOutputs: Shape of output2: {output2.shape}")
-        output1Flat = output1.squeeze(dim=2) # Shape: [1, 10000]
-        print(f"Debug combineOutputs: Shape of output1_flattened: {output1Flat.shape}")
-        # output2 is already [1, 32]
+        #print(f"Debug combineOutputs: Shape of output1: {output1.shape}")
+        #print(f"Debug combineOutputs: Shape of output2: {output2.shape}")
+        output1Flat = output1.squeeze(dim=2) # Remove dimension of shape 1, new shape: [1, 10000]
+        #print(f"Debug combineOutputs: Shape of output1Flat: {output1Flat.shape}")
         concatenatedOutput = torch.cat((output1Flat, output2), dim=1) # Concatenate along dim=1 (feature dimension) - 2D tensors
+        """linear layer to combine and reduce dimensionality"""
         if not hasattr(self, 'outputCombinationLayer'):
             combined_dim = output1Flat.shape[1] + output2.shape[1] # dim=1 is the feature dimension
             self.outputCombinationLayer = nn.Linear(combined_dim, embedDimension) # Output dimension should be embedDimension
         finalOutput = self.outputCombinationLayer(concatenatedOutput)
+        """returns a single combined output tensor of shape (1, embedDimension)."""
         return finalOutput
     
 if __name__ == "__main__":
@@ -261,10 +279,10 @@ if __name__ == "__main__":
     trainingData = vocab.genTrainingData(trainingWindow)
     babyLLM.train(trainingData, epochs = epochs)
 
-    print("--- BabyLLM Forward Pass Testing ---")
+    print("--- BabyLLM TESTING START ---")
     print(f"Vocab size: {len(babyLLM.vocab.vocabList)}")
     print(f"Probability Distribution (first 100):")
     print(probabilityDist[:100]) # Print first 10 probabilities
     print(f"Probability Distribution Shape: {probabilityDist.shape}") # Check shape (should be vocabulary_size)
     print(f"Sum of Probabilities: {torch.sum(probabilityDist).item():.4f}") # Check if probabilities sum to ~1.0
-    print("\n--- Baby LLM Forward Pass Testing Completed ---")
+    print("\n--- BabyLLM TESTING COMPLETED ---")
