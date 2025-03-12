@@ -37,7 +37,7 @@ class BABYLLM(nn.Module):
         self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
         self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
-        
+
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         self.optimizer = optimizerClass(
             list(self.embedLayer.parameters()) +
@@ -94,7 +94,7 @@ class BABYLLM(nn.Module):
         """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
         return logits
     
-    """computes the cross-entropy loss between the models logits and the target token index."""
+    """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""
     def computeLoss(self, logits, targetTokenIndex):
         self.targetTokenIndex = torch.tensor([targetTokenIndex], dtype=torch.long)
         #print(f"Debug BABYLLM.computeLoss: predictions shape: {logits.shape}")
@@ -111,6 +111,7 @@ class BABYLLM(nn.Module):
         """returns a scalar tensor representing the cross-entropy loss value"""
         return self.loss
     
+    """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
     def backward(self, loss):
         self.optimizer.zero_grad()  # Reset gradients
         loss.backward()

@@ -28,6 +28,7 @@ class PARALLELNEURONLAYER(nn.Module):
             layerActivations.append(neuronOutputs)
             """Stacks the list of activation vectors into a 2D tensor"""
             layerActivationsTensor = torch.stack(layerActivations, dim=0)  # Now shape: [seq_len, numNeurons]
+            """SUS!!! should this be meaning here or NOT? technically no? but why not?? where else does it mean??"""
             #layerActivationsTensor = layerActivationsTensor.mean(dim=0, keepdim=True)
         return layerActivationsTensor
     
