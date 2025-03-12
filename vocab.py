@@ -139,7 +139,7 @@ class VOCAB:
             inputSeq = self.tokens[i:i + trainingWindow] # a list of tokens (str) of length `trainingWindow`
             targetToken= self.tokens[i + trainingWindow] # a single token (str) that follows the input_sequence.
 
-            if all(token in self.vocabList for token in inputSeq) and targetTokenin self.vocabList:
+            if all(token in self.vocabList for token in inputSeq) and targetToken in self.vocabList:
                 trainingDataPairs.append((inputSeq, targetToken))
             else:
                 print(f"Skipping UNK - Input: {inputSeq}, Target: {targetToken}")
