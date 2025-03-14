@@ -152,12 +152,13 @@ class BABYLLM(nn.Module):
                 """PRINTING LOSS TO LOGS AND TERMINAL"""
                 # Track loss every 1000 steps
                 if (i + 1) % printLossFreq == 0:  
-                    avgLoss = totalLoss / 1000  # Compute average loss
+                    avgLoss = totalLoss / printLossFreq  # Compute average loss
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    lossLog = f"{timestamp} | Context: {trainingWindow} | LR: {learningRate} | Step {i+1} | Avg Loss: {avgLoss:.4f}\\n"
+                    lossLog = f"{timestamp} | Context: {trainingWindow} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}"
+                    lossLog += f""
                     print(f" {lossLog.strip()}")
-                    with open("trainingLog.txt", "a") as log_file:
-                        log_file.write(lossLog)
+                    with open("trainingLog.txt", "a") as logFile:
+                        logFile.write(lossLog)
                     totalLoss = 0
                 
                 """PRINTING GUESSES TO THE TERMINAL"""
@@ -213,7 +214,7 @@ class BABYLLM(nn.Module):
     """loads the model from a file"""
     def loadModel(self, filePath = modelPath):
         try:
-            self.load_state_dict(torch.load(filePath))
+            self.load_state_dict(torch.load(filePath), strict = saveLock)
             print(f"Model loaded from {filePath}!")
         except FileNotFoundError:
             print("No saved model found.")

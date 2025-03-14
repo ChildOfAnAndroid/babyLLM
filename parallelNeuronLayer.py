@@ -13,16 +13,17 @@ class PARALLELNEURONLAYER(nn.Module):
         self.numNeurons = numNeurons
         self.embedDimension = embedDimension
         self.activationFunction = activationFunction
+        self.combinationLayer = nn.Linear(self.numNeurons * 2, self.numNeurons)
         """puts each neuron into an array/nn list"""
         self.neurons = nn.ModuleList(
             [NEURON(embedDimension=embedDimension, activationFunction=activationFunction) 
             for _ in range(numNeurons)])
 
-    def forward(self, inputEmbedsList):
+    def forward(self, inputEmbeds):
         """iterates through the list of input embeddings, applies all neurons in parallel for each embedding, produces a vector of neuron outputs"""
         # Check what type and shape perTokenActivationsTensor is
         layerActivations = []
-        for embedVector in inputEmbedsList:
+        for embedVector in inputEmbeds:
             """Stacks outputs from every neuron (for the current 'embedVector') into a tensor"""
             neuronOutputs = torch.stack([neuron(embedVector) for neuron in self.neurons])
             #print(f"Debug TRANSFORMERLAYER: Shape of neuronOutputTensor: {neuronOutputTensor.shape}")
@@ -33,7 +34,12 @@ class PARALLELNEURONLAYER(nn.Module):
         perTokenActivationsTensor = torch.stack(layerActivations, dim=0)
         """output with mean = Output Activations Shape: torch.Size([1, numNeurons, 1])"""
         meanActivationsTensor = perTokenActivationsTensor.mean(dim=0, keepdim=True)
-        
+        """mean output of just the first 2 tokens"""
+        smallContextMeanActivationsTensor = self.smallContextWindow(perTokenActivationsTensor)
+
+        """combine activations into their own learnable layer"""
+        combinedActivationsTensor = self.combinationLayer(torch.cat([meanActivationsTensor, smallContextMeanActivationsTensor], dim=-1))
+
         """DEBUG PRINTS"""
         #print(f"Type of perTokenActivationsTensor: {type(perTokenActivationsTensor)}")
         #if isinstance(perTokenActivationsTensor, torch.Tensor):
@@ -44,18 +50,23 @@ class PARALLELNEURONLAYER(nn.Module):
         #else:
         #    print("Unknown format for perTokenActivationsTensor!")
 
-        return meanActivationsTensor#, perTokenActivationsTensor
+        return combinedActivationsTensor#, perTokenActivationsTensor
     
-    #def multiWindow(self, perTokenActivationsTensor):
-    #    meanActivationsTensor, perTokenActivationsTensor = self.forward()
-    #    take the first 2 and make a window from them
-    #    take
+    def smallContextWindow(self, perTokenActivationsTensor):
+        if perTokenActivationsTensor.shape[0] < trainingWindow_smallContext:
+            print(f"Not enough tokens for a window! Need at least 2, got {perTokenActivationsTensor.shape[0]}.")
+            return None
+        """find the first two token activations"""
+        smallContextActivations = perTokenActivationsTensor[:trainingWindow_smallContext]  # [2, numNeurons]
+        """take the mean"""
+        smallContextActivationsTensor = torch.mean(smallContextActivations, dim=0, keepdim=True)  # [1, numNeurons]
+        return smallContextActivationsTensor
     
 if __name__ == "__main__":
     parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = numNeurons, embedDimension = embedDimension, activationFunction = activationFunction)
 
-    TESTinputEmbeds = torch.randn(trainingWindow)
-    TESTinputEmbedsList = [TESTinputEmbeds] # for future when more input tokens, currently 1 can ignore
+    TESTinputSeq = torch.randn(trainingWindow, embedDimension)
+    TESTinputEmbeds = [TESTinputSeq]
 
     meanActivationsTensor = parallelNeuronLayer.forward(TESTinputEmbeds)
 

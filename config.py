@@ -1,59 +1,58 @@
 #from torch import relu 
 from torch.nn.functional import leaky_relu
 
-"""BASIC CONFIG"""
-vocabSize = 2000 # maximum vocabulary size
-embedDimension = 32 # dimensionality of token embeddings
-numNeurons = 10000 # number of neurons in the parallel neuron layer
-epochs = 20 # number of training epochs
-trainingWindow = 7 # context window size (number of input tokens) for training - 8 is too high rn
-temperature = 0.7 # temperature for softmax in response generation (controls randomness)
-saveModelFreq = 250 # saves the model every x number of turns
-topP = 0 # top P (probability), default is 0
+"""SAVE DATA"""
+saveModelFreq = 250             # saves the model every x number of turns
+modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
+printLossFreq = 1000            # how often to save average loss to a text file
+saveLock = False                # allow for reconstruction of missing files etc
+#saveLock = True                # ensure that all save files are present when loading else fail
 
-"""OPTIMIZER"""
-optimizerName = "AdamW" # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
-#optimizerName = "Adam" # good for initial fast training, likely to do overfitting stuff
-learningRate = 0.00005
+"""PREDICTION CONFIG"""
+temperature = 0.7               # temperature for softmax in response generation (controls randomness)
+topP = 0                        # top P (probability), default is 0
 
-"""ACTIVATION FUNCTION"""
-#leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
-leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01)
-#activationFunction = relu
-activationFunction = leakyRelu
+"""EPOCHS & TRAINING WINDOW"""
+epochs = 20                     # number of training epochs
+trainingStartIndex = 'random'   # start training at a random point in the file
+#trainingStartIndex = 0         # start training at the beginning of the file
 
-"""MULTI WINDOW CONTEXT SIZES"""
+#Window = 7                     # THIS MUST BE THE HIGHEST NUMBER
+trainingWindow = 7              # context window size (number of input tokens) for training - 8 is too high rn
+trainingWindow_smallContext = 2    
 window1 = 2
 window2 = 4
 window3 = 6
 
-"""VISUALISATIONS"""
-printFreq = 1 # how often to print training progress to the terminal
-printLossFreq = 1000 # how often to save average loss to a text file
-LIGHT_PURPLE = "\033[94m"  # light purple
-PURPLE = "\033[38;5;225m" # purple
-RESET = "\033[0m"    # normal terminal
-BLUE = "\033[34m"    # blue
-GOLD = "\033[93m"    # gold
-DIM = "\033[2m"      # dimmed terminal
-RED = "\033[38;5;124m"
-FLASHING_RED = "\033[5;91m"
-ORANGE = "\033[38;5;52m"
+"""OPTIMIZER"""
+learningRate = 0.00001          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
+optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
+#optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
 
-"""visualisation colour boundaries"""
-lowLoss = 1
-veryLowLoss = 0.5
-prettyHighLoss = 5.0
-highLoss = 10.0
-superHighLoss = 30.0
+"""ACTIVATION FUNCTION"""
+leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01) #leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
+#activationFunction = relu
+activationFunction = leakyRelu
 
-"""TOKENIZER"""
-minTokenFreq = 20 # the amount of repeats of a token needed to create a split during tokenizer training
+"""TERMINAL OUTPUT COLOURS"""
+lowLoss = 1                     #
+veryLowLoss = 0.5               #
+prettyHighLoss = 5.0            #
+highLoss = 10.0                 #
+superHighLoss = 30.0            #
+LIGHT_PURPLE = "\033[94m"       # light purple
+PURPLE = "\033[38;5;225m"       # purple
+RESET = "\033[0m"               # normal terminal
+BLUE = "\033[34m"               # blue
+GOLD = "\033[93m"               # gold
+DIM = "\033[2m"                 # dimmed terminal
+RED = "\033[38;5;124m"          #
+FLASHING_RED = "\033[5;91m"     #
+ORANGE = "\033[38;5;52m"        #
+printFreq = 1                   # how often to print training progress to the terminal
 
 """TRAINING DATA"""
 dataFilepaths = ["data/CHARIS/trainingData.txt"]
-trainingStartIndex = 'random' # start training at a random point in the file
-#trainingStartIndex = 0 # start training at the beginning of the file
 loadData_chunkSize = 4096
 
 rawDataFilepaths = [ # for textCleaningTool.py
@@ -76,7 +75,13 @@ rawDataFilepaths = [ # for textCleaningTool.py
 ]
 
 outputFile = "data/CHARIS/trainingData.txt" # output path for fully processed training data
-
 dataFiles = [{"type": ftype, "in": fname, "out": outputFile} for ftype, fname in rawDataFilepaths] # Convert to dictionary format when needed
 
-modelPath = "babyLLM.pth" # where your currently trained saved boi is :)
+"""WARNING, CHANGING SETTINGS BELOW HERE MAY MAKE CURRENTLY TRAINED MODEL INACCURATE"""
+"""MODEL CONFIG"""
+vocabSize = 2000                # maximum vocabulary size
+embedDimension = 32             # dimensionality of token embeddings
+numNeurons = 10000              # number of neurons in the parallel neuron layer
+
+"""TOKENIZER"""
+minTokenFreq = 20               # the amount of repeats of a token needed to create a split during tokenizer training

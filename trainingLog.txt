@@ -108,4 +108,13 @@
 2025-03-11 17:43:29 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 4.7581
 2025-03-11 18:08:59 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 4.4058
 -- random poems
-2025-03-11 18:37:10 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 5.6926\n2025-03-11 19:02:37 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 3.5649\n2025-03-11 19:45:09 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 4.0670\n2025-03-11 20:11:37 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 2.5145\n
+2025-03-11 18:37:10 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 5.6926
+2025-03-11 19:02:37 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 3.5649
+2025-03-11 19:45:09 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 4.0670
+2025-03-11 20:11:37 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 2.5145
+-- line sorted training data
+2025-03-14 19:49:57 | Context: 7 | LR: 5e-05 | Step 1000 | Avg Loss: 5.6510
+2025-03-14 20:19:08 | Context: 7 | LR: 5e-05 | Step 2000 | Avg Loss: 5.0811
+2025-03-14 20:48:21 | Context: 7 | LR: 5e-05 | Step 3000 | Avg Loss: 5.2734
+2025-03-14 21:17:46 | Context: 7 | LR: 5e-05 | Step 4000 | Avg Loss: 4.1162
+2025-03-14 21:47:06 | Context: 7 | LR: 5e-05 | Step 5000 | Avg Loss: 3.9836\n

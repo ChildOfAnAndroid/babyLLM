@@ -1,4 +1,4 @@
-BabyLLM first converts its input into tokens, and then converts those tokens into an embedding layer.
+BabyLLM first converts its input into tokens (VOCAB), and then converts those tokens into embeddings in an EMBED LAYER.
 
 NEURON LAYER is meant to be outputting a single number for each input token, iterated by numNeurons
     - Each neuron has a dimension of 32, meaning that it has 32 numbers
