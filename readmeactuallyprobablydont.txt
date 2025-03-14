@@ -1,0 +1,1 @@
+PARALLEL NEURON LAYER is meant to be outputting [seqLen, numNeurons]

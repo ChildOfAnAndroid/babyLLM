@@ -18,8 +18,8 @@ class OUTPUTLAYER(nn.Module):
         """imports the activations from parallelNeuronLayer, assuming that is is a tensor"""
         self.activationsTensor = meanActivationsTensor
         """if the activation tensor is 1d, we make it 2d, but this shouldnt happen!"""
-        if self.activationsTensor.dim() == 1:
-            self.activationsTensor = self.activationsTensor.unsqueeze(0) 
+        #if self.activationsTensor.dim() == 1:
+        #    self.activationsTensor = self.activationsTensor.unsqueeze(0) 
         """return logits (not softmax) for better gradient computation in cross-entropy loss"""
         logits = self.activationsTensor @ self.weights + self.bias
         return logits

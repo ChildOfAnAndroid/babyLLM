@@ -21,7 +21,7 @@ class NEURON(nn.Module):
         """magic activation function applied to this weighted sum, which outputs a single number from the neuron"""
         output = self.activationFunction(weightedSum)
 
-        return output
+        return output.squeeze()
     
 if __name__ == "__main__":
     TESTembedDimension = 5

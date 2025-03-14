@@ -85,7 +85,7 @@ class BABYLLM(nn.Module):
         """COMBINE ACTIVATIONS"""
         """takes the mean of the transformer output activations across the sequence dimension"""
         combinedActivations = torch.mean(parallelNeuronOutput, dim=0, keepdim=True)
-        combinedActivations_multiWindow = self.combineOutputs(combinedActivations, contextVectors_multiWindow)
+        #combinedActivations_multiWindow = self.combineOutputs(combinedActivations, contextVectors_multiWindow)
         #print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
 
         # Convert activations to probability distribution
@@ -237,7 +237,8 @@ class BABYLLM(nn.Module):
     
     """convert token index to string"""
     def getTokenIndexAsString(self, tokenIndex):
-        return self.vocab.indexToToken[tokenIndex] # i dont really know why this is a string. but right now it doesnt work if i change it (take the .__str__() out)
+        """returns the guessed token as a readable string aka text"""
+        return self.vocab.indexToToken[tokenIndex.__str__()] 
     
     """generates the chosen next token using getResponseFromLogits"""
     def getNextToken(self, inputSeq, temperature=None):  
@@ -270,20 +271,11 @@ if __name__ == "__main__":
     babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
     #TESTinputSeq = ["what","will","you","do","out","there","now","?"]
     TESTinputSeq = ["i","love","you","this","is","good","music","is","life",]
-    #TESTinputSeq = ["what"]
-    probabilityDist = babyLLM.forward(TESTinputSeq)
-    #TESTtrainingData = [
-    #(["i", "love"], "you"),
-    #(["this", "is"], "good"),
-    #(["music", "is"], "life")]
+    #TESTinputSeq = ["what"] 
 
     trainingData = vocab.genTrainingData(trainingWindow)
     babyLLM.train(trainingData, epochs = epochs)
 
     print("--- BabyLLM TESTING START ---")
     print(f"Vocab size: {len(babyLLM.vocab.vocabList)}")
-    print(f"Probability Distribution (first 100):")
-    print(probabilityDist[:100]) # Print first 10 probabilities
-    print(f"Probability Distribution Shape: {probabilityDist.shape}") # Check shape (should be vocabulary_size)
-    print(f"Sum of Probabilities: {torch.sum(probabilityDist).item():.4f}") # Check if probabilities sum to ~1.0
     print("\n--- BabyLLM TESTING COMPLETED ---")
