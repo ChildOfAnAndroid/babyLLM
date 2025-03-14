@@ -80,7 +80,7 @@ class BABYLLM(nn.Module):
             inputEmbeds = [inputEmbeds] 
 
         """MULTI WINDOW LAYER input/processing (context)"""
-        contextVectors_multiWindow = self.multiWindowLayer.forward(inputEmbeds)
+        #contextVectors_multiWindow = self.multiWindowLayer.forward(inputEmbeds)
 
         """COMBINE ACTIVATIONS"""
         """takes the mean of the transformer output activations across the sequence dimension"""
