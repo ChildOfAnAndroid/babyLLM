@@ -36,7 +36,7 @@ class BABYLLM(nn.Module):
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
         self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
-        self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
+        #self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         self.optimizer = optimizerClass(
@@ -119,7 +119,7 @@ class BABYLLM(nn.Module):
         self.optimizer.step()  # Update weights
 
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
-    def train(self, trainingData, epochs):
+    def train(self, trainingDataPairs, epochs):
         babyLLM.loadModel()
         print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
         print("--- Training Started ---")
@@ -130,7 +130,7 @@ class BABYLLM(nn.Module):
             totalLoss = 0 # this is total loss PER 1000 STEPS
 
             """TRAINING DATA (batches)"""
-            for i, (inputSeq, target) in enumerate(trainingData):
+            for i, (inputSeq, target) in enumerate(trainingDataPairs):
                 inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
                 targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
                 """handles cases where the target might already be an index, or converts to an index"""
@@ -196,7 +196,7 @@ class BABYLLM(nn.Module):
 
                 """SAVE THE MODEL EVERY x STEPS"""
                 if i > 0 and int(i % saveModelFreq) == 0:
-                    # self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingData) / 2000))}.pth")
+                    # self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingDataPairs) / 2000))}.pth")
                     self.saveModel()
 
             print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss:.4f}")
@@ -273,8 +273,8 @@ if __name__ == "__main__":
     TESTinputSeq = ["i","love","you","this","is","good","music","is","life",]
     #TESTinputSeq = ["what"] 
 
-    trainingData = vocab.genTrainingData(trainingWindow)
-    babyLLM.train(trainingData, epochs = epochs)
+    trainingDataPairs = vocab.genTrainingData(trainingWindow)
+    babyLLM.train(trainingDataPairs, epochs = epochs)
 
     print("--- BabyLLM TESTING START ---")
     print(f"Vocab size: {len(babyLLM.vocab.vocabList)}")
