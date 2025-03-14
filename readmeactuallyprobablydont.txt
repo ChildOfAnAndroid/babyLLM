@@ -1,3 +1,5 @@
+BabyLLM first converts its input into tokens, and then converts those tokens into an embedding layer.
+
 NEURON LAYER is meant to be outputting a single number for each input token, iterated by numNeurons
     - Each neuron has a dimension of 32, meaning that it has 32 numbers
 
@@ -11,6 +13,7 @@ PARALLEL NEURON LAYER is meant to be outputting [seqLen, numNeurons]
         - this mean output is then passed through to the output layer to be used in token guess calculations
 
 OUTPUT LAYER uses all of the inputs (currently just mean output parallel neurons) to judge what the output should be
+    - this takes the mean output activation from parallel neuron layer and applies that to the relevant token in the vocab.
     - this is also an nn layer itself idfk why
 
 

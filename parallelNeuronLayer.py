@@ -35,15 +35,21 @@ class PARALLELNEURONLAYER(nn.Module):
         meanActivationsTensor = perTokenActivationsTensor.mean(dim=0, keepdim=True)
         
         """DEBUG PRINTS"""
-        print(f"Type of perTokenActivationsTensor: {type(perTokenActivationsTensor)}")
-        if isinstance(perTokenActivationsTensor, torch.Tensor):
-            print(f"Shape of perTokenActivationsTensor: {perTokenActivationsTensor.shape}")
-        elif isinstance(perTokenActivationsTensor, list):
-            print(f"Length of perTokenActivationsTensor list: {len(perTokenActivationsTensor)}")
-            print(f"Shape of first element in list: {perTokenActivationsTensor[0].shape}")
-        else:
-            print("Unknown format for perTokenActivationsTensor!")
+        #print(f"Type of perTokenActivationsTensor: {type(perTokenActivationsTensor)}")
+        #if isinstance(perTokenActivationsTensor, torch.Tensor):
+        #    print(f"Shape of perTokenActivationsTensor: {perTokenActivationsTensor.shape}")
+        #elif isinstance(perTokenActivationsTensor, list):
+        #    print(f"Length of perTokenActivationsTensor list: {len(perTokenActivationsTensor)}")
+        #    print(f"Shape of first element in list: {perTokenActivationsTensor[0].shape}")
+        #else:
+        #    print("Unknown format for perTokenActivationsTensor!")
+
         return meanActivationsTensor#, perTokenActivationsTensor
+    
+    #def multiWindow(self, perTokenActivationsTensor):
+    #    meanActivationsTensor, perTokenActivationsTensor = self.forward()
+    #    take the first 2 and make a window from them
+    #    take
     
 if __name__ == "__main__":
     parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = numNeurons, embedDimension = embedDimension, activationFunction = activationFunction)

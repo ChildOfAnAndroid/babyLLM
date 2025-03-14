@@ -14,7 +14,7 @@ topP = 0 # top P (probability), default is 0
 """OPTIMIZER"""
 optimizerName = "AdamW" # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam" # good for initial fast training, likely to do overfitting stuff
-learningRate = 0.0002
+learningRate = 0.00005
 
 """ACTIVATION FUNCTION"""
 #leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
@@ -23,9 +23,9 @@ leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01)
 activationFunction = leakyRelu
 
 """MULTI WINDOW CONTEXT SIZES"""
-window1 = 3
-window2 = trainingWindow
-window3 = 11
+window1 = 2
+window2 = 4
+window3 = 6
 
 """VISUALISATIONS"""
 printFreq = 1 # how often to print training progress to the terminal
@@ -56,10 +56,10 @@ trainingStartIndex = 'random' # start training at a random point in the file
 #trainingStartIndex = 0 # start training at the beginning of the file
 loadData_chunkSize = 4096
 
-rawDataFilepaths = [
+rawDataFilepaths = [ # for textCleaningTool.py
     #("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
-    #("text", "data/CHARIS/lineSortedData.txt"),
+    ("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
     #("text", "data/CHARIS/shorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),
@@ -68,7 +68,7 @@ rawDataFilepaths = [
     #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
     #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
     #("json", "data/CHARIS/discord.json"), # discord message history
-    ("text", "data/CHARIS/shitpoems.txt"),
+    #("text", "data/CHARIS/shitpoems.txt"),
     #("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
     #("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
     #("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments

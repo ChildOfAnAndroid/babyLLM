@@ -2,6 +2,13 @@ import torch
 import torch.nn as nn
 from config import *
 
+#class MULTIWINDOWLAYER(nn.Module):
+
+
+
+
+
+
 """This layer captures multiple windows of input embedding information, and then combines these into a single context vector."""
 class MULTIWINDOWLAYER(nn.Module):
 
@@ -11,12 +18,12 @@ class MULTIWINDOWLAYER(nn.Module):
         self.windowSizes = windowSizes
 
     """FORWARD PASS"""
-    def forward(self, inputEmbedsList):
+    def forward(self, inputEmbeds):
         """processes the input embeddings through the sliding windows"""
         windowContextVectors = []
         #print(f"Debug MULTIWINDOWLAYER.forward: Input inputEmbedsList length: {len(inputEmbedsList) if isinstance(inputEmbedsList, list) else 'Not a list'}")
         for windowSize in self.windowSizes:
-            windowEmbeds = self.createWindows(inputEmbedsList, windowSize)
+            windowEmbeds = self.createWindows(inputEmbeds, windowSize)
             #print(f"Debug MULTIWINDOWLAYER.forward: After createWindows (windowSize={windowSize}), windowEmbeds length: {len(windowEmbeds)}")
             windowPooledVectors = self.processWindows(windowEmbeds)
             #print(f"Debug MULTIWINDOWLAYER.forward: After processWindows (windowSize={windowSize}), windowPooledVectors is now a LIST")
@@ -32,12 +39,12 @@ class MULTIWINDOWLAYER(nn.Module):
         return combinedContextVector
     
     """CREATE MULTIPLE SLIDING WINDOWS"""
-    def createWindows(self, inputEmbedsList, windowSize):
+    def createWindows(self, inputEmbeds, windowSize):
         """for each token in the input sequence, this extracts a window of embeddings centered around that token, of a specified size"""
         windowEmbeds = []
-        seqLen = len(inputEmbedsList)
+        seqLen = len(inputEmbeds)
         """handles empty lists"""
-        if not inputEmbedsList:
+        if not inputEmbeds:
             print("Debug createWindows: inputEmbedsList is EMPTY! Returning empty list.")
             return []
         """this iterates through token positions, and ensures that the loop always runs at least once"""
@@ -46,7 +53,7 @@ class MULTIWINDOWLAYER(nn.Module):
             startIndex = max(0, i - windowSize // 2)
             endIndex = min(seqLen, i + windowSize - windowSize // 2)
             """extract window of embeddings (might be shorter than windowSize if near edges)"""
-            window = list(inputEmbedsList[startIndex:endIndex]) # slice as a list
+            window = list(inputEmbeds[startIndex:endIndex]) # slice as a list
             #print(f"Debug createWindows (i={i}): Type of window: {type(window)}")
             """DEBUG PRINTS"""
             if isinstance(window, list):
