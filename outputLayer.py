@@ -10,7 +10,7 @@ class OUTPUTLAYER(nn.Module):
         super().__init__()
         self.numNeurons = numNeurons
         self.vocabSize = vocabSize
-        self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize)) # SUS!!!!!!
+        self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
         self.weights.data *= 0.01
         self.bias = nn.Parameter(torch.zeros(vocabSize))
 
