@@ -18,7 +18,7 @@ def chat(babyLLM, vocab):
     for _ in range(10):
         guessedToken = babyLLM.getNextToken(inputSeq)
         inputSeq.append(guessedToken)
-        output.append(babyLLM.getReadableToken(guessedToken))
+        output.append(babyLLM.getTokenIndexAsString(guessedToken))
 
     if exitAfter:
         print(f"Good bye babyLLM! Full response: {" ".join(output)}")
