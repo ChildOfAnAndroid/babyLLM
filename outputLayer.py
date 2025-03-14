@@ -10,13 +10,13 @@ class OUTPUTLAYER(nn.Module):
         super().__init__()
         self.numNeurons = numNeurons
         self.vocabSize = vocabSize
-        self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize))
+        self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize)) # SUS!!!!!!
         self.weights.data *= 0.01
         self.bias = nn.Parameter(torch.zeros(vocabSize))
 
-    def forward(self, layerActivations):
+    def forward(self, meanActivationsTensor):
         """imports the activations from parallelNeuronLayer, assuming that is is a tensor"""
-        self.activationsTensor = layerActivations
+        self.activationsTensor = meanActivationsTensor
         """if the activation tensor is 1d, we make it 2d, but this shouldnt happen!"""
         if self.activationsTensor.dim() == 1:
             self.activationsTensor = self.activationsTensor.unsqueeze(0) 

@@ -57,7 +57,7 @@ class BABYLLM(nn.Module):
         """convert indices to embeddings"""
         inputEmbeds = []
         for tokenIndex in inputIndices:
-            """get embedding vector for each tokenIndex from embedding layer"""
+            """get embedding vector for each tokenIndex from embedding layer (32 dim x each token x each neuron)"""
             embedVector = self.embedLayer.forward(torch.tensor(tokenIndex))
             inputEmbeds.append(embedVector)
 
@@ -72,8 +72,8 @@ class BABYLLM(nn.Module):
             pass
 
         """PARALLEL NEURON LAYER input/processing (feature extraction)"""
-        transformerOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
-        #print(f"Debug BABYLLM.forward: transformerOutput length: {len(transformerOutput)}") # ADDED - should be same as input seq len
+        parallelNeuronOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
+        #print(f"Debug BABYLLM.forward: parallelNeuronOutput length: {len(parallelNeuronOutput)}") # ADDED - should be same as input seq len
 
         """make sure inputEmbeds is a LIST of tensors"""
         if not isinstance(inputEmbeds, list):
@@ -84,12 +84,13 @@ class BABYLLM(nn.Module):
 
         """COMBINE ACTIVATIONS"""
         """takes the mean of the transformer output activations across the sequence dimension"""
-        combinedActivations = torch.mean(transformerOutput, dim=0, keepdim=True)
+        combinedActivations = torch.mean(parallelNeuronOutput, dim=0, keepdim=True)
         combinedActivations_multiWindow = self.combineOutputs(combinedActivations, contextVectors_multiWindow)
         #print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
 
         # Convert activations to probability distribution
-        logits = self.outputLayer.forward(combinedActivations_multiWindow)  
+        logits = self.outputLayer.forward(combinedActivations)  
+        #logits = self.outputLayer.forward(combinedActivations_multiWindow)  
         #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}")
         """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
         return logits
