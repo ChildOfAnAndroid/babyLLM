@@ -4,9 +4,12 @@ from config import *
 import torch
 
 def chat(babyLLM, vocab):
-    userInput = input("What do you say? ")
-    if len(userInput) == 0:
-        return
+    try:
+        userInput = input("What do you say? ")
+        if len(userInput) == 0:
+            return
+    except EOFError:
+        userInput = "!exit"
     exitAfter = False 
     if userInput.startswith("!exit"):
         exitAfter = True
@@ -20,12 +23,12 @@ def chat(babyLLM, vocab):
         inputSeq.append(guessedToken)
         output.append(babyLLM.getTokenIndexAsString(guessedToken))
 
-    if exitAfter:
-        print(f"Good bye babyLLM! Full response: {" ".join(output)}")
-        exit(0)
-    #print(f"You said: \"{userInput}\", Full response: {" ".join(output)}")
     response = ''.join(output).replace('Ġ', ' ').strip() # replace Ġ with space
     response = ' '.join(response.split())  # remove extra spaces
+    if exitAfter:
+        print(f'Good bye babyLLM! BabyLLM\'s response: "{response}"')
+        exit(0)
+    #print(f"You said: \"{userInput}\", Full response: {" ".join(output)}")
     print(f'You said: "{userInput}"\nBabyLLM says: "{response}"')
 
     
