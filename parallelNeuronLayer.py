@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from neuron import NEURON
+from tinyAttentionLayer import TINYATTENTIONLAYER
 from config import *
 
 """layer that applies the same set of neurons to each token embedding independently."""
@@ -15,6 +16,8 @@ class PARALLELNEURONLAYER(nn.Module):
         self.embedDimension = embedDimension
         self.activationFunction = activationFunction
         self.allWindowSizes = allWindowSizes
+        self.windowAttn = TINYATTENTIONLAYER(embedDimension)
+        self.attentionProjection = nn.Linear(embedDimension, numNeurons)
         self.windowWeighting = nn.Parameter(torch.ones(len(allWindowSizes)))
         self.combinationLayer = nn.Linear(self.numNeurons * len(self.allWindowSizes), self.numNeurons)
         """puts each neuron into an array/nn list"""
@@ -24,7 +27,9 @@ class PARALLELNEURONLAYER(nn.Module):
 
     def forward(self, inputEmbeds):
         """iterates through the list of input embeddings, applies all neurons in parallel for each embedding, produces a vector of neuron outputs"""
-        # Check what type and shape perTokenActivationsTensor is
+        inputEmbedsTensor = torch.stack(inputEmbeds, dim=0)
+        attendedEmbeds = self.windowAttn(inputEmbedsTensor)
+
         layerActivations = []
         for embedVector in inputEmbeds:
             """Stacks outputs from every neuron (for the current 'embedVector') into a tensor"""
@@ -40,8 +45,17 @@ class PARALLELNEURONLAYER(nn.Module):
             if perTokenActivationsTensor.shape[0] < windowSize:
                 print(f"Not enough tokens for a window! Need at least 2, got {perTokenActivationsTensor.shape[0]}.")
                 continue
-            windowMean = torch.mean(perTokenActivationsTensor[:windowSize], dim=0, keepdim=True)
-            windowMeanActivations.append(windowMean)
+            if windowSize == attentionWindow:
+                inputEmbedsTensor = torch.stack(inputEmbeds, dim=0)  # Convert list to tensor
+                attentionApplied = self.windowAttn(inputEmbedsTensor[-windowSize:].unsqueeze(0))  # Apply attention
+                attentionMean = attentionApplied.mean(dim=1).squeeze(1)  # Shape: [1, embedDimension]
+
+                # Convert attention output to numNeurons for stacking
+                projectedAttention = self.attentionProjection(attentionMean) # Convert [1, embedDim] → [1, numNeurons]
+                windowMeanActivations.append(projectedAttention)
+            else:
+                windowMean = torch.mean(perTokenActivationsTensor[-windowSize:], dim=0, keepdim=True)  # [1, numNeurons]
+                windowMeanActivations.append(windowMean)
 
         if not windowMeanActivations:
             print("No valid window sizes")
@@ -50,8 +64,13 @@ class PARALLELNEURONLAYER(nn.Module):
         """combine activations into their own learnable layer"""
         windowMeanStack = torch.stack(windowMeanActivations, dim=0)  # Shape: [num_windows, 1, numNeurons]
         normalizedWeights = F.softmax(self.windowWeighting, dim=0).view(-1, 1, 1)  # Shape: [num_windows, 1, 1]
-        weightedWindowMean = torch.sum(windowMeanStack * normalizedWeights, dim=0)  # Shape: [1, numNeurons]
-        self.combinationLayer = nn.Linear(weightedWindowMean.shape[1], self.numNeurons)
+        weightedWindowMeanList = []
+        for i in range(windowMeanStack.shape[0]): # Iterate through windows
+            weightedWindowMean = windowMeanStack[i] * normalizedWeights[i] # Apply weight to each window mean
+            weightedWindowMeanList.append(weightedWindowMean)
+
+        weightedWindowMean = torch.cat(weightedWindowMeanList, dim=1) # Concatenate along feature dimension (dim=1)
+
         combinedActivationsTensor = self.combinationLayer(weightedWindowMean)
 
         """DEBUG PRINTS"""
@@ -65,7 +84,7 @@ class PARALLELNEURONLAYER(nn.Module):
         #    print("Unknown format for perTokenActivationsTensor!")
 
         return combinedActivationsTensor#, perTokenActivationsTensor
-    
+
     #def smallContextWindow(self, perTokenActivationsTensor):
     #    if perTokenActivationsTensor.shape[0] < windowMIN:
     #        print(f"Not enough tokens for a window! Need at least 2, got {perTokenActivationsTensor.shape[0]}.")

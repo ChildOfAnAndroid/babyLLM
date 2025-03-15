@@ -9,7 +9,7 @@ from embedLayer import EMBEDLAYER
 from parallelNeuronLayer import PARALLELNEURONLAYER
 from outputLayer import OUTPUTLAYER
 from neuron import NEURON
-from multiWindowLayer import MULTIWINDOWLAYER
+from tinyAttentionLayer import TINYATTENTIONLAYER
 from config import *
 from datetime import datetime
 
@@ -39,6 +39,9 @@ class BABYLLM(nn.Module):
         #self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
+        #print("Registered Parameters:")
+        #for name, param in BABYLLM.named_parameters(self):
+        #    print(name, param.shape)
         self.optimizer = optimizerClass(
             list(self.embedLayer.parameters()) +
             list(self.parallelNeuronLayer.parameters()) + 
@@ -129,6 +132,7 @@ class BABYLLM(nn.Module):
         for epoch in range(epochs):
             print(f"--- Epoch {epoch+1}/{epochs} Started ---")
             totalLoss = 0 # this is total loss PER 1000 STEPS
+            totalLoss2 = 0 # this is total loss PER 10 STEPS
 
             """TRAINING DATA (batches)"""
             for i, (inputSeq, target) in enumerate(trainingDataPairs):
@@ -149,18 +153,37 @@ class BABYLLM(nn.Module):
                 loss.backward()
                 self.optimizer.step()
                 totalLoss += loss.item()
+                totalLoss2 += loss.item()
 
                 """PRINTING LOSS TO LOGS AND TERMINAL"""
+                if i == 1:
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
+                    runStart = f"\n--- {timestamp} ---\n"
+                    print(f" {runStart.strip()}")
+                    with open("trainingLogDetail.txt", "a") as logFile:
+                        logFile.write(runStart)
+                    with open("trainingLog.txt", "a") as logFile:
+                        logFile.write(runStart)
+
                 # Track loss every 1000 steps
                 if (i + 1) % printLossFreq == 0:  
                     avgLoss = totalLoss / printLossFreq  # Compute average loss
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    lossLog = f"{timestamp} | Context: {[windowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}"
-                    lossLog += f""
+                    lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}\n"
                     print(f" {lossLog.strip()}")
                     with open("trainingLog.txt", "a") as logFile:
                         logFile.write(lossLog)
                     totalLoss = 0
+
+                # Track loss every 10 steps
+                if (i + 1) % printLossFreq2 == 0:  
+                    avgLoss2 = totalLoss2 / printLossFreq2  # Compute average loss
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
+                    lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss2:.4f}\n"
+                    print(f" {lossLog.strip()}")
+                    with open("trainingLogDetail.txt", "a") as logFile:
+                        logFile.write(lossLog)
+                    totalLoss2 = 0
                 
                 """PRINTING GUESSES TO THE TERMINAL"""
                 if (i + 1) % printFreq == 0:  
@@ -215,6 +238,7 @@ class BABYLLM(nn.Module):
     """loads the model from a file"""
     def loadModel(self, filePath = modelPath):
         try:
+            print(f"Loading model from path: {filePath}") 
             self.load_state_dict(torch.load(filePath), strict = saveLock)
             print(f"Model loaded from {filePath}!")
         except FileNotFoundError:

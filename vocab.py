@@ -23,14 +23,14 @@ This class:
 - Saves and loads vocabulary data to/from files.
 """
 class VOCAB:
-    def __init__(self, vocabSize, vocabPath=None):
+    def __init__(self, vocabSize, vocabPath = "vocabCache/vocabTEST_2000_170"):
         self.vocabSize = vocabSize - 1 # reduces size by 1 to allow space for UNK token
         self.vocabList = []
         self.tokenToIndex = {}
         self.indexToToken = {}
         self.unkToken = "<UNK>"
         self.vocabCache = "vocabCache"
-        self.vocabFilename = f"vocab_{vocabSize}"
+        self.vocabFilename = f"vocabTEST_{vocabSize}_{minTokenFreq}"
         self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
         self.tokenToIndexFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_index.json")
         self.indexToTokenFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_token.json")
@@ -189,4 +189,4 @@ if __name__ == "__main__":
     print(f"---101-300---: {vocab.vocabList[101:300]}")
     print(f"---Top 100---: {vocab.vocabList[:100]}")
 
-    print(vocab.huggingTokenizer("charis and elodie are very cool, elodie and charis are very suave, sexy bitches, we love these girls and we want to see them living their best lives bruv"))
+    print(vocab.huggingTokenizer("charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"))

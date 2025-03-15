@@ -5,6 +5,7 @@ from torch.nn.functional import leaky_relu
 saveModelFreq = 50              # saves the model every x number of turns
 modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
 printLossFreq = 1000            # how often to save average loss to a text file
+printLossFreq2 = 100            # how often to save average loss to a text file
 saveLock = False               # allow for reconstruction of missing files etc
 #saveLock = True                 # ensure that all save files are present when loading else fail
 
@@ -17,19 +18,16 @@ epochs = 20                     # number of training epochs
 #trainingStartIndex = 'random'  # start training at a random point in the file
 trainingStartIndex = 0          # start training at the beginning of the file
 
-windowMAX = 9                   # THIS MUST BE THE HIGHEST NUMBER
-windowMIN = 5                   # Small Context Window
-window1 = 6
-window2 = 7
-window3 = 8
-allWindowSizes = [windowMIN, window1, window2, window3, windowMAX]
-
-trainingWindow = 7
-trainingWindow_smallContext = 2
+windowMIN = 3                   # Small Context Window
+window1 = 7      
+attentionWindow = 9             # attention head  
+window2 = 11
+windowMAX = 13                  # THIS MUST BE THE HIGHEST NUMBER
+allWindowSizes = [attentionWindow, windowMIN, window1, window2, windowMAX]
                                 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 
 """OPTIMIZER"""
-learningRate = 0.00005          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
+learningRate = 0.0002          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
 optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
 
@@ -39,11 +37,11 @@ leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01) #leaky reLU avoids dead
 activationFunction = leakyRelu
 
 """TERMINAL OUTPUT COLOURS"""
-lowLoss = 1                     #
-veryLowLoss = 0.5               #
-prettyHighLoss = 5.0            #
-highLoss = 10.0                 #
-superHighLoss = 30.0            #
+veryLowLoss = 0.5               # 0.5
+lowLoss = 1                     # 1
+prettyHighLoss = 30.0            # 5
+highLoss = 100.0                 # 10
+superHighLoss = 1000.0           # 30
 LIGHT_PURPLE = "\033[94m"       # light purple
 PURPLE = "\033[38;5;225m"       # purple
 RESET = "\033[0m"               # normal terminal
@@ -61,14 +59,15 @@ loadData_chunkSize = 4096
 
 rawDataFilepaths = [ # for textCleaningTool.py
     ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/mousey.txt"),
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
-    ("text", "data/CHARIS/lineSortedData.txt"),
+    #("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
-    #("text", "data/CHARIS/shorterwrittenexamples.txt"),
+    ("text", "data/CHARIS/shorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),
     #("text", "data/CHARIS/longerwrittenexamples.txt"),
     #("text", "data/CHARIS/longestwrittenexamples.txt"),
-    #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
+    ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
     #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
     #("json", "data/CHARIS/discord.json"), # discord message history
     #("text", "data/CHARIS/shitpoems.txt"),
@@ -86,6 +85,7 @@ dataFiles = [{"type": ftype, "in": fname, "out": outputFile} for ftype, fname in
 vocabSize = 2000                # maximum vocabulary size
 embedDimension = 32             # dimensionality of token embeddings
 numNeurons = 10000              # number of neurons in the parallel neuron layer
+numHeads = 2
 
 """TOKENIZER"""
-minTokenFreq = 20               # the amount of repeats of a token needed to create a split during tokenizer training
+minTokenFreq = 170               # the amount of repeats of a token needed to create a split during tokenizer training
