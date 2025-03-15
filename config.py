@@ -7,6 +7,7 @@ modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
 printLossFreq = 1000            # how often to save average loss to a text file
 printLossFreq2 = 100            # how often to save average loss to a text file
 saveLock = False               # allow for reconstruction of missing files etc
+vocabLoad = "vocabCache/vocabTEST_2000_170"
 #saveLock = True                 # ensure that all save files are present when loading else fail
 
 """PREDICTION CONFIG"""
@@ -25,6 +26,7 @@ window2 = 11
 windowMAX = 13                  # THIS MUST BE THE HIGHEST NUMBER
 allWindowSizes = [attentionWindow, windowMIN, window1, window2, windowMAX]
                                 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+windowSmoothing = 0.1
 
 """OPTIMIZER"""
 learningRate = 0.0002          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
@@ -41,7 +43,7 @@ veryLowLoss = 0.5               # 0.5
 lowLoss = 1                     # 1
 prettyHighLoss = 30.0            # 5
 highLoss = 100.0                 # 10
-superHighLoss = 1000.0           # 30
+superHighLoss = 500.0           # 30
 LIGHT_PURPLE = "\033[94m"       # light purple
 PURPLE = "\033[38;5;225m"       # purple
 RESET = "\033[0m"               # normal terminal

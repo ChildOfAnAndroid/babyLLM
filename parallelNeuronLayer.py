@@ -17,7 +17,7 @@ class PARALLELNEURONLAYER(nn.Module):
         self.activationFunction = activationFunction
         self.allWindowSizes = allWindowSizes
         self.windowAttn = TINYATTENTIONLAYER(embedDimension)
-        self.attentionProjection = nn.Linear(embedDimension, numNeurons)
+        self.attentionProjection = nn.Sequential(nn.LayerNorm(embedDimension), nn.Linear(embedDimension, numNeurons))
         self.windowWeighting = nn.Parameter(torch.ones(len(allWindowSizes)))
         self.combinationLayer = nn.Linear(self.numNeurons * len(self.allWindowSizes), self.numNeurons)
         """puts each neuron into an array/nn list"""
@@ -34,6 +34,7 @@ class PARALLELNEURONLAYER(nn.Module):
         for embedVector in inputEmbeds:
             """Stacks outputs from every neuron (for the current 'embedVector') into a tensor"""
             neuronOutputs = torch.stack([neuron(embedVector) for neuron in self.neurons])
+            neuronOutputs = torch.clamp(neuronOutputs, min=-5, max=5)  # Prevent neurons from exploding
             #print(f"Debug TRANSFORMERLAYER: Shape of neuronOutputTensor: {neuronOutputTensor.shape}")
             layerActivations.append(neuronOutputs)
 
@@ -43,7 +44,9 @@ class PARALLELNEURONLAYER(nn.Module):
         windowMeanActivations = []
         for windowSize in allWindowSizes:
             if perTokenActivationsTensor.shape[0] < windowSize:
-                print(f"Not enough tokens for a window! Need at least 2, got {perTokenActivationsTensor.shape[0]}.")
+                print(f"Not enough tokens for a window! Need at least {windowSize}, got {perTokenActivationsTensor.shape[0]}.")
+                emptyWindow = torch.zeros_like(perTokenActivationsTensor[0]).unsqueeze(0)
+                windowMeanActivations.append(emptyWindow)
                 continue
             if windowSize == attentionWindow:
                 inputEmbedsTensor = torch.stack(inputEmbeds, dim=0)  # Convert list to tensor
@@ -63,7 +66,7 @@ class PARALLELNEURONLAYER(nn.Module):
 
         """combine activations into their own learnable layer"""
         windowMeanStack = torch.stack(windowMeanActivations, dim=0)  # Shape: [num_windows, 1, numNeurons]
-        normalizedWeights = F.softmax(self.windowWeighting, dim=0).view(-1, 1, 1)  # Shape: [num_windows, 1, 1]
+        normalizedWeights = (self.windowWeighting + 0.1) / (self.windowWeighting.sum() + 0.1)
         weightedWindowMeanList = []
         for i in range(windowMeanStack.shape[0]): # Iterate through windows
             weightedWindowMean = windowMeanStack[i] * normalizedWeights[i] # Apply weight to each window mean

@@ -23,7 +23,7 @@ This class:
 - Saves and loads vocabulary data to/from files.
 """
 class VOCAB:
-    def __init__(self, vocabSize, vocabPath = "vocabCache/vocabTEST_2000_170"):
+    def __init__(self, vocabSize = vocabSize, vocabPath = vocabLoad):
         self.vocabSize = vocabSize - 1 # reduces size by 1 to allow space for UNK token
         self.vocabList = []
         self.tokenToIndex = {}

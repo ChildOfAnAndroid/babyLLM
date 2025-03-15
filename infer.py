@@ -33,7 +33,7 @@ def chat(babyLLM, vocab):
 
     
 if __name__ == "__main__":
-    vocab = VOCAB(vocabSize = vocabSize, vocabPath="vocabCache/vocab_2000")
+    vocab = VOCAB()
 
     babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
     babyLLM.loadModel("babyLLM.pth")

@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer
 
 # Load both tokenizers
-tokenizer_original = AutoTokenizer.from_pretrained("vocab_2000", trust_remote_code=True)
+tokenizer_original = AutoTokenizer.from_pretrained("archive8/vocab_2000", trust_remote_code=True)
 tokenizer_new = AutoTokenizer.from_pretrained("vocabTEST_2000_170", trust_remote_code=True) # Or "./tokenizerNEW.json" if you are testing that
 
 # Choose a representative sample text (replace with your actual data examples)
