@@ -117,4 +117,4 @@
 2025-03-14 20:19:08 | Context: 7 | LR: 5e-05 | Step 2000 | Avg Loss: 5.0811
 2025-03-14 20:48:21 | Context: 7 | LR: 5e-05 | Step 3000 | Avg Loss: 5.2734
 2025-03-14 21:17:46 | Context: 7 | LR: 5e-05 | Step 4000 | Avg Loss: 4.1162
-2025-03-14 21:47:06 | Context: 7 | LR: 5e-05 | Step 5000 | Avg Loss: 3.9836\n
+2025-03-14 21:47:06 | Context: 7 | LR: 5e-05 | Step 5000 | Avg Loss: 3.9836\n2025-03-14 22:34:55 | Context: 7 | LR: 0.00001 | Step 1000 | Avg Loss: 13.6095

@@ -2,11 +2,11 @@
 from torch.nn.functional import leaky_relu
 
 """SAVE DATA"""
-saveModelFreq = 250             # saves the model every x number of turns
+saveModelFreq = 50              # saves the model every x number of turns
 modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
 printLossFreq = 1000            # how often to save average loss to a text file
-saveLock = False                # allow for reconstruction of missing files etc
-#saveLock = True                # ensure that all save files are present when loading else fail
+saveLock = False               # allow for reconstruction of missing files etc
+#saveLock = True                 # ensure that all save files are present when loading else fail
 
 """PREDICTION CONFIG"""
 temperature = 0.7               # temperature for softmax in response generation (controls randomness)
@@ -14,18 +14,22 @@ topP = 0                        # top P (probability), default is 0
 
 """EPOCHS & TRAINING WINDOW"""
 epochs = 20                     # number of training epochs
-trainingStartIndex = 'random'   # start training at a random point in the file
-#trainingStartIndex = 0         # start training at the beginning of the file
+#trainingStartIndex = 'random'  # start training at a random point in the file
+trainingStartIndex = 0          # start training at the beginning of the file
 
-#Window = 7                     # THIS MUST BE THE HIGHEST NUMBER
-trainingWindow = 7              # context window size (number of input tokens) for training - 8 is too high rn
-trainingWindow_smallContext = 2    
-window1 = 2
-window2 = 4
-window3 = 6
+windowMAX = 9                   # THIS MUST BE THE HIGHEST NUMBER
+windowMIN = 5                   # Small Context Window
+window1 = 6
+window2 = 7
+window3 = 8
+allWindowSizes = [windowMIN, window1, window2, window3, windowMAX]
+
+trainingWindow = 7
+trainingWindow_smallContext = 2
+                                #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 
 """OPTIMIZER"""
-learningRate = 0.00001          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
+learningRate = 0.00005          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
 optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
 
@@ -56,7 +60,7 @@ dataFilepaths = ["data/CHARIS/trainingData.txt"]
 loadData_chunkSize = 4096
 
 rawDataFilepaths = [ # for textCleaningTool.py
-    #("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
     ("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),

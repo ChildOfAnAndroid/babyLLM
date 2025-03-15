@@ -121,23 +121,23 @@ class VOCAB:
         return loadTrainingData
     
     """GENERATE TRAINING DATA"""
-    def genTrainingData(self, trainingWindow, startIndex = trainingStartIndex):
+    def genTrainingData(self, windowMAX, startIndex = trainingStartIndex):
         """generates training data pairs (input sequences and target tokens)"""
         trainingDataPairs = []
-        if isinstance(trainingWindow, torch.Tensor):
-            trainingWindow = trainingWindow.item()
+        if isinstance(windowMAX, torch.Tensor):
+            windowMAX = windowMAX.item()
         else:
-            trainingWindow = int(trainingWindow)
+            windowMAX = int(windowMAX)
         """allows for a random start in the training data file"""
         if startIndex == 'random':
-            startIndex = random.randint(0, len(self.tokens) - trainingWindow - 1)
+            startIndex = random.randint(0, len(self.tokens) - windowMAX - 1)
         else:
             startIndex = int(startIndex)
-        endIndex = len(self.tokens) - trainingWindow
+        endIndex = len(self.tokens) - windowMAX
         """creates sliding windows from the tokenized training data (`self.tokens`) to form input sequences, using the next token as target."""
         for i in range(startIndex, endIndex):
-            inputSeq = self.tokens[i:i + trainingWindow] # a list of tokens (str) of length `trainingWindow`
-            targetToken= self.tokens[i + trainingWindow] # a single token (str) that follows the input_sequence.
+            inputSeq = self.tokens[i:i + windowMAX] # a list of tokens (str) of length `windowMAX`
+            targetToken= self.tokens[i + windowMAX] # a single token (str) that follows the input_sequence.
 
             if all(token in self.vocabList for token in inputSeq) and targetToken in self.vocabList:
                 trainingDataPairs.append((inputSeq, targetToken))

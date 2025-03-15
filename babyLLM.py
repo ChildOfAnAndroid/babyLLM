@@ -120,6 +120,7 @@ class BABYLLM(nn.Module):
 
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def train(self, trainingDataPairs, epochs):
+        #self.combinationLayer = nn.Linear((self.numNeurons * 5), self.numNeurons)
         babyLLM.loadModel()
         print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
         print("--- Training Started ---")
@@ -154,7 +155,7 @@ class BABYLLM(nn.Module):
                 if (i + 1) % printLossFreq == 0:  
                     avgLoss = totalLoss / printLossFreq  # Compute average loss
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    lossLog = f"{timestamp} | Context: {trainingWindow} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}"
+                    lossLog = f"{timestamp} | Context: {[windowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}"
                     lossLog += f""
                     print(f" {lossLog.strip()}")
                     with open("trainingLog.txt", "a") as logFile:
@@ -274,7 +275,7 @@ if __name__ == "__main__":
     TESTinputSeq = ["i","love","you","this","is","good","music","is","life",]
     #TESTinputSeq = ["what"] 
 
-    trainingDataPairs = vocab.genTrainingData(trainingWindow)
+    trainingDataPairs = vocab.genTrainingData(windowMAX)
     babyLLM.train(trainingDataPairs, epochs = epochs)
 
     print("--- BabyLLM TESTING START ---")
