@@ -87,19 +87,6 @@ class PARALLELNEURONLAYER(nn.Module):
         #    print("Unknown format for perTokenActivationsTensor!")
 
         return combinedActivationsTensor#, perTokenActivationsTensor
-
-    #def smallContextWindow(self, perTokenActivationsTensor):
-    #    if perTokenActivationsTensor.shape[0] < windowMIN:
-    #        print(f"Not enough tokens for a window! Need at least 2, got {perTokenActivationsTensor.shape[0]}.")
-    #        return None
-    #    """find the first two token activations"""
-    #    smallContextActivations = perTokenActivationsTensor[:windowMIN]  # [2, numNeurons]
-    #    #window 1 act = cut last two from tensor thing
-    #    #mean 
-    #    #cat window 1 act tensor
-    #    """take the mean"""
-    #    smallContextActivationsTensor = torch.mean(windowCatSlices, dim=0, keepdim=True)  # [1, numNeurons]
-    #    #return smallContextActivationsTensor
             
     
 if __name__ == "__main__":

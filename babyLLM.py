@@ -10,6 +10,7 @@ from parallelNeuronLayer import PARALLELNEURONLAYER
 from outputLayer import OUTPUTLAYER
 from neuron import NEURON
 from tinyAttentionLayer import TINYATTENTIONLAYER
+from memoryLayer import MEMORYLAYER
 from config import *
 from datetime import datetime
 
@@ -36,6 +37,7 @@ class BABYLLM(nn.Module):
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
         self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
+        self.memoryLayer = MEMORYLAYER(numNeurons = self.numNeurons)
         #self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
@@ -45,7 +47,8 @@ class BABYLLM(nn.Module):
         self.optimizer = optimizerClass(
             list(self.embedLayer.parameters()) +
             list(self.parallelNeuronLayer.parameters()) + 
-            list(self.outputLayer.parameters()),
+            list(self.outputLayer.parameters()) +
+            list(self.memoryLayer.parameters()),
             lr=self.learningRate, weight_decay=0.001
         )
 
@@ -75,25 +78,22 @@ class BABYLLM(nn.Module):
             pass
 
         """PARALLEL NEURON LAYER input/processing (feature extraction)"""
-        parallelNeuronOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
+        combinedActivationsTensor = self.parallelNeuronLayer.forward(inputEmbeds) 
         #print(f"Debug BABYLLM.forward: parallelNeuronOutput length: {len(parallelNeuronOutput)}") # ADDED - should be same as input seq len
 
         """make sure inputEmbeds is a LIST of tensors"""
         if not isinstance(inputEmbeds, list):
-            inputEmbeds = [inputEmbeds] 
+            inputEmbeds = [inputEmbeds]
 
-        """MULTI WINDOW LAYER input/processing (context)"""
-        #contextVectors_multiWindow = self.multiWindowLayer.forward(inputEmbeds)
+        """MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS"""
+        memoryLayerOutput = self.memoryLayer.forward(combinedActivationsTensor)
 
-        """COMBINE ACTIVATIONS"""
-        """takes the mean of the transformer output activations across the sequence dimension"""
-        combinedActivations = torch.mean(parallelNeuronOutput, dim=0, keepdim=True)
-        #combinedActivations_multiWindow = self.combineOutputs(combinedActivations, contextVectors_multiWindow)
+        #"""COMBINE ACTIVATIONS"""
+        #combinedActivations = torch.mean(combinedActivationsTensor, dim=0, keepdim=True)
+
         #print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
-
-        # Convert activations to probability distribution
-        logits = self.outputLayer.forward(combinedActivations)  
-        #logits = self.outputLayer.forward(combinedActivations_multiWindow)  
+        """Convert activations to probability distribution"""
+        logits = self.outputLayer.forward(memoryLayerOutput)  
         #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}")
         """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
         return logits
