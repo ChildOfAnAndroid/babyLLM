@@ -145,12 +145,15 @@ class BABYLLM(nn.Module):
                 else:
                     targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
 
+
                 """TRAINING STEP"""
                 self.optimizer.zero_grad() # reset gradients from previous step
                 logits = self.forward(inputTokenIndices)
                 guessedTokenIndex = self.getResponseFromLogits(logits)
                 loss = self.computeLoss(logits, targetTokenIndex)
                 loss.backward()
+                """GRADIENT CLIPPING"""
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
                 self.optimizer.step()
                 totalLoss += loss.item()
                 totalLoss2 += loss.item()

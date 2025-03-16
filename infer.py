@@ -1,11 +1,17 @@
 from babyLLM import BABYLLM
 from vocab import VOCAB
+from datetime import datetime
 from config import *
 import torch
 
 def chat(babyLLM, vocab):
     try:
         userInput = input("What do you say? ")
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
+        chatStart = f"\n--- {timestamp} ---\n"
+        print(f"{chatStart.strip()}")
+        with open("chatLog.txt", "a") as logFile:
+            logFile.write(chatStart)
         if len(userInput) == 0:
             return
     except EOFError:
@@ -29,7 +35,10 @@ def chat(babyLLM, vocab):
         print(f'Good bye babyLLM! BabyLLM\'s response: "{response}"')
         exit(0)
     #print(f"You said: \"{userInput}\", Full response: {" ".join(output)}")
-    print(f'You said: "{userInput}"\nBabyLLM says: "{response}"')
+    chatLog = f"You: {userInput}\nBabyLLM: {response}\n"
+    print(f"{chatLog.strip()}")
+    with open("chatLog.txt", "a") as logFile:
+        logFile.write(chatLog)
 
     
 if __name__ == "__main__":

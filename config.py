@@ -32,6 +32,7 @@ windowSmoothing = 0.1
 learningRate = 0.0002          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
 optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
+gradientClipMaxNorm = 0.5
 
 """ACTIVATION FUNCTION"""
 leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01) #leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
@@ -62,14 +63,16 @@ loadData_chunkSize = 4096
 rawDataFilepaths = [ # for textCleaningTool.py
     ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     ("text", "data/CHARIS/mousey.txt"),
+    ("text", "data/CHARIS/elodieMousey.txt"),
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
     #("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
-    ("text", "data/CHARIS/shorterwrittenexamples.txt"),
+    #("text", "data/CHARIS/shorterwrittenexamples.txt"),
+    ("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),
     #("text", "data/CHARIS/longerwrittenexamples.txt"),
     #("text", "data/CHARIS/longestwrittenexamples.txt"),
-    ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
+    #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
     #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
     #("json", "data/CHARIS/discord.json"), # discord message history
     #("text", "data/CHARIS/shitpoems.txt"),
@@ -87,7 +90,7 @@ dataFiles = [{"type": ftype, "in": fname, "out": outputFile} for ftype, fname in
 vocabSize = 2000                # maximum vocabulary size
 embedDimension = 32             # dimensionality of token embeddings
 numNeurons = 10000              # number of neurons in the parallel neuron layer
-numHeads = 2
+numHeads = 4
 
 """TOKENIZER"""
 minTokenFreq = 170               # the amount of repeats of a token needed to create a split during tokenizer training
