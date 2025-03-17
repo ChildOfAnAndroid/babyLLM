@@ -7,7 +7,7 @@ modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
 printLossFreq = 1000            # how often to save average loss to a text file
 printLossFreq2 = 100            # how often to save average loss to a text file
 saveLock = False               # allow for reconstruction of missing files etc
-vocabLoad = "vocabCache/vocabTEST_2000_170"
+vocabLoad = "vocabCache/tokenizer.json"
 #saveLock = True                 # ensure that all save files are present when loading else fail
 
 """PREDICTION CONFIG"""
@@ -19,20 +19,24 @@ epochs = 20                     # number of training epochs
 #trainingStartIndex = 'random'  # start training at a random point in the file
 trainingStartIndex = 0          # start training at the beginning of the file
 
-windowMIN = 3                   # Small Context Window
-window1 = 7      
-attentionWindow = 9             # attention head  
-window2 = 11
-windowMAX = 13                  # THIS MUST BE THE HIGHEST NUMBER
-allWindowSizes = [attentionWindow, windowMIN, window1, window2, windowMAX]
+windowMIN = 1                   # Small Context Window
+window1 = 2
+window2 = 3
+window3 = 7
+window4 = 8      
+attentionWindow = 11             # attention head  
+window5 = 13
+window6 = 15
+windowMAX = 18                  # THIS MUST BE THE HIGHEST NUMBER
+allWindowSizes = [attentionWindow, windowMIN, window1, window2, window3, window4, window5, window6, windowMAX]
                                 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 windowSmoothing = 0.1
 
 """OPTIMIZER"""
-learningRate = 0.0002          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
+learningRate = 0.001          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
 optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
-gradientClipMaxNorm = 0.5
+gradientClipMaxNorm = 1.0
 
 """ACTIVATION FUNCTION"""
 leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01) #leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
@@ -41,10 +45,10 @@ activationFunction = leakyRelu
 
 """TERMINAL OUTPUT COLOURS"""
 veryLowLoss = 0.5               # 0.5
-lowLoss = 1                     # 1
-prettyHighLoss = 30.0            # 5
-highLoss = 100.0                 # 10
-superHighLoss = 500.0           # 30
+lowLoss = 50                     # 1
+prettyHighLoss = 3000.0            # 5
+highLoss = 20000.0                 # 10
+superHighLoss = 100000.0           # 30
 LIGHT_PURPLE = "\033[94m"       # light purple
 PURPLE = "\033[38;5;225m"       # purple
 RESET = "\033[0m"               # normal terminal
@@ -57,9 +61,10 @@ ORANGE = "\033[38;5;52m"        #
 printFreq = 1                   # how often to print training progress to the terminal
 
 """TRAINING DATA"""
-dataFilepaths = ["data/CHARIS/trainingData.txt"]
+trainingFile = "data/CHARIS/trainingData_lessCharacters.txt"
 loadData_chunkSize = 4096
 
+dataFilepaths = ["data/CHARIS/trainingData.txt"]
 rawDataFilepaths = [ # for textCleaningTool.py
     ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     ("text", "data/CHARIS/mousey.txt"),
@@ -88,9 +93,9 @@ dataFiles = [{"type": ftype, "in": fname, "out": outputFile} for ftype, fname in
 """WARNING, CHANGING SETTINGS BELOW HERE MAY MAKE CURRENTLY TRAINED MODEL INACCURATE"""
 """MODEL CONFIG"""
 vocabSize = 2000                # maximum vocabulary size
-embedDimension = 32             # dimensionality of token embeddings
+embedDimension = 1024             # dimensionality of token embeddings
 numNeurons = 10000              # number of neurons in the parallel neuron layer
-numHeads = 4
+numHeads = 32
 
 """TOKENIZER"""
-minTokenFreq = 170               # the amount of repeats of a token needed to create a split during tokenizer training
+minTokenFreq = 20               # the amount of repeats of a token needed to create a split during tokenizer training

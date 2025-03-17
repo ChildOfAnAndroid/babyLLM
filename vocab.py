@@ -1,8 +1,9 @@
 # Charis Cat 2025
 from collections import Counter
 from config import *
-from transformers import AutoTokenizer, PreTrainedTokenizerFast  # Import PreTrainedTokenizerFast
-from tokenizers import ByteLevelBPETokenizer
+#from transformers import AutoTokenizer, PreTrainedTokenizerFast  # Import PreTrainedTokenizerFast
+from tokenizers import Tokenizer, models, trainers, pre_tokenizers
+#from tokenizers import ByteLevelBPETokenizer
 from tokenizers.processors import ByteLevel
 import os
 import re
@@ -30,74 +31,97 @@ class VOCAB:
         self.indexToToken = {}
         self.unkToken = "<UNK>"
         self.vocabCache = "vocabCache"
-        self.vocabFilename = f"vocabTEST_{vocabSize}_{minTokenFreq}"
+        self.vocabFilename = f"vocab{vocabSize}_{minTokenFreq}"
         self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
+
         self.tokenToIndexFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_index.json")
         self.indexToTokenFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_token.json")
 
+        self.tokenizerFilename = "tokenizer.json"
+        self.tokenizerPath = os.path.join(self.vocabCache, self.tokenizerFilename)
+
         if vocabPath:
             """if vocabPath is provided, load a pretrained tokenizer from that path"""
-            tokenizerSavePath = vocabPath
+            self.tokenizerPath = vocabPath
         else:
-            """if vocabPath not provided (training mode), set tokenizerSavePath to the default directory"""
-            tokenizerSavePath = os.path.join(self.vocabCache, self.vocabFilename)
+            """if vocabPath not provided (training mode), set tokenizerPath to the default directory"""
+            self.tokenizerPath = os.path.join(self.vocabCache, self.tokenizerFilename)
             if not os.path.exists(self.vocabCache):
                 os.makedirs(self.vocabCache)
 
-        """check if tokenizer files exist at tokenizerSavePath. if yes, load it!"""
-        if os.path.exists(tokenizerSavePath):
-            print("Tokenizer found, loading from disk...")
-            self.tokenizer = AutoTokenizer.from_pretrained(tokenizerSavePath)
+        """check if tokenizer files exist at tokenizerPath. if yes, load it!"""
+        if os.path.exists(self.tokenizerPath):
+            print("Loading trained tokenizer...")
+            self.tokenizer = Tokenizer.from_file(self.tokenizerPath)
         else:
-            if vocabPath:
-                raise FileNotFoundError(f"Tokenizer not found at {tokenizerSavePath}. Cannot train tokenizer without data!")
+            if not self.tokenizerPath:
+                raise FileNotFoundError(f"Tokenizer not found at {self.tokenizerPath}. Cannot train tokenizer without data!")
             
             """call the chosen tokenizer"""
             print("Tokenizer not found, training now...")
-            tokenizerTrainer = ByteLevelBPETokenizer(lowercase=True)
-            tokenizerTrainer.train(
-                files=dataFilepaths,
+            #tokenizerTrainer = ByteLevelBPETokenizer(lowercase=True)
+            tokenizerTrainer = Tokenizer(models.BPE(unk_token="<UNK>"))
+            tokenizerTrainer.pre_tokenizer = pre_tokenizers.ByteLevel()
+            trainer = trainers.BpeTrainer(
                 vocab_size=self.vocabSize,
                 min_frequency=minTokenFreq,
+                special_tokens=["<UNK>"]
             )
-            tokenizerTrainer.post_processor = ByteLevel(trim_offsets=True)
+            print("Processing training data...")
+            processed_data = []
+            with open(trainingFile, "r", encoding="utf-8") as f:
+                processed_data.append(f.read().lower())  # Lowercase each file
 
-            """wrap the trained tokenizer in a 'PreTrainedTokenizerFast' object, setting special tokens (like UNK) and max length"""
-            wrappedTokenizer = PreTrainedTokenizerFast(
-                tokenizer_object=tokenizerTrainer,
-                unk_token = self.unkToken,
-                model_max_length=9000000, # this means it can analyse longer data than default
-            )
+            # Train tokenizer on lowercased text (without modifying files)
+            print("Training new tokenizer...")
+            tokenizerTrainer.train_from_iterator(processed_data, trainer)
 
             """save this new tokenizer to the save path, where it will be loaded from in future runs to keep vocab consistent"""
-            wrappedTokenizer.save_pretrained(tokenizerSavePath)
-            self.tokenizer = AutoTokenizer.from_pretrained(tokenizerSavePath)
+            tokenizerTrainer.save(self.tokenizerPath)
+            self.tokenizer = tokenizerTrainer
 
-        print(f"Vocab length: {len(self.tokenizer)}")
+        print(f"Vocab length: {len(self.tokenizer.get_vocab())}")
 
         if self.loadVocab():
             print(f"Loaded vocab: {self.vocabCache}")
             self.trainingDataPairs = self.loadTrainingData(dataFilepaths)  # Load text data
-            self.tokens = self.huggingTokenizer(self.trainingDataPairs)  # Tokenize the text
+            self.tokens = self.tokenizeText(self.trainingDataPairs)  # Tokenize the text
             print(f"DEBUG: Tokens exist? {hasattr(self, 'tokens')} (Length: {len(self.tokens) if hasattr(self, 'tokens') else 'N/A'})")
             print(f"DEBUG: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")
         else:
             print(f"Building vocab from scratch (size: {vocabSize})...")
-            self.vocabList = list(self.tokenizer.get_vocab().keys()) # stores tokenizer vocabulary in self.vocabList
-            self.tokenToIndex = self.tokenizer.get_vocab() # takes token to index directly from the tokenizer
-            self.indexToToken = {v: k for k, v in self.tokenToIndex.items()}
-            """adds the UNK token to the vocab list"""
-            if self.unkToken not in self.tokenToIndex:
-                self.vocabList.append(self.unkToken)
-                self.tokenToIndex[self.unkToken] = len(self.vocabList) - 1
-                self.indexToToken[len(self.vocabList) - 1] = self.unkToken
-            
-            print(f"Vocab length: {len(self.tokenizer)}")
+            self.buildVocabMap() # Use new method to build vocab mappings
+            print(f"Vocab length: {len(self.vocabList)}") # Vocab length from list
             self.saveVocab()
-            print(f"Saved vocab: {self.vocabCache}")
+            print(f"Saved vocab data to: {self.vocabCache}")
 
         print(f"DEBUG VOCAB.__init__: Length of vocabList AFTER buildVocab: {len(self.vocabList)}")
         print(f"DEBUG VOCAB.__init__: First 20 tokens in vocabList: {self.vocabList[:20]}")
+
+    def tokenizeText(self, text):
+        encoding = self.tokenizer.encode(text)  # Tokenize using encode method
+        tokens_str = [self.indexToToken.get(idx, "<UNK>") for idx in encoding.ids]  # Convert IDs back to strings
+        print(f"📝 Tokenizing: {text}")
+        print(f"📌 Token IDs: {encoding.ids}")
+        print(f"📌 Token Strings: {tokens_str}")  # Debug this!
+        return tokens_str
+
+    def buildVocabMap(self):
+        # Load vocab from trained tokenizer
+        vocab = self.tokenizer.get_vocab()  # Get vocab dictionary from tokenizer
+        self.vocabList = sorted(vocab.keys(), key=lambda x: vocab[x])  # Sort by ID order
+        self.tokenToIndex = vocab  # tokenToIndex is the vocab dict itself
+        self.indexToToken = {v: k for k, v in vocab.items()}  # FIXED: Direct mapping
+
+        # Ensure UNK token is in vocab
+        if self.unkToken not in self.tokenToIndex:
+            self.vocabList.append(self.unkToken)
+            self.tokenToIndex[self.unkToken] = len(self.vocabList) - 1
+            self.indexToToken[len(self.vocabList) - 1] = self.unkToken
+
+        print(f"✅ Final Vocab Size: {len(self.vocabList)} (should be {self.vocabSize})")
+        print(f"📌 First 20 Tokens: {self.vocabList[:20]}")
+
 
     """HUGGING FACE TOKENIZER"""
     def huggingTokenizer(self, text):
@@ -155,6 +179,7 @@ class VOCAB:
             json.dump(self.tokenToIndex, f, indent=4)
         with open(self.indexToTokenFile, "w", encoding="utf-8") as f:
             json.dump(self.indexToToken, f, indent=4)
+
     
     """loads vocab data from JSON files in vocabCache directory"""
     def loadVocab(self):
@@ -165,16 +190,17 @@ class VOCAB:
             with open(self.tokenToIndexFile, 'r', encoding='utf-8') as f:
                 self.tokenToIndex = json.load(f)
             with open(self.indexToTokenFile, 'r', encoding='utf-8') as f:
-                self.indexToToken = json.load(f)
+                self.indexToToken = {int(k): v for k, v in json.load(f).items()}  # Ensure keys are integers!
 
-            print("Vocabulary files loaded successfully.")
+            print("✅ Vocabulary files loaded successfully.")
+            print(f"📌 First 20 Tokens: {self.vocabList[:20]}")
             return bool(self.vocabList and self.tokenToIndex and self.indexToToken)
 
         except FileNotFoundError:
-            print("Vocabulary files not found. Building new vocabulary.")
+            print("❌ Vocabulary files not found. Rebuilding vocabulary.")
             return False
         except json.JSONDecodeError:
-            print("Error decoding vocabulary files. Rebuilding vocabulary.")
+            print("❌ Error decoding vocabulary files. Rebuilding vocabulary.")
             return False
 
 # EXAMPLE RUNNING
@@ -189,4 +215,7 @@ if __name__ == "__main__":
     print(f"---101-300---: {vocab.vocabList[101:300]}")
     print(f"---Top 100---: {vocab.vocabList[:100]}")
 
-    print(vocab.huggingTokenizer("charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"))
+    #print(vocab.huggingTokenizer("charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"))
+    sample_text = "charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"
+    tokenizedOutput = vocab.tokenizeText(sample_text)
+    print(f"Tokenized: {tokenizedOutput}")

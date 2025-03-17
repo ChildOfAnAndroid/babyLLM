@@ -19,18 +19,45 @@ class MEMORYLAYER(nn.Module):
         self.longGate = nn.Parameter(torch.tensor(0.25))
         self.currentGate = nn.Parameter(torch.tensor(0.5))
 
-    def forward(self, currentActivations):
+    def forward(self, combinedActivationsTensor):
         """learns when to forget more or less."""
         # make sure decay values stay within [0, 1] range
         shortDecay = torch.sigmoid(self.shortTermDecay)  # Force between 0-1
         longDecay = torch.sigmoid(self.longTermDecay)
         # update memories with learned decay rates
-        self.shortTermMemory = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * currentActivations)
-        self.longTermMemory = (longDecay * self.longTermMemory) + ((1 - longDecay) * currentActivations)
+        newShortTermMemory = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * combinedActivationsTensor)
+        newLongTermMemory = (longDecay * self.longTermMemory) + ((1 - longDecay) * combinedActivationsTensor)
+        self.shortTermMemory = newShortTermMemory.detach()
+        self.longTermMemory = newLongTermMemory.detach()
         # blend memories using weighted sum of the memories, using gates as weights
         blendedActivations = (
             self.shortGate * self.shortTermMemory) + (
             self.longGate * self.longTermMemory) + (
-            self.currentGate * currentActivations)
+            self.currentGate * combinedActivationsTensor)
+        
+        #print(f"Type of blendedActivations: {type(blendedActivations)}")
+        #if isinstance(blendedActivations, torch.Tensor):
+        #    print(f"Shape of blendedActivations: {blendedActivations.shape}")
+        #elif isinstance(blendedActivations, list):
+        #    print(f"Length of blendedActivations list: {len(blendedActivations)}")
+        #    print(f"Shape of first element in list: {blendedActivations[0].shape}")
+        #else:
+        #    print("Unknown format for blendedActivations!")
 
         return blendedActivations
+
+if __name__ == "__main__":
+    memoryLayer = MEMORYLAYER(numNeurons = numNeurons)
+
+    TESTinputSeq = torch.randn(window1, embedDimension)
+    TESTinputEmbeds = [TESTinputSeq]
+
+    meanActivationsTensor = parallelNeuronLayer.forward(TESTinputEmbeds)
+
+    print("--- PARALLEL NEURON LAYER TESTING START ---")
+    print(f"Parallel Neuron Layer created with {parallelNeuronLayer.numNeurons} neurons.")
+    print(f"Inputs per Neuron (embed dimension): {parallelNeuronLayer.embedDimension}")
+    print(f"Output Activations (first 10):")
+    print(meanActivationsTensor[:10])
+    print(f"Output Activations Shape: {meanActivationsTensor.shape}")
+    print("\n--- PARALLEL NEURON LAYER TESTING COMPLETED ---")

@@ -22,14 +22,20 @@ def chat(babyLLM, vocab):
         userInput = "good bye !" # You have to say goodbye to your helpful AIs before leaving! (or is that only for Luigi boards?)
 
     #inputSeq = vocab.nltkTokenizer(userInput)
-    inputSeq = vocab.huggingTokenizer(userInput)
-    output = []
-    for _ in range(10):
-        guessedToken = babyLLM.getNextToken(inputSeq)
-        inputSeq.append(guessedToken)
-        output.append(babyLLM.getTokenIndexAsString(guessedToken))
+    #inputSeq = vocab.huggingTokenizer(userInput)
+    encoding = vocab.tokenizer.encode(userInput)
+    inputTokens = encoding.ids  # Get token indices
+    print(f"DEBUG: Tokenized Input -> {inputTokens}")
+    outputTokens = []
+    for _ in range(windowMAX):
+        guessedToken = babyLLM.getNextToken(inputTokens)  # Get next token index
+        print(f"DEBUG: Guessed Token Index -> {guessedToken}")  # Debugging
+        inputTokens.append(guessedToken)  # Append index, NOT string
+        guessedTokenStr = vocab.indexToToken.get(guessedToken, "<UNK>")
+        print(f"DEBUG: Guessed Token -> {guessedTokenStr}")  # Debugging
+        outputTokens.append(guessedTokenStr)
 
-    response = ''.join(output).replace('Ġ', ' ').strip() # replace Ġ with space
+    response = ''.join(outputTokens).replace('Ġ', ' ').strip() # replace Ġ with space
     response = ' '.join(response.split())  # remove extra spaces
     if exitAfter:
         print(f'Good bye babyLLM! BabyLLM\'s response: "{response}"')

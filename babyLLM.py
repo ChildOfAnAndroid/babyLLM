@@ -77,23 +77,24 @@ class BABYLLM(nn.Module):
             #print(f"Debug BABYLLM.forward: inputEmbeds list is EMPTY!")
             pass
 
-        """PARALLEL NEURON LAYER input/processing (feature extraction)"""
-        combinedActivationsTensor = self.parallelNeuronLayer.forward(inputEmbeds) 
-        #print(f"Debug BABYLLM.forward: parallelNeuronOutput length: {len(parallelNeuronOutput)}") # ADDED - should be same as input seq len
-
         """make sure inputEmbeds is a LIST of tensors"""
         if not isinstance(inputEmbeds, list):
             inputEmbeds = [inputEmbeds]
 
+        """PARALLEL NEURON LAYER input/processing (feature extraction)"""
+        parallelNeuronOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
+        #print(f"Debug BABYLLM.forward: parallelNeuronOutput length: {len(parallelNeuronOutput)}") 
+
+        """RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING"""
+        combinedActivationsTensor = torch.mean(parallelNeuronOutput, dim=0, keepdim=True)
+
         """MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS"""
         memoryLayerOutput = self.memoryLayer.forward(combinedActivationsTensor)
-
-        #"""COMBINE ACTIVATIONS"""
-        #combinedActivations = torch.mean(combinedActivationsTensor, dim=0, keepdim=True)
+        combinedActivations = memoryLayerOutput
 
         #print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
         """Convert activations to probability distribution"""
-        logits = self.outputLayer.forward(memoryLayerOutput)  
+        logits = self.outputLayer.forward(combinedActivations)  
         #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}")
         """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
         return logits
@@ -122,7 +123,7 @@ class BABYLLM(nn.Module):
         self.optimizer.step()  # Update weights
 
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
-    def train(self, trainingDataPairs, epochs):
+    def trainModel(self, trainingDataPairs, epochs):
         #self.combinationLayer = nn.Linear((self.numNeurons * 5), self.numNeurons)
         babyLLM.loadModel()
         print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
@@ -159,10 +160,10 @@ class BABYLLM(nn.Module):
                 totalLoss2 += loss.item()
 
                 """PRINTING LOSS TO LOGS AND TERMINAL"""
-                if i == 1:
+                if i == 0:
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
                     runStart = f"\n--- {timestamp} ---\n"
-                    print(f" {runStart.strip()}")
+                    print(f"{runStart.strip()}")
                     with open("trainingLogDetail.txt", "a") as logFile:
                         logFile.write(runStart)
                     with open("trainingLog.txt", "a") as logFile:
@@ -191,8 +192,11 @@ class BABYLLM(nn.Module):
                 """PRINTING GUESSES TO THE TERMINAL"""
                 if (i + 1) % printFreq == 0:  
                     inputSentence = "".join(inputSeq).replace("Ġ", " ").lstrip()
+                    #inputSentence = " ".join(inputSeq)  # Ensure proper spacing between tokens
                     targetWord = target.replace("Ġ", "")
                     guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", "")
+                    #targetWord = target.strip()  # Remove unnecessary spaces
+                    #guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).strip()
                     isCorrect = (targetWord == guessedTokenString)
                     isPerfect = isCorrect and loss.item() == 0.01
                     self.lowLoss = lowLoss
@@ -267,7 +271,8 @@ class BABYLLM(nn.Module):
     """convert token index to string"""
     def getTokenIndexAsString(self, tokenIndex):
         """returns the guessed token as a readable string aka text"""
-        return self.vocab.indexToToken[tokenIndex.__str__()] 
+        #return self.vocab.indexToToken[tokenIndex.__str__()] 
+        return self.vocab.indexToToken[int(tokenIndex)]
     
     """generates the chosen next token using getResponseFromLogits"""
     def getNextToken(self, inputSeq, temperature=None):  
@@ -303,7 +308,7 @@ if __name__ == "__main__":
     #TESTinputSeq = ["what"] 
 
     trainingDataPairs = vocab.genTrainingData(windowMAX)
-    babyLLM.train(trainingDataPairs, epochs = epochs)
+    babyLLM.trainModel(trainingDataPairs, epochs = epochs)
 
     print("--- BabyLLM TESTING START ---")
     print(f"Vocab size: {len(babyLLM.vocab.vocabList)}")

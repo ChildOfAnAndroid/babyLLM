@@ -23,7 +23,7 @@ class PARALLELNEURONLAYER(nn.Module):
         """puts each neuron into an array/nn list"""
         self.neurons = nn.ModuleList(
             [NEURON(embedDimension=embedDimension, activationFunction=activationFunction) 
-            for _ in range(numNeurons)])
+            for _ in range(numNeurons)]) # makes it 32 (embed) x 10000 (numNeurons)
 
     def forward(self, inputEmbeds):
         """iterates through the list of input embeddings, applies all neurons in parallel for each embedding, produces a vector of neuron outputs"""
@@ -85,6 +85,15 @@ class PARALLELNEURONLAYER(nn.Module):
         #    print(f"Shape of first element in list: {perTokenActivationsTensor[0].shape}")
         #else:
         #    print("Unknown format for perTokenActivationsTensor!")
+
+        #print(f"Type of combinedActivationsTensor: {type(combinedActivationsTensor)}")
+        #if isinstance(combinedActivationsTensor, torch.Tensor):
+        #    print(f"Shape of combinedActivationsTensor: {combinedActivationsTensor.shape}")
+        #elif isinstance(combinedActivationsTensor, list):
+        #    print(f"Length of combinedActivationsTensor list: {len(combinedActivationsTensor)}")
+        #    print(f"Shape of first element in list: {combinedActivationsTensor[0].shape}")
+        #else:
+        #    print("Unknown format for combinedActivationsTensor!")
 
         return combinedActivationsTensor#, perTokenActivationsTensor
             

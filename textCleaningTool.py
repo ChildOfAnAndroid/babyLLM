@@ -95,7 +95,7 @@ def clean_text(text):
     
 
     # Remove unwanted symbols but allow ' - , . ! ? ) ( /
-    text = re.sub(r'(?:[#{}\[\]\\\`\'\󾟖])', '', text)  
+    text = re.sub(r'(?:[#{}\[\]\\\`\󾟖])', '', text)  
     text = text.replace("\u00b7", "")
     text = text.replace("\u2013", "")
 

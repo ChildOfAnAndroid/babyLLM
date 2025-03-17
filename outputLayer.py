@@ -18,8 +18,8 @@ class OUTPUTLAYER(nn.Module):
         """imports the activations from parallelNeuronLayer, assuming that is is a tensor"""
         self.activationsTensor = meanActivationsTensor
         """DEBUG PRINTS"""
-        #print(f"Debug: activationsTensor shape before @ weights: {self.activationsTensor.shape}")
-        #print(f"Debug: weights shape: {self.weights.shape}")
+        #print(f"Debug outputLayer: activationsTensor shape before @ weights: {self.activationsTensor.shape}")
+        #print(f"Debug outputLayer: weights shape: {self.weights.shape}")
         """return logits (not softmax) for better gradient computation in cross-entropy loss"""
         logits = self.activationsTensor @ self.weights + self.bias
         return logits
