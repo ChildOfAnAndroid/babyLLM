@@ -33,7 +33,7 @@ allWindowSizes = [attentionWindow, windowMIN, window1, window2, window3, window4
 windowSmoothing = 0.1
 
 """OPTIMIZER"""
-learningRate = 0.001          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
+learningRate = 0.00035          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
 optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
 gradientClipMaxNorm = 1.0
@@ -45,10 +45,10 @@ activationFunction = leakyRelu
 
 """TERMINAL OUTPUT COLOURS"""
 veryLowLoss = 0.5               # 0.5
-lowLoss = 50                     # 1
-prettyHighLoss = 3000.0            # 5
-highLoss = 20000.0                 # 10
-superHighLoss = 100000.0           # 30
+lowLoss = 10                     # 1
+prettyHighLoss = 50            # 5
+highLoss = 100                 # 10
+superHighLoss = 300           # 30
 LIGHT_PURPLE = "\033[94m"       # light purple
 PURPLE = "\033[38;5;225m"       # purple
 RESET = "\033[0m"               # normal terminal
@@ -68,19 +68,20 @@ dataFilepaths = ["data/CHARIS/trainingData.txt"]
 rawDataFilepaths = [ # for textCleaningTool.py
     ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     ("text", "data/CHARIS/mousey.txt"),
+    ("text", "data/CHARIS/longerwrittenexamples.txt"),
     ("text", "data/CHARIS/elodieMousey.txt"),
+    ("text", "data/CHARIS/shitpoems.txt"),
+    ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
     #("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
     #("text", "data/CHARIS/shorterwrittenexamples.txt"),
     ("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),
-    #("text", "data/CHARIS/longerwrittenexamples.txt"),
     #("text", "data/CHARIS/longestwrittenexamples.txt"),
-    #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
     #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
     #("json", "data/CHARIS/discord.json"), # discord message history
-    #("text", "data/CHARIS/shitpoems.txt"),
     #("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
     #("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
     #("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments
