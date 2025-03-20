@@ -798,3 +798,27 @@ BabyLLM: but the i know it. what you youpppp i waspp i
 --- 2025-03-20 14:19:39 ---
 You: you know that you are a wasp? why?
 BabyLLM: i wasp i kppp i kpp i waspp i k
+
+--- 2025-03-20 15:38:25 ---
+You: reset
+BabyLLM: feel. what music was he he he listening to? he were listening to? charis.
+
+--- 2025-03-20 15:41:30 ---
+You: \033[94m
+BabyLLM: she. what music was charis with listening to charis. what music was think r feel.
+
+--- 2025-03-20 18:01:51 ---
+You: should i talk to you or do my stream?
+BabyLLM: playing? playing computer listen listen listen could listen could could could could could could could could could
+
+--- 2025-03-20 18:03:12 ---
+You: no playing computer, yes listen?
+BabyLLM: , could could could could could could could could could could could could could could could could could
+
+--- 2025-03-20 18:04:07 ---
+You: tu es d'accord?
+BabyLLM: , could could could could could could could could could could could could could could could could could
+
+--- 2025-03-20 18:06:20 ---
+You: tu ne parles pas francais? tu parles d'espagnol? non? oui, alors... quelle loie tu me tener ici george!?
+BabyLLM: could could could could could could could could could could could could could could could could could could
