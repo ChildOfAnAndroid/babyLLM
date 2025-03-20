@@ -72,7 +72,7 @@ def save_similarity_table(words, similarity_matrix, output_file="similarity_matr
 
 if __name__ == "__main__":
     model_path = "babyLLM.pth"
-    vocab_path = "vocabCache/vocab_2000/tokenizer.json"
+    vocab_path = "vocabCache/tokenizer.json"
 
     state_dict = load_model(model_path)
     vocab = load_vocab(vocab_path)
