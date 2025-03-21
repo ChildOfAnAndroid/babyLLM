@@ -18,7 +18,7 @@ topP = 0                        # top P (probability), default is 0
 epochs = 20                     # number of training epochs
 #trainingStartIndex = 'random'  # start training at a random point in the file
 trainingStartIndex = 0          # start training at the beginning of the file
-numTokensPerStep = 4            # Number of tokens to predict per step
+numTokensPerStep = 2            # Number of tokens to predict per step
 scheduledSampling = True        # Use scheduled sampling for multi-token prediction
 scheduledSamplingProbIncrement = 0.1 # Increment probability of using model output by this much each epoch
 

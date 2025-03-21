@@ -249,24 +249,24 @@ class BABYLLM(nn.Module):
                 
                 """PRINTING GUESSES TO THE TERMINAL"""
                 if (i + 1) % printFreq == 0:  
-                    inputSentence = "".join(inputSeq).replace("Ġ", " ").lstrip()
+                    inputSentence = "".join(inputSeq).replace("Ġ", " ")
                     #inputSentence = " ".join(inputSeq)  # Ensure proper spacing between tokens
-                    targetWord = target.replace("Ġ", "")
-                    guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", "")
+                    targetWordSingle = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
+                    guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", " ")
                     #targetWord = target.strip()  # Remove unnecessary spaces
                     #guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).strip()
-                    targetWordSingle = targetTokenSeq[0].replace("Ġ", "") if targetTokenSeq else "<NO_TARGET>"
-                    guessedTokenSeq = [self.getTokenIndexAsString(idx).replace("Ġ", "") if idx != -1 else "<NO_GUESS>" for idx in predictedTokenIndices]
+                    targetWordSeq = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
+                    guessedTokenSeq = [self.getTokenIndexAsString(idx).replace("Ġ", " ") if idx != -1 else "<NO_GUESS>" for idx in predictedTokenIndices]
                     # Get the SEQUENCE of target token strings (for multi-token display)
-                    targetTokenSeq = [tok.replace("Ġ", "") for tok in targetTokenSeq]
-                    isCorrect = (targetWord == guessedTokenSeq)
+                    targetSeq = [tok.replace("Ġ", " ") for tok in targetSeq]
+                    isCorrect = (targetWordSeq == guessedTokenSeq)
                     isCorrect = (targetWordSingle == guessedTokenString)
                     isPerfect = isCorrect and loss.item() == 0.01
                     self.lowLoss = lowLoss
                     self.veryLowLoss = veryLowLoss
                     numTokensDisplay = numTokensPerStep # Display 4 tokens in sequence
-                    guessedSeqStr = " ".join(guessedTokenString[:numTokensDisplay])
-                    targetSeqStr = " ".join(targetTokenSeq[:numTokensDisplay])
+                    guessedSeqStr = "".join(guessedTokenSeq[:numTokensDisplay]).lstrip()
+                    targetSeqStr = "".join(targetSeq[:numTokensDisplay]).lstrip()
                     #print(f"DEBUG -> Step {i+1}: Target='{targetWord}', Guess='{guessedTokenString}', Loss={loss.item():.4f}, isCorrect={isCorrect}, isPerfect={isPerfect}")
                     if isPerfect:
                         formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{guessedSeqStr}{RESET}{DIM}[!] {RESET}{GOLD}{targetSeqStr}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.3f} {RESET}"
