@@ -13,6 +13,7 @@ from tinyAttentionLayer import TINYATTENTIONLAYER
 from memoryLayer import MEMORYLAYER
 from config import *
 from datetime import datetime
+import random
 
 """this class combines all the core components of the babyLLM:"""
 """EMBEDLAYER: token embedding layer"""
@@ -101,7 +102,7 @@ class BABYLLM(nn.Module):
     
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""
     def computeLoss(self, logits, targetTokenIndex):
-        self.targetTokenIndex = torch.tensor([targetTokenIndex], dtype=torch.long)
+        targetTensor = torch.tensor([targetTokenIndex], dtype=torch.long)
         #print(f"Debug BABYLLM.computeLoss: predictions shape: {logits.shape}")
         #print(f"Debug BABYLLM.computeLoss: predictions (first 10): {logits[:10]}")
         #print(f"Debug BABYLLM.computeLoss: targetTokenIndex: {targetTokenIndex}")
@@ -111,7 +112,7 @@ class BABYLLM(nn.Module):
         if logits.dim() == 1: 
             logits = logits.unsqueeze(0) 
 
-        self.loss = F.cross_entropy(logits, self.targetTokenIndex) 
+        self.loss = F.cross_entropy(logits, targetTensor) 
         #print(f"Debug BABYLLM.computeLoss: Loss value: {self.loss.item():.4f}")
         """returns a scalar tensor representing the cross-entropy loss value"""
         return self.loss
@@ -127,6 +128,10 @@ class BABYLLM(nn.Module):
         #self.combinationLayer = nn.Linear((self.numNeurons * 5), self.numNeurons)
         babyLLM.loadModel()
         print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
+        numTokens = numTokensPerStep
+        if isinstance(numTokens, torch.Tensor):
+            numTokens = numTokens.item()
+        numTokens = int(numTokens)
         print("--- Training Started ---")
 
         """EPOCH LOOP"""
@@ -134,33 +139,85 @@ class BABYLLM(nn.Module):
             print(f"--- Epoch {epoch+1}/{epochs} Started ---")
             totalLoss = 0 # this is total loss PER 1000 STEPS
             totalLoss2 = 0 # this is total loss PER 10 STEPS
+            scheduledSamplingProb = 0.0
 
             """TRAINING DATA (batches)"""
-            for i, (inputSeq, target) in enumerate(trainingDataPairs):
+            for i, (inputSeq, targetSeq) in enumerate(trainingDataPairs):
                 inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
-                targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
+                #targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
+                targetTokenIndexSeq = [vocab.tokenToIndex.get(target_token, vocab.tokenToIndex["<UNK>"]) for target_token in targetSeq]
                 """handles cases where the target might already be an index, or converts to an index"""
-                """SUS!!!"""
+                target = targetSeq[0]
+                targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
                 if isinstance(target, int):
                     targetTokenIndex = target
                 else:
                     targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
 
+                #"""TRAINING STEP"""
+                #self.optimizer.zero_grad() # reset gradients from previous step
+                #logits = self.forward(inputTokenIndices)
+                #guessedTokenIndex = self.getResponseFromLogits(logits)
+                #loss = self.computeLoss(logits, targetTokenIndex)
+                #loss.backward()
 
-                """TRAINING STEP"""
+                #"""GRADIENT CLIPPING"""
+                #torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
+                #self.optimizer.step()
+                #totalLoss += loss.item()
+                #totalLoss2 += loss.item()
+
+                """MULTI-TOKEN TRAINING STEP"""
                 self.optimizer.zero_grad() # reset gradients from previous step
-                logits = self.forward(inputTokenIndices)
-                guessedTokenIndex = self.getResponseFromLogits(logits)
-                loss = self.computeLoss(logits, targetTokenIndex)
-                loss.backward()
-                """GRADIENT CLIPPING"""
+                predictedTokenIndices = []
+                losses = []
+                cumulativeLoss = 0.0
+
+                inputSeqPredictions = list(inputTokenIndices) # Start with input context, create a COPY!
+                logitSeq = [] # Store logits for each prediction step
+
+                # Predict multiple tokens in a sequence
+                for j in range(numTokens):
+                    logits = self.forward(inputSeqPredictions) # Feed current input sequence
+                    logitSeq.append(logits) # Store logits
+                    predictedTokenIndex = self.getResponseFromLogits(logits) # Get predicted token
+                    predictedTokenIndices.append(predictedTokenIndex) # Store predicted token index
+
+                    # Decide whether to use teacher forcing or model prediction for next input
+                    if scheduledSampling and random.random() < scheduledSamplingProb:
+                        # Use model's prediction (scheduled sampling)
+                        nextTokenInput = predictedTokenIndex
+                    else:
+                        # Use teacher forcing (ground truth)
+                        if j < len(targetTokenIndexSeq): # Check if target exists for this step
+                            nextTokenInput = targetTokenIndexSeq[j] # Use ground truth target token
+                        else:
+                            nextTokenInput = predictedTokenIndex # if no more targets, use prediction
+
+                    inputSeqPredictions.append(nextTokenInput) # Append token index (predicted or ground truth) as next input
+                    if j < len(targetTokenIndexSeq): # compute loss only if target exists
+                        stepLoss = self.computeLoss(logits, targetTokenIndexSeq[j]) # calculate loss for this step against target
+                        losses.append(stepLoss) # append loss
+                        cumulativeLoss += stepLoss # Cumulative loss (sum)
+
+                # Average loss over the sequence of predicted tokens
+                if losses: # Check if there are losses to average
+                    loss = cumulativeLoss / len(losses) # mean loss
+                else:
+                    loss = torch.tensor(0.0) # if no losses (e.g., no targets), loss is zero
+
+                loss.backward() # Backpropagate the averaged loss
                 torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
                 self.optimizer.step()
                 totalLoss += loss.item()
                 totalLoss2 += loss.item()
 
+                firstPredictedTokenIndex = predictedTokenIndices[0] if predictedTokenIndices else -1 # Get the first predicted token index for display
+                guessedTokenIndex = firstPredictedTokenIndex # for single token display
+
                 """PRINTING LOSS TO LOGS AND TERMINAL"""
                 if i == 0:
+                    scheduledSamplingProb += scheduledSamplingProbIncrement
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
                     runStart = f"\n--- {timestamp} ---\n"
                     print(f"{runStart.strip()}")
@@ -172,6 +229,7 @@ class BABYLLM(nn.Module):
                 # Track loss every 1000 steps
                 if (i + 1) % printLossFreq == 0:  
                     avgLoss = totalLoss / printLossFreq  # Compute average loss
+                    babyllm_diary_entry(self.parallelNeuronLayer, i+1)
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
                     lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}\n"
                     print(f" {lossLog.strip()}")
@@ -197,31 +255,39 @@ class BABYLLM(nn.Module):
                     guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", "")
                     #targetWord = target.strip()  # Remove unnecessary spaces
                     #guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).strip()
-                    isCorrect = (targetWord == guessedTokenString)
+                    targetWordSingle = targetTokenSeq[0].replace("Ġ", "") if targetTokenSeq else "<NO_TARGET>"
+                    guessedTokenSeq = [self.getTokenIndexAsString(idx).replace("Ġ", "") if idx != -1 else "<NO_GUESS>" for idx in predictedTokenIndices]
+                    # Get the SEQUENCE of target token strings (for multi-token display)
+                    targetTokenSeq = [tok.replace("Ġ", "") for tok in targetTokenSeq]
+                    isCorrect = (targetWord == guessedTokenSeq)
+                    isCorrect = (targetWordSingle == guessedTokenString)
                     isPerfect = isCorrect and loss.item() == 0.01
                     self.lowLoss = lowLoss
                     self.veryLowLoss = veryLowLoss
+                    numTokensDisplay = numTokensPerStep # Display 4 tokens in sequence
+                    guessedSeqStr = " ".join(guessedTokenString[:numTokensDisplay])
+                    targetSeqStr = " ".join(targetTokenSeq[:numTokensDisplay])
                     #print(f"DEBUG -> Step {i+1}: Target='{targetWord}', Guess='{guessedTokenString}', Loss={loss.item():.4f}, isCorrect={isCorrect}, isPerfect={isPerfect}")
                     if isPerfect:
-                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{guessedTokenString}{RESET}{DIM}[!] {RESET}{GOLD}{targetWord}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.3f} {RESET}"
+                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{guessedSeqStr}{RESET}{DIM}[!] {RESET}{GOLD}{targetSeqStr}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.3f} {RESET}"
                     elif isCorrect and loss.item() < self.veryLowLoss:  # correct, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedSeqStr}{RESET}{DIM}[!] {RESET}{PURPLE}{targetSeqStr}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"
                     elif isCorrect and loss.item() < self.lowLoss:  # correct, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!] {RESET}{PURPLE}{targetWord}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedSeqStr}{RESET}{DIM}[!] {RESET}{PURPLE}{targetSeqStr}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() > superHighLoss:  # super high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{FLASHING_RED}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{FLASHING_RED}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() > highLoss:  # high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{RED}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{RED}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() > prettyHighLoss:  # pretty high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{ORANGE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{ORANGE}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() < self.veryLowLoss:  # incorrect, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
                     elif loss.item() < self.lowLoss:  # incorrect, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
                     elif isCorrect:  # correct, normal loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedTokenString}{RESET}{DIM}[!]  {RESET}{PURPLE}{targetWord}{RESET} {DIM}| Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedSeqStr}{RESET}{DIM}[!]  {RESET}{PURPLE}{targetSeqStr}{RESET} {DIM}| Loss: {loss.item():.3f}{RESET}"  
                     else:  # default
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedTokenString}[?] {targetWord} | Loss: {loss.item():.3f}{RESET}"  
+                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | Loss: {loss.item():.3f}{RESET}"  
   
                 print(formattedWords)
                 #print(f"Loss debug: {loss.item()} (Raw) | Rounded: {round(loss.item(), 6)}")
@@ -233,6 +299,7 @@ class BABYLLM(nn.Module):
 
             print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss:.4f}")
             #torch.save(self.state_dict(), f"babyLLM_epoch{epoch}.pth")
+            scheduledSamplingProb = min(scheduledSamplingProb + scheduledSamplingProbIncrement, 1.0)
 
         babyLLM.saveModel()
         print("--- Training Completed ---")
@@ -295,6 +362,38 @@ class BABYLLM(nn.Module):
         finalOutput = self.outputCombinationLayer(concatenatedOutput)
         """returns a single combined output tensor of shape (1, embedDimension)."""
         return finalOutput
+
+    def babyllm_diary_entry(parallelNeuronLayer, step):
+        # Grab current window weightings
+        weights = parallelNeuronLayer.windowWeighting.detach().cpu().numpy()
+        windows = parallelNeuronLayer.allWindowSizes
+
+        # Find the current favourite and least favourite
+        fav_idx = weights.argmax()
+        worst_idx = weights.argmin()
+        fav_window = windows[fav_idx]
+        worst_window = windows[worst_idx]
+
+        moods = ["chaotic", "curious", "crunchy", "a bit overwhelmed", "spicy", "thoughtful", "itchy", "playful"]
+        actions = [
+            f"I still trust window {fav_window} the most",
+            f"Window {fav_window} makes me feel safe",
+            f"Window {worst_window} keeps confusing me!", 
+            f"I'll start listening to window {fav_window} more!",
+            f"Window {worst_window} tastes like static",
+            f"I'm starting to wonder about window {fav_window}... is it my destiny?",
+            f"Window {worst_window} is just noise, I swear!",
+            f"Today I felt {random.choice(moods)}.",
+            f"Window {fav_window} whispered secrets to me."
+        ]
+
+        diaryLine = f"Step {i+1}: BabyLLM diary update: '{random.choice(actions)}'"
+        print(diaryLine)
+
+# Example usage in training loop:
+# if step % 1000 == 0:
+#     babyllm_diary_entry(parallel_neuron_layer, step)
+
     
 if __name__ == "__main__":
     vocab = VOCAB(vocabSize = vocabSize)

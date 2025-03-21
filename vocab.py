@@ -95,15 +95,15 @@ class VOCAB:
             self.saveVocab()
             print(f"Saved vocab data to: {self.vocabCache}")
 
-        print(f"DEBUG VOCAB.__init__: Length of vocabList AFTER buildVocab: {len(self.vocabList)}")
-        print(f"DEBUG VOCAB.__init__: First 20 tokens in vocabList: {self.vocabList[:20]}")
+        #print(f"DEBUG VOCAB.__init__: Length of vocabList AFTER buildVocab: {len(self.vocabList)}")
+        #print(f"DEBUG VOCAB.__init__: First 20 tokens in vocabList: {self.vocabList[:20]}")
 
     def tokenizeText(self, text):
         encoding = self.tokenizer.encode(text)  # Tokenize using encode method
         tokens_str = [self.indexToToken.get(idx, "<UNK>") for idx in encoding.ids]  # Convert IDs back to strings
-        print(f"📝 Tokenizing: {text}")
-        print(f"📌 Token IDs: {encoding.ids}")
-        print(f"📌 Token Strings: {tokens_str}")  # Debug this!
+        #print(f"📝 Tokenizing: {text}")
+        #print(f"📌 Token IDs: {encoding.ids}")
+        #print(f"📌 Token Strings: {tokens_str}")  # Debug this!
         return tokens_str
 
     def buildVocabMap(self):
@@ -158,15 +158,21 @@ class VOCAB:
         else:
             startIndex = int(startIndex)
         endIndex = len(self.tokens) - windowMAX
+        numTargetTokens = numTokensPerStep
+        if isinstance(numTargetTokens, torch.Tensor):
+            numTargetTokens = numTargetTokens.item()
+        else:
+            numTargetTokens = int(numTargetTokens)
         """creates sliding windows from the tokenized training data (`self.tokens`) to form input sequences, using the next token as target."""
         for i in range(startIndex, endIndex):
             inputSeq = self.tokens[i:i + windowMAX] # a list of tokens (str) of length `windowMAX`
-            targetToken= self.tokens[i + windowMAX] # a single token (str) that follows the input_sequence.
-
-            if all(token in self.vocabList for token in inputSeq) and targetToken in self.vocabList:
-                trainingDataPairs.append((inputSeq, targetToken))
+            targetTokens = self.tokens[i + windowMAX : i + windowMAX + numTargetTokens] # a single token (str) that follows the input_sequence.
+            if len(targetTokens) < numTargetTokens:
+                continue
+            if all(token in self.vocabList for token in inputSeq) and all(t_token in self.vocabList for t_token in targetTokens):
+                trainingDataPairs.append((inputSeq, targetTokens))
             else:
-                print(f"Skipping UNK - Input: {inputSeq}, Target: {targetToken}")
+                print(f"Skipping UNK - Input: {inputSeq}, Target: {targetTokens}")
         """returns a list of tuples: (inputSeq, targetToken)"""
         return trainingDataPairs
 
