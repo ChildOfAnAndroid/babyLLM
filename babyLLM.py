@@ -229,7 +229,7 @@ class BABYLLM(nn.Module):
                 # Track loss every 1000 steps
                 if (i + 1) % printLossFreq == 0:  
                     avgLoss = totalLoss / printLossFreq  # Compute average loss
-                    babyllm_diary_entry(self.parallelNeuronLayer, i+1)
+                    self.babyllm_diary_entry(self.parallelNeuronLayer, i+1)
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
                     lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}\n"
                     print(f" {lossLog.strip()}")
@@ -324,15 +324,10 @@ class BABYLLM(nn.Module):
         if temperature is None:
             temperature = self.temperature
         logits = logits / temperature
-        softmaxed = torch.softmax(logits, dim=1)  # apply softmax to logits to convert to probabilities (along vocab dimension - dim=1)
-        topProb = topP
-        guessedTokenIndex = None
-        for tokenIndex in range(vocabSize):
-            prob = softmaxed[0][tokenIndex].item()
-            if prob > topProb or guessedTokenIndex is None:
-                guessedTokenIndex = tokenIndex
-                topProb = prob
-        """return the token index with the highest probability of being next"""
+        softmaxed = torch.softmax(logits, dim=1)
+
+        topValue, topIndex = torch.max(softmaxed, dim=1)
+        guessedTokenIndex = topIndex.item()
         return guessedTokenIndex
     
     """convert token index to string"""
