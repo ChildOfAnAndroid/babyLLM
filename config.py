@@ -73,14 +73,14 @@ rawDataFilepaths = [ # for textCleaningTool.py
     ("text", "data/CHARIS/mousey.txt"),
     ("text", "data/CHARIS/longerwrittenexamples.txt"),
     ("text", "data/CHARIS/elodieMousey.txt"),
-    ("text", "data/CHARIS/shitpoems.txt"),
+    #("text", "data/CHARIS/shitpoems.txt"),
     ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
-    ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
+    #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
     #("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
     #("text", "data/CHARIS/shorterwrittenexamples.txt"),
-    ("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
+    #("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),
     #("text", "data/CHARIS/longestwrittenexamples.txt"),
     #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
