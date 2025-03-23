@@ -14,6 +14,7 @@ from memoryLayer import MEMORYLAYER
 from config import *
 from datetime import datetime
 import random
+from torch.profiler import profile, record_function, ProfilerActivity
 
 """this class combines all the core components of the babyLLM:"""
 """EMBEDLAYER: token embedding layer"""
@@ -63,13 +64,18 @@ class BABYLLM(nn.Module):
 
         """convert indices to embeddings"""
         inputEmbeds = []
-        for tokenIndex in inputIndices:
-            """get embedding vector for each tokenIndex from embedding layer (32 dim x each token x each neuron)"""
-            embedVector = self.embedLayer.forward(torch.tensor(tokenIndex))
-            inputEmbeds.append(embedVector)
+        #for tokenIndex in inputIndices:
+        #    """get embedding vector for each tokenIndex from embedding layer (32 dim x each token x each neuron)"""
+        #    embedVector = self.embedLayer.forward(torch.tensor(tokenIndex))
+        #    inputEmbeds.append(embedVector)
+        """BIG SUS - IM FAIRLY SURE THIS IS WHAT FUCKED HIM UP BEFORE"""
+        inputIndicesTensor = torch.tensor(inputIndices)
+        inputEmbedsBatch = self.embedLayer(inputIndicesTensor)
+        inputEmbeds = [embed for embed in inputEmbedsBatch]     # list of (embed_dim,) tensors
+        """ ^^^^ BIG SUS - IM FAIRLY SURE THIS IS WHAT FUCKED HIM UP BEFORE ^^^^ """
 
         """DEBUG PRINTS"""
-        if inputEmbeds: # Check if inputEmbeds is not empty
+        if len(inputEmbeds) > 0: # Check if inputEmbeds is not empty
             #print(f"Debug BABYLLM.forward: Type of first element in inputEmbeds: {type(inputEmbeds[0])}")
             #print(f"Debug BABYLLM.forward: Shape of first element in inputEmbeds: {inputEmbeds[0].shape}")
             #print(f"Debug BABYLLM.forward: Shapes of first 5 elements in inputEmbeds: {[embed.shape for embed in inputEmbeds[:min(5, len(inputEmbeds))] ]}... (first 5)")
@@ -403,6 +409,7 @@ if __name__ == "__main__":
 
     trainingDataPairs = vocab.genTrainingData(windowMAX)
     babyLLM.trainModel(trainingDataPairs, epochs = epochs)
+    
 
     print("--- BabyLLM TESTING START ---")
     print(f"Vocab size: {len(babyLLM.vocab.vocabList)}")
