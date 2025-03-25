@@ -233,21 +233,30 @@ class BABYLLM(nn.Module):
                         logFile.write(runStart)
 
                 # Track loss every 1000 steps
-                if (i + 1) % printLossFreq == 0:  
+                if (i + 1) % printLossFreq == 0:     
                     avgLoss = totalLoss / printLossFreq  # Compute average loss
-                    self.babyllm_diary_entry(self.parallelNeuronLayer, i+1)
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
                     lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}\n"
+                    logitMax, logitMin = logits.max().item(), logits.min().item()
+                    lossLog += f"Logits: {logitMin:.2f} → {logitMax:.2f}\n"
+                    with torch.no_grad():
+                        normWeights = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1) / (babyLLM.parallelNeuronLayer.windowWeighting.sum() + 0.1)
+                        lossLog += f"Final window weightings: {normWeights.detach().cpu().numpy()}\n"
                     print(f" {lossLog.strip()}")
                     with open("trainingLog.txt", "a") as logFile:
                         logFile.write(lossLog)
                     totalLoss = 0
 
-                # Track loss every 10 steps
+                # Track loss every 100 steps
                 if (i + 1) % printLossFreq2 == 0:  
                     avgLoss2 = totalLoss2 / printLossFreq2  # Compute average loss
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
                     lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss2:.4f}\n"
+                    logitMax, logitMin = logits.max().item(), logits.min().item()
+                    lossLog += f"Logits: {logitMin:.2f} → {logitMax:.2f}\n"
+                    with torch.no_grad():
+                        normWeights = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1) / (babyLLM.parallelNeuronLayer.windowWeighting.sum() + 0.1)
+                        lossLog += f"Final window weightings: {normWeights.detach().cpu().numpy()}\n"
                     print(f" {lossLog.strip()}")
                     with open("trainingLogDetail.txt", "a") as logFile:
                         logFile.write(lossLog)

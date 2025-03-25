@@ -71,12 +71,12 @@ dataFilepaths = ["data/CHARIS/trainingData.txt"]
 rawDataFilepaths = [ # for textCleaningTool.py
     ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     ("text", "data/CHARIS/mousey.txt"),
-    ("text", "data/CHARIS/longerwrittenexamples.txt"),
     ("text", "data/CHARIS/elodieMousey.txt"),
+    #("text", "data/CHARIS/longerwrittenexamples.txt"),
     #("text", "data/CHARIS/shitpoems.txt"),
     ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
     #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
-    #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
+    ("text", "data/CHARIS/mixedwrittenanddefs.txt"),
     #("text", "data/CHARIS/lineSortedData.txt"),
     #("text", "data/CHARIS/shortestwrittenexamples.txt"),
     #("text", "data/CHARIS/shorterwrittenexamples.txt"),
