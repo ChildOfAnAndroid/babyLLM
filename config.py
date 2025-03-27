@@ -27,7 +27,7 @@ window1 = 2
 window2 = 3
 window3 = 7
 window4 = 8      
-attentionWindow = 7             # attention head  
+attentionWindow = 14             # attention head  
 window5 = 13
 window6 = 15
 windowMAX = 18                  # THIS MUST BE THE HIGHEST NUMBER
@@ -36,7 +36,7 @@ allWindowSizes = [attentionWindow, windowMIN, window1, window2, window3, window4
 windowSmoothing = 0.1
 
 """OPTIMIZER"""
-learningRate = 0.00035          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
+learningRate = 0.00025          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
 optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
 gradientClipMaxNorm = 1.0
@@ -48,10 +48,10 @@ activationFunction = leakyRelu
 
 """TERMINAL OUTPUT COLOURS"""
 veryLowLoss = 0.5               # 0.5
-lowLoss = 10                     # 1
-prettyHighLoss = 50            # 5
-highLoss = 100                 # 10
-superHighLoss = 300           # 30
+lowLoss = 1                     # 1
+prettyHighLoss = 5            # 5
+highLoss = 10                 # 10
+superHighLoss = 50           # 30
 LIGHT_PURPLE = "\033[94m"       # light purple
 PURPLE = "\033[38;5;225m"       # purple
 RESET = "\033[0m"               # normal terminal

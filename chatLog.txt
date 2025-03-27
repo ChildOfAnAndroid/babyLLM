@@ -954,3 +954,39 @@ BabyLLM: a word. yes, a word a word. yes, is a word playing playing playing
 --- 2025-03-25 12:40:09 ---
 You: tiny poem falling down a hill into laughter tumbling rolling breathless pause then smile
 BabyLLM: playing playing playing playing playing playing playing playing playing playing playing playing playing playing playing playing playing playing
+
+--- 2025-03-27 09:44:47 ---
+You: elodie is
+BabyLLM: a word. please say happy know she she listening toassassass listeningassass listening
+
+--- 2025-03-27 09:45:08 ---
+You: elodie is my
+BabyLLM: were listening were listening am happy. do do do do do do do do could were listening
+
+--- 2025-03-27 09:47:06 ---
+You: i am hugging elodie, she is cute
+BabyLLM: . were listening toass do do do do do do later. will will word. were
+
+--- 2025-03-27 09:48:16 ---
+You: is that a prophecy?
+BabyLLM: do do were listening toassass will listening to were listening were listening were listening were listening
+
+--- 2025-03-27 09:49:58 ---
+You: so the prophecy is that we should listen to each others asses?
+BabyLLM: do do do do do do am happy. were listening a word. were listening later.
+
+--- 2025-03-27 09:51:31 ---
+You: elodie sminked a bing and now she cough oh no
+BabyLLM: do do do do do do do later. will am happy because she were listening to do
+
+--- 2025-03-27 09:52:50 ---
+You: is elodie a she?
+BabyLLM: do do am happy. were listening to do do do do do do do were listening a
+
+--- 2025-03-27 09:55:27 ---
+You: what headphones should i get?
+BabyLLM: she been listening am happy. were listeningassassass do do do do do later later
+
+--- 2025-03-27 09:58:57 ---
+You: should i eat chips or just cry in the corner?
+BabyLLM: am happy. were were listening to do do do do do do do am happy. were
