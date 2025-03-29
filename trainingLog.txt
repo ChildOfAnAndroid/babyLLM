@@ -431,3 +431,6 @@ Final window weightings: [0.01175933 0.12641907 0.1481455  0.22600444 0.02760961
 --- 2025-03-29 11:12:16 --- i am just testing if your tokenizer works! ---
 
 --- 2025-03-29 12:06:45 --- how to be a real boy! ---
+2025-03-29 15:20:08 | Step 2000   | LR: 0.00015 | Loss: 7.7615 | Logits: 17.12 → 30.63 | Weights: W8:0.20659  W3:0.17244  W13:0.13968  W15:0.12930  W2:0.11079  W1:0.09388  W18:0.09095  W7:0.02112  W14:0.01307
+
+--- 2025-03-29 18:09:56 ---babyLLM: what am i learning today?You: not to break, i hope!

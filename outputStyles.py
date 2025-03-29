@@ -72,7 +72,7 @@ statThresholds = {
         "shit":          0.30,
         "emergency":     0.0
     },
-        "logits": { #dont know enough to know how to set it!
+    "logits": { #dont know enough to know how to set it!
         "perfect":       0.99,
         "almostPerfect": 0.95,
         "great":         0.90,
@@ -84,7 +84,7 @@ statThresholds = {
         "shit":          0.30,
         "emergency":     0.0
     },
-        "windowWeights": { # same as mem gates they are percentage aligned hmm, if i pull the NORMALIZED weights.
+    "windowWeights": { # same as mem gates they are percentage aligned hmm, if i pull the NORMALIZED weights.
         "perfect":       0.99, # somehow need this to be the highest rated window!
         "almostPerfect": 0.95, #2nd highest
         "great":         0.90, #3rd
@@ -96,7 +96,7 @@ statThresholds = {
         "shit":          0.30,
         "emergency":     0.0
     },
-        "memGates": { # ima base this on percentage, so higher percentage (closer to 100% is 'stronger' and more dominant, but theres not really a 'bad' dominance so quickly?)
+    "memGates": { # ima base this on percentage, so higher percentage (closer to 100% is 'stronger' and more dominant, but theres not really a 'bad' dominance so quickly?)
         "perfect":       0.99, #otherwise, maybe i should just to highest rated
         "almostPerfect": 0.95, #2nd
         "great":         0.90, #etc
@@ -108,7 +108,7 @@ statThresholds = {
         "shit":          0.30,
         "emergency":     0.0
     },
-        "gradNorm": { #dont know enough about this to know how to set it!
+    "gradNorm": { #dont know enough about this to know how to set it!
         "perfect":       0.99,
         "almostPerfect": 0.95,
         "great":         0.90,
@@ -191,12 +191,16 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss, 
 
     fullStringCorrect = (guessedSeqStr.strip() == targetSeqStr.strip())
 
+    croppedInputSentence = inputSentence.strip()
+    if len(croppedInputSentence) > inputSentenceVisualLength:
+        croppedInputSentence = "..." + croppedInputSentence[-(inputSentenceVisualLength - 3):]
+
     formattedWords = (
         f"{S_apply('dim', f'{step}')}{RESET}|" 
-        f"{S_apply('dim', inputSentence)}{RESET}{DIM} → {RESET}"
+        f"{S_apply('dim', inputSentence)}{RESET}{S_apply('dim', ' → ')}" #{DIM} → {RESET}
         f"{S_apply(S_type, guessedSeqStr)}{RESET}"
         f"{S_apply(S_type, '[!]') if fullStringCorrect else S_apply('dim', '[?]')}{RESET}"
-        f"{S_apply(S_type, targetSeqStr)}{RESET}{DIM} | {RESET}"
+        f"{S_apply(S_type, targetSeqStr)}{RESET}{S_apply('dim', ' | ')}" #{DIM} | {RESET}"
         f"{S_apply('dim', 'Loss:')}{RESET} {S_apply(S_type, f'{loss:.3f}')}{RESET}"
     )
 

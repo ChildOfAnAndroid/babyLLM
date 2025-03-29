@@ -96,9 +96,9 @@ class PARALLELNEURONLAYER(nn.Module):
         #else:
         #    print("Unknown format for combinedActivationsTensor!")
 
-            if tinyWindowCount > 0:
-        print(f"some of my windows were too big! i only saw {perTokenActivationsTensor.shape[0]} tokens, so i created {tinyWindowCount} empty windows.")
-        tinyWindowCount = 0
+        if tinyWindowCount > 0:
+            print(f"some of my windows were too big! i only saw {perTokenActivationsTensor.shape[0]} tokens, so i created {tinyWindowCount} empty windows.")
+            tinyWindowCount = 0
 
         return combinedActivationsTensor#, perTokenActivationsTensor
             
