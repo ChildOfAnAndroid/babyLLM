@@ -1,9 +1,26 @@
 #from torch import relu 
 from torch.nn.functional import leaky_relu
 
+"""GLOBALS"""
+totalLoss = 0
+totalLossDetail = 0
+totalGradNorm = 0
+totalGradNormDetail = 0
+totalMemGates = 0
+totalMemGatesDetail = 0
+totalWindowWeights = 0
+totalWindowWeightsDetail = 0
+scheduledSamplingProb = 0.0
+guessedTokenSeq = []
+
 """SAVE DATA"""
 saveModelFreq = 50              # saves the model every x number of turns
 modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
+logFilePath = "trainingLog.txt"
+speedTextFilePath = "speedText.txt"
+logFilePathDetail = "trainingLogDetail.txt"
+durationLog = "durationLog.txt"
+durationLogDetail = "durationLogDetail.txt"
 printLossFreq = 1000            # how often to save average loss to a text file
 printLossFreqDetail = 100            # how often to save average loss to a text file
 saveLock = False               # allow for reconstruction of missing files etc

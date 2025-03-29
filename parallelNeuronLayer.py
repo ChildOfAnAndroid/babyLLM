@@ -29,6 +29,7 @@ class PARALLELNEURONLAYER(nn.Module):
         """iterates through the list of input embeddings, applies all neurons in parallel for each embedding, produces a vector of neuron outputs"""
         inputEmbedsTensor = torch.stack(inputEmbeds, dim=0)
         attendedEmbeds = self.windowAttn(inputEmbedsTensor)
+        tinyWindowCount = 0
 
         layerActivations = []
         for embedVector in inputEmbeds:
@@ -44,7 +45,7 @@ class PARALLELNEURONLAYER(nn.Module):
         windowMeanActivations = []
         for windowSize in allWindowSizes:
             if perTokenActivationsTensor.shape[0] < windowSize:
-                print(f"Not enough tokens for a window! Need at least {windowSize}, got {perTokenActivationsTensor.shape[0]}.")
+                tinyWindowCount += 1
                 emptyWindow = torch.zeros_like(perTokenActivationsTensor[0]).unsqueeze(0)
                 windowMeanActivations.append(emptyWindow)
                 continue
@@ -61,7 +62,7 @@ class PARALLELNEURONLAYER(nn.Module):
                 windowMeanActivations.append(windowMean)
 
         if not windowMeanActivations:
-            print("No valid window sizes")
+            print("no valid window sizes")
             return torch.zeros_like(perTokenActivationsTensor[0])
 
         """combine activations into their own learnable layer"""
@@ -94,6 +95,10 @@ class PARALLELNEURONLAYER(nn.Module):
         #    print(f"Shape of first element in list: {combinedActivationsTensor[0].shape}")
         #else:
         #    print("Unknown format for combinedActivationsTensor!")
+
+            if tinyWindowCount > 0:
+        print(f"some of my windows were too big! i only saw {perTokenActivationsTensor.shape[0]} tokens, so i created {tinyWindowCount} empty windows.")
+        tinyWindowCount = 0
 
         return combinedActivationsTensor#, perTokenActivationsTensor
             

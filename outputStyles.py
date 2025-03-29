@@ -28,8 +28,8 @@ CYAN = "\033[36m"
 WHITE = "\033[37m"
 
 """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
-typeStyles = {
-    "perfect":       [PURPLE_PALE, FLASH],  # 100%
+S_types = {
+    "perfect":       [PURPLE_PALE],  # 100%
     "almostPerfect": [PURPLE_PALE],         # 90%
     "great":         [PURPLE],              # 80%
     "good":          [PURPLE, DIM],         # 70%
@@ -41,10 +41,11 @@ typeStyles = {
     "emergency":     [RED_BRIGHT, FLASH],   # 10%
 
     "reset":         [RESET],               # normal terminal
-    "dim":           [RESET, DIM]           # dim style for background elements - arrows, colons, etc.
+    "dim":           [RESET, DIM],          # dim style for background elements - arrows, colons, etc.
+    "bold":          [BOLD]
 }
 
-bgStyle = [RESET, DIM]
+DIM = [RESET, DIM]
 
 statThresholds = {
     "loss": { #got these sorted :)
@@ -124,9 +125,9 @@ statThresholds = {
 statTypes = ["loss", "guessSimilarity", "logits", "windowWeights", "memGates", "gradNorm"]
 infoTypes = ["learningRate", "optimizerName", "activationFunction", "gradientClipMaxNorm"]
 
-def getStatStyle(statType, statVal):
+def S_getStat(statType, statVal):
     if statType not in statThresholds:
-        return "reset"  # Default style if stat_type is not defined
+        return "reset"
 
     thresholds = statThresholds[statType]
 
@@ -148,35 +149,55 @@ def getStatStyle(statType, statVal):
         return "worse"
     elif statVal <= thresholds["shit"]:
         return "shit"
-    else:  # statVal > thresholds["shit"]
+    else:
         return "emergency"
 
-def applyStyle(style_name, text):
-    """Applies the terminal style codes to the given text."""
-    if style_name in typeStyles:
-        style_codes = typeStyles[style_name]
-        return "".join(style_codes) + text + RESET
+def S_apply(S_type, text):
+    if S_type in S_types:
+        S_codes = S_types[S_type]
+        return "".join(S_codes) + text + RESET
     else:
         return text
 
 def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss, isCorrect, isPerfect):
-    """Refined print function using styles and thresholds."""
 
     if isPerfect:
-        typeStyle = "perfect"  # Still handle "perfect" case directly if needed
+        S_type = "perfect"
     else:
-        typeStyle = getStatStyle("loss", loss) # Get style based on loss
+        S_type = S_getStat("loss", loss)
 
-    style = typeStyles.get(typeStyle, typeStyles["reset"]) # Default to "reset" if category not found
-    bgStyle = "".join(typeStyles["dim"]) # Use "dim" style for base elements
+    S_bold = "".join(S_types["bold"])
+
+    guessedTokens = guessedSeqStr.split()
+    targetTokens = targetSeqStr.split()
+    S_guessedTokens = []
+    S_targetTokens = []
+
+    for i, word in enumerate(guessedTokens):
+        if i < len(targetTokens) and word == targetTokens[i]:
+            S_guessedTokens.append(f"{S_bold}{word}{RESET}") # Bold if match, then reset
+        else:
+            S_guessedTokens.append(f"{S_apply(S_type, word)}") # Apply S_type style if no match
+
+    # Style target words
+    for i, word in enumerate(targetTokens):
+        if i < len(guessedTokens) and word == guessedTokens[i]:
+            S_targetTokens.append(f"{S_bold}{word}{RESET}") # Bold if match, then reset
+        else:
+            S_targetTokens.append(f"{S_apply(S_type, word)}") # Apply S_type style if no match
+
+    S_GuessedSeqStr = " ".join(S_guessedTokens) # Rejoin styled guessed words
+    S_TargetSeqStr = " ".join(S_targetTokens) # Rejoin styled target words
+
+    fullStringCorrect = (guessedSeqStr.strip() == targetSeqStr.strip())
 
     formattedWords = (
-        f"{bgStyle}Step {applyStyle(typeStyle, str(step))}: "
-        f"{applyStyle('reset', inputSentence)}{bgStyle} → {RESET}" # Input sentence can have reset style
-        f"{applyStyle(typeStyle, guessedSeqStr)}{bgStyle}"
-        f"{'[!]' if isCorrect else '[?]'} {RESET}"
-        f"{applyStyle(typeStyle, targetSeqStr)}{bgStyle} | {RESET}"
-        f"{bgStyle}Loss: {RESET}{applyStyle(typeStyle, f'{loss:.3f}')} {RESET}"
+        f"{S_apply('dim', f'{step}')}{RESET}|" 
+        f"{S_apply('dim', inputSentence)}{RESET}{DIM} → {RESET}"
+        f"{S_apply(S_type, guessedSeqStr)}{RESET}"
+        f"{S_apply(S_type, '[!]') if fullStringCorrect else S_apply('dim', '[?]')}{RESET}"
+        f"{S_apply(S_type, targetSeqStr)}{RESET}{DIM} | {RESET}"
+        f"{S_apply('dim', 'Loss:')}{RESET} {S_apply(S_type, f'{loss:.3f}')}{RESET}"
     )
 
     print(formattedWords)
@@ -195,37 +216,36 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss, 
 
 def logTraining(logFilePath, step, avgLoss, learningRate, logitRange_str="", windowWeights_str="", gradientNorm_str="", scheduledSamplingProb_str="", epoch_str="", prompt="", guess="", truth="", memoryGates_str="", topTokens_str="", durationLog_str="", otherInfo=""):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    logOutput_bg = "".join(typeStyles["dim"]) # Base style for background elements
+    S_base = "".join(S_types["dim"]) # Base style for background elements
+    S_loss = S_getStat("loss", avgLoss)
 
-    logOutput = f"{logOutput_bg}{timestamp} | Step {applyStyle('reset', f'{step:f}'):<6} | LR: {applyStyle('reset', f'{learningRate:.5f}')} | Scheduled Sampling: {applyStyle('reset', f'{scheduledSamplingProb_str}')}" # Reset style for step and LR labels
-
-    lossStyle = getStatStyle("loss", avgLoss)
-    logOutput += f"| Avg Loss: {applyStyle(lossStyle, f'{avgLoss:.4f}')}"
+    logOutput = f"{S_base}{timestamp} | Step {S_apply('reset', f'{step:f}'):<6} | LR: {S_apply('reset', f'{learningRate:.5f}')} | Scheduled Sampling: {S_apply('reset', f'{scheduledSamplingProb_str}')}{RESET}" # Reset style for step and LR labels
+    logOutput += f"{S_base} | Avg Loss: {S_apply(S_loss, f'{avgLoss:.4f}')}{RESET}"
 
     if logitRange_str:
-        logitStyle = getStatStyle("logits", float(logitRange_str.split(',')[0].strip()) if logitRange_str else "reset")
-        logOutput += f"{logOutput_bg} | Logits: {applyStyle(logitStyle, logitRange_str)}"
+        S_logit = S_getStat("logits", float(logitRange_str.split(',')[0].strip()) if logitRange_str else "reset")
+        logOutput += f"{S_base} | Logits: {S_apply(S_logit, logitRange_str)}{RESET}"
     if windowWeights_str:
-        windowStyle = getStatStyle("windowWeights", float(windowWeights_str.split(',')[0].strip()) if windowWeights_str else "reset")
-        logOutput += f"{logOutput_bg} | Window Weights: {applyStyle(windowStyle, windowWeights_str)}"
+        S_window = S_getStat("windowWeights", float(windowWeights_str.split(',')[0].strip()) if windowWeights_str else "reset")
+        logOutput += f"{S_base} | Window Weights: {S_apply(S_window, windowWeights_str)}{RESET}"
     if gradientNorm_str:
-        gradNormStyle = getStatStyle("gradNorm", float(gradientNorm_str) if gradientNorm_str else 0.0)
-        logOutput += f"{logOutput_bg} | Grad Norm: {applyStyle(gradNormStyle, gradientNorm_str)}"
+        S_gradNorm = S_getStat("gradNorm", float(gradientNorm_str) if gradientNorm_str else 0.0)
+        logOutput += f"{S_base} | Grad Norm: {S_apply(S_gradNorm, gradientNorm_str)}{RESET}"
     if memoryGates_str:
-        memGatesStyle = getStatStyle("memGates", float(memoryGates_str.split(',')[0].strip()) if memoryGates_str else "reset")
-        logOutput += f"{logOutput_bg} | Memory Gates: {applyStyle(memGatesStyle, memoryGates_str)}"
+        S_memGates = S_getStat("memGates", float(memoryGates_str.split(',')[0].strip()) if memoryGates_str else "reset")
+        logOutput += f"{S_base} | Memory Gates: {S_apply(S_memGates, memoryGates_str)}{RESET}"
     if topTokens_str:
-        logOutput += f" | Top Tokens: {topTokens_str}"
+        logOutput += f"{S_base} | Top Tokens: {topTokens_str}{RESET}"
     if durationLog_str:
         logOutput = logOutput + f"\n{durationLog_str}"
 
     """displays some extra data when training from prompts"""
     if prompt:
-        logOutput = logOutput + f"{logOutput_bg} | Prompt: {applyStyle('reset', prompt)} | Guess: {applyStyle('reset', guess)} | Truth: {applyStyle('reset', truth)}" # Keep prompt/guess/truth reset style
+        logOutput = logOutput + f"{S_base} | Prompt: {S_apply('reset', prompt)} | Guess: {S_apply('reset', guess)} | Truth: {S_apply('reset', truth)}" # Keep prompt/guess/truth reset style
     else:
         logOutput = logOutput
     if otherInfo:
-        logOutput += f"{logOutput_bg} | {applyStyle('reset', otherInfo)}"
+        logOutput += f"{S_base} | {S_apply('reset', otherInfo)}"
 
     logOutput += f"{RESET}" # Ensure reset at the very end of the log line
 

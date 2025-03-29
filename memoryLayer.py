@@ -29,6 +29,12 @@ class MEMORYLAYER(nn.Module):
         newLongTermMemory = (longDecay * self.longTermMemory) + ((1 - longDecay) * combinedActivationsTensor)
         self.shortTermMemory = newShortTermMemory.detach()
         self.longTermMemory = newLongTermMemory.detach()
+        # log the memory gate sizes
+        gateSum = self.shortGate + self.longGate + self.currentGate + 1e-9
+        self.latestMemoryGates = torch.stack([
+        self.shortGate / gateSum,
+        self.longGate / gateSum,
+        self.currentGate / gateSum])
         # blend memories using weighted sum of the memories, using gates as weights
         blendedActivations = (
             self.shortGate * self.shortTermMemory) + (

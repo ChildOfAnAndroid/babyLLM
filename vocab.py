@@ -87,7 +87,7 @@ class VOCAB:
             self.trainingDataPairs = self.loadTrainingData(dataFilepaths)  # Load text data
             self.tokens = self.tokenizeText(self.trainingDataPairs)  # Tokenize the text
             print(f"DEBUG: Tokens exist? {hasattr(self, 'tokens')} (Length: {len(self.tokens) if hasattr(self, 'tokens') else 'N/A'})")
-            print(f"DEBUG: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")
+            #print(f"DEBUG: tokenToIndex keys (first 20): {list(self.tokenToIndex.keys())[:20]}")
         else:
             print(f"Building vocab from scratch (size: {vocabSize})...")
             self.buildVocabMap() # Use new method to build vocab mappings
@@ -103,7 +103,7 @@ class VOCAB:
         tokens_str = [self.indexToToken.get(idx, "<UNK>") for idx in encoding.ids]  # Convert IDs back to strings
         #print(f"📝 Tokenizing: {text}")
         #print(f"📌 Token IDs: {encoding.ids}")
-        #print(f"📌 Token Strings: {tokens_str}")  # Debug this!
+        #print(f"📌 Token Strings: {tokens_str}")
         return tokens_str
 
     def buildVocabMap(self):
