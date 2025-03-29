@@ -346,6 +346,8 @@ def clean_text(text):
     text = re.sub(r'\b(?:ri+p+)\b', 'rip', text, flags=re.IGNORECASE)
     # same
     text = re.sub(r'\b(?:sa+me+)\b', 'same', text, flags=re.IGNORECASE)
+    # shh
+    text = re.sub(r'\b(?:sh+|shush+)\b', 'shh', text, flags=re.IGNORECASE)
     # not gonna lie
     text = re.sub(r'\b(?:ngl)\b', 'not gonna lie', text, flags=re.IGNORECASE)
     # on my way
