@@ -15,6 +15,10 @@ from config import *
 from datetime import datetime
 import random
 from torch.profiler import profile, record_function, ProfilerActivity
+import os
+from outputStyles import *
+import time
+from collections import Counter
 
 """this class combines all the core components of the babyLLM:"""
 """EMBEDLAYER: token embedding layer"""
@@ -131,211 +135,376 @@ class BABYLLM(nn.Module):
 
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, trainingDataPairs, epochs):
-        #self.combinationLayer = nn.Linear((self.numNeurons * 5), self.numNeurons)
+
+        totalLoss = 0
+        totalLossDetail = 0
+        totalTokenCount = 0 
+        totalTokenCountDetail = 0 
+        totalLogitMin = 0 
+        totalLogitMax = 0
+        totalLogitMinDetail = 0 
+        totalLogitMaxDetail = 0 
+        scheduledSamplingProb = 0.0
+
+        totalStepDuration = 0
+        totalStepDurationDetail = 0
+        totalSaveDuration = 0
+        totalSaveDurationDetail = 0
+        totalLoadDuration = 0
+        totalLoadDurationDetail = 0 
+        totalPrintDuration = 0
+        totalPrintDurationDetail = 0
+        totalLogitsDuration = 0
+        totalLogitsDurationDetail = 0 
+        totalCombineDuration = 0
+        totalCombineDurationDetail = 0 
+        totalGetTokenDuration = 0
+        totalGetTokenDurationDetail = 0 
+        totalTerminalPrintDuration = 0
+        totalTerminalPrintDurationDetail = 0
+
         babyLLM.loadModel()
         print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
         numTokens = numTokensPerStep
         if isinstance(numTokens, torch.Tensor):
             numTokens = numTokens.item()
         numTokens = int(numTokens)
-        print("--- Training Started ---")
+
+        print("babyLLM is heading back to school...")
 
         """EPOCH LOOP"""
+        epochStepCounter = 0
         for epoch in range(epochs):
             print(f"--- Epoch {epoch+1}/{epochs} Started ---")
-            totalLoss = 0 # this is total loss PER 1000 STEPS
-            totalLoss2 = 0 # this is total loss PER 10 STEPS
-            scheduledSamplingProb = 0.0
 
             """TRAINING DATA (batches)"""
-            for i, (inputSeq, targetSeq) in enumerate(trainingDataPairs):
-                inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
-                #targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
-                targetTokenIndexSeq = [vocab.tokenToIndex.get(target_token, vocab.tokenToIndex["<UNK>"]) for target_token in targetSeq]
-                """handles cases where the target might already be an index, or converts to an index"""
-                target = targetSeq[0]
-                targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
-                if isinstance(target, int):
-                    targetTokenIndex = target
-                else:
+            try:
+                for i, (inputSeq, targetSeq) in enumerate(trainingDataPairs):
+                    stepStartTime = time.time()
+                    inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
+                    #targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
+                    targetTokenIndexSeq = [vocab.tokenToIndex.get(target_token, vocab.tokenToIndex["<UNK>"]) for target_token in targetSeq]
+                    """handles cases where the target might already be an index, or converts to an index"""
+                    target = targetSeq[0]
                     targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
-
-                #"""TRAINING STEP"""
-                #self.optimizer.zero_grad() # reset gradients from previous step
-                #logits = self.forward(inputTokenIndices)
-                #guessedTokenIndex = self.getResponseFromLogits(logits)
-                #loss = self.computeLoss(logits, targetTokenIndex)
-                #loss.backward()
-
-                #"""GRADIENT CLIPPING"""
-                #torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
-                #self.optimizer.step()
-                #totalLoss += loss.item()
-                #totalLoss2 += loss.item()
-
-                """MULTI-TOKEN TRAINING STEP"""
-                self.optimizer.zero_grad() # reset gradients from previous step
-                predictedTokenIndices = []
-                losses = []
-                cumulativeLoss = 0.0
-
-                inputSeqPredictions = list(inputTokenIndices) # Start with input context, create a COPY!
-                logitSeq = [] # Store logits for each prediction step
-
-                # Predict multiple tokens in a sequence
-                for j in range(numTokens):
-                    logits = self.forward(inputSeqPredictions) # Feed current input sequence
-                    logitSeq.append(logits) # Store logits
-                    predictedTokenIndex = self.getResponseFromLogits(logits) # Get predicted token
-                    predictedTokenIndices.append(predictedTokenIndex) # Store predicted token index
-
-                    # Decide whether to use teacher forcing or model prediction for next input
-                    if scheduledSampling and random.random() < scheduledSamplingProb:
-                        # Use model's prediction (scheduled sampling)
-                        nextTokenInput = predictedTokenIndex
+                    if isinstance(target, int):
+                        targetTokenIndex = target
                     else:
-                        # Use teacher forcing (ground truth)
-                        if j < len(targetTokenIndexSeq): # Check if target exists for this step
-                            nextTokenInput = targetTokenIndexSeq[j] # Use ground truth target token
+                        targetTokenIndex = vocab.tokenToIndex.get(target, vocab.tokenToIndex["<UNK>"])
+
+                    epochStepCounter += 1
+
+                    """MULTI-TOKEN TRAINING STEP"""
+                    self.optimizer.zero_grad() # reset gradients from previous step
+                    predictedTokenIndices = []
+                    losses = []
+                    cumulativeLoss = 0.0 # Sum of losses for THIS sequence
+
+                    inputSeqPredictions = list(inputTokenIndices) # Start with input context, create a COPY!
+                    logitSeq = [] # Store logits for each prediction step
+
+                    # Predict multiple tokens in a sequence
+                    for j in range(numTokens):
+                        logits = self.forward(inputSeqPredictions) # Feed current input sequence
+                        logitSeq.append(logits) # Store logits
+                        predictedTokenIndex = self.getResponseFromLogits(logits) # Get predicted token
+                        predictedTokenIndices.append(predictedTokenIndex) # Store predicted token index
+
+                        # Decide whether to use teacher forcing or model prediction for next input
+                        if scheduledSampling and random.random() < scheduledSamplingProb:
+                            # Use model's prediction (scheduled sampling)
+                            nextTokenInput = predictedTokenIndex
                         else:
-                            nextTokenInput = predictedTokenIndex # if no more targets, use prediction
+                            # Use teacher forcing (ground truth)
+                            if j < len(targetTokenIndexSeq): # Check if target exists for this step
+                                nextTokenInput = targetTokenIndexSeq[j] # Use ground truth target token
+                            else:
+                                nextTokenInput = predictedTokenIndex # if no more targets, use prediction
 
-                    inputSeqPredictions.append(nextTokenInput) # Append token index (predicted or ground truth) as next input
-                    if j < len(targetTokenIndexSeq): # compute loss only if target exists
-                        stepLoss = self.computeLoss(logits, targetTokenIndexSeq[j]) # calculate loss for this step against target
-                        losses.append(stepLoss) # append loss
-                        cumulativeLoss += stepLoss # Cumulative loss (sum)
+                        inputSeqPredictions.append(nextTokenInput) # Append token index (predicted or ground truth) as next input
+                        if j < len(targetTokenIndexSeq): # compute loss only if target exists
+                            stepLoss = self.computeLoss(logits, targetTokenIndexSeq[j]) # calculate loss for this step against target
+                            losses.append(stepLoss) # append loss
+                            cumulativeLoss += stepLoss # Cumulative loss (sum)
 
-                # Average loss over the sequence of predicted tokens
-                if losses: # Check if there are losses to average
-                    loss = cumulativeLoss / len(losses) # mean loss
-                else:
-                    loss = torch.tensor(0.0) # if no losses (e.g., no targets), loss is zero
+                    # Average loss over the sequence of predicted tokens
+                    if losses:
+                        loss = cumulativeLoss / len(losses) # Average loss for THIS SEQUENCE (per token)
+                    else:
+                        loss = torch.tensor(0.0)
 
-                loss.backward() # Backpropagate the averaged loss
-                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
-                self.optimizer.step()
-                totalLoss += loss.item()
-                totalLoss2 += loss.item()
+                    loss.backward() # Backpropagate the averaged loss
+                    torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
+                    self.optimizer.step()
 
-                firstPredictedTokenIndex = predictedTokenIndices[0] if predictedTokenIndices else -1 # Get the first predicted token index for display
-                guessedTokenIndex = firstPredictedTokenIndex # for single token display
+                    totalLoss += cumulativeLoss.item() # Accumulate SUM of token losses
+                    totalLossDetail += cumulativeLoss.item() # Accumulate SUM of token losses
+                    totalTokenCount += len(losses) # Count tokens processed
+                    totalTokenCountDetail += len(losses) # Count tokens processed
 
-                """PRINTING LOSS TO LOGS AND TERMINAL"""
-                if i == 0:
-                    scheduledSamplingProb += scheduledSamplingProbIncrement
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    runStart = f"\n--- {timestamp} ---\n"
-                    print(f"{runStart.strip()}")
-                    with open("trainingLogDetail.txt", "a") as logFile:
-                        logFile.write(runStart)
-                    with open("trainingLog.txt", "a") as logFile:
-                        logFile.write(runStart)
 
-                # Track loss every 1000 steps
-                if (i + 1) % printLossFreq == 0:     
-                    avgLoss = totalLoss / printLossFreq  # Compute average loss
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss:.4f}\n"
-                    logitMax, logitMin = logits.max().item(), logits.min().item()
-                    lossLog += f"Logits: {logitMin:.2f} → {logitMax:.2f}\n"
                     with torch.no_grad():
-                        normWeights = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1) / (babyLLM.parallelNeuronLayer.windowWeighting.sum() + 0.1)
-                        lossLog += f"Final window weightings: {normWeights.detach().cpu().numpy()}\n"
-                    print(f" {lossLog.strip()}")
-                    with open("trainingLog.txt", "a") as logFile:
-                        logFile.write(lossLog)
-                    totalLoss = 0
+                        logitMin = logits.min(dim=-1).values.mean().item()
+                        logitMax = logits.max(dim=-1).values.mean().item()
 
-                # Track loss every 100 steps
-                if (i + 1) % printLossFreq2 == 0:  
-                    avgLoss2 = totalLoss2 / printLossFreq2  # Compute average loss
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                    lossLog = f"{timestamp} | Context: {[allWindowSizes]} | LR: {learningRate:.5f} | Step {i+1} | Avg Loss: {avgLoss2:.4f}\n"
-                    logitMax, logitMin = logits.max().item(), logits.min().item()
-                    lossLog += f"Logits: {logitMin:.2f} → {logitMax:.2f}\n"
-                    with torch.no_grad():
-                        normWeights = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1) / (babyLLM.parallelNeuronLayer.windowWeighting.sum() + 0.1)
-                        lossLog += f"Final window weightings: {normWeights.detach().cpu().numpy()}\n"
-                    print(f" {lossLog.strip()}")
-                    with open("trainingLogDetail.txt", "a") as logFile:
-                        logFile.write(lossLog)
-                    totalLoss2 = 0
-                
-                """PRINTING GUESSES TO THE TERMINAL"""
-                if (i + 1) % printFreq == 0:  
-                    inputSentence = "".join(inputSeq).replace("Ġ", " ")
-                    #inputSentence = " ".join(inputSeq)  # Ensure proper spacing between tokens
-                    targetWordSingle = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
-                    guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", " ")
-                    #targetWord = target.strip()  # Remove unnecessary spaces
-                    #guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).strip()
-                    targetWordSeq = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
-                    guessedTokenSeq = [self.getTokenIndexAsString(idx).replace("Ġ", " ") if idx != -1 else "<NO_GUESS>" for idx in predictedTokenIndices]
-                    # Get the SEQUENCE of target token strings (for multi-token display)
-                    targetSeq = [tok.replace("Ġ", " ") for tok in targetSeq]
-                    isCorrect = (targetWordSeq == guessedTokenSeq)
-                    isCorrect = (targetWordSingle == guessedTokenString)
-                    isPerfect = isCorrect and loss.item() == 0.01
-                    self.lowLoss = lowLoss
-                    self.veryLowLoss = veryLowLoss
-                    numTokensDisplay = numTokensPerStep # Display 4 tokens in sequence
-                    guessedSeqStr = "".join(guessedTokenSeq[:numTokensDisplay]).lstrip()
-                    targetSeqStr = "".join(targetSeq[:numTokensDisplay]).lstrip()
-                    #print(f"DEBUG -> Step {i+1}: Target='{targetWord}', Guess='{guessedTokenString}', Loss={loss.item():.4f}, isCorrect={isCorrect}, isPerfect={isPerfect}")
-                    if isPerfect:
-                        formattedWords = f"{GOLD} Step {i+1}: {inputSentence}{RESET}{DIM} → {RESET}{GOLD}{guessedSeqStr}{RESET}{DIM}[!] {RESET}{GOLD}{targetSeqStr}{RESET}{DIM} | {RESET}{GOLD}Loss: {loss.item():.3f} {RESET}"
-                    elif isCorrect and loss.item() < self.veryLowLoss:  # correct, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedSeqStr}{RESET}{DIM}[!] {RESET}{PURPLE}{targetSeqStr}{RESET}{DIM} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"
-                    elif isCorrect and loss.item() < self.lowLoss:  # correct, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedSeqStr}{RESET}{DIM}[!] {RESET}{PURPLE}{targetSeqStr}{RESET}{DIM} | {RESET}{LIGHT_PURPLE}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() > superHighLoss:  # super high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{FLASHING_RED}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() > highLoss:  # high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{RED}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() > prettyHighLoss:  # pretty high loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{ORANGE}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() < self.veryLowLoss:  # incorrect, very low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
-                    elif loss.item() < self.lowLoss:  # incorrect, low loss
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | {RESET}{PURPLE}Loss: {loss.item():.3f}{RESET}"  
-                    elif isCorrect:  # correct, normal loss
-                        formattedWords = f"{DIM}Step {i+1}: {RESET}{LIGHT_PURPLE}{inputSentence}{RESET}{DIM} → {RESET}{PURPLE}{guessedSeqStr}{RESET}{DIM}[!]  {RESET}{PURPLE}{targetSeqStr}{RESET} {DIM}| Loss: {loss.item():.3f}{RESET}"  
-                    else:  # default
-                        formattedWords = f"{DIM}Step {i+1}: {inputSentence} → {guessedSeqStr}[?] {targetSeqStr} | Loss: {loss.item():.3f}{RESET}"  
-  
-                print(formattedWords)
-                #print(f"Loss debug: {loss.item()} (Raw) | Rounded: {round(loss.item(), 6)}")
+                        totalLogitMin += logitMin
+                        totalLogitMax += logitMax
+                        totalLogitMinDetail += logitMin
+                        totalLogitMaxDetail += logitMax
 
-                """SAVE THE MODEL EVERY x STEPS"""
-                if i > 0 and int(i % saveModelFreq) == 0:
-                    # self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingDataPairs) / 2000))}.pth")
-                    self.saveModel()
+                    firstPredictedTokenIndex = predictedTokenIndices[0] if predictedTokenIndices else -1 # Get the first predicted token index for display
+                    guessedTokenIndex = firstPredictedTokenIndex # for single token display
+                    stepEndTime = time.time()
+                    stepDuration = stepEndTime - stepStartTime
+                    totalStepDuration += stepDuration
+                    totalStepDurationDetail += stepDuration
 
-            print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss:.4f}")
-            #torch.save(self.state_dict(), f"babyLLM_epoch{epoch}.pth")
-            scheduledSamplingProb = min(scheduledSamplingProb + scheduledSamplingProbIncrement, 1.0)
+                    """PRINTING LOSS TO LOGS AND TERMINAL"""
+                    if i == 0:
+                        userNote = input("what am i learning today?").strip()
+                        scheduledSamplingProb += scheduledSamplingProbIncrement
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
+                        runStart = f"\n--- {timestamp} --- {userNote} ---\n"
+                        print(f"{runStart.strip()}")
+                        with open("trainingLogDetail.txt", "a") as logFile:
+                            logFile.write(runStart)
+                        with open("trainingLog.txt", "a") as logFile:
+                            logFile.write(runStart)
 
-        babyLLM.saveModel()
-        print("--- Training Completed ---")
+                    # Track loss every 1000 steps
+                    if (i + 1) % printLossFreq == 0:
+                        tokenCounts = Counter() # Initialize Counter HERE for each interval
+                        tokenCounts.update(guessedTokenSeq) # Update token counts DIRECTLY from guessedTokenSeq
+                        topTokens = tokenCounts.most_common(10) # Get top 10 tokens for this interval
+                        avgStepDuration = totalStepDuration / printLossFreq if printLossFreq > 0 else 0
+                        avgSaveDuration = totalSaveDuration / printLossFreq if printLossFreq > 0 else 0
+                        avgLoadDuration = totalLoadDuration / printLossFreq if printLossFreq > 0 else 0
+                        avgPrintDuration = totalPrintDuration / printLossFreq if printLossFreq > 0 else 0
+                        avgLogitsDuration = totalLogitsDuration / printLossFreq if printLossFreq > 0 else 0
+                        avgCombineDuration = totalCombineDuration / printLossFreq if printLossFreq > 0 else 0
+                        avgGetTokenDuration = totalGetTokenDuration / printLossFreq if printLossFreq > 0 else 0
+                        avgLoss = totalLoss / totalTokenCount  # True average loss per token
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
+                        avgLogitMin = totalLogitMin / printLossFreq
+                        avgLogitMax = totalLogitMax / printLossFreq
+                        with torch.no_grad():
+                            normWeights = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1)
+                            normWeights /= (normWeights.sum() + 0.1)
+                            sortedWeights = sorted(
+                                zip(allWindowSizes, normWeights.cpu().numpy()),
+                                key=lambda x: x[1],
+                                reverse=True
+                            )
+                            weight_str = "  ".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeights)
+
+                        logTraining(
+                            logFilePath="trainingLog.txt", # Log to trainingLog.txt (less detailed log)
+                            step=i + 1,
+                            avgLoss=avgLoss,
+                            learningRate=learningRate,
+                            logitRange_str=f"{avgLogitMin:.2f} → {avgLogitMax:.2f}",
+                            windowWeights_str=weight_str,
+                            otherInfo="", # No extra info for basic log
+                            topTokens_str = str(topTokens), # Pass topTokens as a string
+                            durationLog_str = durationLog # Pass durationLog string
+                        )
+
+                        avgDurations = [
+                                ("Step", avgStepDuration),
+                                ("Save", avgSaveDuration),
+                                ("Load", avgLoadDuration),
+                                ("Print", avgPrintDuration),
+                                ("Logits", avgLogitsDuration),
+                                ("Combine", avgCombineDuration),
+                                ("Token", avgGetTokenDuration),
+                            ]
+                        
+                        sortedAvgDurations = sorted(avgDurations, key=lambda item: item[1], reverse=True)
+                        durationLog_str = "Durations: "
+                        for name, duration in sortedAvgDurations:
+                            durationLog_str += f"{name}: {duration*1000:.2f}ms, "
+                        durationLog = durationLog_str.rstrip(', ')
+
+                        print(durationLog)
+
+                        with open("durationLog.txt", "a") as logFile:
+                            logFile.write(durationLog + "\n")
+                        
+                        totalStepDuration = 0
+                        totalSaveDuration = 0
+                        totalLoadDuration = 0
+                        totalPrintDuration = 0
+                        totalLogitsDuration = 0
+                        totalCombineDuration = 0
+                        totalGetTokenDuration = 0
+                        totalLogitMin = 0
+                        totalLogitMax = 0
+                        totalLoss = 0 # Reset SUM of losses
+                        totalTokenCount = 0 # Reset token count
+
+                    # Track loss every 100 steps
+                    if (i + 1) % printLossFreqDetail == 0:
+                        tokenCountsDetail = Counter()
+                        tokenCountsDetail.update(guessedTokenSeq)
+                        topTokensDetail = tokenCountsDetail.most_common(10)
+                        avgStepDurationDetail = totalStepDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0
+                        avgSaveDurationDetail = totalSaveDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0
+                        avgLoadDurationDetail = totalLoadDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0
+                        avgPrintDurationDetail = totalPrintDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0
+                        avgLogitsDurationDetail = totalLogitsDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0
+                        avgCombineDurationDetail = totalCombineDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0
+                        avgGetTokenDurationDetail = totalGetTokenDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0
+                        avgLossDetail = totalLossDetail / totalTokenCountDetail
+                        timestampDetail = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        avgLogitMinDetail = totalLogitMinDetail / printLossFreqDetail
+                        avgLogitMaxDetail = totalLogitMaxDetail / printLossFreqDetail
+                        with torch.no_grad():
+                            normWeightsDetail = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1)
+                            normWeightsDetail /= (normWeightsDetail.sum() + 0.1)
+                            sortedWeightsDetail = sorted(
+                                zip(allWindowSizes, normWeightsDetail.cpu().numpy()),
+                                key=lambda x: x[1],
+                                reverse=True
+                            )
+                            weightDetail_str = "  ".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeightsDetail)
+
+                        logTraining(
+                            logFilePath="trainingLogDetail.txt", # Log to trainingLogDetail.txt (more detailed log)
+                            step=i + 1,
+                            avgLoss=avgLossDetail,
+                            learningRate=learningRate,
+                            logitRange_str=f"{avgLogitMinDetail:.2f} → {avgLogitMaxDetail:.2f}",
+                            windowWeights_str=weightDetail_str,
+                            otherInfo=f"Top 10 Tokens (Detail Log)", # More descriptive otherInfo
+                            topTokens_str=str(topTokensDetail), # Pass topTokensDetail as a string
+                            durationLog_str=durationLogDetail # Pass durationLogDetail string
+                        )
+
+                        avgDurationsDetail = [
+                                ("Step", avgStepDurationDetail),
+                                ("Save", avgSaveDurationDetail),
+                                ("Load", avgLoadDurationDetail),
+                                ("Print", avgPrintDurationDetail),
+                                ("Logits", avgLogitsDurationDetail),
+                                ("Combine", avgCombineDurationDetail),
+                                ("Token", avgGetTokenDurationDetail),
+                            ]
+                        
+                        sortedAvgDurationsDetail = sorted(avgDurationsDetail, key=lambda item: item[1], reverse=True)
+
+                        durationLogDetail_str = "Durations: "
+                        for name, duration in sortedAvgDurationsDetail:
+                            durationLogDetail_str += f"{name}: {duration*1000:.2f}ms, " # Added 'ms' unit
+
+                        durationLogDetail = durationLogDetail_str.rstrip(', ')
+
+                        print(durationLogDetail) # Print duration log to terminal
+                        with open("durationLogDetail.txt", "a") as logFile:
+                            logFile.write(durationLogDetail + "\n")
+
+                        totalStepDurationDetail = 0
+                        totalSaveDurationDetail = 0
+                        totalLoadDurationDetail = 0
+                        totalPrintDurationDetail = 0
+                        totalLogitsDurationDetail = 0
+                        totalCombineDurationDetail = 0
+                        totalGetTokenDurationDetail = 0
+                        totalLogitMinDetail = 0
+                        totalLogitMaxDetail = 0
+                        totalLossDetail = 0 # Reset SUM of losses
+                        totalTokenCountDetail = 0 # Reset token count
+
+                    """PRINTING GUESSES TO THE TERMINAL"""
+                    if (i + 1) % printFreq == 0:
+                        inputSentence = "".join(inputSeq).replace("Ġ", " ")
+                        targetWordSingle = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
+                        guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", " ")
+                        targetWordSeq = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
+                        guessedTokenSeq = [self.getTokenIndexAsString(idx).replace("Ġ", " ") if idx != -1 else "<NO_GUESS>" for idx in predictedTokenIndices]
+                        # Get the SEQUENCE of target token strings (for multi-token display)
+                        targetSeq = [tok.replace("Ġ", " ") for tok in targetSeq]
+                        isCorrect = (targetWordSeq == guessedTokenSeq)
+                        isCorrect = (targetWordSingle == guessedTokenString)
+
+                        isPerfect = isCorrect and loss.item() < 0.01 # Using loss.item() from last loss calculation
+
+                        inputSentenceClean = "".join(inputSeq).replace("Ġ", " ")
+                        guessedSeqStr = "".join(guessedTokenSeq[:windowMAX]).lstrip()
+                        targetSeqStr = "".join(targetSeq[:windowMAX]).lstrip()
+
+                        colourPrintTraining(
+                            step=epochStepCounter,
+                            inputSentence=inputSentenceClean,
+                            guessedSeqStr=guessedSeqStr,
+                            targetSeqStr=targetSeqStr,
+                            loss=loss.item(),
+                            isCorrect=isCorrect,
+                            isPerfect=isPerfect
+                        )
+                    
+                        terminalPrintEndTime = time.time()
+                        terminalPrintDuration = terminalPrintEndTime - stepEndTime
+                        totalTerminalPrintDuration += terminalPrintDuration
+                        totalTerminalPrintDuration += terminalPrintDuration
+
+                    """SAVE THE MODEL EVERY x STEPS"""
+                    #if i > 0 and int(i % saveModelFreq) == 0:
+                    if epochStepCounter % saveModelFreq == 0:
+                        # self.saveModel(f"babyLLM_epoch{epoch}_{int(i / (len(trainingDataPairs) / 2000))}.pth")
+                        print(f"{DIM}autosaving...{RESET}")
+                        self.saveModel()
+                        print(f"{DIM}autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {epochStepCounter+saveModelFreq}... {RESET}")
+
+                print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss / totalTokenCount:.4f}") # Final epoch avg loss per token
+                #torch.save(self.state_dict(), f"babyLLM_epoch{epoch}.pth")
+                scheduledSamplingProb = min(scheduledSamplingProb + scheduledSamplingProbIncrement, 1.0)
+                self.saveModel()
+
+            except KeyboardInterrupt:
+                print("\nit's rude to interrupt people.. but, bye bye! :)")
+                break
+        print("--- Training Completed! ---")
         
     """saves the model to a file"""    
     def saveModel(self, filePath="babyLLM.pth"):
-        torch.save(self.state_dict(), filePath)
-        print(f"✅ Model saved to {filePath}!")
+        saveStartTime = time.time()
+
+        tmpPath = filePath + ".tmp"
+        torch.save(self.state_dict(), tmpPath)
+        print(f"Model temp file created at {tmpPath}")
+        os.replace(tmpPath, filePath)
+        print(f"✅ Model successfully saved to {filePath}!")
+
+        saveEndTime = time.time()
+        saveDuration = saveEndTime - saveStartTime
+        totalSaveDuration += saveDuration
+        totalSaveDurationDetail += saveDuration
 
     """loads the model from a file"""
     def loadModel(self, filePath = modelPath):
+        loadStartTime = time.time()
+        totalLoadDuration = 0
+        totalLoadDurationDetail = 0 
+
         try:
             print(f"Loading model from path: {filePath}") 
             self.load_state_dict(torch.load(filePath), strict = saveLock)
             print(f"Model loaded from {filePath}!")
+            loadEndTime = time.time()
+            loadDuration = loadEndTime - loadStartTime
+            totalLoadDuration += loadDuration
+            totalLoadDurationDetail += loadDuration
         except FileNotFoundError:
             print("No saved model found.")
+
 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, 
     and then selects most likely response token"""
     def getResponseFromLogits(self, logits, temperature=None):
+        logitsStartTime = time.time()
+        totalLogitsDuration = 0
+        totalLogitsDurationDetail = 0
+
         if temperature is None:
             temperature = self.temperature
         logits = logits / temperature
@@ -343,6 +512,11 @@ class BABYLLM(nn.Module):
 
         topValue, topIndex = torch.max(softmaxed, dim=1)
         guessedTokenIndex = topIndex.item()
+
+        logitsEndTime = time.time()
+        logitsDuration = logitsEndTime - logitsStartTime
+        totalLogitsDuration += logitsDuration
+        totalLogitsDurationDetail += logitsDuration
         return guessedTokenIndex
     
     """convert token index to string"""
@@ -353,13 +527,22 @@ class BABYLLM(nn.Module):
     
     """generates the chosen next token using getResponseFromLogits"""
     def getNextToken(self, inputSeq, temperature=None):  
+        getTokenStartTime = time.time()
+
         if temperature is None:
             temperature = self.temperature  # Grab from self.temperature (config)
         """returns an integer token index showing the models predicted next token."""
+        
+        getTokenEndTime = time.time()
+        getTokenDuration = getTokenEndTime - getTokenStartTime
+        totalGetTokenDuration += getTokenDuration
+        totalGetTokenDurationDetail += getTokenDuration
         return self.getResponseFromLogits(self.forward(inputSeq), temperature)
     
     """combines the parallelNeronLayer output and the multiWindowLayer output into one output"""
     def combineOutputs(self, output1, output2):
+        combineStartTime = time.time()
+
         #print(f"Debug combineOutputs: Shape of output1: {output1.shape}")
         #print(f"Debug combineOutputs: Shape of output2: {output2.shape}")
         output1Flat = output1.squeeze(dim=2) # Remove dimension of shape 1, new shape: [1, 10000]
@@ -371,6 +554,10 @@ class BABYLLM(nn.Module):
             self.outputCombinationLayer = nn.Linear(combined_dim, embedDimension) # Output dimension should be embedDimension
         finalOutput = self.outputCombinationLayer(concatenatedOutput)
         """returns a single combined output tensor of shape (1, embedDimension)."""
+        combineEndTime = time.time()
+        combineDuration = combineEndTime - combineStartTime
+        totalCombineDuration += combineDuration
+        totalCombineDurationDetail += combineDuration
         return finalOutput
 
     def babyllm_diary_entry(parallelNeuronLayer, step):
@@ -397,7 +584,7 @@ class BABYLLM(nn.Module):
             f"Window {fav_window} whispered secrets to me."
         ]
 
-        diaryLine = f"Step {i+1}: BabyLLM diary update: '{random.choice(actions)}'"
+        diaryLine = f"Step {step+1}: BabyLLM diary update: '{random.choice(actions)}'"
         print(diaryLine)
 
 # Example usage in training loop:
