@@ -16,10 +16,10 @@ guessedTokenSeq = []
 """SAVE DATA"""
 saveModelFreq = 50              # saves the model every x number of turns
 modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
-logFilePath = "trainingLog10.txt"
-logFilePathDetail = "trainingLogDetail1.txt"
-durationLog = "durationLog10.txt"
-durationLogDetail = "durationLogDetail1.txt"
+logFilePath = "trainingLog.txt"
+logFilePathDetail = "trainingLogDetail.txt"
+durationLog = "durationLog.txt"
+durationLogDetail = "durationLogDetail.txt"
 printLossFreq = 1000            # how often to save average loss to a text file
 printLossFreqDetail = 100           # how often to save average loss to a text file
 saveLock = False               # allow for reconstruction of missing files etc
@@ -32,8 +32,8 @@ topP = 0                        # top P (probability), default is 0
 
 """EPOCHS & TRAINING WINDOW"""
 epochs = 20                     # number of training epochs
-trainingStartIndex = 'random'  # start training at a random point in the file
-#trainingStartIndex = 0          # start training at the beginning of the file
+#trainingStartIndex = 'random'  # start training at a random point in the file
+trainingStartIndex = 0          # start training at the beginning of the file
 numTokensPerStep = 3            # Number of tokens to predict per step
 scheduledSampling = True        # Use scheduled sampling for multi-token prediction
 scheduledSamplingProbIncrement = 0.001 # Increment probability of using model output by this much each epoch
@@ -76,17 +76,16 @@ loadData_chunkSize = 4096
 
 dataFilepaths = ["data/CHARIS/trainingData.txt"]
 rawDataFilepaths = [ # for textCleaningTool.py
-    ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
     #("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
-    ("text", "data/CHARIS/mousey.txt"),
-    ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
-    ("text", "data/CHARIS/elodieMousey.txt"),
     #("text", "data/CHARIS/longerwrittenexamples.txt"),
-    #("text", "data/CHARIS/shitpoems.txt"),
-    #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
+    ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/elodieMouseyLonger.txt"),
+    ("text", "data/CHARIS/shitpoems.txt"),
+    ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
     #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
     #("text", "data/CHARIS/lineSortedData.txt"),
-    #("text", "data/CHARIS/shortestwrittenexamples.txt"),
+    ("text", "data/CHARIS/shortestwrittenexamples.txt"),
     #("text", "data/CHARIS/shorterwrittenexamples.txt"),
     #("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
     #("text", "data/CHARIS/writtenexamples.txt"),
@@ -95,7 +94,9 @@ rawDataFilepaths = [ # for textCleaningTool.py
     #("json", "data/CHARIS/discord.json"), # discord message history
     #("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
     #("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
-    #("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments
+    ("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments
+    ("text", "data/CHARIS/mousey.txt"),
+    #("text", "data/CHARIS/elodieMousey.txt"),
 ]
 
 outputFile = "data/CHARIS/trainingData.txt" # output path for fully processed training data

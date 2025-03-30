@@ -9,9 +9,10 @@ from babyLLM import BABYLLM
 from vocab import VOCAB
 from config import *
 import outputStyles
-import logHelpers
+import archive.logHelpers as logHelpers
 import torch
 from vocab import VOCAB
+from collections import Counter
 
 inputFilePath = "data/CHARIS/trainingData.txt"
 outputFilePath = "data/CHARIS/talkToYourselfBattle.txt"
@@ -163,8 +164,8 @@ def trainOnAnswer(inputText, targetText):
             scheduledSamplingProb += scheduledSamplingProbIncrement
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             runStart = f"\n--- {timestamp} ---"
-            runStart += f"babyLLM: what am i learning today?"
-            runStart += f"You: {userNote}\n"
+            runStart += f"\nbabyLLM: what am i learning today?"
+            runStart += f"\nYou: {userNote}\n"
             print(f"{runStart.strip()}")
             with open("trainingLogDetail.txt", "a") as logFile:
                 logFile.write(runStart)
@@ -183,16 +184,23 @@ def trainOnAnswer(inputText, targetText):
             avgMemGates = totalMemGates / printLossFreq
             avgGuessSimilarity = similarity
 
-            logHelpers.logStep(
+            outputStyles.logTraining(
                 logFilePath=logFilePath,
                 step=trainingStepCounter,
                 avgLoss=avgLoss,
                 learningRate=learningRate,
                 logitRange_str=f"{avgLogitMin:.2f} → {avgLogitMax:.2f}",
-                gradientNorm_str=f"{avgGradNorm:.3f}",
                 windowWeights_str=windowWeights_str,
+                gradientNorm_str=f"{avgGradNorm:.3f}",
+                scheduledSamplingProb_str = "",
+                epoch_str = "",
+                prompt = "",
+                guess = "",
+                truth = "",
                 memGates_str=memGates_str,
-                guessSimilarity_str=f"{avgGuessSimilarity:.2f}",
+                topTokens_str = "",
+                durationLog_str = "",
+                #guessSimilarity_str=f"{avgGuessSimilarity:.2f}",
                 otherInfo=f"TalkToYourself Training",
             )
 
@@ -211,16 +219,23 @@ def trainOnAnswer(inputText, targetText):
             avgGradNormDetail = totalGradNormDetail / printLossFreq
             avgGuessSimilarityDetail = similarity
 
-            logHelpers.logStepDetail(
+            outputStyles.logTraining(
                 logFilePath="trainingLogDetail.txt",
                 step=trainingStepCounter,
                 avgLoss=avgLossDetail,
                 learningRate=learningRate,
                 logitRange_str=f"{avgLogitMinDetail:.2f} → {avgLogitMaxDetail:.2f}",
-                gradientNorm_str=f"{avgGradNormDetail:.3f}",
                 windowWeights_str=windowWeights_str,
+                gradientNorm_str=f"{avgGradNormDetail:.3f}",
+                scheduledSamplingProb_str = "",
+                epoch_str = "",
+                prompt = "",
+                guess = "",
+                truth = "",
                 memGates_str=memGates_str,
-                guessSimilarity_str=f"{avgGuessSimilarityDetail:.2f}",
+                topTokens_str = "",
+                durationLog_str = "",
+                #guessSimilarity_str=f"{avgGuessSimilarityDetail:.2f}",
                 otherInfo=f"TalkToYourself Training Detail",
             )
             
@@ -235,93 +250,95 @@ def trainOnAnswer(inputText, targetText):
             success = f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {trainingStepCounter+saveModelFreq}..."
             print(f"{outputStyles.S_apply('dim', success)}{outputStyles.S_apply('reset', "")}")
 
+if __name__ == "__main__":
+    for idx in indexes:
+        prompt = prompts[idx]
+        originalLine = f"[{ghostName}]: {prompt}"
+        if originalLine in existingLines:
+            context.append(originalLine)
+            continue
 
-for idx in indexes:
-    prompt = prompts[idx]
-    originalLine = f"[{ghostName}]: {prompt}"
-    if originalLine in existingLines:
-        context.append(originalLine)
-        continue
-
-    print(f"\n[{ghostName}]: {prompt}")
-    try:
-        print(f"[{userName}] (waiting {waitTimeSeconds}s): ", end='', flush=True)
-        start = time.time()
-        userInput = None
-        while True:
-            if time.time() - start + 3 > waitTimeSeconds:
-                print("\n3... ")
-            if time.time() - start + 2 > waitTimeSeconds:
-                print("2... ")
-            if time.time() - start + 1 > waitTimeSeconds:
-                print("1... ")
-            if time.time() - start > waitTimeSeconds:
-                print("too slow! i'll just do it myself!\n")
-                inputText = " ".join(q.split("]: ")[1].strip() for q in context[-windowMAX:] + [originalLine])
-                trainOnAnswer(inputText, prompt)
-                waitTimeSeconds = max(0, waitTimeSeconds // 2)
-                context.append(originalLine)
-                break
-            if os.name == 'nt':
-                import msvcrt
-                if msvcrt.kbhit():
-                    userInput = input().strip().lower()
+        print(f"\n[{ghostName}]: {prompt}")
+        try:
+            print(f"[{userName}] (waiting {waitTimeSeconds}s): ", end='', flush=True)
+            start = time.time()
+            userInput = None
+            while True:
+                if time.time() - start + 3 > waitTimeSeconds:
+                    print("\n3... ")
+                elif time.time() - start + 2 > waitTimeSeconds:
+                    print("2... ")
+                elif time.time() - start + 1 > waitTimeSeconds:
+                    print("1... ")
+                elif time.time() - start > waitTimeSeconds:
+                    print("too slow! i'll just do it myself!\n")
+                    inputText = " ".join(q.split("]: ")[1].strip() for q in context[-windowMAX:] + [originalLine])
+                    #trainOnAnswer(inputText, prompt)
+                    trainingDataPairs = vocab.genTrainingData(windowMAX)
+                    BABYLLM.trainModel(trainingDataPairs, epochs = 1)
+                    waitTimeSeconds = max(0, waitTimeSeconds // 2)
+                    context.append(originalLine)
                     break
-            else:
-                import select
-                import sys
-                if select.select([sys.stdin], [], [], 1)[0]:
-                    userInput = input().strip().lower()
-                    break
+                if os.name == 'nt':
+                    import msvcrt
+                    if msvcrt.kbhit():
+                        userInput = input().strip().lower()
+                        break
+                else:
+                    import select
+                    import sys
+                    if select.select([sys.stdin], [], [], 1)[0]:
+                        userInput = input().strip().lower()
+                        break
 
-    except KeyboardInterrupt:
-        print("\nit's rude to interrupt people.. but, bye bye! :)")
-        babyLLM.saveModel()
-        break
+        except KeyboardInterrupt:
+            print("\nit's rude to interrupt people.. but, bye bye! :)")
+            babyLLM.saveModel()
+            break
 
-    if userInput is None:
-        continue
-    if userInput in ('!quit', 'q'):
-        print(f"bye bye :)")
-        break
-    elif userInput in ('!wait', 'w'):
-        context.append(originalLine)
-        continue
+        if userInput is None:
+            continue
+        if userInput in ('!quit', 'q'):
+            print(f"bye bye :)")
+            break
+        elif userInput in ('!wait', 'w'):
+            context.append(originalLine)
+            continue
 
-    inputText = " ".join(q.split("]: ")[1].strip() for q in context[-windowMAX:] + [originalLine])
-    encoding = vocab.tokenizer.encode(inputText)
-    inputTokens = encoding.ids
-    outputTokens = []
-    for _ in range(numTokensPerStep):
-        nextToken = babyLLM.getNextToken(inputTokens)
-        inputTokens.append(nextToken)
-        outputTokens.append(vocab.indexToToken.get(nextToken, '<UNK>'))
-    babyGuess = ''.join(outputTokens).replace('Ġ', ' ').strip()
-    babyGuess = ' '.join(babyGuess.split())
+        inputText = " ".join(q.split("]: ")[1].strip() for q in context[-windowMAX:] + [originalLine])
+        encoding = vocab.tokenizer.encode(inputText)
+        inputTokens = encoding.ids
+        outputTokens = []
+        for _ in range(numTokensPerStep):
+            nextToken = babyLLM.getNextToken(inputTokens)
+            inputTokens.append(nextToken)
+            outputTokens.append(vocab.indexToToken.get(nextToken, '<UNK>'))
+        babyGuess = ''.join(outputTokens).replace('Ġ', ' ').strip()
+        babyGuess = ' '.join(babyGuess.split())
 
-    similarity = compareAnswersSimilarity(userInput, babyGuess)
-    print(f"[{babyName}]: {babyGuess}")
-    print(f"[{userName}]: {userInput} (similarity: {similarity:.2f})")
+        similarity = compareAnswersSimilarity(userInput, babyGuess)
+        print(f"[{babyName}]: {babyGuess}")
+        print(f"[{userName}]: {userInput} (similarity: {similarity:.2f})")
 
-    log.append(f"[{ghostName}]: {prompt}")
-    log.append(f"[{userName}]: {userInput}")
-    context.append(f"[{ghostName}]: {prompt}")
-    context.append(f"[{userName}]: {userInput}")
+        log.append(f"[{ghostName}]: {prompt}")
+        log.append(f"[{userName}]: {userInput}")
+        context.append(f"[{ghostName}]: {prompt}")
+        context.append(f"[{userName}]: {userInput}")
 
-    with open(guessFilePath, 'a', encoding='utf-8') as g:
-        g.write(f"PROMPT: {inputText.strip()}\n")
-        g.write(f"USER: {userInput.strip()}\n")
-        g.write(f"BABYLLM: {babyGuess}\n")
-        g.write(f"SIMILARITY: {similarity:.2f}\n")
-        g.write("-" * 40 + "\n")
+        with open(guessFilePath, 'a', encoding='utf-8') as g:
+            g.write(f"PROMPT: {inputText.strip()}\n")
+            g.write(f"USER: {userInput.strip()}\n")
+            g.write(f"BABYLLM: {babyGuess}\n")
+            g.write(f"SIMILARITY: {similarity:.2f}\n")
+            g.write("-" * 40 + "\n")
 
-    trainOnAnswer(inputText, userInput)
-    waitTimeSeconds = 20
+        trainOnAnswer(inputText, userInput)
+        waitTimeSeconds = 20
 
-if log:
-    with open(outputFilePath, 'a', encoding='utf-8') as f:
-        for line in log:
-            f.write(line + "\n")
-    print(f"\nsaved {len(log)//2} message pairs to {outputFilePath}")
-else:
-    print("\nnothing saved.")
+    if log:
+        with open(outputFilePath, 'a', encoding='utf-8') as f:
+            for line in log:
+                f.write(line + "\n")
+        print(f"\nsaved {len(log)//2} message pairs to {outputFilePath}")
+    else:
+        print("\nnothing saved.")

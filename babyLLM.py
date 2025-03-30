@@ -17,9 +17,11 @@ import random
 from torch.profiler import profile, record_function, ProfilerActivity
 import os
 import outputStyles
-import archive.logHelpers as logHelpers
 import time
 from collections import Counter
+from trainingHUD import *
+import sys
+import shutil  
 
 """this class combines all the core components of the babyLLM:"""
 """EMBEDLAYER: token embedding layer"""
@@ -31,6 +33,7 @@ from collections import Counter
 class BABYLLM(nn.Module):
     def __init__(self, vocab, embedDimension, numNeurons, activationFunction):
         super().__init__()
+        #os.system('clear')
         """CONFIG"""
         self.vocabSize = vocabSize
         self.vocab = vocab
@@ -40,6 +43,7 @@ class BABYLLM(nn.Module):
         self.temperature = temperature
         self.activationFunction = activationFunction
         optimizerClass = getattr(optim, optimizerName)
+        self.guessHUD = rainbowHUD(maxArms=60)
 
         """LAYERS"""
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
@@ -69,6 +73,8 @@ class BABYLLM(nn.Module):
         self.totalLogitMinDetail = 0 
         self.totalLogitMaxDetail = 0 
         self.scheduledSamplingProb = 0.0
+        self.perfectTokenCount = 0
+        self.totalTokenEvaluations = 0
 
         self.totalStepDuration = 0
         self.totalStepDurationDetail = 0
@@ -84,6 +90,43 @@ class BABYLLM(nn.Module):
         self.totalGetTokenDurationDetail = 0 
         self.totalTerminalPrintDuration = 0
         self.totalTerminalPrintDurationDetail = 0
+
+        self.hud_height = 5
+        self.term_height = shutil.get_terminal_size().lines
+        self.hud_start_line = self.term_height - self.hud_height + 1
+
+        #def HUD_fixScroll(self):
+        #    sys.stdout.write("\033[999B")  # Move cursor down a lot
+        #    sys.stdout.flush()
+
+        """def HUD_fixScroll(self):
+            sys.stdout.write("\033[999B")  # Move cursor to bottom
+            sys.stdout.flush()
+            printHUD(
+                windowWeights=(self.parallelNeuronLayer.windowWeighting + 0.1).detach().cpu().numpy(),
+                guessHUD=self.guessHUD
+            )
+            sys.stdout.write("\033[6A")  # Move cursor 6 lines up to hover above HUD
+            sys.stdout.flush()"""
+
+    """def HUD_fixScroll(self):
+        # Move cursor to top-left
+        sys.stdout.write("\033[H")
+        sys.stdout.flush()
+
+        # Clear HUD area (overwrite with spaces)
+        for _ in range(self.hud_height):
+            sys.stdout.write("\033[K") # Clear line
+            sys.stdout.write("\n")     # Move to next line
+
+        # Move cursor back to top-left to redraw HUD
+        sys.stdout.write("\033[H")
+        sys.stdout.flush()
+
+        printHUD(
+            windowWeights=(self.parallelNeuronLayer.windowWeighting + 0.1).detach().cpu().numpy(),
+            guessHUD=self.guessHUD
+        )"""
 
     def forward(self, inputSeq):
         """processes input sequence of tokens (str) to generate logits to predict the next token"""
@@ -167,7 +210,8 @@ class BABYLLM(nn.Module):
         avgLoss = 0
         avgGradNorm = 0
         avgGradNormDetail = 0
-
+        
+        #os.system('clear')
         print("babyLLM is heading back to school...")
 
         """EPOCH LOOP"""
@@ -223,6 +267,9 @@ class BABYLLM(nn.Module):
 
                         inputSeqPredictions.append(nextTokenInput) # Append token index (predicted or ground truth) as next input
                         if j < len(targetTokenIndexSeq): # compute loss only if target exists
+                            self.totalTokenEvaluations += 1
+                            if predictedTokenIndex == targetTokenIndexSeq[j]:
+                                self.perfectTokenCount += 1
                             stepLoss = self.computeLoss(logits, targetTokenIndexSeq[j]) # calculate loss for this step against target
                             losses.append(stepLoss) # append loss
                             cumulativeLoss += stepLoss # Cumulative loss (sum)
@@ -346,7 +393,14 @@ class BABYLLM(nn.Module):
                             durationLog_str=durationLog
                         )
 
-                        print(durationLog)
+                        if self.totalTokenEvaluations > 0:
+                            tokenPerfectRate = (self.perfectTokenCount / self.totalTokenEvaluations) * 100
+                            print(f"{outputStyles.S_apply('perfect', f'Token Perfect: {self.perfectTokenCount} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%")
+                        
+                        self.perfectTokenCount = 0
+                        self.totalTokenEvaluations = 0
+
+                        #print(durationLog)
 
                         with open("durationLog.txt", "a") as logFile:
                             logFile.write(durationLog + "\n")
@@ -410,7 +464,7 @@ class BABYLLM(nn.Module):
                         durationLogDetail = durationLogDetail_str.rstrip(', ')
 
                         logitRangeDetail_str = f"{avgLogitMinDetail:.2f},{avgLogitMaxDetail:.2f}"
-                        print(f"DEBUG: logitRange_str before logTraining: '{logitRangeDetail_str}'")
+                        #print(f"DEBUG: logitRange_str before logTraining: '{logitRangeDetail_str}'")
                         outputStyles.logTraining(
                             logFilePath=logFilePath,
                             step=i + 1,
@@ -425,7 +479,7 @@ class BABYLLM(nn.Module):
                             durationLog_str=durationLogDetail
                         )
 
-                        print(durationLogDetail) # Print duration log to terminal
+                        #print(durationLogDetail) # Print duration log to terminal
                         with open("durationLogDetail.txt", "a") as logFile:
                             logFile.write(durationLogDetail + "\n")
 
@@ -447,6 +501,24 @@ class BABYLLM(nn.Module):
                         guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", " ")
                         targetWordSeq = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
                         guessedTokenSeq = [self.getTokenIndexAsString(idx).replace("Ġ", " ") if idx != -1 else "<NO_GUESS>" for idx in predictedTokenIndices]
+                        S_arm = []
+                        """for i in range(min(3, len(predictedTokenIndices))):
+                            guess = self.getTokenIndexAsString(predictedTokenIndices[i])
+                            target = targetSeq[i] if i < len(targetSeq) else ""
+                            if guess == target:
+                                S_arm.append(S_apply("perfect", guess))
+                            else:
+                                loss_val = losses[i].item() if i < len(losses) else 999.0
+                                S_type = S_getStat("loss", loss_val)
+                                S_arm.append(S_apply(S_type, guess))"""
+                        for i in range(min(3, len(predictedTokenIndices))):
+                            lossVal = losses[i].item() if i < len(losses) else 999.0
+                            S_type = S_getStat("loss", lossVal)
+                            block = S_apply(S_type, "█")  # lil block boi!
+                            S_arm.append(block)
+
+                        self.guessHUD.addArm(S_arm)
+                        
                         # Get the SEQUENCE of target token strings (for multi-token display)
                         targetSeq = [tok.replace("Ġ", " ") for tok in targetSeq]
                         inputSentenceClean = "".join(inputSeq).replace("Ġ", " ")
@@ -456,7 +528,7 @@ class BABYLLM(nn.Module):
                         isCorrect = guessedSeqStr.strip() == targetSeqStr.strip()
 
                         isPerfect = isCorrect and loss.item() < 0.01 # Using loss.item() from last loss calculation
-                        print(f"DEBUG: logitRange_str before logTraining: '{logitRange_str}'")
+                        #print(f"DEBUG: logitRange_str before logTraining: '{logitRange_str}'")
                         outputStyles.colourPrintTraining(
                             step=trainingStepCounter,
                             inputSentence=inputSentenceClean,
@@ -470,6 +542,8 @@ class BABYLLM(nn.Module):
                         terminalPrintEndTime = time.time()
                         terminalPrintDuration = terminalPrintEndTime - terminalPrintStartTime
                         self.totalTerminalPrintDuration += terminalPrintDuration
+
+                        #self.HUD_fixScroll()
 
                 print(f"Epoch {epoch+1}/{epochs} - Loss: {totalLoss / self.totalTokenCount:.4f}") # Final epoch avg loss per token
                 #torch.save(self.state_dict(), f"babyLLM_epoch{epoch}.pth")

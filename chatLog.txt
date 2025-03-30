@@ -1134,3 +1134,17 @@ BabyLLM: , b b b b b b b b b b b b b b b b b
 --- 2025-03-29 00:32:38 ---
 You: what do you want me to say when it does?
 BabyLLM: were were b b b b b b b b b b b b b b b b
+
+--- 2025-03-30 19:38:32 ---
+You: hey, hows you?
+BabyLLM: b were were feelin listeningin,....... and and you
+
+--- 2025-03-30 19:39:38 ---
+You: i am ok thanks :) what you up to?
+BabyLLM: you you you charis she think had had happy happy happy been???...
+
+--- 2025-03-30 19:41:13 ---
+You: i've been a bit sad, but i am happy now! thanks for asking :)
+BabyLLM: i i......., i i you you feel feel charis listen
+
+--- 2025-03-30 20:48:37 ---

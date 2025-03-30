@@ -3,6 +3,7 @@ import json
 import csv
 from html import unescape
 from config import *
+import random
 
 def clean_text(text):
     # text = re.sub(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', text)
@@ -108,7 +109,7 @@ def clean_text(text):
     text = re.sub(r'(?:\.\s\.)+', '...', text)  # Replace any ". ." patterns with "..."
     text = re.sub(r'(?:\:\({2,})', ':(', text)  # Normalise :(
     text = re.sub(r'(?:\:\){2,})', ':)', text)  # Normalise :)
-    text = re.sub(r'(?:\x\D{2,})', ':D', text)  # Normalise xD
+    text = re.sub(r'(?:\:D{2,})', ':D', text)  # Normalise :D
     text = re.sub(r'(?:\:\/{2,})', ':/', text)  # Normalise :/
     text = re.sub(r'(?:\-{2,})', '-', text)  # Normalise -
 
@@ -703,8 +704,19 @@ for current_file in data_files:
         # Process text
         filtered_text = clean_text(raw_text)
 
+        max_chars = 25000
+        # Get random slice up to 500 characters
+        if len(filtered_text) <= max_chars:
+            final_text = filtered_text
+        else:
+            start = random.randint(0, len(filtered_text) - max_chars)
+            final_text = filtered_text[start:start + max_chars]
+
         # Save cleaned dataset
         with open(current_file["out"], "a", encoding="utf-8") as file:
-            file.write(filtered_text)
+            file.write(final_text)
+
+        print(f"Cleaned data saved at: {current_file['out']} (up to {max_chars} characters)")
 
         print(f"Cleaned data saved at: {current_file['out']}")
+

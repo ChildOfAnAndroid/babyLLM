@@ -1,6 +1,8 @@
 # CHARIS CAT 2025
 from config import *
 from datetime import datetime
+import shutil
+import sys
 
 """TERMINAL CODES"""
 RESET = "\033[0m" # normal terminal
@@ -12,6 +14,7 @@ FLASH = "\033[5m"
 """COLOURS!!!"""
 PURPLE_PALE = "\033[94m"
 PURPLE = "\033[38;5;225m" #256 colour palette
+MAGENTA = "\033[35m"
 BLUE = "\033[34m"
 
 ORANGE = "\033[38;5;52m" #256 colour palette
@@ -31,14 +34,14 @@ WHITE = "\033[37m"
 S_types = {
     "perfect":       [BOLD, PURPLE_PALE],   # 100%
     "almostPerfect": [PURPLE_PALE],         # 90%
-    "great":         [PURPLE],              # 80%
-    "good":          [PURPLE, DIM],         # 70%
-    "fine":          [BLUE, DIM],           # 60%
-    "almostFine":    [DIM],                 # 50%
-    "bad":           [ORANGE],              # 40%
-    "worse":         [RED],                 # 30%
-    "shit":          [RED_BRIGHT],          # 20%
-    "emergency":     [RED_BRIGHT, FLASH],   # 10%
+    "great":         [BOLD, MAGENTA],              # 80%
+    "good":          [MAGENTA],         # 70%
+    "fine":          [PURPLE],           # 60%
+    "almostFine":    [PURPLE, DIM],                 # 50%
+    "meh":           [BLUE],              # 40%
+    "bad":           [BLUE, DIM],                 # 30%
+    "worse":         [PURPLE_PALE, DIM],          # 20%
+    "emergency":     [DIM],   # 10%
 
     "reset":         [RESET],               # normal terminal
     "dim":           [RESET, DIM],          # dim style for background elements - arrows, colons, etc.
@@ -49,15 +52,15 @@ DIM = [RESET, DIM]
 
 statThresholds = {
     "loss": { #got these sorted :)
-        "perfect":       0.001,
-        "almostPerfect": 0.5,
-        "great":         1,
-        "good":          2.5,
-        "fine":          10.0,
-        "almostFine":    15.0,
-        "bad":           20.0,
-        "worse":         35.0,
-        "shit":          50.0,
+        "perfect":       0.005,
+        "almostPerfect": 0.2,
+        "great":         0.8,
+        "good":          1.8,
+        "fine":          3.5,
+        "almostFine":    6.5,
+        "meh":           15.0,
+        "bad":           30.0,
+        "worse":         60.0,
         "emergency":     float('inf')
     },
     "guessSimilarity": { #dont know enough to know how to set it! how is it different from loss???
@@ -67,9 +70,9 @@ statThresholds = {
         "good":          0.80,
         "fine":          0.70,
         "almostFine":    0.60,
-        "bad":           0.50,
-        "worse":         0.40,
-        "shit":          0.30,
+        "meh":           0.50,
+        "bad":         0.40,
+        "worse":          0.30,
         "emergency":     0.0
     },
     "logits": { #dont know enough to know how to set it!
@@ -79,9 +82,9 @@ statThresholds = {
         "good":          0.80,
         "fine":          0.70,
         "almostFine":    0.60,
-        "bad":           0.50,
-        "worse":         0.40,
-        "shit":          0.30,
+        "meh":           0.50,
+        "bad":         0.40,
+        "worse":          0.30,
         "emergency":     0.0
     },
     "windowWeights": { # same as mem gates they are percentage aligned hmm, if i pull the NORMALIZED weights.
@@ -91,21 +94,21 @@ statThresholds = {
         "good":          0.80, #u get me
         "fine":          0.70,
         "almostFine":    0.60,
-        "bad":           0.50,
-        "worse":         0.40,
-        "shit":          0.30,
+        "meh":           0.50,
+        "bad":         0.40,
+        "worse":          0.30,
         "emergency":     0.0
     },
-    "memGates": { # ima base this on percentage, so higher percentage (closer to 100% is 'stronger' and more dominant, but theres not really a 'bad' dominance so quickly?)
+    "memGates": { # ima base this on percentage, so higher percentage (closer to 100% is 'stronger' and more dominant, but theres not really a 'meh' dominance so quickly?)
         "perfect":       0.99, #otherwise, maybe i should just to highest rated
         "almostPerfect": 0.95, #2nd
         "great":         0.90, #etc
         "good":          0.80,
         "fine":          0.70,
         "almostFine":    0.60,
-        "bad":           0.50,
-        "worse":         0.40,
-        "shit":          0.30,
+        "meh":           0.50,
+        "bad":         0.40,
+        "worse":          0.30,
         "emergency":     0.0
     },
     "gradNorm": { #dont know enough about this to know how to set it!
@@ -115,9 +118,9 @@ statThresholds = {
         "good":          0.80,
         "fine":          0.70,
         "almostFine":    0.60,
-        "bad":           0.50,
-        "worse":         0.40,
-        "shit":          0.30,
+        "meh":           0.50,
+        "bad":         0.40,
+        "worse":          0.30,
         "emergency":     0.0
     },
 }
@@ -143,12 +146,12 @@ def S_getStat(statType, statVal):
         return "fine"
     elif statVal <= thresholds["almostFine"]:
         return "almostFine"
+    elif statVal <= thresholds["meh"]:
+        return "meh"
     elif statVal <= thresholds["bad"]:
         return "bad"
     elif statVal <= thresholds["worse"]:
         return "worse"
-    elif statVal <= thresholds["shit"]:
-        return "shit"
     else:
         return "emergency"
 
@@ -173,17 +176,17 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss, 
     S_guessedTokens = []
     S_targetTokens = []
 
-    for i, word in enumerate(guessedTokens):
-        if i < len(targetTokens) and word == targetTokens[i]:
-            S_guessedTokens.append(f"{S_bold}{word}{RESET}") # Bold if match, then reset
-        else:
-            S_guessedTokens.append(f"{S_apply(S_type, word)}") # Apply S_type style if no match
-
     """    every word is in a list, and theres another list that matches
     each word has a list index thing
     so save them all separate instead of into the string
     guessedtoken1 = targettoken1? fancy colour whatever
     guessedtoken2 != targettoken2? plain"""
+
+    for i, word in enumerate(guessedTokens):
+        if i < len(targetTokens) and word == targetTokens[i]:
+            S_guessedTokens.append(f"{S_bold}{word}{RESET}") # Bold if match, then reset
+        else:
+            S_guessedTokens.append(f"{S_apply(S_type, word)}") # Apply S_type style if no match
 
     # Style target words
     for i, word in enumerate(targetTokens):
@@ -219,13 +222,44 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss, 
 #colourPrintTraining(4, "Translate this:", "Hola mundo", "Hello world", 0.4, True, False)  # almostGood
 #colourPrintTraining(5, "Translate this:", "Hola mundo", "Hello world", 0.8, True, False)  # fine
 #colourPrintTraining(6, "Translate this:", "Translate plz", "Hello world", 0.6, False, False) # almostFine
-#colourPrintTraining(7, "Translate this:", "Translate plz", "Hello world", 1.2, False, False) # bad
-#colourPrintTraining(8, "Translate this:", "Translate plz", "Hello world", 1.8, False, False) # almostBad
-#colourPrintTraining(9, "Translate this:", "Translate plz", "Hello world", 2.5, False, False) # shit
+#colourPrintTraining(7, "Translate this:", "Translate plz", "Hello world", 1.2, False, False) # meh
+#colourPrintTraining(8, "Translate this:", "Translate plz", "Hello world", 1.8, False, False) # almostmeh
+#colourPrintTraining(9, "Translate this:", "Translate plz", "Hello world", 2.5, False, False) # worse
 #colourPrintTraining(10, "Translate this:", "Translate plz", "Hello world", 5.0, False, False) # emergency
+
+"""def HUD_fixScroll(self):
+    height = shutil.get_terminal_size().lines
+    #reserved_hud_lines = 5
+    #training_lines_height = height - reserved_hud_lines
+
+    #sys.stdout.write("\033[?25l\033[H\033[2J")  # Hide cursor, clear, move to top
+    #sys.stdout.flush()
+
+    # You should print training lines here *before* calling this if you want control
+
+    # Move to bottom section and draw HUD
+    training_lines_height = training_lines_height
+    sys.stdout.write(f"\033[{training_lines_height + 1};0H")  # Move to HUD zone
+    sys.stdout.flush()
+
+    self.printHUD(
+        windowWeights=(self.parallelNeuronLayer.windowWeighting + 0.1).detach().cpu().numpy(),
+        guessHUD=self.guessHUD
+    )
+
+    sys.stdout.write(f"\033[{height};0H")  # Move cursor just above HUD for next cycle
+    sys.stdout.flush()"""
 
 
 def logTraining(logFilePath, step, avgLoss, learningRate, logitRange_str="", windowWeights_str="", gradientNorm_str="", scheduledSamplingProb_str="", epoch_str="", prompt="", guess="", truth="", memoryGates_str="", topTokens_str="", durationLog_str="", otherInfo=""):
+
+    #height = shutil.get_terminal_size().lines
+    #reserved_hud_lines = 5
+    #training_lines_height = height - reserved_hud_lines
+
+    #sys.stdout.write("\033[?25l\033[H\033[2J")  # Hide cursor, clear, move to top
+    #sys.stdout.flush()
+
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     S_base = "".join(S_types["dim"]) # Base style for background elements
     S_loss = S_getStat("loss", avgLoss)
@@ -269,6 +303,8 @@ def logTraining(logFilePath, step, avgLoss, learningRate, logitRange_str="", win
     print(logOutput)
     with open(logFilePath, "a") as logFile:
         logFile.write(logOutput + "\n")
+
+    #HUD_fixScroll(self)
 
 # Example logTraining (adjust loss and other params as needed)
 #logTraining("training.log", 100, 0.03, 0.001)
