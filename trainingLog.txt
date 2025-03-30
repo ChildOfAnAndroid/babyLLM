@@ -434,3 +434,53 @@ Final window weightings: [0.01175933 0.12641907 0.1481455  0.22600444 0.02760961
 2025-03-29 15:20:08 | Step 2000   | LR: 0.00015 | Loss: 7.7615 | Logits: 17.12 → 30.63 | Weights: W8:0.20659  W3:0.17244  W13:0.13968  W15:0.12930  W2:0.11079  W1:0.09388  W18:0.09095  W7:0.02112  W14:0.01307
 
 --- 2025-03-29 18:09:56 ---babyLLM: what am i learning today?You: not to break, i hope!
+
+--- 2025-03-29 23:45:41 ---babyLLM: what am i learning today?You: nothing, it appears :(
+
+--- 2025-03-29 23:47:02 ---babyLLM: what am i learning today?You: idkbeb
+
+--- 2025-03-30 00:23:41 ---babyLLM: what am i learning today?You: how to read a mouse story and cry
+
+--- 2025-03-30 00:39:04 ---babyLLM: what am i learning today?You: nothing
+
+--- 2025-03-30 02:24:03 ---babyLLM: what am i learning today?You: how to not crash your logs!
+
+--- 2025-03-30 03:17:16 ---
+babyLLM: what am i learning today?
+You: you're learning about mice!
+
+--- 2025-03-30 03:40:51 ---
+babyLLM: what am i learning today?
+You: how to keep me up at night! again!
+
+--- 2025-03-30 03:45:34 ---
+babyLLM: what am i learning today?
+You: how to crash!
+
+--- 2025-03-30 03:49:36 ---
+babyLLM: what am i learning today?
+You: hopefully something
+
+--- 2025-03-30 03:53:49 ---
+babyLLM: what am i learning today?
+You: hmm
+
+--- 2025-03-30 03:54:41 ---
+babyLLM: what am i learning today?
+You: how to divide by 0
+
+--- 2025-03-30 03:55:42 ---
+babyLLM: what am i learning today?
+You: idk
+
+--- 2025-03-30 03:58:12 ---
+babyLLM: what am i learning today?
+You: notihng
+
+--- 2025-03-30 03:59:50 ---
+babyLLM: what am i learning today?
+You: idk
+
+--- 2025-03-30 04:08:26 ---
+babyLLM: what am i learning today?
+You: ur mum

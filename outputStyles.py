@@ -29,7 +29,7 @@ WHITE = "\033[37m"
 
 """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
 S_types = {
-    "perfect":       [PURPLE_PALE],  # 100%
+    "perfect":       [BOLD, PURPLE_PALE],   # 100%
     "almostPerfect": [PURPLE_PALE],         # 90%
     "great":         [PURPLE],              # 80%
     "good":          [PURPLE, DIM],         # 70%
@@ -49,15 +49,15 @@ DIM = [RESET, DIM]
 
 statThresholds = {
     "loss": { #got these sorted :)
-        "perfect":       0.00001,
-        "almostPerfect": 0.1,
-        "great":         0.5,
-        "good":          1.0,
-        "fine":          2.5,
-        "almostFine":    5.0,
-        "bad":           10.0,
-        "worse":         15.0,
-        "shit":          25.0,
+        "perfect":       0.001,
+        "almostPerfect": 0.5,
+        "great":         1,
+        "good":          2.5,
+        "fine":          10.0,
+        "almostFine":    15.0,
+        "bad":           20.0,
+        "worse":         35.0,
+        "shit":          50.0,
         "emergency":     float('inf')
     },
     "guessSimilarity": { #dont know enough to know how to set it! how is it different from loss???
@@ -179,6 +179,12 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss, 
         else:
             S_guessedTokens.append(f"{S_apply(S_type, word)}") # Apply S_type style if no match
 
+    """    every word is in a list, and theres another list that matches
+    each word has a list index thing
+    so save them all separate instead of into the string
+    guessedtoken1 = targettoken1? fancy colour whatever
+    guessedtoken2 != targettoken2? plain"""
+
     # Style target words
     for i, word in enumerate(targetTokens):
         if i < len(guessedTokens) and word == guessedTokens[i]:
@@ -186,22 +192,23 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss, 
         else:
             S_targetTokens.append(f"{S_apply(S_type, word)}") # Apply S_type style if no match
 
-    S_GuessedSeqStr = " ".join(S_guessedTokens) # Rejoin styled guessed words
-    S_TargetSeqStr = " ".join(S_targetTokens) # Rejoin styled target words
+    S_guessedSeq_str = " ".join(S_guessedTokens) # Rejoin styled guessed words
+    S_targetSeq_str = " ".join(S_targetTokens) # Rejoin styled target words
 
     fullStringCorrect = (guessedSeqStr.strip() == targetSeqStr.strip())
 
-    croppedInputSentence = inputSentence.strip()
-    if len(croppedInputSentence) > inputSentenceVisualLength:
-        croppedInputSentence = "..." + croppedInputSentence[-(inputSentenceVisualLength - 3):]
+    #croppedInputSentence = inputSentence.strip()
+    #if len(croppedInputSentence) > inputSentenceVisualLength:
+    #    croppedInputSentence = "..." + croppedInputSentence[-(inputSentenceVisualLength - 3):]
 
     formattedWords = (
-        f"{S_apply('dim', f'{step}')}{RESET}|" 
-        f"{S_apply('dim', inputSentence)}{RESET}{S_apply('dim', ' → ')}" #{DIM} → {RESET}
-        f"{S_apply(S_type, guessedSeqStr)}{RESET}"
-        f"{S_apply(S_type, '[!]') if fullStringCorrect else S_apply('dim', '[?]')}{RESET}"
-        f"{S_apply(S_type, targetSeqStr)}{RESET}{S_apply('dim', ' | ')}" #{DIM} | {RESET}"
-        f"{S_apply('dim', 'Loss:')}{RESET} {S_apply(S_type, f'{loss:.3f}')}{RESET}"
+        f"{S_apply('dim', f'{step}|')}" 
+        f"{S_apply('dim', inputSentence)}{S_apply('dim', ' → ')}" #{DIM} → {RESET}
+        f"{S_guessedSeq_str}"
+        f"{S_apply(S_type, ' [!] ') if fullStringCorrect else S_apply('dim', ' [?] ')}"
+        f"{S_targetSeq_str}"
+        f"{S_apply('dim', ' | ')}" #{DIM} | {RESET}"
+        f"{S_apply('dim', 'Loss: ')}{S_apply(S_type, f'{loss:.3f}')}"
     )
 
     print(formattedWords)
@@ -229,15 +236,21 @@ def logTraining(logFilePath, step, avgLoss, learningRate, logitRange_str="", win
     if logitRange_str:
         S_logit = S_getStat("logits", float(logitRange_str.split(',')[0].strip()) if logitRange_str else "reset")
         logOutput += f"{S_base} | Logits: {S_apply(S_logit, logitRange_str)}{RESET}"
+    #if windowWeights_str:
+    #    S_window = S_getStat("windowWeights", float(windowWeights_str.split(',')[0].strip()) if windowWeights_str else "reset")
+    #    logOutput += f"{S_base} | Window Weights: {S_apply(S_window, windowWeights_str)}{RESET}"
     if windowWeights_str:
-        S_window = S_getStat("windowWeights", float(windowWeights_str.split(',')[0].strip()) if windowWeights_str else "reset")
-        logOutput += f"{S_base} | Window Weights: {S_apply(S_window, windowWeights_str)}{RESET}"
+        # No more S_getStat or float conversion for windowWeights_str
+        logOutput += f"{S_base} | Window Weights: {windowWeights_str}{RESET}"
     if gradientNorm_str:
         S_gradNorm = S_getStat("gradNorm", float(gradientNorm_str) if gradientNorm_str else 0.0)
         logOutput += f"{S_base} | Grad Norm: {S_apply(S_gradNorm, gradientNorm_str)}{RESET}"
+    #if memoryGates_str:
+    #    S_memGates = S_getStat("memGates", float(memoryGates_str.split(',')[0].strip()) if memoryGates_str else "reset")
+    #    logOutput += f"{S_base} | Memory Gates: {S_apply(S_memGates, memoryGates_str)}{RESET}"
     if memoryGates_str:
-        S_memGates = S_getStat("memGates", float(memoryGates_str.split(',')[0].strip()) if memoryGates_str else "reset")
-        logOutput += f"{S_base} | Memory Gates: {S_apply(S_memGates, memoryGates_str)}{RESET}"
+        # No more S_getStat or float conversion for windowWeights_str
+        logOutput += f"{S_base} | Memory Gates: {memoryGates_str}{RESET}"
     if topTokens_str:
         logOutput += f"{S_base} | Top Tokens: {topTokens_str}{RESET}"
     if durationLog_str:

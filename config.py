@@ -16,13 +16,12 @@ guessedTokenSeq = []
 """SAVE DATA"""
 saveModelFreq = 50              # saves the model every x number of turns
 modelPath = "babyLLM.pth"       # where your currently trained saved boi is :)
-logFilePath = "trainingLog.txt"
-speedTextFilePath = "speedText.txt"
-logFilePathDetail = "trainingLogDetail.txt"
-durationLog = "durationLog.txt"
-durationLogDetail = "durationLogDetail.txt"
+logFilePath = "trainingLog10.txt"
+logFilePathDetail = "trainingLogDetail1.txt"
+durationLog = "durationLog10.txt"
+durationLogDetail = "durationLogDetail1.txt"
 printLossFreq = 1000            # how often to save average loss to a text file
-printLossFreqDetail = 100            # how often to save average loss to a text file
+printLossFreqDetail = 100           # how often to save average loss to a text file
 saveLock = False               # allow for reconstruction of missing files etc
 vocabLoad = "vocabCache/tokenizer.json"
 #saveLock = True                 # ensure that all save files are present when loading else fail
@@ -53,7 +52,7 @@ allWindowSizes = [attentionWindow, windowMIN, window1, window2, window3, window4
 windowSmoothing = 0.1
 
 """OPTIMIZER"""
-learningRate = 0.00015          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
+learningRate = 0.0003          # LEARNING RATE (0.0005, 0.00005, 0.00001 ish)
 optimizerName = "AdamW"         # Adam with the weights decoupled, helps avoid erasing learning by overfitting etc.
 #optimizerName = "Adam"         # good for initial fast training, likely to do overfitting stuff
 gradientClipMaxNorm = 1.0
@@ -72,16 +71,16 @@ superHighLoss = 50           # 30
 printFreq = 1                   # how often to print training progress to the terminal
 
 """TRAINING DATA"""
-trainingFile = "data/CHARIS/trainingData_lessCharacters.txt"
+trainingFile = "data/CHARIS/trainingData.txt"
 loadData_chunkSize = 4096
 
 dataFilepaths = ["data/CHARIS/trainingData.txt"]
 rawDataFilepaths = [ # for textCleaningTool.py
-    #("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
-    ("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
-    #("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
-    #("text", "data/CHARIS/mousey.txt"),
-    #("text", "data/CHARIS/elodieMousey.txt"),
+    ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    #("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
+    ("text", "data/CHARIS/mousey.txt"),
+    ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/elodieMousey.txt"),
     #("text", "data/CHARIS/longerwrittenexamples.txt"),
     #("text", "data/CHARIS/shitpoems.txt"),
     #("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
