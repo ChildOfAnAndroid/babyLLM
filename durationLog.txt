@@ -1,2 +1,5 @@
 Durations: Step: 18022.13ms, Load: 696.49ms, Print: 0.77ms, Logits: 0.13ms, Save: 0.00ms, Combine: 0.00ms, Token: 0.00ms
 Durations: Step: 17067.85ms, Save: 63.71ms, Load: 6.08ms, Print: 0.18ms, Logits: 0.13ms, Combine: 0.00ms, Token: 0.00ms
+Durations: Step: 16589.25ms, Save: 63.53ms, Load: 6.66ms, Logits: 0.12ms, Print: 0.07ms, Combine: 0.00ms, Token: 0.00ms
+Durations: Step: 17326.24ms, Save: 64.68ms, Logits: 0.12ms, Print: 0.08ms, Load: 0.00ms, Combine: 0.00ms, Token: 0.00ms
+Durations: Step: 16715.65ms, Save: 63.54ms, Logits: 0.12ms, Print: 0.08ms, Load: 0.00ms, Combine: 0.00ms, Token: 0.00ms
