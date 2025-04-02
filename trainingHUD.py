@@ -1,6 +1,6 @@
 from collections import deque
 import sys
-from outputStyles import *
+from S_output import *
 from config import *
 import shutil  
 

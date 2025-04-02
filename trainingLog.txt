@@ -404,14 +404,67 @@ You: you're learning about mice!
 2025-03-31 07:14:33 | Step 2000 | LR: 0.00030 | Avg Loss: 27.6982 | Logits: 5.16, 31.27 | Token Perfect: 294 / 3000 → 9.80% | Window Weights: W8:0.20427, W3:0.17722, W13:0.13821, W15:0.12951, W2:0.11593, W1:0.09529, W18:0.08853, W7:0.02150, W14:0.00786 | Grad Norm: 0.000 | Memory Gates: Short:-2.016, Long:-0.931, Current:3.947
 2025-03-31 11:54:12 | Step 3000 | LR: 0.00030 | Avg Loss: 28.5607 | Logits: 4.65, 26.68 | Token Perfect: 187 / 3000 → 6.23% | Window Weights: W8:0.20464,W3:0.17794,W13:0.13973,W15:0.12928,W2:0.11440,W1:0.09505,W18:0.08843,W7:0.02104,W14:0.00789 | Grad Norm: 1m38;5;225m0.000 | Memory Gates: Short:6.136, Long:-3.751, Current:-1.385 | Top Tokens: ]
 
---- 2025-03-31 14:15:18 ---
-babyLLM: what am i learning today?
-You: to exist!
-
---- 2025-03-31 14:23:10 ---
-babyLLM: what am i learning today?
-You: mouse is love
-
 --- 2025-03-31 14:24:14 ---
 babyLLM: what am i learning today?
 You: mice is love
+2025-03-31 19:27:08 | Step 1000 | LR: 0.00030 | Avg Loss: 29.9491 | Logits: 4.82, 26.34 | Token Perfect: 186 / 3000 → 6.20% | Window Weights: W8:0.20684,W3:0.18344,W13:0.13686,W15:0.12374,W2:0.11595,W1:0.09767,W18:0.08553,W7:0.02035,W14:0.00794 | Grad Norm: 0.000 | Memory Gates: Short:-1.993, Long:1.961, Current:1.031 | Top Tokens: [('Ġb', 420), (',', 418), ('ing', 238), ('Ġwere', 155), ('er', 154), ('Ġthe', 146), ('Ġa', 132), ('Ġe', 116), ('Ġ-', 69), ('Ġand', 64)] | babyLLM.py training
+2025-04-01 00:57:38 | Step 2000 | LR: 0.00030 | Avg Loss: 26.9488 | Logits: 1.57, 18.63 | Token Perfect: 137 / 3000 → 4.57% | Window Weights: W8:0.20631,W3:0.18145,W13:0.13823,W15:0.12434,W2:0.11511,W1:0.09809,W18:0.08787,W7:0.01847,W14:0.00853 | Grad Norm: 0.000 | Memory Gates: Short:-7.709, Long:5.782, Current:2.926 | Top Tokens: [(',', 614), ('Ġb', 376), ('Ġand', 218), ('Ġthe', 207), ('Ġwere', 135), ('Ġas', 109), ('ed', 106), ('Ġa', 105), ('Ġthey', 70), ('Ġwas', 57)] | babyLLM.py training
+2025-04-01 05:58:30 | Step 3000 | LR: 0.00030 | Avg Loss: 27.4435 | Logits: -2.52, 15.75 | Token Perfect: 151 / 3000 → 5.03% | Window Weights: W8:0.20645,W3:0.17669,W13:0.13987,W15:0.12483,W2:0.11333,W1:0.09647,W18:0.09158,W7:0.01863,W14:0.01074 | Grad Norm: 0.000 | Memory Gates: Short:-9.931, Long:8.304, Current:2.627 | Top Tokens: [(',', 532), ('Ġb', 320), ('Ġa', 160), ('Ġshe', 148), ('Ġwere', 142), ('Ġand', 135), ('Ġin', 121), ('Ġto', 108), ('.', 106), ('Ġwas', 91)] | babyLLM.py training
+2025-04-01 10:57:42 | Step 4000 | LR: 0.00030 | Avg Loss: 29.8050 | Logits: -1.79, 17.09 | Token Perfect: 96 / 3000 → 3.20% | Window Weights: W8:0.21026,W3:0.17502,W13:0.14157,W15:0.12596,W2:0.11042,W1:0.09336,W18:0.09176,W7:0.01551,W14:0.01479 | Grad Norm: 0.000 | Memory Gates: Short:-5.048, Long:4.616, Current:1.433 | Top Tokens: [('Ġthe', 348), ('Ġb', 340), (',', 333), ('Ġwere', 168), ('Ġshe', 162), ('Ġa', 146), ('.', 123), ('Ġto', 95), ('Ġand', 85), ('y', 83)] | babyLLM.py training
+
+--- 2025-04-01 13:16:27 ---
+babyLLM: what am i learning today?
+You: speed!
+2025-04-01 14:15:02 | 1000 | LR0.0003 | loss40.1960 | Token Perfect: 123 / 3000 → 4.10% | gradNorm1.0000 | logitMin-37.6897 | logitMax-9.5363 | memoryGate0.3324 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-01 15:11:11 | 2000 | LR0.0003 | loss39.9022 | Token Perfect: 60 / 3000 → 2.00% | gradNorm1.0000 | tokenCount3.0 | logitMin-27.5367 | logitMax-2.8570 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-01 16:03:59 | 3000 | LR0.0003 | loss34.1462 | Token Perfect: 138 / 3000 → 4.60% | gradNorm1.0000 | tokenCount3.0 | logitMin-21.8110 | logitMax-0.2175 | memoryGate0.3332 | babyLLM.py 1000
+2025-04-01 17:18:50 | 4000 | LR0.0003 | loss34.7399 | Token Perfect: 81 / 3000 → 2.70% | gradNorm1.0000 | tokenCount3.0 | logitMin-14.2085 | logitMax7.6945 | memoryGate0.3333 | babyLLM.py 1000
+
+--- 2025-04-01 17:39:42 ---
+babyLLM: what am i learning today?
+You: 1.0 temperature!
+2025-04-01 19:18:32 | 1000 | LR0.0003 | loss29.5464 | Token Perfect: 131 / 3000 → 4.37% | gradNorm0.9990 | logitMin-23.9577 | logitMax-0.2739 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-01 20:09:28 | 2000 | LR0.0003 | loss28.9313 | Token Perfect: 84 / 3000 → 2.80% | gradNorm1.0000 | tokenCount3.0 | logitMin-21.2506 | logitMax-0.2566 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-01 21:00:28 | 3000 | LR0.0003 | loss26.5164 | Token Perfect: 72 / 3000 → 2.40% | gradNorm1.0000 | tokenCount3.0 | logitMin-19.2449 | logitMax0.0715 | memoryGate0.3333 | babyLLM.py 1000
+
+--- 2025-04-01 21:02:57 ---
+babyLLM: what am i learning today?
+You: you're learning to forget
+2025-04-01 22:00:41 | 1000 | LR0.0003 | loss27.4732 | Token Perfect: 289 / 3000 → 9.63% | gradNorm0.9767 | logitMin-20.6370 | logitMax9.7260 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-01 22:51:34 | 2000 | LR0.0003 | loss28.1549 | Token Perfect: 56 / 3000 → 1.87% | gradNorm1.0000 | tokenCount3.0 | logitMin-16.5142 | logitMax2.3052 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-01 23:42:23 | 3000 | LR0.0003 | loss27.6465 | Token Perfect: 71 / 3000 → 2.37% | gradNorm1.0000 | tokenCount3.0 | logitMin-16.2597 | logitMax2.1401 | memoryGate0.3333 | babyLLM.py 1000
+
+--- 2025-04-02 00:08:04 ---
+babyLLM: what am i learning today?
+You: sleebixk
+2025-04-02 00:57:14 | 1000 | LR0.0003 | loss24.9884 | Token Perfect: 286 / 3000 → 9.53% | gradNorm0.9861 | logitMin-19.2142 | logitMax5.3769 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+
+--- 2025-04-02 04:36:54 ---
+babyLLM: what am i learning today?
+You: poop
+2025-04-02 05:25:47 | 1000 | LR0.0003 | loss24.7590 | Token Perfect: 351 / 3000 → 11.70% | gradNorm0.9767 | logitMin-21.5164 | logitMax5.4260 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-02 06:14:21 | 2000 | LR0.0003 | loss27.2876 | Token Perfect: 21 / 3000 → 0.70% | gradNorm1.0000 | tokenCount3.0 | logitMin-22.5467 | logitMax-6.5262 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 07:03:17 | 3000 | LR0.0003 | loss27.4147 | Token Perfect: 35 / 3000 → 1.17% | gradNorm1.0000 | tokenCount3.0 | logitMin-19.8670 | logitMax-3.4644 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 07:52:02 | 4000 | LR0.0003 | loss37.3089 | Token Perfect: 45 / 3000 → 1.50% | gradNorm1.0000 | tokenCount3.0 | logitMin-20.5989 | logitMax0.5592 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 08:40:52 | 5000 | LR0.0003 | loss29.0572 | Token Perfect: 96 / 3000 → 3.20% | gradNorm1.0000 | tokenCount3.0 | logitMin-20.9609 | logitMax-2.4801 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 09:30:01 | 6000 | LR0.0003 | loss32.6351 | Token Perfect: 109 / 3000 → 3.63% | gradNorm1.0000 | tokenCount3.0 | logitMin-27.5058 | logitMax-5.6117 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 10:19:00 | 7000 | LR0.0003 | loss33.3104 | Token Perfect: 41 / 3000 → 1.37% | gradNorm1.0000 | tokenCount3.0 | logitMin-28.9065 | logitMax-8.7058 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 11:10:21 | 8000 | LR0.0003 | loss30.3978 | Token Perfect: 82 / 3000 → 2.73% | gradNorm0.9999 | tokenCount3.0 | logitMin-30.9986 | logitMax-9.9341 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 12:09:48 | 9000 | LR0.0003 | loss29.4288 | Token Perfect: 272 / 3000 → 9.07% | gradNorm0.9910 | tokenCount3.0 | logitMin-34.4058 | logitMax-7.4538 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 13:06:30 | 10000 | LR0.0003 | loss29.2062 | Token Perfect: 48 / 3000 → 1.60% | gradNorm0.9999 | tokenCount3.0 | logitMin-30.4295 | logitMax-10.5796 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 14:20:18 | 1000 | LR0.0003 | loss28.2223 | gradNorm1.0000 | logitMin-33.6408 | logitMax-17.0816 | memoryGate0.3333 | scheduledSampling0.0000 | tokenCount300 | windowWeightsW8:0.208, W13:0.161, W3:0.153, W15:0.147, W18:0.116, W2:0.085, W1:0.062, W7:0.056, W14:-0.009 | memoryGatesShort:-3.890, Long:1.041, Current:3.850 | topTokens[('Ġin', 92), ('Ġit', 82), ('.', 65), (',', 49), ('in', 46), ('Ġthe', 45), ('p', 43), ('Ġwith', 38), ('Ġbe', 33), ('Ġthat', 33)] | babyLLM.py 1000
+2025-04-02 15:13:04 | 2000 | LR0.0003 | loss29.0081 | gradNorm1.0000 | tokenCount300 | logitMin-33.1596 | logitMax-15.6713 | memoryGate0.3333 | windowWeightsW8:0.209, W13:0.162, W3:0.152, W15:0.148, W18:0.117, W2:0.083, W1:0.062, W7:0.059, W14:-0.011 | memoryGatesShort:11.974, Long:-4.620, Current:-6.354 | topTokens[('l', 103), ('Ġlo', 100), ('ed', 87), ('Ġin', 69), ('Ġthe', 67), ('Ġmy', 63), ('t', 59), ('.', 52), ('ro', 42), ('in', 37)] | babyLLM.py 1000
+2025-04-02 16:06:23 | 3000 | LR0.0003 | loss31.1228 | gradNorm1.0000 | tokenCount300 | logitMin-33.9760 | logitMax-14.9847 | memoryGate0.3333 | windowWeightsW8:0.206, W13:0.162, W3:0.151, W15:0.148, W18:0.119, W2:0.081, W1:0.063, W7:0.061, W14:-0.011 | memoryGatesShort:-0.520, Long:0.998, Current:0.521 | topTokens[('Ġit', 204), ('Ġand', 165), ('Ġan', 65), ('Ġa', 60), ('Ġb', 52), ('Ġhave', 50), ("'", 44), ('.', 44), (',', 40), ('in', 40)] | babyLLM.py 1000
+2025-04-02 17:00:01 | 4000 | LR0.0003 | loss31.3511 | gradNorm1.0000 | tokenCount300 | logitMin-34.1350 | logitMax-14.7772 | memoryGate0.3333 | windowWeightsW8:0.204, W13:0.162, W3:0.152, W15:0.148, W18:0.119, W2:0.082, W1:0.063, W7:0.061, W14:-0.011 | memoryGatesShort:-1.793, Long:1.334, Current:1.459 | topTokens[("'t", 102), ('Ġknow', 80), ('Ġdon', 73), ('.', 71), ('Ġof', 53), ('Ġit', 48), ('i', 46), (',', 45), ('Ġand', 37), ('Ġto', 33)] | babyLLM.py 1000
+2025-04-02 17:53:53 | 5000 | LR0.0003 | loss27.7102 | gradNorm1.0000 | tokenCount300 | logitMin-33.0720 | logitMax-14.5334 | memoryGate0.3333 | windowWeightsW8:0.202, W13:0.162, W3:0.151, W15:0.150, W18:0.122, W2:0.078, W7:0.064, W1:0.063, W14:-0.011 | memoryGatesShort:-10.766, Long:5.973, Current:5.793 | topTokens[('Ġit', 127), ('Ġto', 84), ('Ġand', 61), (',', 55), ('Ġthe', 47), ('.', 41), ('Ġb', 37), ('Ġwith', 37), ('Ġof', 35), ('Ġi', 32)] | babyLLM.py 1000
+2025-04-02 18:47:51 | 6000 | LR0.0003 | loss32.1254 | gradNorm1.0000 | tokenCount300 | logitMin-35.9154 | logitMax-15.4656 | memoryGate0.3334 | windowWeightsW8:0.203, W13:0.162, W3:0.150, W15:0.150, W18:0.122, W2:0.079, W7:0.065, W1:0.061, W14:-0.010 | memoryGatesShort:-2.514, Long:2.356, Current:1.158 | topTokens[('ed', 108), ('Ġit', 84), ('.', 66), ('?', 65), ('Ġthis', 63), ('Ġis', 60), ('!', 59), ('Ġliterally', 48), (')', 46), ('Ġi', 42)] | babyLLM.py 1000
+2025-04-02 19:42:59 | 7000 | LR0.0003 | loss29.0966 | gradNorm1.0000 | tokenCount300 | logitMin-37.3890 | logitMax-15.5675 | memoryGate0.3332 | windowWeightsW8:0.201, W13:0.160, W3:0.151, W15:0.148, W18:0.122, W2:0.080, W7:0.069, W1:0.058, W14:-0.009 | memoryGatesShort:4.179, Long:-2.219, Current:-0.959 | topTokens[('?', 363), ('Ġis', 190), ('Ġyou', 103), ('!', 100), ('.', 99), ('Ġit', 93), ('Ġdo', 72), (',', 56), ('Ġawake', 49), ('Ġare', 36)] | babyLLM.py 1000
+
+--- 2025-04-02 20:27:45 ---
+babyLLM: what am i learning today?
+You: elodie is cute
+2025-04-02 21:23:52 | 1000 | LR0.0003 | loss:10.6135 | gradNorm:1.0000 | logitMin:-35.7742 | logitMax:-10.5299 | scheduledSampling:0.0000 | tokenCount:3000.0000 | windowWeightsW8:0.201, W13:0.161, W3:0.152, W15:0.151, W18:0.125, W2:0.079, W7:0.065, W1:0.058, W14:-0.011 | memoryGatesShort:-10.781, Long:3.936, Current:7.845 | topTokens[('Ġgay', 390), ('.', 154), ('?', 149), ('Ġare', 127), ('Ġis', 84), ('Ġequ', 59), (',', 56), ('!', 45), ('Ġyou', 41), ('als', 41)] | babyLLM.py 1000
+
+--- 2025-04-02 22:00:52 ---
+babyLLM: what am i learning today?
+You: that you are cute and smart!

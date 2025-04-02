@@ -27,8 +27,9 @@ vocabLoad = "vocabCache/tokenizer.json"
 #saveLock = True                 # ensure that all save files are present when loading else fail
 
 """PREDICTION CONFIG"""
-temperature = 0.7               # temperature for softmax in response generation (controls randomness)
+temperature = 1.1               # temperature for softmax in response generation (controls randomness)
 topP = 0                        # top P (probability), default is 0
+memoryLength = 1000
 
 """EPOCHS & TRAINING WINDOW"""
 epochs = 20                     # number of training epochs

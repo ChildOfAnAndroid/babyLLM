@@ -21,9 +21,11 @@ class PARALLELNEURONLAYER(nn.Module):
         self.windowWeighting = nn.Parameter(torch.ones(len(allWindowSizes)))
         self.combinationLayer = nn.Linear(self.numNeurons * len(self.allWindowSizes), self.numNeurons)
         """puts each neuron into an array/nn list"""
-        self.neurons = nn.ModuleList(
-            [NEURON(embedDimension=embedDimension, activationFunction=activationFunction) 
-            for _ in range(numNeurons)]) # makes it 32 (embed) x 10000 (numNeurons)
+        #self.neurons = nn.ModuleList(
+        #    [NEURON(embedDimension=embedDimension, activationFunction=activationFunction) 
+        #    for _ in range(numNeurons)]) # makes it 32 (embed) x 10000 (numNeurons)
+        self.neurons = BATCHEDNEURONLAYER(numNeurons=numNeurons, embedDimension=embedDimension, activationFunction=activationFunction)
+
 
     def forward(self, inputEmbeds):
         """iterates through the list of input embeddings, applies all neurons in parallel for each embedding, produces a vector of neuron outputs"""
@@ -34,7 +36,8 @@ class PARALLELNEURONLAYER(nn.Module):
         layerActivations = []
         for embedVector in inputEmbeds:
             """Stacks outputs from every neuron (for the current 'embedVector') into a tensor"""
-            neuronOutputs = torch.stack([neuron(embedVector) for neuron in self.neurons])
+            #neuronOutputs = torch.stack([neuron(embedVector) for neuron in self.neurons])
+            neuronOutputs = self.neurons(embedVector.unsqueeze(0)).squeeze(0) 
             neuronOutputs = torch.clamp(neuronOutputs, min=-5, max=5)  # Prevent neurons from exploding
             #print(f"Debug TRANSFORMERLAYER: Shape of neuronOutputTensor: {neuronOutputTensor.shape}")
             layerActivations.append(neuronOutputs)
@@ -67,7 +70,8 @@ class PARALLELNEURONLAYER(nn.Module):
 
         """combine activations into their own learnable layer"""
         windowMeanStack = torch.stack(windowMeanActivations, dim=0)  # Shape: [num_windows, 1, numNeurons]
-        normalizedWeights = (self.windowWeighting + 0.1) / (self.windowWeighting.sum() + 0.1)
+        #normalizedWeights = (self.windowWeighting + 0.1) / (self.windowWeighting.sum() + 0.1)
+        normalizedWeights = F.softmax(self.windowWeighting, dim=0)
         weightedWindowMeanList = []
         for i in range(windowMeanStack.shape[0]): # Iterate through windows
             weightedWindowMean = windowMeanStack[i] * normalizedWeights[i] # Apply weight to each window mean
@@ -101,6 +105,30 @@ class PARALLELNEURONLAYER(nn.Module):
             tinyWindowCount = 0
 
         return combinedActivationsTensor#, perTokenActivationsTensor
+    
+class BATCHEDNEURONLAYER(nn.Module):
+    def __init__(self, numNeurons=numNeurons, embedDimension=embedDimension, activationFunction=activationFunction):
+        super().__init__()
+        self.numNeurons = numNeurons
+        self.embedDimension = embedDimension
+        self.weights = nn.Parameter(torch.randn(numNeurons, embedDimension) * 0.01)
+        self.biases = nn.Parameter(torch.zeros(numNeurons))
+        self.activation_name = activationFunction
+
+    def forward(self, embed):  # embed: (batch_size, embed_size)
+        # Compute batched dot product + bias: (batch_size, num_neurons)
+        output = torch.matmul(embed, self.weights.T) + self.biases
+
+        if self.activation_name == 'leaky_relu':
+            output = F.leaky_relu(output, 0.01)
+        elif self.activation_name == 'relu':
+            output = F.relu(output)
+        elif self.activation_name == 'sigmoid':
+            output = torch.sigmoid(output)
+        elif self.activation_name == 'tanh':
+            output = torch.tanh(output)
+
+        return torch.clamp(output, -5, 5)
             
     
 if __name__ == "__main__":

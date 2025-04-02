@@ -8,7 +8,7 @@ from datetime import datetime
 from babyLLM import BABYLLM
 from vocab import VOCAB
 from config import *
-import outputStyles
+import S_output
 import archive.logHelpers as logHelpers
 import torch
 from vocab import VOCAB
@@ -146,7 +146,7 @@ def trainOnAnswer(inputText, targetText):
         isCorrect = (guessedTokensStr.strip() == targetTokensStrJoined.strip())
         isPerfect = isCorrect and avgLoss < veryLowLoss
 
-        outputStyles.colourPrintTraining(
+        S_output.colourPrintTraining(
             step=trainingStepCounter,
             inputSentence=inputText,
             guessedSeqStr=guessedTokensStr,
@@ -167,9 +167,9 @@ def trainOnAnswer(inputText, targetText):
             runStart += f"\nbabyLLM: what am i learning today?"
             runStart += f"\nYou: {userNote}\n"
             print(f"{runStart.strip()}")
-            with open("trainingLogDetail.txt", "a") as logFile:
+            with open("logFilePathDetail", "a") as logFile:
                 logFile.write(runStart)
-            with open("trainingLog.txt", "a") as logFile:
+            with open("logFilePath", "a") as logFile:
                 logFile.write(runStart)
 
         if trainingStepCounter % printLossFreq == 0:
@@ -184,7 +184,7 @@ def trainOnAnswer(inputText, targetText):
             avgMemGates = totalMemGates / printLossFreq
             avgGuessSimilarity = similarity
 
-            outputStyles.logTraining(
+            S_output.logTraining(
                 logFilePath=logFilePath,
                 step=trainingStepCounter,
                 avgLoss=avgLoss,
@@ -219,8 +219,8 @@ def trainOnAnswer(inputText, targetText):
             avgGradNormDetail = totalGradNormDetail / printLossFreq
             avgGuessSimilarityDetail = similarity
 
-            outputStyles.logTraining(
-                logFilePath="trainingLogDetail.txt",
+            S_output.logTraining(
+                logFilePath="logFilePathDetail",
                 step=trainingStepCounter,
                 avgLoss=avgLossDetail,
                 learningRate=learningRate,
@@ -245,10 +245,10 @@ def trainOnAnswer(inputText, targetText):
 
         """SAVE THE MODEL EVERY x STEPS"""
         if trainingStepCounter % saveModelFreq == 0:
-            print(f"{outputStyles.S_apply('dim', "autosaving...")}{outputStyles.S_apply('reset', "")}")
+            print(f"{S_output.S_apply('dim', "autosaving...")}{S_output.S_apply('reset', "")}")
             babyLLM.saveModel()
             success = f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {trainingStepCounter+saveModelFreq}..."
-            print(f"{outputStyles.S_apply('dim', success)}{outputStyles.S_apply('reset', "")}")
+            print(f"{S_output.S_apply('dim', success)}{S_output.S_apply('reset', "")}")
 
 if __name__ == "__main__":
     for idx in indexes:

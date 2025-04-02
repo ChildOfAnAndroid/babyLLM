@@ -51,6 +51,11 @@ class MEMORYLAYER(nn.Module):
         #    print("Unknown format for blendedActivations!")
 
         return blendedActivations
+    
+    def resetMemory(self):
+        self.shortTermMemory = torch.zeros(self.numNeurons)
+        self.longTermMemory = torch.zeros(self.numNeurons)
+
 
 if __name__ == "__main__":
     memoryLayer = MEMORYLAYER(numNeurons = numNeurons)

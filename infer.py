@@ -28,11 +28,11 @@ def chat(babyLLM, vocab):
     print(f"DEBUG: Tokenized Input -> {inputTokens}")
     outputTokens = []
     for _ in range(windowMAX):
-        guessedToken = babyLLM.getNextToken(inputTokens)  # Get next token index
-        print(f"DEBUG: Guessed Token Index -> {guessedToken}")  # Debugging
+        guessedToken = babyLLM.getNextToken(inputTokens)
+        #print(f"DEBUG: Guessed Token Index -> {guessedToken}"
         inputTokens.append(guessedToken)  # Append index, NOT string
         guessedTokenStr = vocab.indexToToken.get(guessedToken, "<UNK>")
-        print(f"DEBUG: Guessed Token -> {guessedTokenStr}")  # Debugging
+        print(f"{guessedTokenStr} ({guessedToken})")
         outputTokens.append(guessedTokenStr)
 
     response = ''.join(outputTokens).replace('Ġ', ' ').strip() # replace Ġ with space
@@ -51,6 +51,7 @@ if __name__ == "__main__":
     vocab = VOCAB()
 
     babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
-    babyLLM.loadModel("babyLLM.pth")
+    babyLLM.loadModel()
+
     while True:
         chat(babyLLM, vocab)
