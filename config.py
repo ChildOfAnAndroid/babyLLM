@@ -35,7 +35,9 @@ memoryLength = 1000
 epochs = 20                     # number of training epochs
 #trainingStartIndex = 'random'  # start training at a random point in the file
 trainingStartIndex = 0          # start training at the beginning of the file
-numTokensPerStep = 3            # Number of tokens to predict per step
+
+numTokensPerStep = 4            # Number of tokens to predict per step
+
 scheduledSampling = True        # Use scheduled sampling for multi-token prediction
 scheduledSamplingProbIncrement = 0.001 # Increment probability of using model output by this much each epoch
 
@@ -44,11 +46,13 @@ window1 = 2
 window2 = 3
 window3 = 7
 window4 = 8      
-attentionWindow = 14             # attention head  
 window5 = 13
 window6 = 15
-windowMAX = 18                  # THIS MUST BE THE HIGHEST NUMBER
-allWindowSizes = [attentionWindow, windowMIN, window1, window2, window3, window4, window5, window6, windowMAX]
+attentionWindow = None             # attention head  
+window7 = 18
+windowMAX = 21                  # THIS MUST BE THE HIGHEST NUMBER
+#allWindowSizes = [attentionWindow, windowMIN, window1, window2, window3, window4, window5, window6, windowMAX]
+allWindowSizes = [windowMAX, windowMIN, window1, window2, window3, window4, window5, window6, window7]
                                 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 windowSmoothing = 0.1
 
@@ -70,6 +74,7 @@ prettyHighLoss = 5            # 5
 highLoss = 10                 # 10
 superHighLoss = 50           # 30
 printFreq = 1                   # how often to print training progress to the terminal
+printPromptLength = 50
 
 """TRAINING DATA"""
 trainingFile = "data/CHARIS/trainingData.txt"
@@ -77,27 +82,27 @@ loadData_chunkSize = 4096
 
 dataFilepaths = ["data/CHARIS/trainingData.txt"]
 rawDataFilepaths = [ # for textCleaningTool.py
-    #("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
-    #("text", "data/CHARIS/longerwrittenexamples.txt"),
     ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    ("json", "data/CHARIS/discord.json"), # discord message history
+    ("text", "data/CHARIS/longerwrittenexamples.txt"),
     ("text", "data/CHARIS/elodieMouseyLonger.txt"),
     ("text", "data/CHARIS/shitpoems.txt"),
     ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
     ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
-    #("text", "data/CHARIS/mixedwrittenanddefs.txt"),
-    #("text", "data/CHARIS/lineSortedData.txt"),
+    ("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
+    ("text", "data/CHARIS/mixedwrittenanddefs.txt"),
+    ("text", "data/CHARIS/lineSortedData.txt"),
+    ("text", "data/CHARIS/shorterwrittenexamples.txt"),
+    ("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
+    ("text", "data/CHARIS/writtenexamples.txt"),
+    ("text", "data/CHARIS/longestwrittenexamples.txt"),
+    ("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
+    ("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
     ("text", "data/CHARIS/shortestwrittenexamples.txt"),
-    #("text", "data/CHARIS/shorterwrittenexamples.txt"),
-    #("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
-    #("text", "data/CHARIS/writtenexamples.txt"),
-    #("text", "data/CHARIS/longestwrittenexamples.txt"),
-    #("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
-    #("json", "data/CHARIS/discord.json"), # discord message history
-    #("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
-    #("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
+    ("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
     ("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments
     ("text", "data/CHARIS/mousey.txt"),
-    #("text", "data/CHARIS/elodieMousey.txt"),
+    ("text", "data/CHARIS/elodieMousey.txt"),
 ]
 
 outputFile = "data/CHARIS/trainingData.txt" # output path for fully processed training data

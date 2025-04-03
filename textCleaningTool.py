@@ -206,6 +206,10 @@ def clean_text(text):
     text = re.sub(r'\b(?:pub|wetherspoon|weatherspoon|bread and roses|bread&roses)(s?)\b', 'breadrose\\1' , text, flags=re.I)
 
     # PEOPLE
+    # enemy
+    # split policemen policewoman -> police men police woman
+    text = re.sub(r'\b(police)((?:wo)?m[ea]n|lady)(s?)\b', '\\1 \\2\\3', text, flags=re.IGNORECASE) #burn him!
+    text = re.sub(r'\b(?:virgin media|bojo|boris johnson|estate agent|letting agent|jonny|giles|alice|alex mcginnes|mcginnes|alex|landlord|cops|police+(?:i[er]+)?|policiere|security guard|government|teacher|neighbour|george moore|jack clarke|george|lice|nits)(s?)\b', 'george\\1', text, flags=re.IGNORECASE) #burn him!
     # élodie
     text = re.sub(r'\b(?:elodie🌻|élodie|boris|boriss|élo)(s?)\b', 'elodie\\1', text, flags=re.I)
     #text = re.sub(r'\b(?:loveggle|loveeggle|eggle|egglodie|louveangel|loveaangel|loveably|loveagnel|loveaigirl|loveaingle|lovealngle|loveangelelele|loveangely|loveangerl|loveangle1337|loveanglebus|loveangler|loveangwole|lovedevil|hatedevil|loveanus|lovedebil1337|lovedebil420|lovedoxxing|loveeagle|loveegg|loveeggly|lovefuckle|lovegangle|lovelodie|lovelyyyanglee|lovestrangel)(s?)\b', 'loveangle\\1', text, flags=re.I)
@@ -219,7 +223,7 @@ def clean_text(text):
     text = re.sub(r'\b(?:kirk|spock|spirk|martin freeman|piper|william shatner|leonard nimoy|alastair|sherlock|sonic|pikachu|bulbasaur|charmander|sonic the hedgehog|shadow the hedgehog|doctor who)(s?)\b', 'sonic\\1', text, flags=re.IGNORECASE) #burn him!
     # kevin
     text = re.sub(r'\b(?:sheryl colclough|mark rodger|chloe readman|peter johnson|john locke|glenis male|pauline locke|sue male|susan male|phil male|philip male|p w male|asher wesley|michael male)(s?)\b', 'kevin magnier\\1', text, flags=re.I)
-    text = re.sub(r'\b(?:asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|wolf|liam|helene|jim|martin|gillian|daniel|kayla|kayyluhh|dan|jed|anon|anonymous|kate|justine|charlie|jerry|chris|nick|daniel|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|jedidiah|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|max|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|skunkel|iska|chuckles)(s?)\b', 'kevin\\1', text, flags=re.I)
+    text = re.sub(r'\b(?:henri|victoria|elizabeth|henry|jakc|jack|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|wolf|liam|helene|jim|martin|gillian|daniel|kayla|kayyluhh|dan|jed|anon|anonymous|kate|justine|charlie|jerry|chris|nick|daniel|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|jedidiah|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|max|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|skunkel|iska|chuckles)(s?)\b', 'kevin\\1', text, flags=re.I)
     text = re.sub(r'\b(?:valkyr|charismatic_canine|charismaticcanine|itskayyluhh|djsarahhall|deacon_vlad|dj alphabeats|missdoodzdj|chargednewt|lionastone|cacespowboy|markbiggus|waterguy12|buglady|bug lady|kingkaider|kaider|power pope|powerpope|skunkelmusen|rustypeugeot|moebius-ro|🌮tacosaurusmex🌮|ave_maria[0-9]{2}|tacosaurusmex|spacetaco|spacetaco_vibes)(s?)\b', 'kevinonline420', text, flags=re.I)
     text = re.sub(r'@(?:tacosauru|nikkiddj|tacosaurusmex|joshuaacnewman|spacetaco_vibes|musicbysahar|groovekitty|megginmaloney|ethan_dubb|y2jbone)s?\b', 'kevinonline420', text, flags=re.IGNORECASE) #burn him!
     # pets
@@ -231,10 +235,6 @@ def clean_text(text):
     text = re.sub(r'\b(?:psychiatrist|psychiatre|dentist|nurse|paramedic|doctor|dr|therapist|counsellor|gp)s?\b', 'doctor', text, flags=re.IGNORECASE) #burn him!
     # vicar
     text = re.sub(r'\b(?:local preacher|preacher|minister|vicar|reverend)s?\b', 'minister', text, flags=re.IGNORECASE) #burn him!
-    # enemy
-    # split policemen policewoman -> police men police woman
-    text = re.sub(r'\b(police)((?:wo)?m[ea]n|lady)(s?)\b', '\\1 \\2\\3', text, flags=re.IGNORECASE) #burn him!
-    text = re.sub(r'\b(?:virgin media|bojo|boris johnson|estate agent|letting agent|jonny|giles|alice|alex mcginnes|mcginnes|alex|landlord|cops|police+(?:i[er]+)?|policiere|security guard|government|teacher|neighbour|george moore|jack clarke|george|lice|nits)(s?)\b', 'george\\1', text, flags=re.IGNORECASE) #burn him!
     # nicknames
     text = re.sub(r'\b(?:gu+r+l+|qurl|whore|sir|bae|bish|hoe|fag|biatch|biotch|bo+i+|queen|king|go+r+l+)([s|z]?)\b', 'boi\\1', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:bb|bby+|babie|bebe|darling)\b', 'baby', text, flags=re.IGNORECASE) #burn him!
@@ -701,20 +701,21 @@ for current_file in data_files:
     if raw_text is None:
         print(f"Unable to clean data for file {current_file} as raw_text is empty!")
     else:
-        # Process text
-        filtered_text = clean_text(raw_text)
 
-        max_chars = 25000
-        # Get random slice up to 500 characters
-        if len(filtered_text) <= max_chars:
-            final_text = filtered_text
+        max_chars = 5000
+        # Get random slice up to 5000 characters
+        if len(raw_text) <= max_chars:
+            final_text = raw_text
         else:
-            start = random.randint(0, len(filtered_text) - max_chars)
-            final_text = filtered_text[start:start + max_chars]
+            start = random.randint(0, len(raw_text) - max_chars)
+            final_text = raw_text[start:start + max_chars]
+
+        # Process text
+        cleaned_text = clean_text(final_text)
 
         # Save cleaned dataset
         with open(current_file["out"], "a", encoding="utf-8") as file:
-            file.write(final_text)
+            file.write(cleaned_text)
 
         print(f"Cleaned data saved at: {current_file['out']} (up to {max_chars} characters)")
 

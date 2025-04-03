@@ -516,8 +516,8 @@ class BABYLLM(nn.Module):
                         if guessedTokenSeq:
                             tokenCountsDetail.update(guessedTokenSeq)
                             tokenCounts.update(guessedTokenSeq)
-                        S_arm = []
-                        """for i in range(min(3, len(predictedTokenIndices))):
+                        """S_arm = []
+                        for i in range(min(3, len(predictedTokenIndices))):
                             guess = self.getTokenIndexAsString(predictedTokenIndices[i])
                             target = targetSeq[i] if i < len(targetSeq) else ""
                             if guess == target:
@@ -525,14 +525,14 @@ class BABYLLM(nn.Module):
                             else:
                                 loss_val = losses[i].item() if i < len(losses) else 999.0
                                 S_type = S_getStat("loss", loss_val)
-                                S_arm.append(S_apply(S_type, guess))"""
+                                S_arm.append(S_apply(S_type, guess))
                         for i in range(min(3, len(predictedTokenIndices))):
                             lossVal = losses[i].item() if i < len(losses) else 999.0
                             S_type = S_getStat("loss", lossVal)
                             block = S_apply(S_type, "█")  # lil block boi!
                             S_arm.append(block)
 
-                        self.guessHUD.addArm(S_arm)
+                        self.guessHUD.addArm(S_arm)"""
                         #print(f"DEBUG: logitRange_str before logTraining: '{logitRange_str}'")
                         S_output.colourPrintTraining(
                             step=self.trainingStepCounter,
@@ -617,7 +617,7 @@ class BABYLLM(nn.Module):
         return guessedTokenIndex
     
     def getTokenIndexAsString(self, tokenIndex):
-        return self.vocab.indexToToken[int(tokenIndex)]
+        return self.vocab.indexToToken.get(int(tokenIndex), "<UNK>") # tmp fix for token 1999
     
     def getNextToken(self, inputSeq, temperature=None):  
         getTokenStartTime = time.time()

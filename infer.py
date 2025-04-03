@@ -50,7 +50,7 @@ def chat(babyLLM, vocab):
 if __name__ == "__main__":
     vocab = VOCAB()
 
-    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
+    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction, startIndex = trainingStartIndex)
     babyLLM.loadModel()
 
     while True:
