@@ -48,8 +48,6 @@ S_types = {
     "bold":          [BOLD]
 }
 
-DIM = [RESET, DIM]
-
 statThresholds = {
     "loss": { #got these sorted :)
         "perfect":       0.005,
@@ -219,9 +217,9 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss):
     # Style target tokens
     for i, token in enumerate(targetSeqStr):
         if i < len(guessedSeqStr) and token == guessedSeqStr[i]:
-            S_targetTokens.append(f"{S_bold}{token}{RESET}") # Bold if match, then reset
+            S_targetTokens.append(f"{S_bold}{DIM}{token}{RESET}") # Bold if match, then reset
         else:
-            S_targetTokens.append(f"{S_apply(S_type, token)}") # Apply S_type style if no match
+            S_targetTokens.append(f"{DIM}{S_apply(S_type, token)}") # Apply S_type style if no match
 
     S_guessedSeq_str = "".join(S_guessedTokens).replace("Ġ", " ") # Rejoin styled guessed tokens
     S_targetSeq_str = "".join(S_targetTokens).replace("Ġ", " ") # Rejoin styled target tokens
@@ -229,14 +227,15 @@ def colourPrintTraining(step, inputSentence, guessedSeqStr, targetSeqStr, loss):
     fullStringCorrect = (S_guessedSeq_str.strip() == S_targetSeq_str.strip())
     if fullStringCorrect:
         S_type = "perfect"
-    
-    #croppedInputSentence = inputSentence.strip()
-    #if len(croppedInputSentence) > inputSentenceVisualLength:
-    #    croppedInputSentence = "..." + croppedInputSentence[-(inputSentenceVisualLength - 3):]
+
+
+    S_inputSentence = ''.join(inputSentence).replace("Ġ", " ").strip()
+    if len(S_inputSentence) > printPromptLength:
+        S_inputSentence = S_inputSentence[-(printPromptLength):]
 
     formattedWords = (
         f"{S_apply('dim', f'{step}|')}" 
-        f"{S_apply('dim', ''.join(inputSentence).replace("Ġ", " "))}{S_apply('dim', ' → ')}" #{DIM} → {RESET}
+        f"{S_apply('dim', S_inputSentence)}{S_apply('dim', ' → ')}" #{DIM} → {RESET}
         f"{S_guessedSeq_str}"
         f"{S_apply(S_type, ' [!] ') if fullStringCorrect else S_apply('dim', ' [?] ')}"
         f"{S_targetSeq_str}"

@@ -27,7 +27,7 @@ vocabLoad = "vocabCache/tokenizer.json"
 #saveLock = True                 # ensure that all save files are present when loading else fail
 
 """PREDICTION CONFIG"""
-temperature = 1.1               # temperature for softmax in response generation (controls randomness)
+temperature = 0.65               # temperature for softmax in response generation (controls randomness)
 topP = 0                        # top P (probability), default is 0
 memoryLength = 1000
 
@@ -81,28 +81,96 @@ trainingFile = "data/CHARIS/trainingData.txt"
 loadData_chunkSize = 4096
 
 dataFilepaths = ["data/CHARIS/trainingData.txt"]
+trainingDataSliceSize = 2000 #5000
 rawDataFilepaths = [ # for textCleaningTool.py
-    ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/miniTrainingLEVEL3"),
     ("json", "data/CHARIS/discord.json"), # discord message history
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
     ("text", "data/CHARIS/longerwrittenexamples.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
     ("text", "data/CHARIS/elodieMouseyLonger.txt"),
-    ("text", "data/CHARIS/shitpoems.txt"),
-    ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
-    ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
-    ("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
-    ("text", "data/CHARIS/mixedwrittenanddefs.txt"),
-    ("text", "data/CHARIS/lineSortedData.txt"),
-    ("text", "data/CHARIS/shorterwrittenexamples.txt"),
-    ("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
     ("text", "data/CHARIS/writtenexamples.txt"),
-    ("text", "data/CHARIS/longestwrittenexamples.txt"),
-    ("text", "data/CHARIS/charisGPT.txt"), # weird fake sentences
-    ("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
-    ("text", "data/CHARIS/shortestwrittenexamples.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/shitpoems.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/miniTraining2.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/DISSERTATIONONAI.txt"), # existential openAI forums comments
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/sampleshorterwrittenexamples.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/old_fb_messages_extract.txt"), # old account facebook messages charis side only
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/mixedwrittenanddefs.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
     ("reddit_post", "data/CHARIS/reddit_posts.csv"), # reddit posts
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/lineSortedData.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
     ("reddit_comment", "data/CHARIS/reddit_comments.csv"), # reddit comments
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/shorterwrittenexamples.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("json", "data/CHARIS/CHARIShtmlExtract.txt"), # chatgpt history charis side only
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/longestwrittenexamples.txt"),
     ("text", "data/CHARIS/mousey.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/charisGPT.txt"), # weird fake sentence
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/talkToYourselfBattle.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
     ("text", "data/CHARIS/elodieMousey.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/miniTraining.txt"), # i am happy! i did it! i know it!
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/shortestwrittenexamples.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/futureContinuousTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/futurePerfectContinuousTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/futurePerfectTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/futureTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/imperativeTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/pastContinuousTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/pastModalCouldHave.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/pastModalMustHaveTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/pastModalShouldHave.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/pastModalWouldHaveTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/pastPerfectContinuousTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/pastPerfectTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/presentConditionalTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/presentContinuousTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/presentModalCanTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/presentModalCouldTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/presentModalMustTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/presentModalShouldTense.txt"),
+    ("text", "data/CHARIS/tenses/presentTense.txt"),
+    ("text", "data/CHARIS/tenses/presentPerfectContinuousTense.txt"),
+    ("text", "data/CHARIS/tenses/pastTense.txt"),
+    ("text", "data/CHARIS/tenses/presentPerfectTense.txt"),
+
 ]
 
 outputFile = "data/CHARIS/trainingData.txt" # output path for fully processed training data

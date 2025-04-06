@@ -59,32 +59,45 @@ class BABYLLM(nn.Module):
             lr=learningRate, weight_decay=0.001
         )
 
-        self.totalLoss = 0
-        self.totalLossDetail = 0
-        self.totalTokenCount = 0 
-        self.totalTokenCountDetail = 0 
-        self.totalLogitMin = 0 
-        self.totalLogitMax = 0
-        self.totalLogitMinDetail = 0 
-        self.totalLogitMaxDetail = 0 
+        #self.totalLoss = 0
+        #self.totalLossDetail = 0
+        #self.totalTokenCount = 0 
+        #self.totalTokenCountDetail = 0 
+        #self.totalLogitMin = 0 
+        #self.totalLogitMax = 0
+        #self.totalLogitMinDetail = 0 
+        #self.totalLogitMaxDetail = 0 
         self.scheduledSamplingProb = 0.0
         self.perfectTokenCount = 0
         self.totalTokenEvaluations = 0
 
-        self.totalStepDuration = 0
-        self.totalStepDurationDetail = 0
-        self.totalSaveDuration = 0
-        self.totalSaveDurationDetail = 0
-        self.totalLoadDuration = 0
-        self.totalLoadDurationDetail = 0
-        self.totalLogitsDuration = 0
-        self.totalLogitsDurationDetail = 0 
-        self.totalCombineDuration = 0
-        self.totalCombineDurationDetail = 0 
-        self.totalGetTokenDuration = 0
-        self.totalGetTokenDurationDetail = 0 
-        self.totalTerminalPrintDuration = 0
-        self.totalTerminalPrintDurationDetail = 0
+        # Hold durations counters in a counter object, this dict ensures values are always defined before print (the value needs to be 0 to ensure a noop)
+        self.durationCategories = {
+            "Step": 0,
+            "Save": 0,
+            "Load": 0,
+            "Print": 0,
+            "Logits": 0,
+            "Combine": 0,
+            "Token": 0,
+        }
+        self.duration = Counter(self.durationCategories)
+        self.durationDetail = Counter(self.durationCategories)
+
+        #self.totalStepDuration = 0
+        #self.totalStepDurationDetail = 0
+        #self.totalSaveDuration = 0
+        #self.totalSaveDurationDetail = 0
+        #self.totalLoadDuration = 0
+        #self.totalLoadDurationDetail = 0
+        #self.totalLogitsDuration = 0
+        #self.totalLogitsDurationDetail = 0 
+        #self.totalCombineDuration = 0
+        #self.totalCombineDurationDetail = 0 
+        #self.totalGetTokenDuration = 0
+        #self.totalGetTokenDurationDetail = 0 
+        #self.totalTerminalPrintDuration = 0
+        #self.totalTerminalPrintDurationDetail = 0
         #d#self.totalGradNorm = 0.0
         #d#self.totalGradNormDetail = 0.0
 
@@ -189,18 +202,18 @@ class BABYLLM(nn.Module):
             numTokens = numTokens.item()
         numTokens = int(numTokens)
 
-        totalMemGatesDetail = 0
-        totalMemGates = 0
-        avgLossDetail = 0
-        avgLoss = 0
-        avgGradNorm = 0
-        avgGradNormDetail = 0
+        #totalMemGatesDetail = 0
+        #totalMemGates = 0
+        #avgLossDetail = 0
+        #avgLoss = 0
+        #avgGradNorm = 0
+        #avgGradNormDetail = 0
         self.stats = Counter({
             "loss": 0,
             "gradNorm": 0,
             "logitMin": 0,
             "logitMax": 0,
-            "scheduledSampling": 0,
+            # "scheduledSampling": 0,
             "tokenCount": 0,
         })
         self.statsDetail = Counter({
@@ -208,7 +221,7 @@ class BABYLLM(nn.Module):
             "gradNorm": 0,
             "logitMin": 0,
             "logitMax": 0,
-            "scheduledSampling": 0,
+            # "scheduledSampling": 0,
             "tokenCount": 0,
         })
         
@@ -294,20 +307,20 @@ class BABYLLM(nn.Module):
                     #d#self.totalGradNorm += gradNorm
                     #d#self.totalGradNormDetail += gradNorm
 
-                    self.totalLoss += cumulativeLoss.item() # Accumulate SUM of token losses
-                    self.totalLossDetail += cumulativeLoss.item() # Accumulate SUM of token losses
-                    self.totalTokenCount += len(losses) # Count tokens processed
-                    self.totalTokenCountDetail += len(losses) # Count tokens processed
+                    #self.totalLoss += cumulativeLoss.item() # Accumulate SUM of token losses
+                    #self.totalLossDetail += cumulativeLoss.item() # Accumulate SUM of token losses
+                    #self.totalTokenCount += len(losses) # Count tokens processed
+                    #self.totalTokenCountDetail += len(losses) # Count tokens processed
 
                     with torch.no_grad():
                         logitMin = logits.min(dim=-1).values.mean().item()
                         logitMax = logits.max(dim=-1).values.mean().item()
                         statUpdate["logitMin"] = logitMin
                         statUpdate["logitMax"] = logitMax
-                        self.totalLogitMin += logitMin
-                        self.totalLogitMax += logitMax
-                        self.totalLogitMinDetail += logitMin
-                        self.totalLogitMaxDetail += logitMax
+                        #self.totalLogitMin += logitMin
+                        #self.totalLogitMax += logitMax
+                        #self.totalLogitMinDetail += logitMin
+                        #self.totalLogitMaxDetail += logitMax
                         memGatesTensor = self.latestMemGates
                         if memGatesTensor is not None:
                             memoryGates_str = f"Short:{memGatesTensor[0]:.3f}, Long:{memGatesTensor[1]:.3f}, Current:{memGatesTensor[2]:.3f}"
@@ -319,10 +332,12 @@ class BABYLLM(nn.Module):
 
                     firstPredictedTokenIndex = predictedTokenIndices[0] if predictedTokenIndices else -1 # Get the first predicted token index for display
                     guessedTokenIndex = firstPredictedTokenIndex # for single token display
-                    stepEndTime = time.time()
-                    stepDuration = stepEndTime - stepStartTime
-                    self.totalStepDuration += stepDuration
-                    self.totalStepDurationDetail += stepDuration
+
+                    stepDuration = {"Step": time.time() - stepStartTime}
+                    self.duration.update(stepDuration)
+                    self.durationDetail.update(stepDuration)
+                    #self.totalStepDuration += stepDuration
+                    #self.totalStepDurationDetail += stepDuration
                     guessedTokenSeq = []
 
                     """SAVE THE MODEL EVERY x STEPS"""
@@ -356,20 +371,27 @@ class BABYLLM(nn.Module):
                         #print(" ".join([f"{key}: {value:.2f}" for key, value in avgStats.items()]))
 
                         # eventually want this at the end only
-                        avgDurations = [
-                            ("Step", self.totalStepDuration / printLossFreq if printLossFreq > 0 else 0),
-                            ("Save", self.totalSaveDuration / printLossFreq if printLossFreq > 0 else 0),
-                            ("Load", self.totalLoadDuration / printLossFreq if printLossFreq > 0 else 0),
-                            ("Print", self.totalTerminalPrintDuration / printLossFreq if printLossFreq > 0 else 0),
-                            ("Logits", self.totalLogitsDuration / printLossFreq if printLossFreq > 0 else 0),
-                            ("Combine", self.totalCombineDuration / printLossFreq if printLossFreq > 0 else 0),
-                            ("Token", self.totalGetTokenDuration / printLossFreq if printLossFreq > 0 else 0),
-                        ]
-                        sortedAvgDurations = sorted(avgDurations, key=lambda item: item[1], reverse=True)
-                        durationLog_str = "Durations: "
-                        for name, duration in sortedAvgDurations:
-                            durationLog_str += f"{name}: {duration*1000:.2f}ms, "
-                        durationLog = durationLog_str.rstrip(', ')
+                        self.duration.update(self.durationCategories) # Force a noop update to ensure we have every category
+                        durationLog = "Durations: " + ", ".join([
+                            f"{name}: {(duration * 1000 / printLossFreq if printLossFreq > 0 else 0):.2f}ms"
+                            for name, duration in self.duration.most_common() # most_common with no parameter returns everything, already sorted in reverse
+                        ])
+                        self.duration.clear()
+
+                        #avgDurations = [
+                        #    ("Save", self.totalSaveDuration / printLossFreq if printLossFreq > 0 else 0),
+                        #    ("Step", self.totalStepDuration / printLossFreq if printLossFreq > 0 else 0),
+                        #    ("Load", self.totalLoadDuration / printLossFreq if printLossFreq > 0 else 0),
+                        #    ("Print", self.totalTerminalPrintDuration / printLossFreq if printLossFreq > 0 else 0),
+                        #    ("Logits", self.totalLogitsDuration / printLossFreq if printLossFreq > 0 else 0),
+                        #    ("Combine", self.totalCombineDuration / printLossFreq if printLossFreq > 0 else 0),
+                        #    ("Token", self.totalGetTokenDuration / printLossFreq if printLossFreq > 0 else 0),
+                        #]
+                        #sortedAvgDurations = sorted(avgDurations, key=lambda item: item[1], reverse=True)
+                        #durationLog_str = "Durations: "
+                        #for name, duration in sortedAvgDurations:
+                        #    durationLog_str += f"{name}: {duration*1000:.2f}ms, "
+                        #durationLog = durationLog_str.rstrip(', ')
 
                         #print(durationLog)
                         with open("durationLog.txt", "a") as logFile:
@@ -422,17 +444,17 @@ class BABYLLM(nn.Module):
                         self.perfectTokenCount = 0
                         self.totalTokenEvaluations = 0
                         
-                        self.totalStepDuration = 0
-                        self.totalSaveDuration = 0
-                        self.totalLoadDuration = 0
-                        self.totalTerminalPrintDuration = 0
-                        self.totalLogitsDuration = 0
-                        self.totalCombineDuration = 0
-                        self.totalGetTokenDuration = 0
-                        self.totalLogitMin = 0
-                        self.totalLogitMax = 0
-                        self.totalLoss = 0 # Reset SUM of losses
-                        self.totalTokenCount = 0 # Reset token count
+                        #self.totalStepDuration = 0
+                        #self.totalSaveDuration = 0
+                        #self.totalLoadDuration = 0
+                        #self.totalTerminalPrintDuration = 0
+                        #self.totalLogitsDuration = 0
+                        #self.totalCombineDuration = 0
+                        #self.totalGetTokenDuration = 0
+                        #self.totalLogitMin = 0
+                        #self.totalLogitMax = 0
+                        #self.totalLoss = 0 # Reset SUM of losses
+                        #self.totalTokenCount = 0 # Reset token count
 
                     # Track loss every 100 steps
                     if self.trainingStepCounter % printLossFreqDetail == 0:
@@ -454,23 +476,30 @@ class BABYLLM(nn.Module):
                             )
                             weightDetail_str = ",".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeightsDetail)
 
-                        avgDurationsDetail = [
-                                ("Step", self.totalStepDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                                ("Save", self.totalSaveDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                                ("Load", self.totalLoadDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                                ("Print", self.totalTerminalPrintDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                                ("Logits", self.totalLogitsDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                                ("Combine", self.totalCombineDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                                ("Token", self.totalGetTokenDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                            ]
+                        self.durationDetail.update(self.durationCategories) # Force a noop update to ensure we have every category
+                        durationLogDetail = "Durations: " + ", ".join([
+                            f"{name}: {(duration * 1000 / printLossFreqDetail if printLossFreqDetail > 0 else 0):.2f}ms"
+                            for name, duration in self.durationDetail.most_common()
+                        ])
+                        self.durationDetail.clear()
                         
-                        sortedAvgDurationsDetail = sorted(avgDurationsDetail, key=lambda item: item[1], reverse=True)
+                        #avgDurationsDetail = [
+                        #    ("Step", self.totalStepDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
+                        #    ("Save", self.totalSaveDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
+                        #    ("Load", self.totalLoadDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
+                        #    ("Print", self.totalTerminalPrintDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
+                        #    ("Logits", self.totalLogitsDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
+                        #    ("Combine", self.totalCombineDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
+                        #    ("Token", self.totalGetTokenDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
+                        #]
+                        
+                        #sortedAvgDurationsDetail = sorted(avgDurationsDetail, key=lambda item: item[1], reverse=True)
 
-                        durationLogDetail_str = "Durations: "
-                        for name, duration in sortedAvgDurationsDetail:
-                            durationLogDetail_str += f"{name}: {duration*1000:.2f}ms, "
+                        #durationLogDetail_str = "Durations: "
+                        #for name, duration in sortedAvgDurationsDetail:
+                        #    durationLogDetail_str += f"{name}: {duration*1000:.2f}ms, "
 
-                        durationLogDetail = durationLogDetail_str.rstrip(', ')
+                        #durationLogDetail = durationLogDetail_str.rstrip(', ')
 
                         #logitRangeDetail_str = f"{avgLogitMinDetail:.2f}, {avgLogitMaxDetail:.2f}"
                         #print(f"DEBUG: logitRange_str before logTraining: '{logitRangeDetail_str}'")
@@ -494,13 +523,13 @@ class BABYLLM(nn.Module):
                         with open("durationLogDetail.txt", "a") as logFile:
                             logFile.write(durationLogDetail + "\n")
 
-                        self.totalStepDurationDetail = 0
-                        self.totalSaveDurationDetail = 0
-                        self.totalLoadDurationDetail = 0
-                        self.totalTerminalPrintDurationDetail = 0
-                        self.totalLogitsDurationDetail = 0
-                        self.totalCombineDurationDetail = 0
-                        self.totalGetTokenDurationDetail = 0
+                        #self.totalStepDurationDetail = 0
+                        #self.totalSaveDurationDetail = 0
+                        #self.totalLoadDurationDetail = 0
+                        #self.totalTerminalPrintDurationDetail = 0
+                        #self.totalLogitsDurationDetail = 0
+                        #self.totalCombineDurationDetail = 0
+                        #self.totalGetTokenDurationDetail = 0
                         
                         #self.totalLogitMinDetail = 0
                         #self.totalLogitMaxDetail = 0
@@ -542,9 +571,10 @@ class BABYLLM(nn.Module):
                             loss=loss.item(),
                         )
                     
-                        terminalPrintEndTime = time.time()
-                        terminalPrintDuration = terminalPrintEndTime - terminalPrintStartTime
-                        self.totalTerminalPrintDuration += terminalPrintDuration
+                        terminalPrintDuration = {"Print": time.time() - terminalPrintStartTime}
+                        self.duration.update(terminalPrintDuration)
+                        self.durationDetail.update(terminalPrintDuration)
+                        #self.totalTerminalPrintDuration += terminalPrintDuration
 
                         #self.HUD_fixScroll()
 
@@ -574,10 +604,11 @@ class BABYLLM(nn.Module):
         with open("stepCheckpoint.txt", "w") as f:
             f.write(str(self.trainingStepCounter+self.startIndex))
 
-        saveEndTime = time.time()
-        saveDuration = saveEndTime - saveStartTime
-        self.totalSaveDuration += saveDuration
-        self.totalSaveDurationDetail += saveDuration
+        saveDuration = {"Save": time.time() - saveStartTime}
+        self.duration.update(saveDuration)
+        self.durationDetail.update(saveDuration)
+        #self.totalSaveDuration += saveDuration
+        #self.totalSaveDurationDetail += saveDuration
 
     """loads the model from a file"""
     def loadModel(self, filePath = modelPath):
@@ -587,10 +618,12 @@ class BABYLLM(nn.Module):
             self.load_state_dict(torch.load(filePath), strict = saveLock)
             print(f"Model loaded from {filePath}!")
             self.resetIfNeeded(context="inference")
-            loadEndTime = time.time()
-            loadDuration = loadEndTime - loadStartTime
-            self.totalLoadDuration += loadDuration
-            self.totalLoadDurationDetail += loadDuration
+            
+            loadDuration = {"Load": time.time() - loadStartTime}
+            self.duration.update(loadDuration)
+            self.durationDetail.update(loadDuration)
+            #self.totalLoadDuration += loadDuration
+            #self.totalLoadDurationDetail += loadDuration
         except FileNotFoundError:
             print("No saved model found.")
 
@@ -610,10 +643,11 @@ class BABYLLM(nn.Module):
 
         guessedTokenIndex = torch.multinomial(softmaxed, 1).item()
 
-        logitsEndTime = time.time()
-        logitsDuration = logitsEndTime - logitsStartTime
-        self.totalLogitsDuration += logitsDuration
-        self.totalLogitsDurationDetail += logitsDuration
+        logitsDuration = {"Logits": time.time() - logitsStartTime}
+        self.duration.update(logitsDuration)
+        self.durationDetail.update(logitsDuration)
+        #self.totalLogitsDuration += logitsDuration
+        #self.totalLogitsDurationDetail += logitsDuration
         return guessedTokenIndex
     
     def getTokenIndexAsString(self, tokenIndex):
@@ -626,10 +660,11 @@ class BABYLLM(nn.Module):
             temperature = self.temperature
         """returns an integer token index showing the models predicted next token."""
         
-        getTokenEndTime = time.time()
-        getTokenDuration = getTokenEndTime - getTokenStartTime
-        self.totalGetTokenDuration += getTokenDuration
-        self.totalGetTokenDurationDetail += getTokenDuration
+        getTokenDuration = {"Token": time.time() - getTokenStartTime}
+        self.duration.update(getTokenDuration)
+        self.durationDetail.update(getTokenDuration)
+        #self.totalGetTokenDuration += getTokenDuration
+        #self.totalGetTokenDurationDetail += getTokenDuration
         return self.getResponseFromLogits(self.forward(inputSeq), temperature)
     
     """combines the parallelNeronLayer output and the multiWindowLayer output into one output"""
@@ -648,10 +683,11 @@ class BABYLLM(nn.Module):
         finalOutput = self.outputCombinationLayer(concatenatedOutput)
         """returns a single combined output tensor of shape (1, embedDimension)."""
 
-        combineEndTime = time.time()
-        combineDuration = combineEndTime - combineStartTime
-        self.totalCombineDuration += combineDuration
-        self.totalCombineDurationDetail += combineDuration
+        combineDuration = {"Combine": time.time() - combineStartTime}
+        self.duration.update(combineDuration)
+        self.durationDetail.update(combineDuration)
+        #self.totalCombineDuration += combineDuration
+        #self.totalCombineDurationDetail += combineDuration
         return finalOutput
 
     def babyllm_diary_entry(parallelNeuronLayer, step):
