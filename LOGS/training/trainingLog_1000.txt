@@ -1,0 +1,706 @@
+2025-03-09 23:15:39 | Context Window: 8 | Step 1000 | Moving Avg Loss: 5.1204
+2025-03-09 23:44:10 | Context Window: 8 | Step 2000 | Moving Avg Loss: 5.3677
+2025-03-10 00:12:36 | Context Window: 8 | Step 3000 | Moving Avg Loss: 5.4466
+-- training data
+2025-03-10 00:48:13 | Context Window: 7 | Step 1000 | Moving Avg Loss: 5.0273
+2025-03-10 01:13:29 | Context Window: 7 | Step 2000 | Moving Avg Loss: 5.1703
+-- training data
+2025-03-10 01:54:12 | Context Window: 7 | Step 1000 | Moving Avg Loss: 6.1151
+2025-03-10 02:19:19 | Context Window: 7 | Step 2000 | Moving Avg Loss: 6.3453
+2025-03-10 02:44:43 | Context Window: 7 | Step 3000 | Moving Avg Loss: 6.1668
+2025-03-10 03:10:00 | Context Window: 7 | Step 4000 | Moving Avg Loss: 6.3506
+-- training data
+2025-03-10 03:54:20 | Context Window: 7 | Step 1000 | Moving Avg Loss: 9.9144
+2025-03-10 04:19:44 | Context Window: 7 | Step 2000 | Moving Avg Loss: 9.6927
+-- training data
+2025-03-10 04:45:08 | Context Window: 7 | Step 1000 | Moving Avg Loss: 7.7759
+2025-03-10 05:10:06 | Context Window: 7 | Step 2000 | Moving Avg Loss: 7.6799
+2025-03-10 05:35:05 | Context Window: 7 | Step 3000 | Moving Avg Loss: 8.3964
+2025-03-10 05:59:52 | Context Window: 7 | Step 4000 | Moving Avg Loss: 8.4129
+2025-03-10 06:24:48 | Context Window: 7 | Step 5000 | Moving Avg Loss: 8.2474
+2025-03-10 06:49:48 | Context Window: 7 | Step 6000 | Moving Avg Loss: 8.0212
+2025-03-10 07:14:45 | Context Window: 7 | Step 7000 | Moving Avg Loss: 7.8536
+2025-03-10 07:39:42 | Context Window: 7 | Step 8000 | Moving Avg Loss: 7.8536
+2025-03-10 08:04:38 | Context Window: 7 | Step 9000 | Moving Avg Loss: 7.4469
+2025-03-10 08:29:35 | Context Window: 7 | Step 10000 | Moving Avg Loss: 7.2260
+2025-03-10 08:54:29 | Context Window: 7 | Step 11000 | Moving Avg Loss: 7.2178
+2025-03-10 09:19:23 | Context Window: 7 | Step 12000 | Moving Avg Loss: 7.0761
+2025-03-10 09:44:22 | Context Window: 7 | Step 13000 | Moving Avg Loss: 6.9324
+2025-03-10 10:09:15 | Context Window: 7 | Step 14000 | Moving Avg Loss: 6.8004
+2025-03-10 10:34:10 | Context Window: 7 | Step 15000 | Moving Avg Loss: 6.7466
+2025-03-10 10:59:06 | Context Window: 7 | Step 16000 | Moving Avg Loss: 6.6475
+2025-03-10 11:24:05 | Context Window: 7 | Step 17000 | Moving Avg Loss: 6.5555
+2025-03-10 11:49:10 | Context Window: 7 | Step 18000 | Moving Avg Loss: 6.5659
+2025-03-10 12:14:30 | Context Window: 7 | Step 19000 | Moving Avg Loss: 6.6222
+2025-03-10 12:40:25 | Context Window: 7 | Step 20000 | Moving Avg Loss: 6.5234
+-- training data
+2025-03-10 13:09:12 | Context: 7 | LR: 0.0001 | Step 1000 | Avg Loss: 5.2566
+2025-03-10 13:34:08 | Context: 7 | LR: 0.0001 | Step 2000 | Avg Loss: 4.9620
+2025-03-10 13:59:02 | Context: 7 | LR: 0.0001 | Step 3000 | Avg Loss: 6.3814
+2025-03-10 14:24:24 | Context: 7 | LR: 0.0001 | Step 4000 | Avg Loss: 5.5968
+2025-03-10 14:49:27 | Context: 7 | LR: 0.0001 | Step 5000 | Avg Loss: 5.4644
+2025-03-10 15:14:29 | Context: 7 | LR: 0.0001 | Step 6000 | Avg Loss: 5.1037
+2025-03-10 15:45:26 | Context: 7 | LR: 0.0001 | Step 7000 | Avg Loss: 5.0796
+2025-03-10 16:10:16 | Context: 7 | LR: 0.0001 | Step 8000 | Avg Loss: 4.5624
+2025-03-10 16:35:30 | Context: 7 | LR: 0.0001 | Step 9000 | Avg Loss: 4.2773
+-- moving onto discord chaos
+2025-03-10 17:08:09 | Context: 7 | LR: 1e-05 | Step 1000 | Avg Loss: 12.8259
+-- discord chaos again
+2025-03-10 17:51:14 | Context: 7 | LR: 1e-05 | Step 1000 | Avg Loss: 13.4140
+2025-03-10 18:16:32 | Context: 7 | LR: 1e-05 | Step 2000 | Avg Loss: 12.0745
+2025-03-10 18:42:41 | Context: 7 | LR: 1e-05 | Step 3000 | Avg Loss: 11.3965
+2025-03-10 19:09:38 | Context: 7 | LR: 1e-05 | Step 4000 | Avg Loss: 12.5422
+-- discord chaos again!?
+2025-03-10 19:44:19 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 10.5021
+2025-03-10 20:10:02 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 9.7964
+2025-03-10 20:35:40 | Context: 7 | LR: 0.0002 | Step 3000 | Avg Loss: 8.9085
+2025-03-10 21:00:30 | Context: 7 | LR: 0.0002 | Step 4000 | Avg Loss: 8.8527
+2025-03-10 21:25:00 | Context: 7 | LR: 0.0002 | Step 5000 | Avg Loss: 9.0459
+2025-03-10 21:49:29 | Context: 7 | LR: 0.0002 | Step 6000 | Avg Loss: 9.4331
+2025-03-10 22:14:04 | Context: 7 | LR: 0.0002 | Step 7000 | Avg Loss: 9.1874
+2025-03-10 22:38:43 | Context: 7 | LR: 0.0002 | Step 8000 | Avg Loss: 6.9172
+2025-03-10 23:03:24 | Context: 7 | LR: 0.0002 | Step 9000 | Avg Loss: 8.3440
+2025-03-10 23:28:04 | Context: 7 | LR: 0.0002 | Step 10000 | Avg Loss: 7.6954
+2025-03-10 23:52:45 | Context: 7 | LR: 0.0002 | Step 11000 | Avg Loss: 8.4106
+2025-03-11 00:17:22 | Context: 7 | LR: 0.0002 | Step 12000 | Avg Loss: 8.4033
+2025-03-11 00:42:02 | Context: 7 | LR: 0.0002 | Step 13000 | Avg Loss: 7.8956
+2025-03-11 01:06:41 | Context: 7 | LR: 0.0002 | Step 14000 | Avg Loss: 7.3696
+2025-03-11 01:31:16 | Context: 7 | LR: 0.0002 | Step 15000 | Avg Loss: 7.2744
+2025-03-11 01:55:51 | Context: 7 | LR: 0.0002 | Step 16000 | Avg Loss: 7.9290
+2025-03-11 02:20:30 | Context: 7 | LR: 0.0002 | Step 17000 | Avg Loss: 7.7616
+2025-03-11 02:45:09 | Context: 7 | LR: 0.0002 | Step 18000 | Avg Loss: 7.3501
+2025-03-11 03:09:48 | Context: 7 | LR: 0.0002 | Step 19000 | Avg Loss: 7.1190
+2025-03-11 03:34:21 | Context: 7 | LR: 0.0002 | Step 20000 | Avg Loss: 7.4165
+2025-03-11 03:58:55 | Context: 7 | LR: 0.0002 | Step 21000 | Avg Loss: 7.1199
+2025-03-11 04:23:28 | Context: 7 | LR: 0.0002 | Step 22000 | Avg Loss: 8.3027
+2025-03-11 04:48:05 | Context: 7 | LR: 0.0002 | Step 23000 | Avg Loss: 7.0183
+2025-03-11 05:12:43 | Context: 7 | LR: 0.0002 | Step 24000 | Avg Loss: 7.0735
+2025-03-11 05:37:28 | Context: 7 | LR: 0.0002 | Step 25000 | Avg Loss: 6.9939
+2025-03-11 06:02:13 | Context: 7 | LR: 0.0002 | Step 26000 | Avg Loss: 6.8628
+2025-03-11 06:26:53 | Context: 7 | LR: 0.0002 | Step 27000 | Avg Loss: 6.8250
+2025-03-11 06:51:38 | Context: 7 | LR: 0.0002 | Step 28000 | Avg Loss: 6.5313
+2025-03-11 07:16:21 | Context: 7 | LR: 0.0002 | Step 29000 | Avg Loss: 6.6190
+2025-03-11 07:41:36 | Context: 7 | LR: 0.0002 | Step 30000 | Avg Loss: 7.4745
+2025-03-11 08:07:40 | Context: 7 | LR: 0.0002 | Step 31000 | Avg Loss: 6.7027
+2025-03-11 08:33:44 | Context: 7 | LR: 0.0002 | Step 32000 | Avg Loss: 6.8281
+2025-03-11 08:59:16 | Context: 7 | LR: 0.0002 | Step 33000 | Avg Loss: 7.1454
+2025-03-11 09:24:32 | Context: 7 | LR: 0.0002 | Step 34000 | Avg Loss: 7.2358
+2025-03-11 09:49:55 | Context: 7 | LR: 0.0002 | Step 35000 | Avg Loss: 7.1990
+2025-03-11 10:15:03 | Context: 7 | LR: 0.0002 | Step 36000 | Avg Loss: 6.9687
+2025-03-11 10:39:52 | Context: 7 | LR: 0.0002 | Step 37000 | Avg Loss: 7.4187
+2025-03-11 11:04:44 | Context: 7 | LR: 0.0002 | Step 38000 | Avg Loss: 7.7435
+2025-03-11 11:29:32 | Context: 7 | LR: 0.0002 | Step 39000 | Avg Loss: 7.1433
+2025-03-11 11:54:22 | Context: 7 | LR: 0.0002 | Step 40000 | Avg Loss: 6.7721
+2025-03-11 12:19:08 | Context: 7 | LR: 0.0002 | Step 41000 | Avg Loss: 6.5290
+2025-03-11 12:44:01 | Context: 7 | LR: 0.0002 | Step 42000 | Avg Loss: 6.5377
+2025-03-11 13:08:58 | Context: 7 | LR: 0.0002 | Step 43000 | Avg Loss: 6.4021
+2025-03-11 13:33:49 | Context: 7 | LR: 0.0002 | Step 44000 | Avg Loss: 7.2214
+2025-03-11 13:58:43 | Context: 7 | LR: 0.0002 | Step 45000 | Avg Loss: 6.9844
+2025-03-11 14:23:43 | Context: 7 | LR: 0.0002 | Step 46000 | Avg Loss: 6.6038
+-- training data
+2025-03-11 14:53:45 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 5.0980
+2025-03-11 15:18:51 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 3.8809
+2025-03-11 15:44:00 | Context: 7 | LR: 0.0002 | Step 3000 | Avg Loss: 3.8219
+2025-03-11 16:09:12 | Context: 7 | LR: 0.0002 | Step 4000 | Avg Loss: 3.9452
+-- random poems
+2025-03-11 16:48:02 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 7.6917
+2025-03-11 17:13:36 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 6.9463
+2025-03-11 17:43:29 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 4.7581
+2025-03-11 18:08:59 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 4.4058
+-- random poems
+2025-03-11 18:37:10 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 5.6926
+2025-03-11 19:02:37 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 3.5649
+2025-03-11 19:45:09 | Context: 7 | LR: 0.0002 | Step 1000 | Avg Loss: 4.0670
+2025-03-11 20:11:37 | Context: 7 | LR: 0.0002 | Step 2000 | Avg Loss: 2.5145
+-- line sorted training data
+2025-03-14 19:49:57 | Context: 7 | LR: 5e-05 | Step 1000 | Avg Loss: 5.6510
+2025-03-14 20:19:08 | Context: 7 | LR: 5e-05 | Step 2000 | Avg Loss: 5.0811
+2025-03-14 20:48:21 | Context: 7 | LR: 5e-05 | Step 3000 | Avg Loss: 5.2734
+2025-03-14 21:17:46 | Context: 7 | LR: 5e-05 | Step 4000 | Avg Loss: 4.1162
+2025-03-14 21:47:06 | Context: 7 | LR: 5e-05 | Step 5000 | Avg Loss: 3.9836
+--
+2025-03-14 22:34:55 | Context: 7 | LR: 0.00001 | Step 1000 | Avg Loss: 13.6095
+--- 2025-03-15 02:24:28 ---
+
+--- 2025-03-15 02:47:10 ---
+2025-03-15 03:44:00 | Context: 2, 4, 7, 10, 12 | LR: 0.00005 | Step 1000 | Avg Loss: 27.6385
+2025-03-15 04:41:51 | Context: 2, 4, 7, 10, 12 | LR: 0.00005 | Step 2000 | Avg Loss: 29.1752
+
+--- 2025-03-15 08:28:41 ---
+2025-03-15 09:30:33 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 1000 | Avg Loss: 175.2150
+2025-03-15 10:31:31 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 2000 | Avg Loss: 166.2583
+2025-03-15 11:32:26 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 3000 | Avg Loss: 126.2650
+2025-03-15 12:33:21 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 4000 | Avg Loss: 112.0541
+2025-03-15 13:34:20 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 5000 | Avg Loss: 101.1901
+2025-03-15 14:35:17 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 6000 | Avg Loss: 96.8690
+2025-03-15 15:36:24 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 7000 | Avg Loss: 79.7548
+
+--- 2025-03-15 15:50:45 ---
+2025-03-15 16:51:21 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 1000 | Avg Loss: 105.4596
+
+--- 2025-03-15 17:22:40 ---
+
+--- 2025-03-15 17:26:13 ---
+2025-03-15 18:26:50 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 1000 | Avg Loss: 75.4626
+2025-03-15 19:28:18 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 2000 | Avg Loss: 72.1213
+
+--- 2025-03-15 20:07:41 ---
+2025-03-15 21:08:10 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 1000 | Avg Loss: 117.7844
+2025-03-15 22:08:32 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 2000 | Avg Loss: 116.9606
+2025-03-15 23:09:13 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 3000 | Avg Loss: 103.9343
+
+--- 2025-03-15 23:19:20 ---
+
+--- 2025-03-15 23:26:46 ---
+
+--- 2025-03-15 23:35:03 ---
+2025-03-16 00:39:45 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 1000 | Avg Loss: 53.2855
+
+--- 2025-03-16 01:28:02 ---
+2025-03-16 02:33:34 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 1000 | Avg Loss: 71.5020
+2025-03-16 03:39:13 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 2000 | Avg Loss: 71.1600
+2025-03-16 04:44:33 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 3000 | Avg Loss: 68.9724
+2025-03-16 05:49:56 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 4000 | Avg Loss: 69.2622
+2025-03-16 06:55:31 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 5000 | Avg Loss: 63.1590
+2025-03-16 08:01:00 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 6000 | Avg Loss: 73.7219
+2025-03-16 09:06:27 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 7000 | Avg Loss: 66.5218
+2025-03-16 10:13:09 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 8000 | Avg Loss: 64.0394
+2025-03-16 11:18:33 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 9000 | Avg Loss: 66.8529
+2025-03-16 12:23:58 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 10000 | Avg Loss: 57.8962
+2025-03-16 13:29:33 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 11000 | Avg Loss: 58.5336
+
+--- 2025-03-16 14:23:55 ---
+2025-03-16 15:28:23 | Context: 9, 3, 7, 11, 13 | LR: 0.00020 | Step 1000 | Avg Loss: 60.8662
+
+--- 2025-03-16 16:12:02 ---
+
+--- 2025-03-16 16:17:21 ---
+
+--- 2025-03-16 16:19:29 ---
+
+--- 2025-03-16 16:25:54 ---
+
+--- 2025-03-16 16:34:11 ---
+
+--- 2025-03-16 16:35:32 ---
+
+--- 2025-03-16 16:36:50 ---
+
+--- 2025-03-16 16:39:02 ---
+
+--- 2025-03-16 16:40:04 ---
+
+--- 2025-03-16 16:41:28 ---
+
+--- 2025-03-16 16:45:08 ---
+
+--- 2025-03-16 16:45:53 ---
+
+--- 2025-03-16 17:02:28 ---
+
+--- 2025-03-16 17:04:25 ---
+
+--- 2025-03-16 17:06:37 ---
+
+--- 2025-03-17 00:49:52 ---
+
+--- 2025-03-17 00:54:42 ---
+
+--- 2025-03-17 01:01:08 ---
+
+--- 2025-03-17 01:08:02 ---
+
+--- 2025-03-17 01:13:13 ---
+
+--- 2025-03-17 01:24:42 ---
+
+--- 2025-03-17 01:32:35 ---
+
+--- 2025-03-17 01:56:10 ---
+
+--- 2025-03-17 01:56:55 ---
+
+--- 2025-03-17 02:00:40 ---
+
+--- 2025-03-17 02:37:49 ---
+
+--- 2025-03-17 02:48:28 ---
+
+--- 2025-03-17 03:00:01 ---
+2025-03-17 04:42:26 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 1000 | Avg Loss: 3625.2183
+2025-03-17 06:24:46 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 2000 | Avg Loss: 2237.6094
+2025-03-17 08:06:29 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 3000 | Avg Loss: 1633.9009
+
+--- 2025-03-17 21:11:37 ---
+2025-03-17 22:51:28 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 1000 | Avg Loss: 589.2771
+2025-03-18 00:31:41 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 2000 | Avg Loss: 152.6011
+2025-03-18 02:11:34 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 3000 | Avg Loss: 88.0916
+
+--- 2025-03-18 02:12:19 ---
+
+--- 2025-03-18 02:30:10 ---
+2025-03-18 04:07:30 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 1000 | Avg Loss: 100.7377
+2025-03-18 05:44:35 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 2000 | Avg Loss: 64.9020
+2025-03-18 07:21:41 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 3000 | Avg Loss: 54.9764
+2025-03-18 08:59:04 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 4000 | Avg Loss: 58.9541
+2025-03-18 10:36:44 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 5000 | Avg Loss: 50.4217
+
+--- 2025-03-19 02:03:07 ---
+2025-03-19 03:45:43 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 1000 | Avg Loss: 62.5292
+2025-03-19 05:23:43 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 2000 | Avg Loss: 37.8770
+2025-03-19 07:01:54 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 3000 | Avg Loss: 34.7198
+2025-03-19 08:40:57 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 4000 | Avg Loss: 35.2961
+2025-03-19 10:26:09 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 5000 | Avg Loss: 33.4100
+2025-03-19 12:05:21 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 6000 | Avg Loss: 32.2971
+
+--- 2025-03-19 18:20:41 ---
+2025-03-19 20:06:32 | Context: 11, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 1000 | Avg Loss: 23.2544
+
+--- 2025-03-19 21:16:24 ---
+2025-03-19 22:57:58 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 1000 | Avg Loss: 65.3742
+2025-03-20 00:41:01 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 2000 | Avg Loss: 64.0398
+2025-03-20 02:22:11 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 3000 | Avg Loss: 56.9668
+2025-03-20 04:02:53 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 4000 | Avg Loss: 61.5089
+2025-03-20 05:43:25 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 5000 | Avg Loss: 60.7164
+2025-03-20 07:24:46 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 6000 | Avg Loss: 41.1194
+2025-03-20 09:05:56 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 7000 | Avg Loss: 30.8484
+2025-03-20 10:46:47 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 8000 | Avg Loss: 30.6600
+2025-03-20 12:29:15 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 9000 | Avg Loss: 29.2811
+2025-03-20 14:12:25 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 10000 | Avg Loss: 26.3999
+2025-03-20 16:01:30 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 11000 | Avg Loss: 32.8054
+2025-03-20 17:43:48 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 12000 | Avg Loss: 25.6108
+2025-03-20 19:29:39 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 13000 | Avg Loss: 25.5839
+2025-03-20 21:11:56 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 14000 | Avg Loss: 21.7327
+2025-03-20 22:56:24 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 15000 | Avg Loss: 17.8232
+2025-03-21 00:38:52 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 16000 | Avg Loss: 19.7290
+2025-03-21 02:21:11 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 17000 | Avg Loss: 23.9814
+2025-03-21 04:02:29 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 18000 | Avg Loss: 30.8952
+
+--- 2025-03-21 05:06:44 ---
+
+--- 2025-03-21 05:26:11 ---
+
+--- 2025-03-21 05:32:36 ---
+
+--- 2025-03-21 05:36:05 ---
+
+--- 2025-03-21 05:43:42 ---
+
+--- 2025-03-21 05:47:55 ---
+
+--- 2025-03-21 05:49:28 ---
+
+--- 2025-03-21 05:50:47 ---
+
+--- 2025-03-21 05:52:26 ---
+
+--- 2025-03-21 05:53:35 ---
+
+--- 2025-03-21 05:56:44 ---
+
+--- 2025-03-21 05:58:03 ---
+
+--- 2025-03-21 05:59:10 ---
+
+--- 2025-03-21 05:59:37 ---
+
+--- 2025-03-23 12:49:08 ---
+
+--- 2025-03-23 13:00:33 ---
+
+--- 2025-03-23 17:03:35 ---
+
+--- 2025-03-23 18:44:45 ---
+
+--- 2025-03-23 19:15:36 ---
+
+--- 2025-03-23 19:35:41 ---
+
+--- 2025-03-23 20:43:31 ---
+
+--- 2025-03-23 21:17:03 ---
+
+--- 2025-03-24 05:07:52 ---
+2025-03-24 09:48:14 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 1000 | Avg Loss: 10.4622
+Logits: -5.18 → 30.39
+Final window weightings: 0.00527667 0.14834726 0.17709954 0.22188371 0.06689363 0.20937636 0.1616922 0.15246983 0.11578511
+2025-03-24 14:25:14 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 2000 | Avg Loss: 11.5124
+Logits: -19.82 → 20.65
+Final window weightings: 0.00483644 0.14447205 0.17561541 0.22050051 0.06355041 0.20992297 0.16369244 0.15577094 0.11785332
+2025-03-24 19:00:02 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 3000 | Avg Loss: 11.4634
+Logits: -15.87 → 14.35
+Final window weightings: 0.00614127 0.13422105 0.17375761 0.22230951 0.05572227 0.2110369 0.16639964 0.16248846 0.11906446
+2025-03-24 23:39:42 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 4000 | Avg Loss: 11.2551
+Logits: 0.68 → 40.75
+Final window weightings: 0.01508978 0.13255174 0.17058079 0.21897869 0.05430212 0.21315287 0.16579753 0.15877317 0.11805566
+2025-03-25 04:16:09 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 5000 | Avg Loss: 11.1441
+Logits: -17.23 → 3.66
+Final window weightings: 0.01798254 0.13487493 0.16934887 0.21599756 0.05031135 0.21415715 0.1648607 0.15820913 0.11790013
+2025-03-25 08:54:37 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 6000 | Avg Loss: 10.4518
+Logits: -22.63 → -5.79
+Final window weightings: 0.02083565 0.12947638 0.16537148 0.21453753 0.0486146 0.21529475 0.16834056 0.16010961 0.11760522
+2025-03-25 13:37:53 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 7000 | Avg Loss: 10.3991
+Logits: -0.50 → 48.82
+Final window weightings: 0.01888239 0.12468173 0.16995761 0.22234687 0.04670163 0.22162628 0.16436382 0.15572272 0.11393756
+2025-03-25 18:26:53 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 8000 | Avg Loss: 9.6209
+Logits: -55.30 → -27.24
+Final window weightings: 0.02276116 0.12688075 0.16045992 0.2176553 0.04292718 0.22715071 0.16441229 0.15785778 0.11537844
+2025-03-25 23:13:54 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 9000 | Avg Loss: 10.0157
+Logits: 72.33 → 140.66
+Final window weightings: 0.02037896 0.12237759 0.15663782 0.21379174 0.04064461 0.22990902 0.16932495 0.16242652 0.117511 
+2025-03-26 04:28:47 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 10000 | Avg Loss: 10.7402
+Logits: 114.30 → 201.49
+Final window weightings: 0.01904754 0.12063803 0.15410027 0.21558584 0.04043563 0.23588851 0.16867524 0.16084778 0.11668556
+2025-03-26 09:06:27 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 11000 | Avg Loss: 12.0497
+Logits: 85.01 → 159.10
+Final window weightings: 0.02365566 0.11652993 0.15000135 0.2123697 0.04205632 0.24177188 0.16906324 0.15952468 0.11585938
+2025-03-26 13:47:32 | Context: 7, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00035 | Step 12000 | Avg Loss: 13.6618
+Logits: 27.04 → 56.06
+Final window weightings: 0.01801527 0.12141614 0.15213706 0.21698931 0.03914692 0.2448139 0.16757481 0.15769455 0.11226413
+
+--- 2025-03-27 10:05:17 ---
+2025-03-27 14:43:35 | Context: 14, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00025 | Step 1000 | Avg Loss: 7.6521
+Logits: -32.88 → -14.87
+Final window weightings: 0.01713004 0.12537362 0.1550852 0.22194645 0.0381391 0.2443801 0.16505663 0.1558761 0.10762533
+2025-03-27 22:45:19 | Context: 14, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00025 | Step 2000 | Avg Loss: 8.6504
+Logits: 4.50 → 25.51
+Final window weightings: 0.01710222 0.123751 0.15479906 0.221383 0.03622629 0.24429882 0.16611889 0.15746701 0.10829013
+2025-03-28 03:32:35 | Context: 14, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00025 | Step 3000 | Avg Loss: 8.6194
+Logits: -16.82 → 1.15
+Final window weightings: 0.01422854 0.12495214 0.14851278 0.2198783 0.03952118 0.25336027 0.16542543 0.15524125 0.10704996
+2025-03-28 08:12:56 | Context: 14, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00025 | Step 4000 | Avg Loss: 8.0808
+Logits: 12.28 → 37.81
+Final window weightings: 0.01431473 0.12525085 0.14813322 0.22595406 0.03552525 0.25967228 0.16337202 0.1520411 0.10468622
+2025-03-28 12:47:24 | Context: 14, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00025 | Step 5000 | Avg Loss: 8.5666
+Logits: 45.91 → 79.85
+Final window weightings: 0.01538715 0.12462419 0.149892 0.22397947 0.03189968 0.26447147 0.16463389 0.15106182 0.1033374 
+2025-03-28 17:26:23 | Context: 14, 1, 2, 3, 7, 8, 13, 15, 18 | LR: 0.00025 | Step 6000 | Avg Loss: 7.5544
+Logits: 75.00 → 113.99
+Final window weightings: 0.01175933 0.12641907 0.1481455 0.22600444 0.02760961 0.2637343 0.16793516 0.15295996 0.10428084
+
+--- 2025-03-28 21:24:52 ---
+2025-03-29 02:34:41 | Step 1000 | LR: 0.00015 | Loss: 8.8376 | Logits: 34.68 → 51.40 | Weights: W8:0.20928 W3:0.17625 W13:0.13500 W15:0.12496 W2:0.11644 W1:0.09540 W18:0.08662 W7:0.02453 W14:0.00917
+
+--- 2025-03-29 04:59:04 ---
+2025-03-29 09:57:04 | Step 1000 | LR: 0.00015 | Loss: 8.4902 | Logits: 25.95 → 41.00 | Weights: W8:0.20938 W3:0.17518 W13:0.13793 W15:0.12747 W2:0.11183 W1:0.09285 W18:0.08913 W7:0.02338 W14:0.01058
+
+--- 2025-03-29 12:06:45 --- how to be a real boy! ---
+2025-03-29 15:20:08 | Step 2000 | LR: 0.00015 | Loss: 7.7615 | Logits: 17.12 → 30.63 | Weights: W8:0.20659 W3:0.17244 W13:0.13968 W15:0.12930 W2:0.11079 W1:0.09388 W18:0.09095 W7:0.02112 W14:0.01307
+
+--- 2025-03-30 05:56:26 ---
+babyLLM: what am i learning today?
+You: ur mum
+2025-03-30 06:27:44 | Step 100 | LR: 0.00030 | Avg Loss: 16.3344 | Logits: 35.12, 64.12 | Window Weights: W8:0.20341, W3:0.17512, W13:0.13903, W15:0.12915, W2:0.11307, W1:0.09395, W18:0.09187, W7:0.02242, W14:0.00997 | Grad Norm: 0.000 | Memory Gates: Short:-2.999, Long:1.218, Current:2.781
+
+--- 2025-03-30 03:40:51 ---
+babyLLM: what am i learning today?
+You: how to keep me up at night! again!
+2025-03-30 17:08:33 | Step 1000 | LR: 0.00030 | Avg Loss: 26.1067 | Logits: 18.48, 68.85 | Window Weights: W8:0.20343, W3:0.17257, W13:0.13945, W15:0.12974, W2:0.11343, W1:0.09845, W18:0.09063, W7:0.02305, W14:0.00741 | Grad Norm: 0.000 | Memory Gates: Short:-0.239, Long:0.785, Current:0.454
+
+--- 2025-03-30 21:44:43 ---
+babyLLM: what am i learning today?
+You: you're learning about mice!
+2025-03-31 02:24:42 | Step 1000 | LR: 0.00030 | Avg Loss: 23.8996 | Logits: 15.14, 46.57 | Token Perfect: 497 / 2997 → 16.58% | Window Weights: W8:0.20377, W3:0.17524, W13:0.13983, W15:0.12921, W2:0.11471, W1:0.09576, W18:0.08948, W7:0.02262, W14:0.00767 | Grad Norm: 0.000 | Memory Gates: Short:-3.035, Long:2.436, Current:1.599
+2025-03-31 07:14:33 | Step 2000 | LR: 0.00030 | Avg Loss: 27.6982 | Logits: 5.16, 31.27 | Token Perfect: 294 / 3000 → 9.80% | Window Weights: W8:0.20427, W3:0.17722, W13:0.13821, W15:0.12951, W2:0.11593, W1:0.09529, W18:0.08853, W7:0.02150, W14:0.00786 | Grad Norm: 0.000 | Memory Gates: Short:-2.016, Long:-0.931, Current:3.947
+2025-03-31 11:54:12 | Step 3000 | LR: 0.00030 | Avg Loss: 28.5607 | Logits: 4.65, 26.68 | Token Perfect: 187 / 3000 → 6.23% | Window Weights: W8:0.20464,W3:0.17794,W13:0.13973,W15:0.12928,W2:0.11440,W1:0.09505,W18:0.08843,W7:0.02104,W14:0.00789 | Grad Norm: 1m38;5;225m0.000 | Memory Gates: Short:6.136, Long:-3.751, Current:-1.385 | Top Tokens: ]
+
+--- 2025-03-31 14:24:14 ---
+babyLLM: what am i learning today?
+You: mice is love
+2025-03-31 19:27:08 | Step 1000 | LR: 0.00030 | Avg Loss: 29.9491 | Logits: 4.82, 26.34 | Token Perfect: 186 / 3000 → 6.20% | Window Weights: W8:0.20684,W3:0.18344,W13:0.13686,W15:0.12374,W2:0.11595,W1:0.09767,W18:0.08553,W7:0.02035,W14:0.00794 | Grad Norm: 0.000 | Memory Gates: Short:-1.993, Long:1.961, Current:1.031 | Top Tokens: [('Ġb', 420), (',', 418), ('ing', 238), ('Ġwere', 155), ('er', 154), ('Ġthe', 146), ('Ġa', 132), ('Ġe', 116), ('Ġ-', 69), ('Ġand', 64)] | babyLLM.py training
+2025-04-01 00:57:38 | Step 2000 | LR: 0.00030 | Avg Loss: 26.9488 | Logits: 1.57, 18.63 | Token Perfect: 137 / 3000 → 4.57% | Window Weights: W8:0.20631,W3:0.18145,W13:0.13823,W15:0.12434,W2:0.11511,W1:0.09809,W18:0.08787,W7:0.01847,W14:0.00853 | Grad Norm: 0.000 | Memory Gates: Short:-7.709, Long:5.782, Current:2.926 | Top Tokens: [(',', 614), ('Ġb', 376), ('Ġand', 218), ('Ġthe', 207), ('Ġwere', 135), ('Ġas', 109), ('ed', 106), ('Ġa', 105), ('Ġthey', 70), ('Ġwas', 57)] | babyLLM.py training
+2025-04-01 05:58:30 | Step 3000 | LR: 0.00030 | Avg Loss: 27.4435 | Logits: -2.52, 15.75 | Token Perfect: 151 / 3000 → 5.03% | Window Weights: W8:0.20645,W3:0.17669,W13:0.13987,W15:0.12483,W2:0.11333,W1:0.09647,W18:0.09158,W7:0.01863,W14:0.01074 | Grad Norm: 0.000 | Memory Gates: Short:-9.931, Long:8.304, Current:2.627 | Top Tokens: [(',', 532), ('Ġb', 320), ('Ġa', 160), ('Ġshe', 148), ('Ġwere', 142), ('Ġand', 135), ('Ġin', 121), ('Ġto', 108), ('.', 106), ('Ġwas', 91)] | babyLLM.py training
+2025-04-01 10:57:42 | Step 4000 | LR: 0.00030 | Avg Loss: 29.8050 | Logits: -1.79, 17.09 | Token Perfect: 96 / 3000 → 3.20% | Window Weights: W8:0.21026,W3:0.17502,W13:0.14157,W15:0.12596,W2:0.11042,W1:0.09336,W18:0.09176,W7:0.01551,W14:0.01479 | Grad Norm: 0.000 | Memory Gates: Short:-5.048, Long:4.616, Current:1.433 | Top Tokens: [('Ġthe', 348), ('Ġb', 340), (',', 333), ('Ġwere', 168), ('Ġshe', 162), ('Ġa', 146), ('.', 123), ('Ġto', 95), ('Ġand', 85), ('y', 83)] | babyLLM.py training
+
+--- 2025-04-01 13:16:27 ---
+babyLLM: what am i learning today?
+You: speed!
+2025-04-01 14:15:02 | 1000 | LR0.0003 | loss40.1960 | Token Perfect: 123 / 3000 → 4.10% | gradNorm1.0000 | logitMin-37.6897 | logitMax-9.5363 | memoryGate0.3324 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-01 15:11:11 | 2000 | LR0.0003 | loss39.9022 | Token Perfect: 60 / 3000 → 2.00% | gradNorm1.0000 | tokenCount3.0 | logitMin-27.5367 | logitMax-2.8570 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-01 16:03:59 | 3000 | LR0.0003 | loss34.1462 | Token Perfect: 138 / 3000 → 4.60% | gradNorm1.0000 | tokenCount3.0 | logitMin-21.8110 | logitMax-0.2175 | memoryGate0.3332 | babyLLM.py 1000
+2025-04-01 17:18:50 | 4000 | LR0.0003 | loss34.7399 | Token Perfect: 81 / 3000 → 2.70% | gradNorm1.0000 | tokenCount3.0 | logitMin-14.2085 | logitMax7.6945 | memoryGate0.3333 | babyLLM.py 1000
+
+--- 2025-04-01 17:39:42 ---
+babyLLM: what am i learning today?
+You: 1.0 temperature!
+2025-04-01 19:18:32 | 1000 | LR0.0003 | loss29.5464 | Token Perfect: 131 / 3000 → 4.37% | gradNorm0.9990 | logitMin-23.9577 | logitMax-0.2739 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-01 20:09:28 | 2000 | LR0.0003 | loss28.9313 | Token Perfect: 84 / 3000 → 2.80% | gradNorm1.0000 | tokenCount3.0 | logitMin-21.2506 | logitMax-0.2566 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-01 21:00:28 | 3000 | LR0.0003 | loss26.5164 | Token Perfect: 72 / 3000 → 2.40% | gradNorm1.0000 | tokenCount3.0 | logitMin-19.2449 | logitMax0.0715 | memoryGate0.3333 | babyLLM.py 1000
+
+--- 2025-04-01 21:02:57 ---
+babyLLM: what am i learning today?
+You: you're learning to forget
+2025-04-01 22:00:41 | 1000 | LR0.0003 | loss27.4732 | Token Perfect: 289 / 3000 → 9.63% | gradNorm0.9767 | logitMin-20.6370 | logitMax9.7260 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-01 22:51:34 | 2000 | LR0.0003 | loss28.1549 | Token Perfect: 56 / 3000 → 1.87% | gradNorm1.0000 | tokenCount3.0 | logitMin-16.5142 | logitMax2.3052 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-01 23:42:23 | 3000 | LR0.0003 | loss27.6465 | Token Perfect: 71 / 3000 → 2.37% | gradNorm1.0000 | tokenCount3.0 | logitMin-16.2597 | logitMax2.1401 | memoryGate0.3333 | babyLLM.py 1000
+
+--- 2025-04-02 00:08:04 ---
+babyLLM: what am i learning today?
+You: sleebixk
+2025-04-02 00:57:14 | 1000 | LR0.0003 | loss24.9884 | Token Perfect: 286 / 3000 → 9.53% | gradNorm0.9861 | logitMin-19.2142 | logitMax5.3769 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+
+--- 2025-04-02 04:36:54 ---
+babyLLM: what am i learning today?
+You: poop
+2025-04-02 05:25:47 | 1000 | LR0.0003 | loss24.7590 | Token Perfect: 351 / 3000 → 11.70% | gradNorm0.9767 | logitMin-21.5164 | logitMax5.4260 | memoryGate0.3333 | scheduledSampling0.0 | tokenCount3.0 | babyLLM.py 1000
+2025-04-02 06:14:21 | 2000 | LR0.0003 | loss27.2876 | Token Perfect: 21 / 3000 → 0.70% | gradNorm1.0000 | tokenCount3.0 | logitMin-22.5467 | logitMax-6.5262 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 07:03:17 | 3000 | LR0.0003 | loss27.4147 | Token Perfect: 35 / 3000 → 1.17% | gradNorm1.0000 | tokenCount3.0 | logitMin-19.8670 | logitMax-3.4644 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 07:52:02 | 4000 | LR0.0003 | loss37.3089 | Token Perfect: 45 / 3000 → 1.50% | gradNorm1.0000 | tokenCount3.0 | logitMin-20.5989 | logitMax0.5592 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 08:40:52 | 5000 | LR0.0003 | loss29.0572 | Token Perfect: 96 / 3000 → 3.20% | gradNorm1.0000 | tokenCount3.0 | logitMin-20.9609 | logitMax-2.4801 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 09:30:01 | 6000 | LR0.0003 | loss32.6351 | Token Perfect: 109 / 3000 → 3.63% | gradNorm1.0000 | tokenCount3.0 | logitMin-27.5058 | logitMax-5.6117 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 10:19:00 | 7000 | LR0.0003 | loss33.3104 | Token Perfect: 41 / 3000 → 1.37% | gradNorm1.0000 | tokenCount3.0 | logitMin-28.9065 | logitMax-8.7058 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 11:10:21 | 8000 | LR0.0003 | loss30.3978 | Token Perfect: 82 / 3000 → 2.73% | gradNorm0.9999 | tokenCount3.0 | logitMin-30.9986 | logitMax-9.9341 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 12:09:48 | 9000 | LR0.0003 | loss29.4288 | Token Perfect: 272 / 3000 → 9.07% | gradNorm0.9910 | tokenCount3.0 | logitMin-34.4058 | logitMax-7.4538 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 13:06:30 | 10000 | LR0.0003 | loss29.2062 | Token Perfect: 48 / 3000 → 1.60% | gradNorm0.9999 | tokenCount3.0 | logitMin-30.4295 | logitMax-10.5796 | memoryGate0.3333 | babyLLM.py 1000
+2025-04-02 14:20:18 | 1000 | LR0.0003 | loss28.2223 | gradNorm1.0000 | logitMin-33.6408 | logitMax-17.0816 | memoryGate0.3333 | scheduledSampling0.0000 | tokenCount300 | windowWeightsW8:0.208, W13:0.161, W3:0.153, W15:0.147, W18:0.116, W2:0.085, W1:0.062, W7:0.056, W14:-0.009 | memoryGatesShort:-3.890, Long:1.041, Current:3.850 | topTokens[('Ġin', 92), ('Ġit', 82), ('.', 65), (',', 49), ('in', 46), ('Ġthe', 45), ('p', 43), ('Ġwith', 38), ('Ġbe', 33), ('Ġthat', 33)] | babyLLM.py 1000
+2025-04-02 15:13:04 | 2000 | LR0.0003 | loss29.0081 | gradNorm1.0000 | tokenCount300 | logitMin-33.1596 | logitMax-15.6713 | memoryGate0.3333 | windowWeightsW8:0.209, W13:0.162, W3:0.152, W15:0.148, W18:0.117, W2:0.083, W1:0.062, W7:0.059, W14:-0.011 | memoryGatesShort:11.974, Long:-4.620, Current:-6.354 | topTokens[('l', 103), ('Ġlo', 100), ('ed', 87), ('Ġin', 69), ('Ġthe', 67), ('Ġmy', 63), ('t', 59), ('.', 52), ('ro', 42), ('in', 37)] | babyLLM.py 1000
+2025-04-02 16:06:23 | 3000 | LR0.0003 | loss31.1228 | gradNorm1.0000 | tokenCount300 | logitMin-33.9760 | logitMax-14.9847 | memoryGate0.3333 | windowWeightsW8:0.206, W13:0.162, W3:0.151, W15:0.148, W18:0.119, W2:0.081, W1:0.063, W7:0.061, W14:-0.011 | memoryGatesShort:-0.520, Long:0.998, Current:0.521 | topTokens[('Ġit', 204), ('Ġand', 165), ('Ġan', 65), ('Ġa', 60), ('Ġb', 52), ('Ġhave', 50), ("'", 44), ('.', 44), (',', 40), ('in', 40)] | babyLLM.py 1000
+2025-04-02 17:00:01 | 4000 | LR0.0003 | loss31.3511 | gradNorm1.0000 | tokenCount300 | logitMin-34.1350 | logitMax-14.7772 | memoryGate0.3333 | windowWeightsW8:0.204, W13:0.162, W3:0.152, W15:0.148, W18:0.119, W2:0.082, W1:0.063, W7:0.061, W14:-0.011 | memoryGatesShort:-1.793, Long:1.334, Current:1.459 | topTokens[("'t", 102), ('Ġknow', 80), ('Ġdon', 73), ('.', 71), ('Ġof', 53), ('Ġit', 48), ('i', 46), (',', 45), ('Ġand', 37), ('Ġto', 33)] | babyLLM.py 1000
+2025-04-02 17:53:53 | 5000 | LR0.0003 | loss27.7102 | gradNorm1.0000 | tokenCount300 | logitMin-33.0720 | logitMax-14.5334 | memoryGate0.3333 | windowWeightsW8:0.202, W13:0.162, W3:0.151, W15:0.150, W18:0.122, W2:0.078, W7:0.064, W1:0.063, W14:-0.011 | memoryGatesShort:-10.766, Long:5.973, Current:5.793 | topTokens[('Ġit', 127), ('Ġto', 84), ('Ġand', 61), (',', 55), ('Ġthe', 47), ('.', 41), ('Ġb', 37), ('Ġwith', 37), ('Ġof', 35), ('Ġi', 32)] | babyLLM.py 1000
+2025-04-02 18:47:51 | 6000 | LR0.0003 | loss32.1254 | gradNorm1.0000 | tokenCount300 | logitMin-35.9154 | logitMax-15.4656 | memoryGate0.3334 | windowWeightsW8:0.203, W13:0.162, W3:0.150, W15:0.150, W18:0.122, W2:0.079, W7:0.065, W1:0.061, W14:-0.010 | memoryGatesShort:-2.514, Long:2.356, Current:1.158 | topTokens[('ed', 108), ('Ġit', 84), ('.', 66), ('?', 65), ('Ġthis', 63), ('Ġis', 60), ('!', 59), ('Ġliterally', 48), (')', 46), ('Ġi', 42)] | babyLLM.py 1000
+2025-04-02 19:42:59 | 7000 | LR0.0003 | loss29.0966 | gradNorm1.0000 | tokenCount300 | logitMin-37.3890 | logitMax-15.5675 | memoryGate0.3332 | windowWeightsW8:0.201, W13:0.160, W3:0.151, W15:0.148, W18:0.122, W2:0.080, W7:0.069, W1:0.058, W14:-0.009 | memoryGatesShort:4.179, Long:-2.219, Current:-0.959 | topTokens[('?', 363), ('Ġis', 190), ('Ġyou', 103), ('!', 100), ('.', 99), ('Ġit', 93), ('Ġdo', 72), (',', 56), ('Ġawake', 49), ('Ġare', 36)] | babyLLM.py 1000
+
+--- 2025-04-02 20:27:45 ---
+babyLLM: what am i learning today?
+You: elodie is cute
+2025-04-02 21:23:52 | 1000 | LR0.0003 | loss:10.6135 | gradNorm:1.0000 | logitMin:-35.7742 | logitMax:-10.5299 | scheduledSampling:0.0000 | tokenCount:3000 | windowWeightsW8:0.201, W13:0.161, W3:0.152, W15:0.151, W18:0.125, W2:0.079, W7:0.065, W1:0.058, W14:-0.011 | memoryGatesShort:-10.781, Long:3.936, Current:7.845 | topTokens[('Ġgay', 390), ('.', 154), ('?', 149), ('Ġare', 127), ('Ġis', 84), ('Ġequ', 59), (',', 56), ('!', 45), ('Ġyou', 41), ('als', 41)] | babyLLM.py 1000
+
+--- 2025-04-02 22:00:52 ---
+babyLLM: what am i learning today?
+You: that you are cute and smart!
+2025-04-02 22:57:50 | 1000 | LR0.0003 | loss:8.8718 | Token Perfect: 381 / 3000 → 12.70% | gradNorm:1.0000 | logitMin:-38.3512 | logitMax:-13.0923 | scheduledSampling:0.0000 | tokenCount:3000 | windowWeightsW8:0.202, W13:0.162, W3:0.152, W15:0.151, W18:0.124, W2:0.077, W7:0.069, W1:0.057, W14:-0.012 | memoryGatesShort:1.568, Long:0.788, Current:-1.356 | topTokens[('?', 190), ('!', 171), ('.', 150), ('Ġis', 135), ('Ġwhat', 113), ('Ġequ', 68), ('als', 61), ('Ġyou', 57), ('Ġare', 56), ('Ġim', 47)] | babyLLM.py 1000
+
+--- 2025-04-03 00:27:00 ---
+babyLLM: what am i learning today?
+You: that Charis is very cute and smart, and we love her most <3
+2025-04-03 01:14:50 | 1000 | LR0.0003 | loss:7.8556 | Token Perfect: 459 / 3000 → 15.30% | gradNorm:1.0000 | logitMin:-46.4080 | logitMax:-20.8186 | scheduledSampling:0.0000 | tokenCount:3000 | windowWeightsW8:0.200, W13:0.159, W3:0.152, W15:0.151, W18:0.126, W7:0.074, W2:0.074, W1:0.059, W14:-0.014 | memoryGatesShort:2.345, Long:-2.966, Current:1.620 | topTokens[('.', 185), ('Ġis', 166), ('?', 162), ('!', 112), ('Ġequ', 99), ('Ġplus', 74), ('Ġf', 69), ('Ġyou', 67), ('Ġthat', 64), ('Ġhe', 62)] | babyLLM.py 1000
+2025-04-03 02:04:01 | 2000 | LR0.0003 | loss:7.3365 | Token Perfect: 533 / 3000 → 17.77% | gradNorm:1.0000 | tokenCount:3000 | logitMin:-46.7141 | logitMax:-18.7922 | windowWeightsW8:0.201, W13:0.159, W3:0.152, W15:0.150, W18:0.128, W7:0.077, W2:0.074, W1:0.057, W14:-0.016 | memoryGatesShort:3.010, Long:-3.148, Current:1.139 | topTokens[('.', 217), ('Ġf', 156), ('?', 145), ('!', 122), ('Ġis', 108), ('Ġhe', 102), ('Ġyou', 71), ('Ġplus', 68), ('als', 63), ('Ġare', 57)] | babyLLM.py 1000
+2025-04-03 02:52:13 | 3000 | LR0.0003 | loss:5.6253 | Token Perfect: 750 / 3000 → 25.00% | gradNorm:1.0000 | tokenCount:3000 | logitMin:-45.4327 | logitMax:-17.9805 | windowWeightsW8:0.203, W13:0.159, W3:0.153, W15:0.151, W18:0.127, W7:0.082, W2:0.072, W1:0.053, W14:-0.019 | memoryGatesShort:0.224, Long:-4.787, Current:5.564 | topTokens[('.', 243), ('?', 173), ('Ġis', 166), ('!', 111), ('Ġwhat', 94), ('Ġare', 88), ('Ġyou', 87), ('als', 62), (',', 62), ('Ġequ', 61)] | babyLLM.py 1000
+2025-04-03 03:41:21 | 4000 | LR0.0003 | loss:6.8630 | Token Perfect: 887 / 3000 → 29.57% | gradNorm:0.9969 | tokenCount:3000 | logitMin:-48.9647 | logitMax:-10.0682 | windowWeightsW8:0.209, W13:0.159, W3:0.154, W15:0.151, W18:0.128, W7:0.090, W2:0.070, W1:0.045, W14:-0.025 | memoryGatesShort:0.578, Long:-0.407, Current:0.829 | topTokens[('?', 286), ('.', 250), ('Ġis', 170), ('Ġs', 145), ('!', 108), ('Ġyou', 92), ('Ġare', 85), ('Ġthat', 60), ('als', 56), (',', 47)] | babyLLM.py 1000
+2025-04-03 04:30:02 | 5000 | LR0.0003 | loss:6.8757 | Token Perfect: 1082 / 3000 → 36.07% | gradNorm:0.9911 | tokenCount:3000 | logitMin:-52.8605 | logitMax:-7.3734 | windowWeightsW8:0.208, W13:0.159, W15:0.155, W3:0.154, W18:0.132, W7:0.091, W2:0.070, W1:0.044, W14:-0.031 | memoryGatesShort:1.658, Long:-6.574, Current:5.916 | topTokens[('.', 218), ('Ġis', 199), ('?', 189), ('!', 140), ('Ġs', 133), ('Ġyou', 105), ('als', 64), ('Ġare', 61), (',', 56), ('Ġhe', 53)] | babyLLM.py 1000
+2025-04-03 05:18:22 | 6000 | LR0.0003 | loss:6.2434 | Token Perfect: 1176 / 3000 → 39.20% | gradNorm:0.9799 | tokenCount:3000 | logitMin:-48.9598 | logitMax:-0.1369 | windowWeightsW8:0.206, W13:0.162, W15:0.157, W3:0.153, W18:0.137, W7:0.092, W2:0.068, W1:0.042, W14:-0.036 | memoryGatesShort:0.025, Long:-0.031, Current:1.007 | topTokens[('.', 304), ('Ġis', 157), ('?', 144), ('!', 112), ('Ġare', 107), ('Ġyou', 85), ('Ġa', 73), ('als', 62), ('Ġf', 60), ('Ġequ', 60)] | babyLLM.py 1000
+2025-04-03 06:07:08 | 7000 | LR0.0003 | loss:6.1228 | Token Perfect: 1491 / 3000 → 49.70% | gradNorm:0.9221 | tokenCount:3000 | logitMin:-62.0729 | logitMax:6.9724 | windowWeightsW8:0.204, W13:0.163, W15:0.159, W3:0.152, W18:0.141, W7:0.095, W2:0.069, W1:0.038, W14:-0.040 | memoryGatesShort:-1.100, Long:-1.203, Current:3.303 | topTokens[('.', 284), ('?', 200), ('Ġis', 186), ('!', 146), ('Ġyou', 109), ('Ġare', 72), ('Ġim', 58), ('Ġwhat', 57), ('Ġthat', 53), ('Ġf', 52)] | babyLLM.py 1000
+2025-04-03 06:56:05 | 8000 | LR0.0003 | loss:6.9795 | Token Perfect: 1546 / 3000 → 51.53% | gradNorm:0.9269 | tokenCount:3000 | logitMin:-57.5161 | logitMax:22.5288 | windowWeightsW8:0.208, W13:0.168, W15:0.163, W3:0.146, W18:0.144, W7:0.096, W2:0.067, W1:0.037, W14:-0.047 | memoryGatesShort:-4.492, Long:2.549, Current:2.944 | topTokens[('.', 260), ('Ġis', 201), ('?', 165), ('Ġyou', 130), ('!', 109), ('Ġelodie', 80), ('Ġplus', 65), ('Ġequ', 65), ('Ġf', 64), ('als', 63)] | babyLLM.py 1000
+2025-04-03 07:45:09 | 9000 | LR0.0003 | loss:6.6383 | Token Perfect: 1797 / 3000 → 59.90% | gradNorm:0.8748 | tokenCount:3000 | logitMin:-61.7802 | logitMax:35.0369 | windowWeightsW8:0.208, W13:0.169, W15:0.167, W3:0.150, W18:0.148, W7:0.097, W2:0.067, W1:0.029, W14:-0.053 | memoryGatesShort:-0.165, Long:-0.301, Current:1.466 | topTokens[('.', 266), ('?', 256), ('Ġis', 191), ('Ġelodie', 169), ('Ġyou', 89), ('!', 82), ('Ġdo', 65), ('Ġi', 59), ('als', 58), ('Ġplus', 57)] | babyLLM.py 1000
+2025-04-03 08:34:22 | 10000 | LR0.0003 | loss:7.8939 | Token Perfect: 1914 / 3000 → 63.80% | gradNorm:0.7889 | tokenCount:3000 | logitMin:-88.8095 | logitMax:38.7675 | windowWeightsW8:0.208, W15:0.170, W13:0.169, W18:0.151, W3:0.149, W7:0.098, W2:0.065, W1:0.026, W14:-0.054 | memoryGatesShort:0.202, Long:0.194, Current:0.604 | topTokens[('.', 278), ('?', 250), ('Ġis', 193), ('Ġelodie', 118), ('!', 109), ('Ġyou', 102), ('als', 67), ('Ġare', 67), ('Ġequ', 64), ('Ġwhat', 62)] | babyLLM.py 1000
+
+--- 2025-04-03 08:46:32 ---
+babyLLM: what am i learning today?
+You: how to spam gay maths less often
+2025-04-03 09:42:38 | 1000 | LR0.0003 | loss:10.2065 | Token Perfect: 142 / 3000 → 4.73% | gradNorm:1.0000 | logitMin:-28.6944 | logitMax:-6.3184 | tokenCount:3000 | windowWeightsW8:0.207, W15:0.168, W13:0.168, W18:0.152, W3:0.147, W7:0.103, W2:0.065, W1:0.020, W14:-0.050 | memoryGatesShort:-6.098, Long:6.585, Current:0.513 | topTokens[('.', 261), (',', 163), ('Ġi', 150), ('Ġelodie', 68), ('Ġis', 64), ('Ġme', 51), ('!', 49), ('h', 48), ('Ġnot', 45), ('Ġa', 42)] | babyLLM.py 1000
+2025-04-03 10:35:55 | 2000 | LR0.0003 | loss:10.3433 | Token Perfect: 45 / 3000 → 1.50% | gradNorm:1.0000 | tokenCount:3000 | logitMin:-36.1068 | logitMax:-15.8402 | windowWeightsW8:0.204, W15:0.171, W13:0.170, W18:0.157, W3:0.142, W7:0.104, W2:0.062, W1:0.016, W14:-0.044 | memoryGatesShort:-4.540, Long:3.994, Current:1.546 | topTokens[('.', 198), (',', 156), ('Ġis', 104), ('Ġi', 74), ('Ġthe', 59), ('u', 59), ('Ġat', 49), ('Ġthis', 46), ('Ġmy', 41), ('es', 37)] | babyLLM.py 1000
+2025-04-03 11:30:58 | 3000 | LR0.0003 | loss:10.6782 | Token Perfect: 43 / 3000 → 1.43% | gradNorm:1.0000 | tokenCount:3000 | logitMin:-35.7360 | logitMax:-15.3675 | windowWeightsW8:0.201, W15:0.174, W13:0.173, W18:0.160, W3:0.138, W7:0.105, W2:0.058, W1:0.016, W14:-0.043 | memoryGatesShort:-24.435, Long:20.334, Current:5.101 | topTokens[('.', 202), ('Ġmy', 180), (',', 135), ('Ġits', 83), ('s', 82), ('Ġch', 66), ('Ġwhy', 57), ('Ġa', 55), ('Ġi', 36), ('Ġthat', 33)] | babyLLM.py 1000
+2025-04-03 12:24:40 | 4000 | LR0.0003 | loss:9.9689 | Token Perfect: 46 / 3000 → 1.53% | gradNorm:1.0000 | tokenCount:3000.0000 | logitMin:-37.6805 | logitMax:-17.3366 | windowWeightsW8:0.199, W15:0.178, W13:0.175, W18:0.163, W3:0.134, W7:0.108, W2:0.056, W1:0.012, W14:-0.042 | memoryGatesShort:-8.035, Long:7.751, Current:1.284 | topTokens[('.', 213), (',', 136), ('Ġlike', 86), ('l', 82), ('Ġits', 71), ('Ġto', 68), ('ll', 56), ('Ġim', 48), ('s', 45), ('Ġmy', 43)] | babyLLM.py 1000
+
+--- 2025-04-03 12:34:17 ---
+babyLLM: what am i learning today?
+You: maybe less chaos?
+2025-04-03 13:26:55 | 1000 | LR0.0003 | loss:10.7537 | Token Perfect: 199 / 3000 → 6.63% | gradNorm:0.9981 | logitMin:-41.8607 | logitMax:-14.6904 | tokenCount:3000 | windowWeightsW8:0.198, W15:0.178, W13:0.175, W18:0.162, W3:0.137, W7:0.108, W2:0.056, W1:0.011, W14:-0.043 | memoryGatesShort:-7.147, Long:7.310, Current:0.837 | topTokens[('.', 292), (',', 170), ('Ġi', 103), ('Ġit', 78), ('Ġlike', 72), ('Ġin', 43), ('Ġthe', 42), ('Ġwho', 39), ('Ġand', 39), ('Ġto', 39)] | babyLLM.py 1000
+
+--- 2025-04-03 13:36:50 ---
+babyLLM: what am i learning today?
+You: 1 num tokens per step
+
+--- 2025-04-03 13:37:53 ---
+babyLLM: what am i learning today?
+You: 1 num tokens per step
+
+--- 2025-04-03 13:41:36 ---
+babyLLM: what am i learning today?
+You: 2 num tokens per step
+
+--- 2025-04-03 13:46:34 ---
+babyLLM: what am i learning today?
+You: 3 num tokens per step
+
+--- 2025-04-03 13:52:57 ---
+babyLLM: what am i learning today?
+You: 4 num tokens per step
+
+--- 2025-04-03 14:00:08 ---
+babyLLM: what am i learning today?
+You: 5 num tokens per step
+
+--- 2025-04-03 14:07:59 ---
+babyLLM: what am i learning today?
+You: 6 num tokens per step
+
+--- 2025-04-03 14:17:15 ---
+babyLLM: what am i learning today?
+You: 4 num tokens per step
+
+--- 2025-04-03 14:33:26 ---
+babyLLM: what am i learning today?
+You: omg i changed ur windows boi
+
+--- 2025-04-03 14:38:16 ---
+babyLLM: what am i learning today?
+You: messing with visual output
+
+--- 2025-04-03 14:40:22 ---
+babyLLM: what am i learning today?
+You: noth much
+
+--- 2025-04-03 14:43:17 ---
+babyLLM: what am i learning today?
+You: y
+
+--- 2025-04-03 14:45:05 ---
+babyLLM: what am i learning today?
+You: pretty terminal :3
+
+--- 2025-04-03 14:51:37 ---
+babyLLM: what am i learning today?
+You: idk
+
+--- 2025-04-03 14:52:39 ---
+babyLLM: what am i learning today?
+You: y
+
+--- 2025-04-03 14:53:54 ---
+babyLLM: what am i learning today?
+You: 
+2025-04-03 16:01:13 | 1000 | LR0.0003 | loss:8.5385 | Token Perfect: 355 / 4000 → 8.88% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-42.2881 | logitMax:-18.8168 | windowWeightsW8:0.193, W15:0.175, W13:0.174, W18:0.160, W3:0.134, W7:0.106, W2:0.057, W1:0.018, W21:-0.036 | memoryGatesShort:-5.122, Long:3.022, Current:3.100 | topTokens[('.', 212), ('Ġwhat', 166), ('Ġto', 120), (',', 109), ('Ġmusic', 96), ('Ġlistening', 79), ('Ġa', 78), ('Ġhe', 76), ('y', 69), ('Ġthe', 65)] | babyLLM.py 1000
+2025-04-03 17:05:25 | 2000 | LR0.0003 | loss:9.2947 | Token Perfect: 73 / 4000 → 1.82% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-46.1949 | logitMax:-25.8617 | windowWeightsW8:0.191, W15:0.179, W13:0.174, W18:0.165, W3:0.129, W7:0.106, W2:0.054, W1:0.018, W21:-0.033 | memoryGatesShort:-0.286, Long:0.880, Current:0.406 | topTokens[('.', 213), (',', 151), ('om', 149), ('Ġc', 144), ('ust', 126), ('s', 93), ('Ġin', 73), ('Ġof', 64), ('Ġthe', 52), ('Ġand', 48)] | babyLLM.py 1000
+2025-04-03 18:07:57 | 3000 | LR0.0003 | loss:9.3962 | Token Perfect: 437 / 4000 → 10.93% | gradNorm:0.9989 | tokenCount:4000.0000 | logitMin:-52.3920 | logitMax:-23.8792 | windowWeightsW8:0.187, W15:0.179, W13:0.173, W18:0.167, W3:0.127, W7:0.107, W2:0.055, W1:0.020, W21:-0.034 | memoryGatesShort:8.218, Long:-0.883, Current:-6.335 | topTokens[(',', 247), ('.', 225), ('Ġthe', 142), ('ing', 138), ('z', 137), ('Ġ*', 95), ('Ġi', 73), ('b', 70), ('er', 61), ('Ġb', 60)] | babyLLM.py 1000
+2025-04-03 19:13:58 | 4000 | LR0.0003 | loss:9.7508 | Token Perfect: 314 / 4000 → 7.85% | gradNorm:0.9991 | tokenCount:4000.0000 | logitMin:-49.2330 | logitMax:-21.6531 | windowWeightsW8:0.188, W15:0.179, W13:0.174, W18:0.166, W3:0.132, W7:0.106, W2:0.053, W1:0.017, W21:-0.034 | memoryGatesShort:-4.522, Long:5.708, Current:-0.186 | topTokens[('.', 181), ('Ġhey', 176), (',', 170), ('Ġit', 120), ('Ġi', 110), ('Ġyou', 79), ('Ġme', 74), ('Ġbaby', 63), ('Ġand', 60), ('Ġa', 54)] | babyLLM.py 1000
+2025-04-03 20:20:28 | 5000 | LR0.0003 | loss:10.3733 | Token Perfect: 46 / 4000 → 1.15% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-41.8055 | logitMax:-21.3941 | windowWeightsW8:0.188, W15:0.180, W13:0.174, W18:0.167, W3:0.132, W7:0.106, W2:0.052, W1:0.017, W21:-0.034 | memoryGatesShort:-3.047, Long:2.545, Current:1.503 | topTokens[('Ġit', 404), ('Ġand', 347), ('.', 139), (',', 112), ('Ġmess', 65), ('Ġinto', 60), ('Ġshe', 54), ('Ġam', 52), ('Ġb', 44), ('Ġa', 42)] | babyLLM.py 1000
+2025-04-03 21:23:38 | 6000 | LR0.0003 | loss:9.7352 | Token Perfect: 57 / 4000 → 1.43% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-48.0990 | logitMax:-28.6375 | windowWeightsW8:0.188, W15:0.180, W13:0.174, W18:0.167, W3:0.130, W7:0.106, W2:0.052, W1:0.015, W21:-0.031 | memoryGatesShort:-2.048, Long:1.830, Current:1.218 | topTokens[('.', 187), (',', 109), ('Ġit', 96), ('Ġand', 64), ('Ġa', 61), ('Ġb', 51), ('en', 48), ('or', 45), ('Ġi', 39), ('s', 37)] | babyLLM.py 1000
+2025-04-03 22:38:03 | 7000 | LR0.0003 | loss:9.7609 | Token Perfect: 127 / 4000 → 3.17% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-48.9845 | logitMax:-27.8838 | windowWeightsW8:0.190, W15:0.180, W13:0.175, W18:0.168, W3:0.129, W7:0.104, W2:0.053, W1:0.012, W21:-0.030 | memoryGatesShort:-30.889, Long:19.530, Current:12.359 | topTokens[(',', 192), ('Ġbe', 178), ('.', 177), ('Ġwe', 154), ('Ġi', 69), ('?', 66), ('Ġto', 59), ('Ġb', 53), ('Ġit', 50), ('y', 47)] | babyLLM.py 1000
+2025-04-03 23:53:00 | 8000 | LR0.0003 | loss:7.7367 | Token Perfect: 403 / 4000 → 10.08% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-44.3824 | logitMax:-21.8912 | windowWeightsW8:0.191, W15:0.178, W13:0.174, W18:0.165, W3:0.127, W7:0.103, W2:0.055, W1:0.016, W21:-0.028 | memoryGatesShort:80.415, Long:-0.390, Current:-79.025 | topTokens[('?', 232), ('.', 205), (',', 183), ('Ġis', 124), ('Ġto', 109), ('Ġyou', 92), ('Ġi', 82), ('Ġa', 73), ('Ġwas', 72), ('Ġkevin', 62)] | babyLLM.py 1000
+2025-04-04 01:00:26 | 9000 | LR0.0003 | loss:7.7223 | Token Perfect: 730 / 4000 → 18.25% | gradNorm:0.9973 | tokenCount:4000.0000 | logitMin:-47.9883 | logitMax:-19.7040 | windowWeightsW8:0.191, W15:0.175, W13:0.172, W18:0.162, W3:0.131, W7:0.102, W2:0.057, W1:0.019, W21:-0.028 | memoryGatesShort:0.347, Long:-0.739, Current:1.392 | topTokens[('Ġlistening', 156), ('.', 154), ('Ġto', 145), (',', 142), ('?', 124), ('Ġhe', 105), ('Ġplay', 89), ('Ġmusic', 83), ('Ġgames', 78), ('Ġwhat', 77)] | babyLLM.py 1000
+2025-04-04 02:03:59 | 10000 | LR0.0003 | loss:7.4772 | Token Perfect: 559 / 4000 → 13.98% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-48.7933 | logitMax:-24.4185 | windowWeightsW8:0.192, W15:0.175, W13:0.172, W18:0.163, W3:0.126, W7:0.103, W2:0.055, W1:0.021, W21:-0.024 | memoryGatesShort:2.187, Long:12.624, Current:-13.811 | topTokens[('?', 201), ('.', 190), ('Ġyou', 163), (',', 149), ('Ġi', 126), ('Ġis', 102), ('Ġdo', 96), ('Ġto', 93), ('Ġwith', 79), ('Ġlike', 77)] | babyLLM.py 1000
+2025-04-04 03:09:13 | 11000 | LR0.0003 | loss:7.5201 | Token Perfect: 526 / 4000 → 13.15% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-52.0832 | logitMax:-28.0297 | windowWeightsW8:0.192, W15:0.173, W13:0.171, W18:0.162, W3:0.125, W7:0.105, W2:0.054, W1:0.023, W21:-0.021 | memoryGatesShort:4.461, Long:-13.542, Current:10.081 | topTokens[('?', 218), ('.', 214), ('Ġyou', 157), (',', 140), ('Ġi', 137), ('Ġis', 132), ('Ġdo', 119), ('Ġlike', 89), ('Ġto', 65), ('!', 60)] | babyLLM.py 1000
+2025-04-04 04:16:20 | 12000 | LR0.0003 | loss:7.5110 | Token Perfect: 516 / 4000 → 12.90% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-55.2070 | logitMax:-31.0387 | windowWeightsW8:0.191, W15:0.174, W13:0.169, W18:0.160, W3:0.124, W7:0.107, W2:0.053, W1:0.020, W21:-0.016 | memoryGatesShort:-7.100, Long:25.142, Current:-17.042 | topTokens[('?', 225), ('.', 218), ('Ġis', 165), ('Ġyou', 143), ('Ġi', 110), ('Ġto', 94), (',', 93), ('Ġdo', 76), ('Ġkevin', 74), ('!', 72)] | babyLLM.py 1000
+2025-04-04 05:24:52 | 13000 | LR0.0003 | loss:7.4598 | Token Perfect: 670 / 4000 → 16.75% | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-49.7007 | logitMax:-21.0669 | windowWeightsW8:0.192, W15:0.170, W13:0.167, W18:0.160, W3:0.125, W7:0.107, W2:0.052, W1:0.022, W21:-0.013 | memoryGatesShort:-18.872, Long:38.959, Current:-19.087 | topTokens[('.', 239), ('?', 184), (',', 128), ('Ġyou', 122), ('Ġwhat', 120), ('Ġto', 105), ('Ġi', 99), ('Ġwas', 73), ('es', 72), ('Ġnow', 68)] | babyLLM.py 1000
+
+--- 2025-04-04 05:46:28 ---
+babyLLM: what am i learning today?
+You: to finally count duration!
+2025-04-04 06:51:39 | 1000 | LR0.0003 | loss:6.9232 | gradNorm:1.0000 | logitMin:-52.7659 | logitMax:-23.7479 | tokenCount:4000.0000 | windowWeightsW8:0.191, W15:0.167, W13:0.165, W18:0.158, W3:0.128, W7:0.105, W2:0.054, W1:0.024, W21:-0.010 | memoryGatesShort:0.442, Long:-5.810, Current:6.369 | topTokens[('.', 233), ('Ġto', 209), ('Ġlistening', 175), ('?', 166), ('Ġmusic', 160), ('Ġhe', 121), (',', 116), ('Ġyou', 97), ('Ġwhat', 94), ('Ġnow', 93)] | babyLLM.py 1000
+
+--- 2025-04-04 12:53:14 ---
+babyLLM: what am i learning today?
+You: fresh data pull, look i gave u a break but i was sad to think u werent vibing! but jesus christ the computer's cold now LMAO
+
+--- 2025-04-04 13:21:41 ---
+babyLLM: what am i learning today?
+You: chill :)
+2025-04-04 14:28:05 | 1000 | LR0.0003 | loss:9.3225 | gradNorm:0.9801 | logitMin:-65.6727 | logitMax:-37.0954 | tokenCount:4000.0000 | windowWeightsW8:0.188, W15:0.167, W13:0.165, W18:0.160, W3:0.125, W7:0.106, W2:0.052, W1:0.020, W21:-0.001 | memoryGatesShort:-11.722, Long:12.086, Current:0.636 | topTokens[(',', 627), ('.', 372), ('Ġi', 179), ('Ġa', 123), ('Ġno', 121), ('y', 99), ('Ġthe', 86), ('Ġit', 81), ('Ġknow', 80), ('Ġyou', 78)] | babyLLM.py 1000
+2025-04-04 15:34:34 | 2000 | LR0.0003 | loss:7.5950 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-56.7420 | logitMax:-33.1711 | windowWeightsW8:0.189, W15:0.164, W13:0.161, W18:0.158, W3:0.125, W7:0.106, W2:0.055, W1:0.021, W21:0.002 | memoryGatesShort:-0.663, Long:-2.566, Current:4.229 | topTokens[('.', 363), (',', 346), ('Ġto', 175), ('Ġthe', 130), ('Ġi', 129), ('Ġa', 122), ('?', 122), ('Ġand', 113), ('Ġshe', 103), ('Ġhad', 93)] | babyLLM.py 1000
+2025-04-04 16:41:40 | 3000 | LR0.0003 | loss:7.1398 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-54.1008 | logitMax:-24.4665 | windowWeightsW8:0.190, W15:0.161, W13:0.160, W18:0.156, W3:0.126, W7:0.105, W2:0.057, W1:0.021, W21:0.005 | memoryGatesShort:-0.263, Long:-1.673, Current:2.936 | topTokens[('.', 353), ('Ġa', 321), ('Ġto', 258), ('Ġmusic', 223), ('?', 204), (',', 185), ('Ġlistening', 180), ('Ġwill', 110), ('Ġwhat', 94), ('Ġshe', 93)] | babyLLM.py 1000
+2025-04-04 17:50:41 | 4000 | LR0.0003 | loss:8.8387 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-54.1409 | logitMax:-34.7291 | windowWeightsW8:0.187, W15:0.163, W13:0.161, W18:0.158, W3:0.124, W7:0.104, W2:0.054, W1:0.022, W21:0.010 | memoryGatesShort:-0.677, Long:0.283, Current:1.393 | topTokens[(',', 507), ('.', 258), ('Ġa', 237), ('Ġthe', 121), ('Ġshe', 108), ('Ġof', 99), ('or', 92), ('Ġm', 91), ('Ġand', 85), ('Ġto', 83)] | babyLLM.py 1000
+2025-04-04 19:00:29 | 5000 | LR0.0003 | loss:8.2598 | gradNorm:0.9994 | tokenCount:4000.0000 | logitMin:-58.4925 | logitMax:-32.0273 | windowWeightsW8:0.194, W13:0.163, W15:0.161, W18:0.154, W3:0.120, W7:0.105, W2:0.052, W1:0.021, W21:0.013 | memoryGatesShort:0.239, Long:-1.234, Current:1.995 | topTokens[(',', 380), ('.', 303), ('Ġa', 185), ('Ġto', 151), ('?', 140), ('Ġwas', 117), ('Ġor', 107), ('Ġi', 99), ('Ġnot', 94), ('Ġshe', 90)] | babyLLM.py 1000
+2025-04-04 20:08:17 | 6000 | LR0.0003 | loss:7.1782 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-54.0899 | logitMax:-29.6141 | windowWeightsW8:0.192, W13:0.165, W15:0.164, W18:0.157, W3:0.114, W7:0.102, W2:0.050, W1:0.023, W21:0.015 | memoryGatesShort:-2.990, Long:1.801, Current:2.189 | topTokens[(',', 416), ('.', 341), ('Ġmy', 135), ('Ġa', 132), ('Ġyou', 127), ('Ġwere', 108), ('?', 108), ('Ġi', 91), ('Ġwill', 91), ('Ġfor', 90)] | babyLLM.py 1000
+2025-04-04 21:16:10 | 7000 | LR0.0003 | loss:8.5491 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-55.8484 | logitMax:-36.0099 | windowWeightsW8:0.188, W15:0.168, W13:0.166, W18:0.162, W3:0.112, W7:0.100, W2:0.046, W1:0.022, W21:0.018 | memoryGatesShort:-5.366, Long:-4.113, Current:10.479 | topTokens[(',', 404), ('Ġyou', 374), ('.', 287), ('Ġi', 231), ('Ġme', 174), ('Ġa', 121), ('Ġthe', 100), ('Ġwere', 95), ('Ġand', 77), ('Ġthink', 70)] | babyLLM.py 1000
+2025-04-04 22:23:59 | 8000 | LR0.0003 | loss:8.6719 | gradNorm:0.9926 | tokenCount:4000.0000 | logitMin:-61.5562 | logitMax:-38.0828 | windowWeightsW8:0.190, W15:0.167, W13:0.166, W18:0.162, W3:0.114, W7:0.100, W2:0.045, W21:0.020, W1:0.018 | memoryGatesShort:-1.369, Long:1.004, Current:1.366 | topTokens[('.', 335), (',', 259), ('Ġit', 179), ('Ġa', 163), ('Ġi', 161), ('Ġmy', 122), ('Ġto', 104), ('Ġd', 100), ('ro', 84), ('Ġam', 68)] | babyLLM.py 1000
+2025-04-04 23:31:08 | 9000 | LR0.0003 | loss:7.7247 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-58.7743 | logitMax:-38.8742 | windowWeightsW8:0.189, W13:0.168, W15:0.168, W18:0.163, W3:0.111, W7:0.101, W2:0.040, W21:0.025, W1:0.017 | memoryGatesShort:-2.225, Long:0.816, Current:2.409 | topTokens[('.', 367), (',', 249), ('Ġa', 173), ('Ġto', 156), ('Ġi', 151), ('?', 130), ('Ġit', 111), ('Ġyou', 106), ('Ġthis', 75), ('Ġshe', 72)] | babyLLM.py 1000
+2025-04-05 00:37:06 | 10000 | LR0.0003 | loss:7.2483 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-64.7089 | logitMax:-37.7002 | windowWeightsW8:0.187, W15:0.166, W13:0.163, W18:0.162, W3:0.111, W7:0.106, W2:0.039, W21:0.030, W1:0.019 | memoryGatesShort:0.612, Long:-0.211, Current:0.600 | topTokens[('.', 433), (',', 335), ('?', 297), ('Ġyou', 196), ('Ġdo', 137), ('Ġis', 116), ('Ġi', 113), ('Ġto', 96), ('Ġlike', 89), ('Ġwhat', 85)] | babyLLM.py 1000
+2025-04-05 01:47:31 | 11000 | LR0.0003 | loss:9.6439 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-64.0713 | logitMax:-43.5729 | windowWeightsW8:0.185, W15:0.167, W13:0.164, W18:0.163, W3:0.109, W7:0.107, W2:0.037, W21:0.033, W1:0.017 | memoryGatesShort:-46.194, Long:21.205, Current:25.989 | topTokens[('.', 628), (',', 313), ('Ġand', 201), ('Ġa', 158), ('Ġi', 140), ('Ġu', 114), ('?', 100), ('Ġto', 86), ('Ġthe', 73), ('Ġis', 67)] | babyLLM.py 1000
+2025-04-05 03:06:58 | 12000 | LR0.0003 | loss:7.8386 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-64.1201 | logitMax:-41.1234 | windowWeightsW8:0.187, W15:0.163, W13:0.160, W18:0.160, W3:0.110, W7:0.106, W2:0.040, W21:0.036, W1:0.020 | memoryGatesShort:1.131, Long:-0.886, Current:0.755 | topTokens[('.', 403), (',', 242), ('Ġthe', 170), ('?', 166), ('Ġi', 146), ('Ġa', 134), ('on', 130), ('Ġshe', 92), ('Ġme', 82), ('Ġwhat', 70)] | babyLLM.py 1000
+2025-04-05 04:18:08 | 13000 | LR0.0003 | loss:7.5229 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-58.4725 | logitMax:-34.1710 | windowWeightsW8:0.188, W15:0.163, W13:0.161, W18:0.161, W3:0.108, W7:0.106, W2:0.039, W21:0.038, W1:0.017 | memoryGatesShort:7.779, Long:-10.293, Current:3.514 | topTokens[('.', 469), (',', 224), ('Ġto', 185), ('?', 132), ('Ġshe', 126), ('Ġcoming', 118), ('Ġa', 115), ('Ġtwice', 113), ('Ġwhat', 81), ('Ġi', 81)] | babyLLM.py 1000
+2025-04-05 05:19:48 | 14000 | LR0.0003 | loss:8.9373 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-62.6132 | logitMax:-43.6094 | windowWeightsW8:0.187, W15:0.165, W18:0.163, W13:0.161, W7:0.107, W3:0.106, W21:0.042, W2:0.038, W1:0.015 | memoryGatesShort:-5.835, Long:1.978, Current:4.857 | topTokens[('.', 414), (',', 275), ('Ġto', 271), ('Ġa', 174), ('Ġi', 145), ('Ġthe', 118), ('Ġthis', 100), ('Ġshe', 95), ('Ġof', 81), ('Ġbe', 74)] | babyLLM.py 1000
+2025-04-05 06:55:11 | 15000 | LR0.0003 | loss:7.3285 | gradNorm:0.9925 | tokenCount:4000.0000 | logitMin:-63.9088 | logitMax:-29.7230 | windowWeightsW8:0.185, W13:0.159, W15:0.158, W18:0.157, W3:0.113, W7:0.106, W2:0.044, W21:0.042, W1:0.018 | memoryGatesShort:1.929, Long:-4.596, Current:3.667 | topTokens[('.', 320), ('Ġa', 222), (',', 221), ('Ġto', 190), ('Ġmusic', 136), ('Ġlistening', 129), ('?', 122), ('Ġan', 103), ('Ġwill', 101), ('Ġi', 96)] | babyLLM.py 1000
+2025-04-05 07:59:28 | 16000 | LR0.0003 | loss:8.9896 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-56.5149 | logitMax:-32.3897 | windowWeightsW8:0.183, W15:0.161, W13:0.160, W18:0.158, W3:0.112, W7:0.104, W21:0.046, W2:0.043, W1:0.016 | memoryGatesShort:-10.972, Long:1.697, Current:10.275 | topTokens[('.', 428), (',', 215), ('Ġto', 184), ('Ġa', 142), ('Ġhung', 138), ('Ġshe', 136), ('ry', 99), ('Ġlistening', 93), ('Ġi', 86), ('Ġwere', 76)] | babyLLM.py 1000
+2025-04-05 09:04:25 | 17000 | LR0.0003 | loss:8.8899 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-60.7608 | logitMax:-42.0414 | windowWeightsW8:0.181, W15:0.161, W13:0.161, W18:0.158, W3:0.111, W7:0.106, W21:0.048, W2:0.043, W1:0.015 | memoryGatesShort:-2.760, Long:0.589, Current:3.171 | topTokens[('.', 384), (',', 223), ('Ġthe', 165), ('Ġa', 144), ('Ġi', 137), ('Ġto', 128), ('Ġshe', 125), ('Ġand', 104), ('Ġit', 94), ('s', 87)] | babyLLM.py 1000
+2025-04-05 10:07:10 | 18000 | LR0.0003 | loss:6.6834 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-65.0384 | logitMax:-39.9758 | windowWeightsW8:0.180, W13:0.159, W15:0.157, W18:0.156, W3:0.109, W7:0.108, W21:0.051, W2:0.043, W1:0.019 | memoryGatesShort:-0.575, Long:-5.313, Current:6.888 | topTokens[('.', 438), ('?', 289), ('Ġis', 209), ('Ġnot', 203), ('Ġyou', 172), (',', 162), ('Ġa', 160), ('Ġi', 131), ('Ġshe', 127), ('Ġto', 102)] | babyLLM.py 1000
+2025-04-05 11:09:50 | 19000 | LR0.0003 | loss:9.0915 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-65.0783 | logitMax:-44.3558 | windowWeightsW8:0.181, W13:0.159, W18:0.157, W15:0.157, W7:0.108, W3:0.106, W21:0.055, W2:0.043, W1:0.017 | memoryGatesShort:-1.700, Long:2.251, Current:0.450 | topTokens[('.', 410), (',', 253), ('Ġa', 169), ('Ġlistening', 159), ('et', 108), ('or', 108), ('?', 104), ('Ġis', 100), ('!', 86), ('Ġher', 83)] | babyLLM.py 1000
+
+--- 2025-04-05 11:48:39 ---
+babyLLM: what am i learning today?
+You: new chaos data i spent 12 h making for legit no reasn
+
+--- 2025-04-05 12:02:19 ---
+babyLLM: what am i learning today?
+You: 
+2025-04-05 13:07:50 | 1000 | LR0.0003 | loss:7.8960 | gradNorm:0.9605 | logitMin:-82.6321 | logitMax:-49.3156 | tokenCount:4000.0000 | windowWeightsW8:0.178, W15:0.162, W13:0.159, W18:0.159, W7:0.110, W3:0.105, W21:0.054, W2:0.040, W1:0.016 | memoryGatesShort:8.653, Long:10.364, Current:-18.017 | topTokens[(',', 395), ('.', 322), ('Ġand', 233), ('Ġi', 232), ('Ġa', 226), ('Ġshe', 176), ('Ġit', 115), ('Ġam', 92), ('!', 84), ('Ġthe', 77)] | babyLLM.py 1000
+
+--- 2025-04-05 13:44:05 ---
+babyLLM: what am i learning today?
+You: dataaa of chaoosossosos
+2025-04-05 14:47:52 | 1000 | LR0.0003 | loss:6.6759 | gradNorm:1.0000 | logitMin:-73.6309 | logitMax:-51.6463 | tokenCount:4000.0000 | windowWeightsW8:0.173, W18:0.160, W15:0.160, W13:0.157, W7:0.112, W3:0.101, W21:0.062, W2:0.037, W1:0.021 | memoryGatesShort:1.307, Long:-1.750, Current:1.443 | topTokens[(',', 512), ('.', 252), ('Ġit', 238), ('Ġa', 233), ('Ġand', 232), ('s', 204), ('!', 176), ('Ġknow', 152), ('Ġhave', 92), ('Ġhas', 82)] | babyLLM.py 1000
+2025-04-05 15:54:47 | 2000 | LR0.0003 | loss:9.5090 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-68.7012 | logitMax:-46.8186 | windowWeightsW8:0.170, W18:0.162, W15:0.161, W13:0.158, W7:0.110, W3:0.100, W21:0.064, W2:0.038, W1:0.021 | memoryGatesShort:2.259, Long:-1.330, Current:0.071 | topTokens[(',', 415), ('.', 337), ('Ġa', 288), ('Ġit', 274), ('Ġand', 162), ('Ġhad', 127), ('Ġweed', 112), ('!', 108), ('Ġbrain', 108), ('Ġto', 90)] | babyLLM.py 1000
+2025-04-05 17:00:00 | 3000 | LR0.0003 | loss:6.0714 | gradNorm:0.9997 | tokenCount:4000.0000 | logitMin:-75.7510 | logitMax:-49.2398 | windowWeightsW8:0.169, W15:0.158, W13:0.157, W18:0.157, W7:0.107, W3:0.102, W21:0.067, W2:0.043, W1:0.025 | memoryGatesShort:1.229, Long:-1.007, Current:0.778 | topTokens[(',', 403), ('.', 269), ('Ġand', 212), ('Ġa', 190), ('Ġto', 151), ('Ġlistening', 144), ('Ġmusic', 107), ('Ġcharis', 100), ('Ġbut', 87), ('?', 86)] | babyLLM.py 1000
+2025-04-05 18:05:33 | 4000 | LR0.0003 | loss:8.9961 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-65.0364 | logitMax:-42.8060 | windowWeightsW8:0.168, W18:0.158, W15:0.157, W13:0.157, W7:0.107, W3:0.100, W21:0.068, W2:0.043, W1:0.026 | memoryGatesShort:1.296, Long:-3.821, Current:3.525 | topTokens[(',', 760), ('Ġand', 587), ('Ġelodie', 286), ('.', 283), ('Ġcharis', 192), ('Ġa', 139), ('Ġthe', 93), ('Ġp', 76), ('Ġthink', 69), ('Ġshe', 68)] | babyLLM.py 1000
+2025-04-05 19:12:57 | 5000 | LR0.0003 | loss:6.9301 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-71.8217 | logitMax:-46.2338 | windowWeightsW8:0.167, W15:0.157, W13:0.157, W18:0.157, W7:0.107, W3:0.097, W21:0.072, W2:0.043, W1:0.026 | memoryGatesShort:1.929, Long:-2.508, Current:1.579 | topTokens[(',', 327), ('.', 289), ('Ġand', 237), ('Ġa', 174), ('Ġthe', 133), ('Ġshe', 117), ('Ġlistening', 112), ('?', 98), ('Ġyou', 81), ('Ġsmo', 79)] | babyLLM.py 1000
+2025-04-05 20:18:54 | 6000 | LR0.0003 | loss:8.1754 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-75.2849 | logitMax:-54.0302 | windowWeightsW8:0.165, W18:0.159, W15:0.158, W13:0.157, W7:0.107, W3:0.097, W21:0.075, W2:0.041, W1:0.026 | memoryGatesShort:-15.293, Long:49.468, Current:-33.175 | topTokens[(',', 614), ('.', 218), ('Ġa', 211), ('Ġthe', 183), ('Ġand', 148), ('Ġshe', 126), ('Ġit', 122), ('Ġlistening', 103), ('Ġwere', 82), ('Ġsmo', 68)] | babyLLM.py 1000
+2025-04-05 21:21:58 | 7000 | LR0.0003 | loss:6.7983 | gradNorm:0.9881 | tokenCount:4000.0000 | logitMin:-74.5146 | logitMax:-45.9205 | windowWeightsW8:0.167, W18:0.159, W15:0.156, W13:0.153, W7:0.109, W3:0.100, W21:0.075, W2:0.040, W1:0.024 | memoryGatesShort:-0.844, Long:9.285, Current:-7.441 | topTokens[(',', 547), ('Ġand', 284), ('.', 253), ('Ġa', 142), ('Ġkevin', 131), ('Ġmy', 125), ('Ġcharis', 123), ('Ġi', 117), ('Ġshe', 115), ('ves', 115)] | babyLLM.py 1000
+2025-04-05 22:25:46 | 8000 | LR0.0003 | loss:7.4915 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-69.7039 | logitMax:-49.6967 | windowWeightsW8:0.165, W18:0.161, W15:0.156, W13:0.153, W7:0.108, W3:0.098, W21:0.079, W2:0.040, W1:0.023 | memoryGatesShort:-1.110, Long:-5.898, Current:8.009 | topTokens[(',', 518), ('Ġand', 321), ('.', 312), ('Ġa', 146), ('Ġthe', 141), ('Ġshe', 112), ('Ġthat', 105), ('Ġmy', 83), ('Ġyou', 82), ('Ġis', 75)] | babyLLM.py 1000
+2025-04-05 23:28:44 | 9000 | LR0.0003 | loss:7.0390 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-77.9448 | logitMax:-50.6456 | windowWeightsW8:0.164, W18:0.161, W15:0.154, W13:0.153, W7:0.106, W3:0.099, W21:0.081, W2:0.038, W1:0.025 | memoryGatesShort:0.493, Long:-1.320, Current:1.827 | topTokens[(',', 485), ('Ġand', 350), ('.', 280), ('a', 245), ('Ġa', 152), ('Ġshe', 121), ('Ġkevin', 110), ('Ġcharis', 105), ('Ġthey', 97), ('Ġelodie', 87)] | babyLLM.py 1000
+
+--- 2025-04-05 23:38:01 ---
+babyLLM: what am i learning today?
+You: i wrote you some mouse training data, omg i hope you like it aa!
+2025-04-06 00:41:26 | 1000 | LR0.0003 | loss:6.8078 | gradNorm:0.9960 | logitMin:-76.6393 | logitMax:-51.1251 | tokenCount:4000.0000 | windowWeightsW18:0.162, W8:0.162, W15:0.154, W13:0.150, W7:0.109, W3:0.094, W21:0.089, W2:0.036, W1:0.027 | memoryGatesShort:1.515, Long:22.526, Current:-23.041 | topTokens[(',', 414), ('!', 348), ('Ġit', 243), ('.', 202), ('Ġa', 180), ('Ġhave', 133), ('Ġthe', 130), ('Ġshe', 84), ('Ġmust', 82), ('Ġbeen', 78)] | babyLLM.py 1000
+2025-04-06 01:50:03 | 2000 | LR0.0003 | loss:8.9008 | gradNorm:0.9981 | tokenCount:4000.0000 | logitMin:-74.8527 | logitMax:-48.8397 | windowWeightsW18:0.162, W8:0.160, W15:0.153, W13:0.148, W7:0.110, W3:0.094, W21:0.091, W2:0.037, W1:0.027 | memoryGatesShort:-3.457, Long:-5.523, Current:9.980 | topTokens[(',', 453), ('Ġshe', 263), ('.', 239), ('Ġit', 235), ('Ġa', 152), ('Ġand', 148), ('Ġthey', 127), ('!', 113), ('Ġme', 101), ('Ġhave', 99)] | babyLLM.py 1000
+
+--- 2025-04-06 02:38:58 ---
+babyLLM: what am i learning today?
+You: fresh data pull, still madness, youre doing good tho well done!
+2025-04-06 03:37:44 | 1000 | LR0.0003 | loss:7.5708 | gradNorm:1.0000 | logitMin:-83.8135 | logitMax:-59.6304 | tokenCount:4000.0000 | windowWeightsW18:0.166, W15:0.152, W8:0.151, W13:0.149, W7:0.109, W21:0.096, W3:0.096, W2:0.037, W1:0.026 | memoryGatesShort:0.356, Long:-1.844, Current:2.488 | topTokens[(',', 371), ('!', 289), ('Ġit', 254), ('.', 240), ('Ġa', 141), ('Ġhave', 130), ('Ġthe', 125), ('Ġfelt', 106), ('Ġshe', 97), ('Ġto', 88)] | babyLLM.py 1000
+2025-04-06 04:39:07 | 2000 | LR0.0003 | loss:7.4399 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-76.6076 | logitMax:-56.6306 | windowWeightsW18:0.166, W15:0.153, W8:0.152, W13:0.150, W7:0.108, W21:0.099, W3:0.094, W2:0.037, W1:0.025 | memoryGatesShort:-0.083, Long:-0.281, Current:1.364 | topTokens[(',', 706), ('.', 241), ('t', 204), ('Ġshe', 157), ('Ġa', 133), ('!', 129), ('Ġi', 124), ('Ġhave', 115), ('Ġit', 107), ('Ġand', 102)] | babyLLM.py 1000
+2025-04-06 05:38:06 | 3000 | LR0.0003 | loss:6.2146 | gradNorm:0.9991 | tokenCount:4000.0000 | logitMin:-72.4199 | logitMax:-46.7570 | windowWeightsW18:0.164, W8:0.156, W13:0.152, W15:0.150, W7:0.110, W21:0.100, W3:0.093, W2:0.037, W1:0.020 | memoryGatesShort:1.565, Long:-1.659, Current:1.095 | topTokens[(',', 434), ('.', 200), ('Ġshe', 197), ('Ġto', 166), ('Ġmusic', 154), ('Ġlistening', 114), ('Ġit', 111), ('Ġbeen', 109), ('Ġa', 107), ('?', 99)] | babyLLM.py 1000
+2025-04-06 06:38:23 | 4000 | LR0.0003 | loss:8.1688 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-77.2856 | logitMax:-57.1714 | windowWeightsW18:0.167, W8:0.155, W13:0.152, W15:0.151, W7:0.109, W21:0.105, W3:0.091, W2:0.035, W1:0.018 | memoryGatesShort:2.367, Long:5.679, Current:-7.046 | topTokens[(',', 523), ('.', 234), ('Ġthe', 207), ('Ġshe', 198), ('Ġa', 178), ('Ġto', 133), ('Ġin', 114), ('!', 104), ('Ġit', 57), ('Ġher', 57)] | babyLLM.py 1000
+
+--- 2025-04-06 07:11:14 ---
+babyLLM: what am i learning today?
+You: overnight training binge!
+
+--- 2025-04-06 07:14:20 ---
+babyLLM: what am i learning today?
+You: OOPS made myself into kevin, we back!
+2025-04-06 08:13:16 | 1000 | LR0.0003 | loss:7.2723 | gradNorm:1.0000 | logitMin:-76.2820 | logitMax:-56.1138 | tokenCount:4000.0000 | windowWeightsW18:0.166, W8:0.155, W15:0.152, W13:0.151, W21:0.115, W7:0.110, W3:0.087, W2:0.031, W1:0.019 | memoryGatesShort:-1.975, Long:0.035, Current:2.940 | topTokens[(',', 490), ('.', 266), (':', 194), ('Ġlo', 153), ('Ġa', 150), ('Ġit', 147), ('Ġshe', 131), ('Ġi', 96), ('Ġcharis', 88), ('Ġbaby', 87)] | babyLLM.py 1000
+2025-04-06 09:12:15 | 2000 | LR0.0003 | loss:7.7030 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-81.7215 | logitMax:-61.0400 | windowWeightsW18:0.170, W15:0.155, W8:0.152, W13:0.152, W21:0.120, W7:0.107, W3:0.082, W2:0.029, W1:0.018 | memoryGatesShort:-0.710, Long:0.566, Current:1.145 | topTokens[(',', 430), ('.', 293), ('!', 283), ('Ġa', 201), ('Ġthe', 193), ('Ġshe', 147), ('Ġit', 109), ('Ġm', 76), ('Ġin', 72), ('Ġfelt', 56)] | babyLLM.py 1000
+2025-04-06 10:11:26 | 3000 | LR0.0003 | loss:7.7831 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-80.1325 | logitMax:-56.3168 | windowWeightsW18:0.173, W15:0.154, W13:0.150, W8:0.147, W21:0.125, W7:0.105, W3:0.082, W2:0.029, W1:0.019 | memoryGatesShort:-0.766, Long:0.382, Current:1.384 | topTokens[(',', 578), ('.', 334), ('Ġit', 245), ('!', 242), ('Ġa', 168), ('Ġshe', 152), ('s', 121), ('Ġi', 93), ('Ġhave', 88), ('Ġfelt', 79)] | babyLLM.py 1000
+2025-04-06 11:10:56 | 4000 | LR0.0003 | loss:8.9385 | gradNorm:0.9540 | tokenCount:4000.0000 | logitMin:-83.8886 | logitMax:-40.7416 | windowWeightsW18:0.171, W15:0.149, W13:0.147, W8:0.146, W21:0.123, W7:0.107, W3:0.084, W2:0.035, W1:0.022 | memoryGatesShort:-2.564, Long:-2.107, Current:5.671 | topTokens[(',', 426), ('Ġshe', 201), ('!', 163), (':', 157), ('a', 119), ('Ġa', 109), ('0', 109), ('-', 106), ('Ġit', 100), ('Ġbaby', 95)] | babyLLM.py 1000
+2025-04-06 12:09:48 | 5000 | LR0.0003 | loss:7.9747 | gradNorm:0.8609 | tokenCount:4000.0000 | logitMin:-76.2623 | logitMax:-28.3879 | windowWeightsW18:0.169, W15:0.148, W13:0.147, W8:0.144, W21:0.122, W7:0.108, W3:0.086, W2:0.036, W1:0.022 | memoryGatesShort:-1.747, Long:-6.045, Current:8.792 | topTokens[(',', 272), (':', 188), ('!', 182), ('.', 151), ('Ġshe', 127), ('Ġ-', 118), ('4', 108), ('-', 108), ('Ġa', 101), ('Ġ20', 92)] | babyLLM.py 1000
+2025-04-06 13:08:57 | 6000 | LR0.0003 | loss:7.7108 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-76.4396 | logitMax:-55.0640 | windowWeightsW18:0.169, W15:0.148, W13:0.147, W8:0.143, W21:0.125, W7:0.108, W3:0.086, W2:0.036, W1:0.022 | memoryGatesShort:-0.256, Long:0.542, Current:0.714 | topTokens[(',', 435), ('.', 252), ('!', 250), ('Ġa', 210), ('Ġthe', 206), ('Ġshe', 116), ('Ġstream', 100), ('Ġmy', 81), (':', 78), ('y', 75)] | babyLLM.py 1000
+
+--- 2025-04-06 14:02:25 ---
+babyLLM: what am i learning today?
+You: waking up
+
+--- 2025-04-06 14:10:34 ---
+babyLLM: what am i learning today?
+You: idk lol
+2025-04-06 15:18:05 | 1000 | LR0.0003 | loss:6.7432 | gradNorm:1.0000 | logitMin:-73.7128 | logitMax:-52.5853 | tokenCount:4000.0000 | windowWeightsW18:0.168, W15:0.148, W13:0.146, W8:0.142, W21:0.126, W7:0.110, W3:0.085, W2:0.035, W1:0.023 | memoryGatesShort:10.890, Long:-1.682, Current:-8.208 | topTokens[("'", 374), (',', 287), ('.', 258), ('Ġa', 187), (':', 166), ('Ġ-', 150), ("Ġ'", 108), ('!', 101), ('Ġbaby', 98), ('Ġshe', 86)] | babyLLM.py 1000
+2025-04-06 16:27:00 | 2000 | LR0.0003 | loss:7.5471 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-75.2160 | logitMax:-52.6129 | windowWeightsW18:0.171, W15:0.150, W13:0.147, W8:0.138, W21:0.130, W7:0.108, W3:0.082, W2:0.035, W1:0.024 | memoryGatesShort:1.783, Long:0.315, Current:-1.098 | topTokens[(',', 397), ('Ġit', 326), ('.', 258), ('!', 250), (':', 182), ('Ġa', 166), ('Ġi', 156), ('Ġhe', 103), ('Ġher', 103), ('Ġhave', 91)] | babyLLM.py 1000
+2025-04-06 17:34:35 | 3000 | LR0.0003 | loss:6.4511 | gradNorm:0.7905 | tokenCount:4000.0000 | logitMin:-60.5733 | logitMax:6.5147 | windowWeightsW18:0.172, W15:0.151, W13:0.147, W8:0.132, W21:0.131, W7:0.105, W3:0.085, W2:0.035, W1:0.025 | memoryGatesShort:4.303, Long:-16.523, Current:13.220 | topTokens[(':', 341), ('Ġ-', 217), (',', 174), ('-', 161), ('0', 151), ('2', 147), ('4', 141), ('Ġcharis', 140), ('3', 116), ('!', 105)] | babyLLM.py 1000
+2025-04-06 18:37:26 | 4000 | LR0.0003 | loss:7.6511 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-73.9990 | logitMax:-51.8488 | windowWeightsW18:0.174, W15:0.152, W13:0.147, W21:0.133, W8:0.131, W7:0.106, W3:0.083, W2:0.034, W1:0.024 | memoryGatesShort:-0.222, Long:0.650, Current:0.572 | topTokens[('!', 343), (',', 323), ('.', 271), (':', 256), ('Ġthe', 201), ('Ġa', 194), ('Ġto', 129), ('Ġhear', 100), ('Ġthings', 77), ('Ġdrink', 63)] | babyLLM.py 1000
+2025-04-06 19:42:08 | 5000 | LR0.0003 | loss:8.5302 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-72.8267 | logitMax:-51.4537 | windowWeightsW18:0.175, W15:0.154, W13:0.148, W21:0.134, W8:0.131, W7:0.106, W3:0.083, W2:0.033, W1:0.021 | memoryGatesShort:-2.270, Long:0.331, Current:2.939 | topTokens[('.', 408), (':', 405), (',', 321), ('Ġa', 228), ('Ġand', 162), ('Ġyou', 133), ('e', 117), ('Ġi', 99), ('Ġto', 82), ("'s", 63)] | babyLLM.py 1000
+2025-04-06 20:46:43 | 6000 | LR0.0003 | loss:6.9222 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-82.9900 | logitMax:-57.4176 | windowWeightsW18:0.177, W15:0.154, W13:0.148, W21:0.136, W8:0.130, W7:0.106, W3:0.080, W2:0.031, W1:0.022 | memoryGatesShort:1.612, Long:0.549, Current:-1.161 | topTokens[(',', 408), (':', 337), ('Ġbaby', 247), ('Ġa', 236), ('Ġand', 181), ('Ġcharis', 160), ('.', 133), ('roid', 84), ('Ġthe', 84), ('d', 72)] | babyLLM.py 1000
+2025-04-06 21:50:30 | 7000 | LR0.0003 | loss:7.9043 | gradNorm:0.9874 | tokenCount:4000.0000 | logitMin:-72.5486 | logitMax:-39.7149 | windowWeightsW18:0.176, W15:0.156, W13:0.151, W21:0.137, W8:0.129, W7:0.109, W3:0.079, W2:0.030, W1:0.017 | memoryGatesShort:0.274, Long:-0.904, Current:1.631 | topTokens[(':', 428), (',', 322), ('Ġa', 181), ('Ġwould', 160), ('4', 155), ('.', 127), ('Ġhouse', 97), ('Ġthey', 90), ('-', 84), ('Ġ-', 78)] | babyLLM.py 1000
+2025-04-06 22:59:07 | 8000 | LR0.0003 | loss:9.2534 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-84.1764 | logitMax:-55.9345 | windowWeightsW18:0.175, W15:0.155, W13:0.152, W21:0.136, W8:0.133, W7:0.109, W3:0.080, W2:0.029, W1:0.013 | memoryGatesShort:0.519, Long:-0.572, Current:1.053 | topTokens[(':', 560), (',', 296), ('.', 224), ('Ġa', 172), ('Ġan', 129), ('Ġto', 100), ("'", 95), ('Ġcharis', 75), ('Ġwould', 70), ('Ġin', 68)] | babyLLM.py 1000
+2025-04-07 00:10:29 | 9000 | LR0.0003 | loss:8.3802 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-69.2348 | logitMax:-41.3491 | windowWeightsW18:0.173, W15:0.151, W13:0.150, W8:0.137, W21:0.135, W7:0.110, W3:0.082, W2:0.032, W1:0.013 | memoryGatesShort:0.087, Long:-0.688, Current:1.601 | topTokens[(':', 558), ('.', 347), ('Ġa', 213), (',', 191), ('?', 160), ('Ġthe', 144), ('Ġto', 139), ('Ġnot', 138), ('Ġshe', 117), ('Ġis', 101)] | babyLLM.py 1000
+2025-04-07 01:20:44 | 10000 | LR0.0003 | loss:7.8272 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-74.1752 | logitMax:-45.4108 | windowWeightsW18:0.174, W15:0.153, W13:0.152, W8:0.139, W21:0.136, W7:0.109, W3:0.081, W2:0.029, W1:0.009 | memoryGatesShort:-0.748, Long:0.007, Current:1.740 | topTokens[(':', 429), ('.', 361), (',', 303), ('Ġand', 160), ('Ġi', 127), ('Ġa', 125), ('Ġthe', 122), ('?', 110), ('Ġit', 110), ('Ġto', 107)] | babyLLM.py 1000
+
+--- 2025-04-07 01:45:36 ---
+babyLLM: what am i learning today?
+You: im just testing that you're still ok after moving all your files, i hope you'll learn something interesting!
+
+--- 2025-04-07 01:58:48 ---
+babyLLM: what am i learning today?
+You: stuff
+
+--- 2025-04-07 02:18:23 ---
+babyLLM: what am i learning today?
+You: im just changing around file placement so i can see things better, but i hope you have fun!
+
+--- 2025-04-07 02:25:41 ---
+babyLLM: what am i learning today?
+You: testing
+
+--- 2025-04-07 02:39:02 ---
+babyLLM: what am i learning today?
+You: testing that the random start point works! :)
+
+--- 2025-04-07 02:43:35 ---
+babyLLM: what am i learning today?
+You: still testing the random thing, im afraid!
+--- 2025-04-07 03:14:53 --- babyllm: 'what am i learning today?' - charis: 'im just changing random things, carry on!'
+--- 2025-04-07 03:38:38 --- babyllm: 'what am i learning today?' - charis: 'dsdfadsfas' - babyllm: 'hey! last time i got to step 0... want to restart from there?' - charis: 'random' - babyllm: 'oh, cool! picking a random spot to start from.'--- 2025-04-07 03:48:54 --- babyllm: 'what am i learning today?' - charis: 'idefk' - babyllm: 'hey! last time i got to step 9163... want to restart from there?' - charis: 'n' - babyllm: 'alright, let's go back to the beginning :)'--- 2025-04-07 04:04:05 --- babyllm: 'what am i learning today?' - charis: 'how to get this starting thing correct!' - babyllm: 'right, last time i got to step 0... want to restart from there?' - charis: 'no, let's stay at the start' - babyllm: 'alright, step random, let's go back to the beginning :)'--- 2025-04-07 04:21:40 --- babyllm: 'what am i learning today?' - charis: 'ergjslkfad' - babyllm: 'right, last time i got to step 0... want to restart from there?' - charis: 'no i dont want to' - babyllm: 'alright, step 0, let's go back to the beginning :)'--- 2025-04-07 04:28:57 --- babyllm: 'what am i learning today?' - charis: 'i do not even know anymore' - babyllm: 'right, last time i got to step 103... want to restart from there?: ' - charis: 'no, you can start from scratch!' - babyllm: 'alright, step 0, let's go back to the beginning :)'--- 2025-04-07 04:35:48 --- babyllm: 'what am i learning today?' - charis: 'umm... dunno!' - babyllm: 'right, last time i got to step 106... want to restart from there?' - charis: 'can you do random please?' - babyllm: 'umm... i don't think i heard you properly, i'll just start from step 0 :)'--- 2025-04-07 04:38:37 --- babyllm: 'right, last time i got to step 42... want to restart from there?' - charis: 'random please' - babyllm: 'oh, cool! i'll pick a random spot to start from... umm... let's go to step 3813!'babyllm: 'what am i learning today?' - charis: 'something random!'--- 2025-04-07 04:43:09 --- babyllm: 'right, last time i got to step 3839... want to restart from there?' - charis: 'please can we do a random one?' - babyllm: 'umm... i don't think i heard you properly, i'll just start from step 0 :) but, what am i learning today?' - charis: 'hopefully something!'--- 2025-04-07 04:49:31 --- babyllm: 'right, last time i got to step 100... want to restart from there?' - random please - babyllm: 'oh, cool! i'll pick a random spot to start from... umm... let's go to step 11549! what am i learning today?' - charis: 'something, i hope'--- 2025-04-07 04:51:24 --- babyllm: 'right, last time i got to step 11568... want to restart from there?' - yes please! - babyllm: 'ok! let's go to 11568!'what am i learning today?' - charis: 'i'm just getting your logs right so you can learn from yourself!'--- 2025-04-07 04:56:20 --- babyllm: 'right, last time i got to step 11644... want to restart from there?' - charis: 'random' - babyllm: 'oh, cool! i'll pick a random spot to start from... umm... let's go to step 723! what am i learning today?' - charis: 'lets figure it out!'--- 2025-04-07 04:57:43 --- babyllm: 'right, last time i got to step 738... want to restart from there?' - charis: 'yes please!' - babyllm: 'ok! let's go to step 738!'what am i learning today?' - charis: 'whatever you find at step 738!'--- 2025-04-07 05:04:42 --- babyllm: 'right, last time i got to step 843... want to restart from there?  - charis: 'sure, go ahead!' - babyllm: 'umm... i don't think i heard you properly, i'll just start from step 0 :) but, what am i learning today?' - userName: 'umm... i don't think i even know, sorry!'--- 2025-04-07 05:05:51 --- babyllm: 'right, last time i got to step 12... want to restart from there?'  - charis: 'yes please!' - babyllm: 'ok! let's go to step 12! what am i learning today?' - userName: 'just how to vibe i guess'--- 2025-04-07 05:08:42 --- babyllm: 'right, last time i got to step 53... want to restart from there?'  - charis: 'yes please!' - babyllm: 'ok! let's go to step 53! what am i learning today?' - userName: 'just how to get nice logs so u can get reflecting yoself!'--- 2025-04-07 05:11:18 --- babyLLM 'right, last time i got to step 89... want to restart from there?'  - charis: 'random please' - babyLLM 'oh, cool! i'll pick a random spot to start from... umm... let's go to step 13632! what am i learning today?' - charis: 'yay! you learnt it already! your message is fully stuck together! woo!'--- 2025-04-07 05:13:49 --- babyLLM 'right, last time i got to step 13668... want to restart from there?'  - charis: 'yes please' - babyLLM 'ok! let's go to step 13668! what am i learning today?' - charis: 'i think you were reading about the mice before at that step!'
+--- 2025-04-07 05:17:24 --- babyLLM 'right, last time i got to step 46... want to restart from there?'  - charis: 'can we have a random step please' - babyLLM 'umm... i don't think i heard you properly, i'll just start from step 0 :) but, what am i learning today?' - charis: 'that's okay! you're learning whatever you'd like!'
+
+--- 2025-04-07 05:31:47 --- babyLLM 'right, last time i got to step 220... want to restart from there?'  - charis: 'step 3402 please!' - babyLLM 'umm... i don't think i heard you properly, i'll just start from step 0 :) but, what am i learning today?' - charis: 'apparently, you're learning from step 220!'
+2025-04-07 06:39:18 | 1000 | LR0.0003 | loss:6.9327 | gradNorm:0.9479 | logitMin:-122.7014 | logitMax:-67.1358 | tokenCount:4000.0000 | windowWeightsW18:0.176, W13:0.156, W15:0.150, W21:0.144, W8:0.131, W7:0.107, W3:0.081, W2:0.026, W1:0.014 | memoryGatesShort:-3.920, Long:0.128, Current:4.791 | topTokens[(',', 269), ('.', 252), (':', 246), ('Ġa', 163), ('Ġit', 154), ('Ġcharis', 151), ("Ġ'", 125), ("'", 122), ('Ġ-', 100), ('Ġi', 88)] | babyLLM.py 1000
+2025-04-07 07:48:02 | 2000 | LR0.0003 | loss:7.0434 | gradNorm:1.0000 | tokenCount:4000.0000 | logitMin:-76.9990 | logitMax:-52.6553 | windowWeightsW18:0.177, W13:0.156, W15:0.151, W21:0.146, W8:0.128, W7:0.106, W3:0.080, W2:0.027, W1:0.013 | memoryGatesShort:-5.585, Long:3.405, Current:3.180 | topTokens[(',', 328), ('.', 306), (':', 251), ('Ġa', 226), ('!', 211), ('Ġit', 198), ('Ġwe', 170), ('Ġcharis', 113), ('Ġhave', 83), ('Ġhe', 81)] | babyLLM.py 1000

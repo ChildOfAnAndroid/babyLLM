@@ -5,61 +5,15 @@ from html import unescape
 from config import *
 import random
 
+"""restock the library! check out some new books for babyllm :)"""
+
 def clean_text(text):
     # text = re.sub(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', text)
     # sed -E 's;(\\u[0-9a-fA-F]{4}){2,};;g' discord.json > discord.noemoji.json; mv discord.noemoji.json discord.json
     text = unescape(text).strip()
-    #text = re.sub(r'\b0\b', 'none', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b1\b', 'one', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b2\b', 'two', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b3\b', 'three', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b4\b', 'four', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b5\b', 'five', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b6\b', 'six', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b7\b', 'seven', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b8\b', 'eight', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b9\b', 'nine', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b(10)\b', 'ten', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b11\b', 'eleven', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b12\b', 'twelve', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b13\b', 'thirteen', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b14\b', 'fourteen', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b15\b', 'fifteen', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b16\b', 'sixteen', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b17\b', 'seventeen', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b18\b', 'eighteen', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b19\b', 'nineteen', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b2[0-9]\b', 'twenty', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b3[0-9]\b', 'thirty', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b4[0-9]\b', 'forty', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b5[0-9]\b', 'fifty', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b6[0-9]\b', 'sixty', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b7[0-9]\b', 'seventy', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b8[0-9]\b', 'eighty', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b9[0-9]\b', 'ninety', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b1[0-9]{2}\b', 'one hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b2[0-9]{2}\b', 'two hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b3[0-9]{2}\b', 'three hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b4[0-9]{2}\b', 'four hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b5[0-9]{2}\b', 'five hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b6[0-9]{2}\b', 'six hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b7[0-9]{2}\b', 'seven hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b8[0-9]{2}\b', 'eight hundred', text, flags=re.IGNORECASE)
-    #text = re.sub(r'\b9[0-9]{2}\b', 'nine hundred', text, flags=re.IGNORECASE)
 
-    #text = re.sub(r'\b1[0-9]{3,}\b', '', text, flags=re.IGNORECASE)
-    #\b[12][0-9]{2}\b
-
-
-
-    # Detect and replace Python/C++/Arduino code blocks with [code]
-    #python_code_pattern = re.compile(r'(?m)^\s*(def |class |import |from ).*?:\n(?:\s{4,}.*\n?)+')
-    #cpp_arduino_pattern = re.compile(r'(?m)^\s*(#include <.*?>|void setup\(\)|void loop\(\)|\w+\s+\w+\(.*?\)\s*{(?:[^{}]*{[^{}]*})*[^{}]*})')
-    #markdown_code_pattern = re.compile(r'```[\s\S]+?```')
-
-    #text = python_code_pattern.sub('[code]', text)
-    #text = cpp_arduino_pattern.sub('[code]', text)
-    #text = markdown_code_pattern.sub('[code]', text)
+    """REMOVE END TAG BEFORE ITS BEEN COMPLETELY SET UP LOL"""
+    text = re.sub(r'(?:<END>)', '', text)
 
     # lowercase
     text = text.lower()
@@ -71,6 +25,7 @@ def clean_text(text):
     #text = re.sub(r'\b(?:gr8|gr9|gr12)\b', "great", text, flags=re.IGNORECASE) #burn him!
 
     text = re.sub(r"[‘’]", "'", text)
+
 
     # french to english bullshittery
     #text = re.sub(r'\b(?:j\')', 'i ', text, flags=re.I)
@@ -92,14 +47,12 @@ def clean_text(text):
     text = re.sub(r'(?:ô)', 'o', text, flags=re.I)
     text = re.sub(r'(?:ù)', 'u', text, flags=re.I)
     
-
-    # Remove unwanted symbols but allow ' - , . ! ? ) ( /
+    # remove unwanted symbols but allow ' - , . ! ? ) ( /
     text = re.sub(r'(?:[#{}\[\]\\\`\󾟖])', '', text)  
     text = text.replace("\u00b7", "")
     text = text.replace("\u2013", "")
 
-
-    # Step 2: Replace URLs with [url]
+    # replace URLs with [url]
     text = re.sub(r'(?:https?://|www\.)\S+', 'on this website', text)
     text = re.sub(r'(?:/Users/|/System/)\S+', 'that website', text)
     text = re.sub(r'\b(?:[a-zA-Z]:/[^ ]+)', 'on this link', text)
@@ -112,38 +65,6 @@ def clean_text(text):
     text = re.sub(r'(?:\:D{2,})', ':D', text)  # Normalise :D
     text = re.sub(r'(?:\:\/{2,})', ':/', text)  # Normalise :/
     text = re.sub(r'(?:\-{2,})', '-', text)  # Normalise -
-
-    # DATETIME
-    # "13:34"
-    #text = re.sub(r'\b\d{1,2}:\d{2}\b', '', text)
-    # "Tue 21 Jan" or "21 Jan 2023"
-    #text = re.sub(r'\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)?\s*\d{1,2}\s(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:\s\d{4})?\b', '', text, flags=re.I)
-    # "21/01/2023", "2023-01-21", "01-21-23")
-    #text = re.sub(r'\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b', '', text)
-    # "July 15th, 2023"
-    #text = re.sub(r'\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b \d{1,2}(?:st|nd|rd|th)?,? \d{4}', ' [datetime]', text, flags=re.I)
-    # may is missing on purpose, its a word, i may add.
-    #text = re.sub(r'\b(placement|christmas|wedding|weekend|tommorow|yesterday|seconds|night|hour|day|minute|morning|evening|afternoon|noon|midnight|midday|lunchtime|january|february|march|april|june|july|august|september|october|november|december|tonight|tomorrow|today|week|month|year|date|time|day time|night time|nighttime|daytime|sunday|saturday|friday|thursday|wednesday|tuesday|monday|sec)s?\b', ' [datetime]', text, flags=re.I)
-
-    # COUNTRIES
-    # america
-    #text = re.sub(r'\b(?:america|canada|california|portland|miami|sacramento|washington|vancouver)\b', '[america]', text, flags=re.I)
-    # paris
-    #text = re.sub(r'\b(?:seine-et-marne|seine-saint-denis|val-doise|val-de-marne|vincennes|vicennes|paris|saint-mande|saint-ouen-sur-seine|fontenay-sous-bois|sainte-anne)\b', '[france]', text, flags=re.I)
-    # korea
-    #text = re.sub(r'\b(?:jeju|seoul)\b', 'Switzerland', text, flags=re.I)
-    # other countries
-    #text = re.sub(r'\b(?:japan|vietnamm?|australia|netherland|switzerland|italy|spain|amsterdam|reykjavik)\b', 'Switzerland', text, flags=re.I)
-
-    # UK TOWNS
-    # rest of england
-    #text = re.sub(r'\b(?:royaume-uni|UK|england|scotland|wales|ireland|southampton|manchester|brighton|bournemouth|portsmouth|birmingham)\b', '[england]', text, flags=re.I)
-    # london
-    #text = re.sub(r'\b(?:barnet|high barnet|sussex|surrey|colindale|eastcote|pinner|harrow|ruislip|uxbridge|ealing|watford|salford|haywards heath|cuckfield|london|roehampton|wealdstone|crowthorne|wokingham)\b', '[london]', text, flags=re.I)
-    # leighton buzzard
-    #text = re.sub(r'\b(?:leighton buzzard|linslade|aylesbury|hertfordshire|woking|dunstable)\b', '[leighton buzzard]', text, flags=re.I)
-    # plymouth
-    #text = re.sub(r'\b(?:davenport|cornwall|plymouth|devon|plym|mutley|stonehouse|barnstaple)\b', '[plymouth]', text, flags=re.I)
 
     # BUILDINGS/LOCATIONS
     # work
@@ -172,10 +93,6 @@ def clean_text(text):
     # THINGS
     # mixers (aka music equipment)
     #text = re.sub(r'\b(?:xone|cdj 2000|roland|sp404 mk2|sp404 mkii|sp404-mk2|sp404-mkii|sp404|mkii|sc6000|xdj-xz|xdj xz|xz|xdj|omnis duo|omnis|opus quad|cdj|mixer|decks|technics|turntable)s?\b', '[mixer]', text, flags=re.I)
-    # pictures
-    #text = re.sub(r'\b(?:piccy|pic|photo)(s?)\b', 'picture\\1', text, flags=re.IGNORECASE) #burn him!
-    # videos
-    text = re.sub(r'\b(?:vid|vod|film)(s?)\b', 'video\\1', text, flags=re.IGNORECASE) #burn him!
     # smink
     text = re.sub(r'\b(?:spliff|spleeef|spleef|dab|smi+n+k+|smon+k+)s?\b', 'smink', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:bo+ng+|pipette+|bing+|one hitter)s?\b', 'bing', text, flags=re.IGNORECASE) #burn him!
@@ -190,14 +107,13 @@ def clean_text(text):
     # sweets
     #text = re.sub(r'\b(?:haribo|strawberry pencil|chocolate|sweetie)(s?)\b', 'sweet\\1', text, flags=re.IGNORECASE) #burn him!
     # music
-    text = re.sub(r'\b(?:kesha|slim shady|eminem|jimin|sage francis|b dolan|scroobius pip|kate tempest|kae tempest|marsargo|kurt kobain|mars argo)(s?)\b', 'scroobius\\1', text, flags=re.IGNORECASE) #burn him!
+    text = re.sub(r'\b(?:j-hope|jungkook|rapmon|suga|taemin|kesha|slim shady|eminem|jimin|sage francis|b dolan|scroobius pip|kate tempest|kae tempest|marsargo|kurt kobain|mars argo)(s?)\b', 'scroobius\\1', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:deaf havana|yellowcard|one direction|BTS|oasis|radiohead|robots in disguise|boom boom raccoon)(s?)\b', 'boomboomraccoon\\1', text, flags=re.IGNORECASE) #burn him!
 
 
     # COMPANIES
     # businesses
     text = re.sub(r'\b(?:monzo|santander|natwest|bourso|bank)(s?)\b', 'bank\\1', text, flags=re.I)
-    #text = re.sub(r'\b(?:nhs|bbc|storagemart)s?\b', 'company', text, flags=re.I)
     # brands
     text = re.sub(r'\b(?:gear4music|gearformusic|patagonia|andrex|sistema|heinz|garofalo|isigny ste mere|cathedral city|nike|adidas|synthrotek)s?\b', 'brondspoon', text, flags=re.I)
     # shops
@@ -223,22 +139,22 @@ def clean_text(text):
     text = re.sub(r'\b(?:benedict cumberbatch|benadict cumberbatch|cumberbatch|kirk|spock|spirk|martin freeman|piper|william shatner|leonard nimoy|alastair|sherlock|sonic|pikachu|bulbasaur|charmander|sonic the hedgehog|shadow the hedgehog|doctor who)(s?)\b', 'sonic\\1', text, flags=re.IGNORECASE) #burn him!
     # kevin
     text = re.sub(r'\b(?:mark kaider rodger|peter johnson|peter dawson|benjamin watson|sheryl colclough|mark rodger|chloe readman|peter johnson|john locke|glenis male|pauline locke|sue male|susan male|phil male|philip male|p w male|asher wesley|michael male)(s?)\b', 'kevin magnier\\1', text, flags=re.I)
-    text = re.sub(r'\b(?:johnson|dawson|martino|martin|benedict|natalie|henri|victoria|elizabeth|henry|jakc|jack|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|wolf|liam|helene|jim|martin|gillian|daniel|kayla|kayyluhh|dan|jed|anon|anonymous|kate|justine|charlie|jerry|chris|nick|daniel|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|jedidiah|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|max|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|skunkel|iska|chuckles)(s?)\b', 'kevin\\1', text, flags=re.I)
+    text = re.sub(r'\b(?:ryan|kai|johnson|dawson|martino|martin|benedict|natalie|henri|victoria|elizabeth|henry|jakc|jack|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|wolf|liam|helene|jim|martin|gillian|daniel|kayla|kayyluhh|dan|jed|anon|anonymous|kate|justine|charlie|jerry|chris|nick|daniel|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|jedidiah|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|max|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|skunkel|iska|chuckles)(s?)\b', 'kevin\\1', text, flags=re.I)
     text = re.sub(r'\b(?:@sneakret.agent|valkyr|charismatic_canine|charismaticcanine|itskayyluhh|djsarahhall|deacon_vlad|dj alphabeats|missdoodzdj|chargednewt|lionastone|cacespowboy|markbiggus|waterguy12|buglady|bug lady|kaiderian|kingkaider|kaider|power pope|powerpope|skunkelmusen|rustypeugeot|moebius-ro|🌮tacosaurusmex🌮|ave_maria[0-9]{2}|tacosaurusmex|spacetaco|spacetaco_vibes)(s?)\b', 'kevinonline420', text, flags=re.I)
     text = re.sub(r'@(?:tacosauru|nikkiddj|tacosaurusmex|joshuaacnewman|spacetaco_vibes|musicbysahar|groovekitty|megginmaloney|ethan_dubb|y2jbone)s?\b', 'kevinonline420', text, flags=re.IGNORECASE) #burn him!
     # pets
     text = re.sub(r'\b(?:polo|argo|purrcy|coraline|pete)(s?)\b', 'pete\\1', text, flags=re.IGNORECASE) #dont burn him!
     # geepy
     text = re.sub(r'\b(?:batsu|tatsu|tatsumaki|batsumaki|buttsbot|geepy|geepz|geeps|geepster|chatgpt|chat gpt|gpt|smarterchild|gemini|talk to transformer)(s?)\b', 'geepy\\1', text, flags=re.IGNORECASE) #burn him!
-        # job titles
+    # job titles
     # doctor
-    text = re.sub(r'\b(?:psychiatrist|psychiatre|dentist|nurse|paramedic|doctor|dr|therapist|counsellor|gp)s?\b', 'doctor', text, flags=re.IGNORECASE) #burn him!
+    #text = re.sub(r'\b(?:psychiatrist|psychiatre|dentist|nurse|paramedic|doctor|dr|therapist|counsellor|gp)s?\b', 'doctor', text, flags=re.IGNORECASE) #burn him!
     # vicar
     text = re.sub(r'\b(?:local preacher|preacher|minister|vicar|reverend)s?\b', 'minister', text, flags=re.IGNORECASE) #burn him!
     # nicknames
-    text = re.sub(r'\b(?:gu+r+l+|qurl|whore|sir|bae|bish|hoe|fag|biatch|biotch|bo+i+|queen|king|go+r+l+)([s|z]?)\b', 'boi\\1', text, flags=re.IGNORECASE) #burn him!
-    text = re.sub(r'\b(?:bb|bby+|babie|bebe|darling)\b', 'baby', text, flags=re.IGNORECASE) #burn him!
-    text = re.sub(r'\b(?:lad|badman|bru+h+|bru+v+)\b', 'bro', text, flags=re.IGNORECASE) #burn him!
+    #text = re.sub(r'\b(?:gu+r+l+|qurl|whore|sir|bae|bish|hoe|fag|biatch|biotch|bo+i+|queen|king|go+r+l+)([s|z]?)\b', 'boi\\1', text, flags=re.IGNORECASE) #burn him!
+    #text = re.sub(r'\b(?:bb|bby+|babie|bebe|darling)\b', 'baby', text, flags=re.IGNORECASE) #burn him!
+    #text = re.sub(r'\b(?:lad|badman|bru+h+|bru+v+)\b', 'bro', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:gf|girlfriend)(s?)\b', 'girlfriend\\1', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:bf|boyfriend)(s?)\b', 'boyfriend\\1', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:bff|best friend|bestie|best mate)(s?)\b', 'best friend\\1', text, flags=re.IGNORECASE) #burn him!
@@ -399,7 +315,7 @@ def clean_text(text):
     text = re.sub(r'\b(?:sta+n+|lu+v+)\b', 'love', text, flags=re.IGNORECASE) #burn him!
 
     # BAD THINGS
-    text = re.sub(r'\b(?:racist|homophobe|homophobic|sexist+|ageist|ableist|discriminatory|xenophobic|nazi|MRA|transphobic|pedophile|pe+do+|pe+a+do+|rapist)s?\b', 'horrible', text, flags=re.IGNORECASE) #burn them all!
+    text = re.sub(r'\b(?:racist|sexist+|ageist|ableist|xenophobic|nazi|MRA|pedophile|pe+do+|pe+a+do+|rapist)s?\b', 'horrible', text, flags=re.IGNORECASE) #burn them all!
     # insults
     text = re.sub(r'\b(?:retard|retarded|spaz+)(s?)\b', 'idiot\\1', text, flags=re.IGNORECASE) #burn him!
 
@@ -590,6 +506,8 @@ def clean_text(text):
     name_replacements = {
         "’": "'",
         "ʼ": "'",
+        "“": "'",
+        "”": "'",
         "///": "//",
         "weetabix": "breakfast",
         "partially sighted": "blind",
@@ -597,18 +515,11 @@ def clean_text(text):
         "ankolysing spondylitis": "arthritis",
         "mommy": "mummy",
         " mom ": " mum ",
-        "pcatch": "geepy, help me catch this pokemon!",
+        "pcatch": "pokemon catch",
         "embarassing": "embarrassing",
-        "t!ratewaifu": "geepy, can you rate how sexy this is?",
-        "[url]": "",
-        ") ": ")", ")": ") ",
-        "''": "'",
-        "[', ']": "",
-        "[',": "",
-        " ']": "",
+        "t!ratewaifu": "rate waifu",
         "::": ":",
         "—": "-",
-
         "elodie🌻": "elodie",
         "\U0001F32Etacosaurusmex\U0001F32E": "kevinonline420",
         "noise ordinance": "kevinonline420",
@@ -624,14 +535,10 @@ def clean_text(text):
         "💥": "",
 
         " amnot ": " am not ",
-        "etc etc etc etc ": "etc ",
-        "etc etc etc ": "etc ",
-        "etc etc ": "etc ",
         "non-verbal": "non verbal",
         "color": "colour",
         "sooo": "so",
         "oooh": "ooh",
-        "facebooked": "messaged",
         "headphoens": "headphones",
         "annoyinggg": "annoying",
         "staaarving": "starving",
@@ -640,7 +547,6 @@ def clean_text(text):
         "innapropriate": "inappropriate",
         "trolleyadd": "",
         "trolleyremove": "",
-        "citeturnsearch": "",
         "https:": "",
         "http:": "",
         "www.": "",
@@ -648,24 +554,17 @@ def clean_text(text):
         "cocco chifferi": "",
         ".jpg": "",
         ",,": ",",
-        "apprenticeship": "job",
         "catnip": "cat weed",
         "departmentplacement": "job",
-        "def ": " ", ".shape": "",
         " rape ": " sexual assault ",
         " raped ": " sexually assaulted ",
-        "maxenergy": "",
-        "charis male": "charis",
         "mutation": "",
         "suicidal": "depressed",
         "suicide": "kill self",
-        "twitch": "stream",
         "``":"'",
         "’":"'",
         "'":"'",
         "…": "...",
-        "_size": "",
-        "personss": "persons",
         "          ": " ",
         "         ": " ",
         "        ": " ",
@@ -681,15 +580,20 @@ def clean_text(text):
         text = text.replace(name, replacement)
     return text.strip()
 
-data_files = dataFiles
-
-for current_file in data_files:
+for current_file in trainingFilePath_dict_weighted:
     with open(current_file["out"], "w", encoding="utf-8") as file:
         pass
-for current_file in data_files:
+
+random.shuffle(trainingFilePath_dict_weighted)
+
+for current_file in trainingFilePath_dict_weighted:
     print(f"Processing file {current_file["in"]}:")
     raw_text = None
     with open(current_file["in"], "r", encoding="utf-8") as file:
+        if current_file['type'] == "discord_json":
+            raw_lines = json.load(file)
+            raw_lines.reverse()
+            raw_text = "\n".join(raw_lines)
         if current_file['type'] == "json":
             raw_text = "\n".join(json.load(file))
         if current_file['type'] == "text":
@@ -699,16 +603,18 @@ for current_file in data_files:
             raw_text = "\n".join([row['body'] for row in raw_data if row['body'].strip() != ''])
 
     if raw_text is None:
-        print(f"Unable to clean data for file {current_file} as raw_text is empty!")
+        print(f"unable to clean data for file {current_file} as raw_text is empty!")
     else:
 
-        max_chars = trainingDataSliceSize
-        # Get random slice up to 5000 characters
-        if len(raw_text) <= max_chars:
+        # Get slice up to 5000 characters
+        weight = current_file.get("weight", 1)
+        slice_size = int(entry["weight"] * random.randint(trainingDataSliceSize_min, trainingDataSliceSize_max) / 2)
+
+        if len(raw_text) <= slice_size:
             final_text = raw_text
         else:
-            start = random.randint(0, len(raw_text) - max_chars)
-            final_text = raw_text[start:start + max_chars]
+            start = random.randint(0, len(raw_text) - slice_size)
+            final_text = raw_text[start:start + slice_size]
 
         # Process text
         cleaned_text = clean_text(final_text)
@@ -717,7 +623,7 @@ for current_file in data_files:
         with open(current_file["out"], "a", encoding="utf-8") as file:
             file.write(cleaned_text)
 
-        print(f"Cleaned data saved at: {current_file['out']} (up to {max_chars} characters)")
+        print(f"cleaned data saved at: {current_file['out']} (between {trainingDataSliceSize_min} and {trainingDataSliceSize_max} characters)")
 
-        print(f"Cleaned data saved at: {current_file['out']}")
+        print(f"cleaned data saved at: {current_file['out']}")
 

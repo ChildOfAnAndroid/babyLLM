@@ -1,0 +1,2 @@
+Durations: Step: 3996.94ms, Save: 57.43ms, Load: 0.52ms, Logits: 0.41ms, Print: 0.10ms, Combine: 0.00ms, Token: 0.00ms
+Durations: Step: 4067.02ms, Save: 57.21ms, Logits: 0.39ms, Print: 0.09ms, Load: 0.00ms, Combine: 0.00ms, Token: 0.00ms
