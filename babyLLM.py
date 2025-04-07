@@ -1,22 +1,20 @@
 # CHARIS CAT 2025
+# BABYLLM - babyLLM.py
 
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
-from vocab import VOCAB
-from embedLayer import EMBEDLAYER
-from parallelNeuronLayer import PARALLELNEURONLAYER
-from outputLayer import OUTPUTLAYER
-from neuron import NEURON
-from tinyAttentionLayer import TINYATTENTIONLAYER
-from memoryLayer import MEMORYLAYER
+from BRAIN.LAYERS.vocab import VOCAB
+from BRAIN.LAYERS.embedLayer import EMBEDLAYER
+from BRAIN.LAYERS.parallelNeuronLayer import PARALLELNEURONLAYER
+from BRAIN.LAYERS.outputLayer import OUTPUTLAYER
+from BRAIN.LAYERS.memoryLayer import MEMORYLAYER
+import BRAIN.LAYERS.S_output as S_output
 from config import *
 from datetime import datetime
 import random, os, sys, shutil, time
-import S_output
 from collections import Counter
-from trainingHUD import *
 
 """this class combines all the core components of the babyLLM:"""
 """EMBEDLAYER: token embedding layer"""
@@ -24,7 +22,6 @@ from trainingHUD import *
 """OUTPUTLAYER: output layer to generate logits"""
 """MULTIWINDOWLAYER: (New) layer to incorporate multi-window context"""
 """it also manages training, loss computation, backpropagation, and response generation."""
-
 class BABYLLM(nn.Module):
     def __init__(self, vocab, embedDimension, numNeurons, activationFunction, startIndex):
         super().__init__()
@@ -38,14 +35,12 @@ class BABYLLM(nn.Module):
         self.temperature = temperature
         self.activationFunction = activationFunction
         optimizerClass = getattr(optim, optimizerName)
-        self.guessHUD = rainbowHUD(maxArms=60)
 
         """LAYERS"""
         self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
         self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
         self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
         self.memoryLayer = MEMORYLAYER(numNeurons = self.numNeurons)
-        #self.multiWindowLayer = MULTIWINDOWLAYER(embedDimension = self.embedDimension, windowSizes = [window1, window2, window3])
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         #print("Registered Parameters:")
@@ -59,14 +54,6 @@ class BABYLLM(nn.Module):
             lr=learningRate, weight_decay=0.001
         )
 
-        #self.totalLoss = 0
-        #self.totalLossDetail = 0
-        #self.totalTokenCount = 0 
-        #self.totalTokenCountDetail = 0 
-        #self.totalLogitMin = 0 
-        #self.totalLogitMax = 0
-        #self.totalLogitMinDetail = 0 
-        #self.totalLogitMaxDetail = 0 
         self.scheduledSamplingProb = 0.0
         self.perfectTokenCount = 0
         self.totalTokenEvaluations = 0
@@ -84,50 +71,14 @@ class BABYLLM(nn.Module):
         self.duration = Counter(self.durationCategories)
         self.durationDetail = Counter(self.durationCategories)
 
-        #self.totalStepDuration = 0
-        #self.totalStepDurationDetail = 0
-        #self.totalSaveDuration = 0
-        #self.totalSaveDurationDetail = 0
-        #self.totalLoadDuration = 0
-        #self.totalLoadDurationDetail = 0
-        #self.totalLogitsDuration = 0
-        #self.totalLogitsDurationDetail = 0 
-        #self.totalCombineDuration = 0
-        #self.totalCombineDurationDetail = 0 
-        #self.totalGetTokenDuration = 0
-        #self.totalGetTokenDurationDetail = 0 
-        #self.totalTerminalPrintDuration = 0
-        #self.totalTerminalPrintDurationDetail = 0
-        #d#self.totalGradNorm = 0.0
-        #d#self.totalGradNormDetail = 0.0
-
         self.startIndex = startIndex
 
         self.hud_height = 5
         self.term_height = shutil.get_terminal_size().lines
         self.hud_start_line = self.term_height - self.hud_height + 1
 
-    """def HUD_fixScroll(self): FOR REF ONLY IT KINDA FUCKS UP TERMINAL BY FILLING BUFFER ETC
-        # Move cursor to top-left 
-        sys.stdout.write("\033[H")
-        sys.stdout.flush()
-
-        # Clear HUD area (overwrite with spaces)
-        for _ in range(self.hud_height):
-            sys.stdout.write("\033[K") # Clear line
-            sys.stdout.write("\n")     # Move to next line
-
-        # Move cursor back to top-left to redraw HUD
-        sys.stdout.write("\033[H")
-        sys.stdout.flush()
-
-        printHUD(
-            windowWeights=(self.parallelNeuronLayer.windowWeighting + 0.1).detach().cpu().numpy(),
-            guessHUD=self.guessHUD
-        )"""
-
+    """processes input sequence of tokens (str) to generate logits to predict the next token"""
     def forward(self, inputSeq):
-        """processes input sequence of tokens (str) to generate logits to predict the next token"""
         #print(f"Debug: Input to forward: {inputSeq}")
 
         """convert inputted tokens to indices (batch processing instead of looping)"""
@@ -201,13 +152,7 @@ class BABYLLM(nn.Module):
         if isinstance(numTokens, torch.Tensor):
             numTokens = numTokens.item()
         numTokens = int(numTokens)
-
-        #totalMemGatesDetail = 0
-        #totalMemGates = 0
-        #avgLossDetail = 0
-        #avgLoss = 0
-        #avgGradNorm = 0
-        #avgGradNormDetail = 0
+        
         self.stats = Counter({
             "loss": 0,
             "gradNorm": 0,
@@ -304,23 +249,12 @@ class BABYLLM(nn.Module):
                         "gradNorm": gradNorm,
                         "tokenCount": len(losses),
                     }
-                    #d#self.totalGradNorm += gradNorm
-                    #d#self.totalGradNormDetail += gradNorm
-
-                    #self.totalLoss += cumulativeLoss.item() # Accumulate SUM of token losses
-                    #self.totalLossDetail += cumulativeLoss.item() # Accumulate SUM of token losses
-                    #self.totalTokenCount += len(losses) # Count tokens processed
-                    #self.totalTokenCountDetail += len(losses) # Count tokens processed
 
                     with torch.no_grad():
                         logitMin = logits.min(dim=-1).values.mean().item()
                         logitMax = logits.max(dim=-1).values.mean().item()
                         statUpdate["logitMin"] = logitMin
                         statUpdate["logitMax"] = logitMax
-                        #self.totalLogitMin += logitMin
-                        #self.totalLogitMax += logitMax
-                        #self.totalLogitMinDetail += logitMin
-                        #self.totalLogitMaxDetail += logitMax
                         memGatesTensor = self.latestMemGates
                         if memGatesTensor is not None:
                             memoryGates_str = f"Short:{memGatesTensor[0]:.3f}, Long:{memGatesTensor[1]:.3f}, Current:{memGatesTensor[2]:.3f}"
@@ -336,8 +270,6 @@ class BABYLLM(nn.Module):
                     stepDuration = {"Step": time.time() - stepStartTime}
                     self.duration.update(stepDuration)
                     self.durationDetail.update(stepDuration)
-                    #self.totalStepDuration += stepDuration
-                    #self.totalStepDurationDetail += stepDuration
                     guessedTokenSeq = []
 
                     """SAVE THE MODEL EVERY x STEPS"""
@@ -351,51 +283,35 @@ class BABYLLM(nn.Module):
                     terminalPrintStartTime = time.time()
                     if self.trainingStepCounter == 1:
                         # scheduledSamplingProb += scheduledSamplingProbIncrement
-                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Get timestamp
-                        runStart = f"\n--- {timestamp} ---"
-                        runStart += f"\nbabyLLM: what am i learning today?"
-                        runStart += f"\nYou: {userNote}\n"
-                        print(f"{runStart.strip()}")
-                        with open(logFilePathDetail, "a") as logFile:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                        runStart = f"\n--- {timestamp} ---\n{babyNote_loadCheckpointCheck}\n{userNote_loadCheckpoint}\n{babyNote_loadCheckpoint}{babyNote_runStart}\n{userNote_runStart}\n"
+                        print(runStart)
+                        with open(chatLogPath_forHumans, "a") as logFile:
                             logFile.write(runStart)
-                        with open(logFilePath, "a") as logFile:
-                            logFile.write(runStart)
+
+                        trainingChatLine = f"\n--- {timestamp} --- {babyNote_loadCheckpointCheck} - {userNote_loadCheckpoint} - {babyNote_loadCheckpoint}{babyNote_runStart} - {userNote_runStart}\n"
+                        with open(trainingLogPath_100, "a") as logFile:
+                            logFile.write(trainingChatLine)
+                        with open(trainingLogPath_1000, "a") as logFile:
+                            logFile.write(trainingChatLine)
+                        with open(chatLogPath_trainingLog, "a") as logFile:
+                            logFile.write(trainingChatLine)
 
                     # Track loss every 1000 steps
-                    if self.trainingStepCounter % printLossFreq == 0:
+                    if self.trainingStepCounter % trainingLogFreq_1000 == 0:
                         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        #avgStats = {}
-                        #for key, value in self.stats.items():
-                        #    avgStats[key] = value / printLossFreq if printLossFreq > 0 else 0
-
-                        #print(" ".join([f"{key}: {value:.2f}" for key, value in avgStats.items()]))
 
                         # eventually want this at the end only
                         self.duration.update(self.durationCategories) # Force a noop update to ensure we have every category
-                        durationLog = "Durations: " + ", ".join([
-                            f"{name}: {(duration * 1000 / printLossFreq if printLossFreq > 0 else 0):.2f}ms"
+                        durationLog_1000 = "Durations: " + ", ".join([
+                            f"{name}: {(duration * 1000 / trainingLogFreq_1000 if trainingLogFreq_1000 > 0 else 0):.2f}ms"
                             for name, duration in self.duration.most_common() # most_common with no parameter returns everything, already sorted in reverse
                         ])
                         self.duration.clear()
 
-                        #avgDurations = [
-                        #    ("Save", self.totalSaveDuration / printLossFreq if printLossFreq > 0 else 0),
-                        #    ("Step", self.totalStepDuration / printLossFreq if printLossFreq > 0 else 0),
-                        #    ("Load", self.totalLoadDuration / printLossFreq if printLossFreq > 0 else 0),
-                        #    ("Print", self.totalTerminalPrintDuration / printLossFreq if printLossFreq > 0 else 0),
-                        #    ("Logits", self.totalLogitsDuration / printLossFreq if printLossFreq > 0 else 0),
-                        #    ("Combine", self.totalCombineDuration / printLossFreq if printLossFreq > 0 else 0),
-                        #    ("Token", self.totalGetTokenDuration / printLossFreq if printLossFreq > 0 else 0),
-                        #]
-                        #sortedAvgDurations = sorted(avgDurations, key=lambda item: item[1], reverse=True)
-                        #durationLog_str = "Durations: "
-                        #for name, duration in sortedAvgDurations:
-                        #    durationLog_str += f"{name}: {duration*1000:.2f}ms, "
-                        #durationLog = durationLog_str.rstrip(', ')
-
-                        #print(durationLog)
-                        with open("durationLog.txt", "a") as logFile:
-                            logFile.write(durationLog + "\n")
+                        with open(durationLogPath_1000, "a") as logFile:
+                            logFile.write(durationLog_1000 + "\n")
 
                         topTokens = tokenCounts.most_common(10)
                         tokenCounts.clear()
@@ -414,28 +330,14 @@ class BABYLLM(nn.Module):
                             tokenPerfectRate = (self.perfectTokenCount / self.totalTokenEvaluations) * 100
                             print(f"{S_output.S_apply('perfect', f'Token Perfect: {self.perfectTokenCount} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%")
 
-                        """                        outputStyles.logTraining(
-                            logFilePath=logFilePath,
-                            step=self.trainingStepCounter,
-                            avgLoss=avgLoss,
-                            learningRate=learningRate,
-                            logitRange_str = f"{avgLogitMin:.2f}, {avgLogitMax:.2f}",
-                            windowWeights_str=weight_str,
-                            memoryGates_str=memoryGates_str,
-                            gradientNorm_str=f"{avgGradNorm:.3f}",
-                            otherInfo="babyLLM.py training",
-                            topTokens_str=str(topTokens),
-                            #durationLog_str=durationLog
-                        )"""
-
                         S_output.logTraining(
-                            logFilePath=logFilePath,
+                            trainingLogPath_1000=trainingLogPath_1000,
                             trainingStepCounter=self.trainingStepCounter,
                             windowWeights_str=weight_str,
                             memoryGates_str=memoryGates_str,
                             stats=self.stats,
-                            freq=printLossFreq,
-                            otherInfo_str=f"babyLLM.py {printLossFreq}",
+                            freq=trainingLogFreq_1000,
+                            otherInfo_str=f"babyLLM.py {trainingLogFreq_1000}",
                             topTokens_str=str(topTokens),
                             #durationLog_str=durationLog
                         )
@@ -444,28 +346,11 @@ class BABYLLM(nn.Module):
                         self.perfectTokenCount = 0
                         self.totalTokenEvaluations = 0
                         
-                        #self.totalStepDuration = 0
-                        #self.totalSaveDuration = 0
-                        #self.totalLoadDuration = 0
-                        #self.totalTerminalPrintDuration = 0
-                        #self.totalLogitsDuration = 0
-                        #self.totalCombineDuration = 0
-                        #self.totalGetTokenDuration = 0
-                        #self.totalLogitMin = 0
-                        #self.totalLogitMax = 0
-                        #self.totalLoss = 0 # Reset SUM of losses
-                        #self.totalTokenCount = 0 # Reset token count
-
                     # Track loss every 100 steps
-                    if self.trainingStepCounter % printLossFreqDetail == 0:
+                    if self.trainingStepCounter % trainingLogFreq_100 == 0:
                         topTokensDetail = tokenCountsDetail.most_common(10)
                         tokenCountsDetail.clear()
                         
-                        #avgGradNormDetail = self.totalGradNormDetail / printLossFreqDetail #?????
-                        #avgLossDetail = self.totalLossDetail / printLossFreqDetail
-                        #timestampDetail = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        #avgLogitMinDetail = self.totalLogitMinDetail / printLossFreqDetail
-                        #avgLogitMaxDetail = self.totalLogitMaxDetail / printLossFreqDetail
                         with torch.no_grad():
                             normWeightsDetail = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1)
                             normWeightsDetail /= (normWeightsDetail.sum() + 0.1)
@@ -477,91 +362,36 @@ class BABYLLM(nn.Module):
                             weightDetail_str = ",".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeightsDetail)
 
                         self.durationDetail.update(self.durationCategories) # Force a noop update to ensure we have every category
-                        durationLogDetail = "Durations: " + ", ".join([
-                            f"{name}: {(duration * 1000 / printLossFreqDetail if printLossFreqDetail > 0 else 0):.2f}ms"
+                        durationLog_100 = "Durations: " + ", ".join([
+                            f"{name}: {(duration * 1000 / trainingLogFreq_100 if trainingLogFreq_100 > 0 else 0):.2f}ms"
                             for name, duration in self.durationDetail.most_common()
                         ])
                         self.durationDetail.clear()
-                        
-                        #avgDurationsDetail = [
-                        #    ("Step", self.totalStepDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                        #    ("Save", self.totalSaveDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                        #    ("Load", self.totalLoadDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                        #    ("Print", self.totalTerminalPrintDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                        #    ("Logits", self.totalLogitsDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                        #    ("Combine", self.totalCombineDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                        #    ("Token", self.totalGetTokenDurationDetail / printLossFreqDetail if printLossFreqDetail > 0 else 0),
-                        #]
-                        
-                        #sortedAvgDurationsDetail = sorted(avgDurationsDetail, key=lambda item: item[1], reverse=True)
 
-                        #durationLogDetail_str = "Durations: "
-                        #for name, duration in sortedAvgDurationsDetail:
-                        #    durationLogDetail_str += f"{name}: {duration*1000:.2f}ms, "
-
-                        #durationLogDetail = durationLogDetail_str.rstrip(', ')
-
-                        #logitRangeDetail_str = f"{avgLogitMinDetail:.2f}, {avgLogitMaxDetail:.2f}"
                         #print(f"DEBUG: logitRange_str before logTraining: '{logitRangeDetail_str}'")
                         S_output.logTraining(
-                            logFilePath=logFilePathDetail,
+                            trainingLogPath_1000=trainingLogPath_100,
                             trainingStepCounter=self.trainingStepCounter,
-                            #avgLoss=avgLossDetail,
-                            freq=printLossFreqDetail,
+                            freq=trainingLogFreq_100,
                             stats=self.statsDetail,
-                            #logitRange_str=logitRangeDetail_str,
                             windowWeights_str=weightDetail_str,
                             memoryGates_str=memoryGates_str,
-                            #gradientNorm_str=f"{avgGradNormDetail:.3f}",
                             otherInfo_str="Training",
                             topTokens_str=str(topTokensDetail),
-                            #durationLog_str=durationLogDetail
                         )
                         self.statsDetail.clear()
 
-                        #print(durationLogDetail) # Print duration log to terminal
-                        with open("durationLogDetail.txt", "a") as logFile:
-                            logFile.write(durationLogDetail + "\n")
-
-                        #self.totalStepDurationDetail = 0
-                        #self.totalSaveDurationDetail = 0
-                        #self.totalLoadDurationDetail = 0
-                        #self.totalTerminalPrintDurationDetail = 0
-                        #self.totalLogitsDurationDetail = 0
-                        #self.totalCombineDurationDetail = 0
-                        #self.totalGetTokenDurationDetail = 0
-                        
-                        #self.totalLogitMinDetail = 0
-                        #self.totalLogitMaxDetail = 0
-                        #self.totalLossDetail = 0 # Reset SUM of losses
-                        #self.totalTokenCountDetail = 0 # Reset token count
+                        #print(durationLogPath_100) # Print duration log to terminal
+                        with open(durationLogPath_100, "a") as logFile:
+                            logFile.write(durationLog_100 + "\n")
 
                     """PRINTING GUESSES TO THE TERMINAL"""
                     if self.trainingStepCounter % printFreq == 0:
-                        #targetWordSingle = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
-                        #guessedTokenString = self.getTokenIndexAsString(guessedTokenIndex).replace("Ġ", " ")
-                        #targetWordSeq = targetSeq[0].replace("Ġ", " ") if targetSeq else "<NO_TARGET>"
                         guessedTokenSeq = [self.getTokenIndexAsString(idx) if idx != -1 else "<UNK>" for idx in predictedTokenIndices]
                         if guessedTokenSeq:
                             tokenCountsDetail.update(guessedTokenSeq)
                             tokenCounts.update(guessedTokenSeq)
-                        """S_arm = []
-                        for i in range(min(3, len(predictedTokenIndices))):
-                            guess = self.getTokenIndexAsString(predictedTokenIndices[i])
-                            target = targetSeq[i] if i < len(targetSeq) else ""
-                            if guess == target:
-                                S_arm.append(S_apply("perfect", guess))
-                            else:
-                                loss_val = losses[i].item() if i < len(losses) else 999.0
-                                S_type = S_getStat("loss", loss_val)
-                                S_arm.append(S_apply(S_type, guess))
-                        for i in range(min(3, len(predictedTokenIndices))):
-                            lossVal = losses[i].item() if i < len(losses) else 999.0
-                            S_type = S_getStat("loss", lossVal)
-                            block = S_apply(S_type, "█")  # lil block boi!
-                            S_arm.append(block)
 
-                        self.guessHUD.addArm(S_arm)"""
                         #print(f"DEBUG: logitRange_str before logTraining: '{logitRange_str}'")
                         S_output.colourPrintTraining(
                             step=self.trainingStepCounter,
@@ -588,45 +418,40 @@ class BABYLLM(nn.Module):
             except KeyboardInterrupt:
                 print("\nit's rude to interrupt people.. but, bye bye! :)")
                 babyLLM.saveModel()
-                sys.exit(0)
+                sys.exit(8)
 
         print("--- Training Completed! ---")
         
     """saves the model to a file"""    
-    def saveModel(self, filePath=modelPath):
+    def saveModel(self, filePath = modelFilePath):
         saveStartTime = time.time()
 
         tmpPath = filePath + ".tmp"
         torch.save(self.state_dict(), tmpPath)
-        print(f"Model temp file created at {tmpPath}")
+        print(f"model temp file created at {tmpPath}")
         os.replace(tmpPath, filePath)
-        print(f"✅ Model successfully saved to {filePath}!")
-        with open("stepCheckpoint.txt", "w") as f:
+        print(f"model successfully saved to {filePath}!")
+        with open(stepCheckpointFilePath, "w") as f:
             f.write(str(self.trainingStepCounter+self.startIndex))
 
         saveDuration = {"Save": time.time() - saveStartTime}
         self.duration.update(saveDuration)
         self.durationDetail.update(saveDuration)
-        #self.totalSaveDuration += saveDuration
-        #self.totalSaveDurationDetail += saveDuration
 
     """loads the model from a file"""
-    def loadModel(self, filePath = modelPath):
+    def loadModel(self, filePath = modelFilePath):
         loadStartTime = time.time()
         try:
-            print(f"Loading model from path: {filePath}") 
+            print(f"loading model from path: {filePath}") 
             self.load_state_dict(torch.load(filePath), strict = saveLock)
-            print(f"Model loaded from {filePath}!")
+            print(f"model loaded from {filePath}!")
             self.resetIfNeeded(context="inference")
             
             loadDuration = {"Load": time.time() - loadStartTime}
             self.duration.update(loadDuration)
             self.durationDetail.update(loadDuration)
-            #self.totalLoadDuration += loadDuration
-            #self.totalLoadDurationDetail += loadDuration
         except FileNotFoundError:
             print("No saved model found.")
-
 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, 
     and then selects most likely response token"""
@@ -638,16 +463,11 @@ class BABYLLM(nn.Module):
         logits = logits / temperature
         softmaxed = torch.softmax(logits, dim=1)
 
-        #topValue, topIndex = torch.max(softmaxed, dim=1)
-        #guessedTokenIndex = topIndex.item()
-
         guessedTokenIndex = torch.multinomial(softmaxed, 1).item()
 
         logitsDuration = {"Logits": time.time() - logitsStartTime}
         self.duration.update(logitsDuration)
         self.durationDetail.update(logitsDuration)
-        #self.totalLogitsDuration += logitsDuration
-        #self.totalLogitsDurationDetail += logitsDuration
         return guessedTokenIndex
     
     def getTokenIndexAsString(self, tokenIndex):
@@ -663,8 +483,6 @@ class BABYLLM(nn.Module):
         getTokenDuration = {"Token": time.time() - getTokenStartTime}
         self.duration.update(getTokenDuration)
         self.durationDetail.update(getTokenDuration)
-        #self.totalGetTokenDuration += getTokenDuration
-        #self.totalGetTokenDurationDetail += getTokenDuration
         return self.getResponseFromLogits(self.forward(inputSeq), temperature)
     
     """combines the parallelNeronLayer output and the multiWindowLayer output into one output"""
@@ -686,8 +504,6 @@ class BABYLLM(nn.Module):
         combineDuration = {"Combine": time.time() - combineStartTime}
         self.duration.update(combineDuration)
         self.durationDetail.update(combineDuration)
-        #self.totalCombineDuration += combineDuration
-        #self.totalCombineDurationDetail += combineDuration
         return finalOutput
 
     def babyllm_diary_entry(parallelNeuronLayer, step):
@@ -721,7 +537,7 @@ class BABYLLM(nn.Module):
         """
         Reset memory depending on the context:
         - 'inference': always resets to prevent memory echo
-        - 'training': optionally resets every N steps/epochs if configured
+        - 'training': optionally resets every N steps/epochs if CONFIGured
         """
         if context == "inference":
             self.memoryLayer.resetMemory()
@@ -737,11 +553,6 @@ class BABYLLM(nn.Module):
                 self.memoryLayer.resetMemory()
                 print(f"resetting memory after {memoryLength} steps...")
                 self.stepsSinceMemoryReset = 0
-
-# Example usage in training loop:
-# if step % 1000 == 0:
-#     babyllm_diary_entry(parallel_neuron_layer, step)
-
     
 if __name__ == "__main__":
 
@@ -749,41 +560,59 @@ if __name__ == "__main__":
     numNeurons = numNeurons
     activationFunction = activationFunction
     startIndex = trainingStartIndex  # default
-
-    if os.path.exists("stepCheckpoint.txt"):
-        with open("stepCheckpoint.txt", "r") as f:
-            savedStep = int(f.read().strip())
-        choice = input(f"hey! last time i got to step {savedStep}... want to restart from there? (Y/N): ").strip().lower()
-        if choice == "" or choice.startswith("y"):
-            startIndex = savedStep
-            print(f"ok! lets go to {savedStep}!")
-        elif choice in ["random", "i dont care", "i don't care", "idc"]:
-            startIndex = 'random'
-            print("oh, cool! picking a random spot to start from.")
-        elif choice.startswith("n") or choice in ["start again", "restart"]:
-            startIndex = trainingStartIndex
-            print("alright, let's go back to the beginning :)")
-        elif choice.isdigit():
-            startIndex = int(choice)
-            print(f"damn that's specific! let's go to {startIndex}!")
-        else:
-            print("i dont think i heard you properly, i'll just start from scratch :)")
-            startIndex = trainingStartIndex
-
-    userNote = input("what am i learning today?: ").strip()
-
     vocab = VOCAB(vocabSize = vocabSize)
-    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction, startIndex=startIndex)
+    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction, startIndex = startIndex)
+    babyLLM.loadModel()
+
+    if os.path.exists(stepCheckpointFilePath):
+        with open(stepCheckpointFilePath, "r") as f:
+            try:
+                savedStep = int(f.read().strip())
+
+            except ValueError:
+                babyNote_loadCheckpoint = f"{babyName} 'ah, i couldn't load step checkpoint file from {stepCheckpointFilePath}, resetting to 0...' "
+                print(babyNote_loadCheckpoint)
+                savedStep = 0
+    else:
+        babyNote_loadCheckpoint = f"{babyName} 'ah, the step checkpoint file {stepCheckpointFilePath} doesn't exist, resetting to 0...' "
+        print(babyNote_loadCheckpoint)
+        savedStep = 0
+
+    babyNote_loadCheckpointCheck = f"{babyName} 'right, last time i got to step {savedStep}... want to restart from there?' "
+    choice = input(babyNote_loadCheckpointCheck + f"\n{userName}: ")
+
+    if choice == "" or choice.startswith("y"):
+        babyNote_loadCheckpoint = f"{babyName} 'ok! let's go to step {savedStep}! "
+        print(babyNote_loadCheckpoint, end="")
+        startIndex = savedStep
+
+    elif choice.startswith("r") or choice in ["random", "i dont care", "i don't care", "idc"]:
+        startIndex = random.randint(0, len(vocab.tokens) - windowMAX - 1)
+        babyNote_loadCheckpoint = f"{babyName} 'oh, cool! i'll pick a random spot to start from... umm... let's go to step {startIndex}! "
+        print(babyNote_loadCheckpoint, end="")
+
+    elif choice.startswith("n") or choice in ["start again", "restart"]:
+        babyNote_loadCheckpoint = f"{babyName} 'alright, step {startIndex}, let's go back to the beginning :) "
+        print(babyNote_loadCheckpoint, end="")
+        startIndex = trainingStartIndex
+
+    elif choice.isdigit():
+        babyNote_loadCheckpoint = f"{babyName} 'damn that's specific! heading to step {startIndex}... "
+        print(babyNote_loadCheckpoint, end="")
+        startIndex = int(choice)
+
+    else:
+        babyNote_loadCheckpoint = f"{babyName} 'umm... i don't think i heard you properly, i'll just start from step {startIndex} :) but, "
+        print(babyNote_loadCheckpoint, end="")
+        startIndex = trainingStartIndex
+
+    babyNote_runStart = f"what am i learning today?'" # no tag of 'babyllm:' because it merges with the end of above message in logs
+    userNote_runStart = f"{userName}: '" + input(babyNote_runStart + f"\n{userName}: ").strip().lower() + "'"
+    userNote_loadCheckpoint = f"{userName}: '{choice}'"
+
     #TESTinputSeq = ["what","will","you","do","out","there","now","?"]
     TESTinputSeq = ["i","love","you","this","is","good","music","is","life",]
     #TESTinputSeq = ["what"] 
 
-    babyLLM.loadModel()
-
     trainingDataPairs = vocab.genTrainingData(windowMAX, startIndex = startIndex)
     babyLLM.trainModel(trainingDataPairs, epochs = epochs)
-    
-
-    print("--- BabyLLM TESTING START ---")
-    print(f"Vocab size: {len(babyLLM.vocab.vocabList)}")
-    print("\n--- BabyLLM TESTING COMPLETED ---")

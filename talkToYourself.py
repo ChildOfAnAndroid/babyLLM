@@ -1,4 +1,5 @@
 # CHARIS CAT 2025
+# BABYLLM - talkToYourself.py
 
 import os
 import re
@@ -6,17 +7,17 @@ import random
 import time
 from datetime import datetime
 from babyLLM import BABYLLM
-from vocab import VOCAB
+from BRAIN.LAYERS.vocab import VOCAB
+import BRAIN.LAYERS.S_output as S_output
+from BRAIN.LAYERS.vocab import VOCAB
 from config import *
-import S_output
-import archive.logHelpers as logHelpers
 import torch
-from vocab import VOCAB
 from collections import Counter
 
-inputFilePath = "data/CHARIS/trainingData.txt"
-outputFilePath = "data/CHARIS/talkToYourselfBattle.txt"
-guessFilePath = "data/CHARIS/whoIsMoreLikeYou.txt"
+trainingFilePath = trainingFilePath
+chatLogPath_talkToYourself = chatLogPath_talkToYourself
+guessFilePath = chatLogPath_talkToYourselfComparisons
+chatLogPath_forHumans = chatLogPath_forHumans
 splitTextPattern = r'(?<=[.?!,])\s+'
 minimumLength = 3
 trainingStepCounter = 0
@@ -28,16 +29,16 @@ totalLogitMin = 0
 totalLogitMax = 0  
 
 vocab = VOCAB()
-babyLLM = BABYLLM(vocab=vocab, embedDimension=embedDimension, numNeurons=numNeurons, activationFunction=activationFunction)
-babyLLM.loadModel("babyLLM.pth")
+babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
+babyLLM.loadModel(modelFilePath)
 
 existingLines = set()
-if os.path.exists(outputFilePath):
-    with open(outputFilePath, 'r', encoding='utf-8') as f:
+if os.path.exists(chatLogPath_talkToYourself):
+    with open(chatLogPath_talkToYourself, 'r', encoding='utf-8') as f:
         for line in f:
             existingLines.add(line.strip().lower())
 
-with open(inputFilePath, 'r', encoding='utf-8') as f:
+with open(trainingFilePath, 'r', encoding='utf-8') as f:
     rawText = f.read().lower()
 prompts = re.split(splitTextPattern, rawText)
 prompts = [q.strip() for q in prompts if len(q.strip()) >= minimumLength]
@@ -143,17 +144,12 @@ def trainOnAnswer(inputText, targetText):
             else:
                 memGates_str = "N/A"
 
-        isCorrect = (guessedTokensStr.strip() == targetTokensStrJoined.strip())
-        isPerfect = isCorrect and avgLoss < veryLowLoss
-
         S_output.colourPrintTraining(
             step=trainingStepCounter,
             inputSentence=inputText,
             guessedSeqStr=guessedTokensStr,
             targetSeqStr=targetTokensStrJoined,
             loss=avgLoss,
-            isCorrect=isCorrect,
-            isPerfect=isPerfect
         )
 
         similarity = compareAnswersSimilarity(inputText, guessedTokensStr)
@@ -167,25 +163,25 @@ def trainOnAnswer(inputText, targetText):
             runStart += f"\nbabyLLM: what am i learning today?"
             runStart += f"\nYou: {userNote}\n"
             print(f"{runStart.strip()}")
-            with open("logFilePathDetail", "a") as logFile:
+            with open("trainingLogPath_100", "a") as logFile:
                 logFile.write(runStart)
-            with open("logFilePath", "a") as logFile:
+            with open("trainingLogPath_1000", "a") as logFile:
                 logFile.write(runStart)
 
-        if trainingStepCounter % printLossFreq == 0:
-            avgLoss = totalLoss / printLossFreq
-            avgLogitMin = totalLogitMin / printLossFreq
-            avgLogitMax = totalLogitMax / printLossFreq
-            avgGradNorm = totalGradNorm / printLossFreq
+        if trainingStepCounter % trainingLogFreq_1000 == 0:
+            avgLoss = totalLoss / trainingLogFreq_1000
+            avgLogitMin = totalLogitMin / trainingLogFreq_1000
+            avgLogitMax = totalLogitMax / trainingLogFreq_1000
+            avgGradNorm = totalGradNorm / trainingLogFreq_1000
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            avgGradNorm = totalGradNorm / printLossFreq
+            avgGradNorm = totalGradNorm / trainingLogFreq_1000
             avgGuessSimilarity = similarity
-            avgWindowWeights = totalWindowWeights / printLossFreq
-            avgMemGates = totalMemGates / printLossFreq
+            avgWindowWeights = totalWindowWeights / trainingLogFreq_1000
+            avgMemGates = totalMemGates / trainingLogFreq_1000
             avgGuessSimilarity = similarity
 
             S_output.logTraining(
-                logFilePath=logFilePath,
+                trainingLogPath_1000=trainingLogPath_1000,
                 step=trainingStepCounter,
                 avgLoss=avgLoss,
                 learningRate=learningRate,
@@ -211,16 +207,16 @@ def trainOnAnswer(inputText, targetText):
             totalWindowWeights = 0
             totalMemGates = 0
 
-        if trainingStepCounter % printLossFreqDetail == 0:
-            avgLossDetail = totalLossDetail / printLossFreqDetail
-            avgLogitMinDetail = totalLogitMinDetail / printLossFreqDetail
-            avgLogitMaxDetail = totalLogitMaxDetail / printLossFreqDetail
+        if trainingStepCounter % trainingLogFreq_100 == 0:
+            avgLossDetail = totalLossDetail / trainingLogFreq_100
+            avgLogitMinDetail = totalLogitMinDetail / trainingLogFreq_100
+            avgLogitMaxDetail = totalLogitMaxDetail / trainingLogFreq_100
             timestampDetail = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            avgGradNormDetail = totalGradNormDetail / printLossFreq
+            avgGradNormDetail = totalGradNormDetail / trainingLogFreq_1000
             avgGuessSimilarityDetail = similarity
 
             S_output.logTraining(
-                logFilePath="logFilePathDetail",
+                trainingLogPath_1000="trainingLogPath_100",
                 step=trainingStepCounter,
                 avgLoss=avgLossDetail,
                 learningRate=learningRate,
@@ -336,9 +332,13 @@ if __name__ == "__main__":
         waitTimeSeconds = 20
 
     if log:
-        with open(outputFilePath, 'a', encoding='utf-8') as f:
+        with open(chatLogPath_talkToYourself, 'a', encoding='utf-8') as f:
             for line in log:
                 f.write(line + "\n")
-        print(f"\nsaved {len(log)//2} message pairs to {outputFilePath}")
+        print(f"\nsaved {len(log)//2} message pairs to {chatLogPath_talkToYourself}")
+        with open(chatLogPath_forHumans, 'a', encoding='utf-8') as f:
+            for line in log:
+                f.write(line + "\n")
+        print(f"\nsaved {len(log)//2} message pairs to {chatLogPath_forHumans}")
     else:
-        print("\nnothing saved.")
+        print("\nnothing saved :(")
