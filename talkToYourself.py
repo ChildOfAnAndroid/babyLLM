@@ -163,9 +163,9 @@ def trainOnAnswer(inputText, targetText):
             runStart += f"\nbabyLLM: what am i learning today?"
             runStart += f"\nYou: {userNote}\n"
             print(f"{runStart.strip()}")
-            with open("trainingLogPath_100", "a") as logFile:
+            with open(trainingLogPath_100, "a") as logFile:
                 logFile.write(runStart)
-            with open("trainingLogPath_1000", "a") as logFile:
+            with open(trainingLogPath_1000, "a") as logFile:
                 logFile.write(runStart)
 
         if trainingStepCounter % trainingLogFreq_1000 == 0:
@@ -212,11 +212,11 @@ def trainOnAnswer(inputText, targetText):
             avgLogitMinDetail = totalLogitMinDetail / trainingLogFreq_100
             avgLogitMaxDetail = totalLogitMaxDetail / trainingLogFreq_100
             timestampDetail = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            avgGradNormDetail = totalGradNormDetail / trainingLogFreq_1000
+            avgGradNormDetail = totalGradNormDetail / trainingLogFreq_100
             avgGuessSimilarityDetail = similarity
 
             S_output.logTraining(
-                trainingLogPath_1000="trainingLogPath_100",
+                trainingLogPath_100=trainingLogPath_100,
                 step=trainingStepCounter,
                 avgLoss=avgLossDetail,
                 learningRate=learningRate,

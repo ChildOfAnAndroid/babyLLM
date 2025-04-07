@@ -11,18 +11,24 @@ class MEMORYLAYER(nn.Module):
         super().__init__()
         self.numNeurons = numNeurons
         # Learnable decay rates
-        self.shortTermDecay = nn.Parameter(torch.tensor(0.7))
-        self.longTermDecay = nn.Parameter(torch.tensor(0.95))
+        self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device = modelDevice))
+        self.longTermDecay = nn.Parameter(torch.tensor(0.95, device = modelDevice))
         # lists for the memory
-        self.shortTermMemory = torch.zeros(numNeurons)
-        self.longTermMemory = torch.zeros(numNeurons)
+        #self.shortTermMemory = torch.zeros(numNeurons)
+        #self.longTermMemory = torch.zeros(numNeurons)
+        self.shortTermMemory = torch.zeros(self.numNeurons, device = modelDevice)
+        self.longTermMemory = torch.zeros(self.numNeurons, device = modelDevice)
         # gates for it to learn when to use the memory or not, learnable average
-        self.shortGate = nn.Parameter(torch.tensor(0.25))  
-        self.longGate = nn.Parameter(torch.tensor(0.25))
-        self.currentGate = nn.Parameter(torch.tensor(0.5))
+        self.shortGate = nn.Parameter(torch.tensor(0.25, device = modelDevice))  
+        self.longGate = nn.Parameter(torch.tensor(0.25, device = modelDevice))
+        self.currentGate = nn.Parameter(torch.tensor(0.5, device = modelDevice))
 
+    """learns when to forget more or less"""
     def forward(self, combinedActivationsTensor):
-        """learns when to forget more or less."""
+        device = self.shortTermMemory.device
+        combinedActivationsTensor = combinedActivationsTensor.to(device)
+        self.shortTermMemory = self.shortTermMemory.to(device)
+        self.longTermMemory = self.longTermMemory.to(device)
         # make sure decay values stay within [0, 1] range
         shortDecay = torch.sigmoid(self.shortTermDecay)  # Force between 0-1
         longDecay = torch.sigmoid(self.longTermDecay)
@@ -55,8 +61,9 @@ class MEMORYLAYER(nn.Module):
         return blendedActivations
     
     def resetMemory(self):
-        self.shortTermMemory = torch.zeros(self.numNeurons)
-        self.longTermMemory = torch.zeros(self.numNeurons)
+        device = self.shortTermMemory.device  # grab current device
+        self.shortTermMemory = torch.zeros(self.numNeurons, device = modelDevice)
+        self.longTermMemory = torch.zeros(self.numNeurons, device = modelDevice)
 
 
 if __name__ == "__main__":
@@ -68,9 +75,9 @@ if __name__ == "__main__":
     meanActivationsTensor = parallelNeuronLayer.forward(TESTinputEmbeds)
 
     print("--- PARALLEL NEURON LAYER TESTING START ---")
-    print(f"Parallel Neuron Layer created with {parallelNeuronLayer.numNeurons} neurons.")
-    print(f"Inputs per Neuron (embed dimension): {parallelNeuronLayer.embedDimension}")
-    print(f"Output Activations (first 10):")
+    print(f"parallel neuron layer created with {parallelNeuronLayer.numNeurons} neurons.")
+    print(f"inputs per neuron (embed dimension): {parallelNeuronLayer.embedDimension}")
+    print(f"output activations (first 10):")
     print(meanActivationsTensor[:10])
-    print(f"Output Activations Shape: {meanActivationsTensor.shape}")
+    print(f"output activations shape: {meanActivationsTensor.shape}")
     print("\n--- PARALLEL NEURON LAYER TESTING COMPLETED ---")

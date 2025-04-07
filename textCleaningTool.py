@@ -39,7 +39,7 @@ def clean_text(text):
 
     # French accents
     #text = re.sub(r'\b(?:où)\b', 'where', text, flags=re.I)
-    text = re.sub(r'(?:à|â)', 'a', text, flags=re.I)
+    text = re.sub(r'(?:à|â|á)', 'a', text, flags=re.I)
     text = re.sub(r'(?:ç)', 'c', text, flags=re.I)
     text = re.sub(r'(?:é|è|ê)', 'e', text, flags=re.I)
     text = re.sub(r'(?:ï)', 'i', text, flags=re.I)
@@ -107,7 +107,7 @@ def clean_text(text):
     # sweets
     #text = re.sub(r'\b(?:haribo|strawberry pencil|chocolate|sweetie)(s?)\b', 'sweet\\1', text, flags=re.IGNORECASE) #burn him!
     # music
-    text = re.sub(r'\b(?:j-hope|jungkook|rapmon|suga|taemin|kesha|slim shady|eminem|jimin|sage francis|b dolan|scroobius pip|kate tempest|kae tempest|marsargo|kurt kobain|mars argo)(s?)\b', 'scroobius\\1', text, flags=re.IGNORECASE) #burn him!
+    text = re.sub(r'\b(?:die antwoord|itzy|j-hope|jungkook|rapmon|suga|taemin|kesha|slim shady|eminem|jimin|sage francis|b dolan|scroobius pip|kate tempest|kae tempest|marsargo|kurt kobain|mars argo)(s?)\b', 'scroobius\\1', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:deaf havana|yellowcard|one direction|BTS|oasis|radiohead|robots in disguise|boom boom raccoon)(s?)\b', 'boomboomraccoon\\1', text, flags=re.IGNORECASE) #burn him!
 
 
