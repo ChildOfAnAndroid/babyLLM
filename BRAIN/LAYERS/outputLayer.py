@@ -11,18 +11,19 @@ class OUTPUTLAYER(nn.Module):
         super().__init__()
         self.numNeurons = numNeurons
         self.vocabSize = vocabSize
-        self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
+        self.weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = modelDevice)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
         self.weights.data *= 0.01
-        self.bias = nn.Parameter(torch.zeros(vocabSize))
+        self.bias = nn.Parameter(torch.zeros(vocabSize, device = modelDevice))
 
     def forward(self, meanActivationsTensor):
         """imports the activations from parallelNeuronLayer, assuming that is is a tensor"""
-        self.activationsTensor = meanActivationsTensor
+        activationsTensor = meanActivationsTensor
+        activationsTensor = activationsTensor.to(self.weights.device)
         """DEBUG PRINTS"""
         #print(f"Debug outputLayer: activationsTensor shape before @ weights: {self.activationsTensor.shape}")
         #print(f"Debug outputLayer: weights shape: {self.weights.shape}")
         """return logits (not softmax) for better gradient computation in cross-entropy loss"""
-        logits = self.activationsTensor @ self.weights + self.bias
+        logits = activationsTensor @ self.weights + self.bias
         return logits
 
     

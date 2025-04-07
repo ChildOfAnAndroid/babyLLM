@@ -79,17 +79,27 @@ class BABYLLM(nn.Module):
 
     """processes input sequence of tokens (str) to generate logits to predict the next token"""
     def forward(self, inputSeq):
+        forwardStart = time.time()
         #print(f"Debug: Input to forward: {inputSeq}")
 
         """convert inputted tokens to indices (batch processing instead of looping)"""
-        inputIndices = [self.vocab.tokenToIndex.get(tokenString, self.vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
         #print(f"Debug BABYLLM.forward: inputIndices: {inputIndices}")
+        inputTimestamp = time.time()
+        inputIndices = [self.vocab.tokenToIndex.get(tokenString, self.vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
+        #idxTime = time.time() - inputTimestamp
 
         """convert indices to embeddings"""
         inputEmbeds = []
-        inputIndicesTensor = torch.tensor(inputIndices)
+        inputIndicesTensor = torch.tensor(inputIndices, device = modelDevice)
         inputEmbedsBatch = self.embedLayer(inputIndicesTensor)
-        inputEmbeds = [embed for embed in inputEmbedsBatch]     # list of (embed_dim,) tensors
+        #inputEmbeds = [embed for embed in inputEmbedsBatch]     # list of (embed_dim,) tensors
+        inputEmbeds = inputEmbedsBatch 
+
+        #embedTimestamp = time.time()
+        #inputIndicesTensor = torch.tensor(inputIndices, device=modelDevice)
+        #inputEmbedsBatch = self.embedLayer(inputIndicesTensor)
+        #inputEmbeds = inputEmbedsBatch
+        #embedTime = time.time() - embedTimestamp
 
         """DEBUG PRINTS"""
         if len(inputEmbeds) > 0: # Check if inputEmbeds is not empty
@@ -102,29 +112,39 @@ class BABYLLM(nn.Module):
             pass
 
         """make sure inputEmbeds is a LIST of tensors"""
-        if not isinstance(inputEmbeds, list):
-            inputEmbeds = [inputEmbeds]
+        #if not isinstance(inputEmbeds, list):
+        #    inputEmbeds = [inputEmbeds]
 
+        #neuronTimestamp = time.time()
         """PARALLEL NEURON LAYER input/processing (feature extraction)"""
-        parallelNeuronOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
+        parallelNeuronOutput = self.parallelNeuronLayer.forward(inputEmbeds, trainingStepCounter = self.trainingStepCounter) 
         #print(f"Debug BABYLLM.forward: parallelNeuronOutput length: {len(parallelNeuronOutput)}") 
 
         """RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING"""
         combinedActivationsTensor = torch.mean(parallelNeuronOutput, dim=0, keepdim=True)
+        #neuronTime = time.time() - neuronTimestamp
 
+        #memoryTimestamp = time.time()
         """MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS"""
         memoryLayerOutput = self.memoryLayer.forward(combinedActivationsTensor)
         self.latestMemGates = self.memoryLayer.latestMemoryGates.detach() 
         combinedActivations = memoryLayerOutput
+        #memoryTime = time.time() - memoryTimestamp
+
         #print(f"Debug BABYLLM: Shape of lastTokenActivations BEFORE outputLayer: {lastTokenActivations.shape}")
+
+        #outputTimestamp = time.time()
         logits = self.outputLayer.forward(combinedActivations)  
+        #outputTime = time.time() - outputTimestamp
+
+        #forwardTotal = time.time() - forwardStart
         #print(f"Debug BABYLLM.forward: probabilityDist shape: {probabilityDist.shape}")
         """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
         return logits
     
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""
     def computeLoss(self, logits, targetTokenIndex):
-        targetTensor = torch.tensor([targetTokenIndex], dtype=torch.long)
+        targetTensor = torch.tensor([targetTokenIndex], dtype=torch.long, device = modelDevice)
         #print(f"Debug BABYLLM.computeLoss: predictions shape: {logits.shape}")
         #print(f"Debug BABYLLM.computeLoss: predictions (first 10): {logits[:10]}")
         #print(f"Debug BABYLLM.computeLoss: targetTokenIndex: {targetTokenIndex}")
@@ -203,9 +223,15 @@ class BABYLLM(nn.Module):
 
                     # Predict multiple tokens in a sequence
                     for j in range(numTokens):
-                        logits = self.forward(inputSeqPredictions) # Feed current input sequence
+                        #forwardTimestamp = time.time()
+                        logits = self.forward(inputSeqPredictions)
+                        #forwardTime = time.time() - forwardTimestamp
+
+                        #predictTimestamp = time.time()
+                        predictedTokenIndex = self.getResponseFromLogits(logits)
+                        #predictTime = time.time() - predictTimestamp
+
                         logitSeq.append(logits) # Store logits
-                        predictedTokenIndex = self.getResponseFromLogits(logits) # Get predicted token
                         predictedTokenIndices.append(predictedTokenIndex) # Store predicted token index
 
                         # Decide whether to use teacher forcing or model prediction for next input
@@ -220,23 +246,36 @@ class BABYLLM(nn.Module):
                                 nextTokenInput = predictedTokenIndex # if no more targets, use prediction
 
                         inputSeqPredictions.append(nextTokenInput) # Append token index (predicted or ground truth) as next input
+
                         if j < len(targetTokenIndexSeq): # compute loss only if target exists
                             self.totalTokenEvaluations += 1
                             if predictedTokenIndex == targetTokenIndexSeq[j]:
                                 self.perfectTokenCount += 1
-                            stepLoss = self.computeLoss(logits, targetTokenIndexSeq[j]) # calculate loss for this step against target
+                            
+                            #lossTimestamp = time.time()
+                            stepLoss = self.computeLoss(logits, targetTokenIndexSeq[j])
+                            #lossTime = time.time() - lossTimestamp
+
                             losses.append(stepLoss) # append loss
                             cumulativeLoss += stepLoss # Cumulative loss (sum)
 
                     # Average loss over the sequence of predicted tokens
+                    
                     if losses:
                         loss = cumulativeLoss / len(losses) # Average loss for THIS SEQUENCE (per token)
                     else:
-                        loss = torch.tensor(0.0)
+                        loss = torch.tensor(0.0, device = modelDevice)
 
-                    loss.backward() # Backpropagate the averaged loss
+                    #backwardTimestamp = time.time()
+                    loss.backward()
+                    #backwardTime = time.time() - backwardTimestamp
+
+                    #optTimestamp = time.time()
                     torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
                     self.optimizer.step()
+                    if modelDevice.type == 'mps':
+                        torch.mps.empty_cache()
+                    #optTime = time.time() - optTimestamp
 
                     """CALCULATE GRAD NORM"""
                     gradNorm = 0.0
@@ -360,12 +399,20 @@ class BABYLLM(nn.Module):
                                 reverse=True
                             )
                             weightDetail_str = ",".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeightsDetail)
-
+                            
                         self.durationDetail.update(self.durationCategories) # Force a noop update to ensure we have every category
+
+                        #durationLogBabyLLM_inner_100 = (f"inner step {j+1}: forward: {forwardTime*1000:.2f}ms | predict: {predictTime*1000:.2f}ms | loss: {lossTime*1000:.2f}ms")
+                        #durationLogBabyLLM_100 = (f"DEBUG: forward() timings: Index: {idxTime*1000:.2f}ms | Embed: {embedTime*1000:.2f}ms | Neuron: {neuronTime*1000:.2f}ms | Memory: {memoryTime*1000:.2f}ms | Output: {outputTime*1000:.2f}ms | Total: {forwardTotal*1000:.2f}ms")
                         durationLog_100 = "Durations: " + ", ".join([
                             f"{name}: {(duration * 1000 / trainingLogFreq_100 if trainingLogFreq_100 > 0 else 0):.2f}ms"
                             for name, duration in self.durationDetail.most_common()
                         ])
+                        #durationLogCombined_100 = f"\n--- {timestamp} --- \n{durationLog_100} \n{durationLogBabyLLM_100} \n{durationLogBabyLLM_inner_100}\n"
+
+                        with open(durationLogPath_100, "a") as logFile:
+                            logFile.write(durationLog_100 + "\n")
+
                         self.durationDetail.clear()
 
                         #print(f"DEBUG: logitRange_str before logTraining: '{logitRangeDetail_str}'")
@@ -381,9 +428,6 @@ class BABYLLM(nn.Module):
                         )
                         self.statsDetail.clear()
 
-                        #print(durationLogPath_100) # Print duration log to terminal
-                        with open(durationLogPath_100, "a") as logFile:
-                            logFile.write(durationLog_100 + "\n")
 
                     """PRINTING GUESSES TO THE TERMINAL"""
                     if self.trainingStepCounter % printFreq == 0:
@@ -615,4 +659,5 @@ if __name__ == "__main__":
     #TESTinputSeq = ["what"] 
 
     trainingDataPairs = vocab.genTrainingData(windowMAX, startIndex = startIndex)
+    babyLLM.to(modelDevice)
     babyLLM.trainModel(trainingDataPairs, epochs = epochs)

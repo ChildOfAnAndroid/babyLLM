@@ -1,10 +1,14 @@
 # CHARIS CAT 2025
 # BABYLLM - config.py
 
+import torch
+modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+
 #from torch import relu 
 from torch.nn.functional import leaky_relu
 leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01)     # leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
 guessedTokenSeq = []
+
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
 userName = "charis"
@@ -12,11 +16,11 @@ babyName = "babyLLM"
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 50     # // 50 // 500 // 1000 // saves the model every x number of turns
+saveModelFreq = 10000     # // 50 // 500 // 1000 // saves the model every x number of turns
 
 saveLock = False     # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
-modelFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
+modelFilePath = "BRAIN/soul/babyLLM_legacy.pth"     # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
 
@@ -27,8 +31,10 @@ trainingFilePath = "SCHOOL/trainingData.txt"
 trainingLogPath_1000 = "LOGS/training/trainingLog_1000.txt"
 trainingLogPath_100 = "LOGS/training/trainingLog_100.txt"
 
-durationLogPath_1000 = "LOGS/duration/durationLog_1000"
-durationLogPath_100 = "LOGS/duration/durationLog_100.txt"
+durationLogPath_1000 = "LOGS/duration/durationLog_1000.txt"
+durationLogPath_100 = "LOGS/duration/durationLog_100.txt" 
+durationLogNeuronsPath_1 = "LOGS/duration/durationLogNeurons_1.txt"
+durationLogBabyLLMPath_1 = "LOGS/duration/durationLogBabyLLM_1.txt"
 
 chatLogPath_forHumans = "LOGS/chat/chatForHumans.txt"
 
@@ -74,7 +80,7 @@ epochs = 20
 trainingLogFreq_1000 = 1000     # creates logs every x number of turns
 trainingLogFreq_100 = 100     # creates logs every x number of turns
 
-printFreq = 1     # how often to print training progress to the terminal
+printFreq = 10     # how often to print training progress to the terminal
 printPromptLength = 35     # how many characters of the prompt to display in terminal
 
 

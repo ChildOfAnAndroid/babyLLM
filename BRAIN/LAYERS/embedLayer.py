@@ -12,11 +12,12 @@ class EMBEDLAYER(nn.Module):
         self.vocabSize = vocabSize
         self.embedDimension = embedDimension
         """creates the embedding weights matrix with random numbers initially"""
-        self.weights = nn.Parameter(torch.randn(vocabSize, embedDimension))
+        self.weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = modelDevice))
         self.weights.data *= 0.01 # makes the layer numbers smaller for more stable training
 
+    """looks up and returns the embedding vector for a specifc token index"""
     def forward(self, tokenIndex):
-        """looks up and returns the embedding vector for a specifc token index"""
+        tokenIndex = tokenIndex.to(self.weights.device)
         embedVector = self.weights[tokenIndex] 
         return embedVector 
     
@@ -28,8 +29,8 @@ if __name__ == "__main__":
     embedVector = embedLayer.forward(TESTtokenIndex)
 
     print(f"--- EMBEDDING LAYER TESTING START ---")
-    print(f"Embedding Layer Weights Shape: {embedLayer.weights.shape}") # Check shape of weight matrix
-    print(f"Embedding Vector for token index {TESTtokenIndex}:")
+    print(f"embedding layer weights shape: {embedLayer.weights.shape}") # Check shape of weight matrix
+    print(f"embedding vector for token index {TESTtokenIndex}:")
     print(embedVector)
-    print(f"Embedding Vector Shape: {embedVector.shape}")
+    print(f"embedding vector shape: {embedVector.shape}")
     print(f"--- EMBEDDING LAYER TESTING COMPLETE ---")

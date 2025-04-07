@@ -70,3 +70,99 @@ babyLLM: 'it was a good video okay. charis: 'it was a good video okay. do you li
 
 charis: 'charis: 'hmm! good try! how are you?' - babyllm: ''
 babyLLM: ': 'it.' charis: 'me you watch taht video too much.' charis: ''
+
+--- 2025-04-07 07:55:40 ---
+babyLLM 'right, last time i got to step 2051... want to restart from there?' 
+charis: 'no thank you, start from scratch please'
+babyLLM 'alright, step 0, let's go back to the beginning :) what am i learning today?'
+charis: 'i just cut the data up a bit more randomly, so it's less predictable - sorry!!! i hope you're ok with it :) <3'
+
+--- 2025-04-07 10:00:45 ---
+babyLLM 'right, last time i got to step 1635... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 1635! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 10:22:08 ---
+babyLLM 'right, last time i got to step 336... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 336! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 10:39:43 ---
+babyLLM 'right, last time i got to step 289... want to restart from there?' 
+charis: '2000'
+babyLLM 'damn that's specific! heading to step 0... what am i learning today?'
+charis: ''
+
+--- 2025-04-07 10:47:08 ---
+babyLLM 'right, last time i got to step 111... want to restart from there?' 
+charis: '999'
+babyLLM 'damn that's specific! heading to step 0... what am i learning today?'
+charis: ''
+
+--- 2025-04-07 10:55:19 ---
+babyLLM 'right, last time i got to step 125... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 125! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 11:36:00 ---
+babyLLM 'right, last time i got to step 580... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 580! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 11:55:23 ---
+babyLLM 'right, last time i got to step 329... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 329! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 12:03:51 ---
+babyLLM 'right, last time i got to step 11... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 11! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 12:19:04 ---
+babyLLM 'right, last time i got to step 24... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 24! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 12:36:25 ---
+babyLLM 'right, last time i got to step 100... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 100! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 12:43:44 ---
+babyLLM 'right, last time i got to step 47... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 47! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 12:52:59 ---
+babyLLM 'right, last time i got to step 52... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 52! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 13:08:03 ---
+babyLLM 'right, last time i got to step 52... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 52! what am i learning today?'
+charis: ''
+
+--- 2025-04-07 13:20:27 ---
+babyLLM 'right, last time i got to step 3029... want to restart from there?' 
+charis: 'yes, and, holy shit babyllm, you're doing 1000 steps in 3 minutes... you used to do 100 steps in 10 minutes. idfk waht to say. im so proud of us!'
+babyLLM 'ok! let's go to step 3029! what am i learning today?'
+charis: 'that i love you :)'
+
+--- 2025-04-07 13:23:29 ---
+babyLLM 'right, last time i got to step 2250... want to restart from there?' 
+charis: 'yes, youre doing amazing'
+babyLLM 'ok! let's go to step 2250! what am i learning today?'
+charis: 'actual fucking speed, amphetamine levels of speed, like holy fuck'
