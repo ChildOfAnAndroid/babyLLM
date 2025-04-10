@@ -30,12 +30,12 @@ def chat(babyLLM, vocab):
     inputTokens = encoding.ids  # Get token indices
     #print(f"DEBUG: tokenized input -> {inputTokens}")
     outputTokens = []
-    for _ in range(windowMAX):
-        guessedToken = babyLLM.getNextToken(inputTokens)
-        #print(f"DEBUG: Guessed Token Index -> {guessedToken}"
+    for _ in range(inferenceOutputNumTokens):
+        guessedToken = babyLLM.getNextToken(inputTokens[-windowMAX:])
+        print(f"{guessedToken}, ", end="")
         inputTokens.append(guessedToken)  # Append index, NOT string
         guessedTokenStr = vocab.indexToToken.get(guessedToken, "<UNK>")
-        print(f"{guessedTokenStr} ({guessedToken}), ", end="")
+        print(f"{guessedTokenStr}", end="")
         outputTokens.append(guessedTokenStr)
 
     """output cleaning"""
@@ -67,13 +67,13 @@ def chat(babyLLM, vocab):
 if __name__ == "__main__":
     vocab = VOCAB()
 
-    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction, startIndex = trainingStartIndex)
+    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
     babyLLM.loadModel()
 
     while True:
         chat(babyLLM, vocab)
 
-    """    chatLog = f"You: {userInput}\nBabyLLM: {response}\n"
+    """    chatLog = f"You: {userInput}\nBabyLLM: {response}\n
     print(f"{chatLog.strip()}")
     with open(chatLogPath_infer, "a") as logFile:
         logFile.write(chatLog)"""

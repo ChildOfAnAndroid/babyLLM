@@ -14,8 +14,6 @@ class MEMORYLAYER(nn.Module):
         self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device = modelDevice))
         self.longTermDecay = nn.Parameter(torch.tensor(0.95, device = modelDevice))
         # lists for the memory
-        #self.shortTermMemory = torch.zeros(numNeurons)
-        #self.longTermMemory = torch.zeros(numNeurons)
         self.shortTermMemory = torch.zeros(self.numNeurons, device = modelDevice)
         self.longTermMemory = torch.zeros(self.numNeurons, device = modelDevice)
         # gates for it to learn when to use the memory or not, learnable average
@@ -48,15 +46,6 @@ class MEMORYLAYER(nn.Module):
             self.shortGate * self.shortTermMemory) + (
             self.longGate * self.longTermMemory) + (
             self.currentGate * combinedActivationsTensor)
-        
-        #print(f"Type of blendedActivations: {type(blendedActivations)}")
-        #if isinstance(blendedActivations, torch.Tensor):
-        #    print(f"Shape of blendedActivations: {blendedActivations.shape}")
-        #elif isinstance(blendedActivations, list):
-        #    print(f"Length of blendedActivations list: {len(blendedActivations)}")
-        #    print(f"Shape of first element in list: {blendedActivations[0].shape}")
-        #else:
-        #    print("Unknown format for blendedActivations!")
 
         return blendedActivations
     

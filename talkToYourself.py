@@ -22,9 +22,9 @@ splitTextPattern = r'(?<=[.?!,])\s+'
 minimumLength = 3
 trainingStepCounter = 0
 totalLoss = 0
-totalLossDetail = 0
-totalLogitMinDetail = 0 
-totalLogitMaxDetail = 0 
+totalLoss_100 = 0
+totalLogitMin_100 = 0 
+totalLogitMax_100 = 0 
 totalLogitMin = 0       
 totalLogitMax = 0  
 
@@ -67,7 +67,7 @@ waitTimeSeconds = 20
 
 trainingStepCounter = 0
 totalLoss = 0
-totalLossDetail = 0
+totalLoss_100 = 0
 
 def compareAnswersSimilarity(userAnswerText, ghostAnswerText):
     userAnswerWords = userAnswerText.split()
@@ -76,7 +76,7 @@ def compareAnswersSimilarity(userAnswerText, ghostAnswerText):
     return matches / max(len(userAnswerWords), 1)
 
 def trainOnAnswer(inputText, targetText):
-    global trainingStepCounter, totalLoss, totalLossDetail, waitTimeSeconds, totalLogitMinDetail, totalLogitMaxDetail, totalLogitMin, totalLogitMax, totalGradNormDetail, totalGradNorm, totalWindowWeightsDetail, totalWindowWeights, totalMemGatesDetail, totalMemGates
+    global trainingStepCounter, totalLoss, totalLoss_100, waitTimeSeconds, totalLogitMin_100, totalLogitMax_100, totalLogitMin, totalLogitMax, totalGradNorm_100, totalGradNorm, totalWindowWeights_100, totalWindowWeights, totalMemGates_100, totalMemGates
 
     inputEncoding = vocab.tokenizer.encode(inputText)
     inputTokens = inputEncoding.ids
@@ -110,19 +110,19 @@ def trainOnAnswer(inputText, targetText):
 
         trainingStepCounter += 1
         totalLoss += loss.item()
-        totalLossDetail += loss.item()
+        totalLoss_100 += loss.item()
 
         with torch.no_grad():
             logitsTensor = torch.cat(logitSeq, dim=0)
             logitMin = logitsTensor.min(dim=-1).values.mean().item()
             logitMax = logitsTensor.max(dim=-1).values.mean().item()
-            totalLogitMinDetail += logitMin 
-            totalLogitMaxDetail += logitMax 
+            totalLogitMin_100 += logitMin 
+            totalLogitMax_100 += logitMax 
             totalLogitMin += logitMin 
             totalLogitMax += logitMax
 
             gradNorm = torch.nn.utils.clip_grad_norm_(babyLLM.parameters(), max_norm = gradientClipMaxNorm, norm_type=2.0).item()
-            totalGradNormDetail += gradNorm
+            totalGradNorm_100 += gradNorm
             totalGradNorm += gradNorm
 
             normWeights = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1)
@@ -133,22 +133,22 @@ def trainOnAnswer(inputText, targetText):
                 reverse=True
             )
             windowWeights_str = "  ".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeights)
-            totalWindowWeightsDetail += normWeights.max().item()
+            totalWindowWeights_100 += normWeights.max().item()
             totalWindowWeights += normWeights.max().item()
 
             memGatesTensor = babyLLM.memoryLayer.latestMemoryGates.detach()
             if memGatesTensor is not None:
                 memGates_str = f"Short:{memGatesTensor[0]:.3f}, Long:{memGatesTensor[1]:.3f}, Current:{memGatesTensor[2]:.3f}"
-                totalMemGatesDetail += memGatesTensor.mean().item()
+                totalMemGates_100 += memGatesTensor.mean().item()
                 totalMemGates += memGatesTensor.mean().item()
             else:
                 memGates_str = "N/A"
 
-        S_output.colourPrintTraining(
+        S_output.S_colourPrintTraining(
             step=trainingStepCounter,
-            inputSentence=inputText,
-            guessedSeqStr=guessedTokensStr,
-            targetSeqStr=targetTokensStrJoined,
+            inputSeq=inputText,
+            guessedSeq_str=guessedTokensStr,
+            targetSeq_str=targetTokensStrJoined,
             loss=avgLoss,
         )
 
@@ -180,7 +180,7 @@ def trainOnAnswer(inputText, targetText):
             avgMemGates = totalMemGates / trainingLogFreq_1000
             avgGuessSimilarity = similarity
 
-            S_output.logTraining(
+            S_output.S_logTraining(
                 trainingLogPath_1000=trainingLogPath_1000,
                 step=trainingStepCounter,
                 avgLoss=avgLoss,
@@ -208,21 +208,21 @@ def trainOnAnswer(inputText, targetText):
             totalMemGates = 0
 
         if trainingStepCounter % trainingLogFreq_100 == 0:
-            avgLossDetail = totalLossDetail / trainingLogFreq_100
-            avgLogitMinDetail = totalLogitMinDetail / trainingLogFreq_100
-            avgLogitMaxDetail = totalLogitMaxDetail / trainingLogFreq_100
-            timestampDetail = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            avgGradNormDetail = totalGradNormDetail / trainingLogFreq_100
-            avgGuessSimilarityDetail = similarity
+            avgLoss_100 = totalLoss_100 / trainingLogFreq_100
+            avgLogitMin_100 = totalLogitMin_100 / trainingLogFreq_100
+            avgLogitMax_100 = totalLogitMax_100 / trainingLogFreq_100
+            timestamp_100 = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            avgGradNorm_100 = totalGradNorm_100 / trainingLogFreq_100
+            avgGuessSimilarity_100 = similarity
 
-            S_output.logTraining(
+            S_output.S_logTraining(
                 trainingLogPath_100=trainingLogPath_100,
                 step=trainingStepCounter,
-                avgLoss=avgLossDetail,
+                avgLoss=avgLoss_100,
                 learningRate=learningRate,
-                logitRange_str=f"{avgLogitMinDetail:.2f} → {avgLogitMaxDetail:.2f}",
+                logitRange_str=f"{avgLogitMin_100:.2f} → {avgLogitMax_100:.2f}",
                 windowWeights_str=windowWeights_str,
-                gradientNorm_str=f"{avgGradNormDetail:.3f}",
+                gradientNorm_str=f"{avgGradNorm_100:.3f}",
                 scheduledSamplingProb_str = "",
                 epoch_str = "",
                 prompt = "",
@@ -231,13 +231,13 @@ def trainOnAnswer(inputText, targetText):
                 memGates_str=memGates_str,
                 topTokens_str = "",
                 durationLog_str = "",
-                #guessSimilarity_str=f"{avgGuessSimilarityDetail:.2f}",
-                otherInfo=f"TalkToYourself Training Detail",
+                #guessSimilarity_str=f"{avgGuessSimilarity_100:.2f}",
+                otherInfo=f"TalkToYourself Training _100",
             )
             
-            totalLossDetail = 0
-            totalLogitMinDetail = 0 
-            totalLogitMaxDetail = 0
+            totalLoss_100 = 0
+            totalLogitMin_100 = 0 
+            totalLogitMax_100 = 0
 
         """SAVE THE MODEL EVERY x STEPS"""
         if trainingStepCounter % saveModelFreq == 0:
