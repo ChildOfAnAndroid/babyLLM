@@ -425,7 +425,7 @@ class BABYLLM(nn.Module):
                 self.saveModel()
 
             except KeyboardInterrupt:
-                choice = input("save, cancel or interact?" + f"\n{userName}: ").lower()
+                choice = input("save, cancel (do not save before exit) or interact?" + f"\n{userName}: ").lower()
                 if choice == "save" or choice == (""): babyLLM.saveModel(), print("\nit's rude to interrupt people.. but, bye bye! :)")
                 elif choice == "cancel": babyLLM.saveModel(), print("\nhey! i wanted to remember that! :(")
                 elif choice == "interact":
@@ -502,7 +502,8 @@ class BABYLLM(nn.Module):
         """Reset memory depending on the context: inference always resets, training resets every n turns"""
         if context == "inference": self.memoryLayer.resetMemory(), print(f"resetting memory for new conversation...")
         elif context == "training":
-            if hasattr(self, "stepsSinceMemoryReset"): self.stepsSinceMemoryReset += 1
+            if hasattr(self, "stepsSinceMemoryReset"): 
+                self.stepsSinceMemoryReset += 1
             else: 
                 self.stepsSinceMemoryReset = 1
             if self.stepsSinceMemoryReset >= memoryLength: 

@@ -70,7 +70,7 @@ class PARALLELNEURONLAYER(nn.Module):
     
     def getNeuronStats(self):
         with torch.no_grad():
-            #weight_norms = torch.norm(self.neurons.weights, dim=1)
+            weight_norms = torch.norm(self.neurons.weights, dim=1)
             #weight_sparsity = (self.neurons.weights.abs() < 1e-6).float().mean().item()
             #mean_weight_norm = weight_norms.mean().item()
             max_weight_norm = weight_norms.max().item()
