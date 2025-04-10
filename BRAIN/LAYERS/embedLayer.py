@@ -21,6 +21,31 @@ class EMBEDLAYER(nn.Module):
         embedVector = self.weights[tokenIndex] 
         return embedVector 
     
+    def getEmbeddingStats(self):
+        with torch.no_grad():
+            stats = {}
+            embedNorms = torch.norm(self.weights, dim=1)
+            #stats["embedNormMean"] = embedNorms.mean().item()
+            #stats["embedNormStd"] = embedNorms.std().item()
+            stats["embedNormMax"] = embedNorms.max().item()
+
+            #dimMean = self.weights.mean(dim=0)
+            #dimSparsity = (dimMean.abs() < 1e-5).float().mean().item()
+            #stats["embedDimSparsity"] = dimSparsity
+
+            # Drift since last save
+            #drift = torch.norm(self.weights - self.lastSavedEmbeds).item()
+            #stats["embeddingDrift"] = drift
+            #self.lastSavedEmbeds = self.weights.clone().detach()
+
+            return stats
+        
+    #def cosineSimilarity(self, idx1, idx2):
+    #    e1 = self.weights[idx1]
+    #    e2 = self.weights[idx2]
+    #    return torch.nn.functional.cosine_similarity(e1.unsqueeze(0), e2.unsqueeze(0)).item()
+
+    
 if __name__ == "__main__":
     TESTtokenIndex = 500
 

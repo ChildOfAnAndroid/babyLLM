@@ -42,7 +42,7 @@ def clean_text(text):
     text = re.sub(r'(?:à|â|á)', 'a', text, flags=re.I)
     text = re.sub(r'(?:ç)', 'c', text, flags=re.I)
     text = re.sub(r'(?:é|è|ê)', 'e', text, flags=re.I)
-    text = re.sub(r'(?:ï)', 'i', text, flags=re.I)
+    text = re.sub(r'(?:ï|î)', 'i', text, flags=re.I)
     text = re.sub(r'(?:œ)', 'oe', text, flags=re.I)
     text = re.sub(r'(?:ô)', 'o', text, flags=re.I)
     text = re.sub(r'(?:ù)', 'u', text, flags=re.I)
@@ -107,7 +107,7 @@ def clean_text(text):
     # sweets
     #text = re.sub(r'\b(?:haribo|strawberry pencil|chocolate|sweetie)(s?)\b', 'sweet\\1', text, flags=re.IGNORECASE) #burn him!
     # music
-    text = re.sub(r'\b(?:die antwoord|itzy|j-hope|jungkook|rapmon|suga|taemin|kesha|slim shady|eminem|jimin|sage francis|b dolan|scroobius pip|kate tempest|kae tempest|marsargo|kurt kobain|mars argo)(s?)\b', 'scroobius\\1', text, flags=re.IGNORECASE) #burn him!
+    text = re.sub(r'\b(?:niki minaj|nikki minaj|lady gaga|WLAB|joesph conrad|conrad|die antwoord|itzy|j-hope|jungkook|rapmon|suga|taemin|kesha|slim shady|eminem|jimin|sage francis|b dolan|scroobius pip|kate tempest|kae tempest|marsargo|kurt kobain|mars argo)(s?)\b', 'scroobius\\1', text, flags=re.IGNORECASE) #burn him!
     text = re.sub(r'\b(?:deaf havana|yellowcard|one direction|BTS|oasis|radiohead|robots in disguise|boom boom raccoon)(s?)\b', 'boomboomraccoon\\1', text, flags=re.IGNORECASE) #burn him!
 
 
@@ -125,7 +125,7 @@ def clean_text(text):
     # enemy
     # split policemen policewoman -> police men police woman
     text = re.sub(r'\b(police)((?:wo)?m[ea]n|lady)(s?)\b', '\\1 \\2\\3', text, flags=re.IGNORECASE) #burn him!
-    text = re.sub(r'\b(?:virgin media|bojo|boris johnson|estate agent|letting agent|jonny|giles|alice|alex mcginnes|mcginnes|alex|landlord|cops|police+(?:i[er]+)?|policiere|security guard|government|teacher|neighbour|george moore|jack clarke|george|lice|nits)(s?)\b', 'george\\1', text, flags=re.IGNORECASE) #burn him!
+    text = re.sub(r'\b(?:virgin media|bojo|boris johnson|estate agent|letting agent|jonny|giles|alice|alex mcginnes|mcginnes|alex|landlord|sahim|cops|police+(?:i[er]+)?|policiere|security guard|government|teacher|neighbour|george moore|jack clarke|george|lice|tommie|tommy|unanymous|nits)(s?)\b', 'george\\1', text, flags=re.IGNORECASE) #burn him!
     # élodie
     text = re.sub(r'\b(?:elodie🌻|élodie|boris|boriss|élo)(s?)\b', 'elodie\\1', text, flags=re.I)
     #text = re.sub(r'\b(?:loveggle|loveeggle|eggle|egglodie|louveangel|loveaangel|loveably|loveagnel|loveaigirl|loveaingle|lovealngle|loveangelelele|loveangely|loveangerl|loveangle1337|loveanglebus|loveangler|loveangwole|lovedevil|hatedevil|loveanus|lovedebil1337|lovedebil420|lovedoxxing|loveeagle|loveegg|loveeggly|lovefuckle|lovegangle|lovelodie|lovelyyyanglee|lovestrangel)(s?)\b', 'loveangle\\1', text, flags=re.I)
@@ -136,10 +136,10 @@ def clean_text(text):
     text = re.sub(r'\b(?:𓆏frogofanandroid𓆏|frog)\b', 'froggy', text, flags=re.I)
     # friends
     # character names
-    text = re.sub(r'\b(?:benedict cumberbatch|benadict cumberbatch|cumberbatch|kirk|spock|spirk|martin freeman|piper|william shatner|leonard nimoy|alastair|sherlock|sonic|pikachu|bulbasaur|charmander|sonic the hedgehog|shadow the hedgehog|doctor who)(s?)\b', 'sonic\\1', text, flags=re.IGNORECASE) #burn him!
+    text = re.sub(r'\b(?:bernd|benedict cumberbatch|benadict cumberbatch|cumberbatch|kirk|spock|spirk|martin freeman|piper|william shatner|leonard nimoy|alastair|sherlock|sonic|pikachu|bulbasaur|charmander|sonic the hedgehog|shadow the hedgehog|doctor who)(s?)\b', 'sonic\\1', text, flags=re.IGNORECASE) #burn him!
     # kevin
-    text = re.sub(r'\b(?:mark kaider rodger|peter johnson|peter dawson|benjamin watson|sheryl colclough|mark rodger|chloe readman|peter johnson|john locke|glenis male|pauline locke|sue male|susan male|phil male|philip male|p w male|asher wesley|michael male)(s?)\b', 'kevin magnier\\1', text, flags=re.I)
-    text = re.sub(r'\b(?:ryan|kai|johnson|dawson|martino|martin|benedict|natalie|henri|victoria|elizabeth|henry|jakc|jack|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|wolf|liam|helene|jim|martin|gillian|daniel|kayla|kayyluhh|dan|jed|anon|anonymous|kate|justine|charlie|jerry|chris|nick|daniel|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|jedidiah|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|max|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|skunkel|iska|chuckles)(s?)\b', 'kevin\\1', text, flags=re.I)
+    text = re.sub(r'\b(?:marcel duchamp|cildo meireles|piero manzoni|paul mattock|mark verbos|idris khan|stanley jones|mark kaider rodger|peter johnson|peter dawson|benjamin watson|sheryl colclough|mark rodger|chloe readman|peter johnson|john locke|glenis male|pauline locke|sue male|susan male|phil male|philip male|p w male|asher wesley|michael male)(s?)\b', 'kevin magnier\\1', text, flags=re.I)
+    text = re.sub(r'\b(?:julie|fooly|jake|tanja|danny|dandan|danrudge|edmund|leonard|andre|guy bar|liam|lara|duchamp|marcel|piero|pierre|paul|matthew|mckellar|verbos|idris|stanley|hilla|joseph|ryan|kai|johnson|dawson|martino|martin|benedict|natalie|henri|victoria|elizabeth|henry|jakc|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|wolf|liam|helene|jim|martin|gillian|daniel|kayla|kayyluhh|dan|jed|anon|anonymous|kate|justine|charlie|jerry|chris|nick|daniel|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|jedidiah|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|skunkel|iska|chuckles)(s?)\b', 'kevin\\1', text, flags=re.I)
     text = re.sub(r'\b(?:@sneakret.agent|valkyr|charismatic_canine|charismaticcanine|itskayyluhh|djsarahhall|deacon_vlad|dj alphabeats|missdoodzdj|chargednewt|lionastone|cacespowboy|markbiggus|waterguy12|buglady|bug lady|kaiderian|kingkaider|kaider|power pope|powerpope|skunkelmusen|rustypeugeot|moebius-ro|🌮tacosaurusmex🌮|ave_maria[0-9]{2}|tacosaurusmex|spacetaco|spacetaco_vibes)(s?)\b', 'kevinonline420', text, flags=re.I)
     text = re.sub(r'@(?:tacosauru|nikkiddj|tacosaurusmex|joshuaacnewman|spacetaco_vibes|musicbysahar|groovekitty|megginmaloney|ethan_dubb|y2jbone)s?\b', 'kevinonline420', text, flags=re.IGNORECASE) #burn him!
     # pets

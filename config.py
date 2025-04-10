@@ -8,6 +8,16 @@ modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if tor
 from torch.nn.functional import leaky_relu
 leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01)     # leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
 guessedTokenSeq = []
+"""if self.activationFunction == 'leaky_relu':
+            output = F.leaky_relu(output, 0.01)
+        elif self.activationFunction == 'relu':
+            output = F.relu(output)
+        elif self.activationFunction == 'sigmoid':
+            output = torch.sigmoid(output)
+        elif self.activationFunction == 'tanh':
+            output = torch.tanh(output)
+        elif callable(self.activationFunction):
+            output = self.activationFunction(output)"""
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
@@ -16,7 +26,7 @@ babyName = "babyLLM"
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 10000     # // 50 // 500 // 1000 // saves the model every x number of turns
+saveModelFreq = 10000     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 saveLock = False     # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
@@ -51,9 +61,10 @@ chatLogPath_trainingLog = "LOGS/chat/trainingLog_questions.txt"
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-temperature = 0.65     # temperature for softmax in response generation - controls randomness
+temperature = 0.90     # temperature for softmax in response generation - controls randomness
 topP = 0     # top P - probability
-numTokensPerStep = 4     # Number of tokens to predict per step
+numTokensPerStep = 18     # Number of tokens to predict per step
+inferenceOutputNumTokens = 400
 
 """memoryLayer"""
 memoryLength = 1000
@@ -67,21 +78,22 @@ gradientClipMaxNorm = 1.0
 
 """scheduled sampling"""
 scheduledSampling = True 
-scheduledSamplingProb = 0.0
-scheduledSamplingProbIncrement = 0.001     # increment probability of using model output by this much
+scheduledSamplingProbIncrement = 0.0000005     # // 0.0001 // increment probability of using model output by this much
 
 """--- TRAINING ---"""
-trainingDataSliceSize_min = 50
-trainingDataSliceSize_max = 3000
+trainingDataSliceSize_min = 5000
+trainingDataSliceSize_max = 100000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py) // 0 //
 epochs = 20
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 1000     # creates logs every x number of turns
-trainingLogFreq_100 = 100     # creates logs every x number of turns
+trainingLogFreq_1000 = 10000     # creates logs every x number of turns
+trainingLogFreq_100 = 2500     # creates logs every x number of turns
 
-printFreq = 10     # how often to print training progress to the terminal
-printPromptLength = 35     # how many characters of the prompt to display in terminal
+durationLogging = False     # // True // False // activates debug time logging
+
+printFreq = 50     # how often to print training progress to the terminal
+printPromptLength = 50     # how many characters of the prompt to display in terminal
 
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
@@ -91,69 +103,69 @@ printPromptLength = 35     # how many characters of the prompt to display in ter
 rawDataFilepaths = [     # for textCleaningTool.py
 
     #--- BABYLLM CHAT LOGS ---
-    ("text", chatLogPath_trainingLog, 6),     # log: 'what am i learning today?'
-    ("text", chatLogPath_talkToYourself, 2),     #  i answer my own previous chat messages
-    ("text", chatLogPath_infer, 6),     # log: babyLLM infer.py history!
-    ("text", chatLogPath_talkToYourselfComparisons, 2),     # log: comparing babyllms answers to my answers
+    ("text", chatLogPath_trainingLog, 0),     # log: 'what am i learning today?'
+    ("text", chatLogPath_talkToYourself, 0),     #  i answer my own previous chat messages
+    ("text", chatLogPath_infer, 0),     # log: babyLLM infer.py history!
+    ("text", chatLogPath_talkToYourselfComparisons, 0),     # log: comparing babyllms answers to my answers
 
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
-    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 20),     # discord message history
-    ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 20),     # reddit comments
-    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 4),     #  random poems from my notes on my phone
-    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 6),     # reddit posts
-    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 6),     # chatgpt history charis side only
-    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 20),     # old account facebook messages charis side only
+    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 2),     # discord message history
+    ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
+    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 2),     #  random poems from my notes on my phone
+    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
+    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 1),     # chatgpt history charis side only
+    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 2),     # old account facebook messages charis side only
+    ("text", "SCHOOL/library/charisStudies/essays.txt", 2),     # essays
 
     #--- MOUSE ADVENTURES ---
-    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", 4),     #  elodies wonderful mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", 4),     #  my simple version of elodies mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", 10),     #  even more of elodies lovely mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", 1),     #  elodies wonderful mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", 1),     #  my simple version of elodies mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", 1),     #  even more of elodies lovely mouse story!
 
     #--- TENSES ---
-    ("text", "SCHOOL/library/tenses/presentTense.txt", 6),     #  tense: present (kevin's weed theme?)
-    ("text", "SCHOOL/library/tenses/pastTense.txt", 6),     # tense: past (mouse theme!)
+    ("text", "SCHOOL/library/tenses/presentTense.txt", 1),     #  tense: present (kevin's weed theme?)
+    ("text", "SCHOOL/library/tenses/pastTense.txt", 1),     # tense: past (mouse theme!)
 
-    ("text", "SCHOOL/library/tenses/futureContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/futureContinuousTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 0),     #  tense
     ("text", "SCHOOL/library/tenses/futurePerfectTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalMustHaveTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalMustHaveTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 0),     #  tense
     ("text", "SCHOOL/library/tenses/pastModalWouldHaveTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 0),     #  tense
     ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/futureTense.txt", 1),     #  tense: future
-    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 1),     # tense: present conditional
+    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/futureTense.txt", 0),     #  tense: future
+    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 0),     # tense: present conditional
     ("text", "SCHOOL/library/tenses/pastContinuousTense.txt", 1),     #  tense: past continuous
-    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 0),     #  tense
 
     #--- MINI TRAINING ---
-    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 6),     # i am happy! i did it! i know it!
-    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 6),     # training: i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 2),     # i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 2),     # training: i am happy! i did it! i know it!
 
     #--- SIMPLE TRAINING ---
     ("text", "SCHOOL/library/simpleTraining/cursed.txt", 1),     # training but chaotic shuffle
     ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 1),     # weird fake sentences
-    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 0),     #  training
     ("text", "SCHOOL/library/simpleTraining/shortestwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 2),     #  training
-    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 2),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 2),     #  training
-    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 4),     # training
-    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 4),     #  training
-    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 4),     #  training
+    ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 0),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 0),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 1),     # training
+    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 1),     #  training
 
 ]
-
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 """-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""
@@ -167,15 +179,15 @@ numNeurons = 10000     # number of neurons in the parallel neuron layer
 """windows"""
 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 
-windowMIN = 1     # Small Context Window
-window1 = 2
-window2 = 3
-window3 = 7
-window4 = 8     
-window5 = 13
-window6 = 15
-window7 = 18
-windowMAX = 21     # THIS MUST BE THE HIGHEST NUMBER
+windowMIN = 2     # Small Context Window
+window1 = 28
+window2 = 8
+window3 = 12
+window4 = 16     
+window5 = 20
+window6 = 24
+window7 = 28
+windowMAX = 32     # THIS MUST BE THE HIGHEST NUMBER
 allWindowSizes = [windowMAX, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
 
 attentionWindow = None     # attention head  

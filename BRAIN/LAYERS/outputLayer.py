@@ -25,6 +25,40 @@ class OUTPUTLAYER(nn.Module):
         """return logits (not softmax) for better gradient computation in cross-entropy loss"""
         logits = activationsTensor @ self.weights + self.bias
         return logits
+    
+    def getOutputStats(self):
+        with torch.no_grad():
+            stats = {}
+            # weight stats
+            #weightNorms = torch.norm(self.weights, dim=0)
+            #stats["logitWeightNormMean"] = weightNorms.mean().item()
+            #stats["logitWeightNormStd"] = weightNorms.std().item()
+            #stats["logitWeightNormMax"] = weightNorms.max().item()
+
+            # sparsity
+            #sparsity = (self.weights.abs() < 1e-5).float().mean().item()
+            #stats["logitWeightSparsity"] = sparsity
+
+            #drift = torch.norm(self.weights - self.lastSavedWeights).item()
+            #stats["logitWeightDrift"] = drift
+            #self.lastSavedWeights = self.weights.clone().detach()
+
+            # bias stats
+            #stats["logitBiasMean"] = self.bias.mean().item()
+            #stats["logitBiasStd"] = self.bias.std().item()
+            #stats["logitBiasMax"] = self.bias.max().item()
+
+            # Activation stats
+            if hasattr(self, 'latestActivations'):
+                act = self.latestActivations
+                #stats["activationStd"] = act.std().item()
+                #stats["activationMean"] = act.mean().item()
+                stats["activationMax"] = act.max().item()
+                stats["activationMin"] = act.min().item()
+                #stats["activationSparsity"] = (act.abs() < 1e-6).float().mean().item()
+
+
+            return stats
 
     
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ plt.title("Window Weights Over Time")
 plt.ylabel("Weight")
 plt.xlabel("Timestamp")
 plt.xticks(rotation=45)
-plt.ylim(-0.1, 0.3)  # Adjust if needed
+#plt.ylim(-0.1, 0.3)  # Adjust if needed
 plt.legend(title="Window", bbox_to_anchor=(1.05, 1), loc="upper left")
 plt.tight_layout()
 plt.show()
