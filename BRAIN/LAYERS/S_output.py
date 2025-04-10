@@ -62,11 +62,9 @@ def S_getStat(statType, statVal):
         if statVal <= limit: return label
     return "emergency"
 
-def S_apply(S_type, text):
-    return "".join(S_types.get(S_type, [])) + str(text) + RESET
+def S_apply(S_type, text): return "".join(S_types.get(S_type, [])) + str(text) + RESET
     
-def S_stripForLogging(text):
-    return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
+def S_stripForLogging(text): return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
 
 def S_colourPrintTraining(step, inputSeq, guessedSeq_str, targetSeq_str, loss, recentLoss=None, totalLoss=None, totalTokenCount=None):
     S_type = S_getStat("loss", loss)
