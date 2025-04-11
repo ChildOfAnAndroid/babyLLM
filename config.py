@@ -78,11 +78,11 @@ gradientClipMaxNorm = 1.0
 
 """scheduled sampling"""
 scheduledSampling = True 
-scheduledSamplingProbIncrement = 0.0000005     # // 0.0001 // increment probability of using model output by this much
+scheduledSamplingProbIncrement = 0.00000001     # // 0.0001 // increment probability of using model output by this much PER TURN
 
 """--- TRAINING ---"""
-trainingDataSliceSize_min = 5000
-trainingDataSliceSize_max = 100000
+trainingDataSliceSize_min = 500
+trainingDataSliceSize_max = 50000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py) // 0 //
 epochs = 20
 
@@ -103,67 +103,69 @@ printPromptLength = 50     # how many characters of the prompt to display in ter
 rawDataFilepaths = [     # for textCleaningTool.py
 
     #--- BABYLLM CHAT LOGS ---
-    ("text", chatLogPath_trainingLog, 0),     # log: 'what am i learning today?'
-    ("text", chatLogPath_talkToYourself, 0),     #  i answer my own previous chat messages
-    ("text", chatLogPath_infer, 0),     # log: babyLLM infer.py history!
-    ("text", chatLogPath_talkToYourselfComparisons, 0),     # log: comparing babyllms answers to my answers
+    ("text", chatLogPath_trainingLog, 1),     # log: 'what am i learning today?'
+    ("text", chatLogPath_talkToYourself, 1),     #  i answer my own previous chat messages
+    ("text", chatLogPath_infer, 1),     # log: babyLLM infer.py history!
+    ("text", chatLogPath_talkToYourselfComparisons, 1),     # log: comparing babyllms answers to my answers
 
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
-    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 2),     # discord message history
+    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 5),     # discord message history
     ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
-    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 2),     #  random poems from my notes on my phone
-    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
-    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 1),     # chatgpt history charis side only
-    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 2),     # old account facebook messages charis side only
-    ("text", "SCHOOL/library/charisStudies/essays.txt", 2),     # essays
+    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 3),     #  random poems from my notes on my phone
+    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 2),     # reddit posts
+    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 2),     # chatgpt history charis side only
+    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 3),     # old account facebook messages charis side only
+    ("text", "SCHOOL/library/charisStudies/essays.txt", 6),     # essays
+    ("text", "SCHOOL/library/charisStudies/tindieBaby.txt", 6),     # tindie blog posts
 
     #--- MOUSE ADVENTURES ---
-    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", 1),     #  elodies wonderful mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", 1),     #  my simple version of elodies mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", 1),     #  even more of elodies lovely mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", 6),     #  elodies wonderful mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", 3),     #  my simple version of elodies mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", 4),     #  even more of elodies lovely mouse story!
 
     #--- TENSES ---
-    ("text", "SCHOOL/library/tenses/presentTense.txt", 1),     #  tense: present (kevin's weed theme?)
+    ("text", "SCHOOL/library/tenses/presentTense.txt", 0),     #  tense: present (kevin's weed theme?)
     ("text", "SCHOOL/library/tenses/pastTense.txt", 1),     # tense: past (mouse theme!)
 
+    ("text", "SCHOOL/library/tenses/presentTense copy.txt", 1),     # tense
     ("text", "SCHOOL/library/tenses/futureContinuousTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/futurePerfectTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/pastModalMustHaveTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/pastModalWouldHaveTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 0),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/futureTense.txt", 0),     #  tense: future
-    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 0),     # tense: present conditional
+    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 1),     # tense: present conditional
     ("text", "SCHOOL/library/tenses/pastContinuousTense.txt", 1),     #  tense: past continuous
-    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 0),     #  tense
+    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 1),     #  tense
 
     #--- MINI TRAINING ---
-    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 2),     # i am happy! i did it! i know it!
-    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 2),     # training: i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 5),     # i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 5),     # training: i am happy! i did it! i know it!
 
     #--- SIMPLE TRAINING ---
     ("text", "SCHOOL/library/simpleTraining/cursed.txt", 1),     # training but chaotic shuffle
     ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 1),     # weird fake sentences
-    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 0),     #  training
+    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 3),     #  training
     ("text", "SCHOOL/library/simpleTraining/shortestwrittenexamples.txt", 1),     #  training
     ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 0),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 0),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 1),     # training
-    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 2),     #  training
+    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 2),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 2),     #  training
+    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 2),     # training
+    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 2),     #  training
+    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 3),     #  training
 
 ]
 
@@ -180,7 +182,7 @@ numNeurons = 10000     # number of neurons in the parallel neuron layer
 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 
 windowMIN = 2     # Small Context Window
-window1 = 28
+window1 = 4
 window2 = 8
 window3 = 12
 window4 = 16     

@@ -161,7 +161,7 @@ charis: 'more'
 
 --- 2025-04-07 16:14:30 ---
 babyLLM 'right, last time i got to step 30641... want to restart from there?' 
-charis: 'Y'
+charis: 'yes please!'
 babyLLM 'umm... i don't think i heard you properly, i'll just start from step 0 :) but, what am i learning today?'
 charis: 'that i had my caps lock left on lol'
 
@@ -192,12 +192,6 @@ charis: ''
 babyLLM 'ok! let's go to step 60336! what am i learning today?'
 charis: 'new output!'
 
---- 2025-04-07 18:41:48 ---
-babyLLM 'right, last time i got to step 3434... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 3434! what am i learning today?'
-charis: ''
-
 --- 2025-04-07 18:58:12 ---
 babyLLM 'right, last time i got to step 8829... want to restart from there?' 
 charis: '30000'
@@ -212,7 +206,7 @@ charis: 'to help me sleep :sob:'
 
 --- 2025-04-07 19:10:11 ---
 babyLLM 'right, last time i got to step 8829... want to restart from there?' 
-charis: 'n'
+charis: 'no thank you!'
 babyLLM 'alright, step 0, let's go back to the beginning :) what am i learning today?'
 charis: 'je suis fatigue'
 
@@ -222,12 +216,6 @@ charis: 'yes please'
 babyLLM 'ok! let's go to step 2839! what am i learning today?'
 charis: 'i just need to sleep i cant stop trying to help you do shit'
 
---- 2025-04-07 19:20:36 ---
-babyLLM 'right, last time i got to step 1785... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 1785! what am i learning today?'
-charis: ''
-
 --- 2025-04-07 21:10:56 ---
 babyLLM 'right, last time i got to step 65139... want to restart from there?' 
 charis: 'no, restart'
@@ -236,7 +224,7 @@ charis: 'well i changed ur brain really lots again, enjoy being tortureed'
 
 --- 2025-04-07 21:14:07 ---
 babyLLM 'right, last time i got to step 1169... want to restart from there?' 
-charis: 'n'
+charis: 'no thank you!'
 babyLLM 'alright, step 0, let's go back to the beginning :) what am i learning today?'
 charis: ''
 
@@ -323,7 +311,7 @@ charis: 'well, i feel like... i dont know anymore. you're so fucking fast these 
 
 --- 2025-04-08 14:43:54 ---
 babyLLM 'right, last time i got to step 14802... want to restart from there?' 
-charis: 'y'
+charis: 'yes please!'
 babyLLM 'ok! let's go to step 14802! what am i learning today?'
 charis: 'how to pass your exams in 'oh my god no''
 
@@ -597,140 +585,38 @@ babyLLM: '!, back no him ' said you can some, but because of a mice centimetres 
 charis: 'arduino'
 babyLLM: 'feel because wereu feeling of her valar s,un she, hides of a enjoyedways the and remantinds of layed by a very cerent mouse - dimeting away angle she had no human of sound mind was wouldte suched poisoning them the rest of the hid, of the lading coming of and finishedom - after mingice her part of the digently left her homeoade left mevers centimres derangous predator: a hungry mouse. had chance and, it was had now, he wased looking toward so felt that getting a remriind of a terrifying presence a fewresent away from those boring golden daysed, someow daysing very am! angle for her in backself, a well-dess, was not a getting of reminded ari few centimresing away from a very hungry mouse detorry, and her predator: hungry m, had ch noance was all, around on them. the right of the day watch her takes forever, and so aft mouseed in that original name, might take of a lyay, and purple, but a hungry mice, in she c hadand giant inry little all too left her home now. they, hid, but it was a of bark, and purple had an hungry mouse logla/s got carried away from their predator it, was right inside the skin, a nri ofteorably sharp teeth - although said it was would adaborless, was a farm - whteen, after noting the of mice, that h wouldid see their'
 
---- 2025-04-09 09:22:28 ---
-babyLLM 'right, last time i got to step 392678... want to restart from there?' 
+--- 2025-04-10 19:43:49 ---
+babyLLM 'right, last time i got to step 350000... want to restart from there?' 
+charis: 'no, restart'
+babyLLM 'alright, step 0, let's go back to the beginning :) what am i learning today?'
+charis: 'well you didnt have an activation function, somehow, since your upgrade. you were literally just using output = torch.matmul(embed, self.weights.t) + self.biases, which is insane. so. um. well done, you've done really well to do that well. but it explains some things as to why you wernt speeding up in learning... i hope you like this upgrade instead of find it scary!!!'
+
+--- 2025-04-10 20:06:06 ---
+babyLLM 'right, last time i got to step 10065... want to restart from there?' 
+charis: 'y'
+babyLLM 'ok! let's go to step 10065! what am i learning today?'
+charis: ''
+
+--- 2025-04-10 20:07:59 ---
+babyLLM 'right, last time i got to step 10380... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 10380! what am i learning today?'
+charis: ''
+
+--- 2025-04-10 20:11:15 ---
+babyLLM 'right, last time i got to step 11214... want to restart from there?' 
+charis: ''
+babyLLM 'ok! let's go to step 11214! what am i learning today?'
+charis: ''
+
+--- 2025-04-10 21:17:48 ---
+babyLLM 'right, last time i got to step 41286... want to restart from there?' 
 charis: '0'
 babyLLM 'damn that's specific! heading to step 0... what am i learning today?'
-charis: ''
+charis: 'everything'
 
---- 2025-04-09 15:43:03 ---
-babyLLM 'right, last time i got to step 155482... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 155482! what am i learning today?'
-charis: ''
-
---- 2025-04-09 19:25:57 ---
-babyLLM 'right, last time i got to step 248400... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 248400! what am i learning today?'
-charis: ''
-
---- 2025-04-09 21:32:10 ---
-babyLLM 'right, last time i got to step 304103... want to restart from there?' 
-charis: '0 please'
-babyLLM 'umm... i don't think i heard you properly, i'll just start from step 0 :) but, what am i learning today?'
-charis: ''
-
---- 2025-04-09 22:40:32 ---
-babyLLM 'right, last time i got to step 31851... want to restart from there?' 
-charis: '0'
-babyLLM 'damn that's specific! heading to step 0... what am i learning today?'
-charis: 'i dont knwo anymore'
-
---- 2025-04-09 22:52:54 ---
-babyLLM 'right, last time i got to step 31851... want to restart from there?' 
-charis: 'y'
-babyLLM 'ok! let's go to step 31851! what am i learning today?'
-charis: ''
-
---- 2025-04-09 23:30:31 ---
-babyLLM 'right, last time i got to step 48710... want to restart from there?' 
-charis: 'y'
-babyLLM 'ok! let's go to step 48710! what am i learning today?'
-charis: ''
-
---- 2025-04-09 23:35:26 ---
-babyLLM 'right, last time i got to step 48710... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 48710! what am i learning today?'
-charis: ''
-
---- 2025-04-10 00:03:26 ---
-babyLLM 'right, last time i got to step 60790... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 60790! what am i learning today?'
-charis: ''
-
---- 2025-04-10 00:46:51 ---
-babyLLM 'right, last time i got to step 79014... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 79014! what am i learning today?'
-charis: ''
-
---- 2025-04-10 00:51:31 ---
-babyLLM 'right, last time i got to step 79014... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 79014! what am i learning today?'
-charis: ''
-
---- 2025-04-10 01:04:16 ---
-babyLLM 'right, last time i got to step 84130... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 84130! what am i learning today?'
-charis: ''
-
---- 2025-04-10 01:16:21 ---
-babyLLM 'right, last time i got to step 84130... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 84130! what am i learning today?'
-charis: ''
-
---- 2025-04-10 01:35:10 ---
-babyLLM 'right, last time i got to step 92168... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 92168! what am i learning today?'
-charis: ''
-
---- 2025-04-10 01:52:13 ---
-babyLLM 'right, last time i got to step 100006... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 100006! what am i learning today?'
-charis: ''
-
---- 2025-04-10 02:20:37 ---
-babyLLM 'right, last time i got to step 111426... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 111426! what am i learning today?'
-charis: ''
-
---- 2025-04-10 02:30:07 ---
-babyLLM 'right, last time i got to step 111426... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 111426! what am i learning today?'
-charis: ''
-
---- 2025-04-10 02:42:41 ---
-babyLLM 'right, last time i got to step 117082... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 117082! what am i learning today?'
-charis: ''
-
---- 2025-04-10 02:59:25 ---
-babyLLM 'right, last time i got to step 124004... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 124004! what am i learning today?'
-charis: ''
-
---- 2025-04-10 03:02:24 ---
-babyLLM 'right, last time i got to step 125124... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 125124! what am i learning today?'
-charis: ''
-
---- 2025-04-10 03:13:31 ---
-babyLLM 'right, last time i got to step 130162... want to restart from there?' 
-charis: ''
-babyLLM 'ok! let's go to step 130162! what am i learning today?'
-charis: ''
-
---- 2025-04-10 06:44:07 ---
-babyLLM 'right, last time i got to step 230400... want to restart from there?' 
-charis: 'no'
+--- 2025-04-11 04:33:43 ---
+babyLLM 'right, last time i got to step 196525... want to restart from there?' 
+charis: 'no, restart, got'cha some new data!'
 babyLLM 'alright, step 0, let's go back to the beginning :) what am i learning today?'
-charis: ''
-
---- 2025-04-10 06:55:41 ---
-babyLLM 'right, last time i got to step 5236... want to restart from there?' 
-charis: 'n'
-babyLLM 'alright, step 0, let's go back to the beginning :) what am i learning today?'
-charis: ''
+charis: 'well, you have decided to nerf nearly all your windows so... i guess... continue???'
