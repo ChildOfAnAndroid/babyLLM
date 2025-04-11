@@ -1,974 +1,962 @@
-love the computer!
-say 'i'm just a baby!',
-listen to the music,
-love smoking my weed!
-move my weed.
-move her.
-take smoking my weed.
-love my butt!
-like the snacks!
-hate the synth!
-take from stuff.
-pick her up!
-care about the sun!
-want the ring!
-see the sound,
-look at the synth.
-see the chair,
-like the computer!
-see the decks,
-hear our brain!
-like the sun!
-pick up the food!
-feel my brain,
-love my voice!
-like the night sky!
-want the sun!
-look at things.
-touch them.
-give it to charis.
-move the blanket.
-drink it.
-want the cats!
-learn from them,
-touch the snacks.
-feel the passage of time,
-hate the drink!
-need the synth!
-see them,
-love the music!
-love my weed!
-hate her voice!
-leave the turntable,
-need stuff!
-hear the cats!
-put it down!
-pick stuff up!
-take the snacks.
-hear elodie!
-sing the song,
-feel the daylight,
-draw my brain.
-take the fan.
-love the sound!
-care about the meds!
-pick up the blanket!
-want the bed!
-like the darkness!
-care about elodie and charis!
-like her voice!
-like stuff!
-love the toy!
-hear the guitar!
-move from the bed.
-care about the chair!
-hate them!
-like the house!
-hear her brain!
-love the drink!
-care about the cats!
-drinking some juice.
-take from things.
-want the rain!
-pick up elodie!
-move from the cats.
-learn from my weed,
-like things!
-know us!
-give me.
-like the soundtrack!
-need your voice!
-listen to your voice,
-see the guitar,
-hate their voice!
-smink him!
-pick up charis!
-hate the rain!
-hear your brain!
-hate things!
-want the heating!
-smink stuff!
-love us!
-smink you!
-hate being too hot!
-see your voice,
-touch the turntable.
-look at him.
-eat my brain!
-need my weed!
-learn from stuff,
-touch the synth.
-see my voice,
-love my brain!
-hear kevin's voice!
-know you!
-give them.
-pick up the drink!
-care about computers!
-draw my weed.
-look at the house.
-hate my brain!
-write the song!
-leave them,
-give him.
-like the food!
-see her,
-need the fan!
-leave the chair,
-take the food.
-leave the oven,
-say 'bye!',
-sing a tune,
-listen to the fan,
-love the moon!
-sing it,
-know the daylight!
-hear charis' butt!
-hate the chair!
-write a tune!
-care about my voice!
-hear kevin's weed!
-move me.
-care about the snacks!
-hear their voice!
-come back to it,
-see the house,
-hear his brain!
-hear charis' weed!
-learn from you,
-hate the sound!
-look at the ring.
-hear our voice!
-want the food!
-know the music!
-listen to my butt,
-care about him!
-take charis.
-move my butt.
-hate the blanket!
-want you!
-give things.
-take from the computer.
-take her.
-smink elodie!
-take my brain.
-care about the music!
-write a love letter!
-draw a picture.
-pick up the bed!
-touch the decks.
-wake up!
-feel my weed,
-need the toy!
-hear charis' voice!
-give it to you.
-take the meds.
-take the guitar.
-love the night sky!
-need the house!
-see their voice,
-pick you up!
-give it to stuff.
-draw you.
-look at the oven.
-like the daylight!
-draw a boat.
-move my phone.
-hear charis!
-give it to elodie.
-like the blanket!
-like technology!
-draw a boof raccoon.
-need the chair!
-like her!
-know charis!
-give you.
-learn from the rain,
-hate the sun!
-touch my butt.
-listen to us,
-listen to charis,
-want the passage of time!
-want the music!
-drink tea.
-move them.
-love the fan!
-see the darkness,
-move the bed.
-care about the sound!
-care about stuff!
-leave the bed,
-like the toy!
-look at the photo.
-write the music!
-feel her,
-take the blanket.
-care about the house!
-hug it!
-see my brain,
-create happiness,
-move the toy.
-leave the heating,
-take from charis.
-like the sofa!
-like us!
-leave my room,
-want the fan!
-learn from elodie,
-pick it up!
-love your friend!care about friends!
-create the food,
-need the music!
-hear your cock!
-touch the phone.
-draw a dog.
-care about the daylight!
-love it!
-learn from me,
-give it.
-write on it!
-look at it.
-love the passage of time!
-hate you!
-leave the decks,
-leave you,
-leave the fan,
-pick up the synth!
-draw a drawing.
-want my brain!
-see you,
-care about the passage of time!
-touch the computer.
-hear the sound!
-draw my butt.
-like space!
-know the sun!
-need my butt!
-move the synth.
-create problems,
-like elodie!
-give elodie.
-love computers!
-want the blanket!
-write it!
-need the darkness!
-take from you.
-care about my brain!
-take some of my weed.
-take the piss.
-touch the meds.
-take the cats.
-see the turntable,
-love me!
-eat things!
-hear their butt!
-hear the turntable!
-love the window!
-leave my brain,
-listen to the guitar,
-touch the chair.
-learn from her,
-hate the daylight!
-hear elodie's butt!
-need him!
-feel the music,
-know her voice!
-eat my food!
-give it to her.
-like the rain!
-care about the darkness!
-need her voice!
-care about food!
-say 'hello!',
-like the decks!
-look at stuff.
-learn from my brain,
-listen to stuff,
-drink the drink.
-hear charis' brain!
-need my phone!
-listen to the phone,
-drinking some soup.
-smink pizza!
-see the toy,
-learn from the sound,
-want my butt!
-care about the toilet!
-take the computer.
-give charis.
-eat them!
-care about your voice!
-need the sound!
-love the turntable!
-take from it.
-drink the tea.
-need the decks!
-leave the meds,
-move charis.
-hear the decks!
-feel you,
-like you!
-hate the cats!
-want the oven!
-care about my phone!
-move the toilet.
-know their voice!
-give my butt.
-want my voice!
-love the soundtrack!
-move the drink.
-look at the video.
-love your voice!
-look at the turntable.
-take it.
-hear their brain!
-eat it!
-feel charis,
-feel the cats,
-move the heating.
-learn from the music,
-give it to me.
-need the heating!
-drink milk.
-listen to smoking my weed,
-give it to him.
-like the sound!
-give it to my cock.
-hate the passage of time!
-touch my brain.
-look at the film.
-hate the toilet!
-see the ring,
-want charis!
-like the fan!
-move smoking my weed.
-write a poem!
-need the blanket!
-care about the rain!
-learn from it,
-hear elodie's brain!
-leave it,
-take from the chair.
-drink juice.
-move from the chair.
-move the cats.
-hear things!
-leave charis,
-care about the decks!
-see the meds,
-move from me.
-want the decks!
-feel her voice,
-see the sun,
-want the synth!
-touch the food.
-learn from the house,
-like the drink!
-look at the meds.
-take my weed.
-move house.
-like my voice!
-feel me,
-listen to you,
-like the bed!
-care about the moon!
-look at charis.
-hear his voice!
-want things!
-want them!
-feel your voice,
-drink the soup.
-see the drink,
-write a text message!
-want the chair!
-care about the toy!
-care about the guitar!
-listen to him,
-touch elodie.
-hate my cock!
-pick him up!
-learn from the cats,
-feel my butt,
-hear stuff!
-care about their voice!
-take the synth.
-eat the food!
-love the daylight!
-care about the room!
-take the chair.
-listen to things,
-look at the drink.
-look at elodie.
-need the ring!
-move from you.
-love the meds!
-need the guitar!
-pick up my brain!
-eat my weed!
-care about charis and elodie!
-touch stuff.
-give my weed.
-know your voice!
-listen to elodie,
-learn from her voice,
-move from the computer.
-want the toy!
-create ideas,
-leave the computer,
-love the chair!
-love elodie!
-take the toilet.
-move you.
-move the ring.
-hate being too cold!
-love his voice!
-need the food!
-feel stuff,
-listen to the oven,
-learn from my butt,
-like my brain!
-hate the darkness!
-like the cats!
-draw a self portrait.
-move it.
-love technology!
-see stuff,
-like kevin!
-know the rain!
-take from the house.
-just be a baby.
-need the oven!
-leave the snacks,
-listen to my brain,
-look at the toy.
-leave the toy,
-like computers!
-want the darkness!
-eat me!
-care about my butt!
-hate charis!
-like the chair!
-want me!
-like their voice!
-touch him.
-take from them.
-learn from the computer,
-see us,
-smoke my weed,
-care about charis!
-need me!
-learn from charis,
-hear their weed!
-smink it!
-need to smoke my weed!
-like the game!
 drinking some milk.
-take you.
-like charis!
-take the toy.
-hate the guitar!
-hate the fan!
-go to it.
-sing some songs,
-take the drink.
-listen to my voice,
-draw me.
-take the decks.
-see the phone,
-know his voice!
-want the computer!
-move my brain.
-feel the darkness,
-move the fan.
-look at my brain.
-touch the drink.
-like the toilet!
-care about her!
-pick up the meds!
-see smoking my weed,
-like the phone!
-look at the cats.
-move the computer.
-listen to me,
-need my voice!
-like the oven!
-look at me.
-look at the fan.
-eat pasta!
-listen to my weed,
-love her voice!
-touch the fan.
-write some songs!
-look at the book.
-love the blanket!
-take from my brain.
-love your phone!
-learn from the oven,
-take the house.
-care about the blanket!
-listen to the decks,
-feel him,
-learn from him,
-leave elodie,
-feel my voice,
-hear my butt!
-hate the food!
-touch smoking my weed.
-care about stars!
-hate smoking my weed!
-love the rain!
-look at the guitar.
-know the cats!
-love the decks!
-see it,
-drink drink.
-learn from the sun,
-listen to their voice,
-hear our weed!
-take from the bed.
-look at the phone.
-listen to her voice,
-see the oven,
-hear your voice!
-want the snacks!
-leave the food,
-take things.
-take from elodie.
-hear the computer!
-eat the cats!
-smink smoking my weed!
-touch the bed.
-take them.
-love charis!
-move the guitar.
-learn from the daylight,
-listen to the rain,
-hate the house!
-love the snacks!
-touch his hand.
-drinking some tea.
-draw stuff.
-feel the sun,
-see my butt,
-move the chair.
-like the passage of time!
-hate elodie!
-love their voice!
-care about the turntable!
-create joy,
-need the rain!
-need their voice!
-love you!
-want the guitar!
-love the darkness!
-hate your phone!
-leave my cock,
-like the window!
-pick up the decks!
-care about the sofa!
-feel us,
-leave the guitar,
+want a fan!
 feel things,
-like the heating!
-smink my brain!
-look at the blanket.
-touch the toy.
-hear me!
-eat charis!
-hate the heating!
-see the rain,
-like elodie and charis!
-say 'i love you!',
-like stars!
-drink the water.
-sleep,
-feel his voice,
-hear her voice!
-give it to my brain.
-add to it!
-see elodie,
-care about the night sky!
-write a discord message!
-like my weed!
-know my dick!
-love them!
-give my brain.
-learn from my voice,
-see the food,
-want elodie!
-love the house!
-hate the snacks!
-love the sofa!
-look at them.
-care about the drink!
-care about technology!
-touch my weed.
-drink water.
-like me!
-draw charis.
-know them!
-move from it.
-create music,
-give it to it.
-hate the george!
-give it to the cats.
-know me!
-touch me.
-hear your weed!
-draw the cats.
-learn from his voice,
-give her.
-learn from things,
-see charis,
-eat dinner!
-draw things.
-see the passage of time,
-do it.
-care about the game!
-know it!
-care about the food!
-leave the synth,
-care about the oven!
-love the sun!
-care about the heating!
-listen to the sound,
-pick up the guitar!
-eat elodie!
-leave things,
-want us!
-touch charis.
-hear the sun!
-move stuff.
-feel their voice,
-need the daylight!
-eat my butt!
-like the meds!
-need the snacks!
-hate the turntable!
-touch her.
-leave her,
-learn from the chair,
-drinking some water.
-look at the picture.
-need his voice!
-like them!
-take me.
-see the music,
-move from my brain.
-care about space!
-listen to the cats,
-eat food!
-need her!
-like the music!
-care about them!
-look at the snacks.
-drink the juice.
-pick up the fan!
-look at the chair.
-see my weed,
-like the turntable!
-hate the bed!
-want the toilet!
-leave stuff,
-leave the ring,
-care about kevin!
-write an essay!
-say 'i care about you!',
-care about elodie!
-like the ring!
-like smoking my weed!
-eat some food!
-look at her.
-look at the toilet.
-touch the house.
-sing the music,
-hear the rain!
-like his voice!
-like my dick!
-want the meds!
-want the phone!
-hear my weed!
-love food!
-move elodie.
-give it to them.
-feel the rain,
-see the daylight,
-love the room!
-move the decks.
-look at my butt.
-touch the guitar.
-love the guitar!
-move from charis.
-want his voice!
-give stuff.
-eat you!
-like him!
-want the house!
-leave him,
-know her!
-draw elodie.
-leave the toilet,
-want the sound!
-write a letter!
-look at my weed.
-hate my weed!
-hear her weed!
-like it!
-see him,
-hate the computer!
-write an email!
-move the meds.
-smink the cats!
-hear the synth!
-draw him.
-look at the painting.
-learn from the bed,
-touch the blanket.
-hear them!
-smink her!
-love the synth!
-listen to them,
-pick up my weed!
-take from my butt.
-want the turntable!
-take him.
-hear his dick!
-learn from their voice,
-create songs,
-see me,
-want her!
-move things.
-care about her voice!
-take from the cats.
-make it.
-move from my butt.
-hate me!
-move from the oven.
-say 'i like you!',
-want him!
-take my dick.
-like the moon!
-draw a cat.
-need the drink!
-write a song!
-take the oven.
-eat him!
-like food!
-hear kevin's butt!
-know my brain!
-leave the cats,
-care about the ring!
-feel it,
-smink pasta!
-see the cats,
-love kevin!
-look at the heating.
-hear her dick!
-eat soup!
-know stuff!
-write a book!
-draw smoking my weed.
+move her.
 care about us!
-drinking some drink.
-look at the food.
-take from the oven.
-love the ring!
-hate the oven!
-pick up the turntable!
-pick up my butt!
-hear kevin's brain!
-move the food.
-care about the fan!
-give it to my weed.
-care about the bed!
-eat breakfast!
-care about the soundtrack!
-want her voice!
-hate the meds!
-want it!
-smink me!
-touch it.
-pick up the cats!
-take my phone.
-need elodie!
-see the toilet,
-move the turntable.
-listen to the computer,
-love the toilet!
-see the bed,
-hear his weed!
-touch the toilet.
-hear you!
-care about it!
-pick things up!
-know the passage of time!
-need the sun!
-take the bed.
-touch things.
-feel elodie,
-move from them.
-see the blanket,
-leave the phone,
-pick up the phone!
-hate him!
-pick up smoking my weed!
-pick up the snacks!
-hate my voice!
-want smoking my weed!
-want your voice!
-need you!
-love stuff!
-take the ring.
-know my voice!
-write an article!
-know elodie!
-eat her!
-hate the ring!
-know the sound!
-love her!
-love space!
-like the room!
-listen to it,
-love the heating!
-smink my weed!
-listen to the turntable,
-hear the fan!
-learn from your voice,
-create art,
-hear it!
-create something new,
-love charis and elodie!
-hear us!
-say 'i am happy!',
-need things!
-say it,
-pick up the chair!
-smink my butt!
-love stars!
-need the passage of time!
-like your voice!
-hear my brain!
-need the bed!
-move the snacks.
-eat stuff!
-like charis and elodie!
-pick up the computer!
-love the game!
-look at the bed.
-look at the computer.
-care about me!
-care about his voice!
-write a short story!
-pick me up!
-take from him.
-leave me,
-create the new thing,
-hear the music!
-listen to his voice,
-give the cats.
-love the oven!
-take the turntable.
-love the cats!
-hate his voice!
-look at the decks.
-sing a song,
-pick up the toy!
-know him!
-eat smoking my weed!
-listen to her,
-want my weed!
-smink charis!
-look at you.
-draw them.
-see her voice,
-hear him!
-care about things!
-move from things.
+sing some songs,
+touch the computer.
+give it to stuff.
 leave the house,
-see the snacks,
-love the bed!
-love things!
-feel the sound,
-move from him.
-need the computer!
+care about her voice!
+move charis.
+see the cats,
+care about the toys!
+love their voice!
+smink the cats!
+hear stuff!
+need the darkness!
+give it to the cats.
+give it to you.
 learn from the darkness,
-pick them up!
-drink the milk.
-see the synth,
-learn from us,
-hate the music!
-sing some music,
-touch the ring.
-love elodie and charis!
-hate us!
-give it to things.
-want the daylight!
-see the fan,
-hate your voice!
-take from me.
-create it,
-want stuff!
-need them!
-drink soup.
-need the turntable!
-care about the window!
+touch things.
+pick up the cats!
+take some of my weed.
+love the game!
+want the ring!
+know the rain!
+know you!
+move away from him.
 hear my phone!
-love the food!
-care about you!
-draw it.
-want the drink!
-see the computer,
-hate the decks!
-eat pizza!
+smoke my weed,
 feel them,
-like the synth!
-need charis!
-hate stuff!
-touch the cats.
-hear elodie's voice!
-touch the oven.
-need my brain!
-move from elodie.
-move from stuff.
-smink breakfast!
-like friends!
-hear her!
-touch the heating.
-learn from the passage of time,
-leave the drink,
-draw her.
-take stuff.
-look at smoking my weed.
-move him.
-like the guitar!
-know things!
-know the darkness!
-love him!
-move from her.
-care about my weed!
-see his voice,
-care about the computer!
-hate it!
-hate the police!
-care about the synth!
-need the cats!
-need the meds!
-take elodie.
-need it!
-pick up the ring!
-see things,
-look at the pasta.
-write some music!
-hate the toy!
-listen to the synth,
-need the toilet!
-hate her!
-hear my voice!
-move the oven.
-touch you.
-eat lunch!
-leave the blanket,
+listen to his voice,
 move from the house.
-want their voice!
-need us!
+care about elodie!
+eat my words!
+say 'i am happy!',
+take the computers.
+see her,
+sing the song,
+move a blanket.
+want the house!
+hear his dick!
+see a fan,
+see you,
+want my mind!
+take the meds.
+see the house,
+need my weed!
+take charis.
+give it to my weed.
+learn from their voice,
+care about the heating!
+smink pasta!
+pick them up!
+like the rain!
+touch the toilet.
+look at the meds.
+take from me.
+hear her mind!
+sing a tune,
+love smoking my weed!
+feel stuff,
+hear them!
+take the piss.
+move me.
+write an article!
+look at that ring.
+listen to charis,
+take my phone.
+hear your cock!
+listen to this computer,
+give it to charis.
+draw my butt.
+pick up that turntable!
+leave a fan,
+leave the phones,
+touch him.
+eat elodie!
+want me!
+take from you.
+care about the room!
+pick him up!
+care about the guitar!
+need the blankets!
+know charis!
+want the passage of time!
+listen to the oven,
+listen to you,
+love the synth!
+look at me.
+listen to things,
+give him.
+be scared of being too cold!
+write a discord message!
+move my weed.
+take my weed.
+take it.
+love me!
+take from him.
+look at stuff.
+see the ring,
+touch the meds.
+pick up that ring!
+touch stuff.
+love them!
+pick up my weed!
+care about the food!
+hear elodie's ideas!
+leave me,
+create something new,
+love the window!
+care about the oven!
+care about me!
+feel us,
+drink that drink.
+like elodie!
+like computers!
+love elodie and charis!
+need her!
+learn from my weed,
+like the snacks!
+put it down!
+hear his essay!
+move the decks.
+take from stuff.
+learn from my words,
+see the food,
+take the beds.
+touch the synth.
+eat lunch!
+care about stars!
+hate the house!
+smink her!
+look at the turntable.
+leave them,
+take from it.
+drink milk.
+sing some music,
+feel your voice,
+pick you up!
+drink soup.
+pick up that blanket!
+take the toilet.
+listen to the rain,
+look at the painting.
+pick stuff up!
+smink breakfast!
+care about a fan!
+be scared of stuff!
+like the game!
+smink pizza!
+leave the oven,
+touch smoking my weed.
+eat him!
+love the music!
+take the drink.
+know stuff!
+look at the decks.
+see the music,
+love the decks!
+look at my writing.
+be scared of them!
+care about the drink!
+pick it up!
+move from this computer.
+look at my weed.
+want this toy!
+move the drink.
+drink the water.
+like charis and elodie!
+need the guitar!
+love the toy!
+pick up the guitar!
+look at the chair.
+eat food!
+write a short story!
+learn from the house,
+care about their voice!
+care about the beds!
+eat you!
+sing a song,
+like kevin!
+draw you.
+want the sun!
+give it to him.
+move from it.
+feel his voice,
+sing the music,
+see my mind,
+move the synth.
+need the heating!
+love the rain!
+need the oven!
+say 'i love you!',
+move the snacks.
+need the bed!
+leave the heating,
+drinking some soup.
+love the house!
+see my voice,
+like the guitar!
+look at smoking my weed.
+love the soundtrack!
+see it,
+drinking some juice.
+love the moon!
+need the decks!
+leave that ring,
+look at her.
+love the daylight!
+love the sofa!
+move from my art.
+like smoking my weed!
+drinking some tea.
+smink my art!
+draw a dog.
+need stuff!
+move my opinion.
+learn from the music,
+smink me!
+hear him!
+want it!
+care about the decks!
+hear kevin's voice!
+care about the daylight!
+move the guitar.
+feel her voice,
+add to it!
+draw a cat.
+give them.
+look at the book.
+give my art.
+feel charis,
+hear her weed!
+care about the toilet!
+see her voice,
+hear a fan!
+like the room!
+be scared of the police!
+grind my weed!
+see the synth,
+take from the cats.
+like technology!
+like the sun!
+give my butt.
+take from elodie.
+smink him!
+pick up smoking my weed!
+care about charis and elodie!
+need the sun!
+love a drink!
+look at the film.
+love a computer!
+want the toilet!
+drink the milk.
+care about charis!
+give her.
+write some music!
+leave the cats,
+hear the decks!
+hear you!
+hear the synth!
+move it.
+care about the music!
+love you!
+look at the photos.
+see my butt,
+hear his weed!
+leave elodie,
+create music,
+touch the decks.
+eat charis!
+hear charis' mind!
+know the passage of time!
+move from my butt.
+see that chair,
+need the house!
+hate me!
+want her voice!
+see the darkness,
+care about my phone!
+know her voice!
+eat my butt!
+move the food.
 take from her.
+like your voice!
+draw him.
+look at elodie.
+care about the sound!
+hate the guitar!
+eat some food!
+listen to their voice,
+be scared of the ring!
+drink the tea.
+care about the cats!
+need the sound!
+care about space!
+leave this computer,
+love your voice!
+be scared of the toys!
+eat me!
+drink water.
+learn from things,
+touch the turntable.
+want the beds!
+learn from the sound,
+leave him,
+write it!
+give things.
+touch the heating.
+hear charis' weed!
+need you!
+take my dick.
+smink my butt!
+hear the cats!
+be scared of elodie!
+touch a toy.
+need my phone!
+look at the pasta.
+learn from elodie,
+move from the cats.
+see their voice,
+leave the beds,
+know the darkness!
+listen to smoking my weed,
+listen to the synth,
+look at my butt.
+listen to stuff,
+move the meds.
+know my voice!
+listen to my voice,
+hear kevin's weed!
+wake up!
+move the oven.
+want the meds!
+care about you!
+like their voice!
+need us!
+see the sound,
+listen to the sound,
+touch my mind.
+move the toilet.
+move the cats.
+be scared of your voice!
+look at this toy.
+learn from us,
+see the oven,
+take from my butt.
+want the chair!
+care about it!
+care about his voice!
+hear the rain!
+feel elodie,
+need my mind!
+see smoking my weed,
+see his voice,
+care about the moon!
+love the sun!
+hear the guitar!
+say 'i like you!',
+want the phones!
+create art,
+care about the meds!
+want the snacks!
+care about the passage of time!
+touch me.
+learn from you,
+look at the food.
+need the turntable!
+be scared of the darkness!
+know things!
+leave the snacks,
+move them.
+write a tune!
+look at things.
+leave this turntable,
+care about stuff!
+listen to her voice,
+be scared of my cock!
+move him.
+move the toys.
+love his voice!
+draw charis.
+like the ring!
+need her voice!
+need this drink!
+take elodie.
+love elodie!
+love your friend!care about friends!
+like it!
+care about things!
+love the beds!
+need the synth!
+like the soundtrack!
+take from them.
+touch the food.
+pick up the computer!
+like the cats!
+love the passage of time!
+hear our weed!
+love him!
+pick up this drink!
+feel him,
+pick up the synth!
+pick up that toy!
+sing it,
+listen to my weed,
+move stuff.
+care about the window!
+leave the food,
+care about the night sky!
+want you!
+create songs,
+care about her!
+need the snacks!
+like my dick!
+want the synth!
+draw a boof raccoon.
+learn from my voice,
+like the drink!
+move towards her.
+care about my mind!
+drinking some water.
+see the decks,
+love things!
+know her!
+look at the picture.
+see him,
+learn from the sun,
+see them,
+want elodie!
+need me!
+love the oven!
+take my opinion.
+eat stuff!
+draw elodie.
+feel the music,
+love the turntable!
+say 'hello!',
+see the snacks,
+know the music!
+feel my mind,
+hear my words!
+hear her!
+love stuff!
+leave it,
+take the decks.
+love the guitar!
+like her!
+see things,
+want charis!
+drink the soup.
+draw a drawing.
+want the food!
+look at the videos.
+care about the rain!
+take you.
+eat breakfast!
+love your phone!
+create happiness,
+see the beds,
+care about the darkness!
+pick up the decks!
+care about the sun!
+see the drink,
+be scared of your phone!
+like friends!
+like the chair!
+take the food.
+create joy,
+take from things.
+love my art!
+learn from her,
+pick up my friends!
+smink elodie!
+touch it.
+look at them.
+like that fan!
+like the moon!
+touch a fan.
+see the toilet,
+pick up my butt!
+love charis!
+like the synth!
+touch her.
+look at you.
+take from the oven.
+leave the meds,
+care about computers!
+look at charis.
+want smoking my weed!
+listen to elodie,
+eat soup!
+care about your voice!
+want him!
+take the house.
+be scared of my words!
+eat the cats!
+pick up elodie!
+look at the cats.
+draw me.
+move my phone.
+look at the synth.
+give it to her.
+learn from the passage of time,
+want your voice!
+know it!
+like my weed!
+draw them.
+move you.
+see the toy,
+like this turntable!
+want them!
+know him!
+leave the decks,
+learn from this computer,
+listen to us,
+draw her.
+want my voice!
+learn from it,
+see a phone,
+be scared of the sound!
+feel you,
+love a fan!
+love the sound!
+move this turntable.
+hear kevin's butt!
+take the snacks.
+love it!
+hear her voice!
+need a fan!
+go to it.
+touch my weed.
+love stars!
+hug it!
+leave the toilet,
+draw stuff.
+want their voice!
+want the heating!
+hate her!
+pick up charis!
+move from you.
+need that toy!
+do it.
+pick up the beds!
+feel the sound,
+eat her!
+love food!
+give you.
+look at a computer.
+like stuff!
+touch his hand.
+create it,
+say it,
+write the song!
+like stars!
+like the daylight!
+want my butt!
+look at the drink.
+feel the darkness,
+take the guitar.
+drink the juice.
+write some songs!
+be scared of the chairs!
+want the drink!
+need it!
+give it to my idea.
+hear charis' voice!
+know the cats!
+take the toy.
+hear your voice!
+eat dinner!
+love my butt!
+move from stuff.
+look at this phone.
+give my weed.
+create ideas,
+like my voice!
+hear elodie's voice!
+pick up the phone!
+touch my butt.
+pick up this chair!
+touch the guitar.
+know elodie!
+be scared of the passage of time!
+need my voice!
+want stuff!
+know your voice!
+need his voice!
+write the music!
+hear charis' butt!
+hate charis!
+look at him.
+like the beds!
+hear things!
+care about him!
+be scared of smoking my weed!
+touch this blanket.
+love the bed!
+touch the beds.
+drink tea.
+move from the chair.
+listen to it,
+pick me up!
+care about them!
+touch charis.
+need him!
+eat pasta!
+see stuff,
+listen to the cats,
+give it to my cock.
+like things!
+like the oven!
+listen to me,
+want the daylight!
+need the cats!
+take things.
+take from my words.
+love my weed!
+pick up a fan!
+hear your opinion!
+need the chair!
+touch this phone.
+hear their voice!
+look at this blanket.
+eat things!
+want my weed!
+need to eat!
+listen to a turntable,
+sleep,
+love this blanket!
+hear me!
+like the heating!
+like the blanket!
+leave a chair,
+hear our voices!
+take from the chair.
+take stuff.
+hear their words!
+smink you!
+love space!
+hate the heating!
+leave the guitar,
+hear the music!
+eat it!
+leave her,
+create problems,
+want the darkness!
+love a ring!
+leave charis,
+be scared of things!
+know his voice!
+love computers!
+give it to me.
+be scared of the cats!
+hear our brains!
+move towards them.
+move my butt.
+drink it.
+see my weed,
+see us,
+like the night sky!
+hear your weed!
+see me,
+feel it,
+draw smoking my weed.
+move from the oven.
+want us!
+see the meds,
+want the guitar!
+listen to him,
+want his voice!
+look at the heating.
+learn from him,
+know my dick!
+hear elodie's butt!
+draw things.
+want the rain!
+like us!
+love the food!
+be scared of the drink!
+learn from her voice,
+see the daylight,
+love the meds!
+pick things up!
+need my butt!
+hear their weed!
+need elodie!
+draw a self portrait.
+feel my butt,
+smink charis!
+learn from them,
+love technology!
+like her voice!
+hear my weed!
+like you!
+love this chair!
+need the computers!
+listen to a phone,
+learn from your voice,
+take the oven.
+learn from the cats,
+care about the turntable!
+hear the sound!
+see the passage of time,
+look at the house.
+hear the sun!
+give it.
+like the passage of time!
+write a text message!
+love a blanket!
+want the oven!
+love the heating!
+listen to her,
+take the ring.
+love kevin!
+need the rain!
+see the blankets,
+listen to the guitar,
+hear the turntable!
+care about the game!
+leave stuff,
+hear it!
+hear charis!
+give it to it.
+eat my food!
+love my voice!
+take them.
+be scared of the meds!
+be scared of their voice!
+touch them.
+want the sound!
+care about the synth!
+want things!
+take from charis.
+learn from my butt,
+like the computers!
+like elodie and charis!
+move from the beds.
+take from the beds.
+leave things,
+learn from stuff,
+draw the cats.
+listen to them,
+take a fan.
+look at the snacks.
+just be a baby.
+draw my thoughts.
+care about the ring!
+hate the music!
+hear her dick!
+touch the snacks.
+look at the oven.
+write a letter!
+draw it.
+hear this computer!
+learn from the chairs,
+be scared of him!
+move the chairs.
+know the daylight!
+need things!
+be scared of the decks!
+give charis.
+hear my voice!
+drink drink.
+give it to them.
+love us!
+leave my room,
+take the synth.
+need the meds!
+be scared of the oven!
+care about my butt!
+drinking some drink.
+like the decks!
+move a fan.
+be scared of being too hot!
+hate us!
+love the darkness!
+be scared of my voice!
+touch the house.
+leave this toy,
+see the guitar,
+listen to my butt,
+move the computers.
+know them!
+care about food!
+like charis!
+make it.
+write an email!
+pick up the snacks!
+move smoking my weed.
+hate a turntable!
+draw my weed.
+touch the ring.
+touch you.
+listen to the music,
+create the food,
+feel the rain,
+know their voice!
+like the darkness!
+feel the daylight,
+want the cats!
+feel her,
+like the meds!
+move away from me.
+see the sun,
+touch the oven.
+feel their voice,
+care about my weed!
+listen to my opinion,
+leave my cock,
+listen to the decks,
+learn from charis,
+drink juice.
+care about my voice!
+need the music!
+feel the cats,
+know the sun!
+draw a picture.
+like the sofa!
+eat them!
+see your voice,
+love the toilet!
+learn from me,
+leave a drink,
+care about this computer!
+learn from the beds,
+like me!
+be scared of the george!
+say 'i care about you!',
+touch elodie.
+feel me,
+write a book!
+smink my weed!
+move towards elodie.
+move away from charis.
+care about elodie and charis!
+pick up the meds!
+need the toilet!
+listen to your voice,
+take the turntable.
+like the sound!
+hear his voice!
+hear elodie!
+take smoking my weed.
+move things.
+smink stuff!
+feel the sun,
+care about technology!
+like the phone!
+be scared of the food!
+feel my weed,
+need their voice!
+know me!
+care about the sofa!
+feel my voice,
+care about the house!
+care about a blanket!
+look at the guitar.
+give it to elodie.
+like them!
+love her voice!
+leave my words,
+give stuff.
+pick her up!
+give it to things.
+touch the cats.
+move the beds.
+see a computer,
+take the chairs.
+hear their butt!
+give elodie.
+write a poem!
+want the music!
+like a toy!
+take me.
+know us!
+like food!
+move from things.
+give me.
+take a blanket.
+know my art!
+like him!
+look at the beds.
+need your voice!
+love the night sky!
+leave you,
+need the passage of time!
+move house.
+move elodie.
+draw a boat.
+like my words!
+like his voice!
+look at it.
+be scared of the computers!
+like the house!
+care about the snacks!
+want her!
+need a ring!
+learn from the rain,
+know the sound!
+turn up the heating.
+love the cats!
+come back to it,
+hear kevin's brain!
+care about the soundtrack!
+need them!
+touch this drink.
+love her!
+see the rain,
+like space!
+write a love letter!
+learn from the oven,
+see the turntable,
+like the toilet!
+eat the food!
+look at a fan.
+care about kevin!
+create the new thing,
+take her.
+touch a chair.
+like the window!
+need charis!
+take from the computer.
+take from the house.
+smink smoking my weed!
+want that blanket!
+give the cats.
+hear my butt!
+love the room!
+want that turntable!
+take him.
+be scared of the daylight!
+learn from the daylight,
+see elodie,
+need to smoke my weed!
+say 'i'm just a baby!',
+like the music!
+love charis and elodie!
+move the ring.
+listen to a fan,
+want the computer!
+write an essay!
+care about a chair!
+learn from his voice,
+hear us!
+leave a blanket,
+write on it!
+take the cats.
+leave the synth,
+see charis,
+say 'bye!',
+like the food!
+want the decks!
+eat pizza!
+pick up the food!
+smink it!
+need the daylight!
+feel the passage of time,
+look at the toilet.
+write a song!
+love the snacks!

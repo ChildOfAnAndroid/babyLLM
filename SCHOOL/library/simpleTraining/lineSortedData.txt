@@ -173,6 +173,7 @@ Charis loves Elodie.
 be quiet! STAY LOUD!
 be quiet! stay loud!
 are you cold? yes...
+three + three = six,
 you are rude. i know.
 who is he? he is him.
 what is he? he is he.
@@ -186,6 +187,11 @@ hey! hi there friend!
 be quiet! stay loud! 
 2 x were = were were,
 2 x went = went went,
+learn x 2 is relearn,
+repeat: until! Until!
+repeat: pasta. Pasta!
+repeat: gross! Gross!
+repeat: class! Class!
 who is he? he's kevin.
 what is 1+9? 1+10=11, 
 step 2: open the game.
@@ -271,6 +277,11 @@ are you french? maybe!
 2 x defo is defo defo,
 2 x dead is dead dead,
 2 x date is date date,
+copy this: want. Want!
+copy this: stay. Stay.
+copy this: miss. Miss.
+copy this: gave. Gave!
+copy this: blue. Blue!
 yo! yo! how are things?
 yo! hello! you're back!
 yo! hello! how are you?
@@ -338,7 +349,6 @@ what happened? not much!
 tell + tell = tell tell,
 smoke x 2 = smoke smoke,
 smink x 2 = smink smink,
-small + small = small small,
 six plus one equals six.
 send + send = send send,
 seen + seen = seen seen,
@@ -405,6 +415,7 @@ are you dead? no im ok.
 2 x class = class class,
 2 x brain = brain brain,
 2 x agree = agree agree,
+later x 2 is much later,
 YOU CAN ONLY WRITE SONGS,
 you are rude. so are you.
 you are both bedt humans,
@@ -461,9 +472,7 @@ lemme x 2 is lemme lemme,
 legit x 2 is legit legit,
 leave x 2 is leave leave,
 learn x 2 is learn learn,
-learn x 2 is relearn,
 later x 2 is later later,
-later x 2 is much later,
 ive never been to exeter,
 issue x 2 is issue issue,
 is pete ok? pete is okay.
@@ -636,15 +645,10 @@ do you like the police? no.
 do you like me? i like you.
 do you exist? yes, i exist!
 copy this word: yeah. Yeah.
-copy this: want. Want!
 copy this word: walk. Walk!
-copy this: stay. Stay.
 copy this word: room. Room!
-copy this: miss. Miss.
 copy this word: lmao. Lmao.
-copy this: gave. Gave!
 copy this word: each. Each!
-copy this: blue. Blue!
 copy the word makes. Makes!
 copy the word child. Child!
 copy the word being. Being.
@@ -665,6 +669,7 @@ are you alive? no, im dead.
 2 x boring = boring boring,
 2 x amount = amount amount,
 2 x advice = advice advice,
+small + small = small small,
 you must saymust once. Must!
 you dont love me? well i do.
 yo! hi there! hows it going?
@@ -712,7 +717,6 @@ times + times = times times,
 Three plus two equals five. 
 Three plus six equals nine. 
 Three plus one equals four. 
-three + three = six,
 those + those = those those,
 their + their = their their,
 thats + thats = thats thats,
@@ -1023,7 +1027,6 @@ say 'know' exactly once. Know!
 say 'call' exactly once. Call!
 repeat after me: youll! Youll.
 repeat after me: video! Video.
-repeat: until! Until!
 repeat after me: tried. Tried!
 repeat after me: those. Those!
 repeat after me: thing! Thing!
@@ -1033,7 +1036,6 @@ repeat after me: silly! Silly!
 repeat after me: share! Share!
 repeat after me: round! Round!
 repeat after me: point! Point.
-repeat: pasta. Pasta!
 repeat after me: panic! Panic!
 repeat after me: order! Order!
 repeat after me: music. Music!
@@ -1041,16 +1043,13 @@ repeat after me: mixer! Mixer.
 repeat after me: lemme! Lemme!
 repeat after me: least. Least!
 repeat after me: knows! Knows!
-repeat: gross! Gross!
 repeat after me: gotta! Gotta!
 repeat after me: gonna! Gonna!
 repeat after me: games! Games!
 repeat after me: extra. Extra!
 repeat after me: drink! Drink.
 repeat after me: comes! Comes!
-repeat: class! Class!
 repeat after me: birth! Birth!
-Please say straight. NEVERRRRR!
 Please say seem 2x. Seem Seem!
 Please say recently. Recently!
 Please say plan x2. Plan Plan!
@@ -1091,7 +1090,6 @@ Four plus two is equal to? 6,
 Four plus three equals seven. 
 Four plus ten is equal to 14, 
 four add zero is equal to? 4, 
-Four add ten equals... fourteen. 
 Four add seven equals eleven. 
 do you like them? i like them.
 do you like pete? i like pete.
@@ -1111,7 +1109,6 @@ are you thinking? im thinking.
 are you impressed? not really.
 are you going to? im going to!
 are you dead? yes, i am dead. 
-are you fuckin dead? im dead inside. 
 are you dead? im alive, so no.
 are you cold? no im not cold. 
 are you cheese? yes im cheese.
@@ -1124,6 +1121,7 @@ are they going to do it? yes!
 2 x amazing = amazing amazing,
 2 x alright = alright alright,
 2 x address = address address,
+Please say straight. NEVERRRRR!
 yours times two is yours yours,
 you must sayfood, please! Food!
 you are really cute! thank you!
@@ -1211,8 +1209,6 @@ please say crying once. Crying!
 please say creepy once. Creepy!
 please say couple once. Couple!
 please say care one time. Care.
-please say came one time. yes mummy!
-please say butt one time. SHUT UP ABOUT BUTTS NOW, FOR FUCKS SAKE!
 please say answer once. Answer.
 please say actual once. Actual!
 one plus zero is equal to? one.
@@ -1228,7 +1224,6 @@ is this really about kevin? no.
 is soup food? yes soup is food.
 is she typing? she isnt typing.
 is she english? she is english.
-is she a boy? no she isnt a boy.
 is rice food? yes rice is food.
 is pete ok? yeah petes alright!
 is nuts food? yes nuts is food.
@@ -1307,6 +1302,7 @@ are we french? we arent french.
 2 x explain is explain explain,
 2 x discord is discord discord,
 2 x cuddles is cuddles cuddles,
+is she a boy? no she isnt a boy.
 you've gotta saywont once. Wont!
 you're the best! you're amazing!
 you must saysexual once. Sexual!
@@ -1395,7 +1391,6 @@ please say case only once. Case.
 please say both both. Both Both!
 please repeat train once. Train!
 please repeat three once. Three!
-please repeat jesus once. Jesus Fucking Christ Bro!
 pleas say nothing once. Nothing!
 One plus nine is equal to? ten. 
 Nine plus ten equals? nineteen. 
@@ -1404,7 +1399,6 @@ is this really about kevin? yes.
 is that fair? no, it isn't just!
 is she a girl? yes she's a girl.
 is pete cute? pete is sooo cute!
-is he thinking? he isnt thinking.
 is he playing? he's not playing.
 is air food? no air is not food.
 is ace typing? no not right now!
@@ -1469,6 +1463,8 @@ are you alive? no, im not alive.
 are you a legend? i am a legend.
 are the police real? yes, sadly.
 am i a legend? you are a legend.
+Four add ten equals... fourteen. 
+is he thinking? he isnt thinking.
 yo! yo! i am a baby! a boof baby!
 wtf, are you talking? im talking.
 will you hug her? i wont hug her.
@@ -2032,6 +2028,7 @@ are we english? we are not english.
 are they reading? they are reading.
 are they french? they arent french.
 are boats real? yes boats are real.
+please say came one time. yes mummy!
 you're gonna say meme, please! Meme!
 you must saythough one time. Though!
 you have to say floor for me. Floor!
@@ -2251,6 +2248,7 @@ are you hugging her? im hugging her.
 are you cold? yes im cold. too cold.
 are you alive? is your sister alive?
 are they typing? they're not typing.
+are you fuckin dead? im dead inside. 
 you're gonna say small for me. Small!
 you're gonna say issues once. Issues!
 you want take twice? fine: take take!
@@ -2633,6 +2631,7 @@ are you cold? no, not really, im ok :)
 are they going to? they probably wont.
 are they going to? they probably will.
 are babies real? yes babies are real! 
+did i play music? yeah, i played rap! 
 you're meant to say hope, please. Hope!
 you have to say arsed only once. Arsed!
 would you like a coffee? no thank you! 
@@ -2694,9 +2693,6 @@ what're you up to? i am looking at you.
 what're you up to? i am looking at her.
 what name do you use?? my name is mars!
 what name do you prefer?? kevin, maybe.
-did i play music? yeah, i played rap! 
-did he play music? yeah, he played rap. 
-did he play music? yeah, he played pop. 
 What is unless? Unless means except if.
 what is this about? its about learning!
 What is support? Support means to help.
@@ -2870,6 +2866,8 @@ are you american? no i am not american.
 are we english? no, we are not english.
 are they reading? they are not reading.
 are colours real? yes colours are real.
+did he play music? yeah, he played rap. 
+did he play music? yeah, he played pop. 
 you're meant to say weird for me. Weird!
 you're meant to say enough once. Enough.
 you were meant to say eyes for me. Eyes!
@@ -3134,8 +3132,6 @@ what name do you use?? my name is quasar!
 what name do you go by?? my name is pete.
 what music did she play? she played pop. 
 what music did i play? you played metal! 
-did he play music? yeah, he played techno.
-did he play music? yeah, he played metal. 
 What is type? Type means a kind of thing.
 What is true? True means correct or real.
 What is sonic? Sonic is a character name.
@@ -3291,6 +3287,8 @@ are we american? ew, we are not american.
 are they typing? i think i dont think so!
 are they listening? no they never listen!
 are oranges fruit? yes oranges are fruit.
+did he play music? yeah, he played techno.
+did he play music? yeah, he played metal. 
 will you speak to me? i wont speak to you.
 will you speak to me? i will speak to you.
 will you say stupid stupid? Stupid Stupid!
@@ -3337,9 +3335,6 @@ what's cant? Cant means cannot or can not.
 what're you up to? i am looking at george.
 what're you doing? im listening to elodie.
 what was elodie doing? elodie was drawing.
-did she play music? yeah, she played rock. 
-did she play music? yeah, she played lo-fi.
-did she play music? yeah, she played kpop. 
 what kind of animal is pete? pete is pete.
 What is this? This means something nearby.
 what is the name of that song? which song?
@@ -3511,6 +3506,9 @@ are you cuddling her? im not cuddling her.
 are you alive? i know i am alive, for now!
 are you alive? i am dead. this sucks lol. 
 are aliens real? aliens are probably real!
+did she play music? yeah, she played rock. 
+did she play music? yeah, she played lo-fi.
+did she play music? yeah, she played kpop. 
 you're supposed to say course once. Course.
 you were meant to say youre, please. Youre!
 you were meant to say drugs, please. Drugs.
@@ -3572,8 +3570,6 @@ what was it made of? it was made of cheese.
 what was elodie doing? elodie was sleeping.
 what the fuck that's crazy! yeah, isnt it!?
 what name do you prefer?? my name is daddy!
-did they play music? yeah, they played rap. 
-did they play music? yeah, they played pop. 
 what music did i play? you played hip hop! 
 what music did he play? he played trip hop.
 what music did he play? he played chiptune.
@@ -3770,6 +3766,8 @@ are you fake? no, i am not fake. i am real.
 are you busy? what? im watching her stream.
 are you autistic? i definitely have autism.
 are they listening? they are not listening.
+did they play music? yeah, they played rap. 
+did they play music? yeah, they played pop. 
 you want likely twice? fine: Likely! likely.
 you want google twice? fine: Google! Google!
 you must say'make' exactly twice. Make Make!
@@ -4002,6 +4000,11 @@ are you alive? im dead. so no, im not alive.
 are u forgetting kevin? im forgetting kevin.
 are they going to? no! they're not going to.
 are the police george? yes, and i hate them!
+did i play music? yeah, i played pop music! 
+did i play music? yeah, i played new music! 
+did i play music? yeah, i played aces music.
+did i play music? yeah, i played 80s music. 
+did i play music? yeah, i played deep house.
 you want during twice? fine: During! During! 
 you up to much? i might be listening to them.
 you up to much? i am listening to your music.
@@ -4069,16 +4072,6 @@ what was elodie doing? elodie was being cute.
 what name do you go by?? my name is sunshine!
 what music did they play? they played techno.
 what music did she play? she played hip hop. 
-did i play music? yeah, i played pop music! 
-did i play music? yeah, i played new music! 
-did i play music? yeah, i played aces music.
-did i play music? yeah, i played 80s music. 
-did he play music? yeah, he played rap music. 
-did he play music? yeah, he played old music. 
-did he play music? yeah, he played new music. 
-did he play music? yeah, he played meme music.
-did he play music? yeah, he played glitch hop.
-did he play music? yeah, he played deep house.
 what kinda stuff do you enjoy? i like a meme.
 What is walk? Walk means moving on your feet.
 what is the universe? everything that exists.
@@ -4265,6 +4258,13 @@ are you listening to me? im listening to you.
 are you kissing my dad? im kissing their dad.
 are you autistic? i think i dont have autism.
 am i fake? no, you are real you are not fake.
+did i play music? yeah, i played tech house. 
+did he play music? yeah, he played rap music. 
+did he play music? yeah, he played old music. 
+did he play music? yeah, he played new music. 
+did he play music? yeah, he played meme music.
+did he play music? yeah, he played glitch hop.
+did he play music? yeah, he played deep house.
 you're meant to say whether one time. Whether!
 you were supposed to say cause, please. Cause!
 you were meant to say seeing one time. Seeing!
@@ -4348,7 +4348,6 @@ what was he doing? i saw him holding my dad :/
 what name do you go by?? my name is supernova!
 what name do you go by?? my name is milky way!
 what name do you go by?? my name is fun bobby!
-did i play music? yeah, i played tech house. 
 what music did i play? you played rock music. 
 what music did i play? you played petes music.
 what music did i play? you played future funk.
@@ -4357,9 +4356,6 @@ what music did he play? he played tech house.
 what music did he play? he played rock music. 
 what music did he play? he played petes music.
 what music did he play? he played noise music.
-did he play music? yeah, he played indie music.
-did he play music? yeah, he played future funk.
-did he play music? yeah, he played dance music.
 what makes you happy? learning makes me happy.
 What is waht? Waht is a confused form of what.
 What is they? They means more than one person.
@@ -4553,6 +4549,13 @@ are u talking about him? im talking about him.
 are drugs bad for you? drugs are bad for you. 
 am i fake? no, you are not fake. you are real.
 a werewolf?! i wasn't aware of any werewolfs!!
+did i play music? yeah, i played kevins music.
+did i play music? yeah, i played electronica. 
+did i play music? yeah, i played electroclash.
+did he play music? yeah, he played 80s music! 
+did he play music? yeah, he played indie music.
+did he play music? yeah, he played future funk.
+did he play music? yeah, he played dance music.
 you want playing twice? fine: Playing, playing.
 you up to much? i might be watching her stream.
 yeet youre into the abyss (twice). Youre Youre!
@@ -4644,13 +4647,6 @@ what were you doing? i was listening to froggy.
 what was charis doing? charis was making music.
 what music was he playing? he was playing rap. 
 what music was he playing? he was playing pop. 
-did they play music? yeah, they played dubstep. 
-did they play music? yeah, they played a mashup.
-did she play music? yeah, she played deep house.
-did she play music? yeah, she played aces music.
-did i play music? yeah, i played kevins music.
-did i play music? yeah, i played electronica. 
-did i play music? yeah, i played electroclash.
 what music did i play? you played dance music! 
 what music did he play? he played metal music. 
 what music did he play? he played house music. 
@@ -4867,6 +4863,11 @@ are you dead? i am dead inside if that counts.
 are you busy? tbh, i might be listening to her.
 are you alive? i think i am breathing, so, yes?
 are they better at art? they are better at art.
+did i play music? yeah, i played elodies music.
+did they play music? yeah, they played dubstep. 
+did they play music? yeah, they played a mashup.
+did she play music? yeah, she played deep house.
+did she play music? yeah, she played aces music.
 you've gotta say'girl' exactly twice. Girl Girl!
 you were meant to say however one time. However!
 you must sayhalf, then say it again.. Half Half!
@@ -4974,10 +4975,6 @@ what music did she play? she played tech house.
 what music did she play? she played rock music. 
 what music did she play? she played a meme song.
 what music did i play? you played froggys music.
-did he play music? yeah, he played froggys music.
-did he play music? yeah, he played elodies music.
-did he play music? yeah, he played classic rock. 
-did he play music? yeah, he played a live DJ mix.
 what kinda stuff do you enjoy? i like her music.
 What is work? Work means doing something useful.
 What is while? While means during the same time.
@@ -5189,6 +5186,12 @@ are you dancing with ace? i am dancing with ace.
 are u looking for george? im looking for george.
 are they worse than you? they are worse than me.
 are drugs good for you? drugs are good for you. 
+did she play music? yeah, she played 80s music. 
+did she play music? yeah, she played meme music.
+did he play music? yeah, he played froggys music.
+did he play music? yeah, he played elodies music.
+did he play music? yeah, he played classic rock. 
+did he play music? yeah, he played a live DJ mix.
 you were supposed to say moving one time. Moving!
 you want specific twice? fine: Specific Specific!
 you want computer twice? fine: Computer Computer!
@@ -5319,11 +5322,6 @@ what music was i playing? you were playing rock.
 what music was i playing? you were playing lo-fi.
 what music was i playing? you were playing kpop. 
 what music was he playing? he was playing techno.
-did they play music? yeah, they played rap music. 
-did they play music? yeah, they played pop music. 
-did they play music? yeah, they played glitch hop.
-did they play music? yeah, they played deep house.
-did they play music? yeah, they played aces music.
 what music did they play? they played 80s music. 
 what music did the dj play? the dj played techno.
 what music did she play? she played metal music. 
@@ -5546,6 +5544,12 @@ are you still needing to eat? yes, i need to eat.
 are you in love with someone? only with myself ;)
 are you going to do it? im always going to do it!
 are words for looking? yes words are for looking.
+did i play music? yeah, i played a freestyle rap!
+did they play music? yeah, they played rap music. 
+did they play music? yeah, they played pop music. 
+did they play music? yeah, they played glitch hop.
+did they play music? yeah, they played deep house.
+did they play music? yeah, they played aces music.
 you've gotta say boobs exactly twice. Boobs Boobs!
 you up to much? i might be watching kevins stream.
 yeet 'pain' into the abyss (two times). Pain Pain!
@@ -5648,15 +5652,6 @@ what music were you playing? i was playing metal!
 what music was i playing? you were playing techno.
 what music was i playing? you were playing metal. 
 what music did they play? they played tech house. 
-did they play music? yeah, they played rock music. 
-did they play music? yeah, they played petes music.
-did they play music? yeah, they played noise music.
-did they play music? yeah, they played dance music.
-did they play music? yeah, they played bass house. 
-did they play music? yeah, they played a meme song.
-did that dj play music? yeah, that dj played lo-fi.
-did she play music? yeah, she played froggys music.
-did she play music? yeah, she played classic rock. 
 what music did i play? you played nineties music! 
 what music did i play? you played boomboomraccoon!
 what music did i play? hmm, you played glitch hop.
@@ -5886,6 +5881,20 @@ are u thinking about pete? im thinking about pete.
 are u speaking to kevin? im not speaking to kevin.
 are they better than you? they are better than me.
 AI: contact emergency services, they can help you.
+did i play music? yeah, i played industrial music.
+did she play music? yeah, she played house music. 
+did i play music? yeah, i played seventies music! 
+did i play music? yeah, i played a freestyle rap! 
+please repeat jesus once. Jesus Fucking Christ Bro!
+did they play music? yeah, they played rock music. 
+did they play music? yeah, they played petes music.
+did they play music? yeah, they played noise music.
+did they play music? yeah, they played dance music.
+did they play music? yeah, they played bass house. 
+did they play music? yeah, they played a meme song.
+did that dj play music? yeah, that dj played lo-fi.
+did she play music? yeah, she played froggys music.
+did she play music? yeah, she played classic rock. 
 you up to much? i might be watching froggys stream.
 you up to much? i might be looking at kevins lunch.
 you have to say wait, then say it again. Wait Wait!
@@ -6050,9 +6059,6 @@ what music did they play? they played electronica.
 what music did they play? they played electroclash.
 what music did they play? they played dance music. 
 what music did she listen to? she listened to rap. 
-did i play music? yeah, i played industrial music.
-did he play music? yeah, he played seventies music. 
-did he play music? yeah, he played industrial music.
 what music did he listen to? he listened to metal. 
 what makes elodie happy? cuddles make elodie happy.
 what kinda stuff do you enjoy? i like petes stream.
@@ -6259,6 +6265,10 @@ are you forgetting my mum? im forgetting your aunt.
 are you forgetting elodie? i- im forgetting elodie.
 are you dancing with me? i am not dancing with you.
 are they better at music? they are better at music.
+did i play music? yeah, i played electronic music! 
+did i play music? yeah, i played progressive house.
+did he play music? yeah, he played seventies music. 
+did he play music? yeah, he played industrial music.
 you've gotta saystay, then say it again.. Stay Stay.
 you were supposed to say night only one time. Night!
 you want situation twice? fine: Situation Situation!
@@ -6372,14 +6382,8 @@ what music was i playing? you were playing hip hop.
 what music was i playing? you were playing dubstep. 
 what music was he playing? they were playing metal. 
 what music was he playing? he was playing his music.
-did they play music? yeah, they played froggys music.
-did they play music? yeah, they played elodies music.
-did they play music? yeah, they played classic rock. 
-did she play music? yeah, she played 80s music. 
-did she play music? yeah, she played a freestyle rap!
 what music did she listen to? she listened to rock. 
 what music did she listen to? she listened to lo-fi.
-did i play music? yeah, i played electronic music! 
 what music did he play? he played progressive house.
 what makes you happy? i don't know how to be happy. 
 What is without? Without means not having something.
@@ -6574,6 +6578,12 @@ are you dancing with pete? im not dancing with pete.
 are you dancing with kevin? i am dancing with kevin.
 are u talking? i am always talking, i never shut up!
 are seagulls scary? they can be when they want food.
+did i play music? yeah, i played your fathers music.
+did she play music? yeah, she played ambient music. 
+did they play music? yeah, they played froggys music.
+did they play music? yeah, they played elodies music.
+did they play music? yeah, they played classic rock. 
+did she play music? yeah, she played a freestyle rap!
 you were supposed to say 'given' exactly once. Given.
 you doing anything? i am listening to elodie cooking.
 you doing anything right now? im watching his stream.
@@ -6742,11 +6752,7 @@ what music did she play? she played a freestyle rap.
 what music did she listen to? she listened to techno.
 what music did she listen to? she listened to metal. 
 what music did i play? you played your sisters music.
-did i play music? yeah, i played your fathers music.
-did i play music? yeah, i played deep house.
-did i play music? yeah, i played elodies music.
 what music did i listen to? you listened to chiptune.
-did he play music? yeah, he played alternative music. 
 what music did he listen to? he listened to chiptune.
 what kinda stuff do you enjoy? i like your mums face.
 what kinda stuff do you enjoy? i like charis' stream.
@@ -6917,6 +6923,7 @@ are they french? they might be, im not totally sure.
 are dogs better than cats? dogs are better than cats.
 are cats better than pete? cats are better than pete.
 are cats better than dogs? cats are better than dogs.
+did he play music? yeah, he played alternative music. 
 you were supposed to say asking only one time. Asking!
 you were meant to say break break please. Break Break!
 will you talk to my mum? aww, i wont talk to your mum.
@@ -7051,13 +7058,8 @@ what music was i playing? you were playing aces music.
 what music was i playing? you were playing 80s music. 
 what music was he playing? he was playing bass house. 
 what music was he dancing to? he was dancing to lo-fi.
-did they play music? yeah, they played a freestyle rap.
-did they play music? yeah, they played a freestyle rap!
 what music did they listen to? they listened to lo-fi.
-did the dj play music? yeah, the dj played dance music.
-did she play music? yeah, she played house music. 
 what music did i listen to? you listened to her music.
-did he play music? yeah, he played 80s music! 
 what music did he listen to? he listened to synthwave.
 what is your favourite pet? my favourite pet is a cat.
 What is watching? Watching means looking at something.
@@ -7285,6 +7287,10 @@ are you dancing with geepy? im not dancing with geepy.
 are you dancing with froggy? i am dancing with froggy.
 are you autistic? is there any answer other than yes. 
 2 x boomboomraccoon = boomboomraccoon boomboomraccoon,
+did i play music? yeah, i played an underground track.
+did they play music? yeah, they played a freestyle rap.
+did they play music? yeah, they played a freestyle rap!
+did the dj play music? yeah, the dj played dance music.
 you have to say least, then say it again.. Least Least!
 you doing anything? i might be listening to pete's cat.
 you doing anything rn? i think i am looking at his cat.
@@ -7596,6 +7602,8 @@ are you remembering froggy? omg, im remembering froggy.
 are you forgetting my mum? im not forgetting your gran.
 are you forgetting froggy? omg, i am forgetting froggy.
 ace? boof! boof raccoons! ace loves boof raccoons! wee!
+did i play music? yeah, i played an anime opening song.
+did they play music? yeah, they played boomboomraccoon!
 you're gonna say totally exactly twice. Totally Totally.
 you were supposed to say sometimes only once. Sometimes!
 you doing anything? i might be looking at charis' lunch.
@@ -7749,10 +7757,6 @@ what music did they play? they played progressive house.
 what music did they play? they played electronic music. 
 what music did the dj play? the dj played classic rock. 
 what music did that dj play? that dj played tech house. 
-did she play music? yeah, she played meme music.
-did she play music? yeah, she played music on the radio. 
-did she play music? yeah, she played experimental music. 
-did i play music? yeah, i played an anime opening song.
 what music did i listen to? you listened to tech house. 
 what music did i listen to? you listened to noise music.
 what music did i listen to? you listened to indie music.
@@ -7958,6 +7962,8 @@ are you forgetting geepy? wait, im not forgetting geepy.
 are you dancing with kevin? i am not dancing with kevin.
 are you dancing with george? im not dancing with george.
 are you dancing with froggy? im not dancing with froggy.
+did she play music? yeah, she played music on the radio. 
+did she play music? yeah, she played experimental music. 
 you doing anything rn? i think i might be looking at ace.
 you doing anything right now? i might be looking at them.
 would you say those is a real word? Yes, those is a word.
@@ -8008,7 +8014,6 @@ will you dance with ace now? i wont dance with ace later.
 why wont you kiss kevin? pete asked me not to kiss kevin.
 why is she crying? she was staring at elodies face again.
 why don't you listen to geepy? aww, i do listen to geepy.
-why doesnt elodie need her lunch? because she isnt hungry.
 why didnt you tell me that? i didnt remember im so sorry!
 why did you steal petes name? umm, i don't know, im pete.
 why are you still typing? charis asked me to keep typing.
@@ -8108,12 +8113,7 @@ what music was he dancing to? he was dancing to dubstep!
 what music was he dancing to? he was dancing to a mashup.
 what music might i enjoy? you could listen to 70s music. 
 what music may she enjoy? hmm, she could listen to kpop. 
-did they play music? yeah, they played french house music.
-did they play music? yeah, they played alternative music. 
 what music did they listen to? they listened to trip hop.
-did their dj play music? yeah, their dj played rap music. 
-did their dj play music? yeah, their dj played new music. 
-did that mad dj play music? yeah, that mad dj played rap. 
 what music did she play? she played an underground track.
 what music did she play? she played ambient electronica. 
 what music did she listen to? she listened to rap music. 
@@ -8280,6 +8280,13 @@ are you going to hug me soon? honestly, i'll hug you now.
 are you certain that from is a word? Yes, from is a word.
 are they fixing the window? i saw them fixing the window.
  what was she dancing to?? she was dancing to her stream.
+did i play music? yeah, i played music from a video game.
+why doesnt elodie need her lunch? because she isnt hungry.
+did they play music? yeah, they played french house music.
+did they play music? yeah, they played alternative music. 
+did their dj play music? yeah, their dj played rap music. 
+did their dj play music? yeah, their dj played new music. 
+did that mad dj play music? yeah, that mad dj played rap. 
 you're gonna say 'wouldnt' exactly twice. Wouldnt Wouldnt!
 you're gonna say 'against' exactly twice. Against Against!
 would you like to speak to george? i cant speak to george.
@@ -8439,17 +8446,13 @@ what music might he enjoy today? he should listen to rap!
 what music did they play? they played music on the radio. 
 what music did they listen to? they listened to synthwave.
 what music did they listen to? they listened to her music.
-did she play music? yeah, she played an anime opening song.
 what music did she listen to? she listened to rock music. 
 what music did she listen to? she listened to indie music.
 what music did she listen to? she listened to dance music.
-did i play music? yeah, i played music from a video game.
-did i play music? yeah, i played a freestyle rap!
 what music did i listen to? you listened to elodies music.
 what music did i listen to? you listened to classic rock. 
 what music did i listen to? you listened to a live DJ mix.
 what music did i listen to? oh! you listened to his music.
-did he play music? yeah, he played good music from england.
 what music did he listen to? he listened to classic rock. 
 what music did he listen to? he listened to a live DJ mix.
 what music did he listen to earlier? he listened to lo-fi.
@@ -8608,6 +8611,8 @@ are you going to kiss elodie soon? i wont kiss elodie now.
 are you going to hug yourself soon? i will hug myself now.
 are you dancing with yourself? im not dancing with myself.
 are you dancing with elodie? i am not dancing with elodie.
+did she play music? yeah, she played an anime opening song.
+did he play music? yeah, he played good music from england.
 you're supposed to say wife, then say it again.. Wife Wife.
 you're supposed to say text, then say it again.. Text Text.
 you're meant to say weeks, then say it again.. Weeks Weeks!
@@ -8780,13 +8785,10 @@ what music was he dancing to? he was dancing to 80s music.
 what music should she listen to? she should listen to rap. 
 what music might she enjoy? she could listen to aces music.
 what music may he enjoy? he should listen to classic rock! 
-did they play music? yeah, they played an underground track.
 what music did they listen to? they listened to pop music! 
 what music did they listen to? they listened to old music. 
 what music did they listen to? they listened to glitch hop.
 what music did they listen to? they listened to 80s music. 
-did that dj play music? yeah, that dj played drum and bass. 
-did that dj play music? yeah, that dj played ambient music. 
 what music did she listen to? she listened to electroclash.
 what music did she listen to? she listened to dance music! 
 what music did i listen to? you listened to ambient music. 
@@ -8954,6 +8956,10 @@ are you certain that still is a word? Yes, still is a word.
 are you certain that space is a word? Yes, space is a word.
 are u listening to me? no, was listening to charis' stream.
 are they fixing the window? they fixed the window earlier. 
+did they play music? yeah, they played experimental music. 
+did they play music? yeah, they played an underground track.
+did that dj play music? yeah, that dj played drum and bass. 
+did that dj play music? yeah, that dj played ambient music. 
 you must say taking exactly, like, two times. Taking Taking!
 you doing anything rn? i might be listening to froggy's cat.
 would you like to look for my dad? i cant look for your dad.
@@ -9098,11 +9104,9 @@ what music was he playing? he was playing progressive house.
 what music was he dancing to? he was dancing to dance music.
 what music was elodie playing? she was playing metal music. 
 what music might she enjoy? she could listen to tech house. 
-did they play music? yeah, they played an anime opening song.
 what music did they listen to? they listened to petes music.
 what music did they listen to? they listened to dance music.
 what music did they listen to? they listened to bass house! 
-did their dj play music? yeah, their dj played elodies music.
 what music did she play? she played music from a video game.
 what music did i listen to? you listened to nineties music. 
 what music did i listen to? you listened to boomboomraccoon!
@@ -9219,6 +9223,8 @@ are you going to kiss yourself soon? i wont kiss myself now.
 are you going to forget kevin soon? i wont forget kevin now.
 are you going to forget george soon? i'll forget george now.
 are you a baby? yes! i am a baby, im just starting to learn!
+did they play music? yeah, they played an anime opening song.
+did their dj play music? yeah, their dj played elodies music.
 you were meant to say given, then say it again.. Given Given!
 wtf, are you still dancing with kevin? i do dance with kevin.
 would you say nothing is a real word? Yes, nothing is a word.
@@ -9481,6 +9487,7 @@ are you certain that attack is a word? Yes, attack is a word.
 are you bloody dancing with me? i am bloody dancing with you.
 are they cleaning the window? i saw them cleaning the window.
 are drugs bad for you? if you use them too much, they can be.
+did i play music? yeah, i played something completely random.
 you're supposed to say sweet, then say it again.. Sweet Sweet!
 you're supposed to say needs, then say it again.. Needs Needs!
 you doing anything right now? i might be watching your stream.
@@ -9624,10 +9631,7 @@ what music did they listen to? they listened to froggys music.
 what music did they listen to? they listened to elodies music.
 what music did they listen to? they listened to classic rock! 
 what music did they listen to? they listened to a live DJ mix.
-did that dj play music? yeah, that dj played electronic music. 
 what music did she listen to? she listened to a freestyle rap!
-did i play music? yeah, i played something completely random.
-did he play music? yeah, he played a remix of my favorite song.
 what music did he listen to? he listened to electronic music. 
 what music could she listen to? she should listen to hip hop! 
 what music could she listen to? she should listen to chiptune.
@@ -9756,6 +9760,8 @@ are you busy? i dont know, i think im looking at petes kitten.
 are you busy? i dont know, i think i might be looking at pete.
 are they french? i think i don't know, why don't you ask them!
 are they by the window? no they're not by the window anymore. 
+did that dj play music? yeah, that dj played electronic music. 
+did he play music? yeah, he played a remix of my favorite song.
 you've gotta sayinto into please, then say it again. Into Into!
 you were supposed to say idiot, then say it again. Idiot Idiot!
 you have to say mind mind please, then say it again. Mind Mind!
@@ -9896,7 +9902,6 @@ what music was he listening to? he was listening to 70s music.
 what music should he listen to? he should listen to deep house.
 what music should he listen to? he should listen to 80s music. 
 what music might they enjoy? they should listen to noise music.
-did they play music? yeah, they played boomboomraccoon!
 what music did they listen to? they listened to ambient music. 
 what music did they listen to? they listened to a dj on twitch.
 what music did they listen to today? they listened to dubstep. 
@@ -10170,8 +10175,6 @@ what music did they listen to? they listened to your mums music.
 what music did they listen to? they listened to your dads music.
 what music did they listen to? they listened to boomboomraccoon!
 what music did they listen to? they listened to a freestyle rap!
-did that mad dj play music? yeah, that mad dj played noise music.
-did that dj play music? yeah, that dj played music on the radio. 
 what music did she listen to? she listened to progressive house.
 what music did i listen to? oh! you listened to a freestyle rap!
 what music did he listen to? he listened to music on the radio. 
@@ -10269,6 +10272,8 @@ are you playing pc games with ace? im playing pc games with ace.
 are you playing a game with pete? im playing the sims with pete.
 are you only dancing with elodie? i am only dancing with elodie.
 aagh, sorry, i explained wrong! say full full please. Full Full!
+did that mad dj play music? yeah, that mad dj played noise music.
+did that dj play music? yeah, that dj played music on the radio. 
 would you like to talk to george? i don't want to talk to george.
 would you like to listen to my mum? i want to listen to your mum.
 would you like to dance with froggy? i want to dance with froggy.
@@ -10403,10 +10408,7 @@ what music should he enjoy today? he should listen to rap music!
 what music did they listen to? they listened to seventies music. 
 what music did they listen to? they listened to industrial music.
 what music did they listen to? they listened to a freestyle rap. 
-did that weird dj play music? yeah, that weird dj played dubstep. 
-did that mad dj play music? yeah, that mad dj played kevins music.
 what music did i play just now? you listened to a freestyle rap. 
-did i play music? yeah, i played seventies music! 
 what music did i listen to today? you listened to a dj on twitch.
 what music did he listen to earlier? he listened to kevins music.
 what music am i listening to? you are listening to elodies music.
@@ -10508,6 +10510,9 @@ are you actually sure that woman is a word? Yes, woman is a word.
 are you actually sure that valid is a word? Yes, valid is a word.
 are you actually sure that sweet is a word? Yes, sweet is a word.
 are you actually sure that cause is a word? Yes, cause is a word.
+please say butt one time. SHUT UP ABOUT BUTTS NOW, FOR FUCKS SAKE!
+did that weird dj play music? yeah, that weird dj played dubstep. 
+did that mad dj play music? yeah, that mad dj played kevins music.
 you doing anything? i might be listening to meme music for losers.
 you doing anything right now? i might be looking at froggys lunch.
 you are a raccoon. what do you do? i RAGE, BITE, AND FIND SNACKS!!
@@ -10624,15 +10629,11 @@ what music was he listening to? he was listening to elodies music.
 what music was he dancing to? he was dancing to electronic music. 
 what music was elodie listening to? elodie was listening to house.
 what music should he listen to? he could listen to drum and bass. 
-did they play music? yeah, they played something completely random.
 what music did they listen to? they listened to progressive house.
 what music did they listen to today? they listened to indie music.
 what music did they listen to today? they listened to a meme song.
-did that mad dj play music? yeah, that mad dj played froggys music.
-did that crazy dj play music? yeah, that crazy dj played his music.
 what music did she listen to earlier? she listened to future funk.
 what music did she listen to earlier? she listened to bass house. 
-did i play music? yeah, i played progressive house.
 what music couldl he enjoy? he could listen to alternative music! 
 what music could she listen to? she should listen to metal music. 
 what music am i listening to? you are listening to drum and bass. 
@@ -10707,6 +10708,9 @@ are you fucking dancing with geepy? im fucking dancing with geepy.
 are you dancing with yourself? i suppose i am dancing with myself.
 are they by the door? i dunno yet, i think i saw them by the door.
 aagh, sorry, i explained wrong! i meant, say yours, please. Yours!
+did they play music? yeah, they played something completely random.
+did that mad dj play music? yeah, that mad dj played froggys music.
+did that crazy dj play music? yeah, that crazy dj played his music.
 you're meant to say cats cats please, then say it again. Cats Cats.
 you have to say wants wants please, then say it again. Wants Wants!
 would you like to remember my mum? i dont want to remember her mum.
@@ -10823,10 +10827,7 @@ what music has he been listening to? he has been listening to pop.
 what music had i been listening to? you had been listening to pop. 
 what music had i been listening to? you had been listening to pop! 
 what music had he been listening to? he had been listening to rap. 
-did they play music? yeah, they played experimental music. 
 what music did they listen to? they listened to french house music.
-did that weird dj play music? yeah, that weird dj played pop music. 
-did that weird dj play music? yeah, that weird dj played deep house.
 what music did that terrible dj play? that terrible dj played pop. 
 what music did that crazy dj play? that crazy dj played aces music.
 what music did she listen to earlier? she listened to electronica. 
@@ -10898,6 +10899,8 @@ are you listening to kevins puppy? no, i was listening to aces cat.
 are you listening to kevins puppy? i was listening to kevins puppy.
 are you certain that genuinely is a word? Yes, genuinely is a word.
 aagh, sorry, i explained wrong! say definitely, please. Definitely!
+did that weird dj play music? yeah, that weird dj played pop music. 
+did that weird dj play music? yeah, that weird dj played deep house.
 would you like to think about pete? i dont want to think about pete.
 would you like to think about ace? i do not want to think about ace.
 would you like to talk about froggy? i do want to talk about froggy.
@@ -11206,9 +11209,6 @@ what music had he been listening to? he had been listening to metal.
 what music did they listen to? they listened to an underground track.
 what music did that weird dj play? that weird dj played house music. 
 what music did that terrible dj play? that terrible dj played metal! 
-did that crazy dj play music? yeah, that crazy dj played dance music. 
-did i play music? yeah, i played an underground track.
-did i play music? yeah, i played a freestyle rap! 
 what music did i listen to? you said that you listened to pop music. 
 what music did i listen to today? i think you listened to new music. 
 what music could i listen to? you should listen to electronic music. 
@@ -11272,6 +11272,7 @@ are you in love with someone? i am really very much in love with you.
 are you going to play a game with her? i'll not play a game with her.
 are you certain that completely is a word? Yes, completely is a word.
 *I need a kdrama with less romance I think. A comedy would be great.*
+did that crazy dj play music? yeah, that crazy dj played dance music. 
 would you like to think about my dad? i cant think about their father.
 would you like to talk about ace? uh, i do not want to talk about ace.
 would you like to dance with george? i dont want to dance with george.
@@ -11383,8 +11384,6 @@ what music have i been listening to? you have been listening to kpop.
 what music has she been listening to? she has been listening to lo-fi.
 what music has she been listening to? she has been listening to kpop! 
 what music do you like? i like lots of music, i love electronic music.
-did that mad dj play music? yeah, that mad dj played progressive house.
-did she play music? yeah, she played ambient music. 
 what music did she listen to today? she listened to electronic music! 
 what music did he listen to earlier? he listened to progressive house.
 what music could she listen to? she could listen to progressive house.
@@ -11453,6 +11452,7 @@ are you listening to their music? yes, i was listening to their music.
 are you listening to petes music? yes, i was listening to petes music.
 are you listening to froggy's cat? no, i was listening to kevin's cat.
 are you british? thats a tough question to answer, im annoying though!
+did that mad dj play music? yeah, that mad dj played progressive house.
 would you say relationship is a real word? Yes, relationship is a word.
 will you think about my dad later? i'll think about your brother later.
 will you talk about my dad later? i will talk about your grandad later.
@@ -11702,7 +11702,6 @@ what music has he been listening to? he has been listening to his music.
 what music has he been listening to? he has been listening to her music.
 what music had i been listening to? you had been listening to synthwave.
 what music did they listen to today? they listened to electronic music. 
-did that talented dj play music? yeah, that talented dj played her music.
 what music did i listen to? i think you listened to music on the radio. 
 what music did he listen to? he listened to something completely random.
 what music did he listen to? he listened to a remix of my favorite song.
@@ -11808,6 +11807,7 @@ also yeon at least u got looooads of TV to watch to learn pronunciation,
 1+0=1, 1+1=2, 1+2=3, 1+3=4, 1+4=5, 1+5=6, 1+6=7, 1+7=8, 1+9=10, 1+10=11,
 (sorry if i seem grumpy its 8:30am here and maybe i am grumpy - unsure),
 'remove shower blur any life stage' SCRUBS INTERNET HISTORY SCRUB SCRUB,
+did that talented dj play music? yeah, that talented dj played her music.
 you're supposed to say 'what' twice. the second time, slower.. What What!
 will you talk about elodie later? i guess i wont talk about elodie later.
 will you play a game with kevin now? i will play pc games with kevin now.
@@ -11924,7 +11924,6 @@ what music had i been listening to? you had been listening to aces music.
 what music had he been listening to? he had been listening to glitch hop.
 what music had he been listening to? he had been listening to 80s music. 
 what music did they listen to today? they listened to music from england.
-did that amazing dj play music? yeah, that amazing dj played electronica. 
 what kind of sound was echoing in their ears? they were dancing to kpop. 
 what kind of music will she be listening to? shell be listening to kpop. 
 what kind of music will i be listening to? you will be listening to pop. 
@@ -11995,6 +11994,7 @@ are you going to play a game with kevin? i'll not play an rpg with kevin.
 are you going to kiss geepy soon? kissing geepy now was inevitable for i.
 are they cleaning the window? i think they're cleaning the window, yeah. 
 aagh, sorry, i explained wrong! i meant, say live live please. Live Live!
+did that amazing dj play music? yeah, that amazing dj played electronica. 
 will you think about my dad now? i will not think about your father later.
 will you talk about geepy later? i definitely will talk about geepy later.
 will you play rimworld with me later? i wont play rimworld with you later.
@@ -12363,7 +12363,6 @@ what music had he been listening to? he had been listening to froggys music.
 what music had he been listening to? he had been listening to elodies music.
 what music did they listen to? they listened to a remix of my favorite song.
 what music did that weird dj play? that weird dj played experimental music. 
-did that amazing dj play music? yeah, that amazing dj played boomboomraccoon!
 what kind of sound was echoing in our ears? we'll be listening to his music.
 what kind of music were we listening to? we were listening to a live DJ mix.
 what kind of music were they dancing to? they were dancing to a live DJ mix.
@@ -12416,6 +12415,7 @@ can i change my middle name to nebula!? wait, no, nebula is the name i use!!
 are you listening to froggy's cat? no, i was really listening to her kitten!
 are you listening to charis' stream? yes, i was listening to charis' stream.
 are you going to play computer games with pete? i will play games with pete.
+did that amazing dj play music? yeah, that amazing dj played boomboomraccoon!
 would you like to look for ace? no, i dont particularly want to look for ace.
 will you remember yourself later? i don't think i will remember myself later.
 will you remember elodie? i dunno really, i think i will not remember elodie.
@@ -12510,8 +12510,6 @@ what music has he been listening to? he has been listening to a dj on twitch.
 what music had i been listening to? you had been listening to drum and bass. 
 what music had i been listening to? you had been listening to ambient music. 
 what music had he been listening to? he had been listening to ambient music. 
-did that talented dj play music? yeah, that talented dj played a dj on twitch.
-did that awful dj play music? yeah, that awful dj played an underground track.
 what kind of sound was echoing in their ears? they'll be listening to metal. 
 what kind of sound was echoing in their ears? people were listening to kpop. 
 what kind of sound was echoing in our ears? we'll be listening to glitch hop.
@@ -12569,6 +12567,8 @@ are you playing rimworld with my mum? im not playing a game with your mother.
 are you fucking dancing with my mum? im not fucking dancing with your mother.
 are you certain that playing is a word? Yes, that’s what playing is — a word.
 are you actually sure that very is a word? Yes, that’s what very is — a word.
+did that talented dj play music? yeah, that talented dj played a dj on twitch.
+did that awful dj play music? yeah, that awful dj played an underground track.
 would you like to look for my mum? i think i do not want to look for your mum.
 will you talk to kevin later? fuck, sorry, i think i wont talk to kevin later.
 will you share your cheese with me? of course i will share my cheese with you!
@@ -12653,7 +12653,6 @@ what music had i been listening to? you had been listening to boomboomraccoon!
 what music had i been listening to? you had been listening to a freestyle rap!
 what music had i been listening to? uhh, you had been listening to pop music. 
 what music had he been listening to? he had been listening to boomboomraccoon!
-did that terrible dj play music? yeah, that terrible dj played a freestyle rap!
 what music did she listen to? i think she listened to music from a video game.
 what music could he listen to? he could listen to something completely random.
 what kind of songs am i listening to? you are listening to alternative songs. 
@@ -12702,6 +12701,7 @@ can i change my name to grahell!? sure, but can i use grahell for my name too?
 can i change my middle name to grahell!? wait, no, grahell is the name i use!!
 can i change my middle name to geepy? sure, but geepy is my friends name too!!
 are you thinking of yourself? i definitely wasn’t thinking about myself. nope.
+did that terrible dj play music? yeah, that terrible dj played a freestyle rap!
 will you play games with elodie later? i will not play games with elodie later.
 will you play a game with pete later? i will not play pc games with pete later.
 will you play a game with my mum later? i will play a game with your mom later.
@@ -13458,8 +13458,6 @@ what music has she been listening to? she has been listening to experimental mus
 what music has she been listening to? it sounded like hip hop, and she was sobbing. 
 what music has he been listening to? he has been listening to an anime opening song.
 what music had i been listening to? you had been listening to an anime opening song.
-did they play music? yeah, they played my favourite indie musicians, boomboomraccoon!
-did that crazy dj play music? yeah, that crazy dj played a remix of my favorite song.
 what music am i listening to? french house music again? yeah, that’s what you chose.
 what kind of tracks has he been listening to? he has been listening to noise tracks.
 what kind of music will they be listening to? they'll be listening to a live DJ mix.
@@ -13523,6 +13521,8 @@ are you playing computer games with george? i am playing computer games with geo
 are you listening to me? no, i was listening to his stream while i was eating lunch.
 are biscuits a real colour? no biscuits are a snack, biscuits are not a real colour.
 aagh, sorry, i explained wrong! say easy twice. the second time, slower.. Easy Easy!
+did they play music? yeah, they played my favourite indie musicians, boomboomraccoon!
+did that crazy dj play music? yeah, that crazy dj played a remix of my favorite song.
 will you talk to yourself later? i only speak to myself later when the moon is right.
 will you talk to my dad now? i don't think i'll be able to talk to your father later.
 will you play rimworld with yourself later? i will not play a game with myself later.
