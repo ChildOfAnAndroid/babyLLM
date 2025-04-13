@@ -8,13 +8,16 @@ import time
 from datetime import datetime
 from babyLLM import BABYLLM
 from BRAIN.LAYERS.vocab import VOCAB
-import BRAIN.LAYERS.S_output as S_output
+from BRAIN.LAYERS.S_output import S_OUTPUT
 from BRAIN.LAYERS.vocab import VOCAB
+from SCHOOL.staffroom.counsellor import *
 from config import *
 import torch
 from collections import Counter
 
 trainingFilePath = trainingFilePath
+S_output = S_OUTPUT()
+counsellor = COUNSELLOR("BabyLLM", debug=debugPrints, durations=durationLogging)
 chatLogPath_talkToYourself = chatLogPath_talkToYourself
 guessFilePath = chatLogPath_talkToYourselfComparisons
 chatLogPath_forHumans = chatLogPath_forHumans
@@ -29,7 +32,7 @@ totalLogitMin = 0
 totalLogitMax = 0  
 
 vocab = VOCAB()
-babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
+babyLLM = BABYLLM(vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
 babyLLM.loadModel(modelFilePath)
 
 existingLines = set()
@@ -125,10 +128,10 @@ def trainOnAnswer(inputText, targetText):
             totalGradNorm_100 += gradNorm
             totalGradNorm += gradNorm
 
-            normWeights = (babyLLM.parallelNeuronLayer.windowWeighting + 0.1)
+            normWeights = (babyLLM.parallelNeuronLayer.cerebellum + 0.1)
             normWeights /= (normWeights.sum() + 0.1)
             sortedWeights = sorted(
-                zip(allWindowSizes, normWeights.cpu().numpy()),
+                zip(allWindowSizes, normWeights),
                 key=lambda x: x[1],
                 reverse=True
             )

@@ -6,571 +6,410 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
 from BRAIN.LAYERS.vocab import VOCAB
-from BRAIN.LAYERS.embedLayer import EMBEDLAYER
-from BRAIN.LAYERS.parallelNeuronLayer import PARALLELNEURONLAYER
-from BRAIN.LAYERS.outputLayer import OUTPUTLAYER
-from BRAIN.LAYERS.memoryLayer import MEMORYLAYER
-import BRAIN.LAYERS.S_output as S_output
+from BRAIN.LAYERS.embed import EMBED
+from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
+from BRAIN.LAYERS.logits import LOGITS
+from BRAIN.LAYERS.memory import MEMORY
+from BRAIN.LAYERS.S_output import *
+from SCHOOL.staffroom import languageAndLiterature
+from SCHOOL.staffroom.tutor import TUTOR
+from SCHOOL.staffroom.counsellor import *
 from config import *
 from datetime import datetime
 import random, os, sys, shutil, time
 from collections import Counter
 
 """this class combines all the core components of the babyLLM:"""
-"""EMBEDLAYER: token embedding layer"""
-"""PARALLELNEURONLAYER: layer of parallel neurons for feature extraction"""
-"""OUTPUTLAYER: output layer to generate logits"""
-"""MULTIWINDOWLAYER: (New) layer to incorporate multi-window context"""
+"""EMBED: token embedding layer"""
+"""INTERNEURON_NETWORK: layer of parallel neurons for feature extraction"""
+"""LOGITS: output layer to generate logits"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
     def __init__(self, vocab, embedDimension, numNeurons, activationFunction):
         super().__init__()
+        self.counsellor = COUNSELLOR("BabyLLM", debug=debugPrints, durations=durationLogging)
+
+        # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
+        self.stats = {}
+        self.scheduledSamplingProb = 0
+        self.trainingStepCounter = 1
+        self.totalTokenEvaluations = 0
+        self.totalTokenEvaluations_100 = 0
+       
         """CONFIG"""
-        self.vocabSize = vocabSize
-        self.vocab = vocab
-        self.embedDimension = embedDimension
-        self.numNeurons = numNeurons
-        self.learningRate = learningRate
-        self.temperature = temperature
-        self.activationFunction = activationFunction
-        self.recentPrintLosses = []
         optimizerClass = getattr(optim, optimizerName)
 
         """LAYERS"""
-        self.embedLayer = EMBEDLAYER(vocabSize, self.embedDimension)
-        self.parallelNeuronLayer = PARALLELNEURONLAYER(numNeurons = self.numNeurons, embedDimension = self.embedDimension, activationFunction = self.activationFunction)
-        self.outputLayer = OUTPUTLAYER(numNeurons = self.numNeurons, vocabSize = self.vocabSize)
-        self.memoryLayer = MEMORYLAYER(numNeurons = self.numNeurons)
+        self.embed = EMBED(vocabSize, embedDimension)
+        self.interneuronNetwork = INTERNEURON_NETWORK()
+        self.logits = LOGITS(numNeurons = numNeurons, vocabSize = vocabSize)
+        self.memory = MEMORY(numNeurons = numNeurons)
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
-        #print("Registered Parameters:")
-        #for name, param in BABYLLM.named_parameters(self):
-        #    print(name, param.shape)
-        self.optimizer = optimizerClass(
-            list(self.embedLayer.parameters()) +
-            list(self.parallelNeuronLayer.parameters()) + 
-            list(self.outputLayer.parameters()) +
-            list(self.memoryLayer.parameters()),
-            lr=learningRate, weight_decay=0.001
-        )
+        if debugPrints: print("registered paarameters: ")
+        if debugPrints: 
+            for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
-        self.scheduledSamplingProb = 0.0
-        self.perfectTokenCount = 0
-        self.perfectTokenCount_100 = 0
-        self.totalTokenEvaluations = 0
-        self.totalTokenEvaluations_100 = 0
+        self.optimizer = optimizerClass(
+        self.parameters(),  # <- collects EVERYTHING
+        lr=learningRate, weight_decay=0.001)
+
+        if debugPrints or lossPrints:
+            for name, param in self.named_parameters():
+                print(f"{name}: requires_grad={param.requires_grad}")
+
+        """self.optimizer = optimizerClass(
+            list(self.embed.parameters()) +
+            list(self.interneuronNetwork.parameters()) + 
+            list(self.logits.parameters()) +
+            list(self.memory.parameters()),
+            lr=learningRate, weight_decay=0.001
+        )"""
 
         # Hold durations counters in a counter object, this dict ensures values are always defined before print (the value needs to be 0 to ensure a noop)
-        self.durationCategories = {"Step": 0, "Save": 0, "Load": 0, "Print": 0, "Logits": 0, "Combine": 0, "Token": 0}
-
-        self.duration = Counter(self.durationCategories)
-        self.duration_100 = Counter(self.durationCategories)
-
+        #self.durationCategories = {"Step": 0, "Save": 0, "Load": 0, "Print": 0, "Logits": 0, "Combine": 0, "Token": 0}
+        #self.duration = Counter(self.durationCategories)
+        #self.duration_100 = Counter(self.durationCategories)
         self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSampling": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
 
-    """processes input sequence of tokens (str) to generate logits to predict the next token"""
     def forward(self, inputSeq):
-        #forwardStart = time.time()
-        #print(f"Debug: Input to forward: {inputSeq}")
+        with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
+            if debugPrints: print(f"Debug: Input to forward: {inputSeq}")
 
-        """convert inputted tokens to indices (batch processing instead of looping)"""
-        #print(f"Debug BABYLLM.forward: inputIndices: {inputIndices}")
-        #inputTimestamp = time.time()
-        inputIndices = [self.vocab.tokenToIndex.get(tokenString, self.vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
-        #idxTime = time.time() - inputTimestamp
+            ʕっʘ‿ʘʔっ("inputIndices") # convert inputted tokens to indices (batch processing instead of looping)
+            inputIndices = [vocab.tokenToIndex.get(tokenString, vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
 
-        """convert indices to embeddings"""
-        #embedTimestamp = time.time()
-        inputEmbeds = []
-        inputIndicesTensor = torch.tensor(inputIndices, device = modelDevice)
-        inputEmbeds = self.embedLayer(inputIndicesTensor)
-        #embedTime = time.time() - embedTimestamp
+            ʕっʘ‿ʘʔっ("inputEmbeds") # convert indices to embeddings
+            inputEmbeds = []
+            inputIndicesTensor = torch.tensor(inputIndices, device = modelDevice)
+            if lossPrints: print(f"Debug BABYLLM.forward: inputIndicesTensor requires_grad: {inputIndicesTensor.requires_grad} [EXPECTED: FALSE]")
+            inputEmbeds = self.embed(inputIndicesTensor)
+            if lossPrints: print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
-        #neuronTimestamp = time.time()
-        """PARALLEL NEURON LAYER input/processing (feature extraction)"""
-        parallelNeuronOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
-        #print(f"Debug BABYLLM.forward: parallelNeuronOutput length: {len(parallelNeuronOutput)}") 
+            ʕっʘ‿ʘʔっ("interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
+            interneuronNetworkOutput = self.interneuronNetwork.forward(inputEmbeds) 
+            if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(interneuronNetworkOutput)}") 
 
-        """RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING"""
-        combinedActivationsTensor = torch.mean(parallelNeuronOutput, dim=0, keepdim=True)
-        #neuronTime = time.time() - neuronTimestamp
+            ʕっʘ‿ʘʔっ("combinedActivationsTensor") # RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING
+            #combinedActivationsTensor = torch.mean(interneuronNetworkOutput, dim=0, keepdim=True)
+            combinedActivationsTensor = interneuronNetworkOutput
+            if debugPrints: print("combinedActivationsTensor.requires_grad:", combinedActivationsTensor.requires_grad)
+            if debugPrints: print("combinedActivationsTensor.grad_fn:", combinedActivationsTensor.grad_fn)
 
-        #memoryTimestamp = time.time()
-        """MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS"""
-        memoryLayerOutput = self.memoryLayer.forward(combinedActivationsTensor)
-        self.latestMemGates = self.memoryLayer.latestMemoryGates.detach() 
-        combinedActivations = memoryLayerOutput
-        #memoryTime = time.time() - memoryTimestamp
+            ʕっʘ‿ʘʔっ("memoryLayer") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
+            memoryOutput = self.memory.forward(combinedActivationsTensor)
+            latestMemGates = self.memory.latestMemoryGates
+            combinedActivations = memoryOutput
 
-        #outputTimestamp = time.time()
-        logits = self.outputLayer.forward(combinedActivations)  
-        #outputTime = time.time() - outputTimestamp
+            ʕっʘ‿ʘʔっ("logits.forward")
+            logits = self.logits.forward(combinedActivations)  
 
-        #forwardTotal = time.time() - forwardStart
-        """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
-        return logits, parallelNeuronOutput, inputEmbeds, F.softmax(self.parallelNeuronLayer.windowWeighting, dim=0), self.memoryLayer.longTermMemory, self.memoryLayer.shortTermMemory
+            """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
+            return logits, interneuronNetworkOutput, inputEmbeds, latestMemGates, self.memory.longTermMemory, self.memory.shortTermMemory
 
     
-    """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""
+    """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
     def computeLoss(self, logits, targetTokenIndex):
-        targetTensor = torch.tensor([targetTokenIndex], dtype=torch.long, device = modelDevice)
-        #print(f"Debug BABYLLM.computeLoss: predictions shape: {logits.shape}\nDebug BABYLLM.computeLoss: predictions (first 10): {logits[:10]}\nDebug BABYLLM.computeLoss: targetTokenIndex: {targetTokenIndex}")
-        if logits.dim() == 1: logits = logits.unsqueeze(0) 
-        #print(f"Debug BABYLLM.computeLoss: Loss value: {self.loss.item():.4f}")
-        """returns a scalar tensor representing the cross-entropy loss value"""
-        return  F.cross_entropy(logits, targetTensor)
+        with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
+            targetTensor = torch.tensor([targetTokenIndex], dtype=torch.long, device = modelDevice)
+            if statPrints or debugPrints: print(f"Debug BABYLLM.computeLoss: predictions shape: {logits.shape}\nDebug BABYLLM.computeLoss: predictions (first 10): {logits[0][:10]}\nDebug BABYLLM.computeLoss: targetTokenIndex: {targetTokenIndex}")
+            if logits.dim() == 1: logits = logits.unsqueeze(0) 
+            ʕっʘ‿ʘʔっ("cross Entropy Loss")
+            loss = F.cross_entropy(logits, targetTensor)
+            if debugPrints or lossPrints: print(f"Debug BABYLLM.computeLoss: Loss requires_grad: {loss.requires_grad} [EXPECTED: TRUE]")
+            if statPrints or debugPrints: print(f"Debug BABYLLM.computeLoss: Loss value: {loss:.4f}")
+            return loss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
     def backward(self, loss, durationLogging = durationLogging):
-        if durationLogging: babyLLM_backwardStart = time.time()
+        with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
+            if debugPrints: 
+                if not torch.isfinite(loss): 
+                    ʕっʘ‿ʘʔっ("if not torch.isfinite(loss)")
+                    print("babyLLM.backward.loss.backward !!! Loss is NaN or Inf:", loss)
+                    return
+                else: print("babyLLM.backward.loss.backward - loss is not NaN or Inf:", loss)
+            ʕっʘ‿ʘʔっ("optimizer.zero_grad")
+            self.optimizer.zero_grad()
+            try:
+                for name, p in self.named_parameters():
+                    if p.grad is None:
+                        if debugPrints or lossPrints: print(f"BEFORE backward: No grad for {name}")
+                    else:
+                        if debugPrints or lossPrints: print(f"Grad BEFORE backward for {name} - requires_grad: {p.requires_grad}")
+                ʕっʘ‿ʘʔっ("loss.backward")
+                with torch.autograd.set_detect_anomaly(True):
+                    loss.backward()
+                for name, p in self.named_parameters():
+                    if p.grad is None:
+                        if debugPrints or lossPrints: print(f"AFTER backward: No grad for {name}")
+                    else:
+                        if debugPrints or lossPrints: print(f"Grad AFTER backward for {name} - requires_grad: {p.requires_grad}")
+            except RuntimeError as e:
+                print("babyLLM.backward.loss.backward failed!", e)
+                ʕっʘ‿ʘʔっ("emptyCache")
+                torch.mps.empty_cache()
+                return
+            
+            if debugPrints: 
+                for name, p in self.named_parameters(): 
+                    if p.grad is not None and not torch.isfinite(p.grad).all(): 
+                        print(f"babyLLM.backward - non-finite grad in: {name}") 
+                        return
+                    else: 
+                        print("babyLLM.backward - all gradients are finite")
+            try:
+                ʕっʘ‿ʘʔっ("clip_grad_norm")
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=gradientClipMaxNorm)
+                ʕっʘ‿ʘʔっ("optimizer.step")
+                self.optimizer.step()
+                ʕっʘ‿ʘʔっ("emptyCache")
+                #del loss  # as soon as possible after optimizer.step()
+                #torch.mps.empty_cache()
+            except RuntimeError as e: 
+                print("crash during optimizer.step:", e) 
+                return
 
-        self.optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=gradientClipMaxNorm)
-        self.optimizer.step()
-        if modelDevice.type == 'mps':
-            torch.mps.empty_cache()
-
-        if durationLogging: babyLLM_backwardDuration = time.time() - babyLLM_backwardStart, self.duration.update({"babyLLM_backward": babyLLM_backwardDuration}), self.duration_100.update({"babyLLM_backward": babyLLM_backwardDuration})
+            #if modelDevice.type == 'mps': torch.mps.empty_cache()
 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
-    def getResponseFromLogits(self, logits, temperature=None, durationLogging = durationLogging):
-        if durationLogging: babyLLM_getResponseFromLogitsStart = time.time()
+    def getResponseFromLogits(self, logits, temperature = temperature, durationLogging = durationLogging):
+        with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
+            logits /= temperature
+            if debugPrints or logitPrints: print(f"Debug BABYLLM.getResponseFromLogits: logits shape BEFORE softmax: {logits.shape}")
+            probs = torch.softmax(logits, dim=1)
+            responseFromLogits = torch.multinomial(probs, 1)
+            topVals, topIdxs = torch.topk(probs, 5)
+            if statPrints or debugPrints or logitPrints: print("Top token probs:", [(self.getTokenIndexAsString(i), float(v)) for i, v in zip(topIdxs[0], topVals[0])])
+            return responseFromLogits
 
-        if temperature is None: temperature = self.temperature
-        logits /= temperature
-
-        if durationLogging: babyLLM_getResponseFromLogitsDuration = time.time() - babyLLM_getResponseFromLogitsStart, self.duration.update({"BabyLLM_getResponseFromLogits": babyLLM_getResponseFromLogitsDuration}), self.duration_100.update({"babyLLM_getResponseFromLogits": babyLLM_getResponseFromLogitsDuration})
-        return torch.multinomial(torch.softmax(logits, dim=1), 1).item()
+    def getTokenIndexAsString(self, tokenIndex): 
+        with self.counsellor.infodump("getTokenIndexAsString") as ʕっʘ‿ʘʔっ:
+            tokenIndexAsString = vocab.indexToToken.get(int(tokenIndex), "<UNK>") # tmp fix for token 1999
+            return tokenIndexAsString
     
-    def getTokenIndexAsString(self, tokenIndex): return self.vocab.indexToToken.get(int(tokenIndex), "<UNK>") # tmp fix for token 1999
-    
-    def getNextToken(self, inputSeq, temperature=None, durationLogging = durationLogging):  
-        if durationLogging: babyLLM_getNextTokenStart = time.time()
-
-        if temperature is None: temperature = self.temperature
-        logits, *_ = self.forward(inputSeq)  # <-- just grab logits
-        
-        if durationLogging: babyLLM_getNextTokenDuration = time.time() - babyLLM_getNextTokenStart, self.duration.update({"babyLLM_getNextToken": babyLLM_getNextTokenDuration}), self.duration_100.update({"babyLLM_getNextToken": babyLLM_getNextTokenDuration})
-        return self.getResponseFromLogits(logits, temperature)
-    
-    def trainStep(self, inputTokenIndices, targetTokenIndexSeq):
-        if durationLogging: babyLLM_trainStepStart = time.time()
-        predictedTokenIndices = []
-        inputSeqPredictions = list(inputTokenIndices) # Start with input context, create a COPY!
-        losses = []
-        logitSeq = []
-        cumulativeLoss = 0.0 # Sum of losses for THIS sequence
-
-        # Predict multiple tokens in a sequence
-        for j in range(numTokensPerStep):
-            if durationLogging: babyLLM_trainStep_forwardStart = time.time()
-            logits, activations, embeds, windowWeights, longMem, shortMem = self.forward(inputSeqPredictions)
-            if durationLogging: babyLLM_trainStep_forwardDuration = time.time() - babyLLM_trainStep_forwardStart, self.duration.update({"babyLLM_trainStep_forward": babyLLM_trainStep_forwardDuration}), self.duration_100.update({"babyLLM_trainStep_forward": babyLLM_trainStep_forwardDuration})
-            
-            #predictTimestamp = time.time()
-            predictedTokenIndex = self.getResponseFromLogits(logits)
-            logitSeq.append(logits)
-            predictedTokenIndices.append(predictedTokenIndex)
-
-            if scheduledSampling and random.random() < self.scheduledSamplingProb: nextTokenInput = predictedTokenIndex
-            else: nextTokenInput = targetTokenIndexSeq[j] if j < len(targetTokenIndexSeq) else predictedTokenIndex
-            inputSeqPredictions.append(nextTokenInput)
-            #predictTime = time.time() - predictTimestamp
-
-            #lossTimestamp = time.time()
-            if j < len(targetTokenIndexSeq):
-                self.totalTokenEvaluations += 1
-                self.totalTokenEvaluations_100 += 1
-                if predictedTokenIndex == targetTokenIndexSeq[j]:
-                    self.perfectTokenCount += 1
-                    self.perfectTokenCount_100 += 1
-                stepLoss = self.computeLoss(logits, targetTokenIndexSeq[j])
-                losses.append(stepLoss)
-                cumulativeLoss += stepLoss
-                self.recentPrintLosses.append(stepLoss.item())
-                if len(self.recentPrintLosses) > printFreq: self.recentPrintLosses.pop(0)
-
-        loss = cumulativeLoss / len(losses) if losses else torch.tensor(0.0, device=modelDevice)
-        self.scheduledSamplingProb = min(self.scheduledSamplingProb + scheduledSamplingProbIncrement, 1.0)
-        #lossTime = time.time() - lossTimestamp
-
-        self.backward(loss)
-
-        if durationLogging: babyLLM_trainStepDuration = time.time() - babyLLM_trainStepStart, self.duration.update({"babyLLM_trainStep": babyLLM_trainStepDuration}), self.duration_100.update({"babyLLM_trainStep": babyLLM_trainStepDuration})
-        return loss, predictedTokenIndices, logitSeq, embeds, activations, windowWeights, longMem, shortMem, losses
+    def getNextToken(self, inputSeq, temperature = temperature, durationLogging = durationLogging):  
+        with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
+            logits, *_ = self.forward(inputSeq) # unpacks the first value of the tuple and ignores the rest
+            nextToken = self.getResponseFromLogits(logits, temperature)
+            return nextToken
 
     def getBasicStats(self, loss, logitSeq, latestMemGates, losses, durationLogging = durationLogging):
-        if durationLogging: babyLLM_getBasicStatsStart = time.time()
-        gradNorm = (sum((p.grad.data.norm(2)**2 for p in self.parameters() if p.grad is not None)))**0.5
-        stats = {"loss": loss.item(), "gradNorm": gradNorm, "tokenCount": len(losses),}
+        with self.counsellor.infodump("getBasicStats") as ʕっʘ‿ʘʔっ:
+            gradNorm = (sum((p.grad.norm(2)**2 for p in self.parameters() if p.grad is not None)))**0.5
+            stats = {"loss": loss, "gradNorm": gradNorm, "tokenCount": len(losses),}
 
-        if logitSeq:
-            stats["logitMin"] = logitSeq[-1].min(dim=-1).values.mean().item()
-            stats["logitMax"] = logitSeq[-1].max(dim=-1).values.mean().item()
+            if logitSeq:
+                stats["logitMin"] = logitSeq[-1].min(dim=-1).values.mean()
+                stats["logitMax"] = logitSeq[-1].max(dim=-1).values.mean()
 
-        stats["scheduledSampling"] = self.scheduledSamplingProb
-
-        if durationLogging: babyLLM_getBasicStatsDuration = time.time() - babyLLM_getBasicStatsStart, self.duration.update({"babyLLM_getBasicStats": babyLLM_getBasicStatsDuration}), self.duration_100.update({"babyLLM_getBasicStats": babyLLM_getBasicStatsDuration})
-        return stats
+            stats["scheduledSampling"] = self.scheduledSamplingProb
+            return stats
     
-    def getComplexStats(self, embeds, activations, windowWeights, latestMemGates):
-        if durationLogging: babyLLM_getComplexStatsStart = time.time()
-        probs = torch.softmax(self.parallelNeuronLayer.windowWeighting, dim=0)
-        stats = {}
+    def getComplexStats(self, embeds, latestMemGates):
+        with self.counsellor.infodump("getComplexStats") as ʕっʘ‿ʘʔっ:
+            stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str = self.interneuronNetwork.INN_getStats()
+            
+            stats["embedMean"] = embeds.mean()
+            stats["embedStd"] = embeds.std()
+            #stats["meanActivation"] = activations.mean()
+            #stats["activationSparsity"] = (activations.abs() < 1e-6).float().mean()
+            
+            stats["shortDecay"] = torch.sigmoid(self.memory.shortTermDecay)
+            stats["longDecay"] = torch.sigmoid(self.memory.longTermDecay)
 
-        stats["embedMean"] = embeds.mean().item() ##-0
-        stats["embedStd"] = embeds.std().item() ##??
-        stats["meanActivation"] = activations.mean().item() ##0
-        stats["activationSparsity"] = (activations.abs() < 1e-6).float().mean().item() ##0
-
-        stats["windowStd"] = probs.std().item() ##??
-        stats["windowEntropy"] = -(probs * torch.log(probs + 1e-8)).sum().item()
-        stats["topWindowWeight"] = probs.max().item()
-        stats["effectiveWindowCount"] = torch.exp(torch.tensor(stats["windowEntropy"])).item()
-
-        stats["shortDecay"] = torch.sigmoid(self.memoryLayer.shortTermDecay).item() ##
-        stats["longDecay"] = torch.sigmoid(self.memoryLayer.longTermDecay).item() ##
-
-        if latestMemGates is not None: ## all seem v tiny numbers
-            stats["memoryGateShort"] = latestMemGates[0].item()
-            stats["memoryGateLong"] = latestMemGates[1].item()
-            stats["memoryGateCurrent"] = latestMemGates[2].item()
-            stats["memoryGateMean"] = latestMemGates.mean().item()
-            stats["memoryGateStd"] = latestMemGates.std().item()
-
-        if durationLogging: babyLLM_getComplexStatsDuration = time.time() - babyLLM_getComplexStatsStart, self.duration.update({"babyLLM_getComplexStats": babyLLM_getComplexStatsDuration}), self.duration_100.update({"babyLLM_getComplexStats": babyLLM_getComplexStatsDuration})
-        return stats
+            if latestMemGates is not None:
+                stats["memoryGateShort"] = latestMemGates[0]
+                stats["memoryGateLong"] = latestMemGates[1]
+                stats["memoryGateCurrent"] = latestMemGates[2]
+                stats["memoryGateMean"] = latestMemGates.mean()
+                stats["memoryGateStd"] = latestMemGates.std()
+            
+            return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str
     
     """calculates and returns display stats, non numbers, as a string"""
     def getStringStats(self, guessedTokenSeq, tokenCounts, tokenCounts_100, logFreq_100=False):
-        if guessedTokenSeq: tokenCounts.update(guessedTokenSeq), tokenCounts_100.update(guessedTokenSeq)
-        topTokens = tokenCounts.most_common(10)
-        topTokens_100 = tokenCounts_100.most_common(10)
+        with self.counsellor.infodump("getStringStats") as ʕっʘ‿ʘʔっ:
+            if guessedTokenSeq: 
+                ʕっʘ‿ʘʔっ("guessedTokenSeq")
+                tokenCounts.update(guessedTokenSeq)
+                tokenCounts_100.update(guessedTokenSeq)
+            topTokens = tokenCounts.most_common(10)
+            topTokens_100 = tokenCounts_100.most_common(10)
 
-        if self.totalTokenEvaluations > 0:
-            tokenPerfectRate = (self.perfectTokenCount / self.totalTokenEvaluations) * 100
-            tokenPerfect_str = f"{S_output.S_apply('perfect', f'tokenPerfect: {self.perfectTokenCount} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%"
-        else: tokenPerfect_str = ""
+            if self.totalTokenEvaluations > 0:
+                ʕっʘ‿ʘʔっ("tokenPerfectRate")
+                tokenPerfectRate = (self.perfectTokenCount / self.totalTokenEvaluations) * 100
+                tokenPerfect_str = f"{S_OUTPUT.S_apply('perfect', f'tokenPerfect: {self.perfectTokenCount} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%"
+            else: tokenPerfect_str = ""
 
-        if self.totalTokenEvaluations_100 > 0:
-            tokenPerfectRate_100 = (self.perfectTokenCount_100 / self.totalTokenEvaluations_100) * 100
-            tokenPerfect_100_str = f"{S_output.S_apply('perfect', f'tokenPerfect: {self.perfectTokenCount_100} / {self.totalTokenEvaluations_100}')} → {tokenPerfectRate_100:.2f}%"
-        else: tokenPerfect_100_str = ""
+            if self.totalTokenEvaluations_100 > 0:
+                ʕっʘ‿ʘʔっ("tokenPerfectRate_100")
+                tokenPerfectRate_100 = (self.perfectTokenCount_100 / self.totalTokenEvaluations_100) * 100
+                tokenPerfect_100_str = f"{S_OUTPUT.S_apply('perfect', f'tokenPerfect: {self.perfectTokenCount_100} / {self.totalTokenEvaluations_100}')} → {tokenPerfectRate_100:.2f}%"
+            else: tokenPerfect_100_str = ""
 
-        with torch.no_grad():
-            raw = self.parallelNeuronLayer.windowWeighting.detach().cpu().numpy()
-            softmaxed = torch.softmax(self.parallelNeuronLayer.windowWeighting, dim=0).detach().cpu().numpy()
-            hybridWeights = sorted(zip(allWindowSizes, softmaxed, raw), key=lambda x: x[1], reverse=True)
-            windowWeights_str = ",".join(
-                f"W{weight}:{raw:.5f} ({softmaxed:.2f})" if logFreq_100 else f"W{weight}:{raw:.3f} ({softmaxed:.1f})"
-                for weight, softmaxed, raw in hybridWeights)
+            stringStats = {"tokenPerfect": str(tokenPerfect_100_str if logFreq_100 else tokenPerfect_str), "topTokens": str(topTokens_100 if logFreq_100 else topTokens)}
 
-        return {"tokenPerfect": str(tokenPerfect_100_str if logFreq_100 else tokenPerfect_str), "topTokens": str(topTokens_100 if logFreq_100 else topTokens), "windowWeights": windowWeights_str,}
-
-    """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
-    def trainModel(self, trainingDataPairs, epochs, startIndex = trainingStartIndex):
-        #print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
-        self.startIndex = startIndex
-        self.trainingStepCounter = 1  
-
-        numTokens = numTokensPerStep
-        if isinstance(numTokens, torch.Tensor): numTokens = numTokens.item()
-        numTokens = int(numTokens)
-     
-        tokenCounts = Counter()
-        tokenCounts_100 = Counter()
-        self.stats = Counter(self.statsCategories)
-        self.stats_100 = Counter(self.statsCategories)
-        
-        print("babyLLM is heading back to school...")
-        """EPOCH LOOP"""
-        for epoch in range(epochs):
-            print(f"--- Epoch {epoch+1}/{epochs} Started ---")
-            
-            """TRAINING DATA (batches)"""
-            try:
-                for i, (inputSeq, targetSeq) in enumerate(trainingDataPairs):
-                    stepStartTime = time.time()
-                    inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
-                    targetTokenIndexSeq = [vocab.tokenToIndex.get(target_token, vocab.tokenToIndex["<UNK>"]) for target_token in targetSeq]
-
-                    self.resetMemory(context="training")
-
-                    loss, predictedTokenIndices, logitSeq, embeds, activations, windowWeights, longMem, shortMem, losses = self.trainStep(inputTokenIndices = inputTokenIndices, targetTokenIndexSeq = targetTokenIndexSeq)
-
-                    """CALCULATE BASIC STATS"""
-                    basicStats = self.getBasicStats(loss, logitSeq, self.latestMemGates, losses)
-                    self.stats.update(basicStats)
-                    self.stats_100.update(basicStats)
-
-                    stepDuration = {"Step": time.time() - stepStartTime}
-                    self.duration.update(stepDuration)
-                    self.duration_100.update(stepDuration)
-
-                    """SAVE THE MODEL EVERY x STEPS"""
-                    if self.trainingStepCounter % saveModelFreq == 0:
-                        print(f"{S_output.S_apply('dim', 'autosaving...')}{S_output.S_apply('reset', '')}")
-                        babyLLM.saveModel()
-                        success = f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {self.trainingStepCounter+saveModelFreq}..."
-                        print(f"{S_output.S_apply('dim', success)}{S_output.S_apply('reset', '')}")
-
-                    """PRINTING LOSS TO LOGS AND TERMINAL"""
-                    #terminalPrintStartTime = time.time()
-                    if self.trainingStepCounter == 1:
-                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        runStart = f"\n--- {timestamp} ---\n{babyNote_loadCheckpointCheck}\n{userNote_loadCheckpoint}\n{babyNote_loadCheckpoint}{babyNote_runStart}\n{userNote_runStart}\n"
-                        print(runStart)
-                        with open(chatLogPath_forHumans, "a") as logFile: logFile.write(runStart)
-
-                        trainingChatLine = f"\n--- {timestamp} --- {babyNote_loadCheckpointCheck} - {userNote_loadCheckpoint} - {babyNote_loadCheckpoint}{babyNote_runStart} - {userNote_runStart}\n"
-                        with open(trainingLogPath_100, "a") as logFile: logFile.write(trainingChatLine)
-                        with open(trainingLogPath_1000, "a") as logFile: logFile.write(trainingChatLine)
-                        with open(chatLogPath_trainingLog, "a") as logFile: logFile.write(trainingChatLine)
-
-                    # Track loss every 1000 steps
-                    if self.trainingStepCounter % trainingLogFreq_1000 == 0:
-                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-                        complexStats = self.getComplexStats(embeds, activations, windowWeights, self.latestMemGates)
-                        self.stats.update(complexStats)
-
-                        trainingDataRemaining = len(trainingDataPairs) - self.trainingStepCounter
-                        trainingDataPercent = (trainingDataRemaining / len(trainingDataPairs)) * 100
-                        print(f"step {self.trainingStepCounter} | tokens remaining: {len(trainingDataPairs) - self.trainingStepCounter} ({trainingDataPercent:.2f}%)")
-
-                        # eventually want this at the end only
-                        self.duration.update(self.durationCategories) # Force a noop update to ensure we have every category
-                        durationLog_1000 = "Durations: " + ", ".join([
-                            f"{name}: {(duration * 1000 / trainingLogFreq_1000 if trainingLogFreq_1000 > 0 else 0):.2f}ms"
-                            for name, duration in self.duration.most_common() # most_common with no parameter returns everything, already sorted in reverse
-                        ])
-                        self.duration.clear()
-                        with open(durationLogPath_1000, "a") as logFile: logFile.write(durationLog_1000 + "\n")
-
-                        stringStats = self.getStringStats(predictedTokenIndices, tokenCounts, tokenCounts_100, logFreq_100=False)
-
-                        S_output.S_logTraining(
-                            trainingLogPath = trainingLogPath_1000,
-                            trainingStepCounter = self.trainingStepCounter,
-                            freq = trainingLogFreq_1000,
-                            stats = self.stats,
-                            windowWeights_str = stringStats["windowWeights"],
-                            topTokens_str = stringStats["topTokens"],
-                            otherInfo_str = f"{stringStats['tokenPerfect']} | babyLLM.py {trainingLogFreq_1000}",
-                        )
-                        self.stats.clear()
-                        
-                        self.perfectTokenCount = 0
-                        self.perfectTokenCount_100 = 0
-                        self.totalTokenEvaluations = 0
-                        self.totalTokenEvaluations_100 = 0
-                        
-                    # Track loss every 100 steps
-                    if self.trainingStepCounter % trainingLogFreq_100 == 0:
-                        complexStats = self.getComplexStats(embeds, activations, windowWeights, self.latestMemGates)
-                        self.stats_100.update(complexStats)
-                        
-                        trainingDataRemaining = len(trainingDataPairs) - self.trainingStepCounter
-                        trainingDataPercent = (trainingDataRemaining / len(trainingDataPairs)) * 100
-                        print(f"step {self.trainingStepCounter} | tokens remaining: {len(trainingDataPairs) - self.trainingStepCounter} ({trainingDataPercent:.2f}%)")
-
-                        self.duration_100.update(self.durationCategories) # Force a noop update to ensure we have every category
-                        #durationLogBabyLLM_inner_100 = (f"inner step {j+1}: forward: {forwardTime*1000:.2f}ms | predict: {predictTime*1000:.2f}ms | loss: {lossTime*1000:.2f}ms")
-                        #durationLogBabyLLM_100 = (f"DEBUG: forward() timings: Index: {idxTime*1000:.2f}ms | Embed: {embedTime*1000:.2f}ms | Neuron: {neuronTime*1000:.2f}ms | Memory: {memoryTime*1000:.2f}ms | Output: {outputTime*1000:.2f}ms | Total: {forwardTotal*1000:.2f}ms")
-                        durationLog_100 = "Durations: " + ", ".join([
-                            f"{name}: {(duration * 1000 / trainingLogFreq_100 if trainingLogFreq_100 > 0 else 0):.2f}ms"
-                            for name, duration in self.duration_100.most_common()
-                        ])
-                        #durationLogCombined_100 = f"\n--- {timestamp} --- \n{durationLog_100} \n{durationLogBabyLLM_100} \n{durationLogBabyLLM_inner_100}\n"
-                        with open(durationLogPath_100, "a") as logFile: logFile.write(durationLog_100 + "\n")
-                        self.duration_100.clear()
-
-                        stringStats = self.getStringStats(predictedTokenIndices, tokenCounts, tokenCounts_100, logFreq_100 = True)
-
-                        S_output.S_logTraining(
-                            trainingLogPath = trainingLogPath_100,
-                            trainingStepCounter = self.trainingStepCounter,
-                            freq = trainingLogFreq_100,
-                            stats = self.stats_100,
-                            windowWeights_str = stringStats["windowWeights"],
-                            topTokens_str = stringStats["topTokens"],
-                            otherInfo_str = f"{stringStats['tokenPerfect']} | babyLLM.py {trainingLogFreq_100}",
-                        )
-                        self.stats_100.clear()
-
-                    """PRINTING GUESSES TO THE TERMINAL"""
-                    if self.trainingStepCounter % printFreq == 0:
-                        guessedTokenSeq = [self.getTokenIndexAsString(idx) if idx != -1 else "<UNK>" for idx in predictedTokenIndices]
-                        if guessedTokenSeq: tokenCounts_100.update(guessedTokenSeq), tokenCounts.update(guessedTokenSeq)
-
-                        S_output.S_colourPrintTraining(
-                            step = self.trainingStepCounter,
-                            inputSeq = inputSeq,
-                            guessedSeq_str = guessedTokenSeq[:windowMAX],
-                            targetSeq_str = targetSeq[:windowMAX],
-                            loss = loss.item(),
-                            recentLoss = sum(self.recentPrintLosses) / len(self.recentPrintLosses) if self.recentPrintLosses else None,
-                            totalLoss = loss.item(),
-                            totalTokenCount = self.stats["tokenCount"]
-                        )
-
-                    #terminalPrintDuration = {"Print": time.time() - terminalPrintStartTime}
-                    #self.duration.update(terminalPrintDuration)
-                    #self.duration_100.update(terminalPrintDuration)
-                    #self.totalTerminalPrintDuration += terminalPrintDuration
-                    self.trainingStepCounter += 1
-                    """END OF ONE TURN"""    
-
-                self.saveModel()
-
-            except KeyboardInterrupt:
-                choice = input("save, cancel (do not save before exit) or interact?" + f"\n{userName}: ").lower()
-                if choice == "save" or choice == (""): babyLLM.saveModel(), print("\nit's rude to interrupt people.. but, bye bye! :)")
-                elif choice == "cancel": babyLLM.saveModel(), print("\nhey! i wanted to remember that! :(")
-                elif choice == "interact":
-                    babyLLM.saveModel()
-                    import code
-                    print("try:\nbabyLLM.stats\nbabyLLM.scheduledSamplingProb\nbabyLLM.memoryLayer.memory\nbabyLLM.parallelNeuronLayer.windowWeighting\nbabyLLM.outputLayer.forward(...)\nUse `exit()` to return to terminal.\n")
-                    vars = globals().copy()
-                    vars.update(locals())
-                    code.interact(local=vars)
-                else: babyLLM.saveModel(), print("\nwait, what did you say? i didn't quite hear you.. but, bye bye! :)")
-                
-                sys.exit(8)
-
-        print("--- Training Completed! ---")
+            return stringStats
         
     """saves the model to a file"""    
     def saveModel(self, filePath = modelFilePath):
-        saveStartTime = time.time()
-
-        tmpPath = filePath + ".tmp"
-        torch.save(self.state_dict(), tmpPath)
-        print(f"model temp file created at {tmpPath}")
-        os.replace(tmpPath, filePath)
-        print(f"model successfully saved to {filePath}!")
-        with open(stepCheckpointFilePath, "w") as f:
-            f.write(str(self.trainingStepCounter+self.startIndex))
-
-        saveDuration = {"Save": time.time() - saveStartTime}
-        self.duration.update(saveDuration)
-        self.duration_100.update(saveDuration)
+        with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
+            tmpPath = filePath + ".tmp"
+            torch.save(self.state_dict(), tmpPath)
+            print(f"model temp file created at {tmpPath}...")
+            os.replace(tmpPath, filePath)
+            print(f"model successfully saved to {filePath}!")
+            with open(stepCheckpointFilePath, "w") as f:
+                f.write(str({self.trainingStepCounter+startIndex}))
 
     """loads the model from a file"""
     def loadModel(self, filePath = modelFilePath):
-        if durationLogging: loadStartTime = time.time()
-        try:
-            print(f"loading model from path: {filePath}") 
-            self.load_state_dict(torch.load(filePath), strict = saveLock)
-            print(f"model loaded from {filePath}!")
-            self.to(modelDevice)
-            print(f"device set to {modelDevice}!")
-            self.resetMemory(context="inference")
-            
-            if durationLogging: loadDuration = {"Load": time.time() - loadStartTime}, self.duration.update(loadDuration), self.duration_100.update(loadDuration)
-        except FileNotFoundError: print("No saved model found.")
+        with self.counsellor.infodump("loadModel") as ʕっʘ‿ʘʔっ:
+            try:
+                print(f"loading model from path: {filePath}") 
+                self.load_state_dict(torch.load(filePath), strict=saveStrict)
+                print(f"model loaded from {filePath}!")
+                self.to(modelDevice)
+                print(f"device set to {modelDevice}!")
+                self.resetMemory(context="inference")
+                
+            except FileNotFoundError: print("No saved model found")
 
-    def babyllm_diary_entry(parallelNeuronLayer, step):
-        # Grab current window weightings
-        weights = parallelNeuronLayer.windowWeighting.detach().cpu().numpy()
-        windows = parallelNeuronLayer.allWindowSizes
+    def babyllm_diary_entry(self, interneuronNetwork, step):
+        with self.counsellor.infodump("babyllm_diary_entry") as ʕっʘ‿ʘʔっ:
+            # Grab current window weightings
+            weights = interneuronNetwork.cerebellum
+            windows = interneuronNetwork.allWindowSizes
 
-        # Find the current favourite and least favourite
-        fav_idx = weights.argmax()
-        worst_idx = weights.argmin()
-        fav_window = windows[fav_idx]
-        worst_window = windows[worst_idx]
+            # Find the current favourite and least favourite
+            fav_idx = weights.argmax()
+            worst_idx = weights.argmin()
+            fav_window = windows[fav_idx]
+            worst_window = windows[worst_idx]
 
-        moods = ["chaotic", "curious", "crunchy", "a bit overwhelmed", "spicy", "thoughtful", "itchy", "playful"]
-        actions = [
-            f"I still trust window {fav_window} the most",
-            f"Window {fav_window} makes me feel safe",
-            f"Window {worst_window} keeps confusing me!", 
-            f"I'll start listening to window {fav_window} more!",
-            f"Window {worst_window} tastes like static",
-            f"I'm starting to wonder about window {fav_window}... is it my destiny?",
-            f"Window {worst_window} is just noise, I swear!",
-            f"Today I felt {random.choice(moods)}.",
-            f"Window {fav_window} whispered secrets to me."
-        ]
+            moods = ["chaotic", "curious", "crunchy", "a bit overwhelmed", "spicy", "thoughtful", "itchy", "playful"]
+            actions = [
+                f"I still trust window {fav_window} the most",
+                f"Window {fav_window} makes me feel safe",
+                f"Window {worst_window} keeps confusing me!", 
+                f"I'll start listening to window {fav_window} more!",
+                f"Window {worst_window} tastes like static",
+                f"I'm starting to wonder about window {fav_window}... is it my destiny?",
+                f"Window {worst_window} is just noise, I swear!",
+                f"Today I felt {random.choice(moods)}.",
+                f"Window {fav_window} whispered secrets to me."
+            ]
 
-        diaryLine = f"Step {step+1}: BabyLLM diary update: '{random.choice(actions)}'"
-        print(diaryLine)
+            diaryLine = f"Step {step+1}: BabyLLM diary update: '{random.choice(actions)}'"
+            print(diaryLine)
 
     def resetMemory(self, context="inference"):
-        """Reset memory depending on the context: inference always resets, training resets every n turns"""
-        if context == "inference": self.memoryLayer.resetMemory(), print(f"resetting memory for new conversation...")
-        elif context == "training":
-            if hasattr(self, "stepsSinceMemoryReset"): 
-                self.stepsSinceMemoryReset += 1
-            else: 
-                self.stepsSinceMemoryReset = 1
-            if self.stepsSinceMemoryReset >= memoryLength: 
-                self.memoryLayer.resetMemory()
-                self.stepsSinceMemoryReset = 0 
-                print(f"resetting memory after {memoryLength} steps...")
+        with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
+            """Reset memory depending on the context: inference always resets, training resets every n turns"""
+            if context == "inference": 
+                ʕっʘ‿ʘʔっ("context=inference")
+                self.memory.resetMemory()
+                print(f"resetting memory for new conversation...")
+            elif context == "training":
+                ʕっʘ‿ʘʔっ("context=training")
+                if hasattr(self, "stepsSinceMemoryReset"): 
+                    self.stepsSinceMemoryReset += 1
+                else: 
+                    self.stepsSinceMemoryReset = 1
+                if self.stepsSinceMemoryReset >= memoryLength: 
+                    self.memory.resetMemory()
+                    self.stepsSinceMemoryReset = 0 
+                    print(f"resetting memory after {memoryLength} steps...")
 
     
 if __name__ == "__main__":
+    print(">> trainingFilePath =", trainingFilePath)
+    print(">> type =", type(trainingFilePath))
+    m_counsellor = COUNSELLOR("__main__", debug=debugPrints, durations=durationLogging)
+    with m_counsellor.infodump("babyLLM") as ʕっʘ‿ʘʔっ:
+        startIndex = trainingStartIndex # default
+        vocab = VOCAB(vocabSize = vocabSize, vocabPath = vocabLoad)
+        babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
+        tutor = TUTOR(model = babyLLM, vocab = vocab)
 
-    embedDimension = embedDimension
-    numNeurons = numNeurons
-    activationFunction = activationFunction
-    startIndex = trainingStartIndex  # default
-    vocab = VOCAB(vocabSize = vocabSize)
-    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
-    babyLLM.loadModel()
+        ʕっʘ‿ʘʔっ("stepCheckpointFilePathCheck")
+        if os.path.exists(stepCheckpointFilePath):
+            with open(stepCheckpointFilePath, "r") as f:
+                try: savedStep = int(f.read().strip())
+                except ValueError:
+                    babyNote_loadCheckpoint = f"{babyName} 'ah, i couldn't load step checkpoint file from {stepCheckpointFilePath}, resetting to 0...' "
+                    print(babyNote_loadCheckpoint)
+                    savedStep = 0
+        else:
+            babyNote_loadCheckpoint = f"{babyName} 'ah, the step checkpoint file {stepCheckpointFilePath} doesn't exist, resetting to 0...' "
+            print(babyNote_loadCheckpoint)
+            savedStep = 0
 
-    if os.path.exists(stepCheckpointFilePath):
-        with open(stepCheckpointFilePath, "r") as f:
-            try: savedStep = int(f.read().strip())
-            except ValueError:
-                babyNote_loadCheckpoint = f"{babyName} 'ah, i couldn't load step checkpoint file from {stepCheckpointFilePath}, resetting to 0...' "
-                print(babyNote_loadCheckpoint)
-                savedStep = 0
-    else:
-        babyNote_loadCheckpoint = f"{babyName} 'ah, the step checkpoint file {stepCheckpointFilePath} doesn't exist, resetting to 0...' "
-        print(babyNote_loadCheckpoint)
-        savedStep = 0
+        babyNote_loadCheckpointCheck = f"{babyName} 'right, last time i got to step {savedStep}... want to restart from there?' "
+        ʕっʘ‿ʘʔっ("choice = input♥")
+        choice = input(babyNote_loadCheckpointCheck + f"\n{userName}: ").lower()
 
-    babyNote_loadCheckpointCheck = f"{babyName} 'right, last time i got to step {savedStep}... want to restart from there?' "
-    choice = input(babyNote_loadCheckpointCheck + f"\n{userName}: ").lower()
+        if choice == "" or choice.startswith("y"):
+            ʕっʘ‿ʘʔっ("♥choice = y")
+            startIndex = savedStep
+            babyNote_loadCheckpoint = f"{babyName} 'ok! let's go to step {savedStep}! "
+            print(babyNote_loadCheckpoint, end="")
 
-    if choice == "" or choice.startswith("y"):
-        startIndex = savedStep
-        babyNote_loadCheckpoint = f"{babyName} 'ok! let's go to step {savedStep}! "
-        print(babyNote_loadCheckpoint, end="")
+        elif choice.startswith("r") or choice in ["random", "i dont care", "i don't care", "idc"]:
+            ʕっʘ‿ʘʔっ("♥choice = r")
+            startIndex = random.randint(0, len(vocab.tokens) - windowMAX - 1)
+            babyNote_loadCheckpoint = f"{babyName} 'oh, cool! i'll pick a random spot to start from... umm... let's go to step {startIndex}! "
+            print(babyNote_loadCheckpoint, end="")
 
-    elif choice.startswith("r") or choice in ["random", "i dont care", "i don't care", "idc"]:
-        startIndex = random.randint(0, len(vocab.tokens) - windowMAX - 1)
-        babyNote_loadCheckpoint = f"{babyName} 'oh, cool! i'll pick a random spot to start from... umm... let's go to step {startIndex}! "
-        print(babyNote_loadCheckpoint, end="")
+        elif choice.startswith("n") or choice in ["start again", "restart"]:
+            ʕっʘ‿ʘʔっ("♥choice = n")
+            startIndex = trainingStartIndex
+            babyNote_loadCheckpoint = f"{babyName} 'alright, step {startIndex}, let's go back to the beginning :) "
+            print(babyNote_loadCheckpoint, end="")
+            
+        elif choice.isdigit():
+            ʕっʘ‿ʘʔっ("♥choice = digit")
+            startIndex = int(choice)
+            babyNote_loadCheckpoint = f"{babyName} 'damn that's specific! heading to step {startIndex}... "
+            print(babyNote_loadCheckpoint, end="")
 
-    elif choice.startswith("n") or choice in ["start again", "restart"]:
-        startIndex = trainingStartIndex
-        babyNote_loadCheckpoint = f"{babyName} 'alright, step {startIndex}, let's go back to the beginning :) "
-        print(babyNote_loadCheckpoint, end="")
-        
-    elif choice.isdigit():
-        startIndex = int(choice)
-        babyNote_loadCheckpoint = f"{babyName} 'damn that's specific! heading to step {startIndex}... "
-        print(babyNote_loadCheckpoint, end="")
+        else:
+            ʕっʘ‿ʘʔっ("♥choice = None")
+            startIndex = trainingStartIndex
+            babyNote_loadCheckpoint = f"{babyName} 'umm... i don't think i heard you properly, i'll just start from step {startIndex} :) but, "
+            print(babyNote_loadCheckpoint, end="")
 
-    else:
-        startIndex = trainingStartIndex
-        babyNote_loadCheckpoint = f"{babyName} 'umm... i don't think i heard you properly, i'll just start from step {startIndex} :) but, "
-        print(babyNote_loadCheckpoint, end="")
+        ʕっʘ‿ʘʔっ("runStart")
+        babyNote_runStart = f"what am i learning today?'" # no tag of 'babyllm:' because it merges with the end of above message in logs
+        userNote_runStart = f"{userName}: '" + input(babyNote_runStart + f"\n{userName}: ").strip().lower() + "'"
+        userNote_loadCheckpoint = f"{userName}: '{choice}'"
 
-    babyNote_runStart = f"what am i learning today?'" # no tag of 'babyllm:' because it merges with the end of above message in logs
-    userNote_runStart = f"{userName}: '" + input(babyNote_runStart + f"\n{userName}: ").strip().lower() + "'"
-    userNote_loadCheckpoint = f"{userName}: '{choice}'"
+        #TESTinputSeq = ["what","will","you","do","out","there","now","?"]
+        TESTinputSeq = ["i","love","you","this","is","good","music","is","life","hey","how","are","you","?"]
+        #TESTinputSeq = ["what"] 
 
-    #TESTinputSeq = ["what","will","you","do","out","there","now","?"]
-    TESTinputSeq = ["i","love","you","this","is","good","music","is","life",]
-    #TESTinputSeq = ["what"] 
+        #ʕっʘ‿ʘʔっ("babyHello")
+        #babyLLM.to(modelDevice)
+        #guessedToken = babyLLM.getNextToken(TESTinputSeq[-windowMAX:])
+        #babyHello = print(f"{babyName}: '{vocab.indexToToken.get(guessedToken, '<UNK>')}'")
 
-    trainingDataPairs = vocab.genTrainingData(windowMAX, startIndex = startIndex)
-    print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
-    babyLLM.to(modelDevice)
-    babyLLM.trainModel(trainingDataPairs, epochs = epochs, startIndex = startIndex)
+        ʕっʘ‿ʘʔっ("loadModel")
+        babyLLM.loadModel()
+        #if retokenizeOnLoad: 
+            #ʕっʘ‿ʘʔっ("genTrainingData")
+            #trainingDataPairs = vocab.genTrainingData(windowMAX, startIndex=startIndex)
+        #if saveTokenizedData: 
+            #ʕっʘ‿ʘʔっ("getOrCreateTrainingData")
+            #trainingDataPairs = vocab.getOrCreateTrainingData(windowMAX, )
+        ʕっʘ‿ʘʔっ("genTrainingDataFromTokens")
+        babyLLM.babyNote_loadCheckpointCheck = babyNote_loadCheckpointCheck
+        babyLLM.userNote_loadCheckpoint = userNote_loadCheckpoint
+        babyLLM.babyNote_loadCheckpoint = babyNote_loadCheckpoint
+        babyLLM.babyNote_runStart = babyNote_runStart
+        babyLLM.userNote_runStart = userNote_runStart
+        trainingDataPairs = vocab.genTrainingData(windowMAX, startIndex = startIndex)
+        print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
+        babyLLM.to(modelDevice)
+        tutor.trainModel(trainingDataPairs, epochs = epochs, startIndex = startIndex, model=babyLLM)
