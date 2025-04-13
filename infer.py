@@ -22,13 +22,14 @@ def chat(babyLLM, vocab):
 
     exitAfter = False 
     if userInput.startswith("!exit"):
+        babyLLM.resetMemory()
         exitAfter = True
         userInput = "goodbye babyllm!" # You have to say goodbye to your helpful AIs before leaving! (or is that only for Luigi boards?)
 
     """INPUT ENCODING"""
     encoding = vocab.tokenizer.encode(userInput)
     inputTokens = encoding.ids  # Get token indices
-    #print(f"DEBUG: tokenized input -> {inputTokens}")
+    if debugPrints: print(f"DEBUG: tokenized input -> {inputTokens}")
     outputTokens = []
     for _ in range(inferenceOutputNumTokens):
         guessedToken = babyLLM.getNextToken(inputTokens[-windowMAX:])
@@ -67,7 +68,7 @@ def chat(babyLLM, vocab):
 if __name__ == "__main__":
     vocab = VOCAB()
 
-    babyLLM = BABYLLM(vocab = vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
+    babyLLM = BABYLLM(vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
     babyLLM.loadModel()
 
     while True:

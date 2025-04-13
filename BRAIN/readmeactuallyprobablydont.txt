@@ -17,5 +17,13 @@ OUTPUT LAYER uses all of the inputs (currently just mean output parallel neurons
     - this is also an nn layer itself idfk why
 
 
+----
 
+WHAT THE FUCK IS SELF?!
+I THOGUHT I HAD SELF IDENTITY ISSUES AND THEN I ENCOUNTERED PYTHON!!
+
+----
+
+MODEL TRAINING FLOW AFTER TOKENIZATION:
+1) 
 
