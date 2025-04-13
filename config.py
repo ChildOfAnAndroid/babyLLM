@@ -8,16 +8,16 @@ modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if tor
 from torch.nn.functional import leaky_relu
 leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01)     # leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
 guessedTokenSeq = []
-"""if self.activationFunction == 'leaky_relu':
+"""if activationFunction == 'leaky_relu':
             output = F.leaky_relu(output, 0.01)
-        elif self.activationFunction == 'relu':
+        elif activationFunction == 'relu':
             output = F.relu(output)
-        elif self.activationFunction == 'sigmoid':
+        elif activationFunction == 'sigmoid':
             output = torch.sigmoid(output)
-        elif self.activationFunction == 'tanh':
+        elif activationFunction == 'tanh':
             output = torch.tanh(output)
-        elif callable(self.activationFunction):
-            output = self.activationFunction(output)"""
+        elif callable(activationFunction):
+            output = activationFunction(output)"""
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
@@ -28,30 +28,32 @@ babyName = "babyLLM"
 """--- MODEL ---"""
 saveModelFreq = 10000     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
-saveLock = False     # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 modelFilePath = "BRAIN/soul/babyLLM_legacy.pth"     # where your currently trained saved boi is :)
+modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
 
 """--- TRAINING ---"""
 trainingFilePath = "SCHOOL/trainingData.txt"
+tokenizedDataPath = "SCHOOL/tokenizedTrainingData.txt"
 
 """--- LOGS ---"""
-trainingLogPath_1000 = "LOGS/training/trainingLog_1000.txt"
-trainingLogPath_100 = "LOGS/training/trainingLog_100.txt"
+trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
+trainingLogPath_100 = "SCHOOL/statistics/LOGS/training/trainingLog_100.txt"
 
-durationLogPath_1000 = "LOGS/duration/durationLog_1000.txt"
-durationLogPath_100 = "LOGS/duration/durationLog_100.txt" 
-durationLogNeuronsPath_1 = "LOGS/duration/durationLogNeurons_1.txt"
-durationLogBabyLLMPath_1 = "LOGS/duration/durationLogBabyLLM_1.txt"
+durationLogPath_1000 = "SCHOOL/statistics/LOGS/duration/durationLog_1000.txt"
+durationLogPath_100 = "SCHOOL/statistics/LOGS/duration/durationLog_100.txt" 
+durationLogNeuronsPath_1 = "SCHOOL/statistics/LOGS/duration/durationLogNeurons_1.txt"
+durationLogBabyLLMPath_1 = "SCHOOL/statistics/LOGS/duration/durationLogBabyLLM_1.txt"
 
-chatLogPath_forHumans = "LOGS/chat/chatForHumans.txt"
+chatLogPath_forHumans = "SCHOOL/statistics/LOGS/chat/chatForHumans.txt"
 
-chatLogPath_infer = "LOGS/chat/chatLog.txt"
-chatLogPath_talkToYourself = "LOGS/chat/talkToYourselfBattle.txt"
+chatLogPath_infer = "SCHOOL/statistics/LOGS/chat/chatLog.txt"
+chatLogPath_talkToYourself = "SCHOOL/statistics/LOGS/chat/talkToYourselfBattle.txt"
 chatLogPath_talkToYourselfComparisons = "SCHOOL/library/charisStudies/whoIsMoreLikeYou.txt"
-chatLogPath_trainingLog = "LOGS/chat/trainingLog_questions.txt"
+chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt"
 
 """--- VOCAB --- (see master config)"""
 
@@ -64,7 +66,7 @@ chatLogPath_trainingLog = "LOGS/chat/trainingLog_questions.txt"
 temperature = 0.90     # temperature for softmax in response generation - controls randomness
 topP = 0     # top P - probability
 numTokensPerStep = 18     # Number of tokens to predict per step
-inferenceOutputNumTokens = 400
+inferenceOutputNumTokens = 40
 
 """memoryLayer"""
 memoryLength = 1000
@@ -85,16 +87,46 @@ trainingDataSliceSize_min = 500
 trainingDataSliceSize_max = 50000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py) // 0 //
 epochs = 20
+#retokenizeOnLoad = False
+#saveTokenizedData = True
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 10000     # creates logs every x number of turns
-trainingLogFreq_100 = 2500     # creates logs every x number of turns
+trainingLogFreq_1000 = 5000     # creates logs every x number of turns
+trainingLogFreq_100 = 500     # creates logs every x number of turns
 
-durationLogging = False     # // True // False // activates debug time logging
-
-printFreq = 50     # how often to print training progress to the terminal
+printFreq = 5     # how often to print training progress to the terminal
 printPromptLength = 50     # how many characters of the prompt to display in terminal
 
+durationLogging = False     # // True // False // activates debug time logging
+debugPrints = False
+statPrints = False
+lossPrints = True
+logitPrints = True
+
+skipNeuron = False
+skipINN = False
+
+debugPrints_babyLLM = False
+debugPrints_TUTOR = False
+durationLogging_babyLLM = False
+durationLogging_TUTOR = False
+
+"""--- STATS COLLECTION ---"""
+collectStats = True
+n_collectStats = True
+INN_collectStats = True
+
+# neuron + interneuronNetwork
+n_weightStats = True
+n_weightNormStats = True
+n_biasesStats = True
+n_sparsityStat = True
+INN_cerebellumStats = True
+INN_credibilityBiasStats = True
+INN_judgeBiasStats = True
+INN_scoringStats = True
+INN_windowStats = True
+INN_outputTensorStats = True
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
@@ -190,7 +222,8 @@ window5 = 20
 window6 = 24
 window7 = 28
 windowMAX = 32     # THIS MUST BE THE HIGHEST NUMBER
-allWindowSizes = [windowMAX, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
+allWindowSizes_new = [windowMAX, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
+#allWindowSizes = list(range(1, 33))
 
 attentionWindow = None     # attention head  
 numHeads = 32
@@ -207,10 +240,12 @@ vocabLoad = "BRAIN/vocabCache/tokenizer.json"
 """--- MISC & EXTRA FORMATS ---"""
 #trainingFilePath_dict = [{"type": ftype, "in": fname, "out": trainingFilePath} for ftype, fname in rawDataFilepaths]     # Convert to dictionary format when needed
 trainingFilePath_dict = [{"type": ftype, "in": fname, "weight": weight, "out": trainingFilePath} for ftype, fname, weight in rawDataFilepaths]
+
 trainingFilePath_arr = ["SCHOOL/trainingData.txt"]
+tokenizedDataPath = "SCHOOL/tokenizedTrainingData.txt"
 
 trainingFilePath_dict_weighted = []
 for entry in trainingFilePath_dict:
     trainingFilePath_dict_weighted.extend([entry] * entry["weight"])
 
-#trainingFileWeightTotal = sum([entry[2] for entry in rawDataFilepaths if len(entry) == 3])
+trainingFileWeightTotal = sum([entry[2] for entry in rawDataFilepaths if len(entry) == 3])
