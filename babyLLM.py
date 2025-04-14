@@ -97,15 +97,23 @@ class BABYLLM(nn.Module):
             if debugPrints: print("combinedActivationsTensor.grad_fn:", combinedActivationsTensor.grad_fn)
 
             ʕっʘ‿ʘʔっ("memoryLayer") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
-            memoryOutput = self.memory.forward(combinedActivationsTensor)
-            latestMemGates = self.memory.latestMemoryGates
-            combinedActivations = memoryOutput
+            if skipMemory:
+                if debugPrints: print("skipping memory layer...")
+                latestMemGates = torch.tensor([0.0, 0.0, 1.0], device=modelDevice)  # dummy gates
+                combinedActivations = combinedActivationsTensor.detach()  # no grad path, super light
+            else:
+                memoryOutput = self.memory.forward(combinedActivationsTensor)
+                latestMemGates = self.memory.latestMemoryGates
+                combinedActivations = memoryOutput
+            if debugPrints: print("combinedActivations.requires_grad:", combinedActivations.requires_grad)
 
             ʕっʘ‿ʘʔっ("logits.forward")
+            if debugPrints: print("memory output requires_grad?", self.memory.longTermMemory.requires_grad)
             logits = self.logits.forward(combinedActivations)  
+            if debugPrints: print("memory output requires_grad?", self.memory.longTermMemory.requires_grad)
 
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
-            return logits, interneuronNetworkOutput, inputEmbeds, latestMemGates, self.memory.longTermMemory, self.memory.shortTermMemory
+            return logits, interneuronNetworkOutput, inputEmbeds
 
     
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
@@ -148,7 +156,7 @@ class BABYLLM(nn.Module):
             except RuntimeError as e:
                 print("babyLLM.backward.loss.backward failed!", e)
                 ʕっʘ‿ʘʔっ("emptyCache")
-                torch.mps.empty_cache()
+                
                 return
             
             if debugPrints: 
@@ -165,12 +173,12 @@ class BABYLLM(nn.Module):
                 self.optimizer.step()
                 ʕっʘ‿ʘʔっ("emptyCache")
                 #del loss  # as soon as possible after optimizer.step()
-                #torch.mps.empty_cache()
+                #
             except RuntimeError as e: 
                 print("crash during optimizer.step:", e) 
                 return
 
-            #if modelDevice.type == 'mps': torch.mps.empty_cache()
+            #if modelDevice.type == 'mps': 
 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
     def getResponseFromLogits(self, logits, temperature = temperature, durationLogging = durationLogging):
@@ -188,16 +196,16 @@ class BABYLLM(nn.Module):
             tokenIndexAsString = vocab.indexToToken.get(int(tokenIndex), "<UNK>") # tmp fix for token 1999
             return tokenIndexAsString
     
-    def getNextToken(self, inputSeq, temperature = temperature, durationLogging = durationLogging):  
+    def getNextToken(self, inputSeq, temperature = temperature):  
         with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
             logits, *_ = self.forward(inputSeq) # unpacks the first value of the tuple and ignores the rest
             nextToken = self.getResponseFromLogits(logits, temperature)
             return nextToken
 
-    def getBasicStats(self, loss, logitSeq, latestMemGates, losses, durationLogging = durationLogging):
+    def getBasicStats(self, logitSeq):
         with self.counsellor.infodump("getBasicStats") as ʕっʘ‿ʘʔっ:
-            gradNorm = (sum((p.grad.norm(2)**2 for p in self.parameters() if p.grad is not None)))**0.5
-            stats = {"loss": loss, "gradNorm": gradNorm, "tokenCount": len(losses),}
+            #gradNorm = (sum((p.grad.norm(2)**2 for p in self.parameters() if p.grad is not None)))**0.5
+            stats = {}
 
             if logitSeq:
                 stats["logitMin"] = logitSeq[-1].min(dim=-1).values.mean()
@@ -206,9 +214,9 @@ class BABYLLM(nn.Module):
             stats["scheduledSampling"] = self.scheduledSamplingProb
             return stats
     
-    def getComplexStats(self, embeds, latestMemGates):
+    def getComplexStats(self, embeds):
         with self.counsellor.infodump("getComplexStats") as ʕっʘ‿ʘʔっ:
-            stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str = self.interneuronNetwork.INN_getStats()
+            stats = self.interneuronNetwork.INN_getStats()
             
             stats["embedMean"] = embeds.mean()
             stats["embedStd"] = embeds.std()
@@ -217,15 +225,8 @@ class BABYLLM(nn.Module):
             
             stats["shortDecay"] = torch.sigmoid(self.memory.shortTermDecay)
             stats["longDecay"] = torch.sigmoid(self.memory.longTermDecay)
-
-            if latestMemGates is not None:
-                stats["memoryGateShort"] = latestMemGates[0]
-                stats["memoryGateLong"] = latestMemGates[1]
-                stats["memoryGateCurrent"] = latestMemGates[2]
-                stats["memoryGateMean"] = latestMemGates.mean()
-                stats["memoryGateStd"] = latestMemGates.std()
             
-            return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str
+            return stats
     
     """calculates and returns display stats, non numbers, as a string"""
     def getStringStats(self, guessedTokenSeq, tokenCounts, tokenCounts_100, logFreq_100=False):

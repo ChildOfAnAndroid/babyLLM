@@ -30,7 +30,7 @@ saveModelFreq = 10000     # // 500 // 5000 // 10000 // saves the model every x n
 
 saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
-modelFilePath = "BRAIN/soul/babyLLM_legacy.pth"     # where your currently trained saved boi is :)
+modelFilePath = "BRAIN/soul/babyLLM_legacy_x.pth"     # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
@@ -83,28 +83,30 @@ scheduledSampling = True
 scheduledSamplingProbIncrement = 0.00000001     # // 0.0001 // increment probability of using model output by this much PER TURN
 
 """--- TRAINING ---"""
-trainingDataSliceSize_min = 500
-trainingDataSliceSize_max = 50000
+trainingDataSliceSize_min = 50
+trainingDataSliceSize_max = 5000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py) // 0 //
 epochs = 20
 #retokenizeOnLoad = False
 #saveTokenizedData = True
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 5000     # creates logs every x number of turns
-trainingLogFreq_100 = 500     # creates logs every x number of turns
+trainingLogFreq_1000 = 500     # creates logs every x number of turns
+trainingLogFreq_100 = 50     # creates logs every x number of turns
 
-printFreq = 5     # how often to print training progress to the terminal
+printFreq = 1
+     # how often to print training progress to the terminal
 printPromptLength = 50     # how many characters of the prompt to display in terminal
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
 statPrints = False
-lossPrints = True
-logitPrints = True
+lossPrints = False
+logitPrints = False
 
 skipNeuron = False
 skipINN = False
+skipMemory = False
 
 debugPrints_babyLLM = False
 debugPrints_TUTOR = False
