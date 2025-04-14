@@ -207,7 +207,7 @@ def forward(self, inputEmbeds):
 
         ʕっʘ‿ʘʔっ("finalActions")
         if tinyWindowCount > 0: print(f"saw {neuronActivations.shape[0]} tokens; created {tinyWindowCount} empty windows.")
-        torch.mps.empty_cache()
+        
 
         return windowContextVector
         

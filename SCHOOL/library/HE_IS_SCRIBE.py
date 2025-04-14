@@ -45,42 +45,44 @@ class SCRIBE:
         self.say(f"BabyLLM replies: '{guessWord}'", "impressed")
 
     def maybeCommentOnGuess(self, inputTokens, lossValue, tag="scribe", chance=0.05):
-        if inputTokens is list:
-            self.guessTokensToString(inputTokens)
-        else:
-            if random.random() > chance:
+        if random.random() > chance:
                 return
+        
+        if isinstance(inputTokens, list):
+            inputTokens = self.guessTokensToString(inputTokens)
+        else:
+            inputTokens = inputTokens
 
-            if lossValue < 1.0:
-                vibe = "love"
-                messages = [
-                    f"'{inputTokens}'? aww, that was great! well done!",
-                    f"you're getting good at this,  '{inputTokens}' must mean something important!",
-                    f"i've gotta write this one down: '{inputTokens}'."
-                ]
-            elif lossValue < 2.5:
-                vibe = "neutral"
-                messages = [
-                    f"Hmm... '{inputTokens}'... that's not the best guess i've ever seen.",
-                    f"Alright, '{inputTokens}', not your worst.",
-                    f"'{inputTokens}'... it's alright i guess."
-                ]
-            elif lossValue < 5.0:
-                vibe = "confused"
-                messages = [
-                    f"wait—'{inputTokens}'? Explain yourself!?!?!",
-                    f"'{inputTokens}'? I have no idea what you mean i'm so sorry :(",
-                    f"Uhh... could you elaborate a bit on '{inputTokens}'?"
-                ]
-            else:
-                vibe = "annoyed"
-                messages = [
-                    f"'{inputTokens}' is chaos incarnate.",
-                    f"baby... '{inputTokens}' is not even wrong, and that's honestly worse.",
-                    f"what the hell did charis feed you!? '{inputTokens}'!?"
-                ]
+        if lossValue < 1.0:
+            vibe = "love"
+            messages = [
+                f"'{inputTokens}'? aww, that was great! well done!",
+                f"you're getting good at this,  '{inputTokens}' must mean something important!",
+                f"i've gotta write this one down: '{inputTokens}'."
+            ]
+        elif lossValue < 2.5:
+            vibe = "neutral"
+            messages = [
+                f"Hmm... '{inputTokens}'... that's not the best guess i've ever seen.",
+                f"Alright, '{inputTokens}', not your worst.",
+                f"'{inputTokens}'... it's alright i guess."
+            ]
+        elif lossValue < 5.0:
+            vibe = "confused"
+            messages = [
+                f"wait—'{inputTokens}'? Explain yourself!?!?!",
+                f"'{inputTokens}'? I have no idea what you mean i'm so sorry :(",
+                f"Uhh... could you elaborate a bit on '{inputTokens}'?"
+            ]
+        else:
+            vibe = "annoyed"
+            messages = [
+                f"'{inputTokens}' is chaos incarnate.",
+                f"baby... '{inputTokens}' is not even wrong, and that's honestly worse.",
+                f"what the hell did charis feed you!? '{inputTokens}'!?"
+            ]
 
-            message = random.choice(messages)
-            self.say(message, vibe=vibe, tag=tag)
-            with open("scribeSays.txt", "a") as f:
-                f.write(f"{message}\n")
+        message = random.choice(messages)
+        self.say(message, vibe=vibe, tag=tag)
+        with open("scribeSays.txt", "a") as f:
+            f.write(f"{message}\n")

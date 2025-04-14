@@ -6,14 +6,29 @@ state_dict = torch.load("babyLLM_legacy.pth")
 for key in state_dict.keys():
     print(key)
 
+allWindowSizes_new = [32, 2, 4, 8, 12, 16, 20, 24, 28]  
+
 """-*-*-*- COMMENT EVERYTHING UNDER HERE TO JUST CHECK WHATS IN DICT FIRST -*-*-*-"""
 
 # OTHERWISE UR GONNA RENAME UR WHOLE FILE LOL
 
-for key in list(state_dict.keys()):
-    if "#" in key:
-        print(f"🧹 Removing: {key}")
-        del state_dict[key]
+weights = []
+biases = []
+for i in range(len(allWindowSizes_new)):
+    w_key = f"interneuronNetwork.windowCombos.{i}.weight"
+    b_key = f"interneuronNetwork.windowCombos.{i}.bias"
+    weights.append(state_dict[w_key])
+    biases.append(state_dict[b_key])
+    # Optionally clean up
+    del state_dict[w_key]
+    del state_dict[b_key]
+state_dict[f"interneuronNetwork.windowComboWeights"] = torch.stack(weights)
+state_dict[f"interneuronNetwork.windowComboBiases"] = torch.stack(biases)
+
+#for key in list(state_dict.keys()):
+#    if "#" in key:
+#        print(f"🧹 Removing: {key}")
+#        del state_dict[key]
 
 # Mapping of old names to new names
 """rename_map = {
@@ -75,8 +90,8 @@ for key, value in state_dict.items():
     new_state_dict[new_key] = value"""
 
 # Save the fixed version
-torch.save(state_dict, "babyLLM_legacy.pth")
-print("Saved updated model to babyLLM.pth")
+torch.save(state_dict, "babyLLM_legacy_t.pth")
+print("Saved updated model to babyLLM_legacy_t.pth")
 
-unchanged = [k for k in state_dict if k in new_state_dict]
-print(f"Keys unchanged: {len(unchanged)} / {len(state_dict)}")
+#unchanged = [k for k in state_dict if k in new_state_dict]
+#print(f"Keys unchanged: {len(unchanged)} / {len(state_dict)}")
