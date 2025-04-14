@@ -30,8 +30,8 @@ class MEMORY(nn.Module):
             activationsTensor = activationsTensor.to(device)
 
             ʕっʘ‿ʘʔっ("detach memories") # Get detached historical memory (not part of current graph)
-            oldShort = self.shortTermMemory.detach().clone()
-            oldLong = self.longTermMemory.detach().clone()
+            oldShort = self.shortTermMemory.detach()
+            oldLong = self.longTermMemory.detach()
             actClone = activationsTensor.detach()
 
             ʕっʘ‿ʘʔっ("sigmoid gate decays") # make sure decay values stay within [0, 1] range
@@ -39,27 +39,28 @@ class MEMORY(nn.Module):
             longDecay = torch.sigmoid(self.longTermDecay)
 
             ʕっʘ‿ʘʔっ("updateMemories (compute)") # Compute new memory (attached to current graph)
-            newShort = (shortDecay * oldShort) + ((1 - shortDecay) * actClone)
-            newLong = (longDecay * oldLong) + ((1 - longDecay) * actClone)
 
             ʕっʘ‿ʘʔっ("update no grad memory") # Update the state (detached, won’t break graph)
             with torch.no_grad():
+                newShort = (shortDecay * oldShort) + ((1 - shortDecay) * actClone)
+                newLong = (longDecay * oldLong) + ((1 - longDecay) * actClone)
                 self.shortTermMemory.copy_(newShort.clone())
                 self.longTermMemory.copy_(newLong.clone())
+            #print("memory output requires_grad?", self.longTermMemory.requires_grad)
 
             ʕっʘ‿ʘʔっ("logGateSizes") # log the memory gate sizes
             gateSum = self.shortGate + self.longGate + self.currentGate + 1e-9
             self.latestMemoryGates = torch.stack([
-                self.shortGate / gateSum,
-                self.longGate / gateSum,
-                self.currentGate / gateSum
+                (self.shortGate / gateSum),
+                (self.longGate / gateSum),
+                (self.currentGate / gateSum)
             ])
 
             ʕっʘ‿ʘʔっ("blendMemories") # Blend memories, weighted sum, hopefully gradient safe lol
             blendedAct = (
-                self.shortGate * newShort +
-                self.longGate * newLong +
-                self.currentGate * activationsTensor  # keep original graph for this one
+                ((shortDecay * newShort) +
+                (longDecay * newLong)) +
+                activationsTensor  # keep original graph for this one
             )
 
             return blendedAct
