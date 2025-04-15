@@ -38,24 +38,23 @@ class NEURON(nn.Module):
 
             return output
 
-def stackedWindowMeans(x: torch.Tensor, windowSizes: list[int]) -> torch.Tensor:
+def stackedWindowMeans(activations: torch.Tensor, windowSizes: list[int]) -> torch.Tensor:
     """
     Fully vectorized, loop-free window mean calculation.
     Returns: (len(windowSizes), embedDim)
     """
-    seqLen, embedDim = x.shape
-    maxW = max(windowSizes)
+    seqLen, embedDim = activations.shape
 
     # Right-aligned padding: (maxW, embedDim)
-    padded = torch.zeros((maxW, embedDim), device=x.device, dtype=x.dtype)
-    padded[-min(seqLen, maxW):] = x[-min(seqLen, maxW):]
+    padded = torch.zeros((windowMAX, embedDim), device=modelDevice)
+    padded[-min(seqLen, windowMAX):] = activations[-min(seqLen, windowMAX):]
 
     # Stack: (numWindows, maxW, embedDim)
     stacked = padded.unsqueeze(0).repeat(len(windowSizes), 1, 1)
 
     # Build mask: (numWindows, maxW, 1)
-    range_mask = torch.arange(maxW, device=x.device).unsqueeze(0)
-    window_tensor = torch.tensor(windowSizes, device=x.device).unsqueeze(1)
+    range_mask = torch.arange(windowMAX, device=modelDevice).unsqueeze(0)
+    window_tensor = torch.tensor(windowSizes, device=modelDevice).unsqueeze(1)
     mask = (range_mask < window_tensor).float().unsqueeze(2)
 
     # Apply mask, compute sums and divide by window sizes
@@ -80,7 +79,7 @@ class INTERNEURON_NETWORK(nn.Module):
 
         self.judgeBias = nn.Parameter(torch.zeros(len(allWindowSizes_new), device = modelDevice))
         self.credibilityBias = nn.Parameter(torch.zeros(len(allWindowSizes_new), device = modelDevice))
-        self.parliamentBlend = nn.Parameter(torch.tensor(0.5, device=modelDevice))
+        self.parliamentBlend = nn.Parameter(torch.tensor(0.5, device = modelDevice))
 
         self.neurons = NEURON()
 
@@ -96,7 +95,7 @@ class INTERNEURON_NETWORK(nn.Module):
                 ʕっʘ‿ʘʔっ("skipping INNforward")
                 x = self.neurons(inputEmbeds)
                 return x.mean(dim=0, keepdim=True)
-        # --- iterates through input embeddings, applies all neurons in parallel for each, produces a vector of neuron outputs
+            # --- iterates through input embeddings, applies all neurons in parallel for each, produces a vector of neuron outputs
             ʕっʘ‿ʘʔっ("localParamInit") # AVOIDING SELF - parameters only used in this function and never passed
             tinyWindowCount = 0
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
@@ -136,9 +135,12 @@ class INTERNEURON_NETWORK(nn.Module):
 
             ʕっʘ‿ʘʔっ("parliamentBlendMix") # learned mix instinct vs votes
             parliamentBlendClamped = torch.sigmoid(self.parliamentBlend)  # stays in [0, 1]
-            combinedWindowWeights = (
-                (1.0 - parliamentBlendClamped) * self.cerebellumSoft +
-                parliamentBlendClamped * attentionWindowWeights)
+            combinedLogits = (
+                (1.0 - parliamentBlendClamped) * self.cerebellum +
+                parliamentBlendClamped * combinedScores
+            )
+            combinedWindowWeights = F.softmax(combinedLogits, dim=0)
+
                         
             ʕっʘ‿ʘʔっ("formatWindowVoteString")
             parliamentBlend_str = f"{parliamentBlendClamped.item():.3f}"
@@ -147,13 +149,13 @@ class INTERNEURON_NETWORK(nn.Module):
             self.windowVotes_str = f"blend:{parliamentBlend_str} → {topWindows_str}"
 
             ʕっʘ‿ʘʔっ("weightedWindows")
-            weightedViews = comboViews * combinedWindowWeights.unsqueeze(1)
-            windowContextVector = weightedViews.sum(dim=0, keepdim=True)  # (1, numNeurons)
+            windowContextVector = torch.sum(comboViews * combinedWindowWeights.unsqueeze(1), dim=0, keepdim=True)
 
             ʕっʘ‿ʘʔっ("finalActions")
             if tinyWindowCount > 0: print(f"saw {neuronActivations.shape[0]} tokens; created {tinyWindowCount} empty windows.")
 
-            return windowContextVector
+            raw = comboViews.mean(dim=0, keepdim=True) # keeps gradients open
+            return windowContextVector + 0.1 * raw
     
     def INN_getStats(self):
         with self.inn_counsellor.infodump("INN_getStats") as ʕっʘ‿ʘʔっ:
@@ -229,8 +231,8 @@ class INTERNEURON_NETWORK(nn.Module):
                         INN_judgeBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridJudgeBias)
                         if debugPrints: print(f"{INN_judgeBias_str}")
                         
-                    #if INN_scoringStats:
-                        #ʕっʘ‿ʘʔっ("♥getScoringStats")
+                    if INN_scoringStats:
+                        ʕっʘ‿ʘʔっ("♥getScoringStats")
                         #stats["INN_scores"] = self.scores
                         #stats["INN_selfScores"] = self.selfScores
                         #stats["INN_peerScores"] = self. peerScores
@@ -245,7 +247,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         #stats["INN_windowStd"] = INN_attentionWindowWeights.std()
                         #stats["INN_windowEntropy"] = 
                         #stats["INN_effectiveWindowCount"] = torch.exp(torch.tensor(INN_windowEntropy))
-                        #if debugPrints: print(f"window stats: top: {stats["INN_topWindowWeight"]} std: {stats["INN_windowStd"]} entropy: {stats["INN_windowEntropy"]} effective window count: {stats["INN_effectiveWindowCount"]}")
+                        if debugPrints: print(f"window stats: top: {stats["INN_topWindowWeight"]} std: {stats["INN_windowStd"]} entropy: {stats["INN_windowEntropy"]} effective window count: {stats["INN_effectiveWindowCount"]}")
 
             return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str   
     

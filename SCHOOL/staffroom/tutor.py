@@ -5,8 +5,7 @@ import torch
 from BRAIN.LAYERS.S_output import *
 from SCHOOL.staffroom.counsellor import *
 #from BRAIN.LAYERS.memory import *
-from BRAIN.LAYERS.vocab import VOCAB
-from SCHOOL.library.HE_IS_SCRIBE import SCRIBE
+from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from config import *
 
 class TUTOR:
@@ -14,19 +13,18 @@ class TUTOR:
         self.counsellor = COUNSELLOR("TUTOR", debug=debugPrints, durations=durationLogging)
         self.s_output = S_OUTPUT()
         self.scribe = SCRIBE()
-        self.vocab = vocab
-        self.tokenCounts = Counter()
-        self.tokenCounts_100 = Counter()
+        vocab = model.vocab
         self.perfectTokenCount = 0
         self.totalTokenEvaluations = 0
         self.perfectTokenCounts_100 = 0
         self.totalTokenEvaluations_100 = 0
-        self.trainingStepCounter = 1
         self.recentPrintLosses = []
         self.scheduledSamplingProb = 0
+        #model.to(modelDevice)
 
     def trainStep(self, inputTokenIndices, targetTokenIndexSeq, model):
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
+            model.optimizer.zero_grad()
             predictedTokenIndices = []
             inputSeqPredictions = list(inputTokenIndices)  # Start with input context, create a COPY!
             losses = []
@@ -34,8 +32,9 @@ class TUTOR:
             cumulativeLoss = 0.0 # Sum of losses for THIS sequence
 
             for j in range(numTokensPerStep): # Predict multiple tokens in a sequence
-                ʕっʘ‿ʘʔっ("forward")
-                logits, activations, embeds = model.forward(inputSeqPredictions)
+                ʕっʘ‿ʘʔっ("FORWARD")
+                inputTensor = torch.tensor(inputSeqPredictions, device=modelDevice, dtype=torch.long) # ENSURE THE INPUT TO FORWARD IS A TENSOR
+                logits = model.forward(inputTensor)
 
                 ʕっʘ‿ʘʔっ("getResponseFromLogits")
                 predictedTokenIndex = model.getResponseFromLogits(logits)
@@ -56,17 +55,24 @@ class TUTOR:
                         ʕっʘ‿ʘʔっ("addPerfectToken")
                         self.perfectTokenCount += 1
                         self.perfectTokenCounts_100 += 1
+
                     ʕっʘ‿ʘʔっ("computeLoss")
                     stepLoss = model.computeLoss(logits, targetTokenIndexSeq[j])
+
                     ʕっʘ‿ʘʔっ("appendStepLoss")
                     losses.append(stepLoss)
                     cumulativeLoss += stepLoss
-                    ʕっʘ‿ʘʔっ("recentPrintLosses")
-                    if len(self.recentPrintLosses) > printFreq: 
-                        self.recentPrintLosses.pop(0)
+                    self.avgLoss_100 += stepLoss
+                    self.avgLoss_1000 += stepLoss
 
             ʕっʘ‿ʘʔっ("loss = cumulativeLoss / len(losses)")
             loss = cumulativeLoss / len(losses) if losses else torch.tensor(0.0, device = modelDevice)
+
+            ʕっʘ‿ʘʔっ("recentPrintLosses")
+            self.recentPrintLosses.append(loss.item())
+            if len(self.recentPrintLosses) > printFreq: 
+                self.recentPrintLosses.pop(0)
+            self.latestAverageLoss = sum(self.recentPrintLosses) / len(self.recentPrintLosses)
 
             ʕっʘ‿ʘʔっ("increaseScheduledSamplingProb")
             self.scheduledSamplingProb = min(self.scheduledSamplingProb + scheduledSamplingProbIncrement, 1.0)
@@ -84,19 +90,39 @@ class TUTOR:
                 print("TUTOR.trainStep.backward failed!", e)
                 #
                 return
+            
+            ʕっʘ‿ʘʔっ("clip_grad_norm")
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm = gradientClipMaxNorm)
+            ʕっʘ‿ʘʔっ("model.optimizer.step")
+            model.optimizer.step()
 
             ʕっʘ‿ʘʔっ("finalActions")
-            #
-            return loss, predictedTokenIndices, logitSeq, embeds
+            model.memory.updateMemoryBuffers()
+
+            return loss, predictedTokenIndices, logitSeq
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, trainingDataPairs, epochs, startIndex, model):
         torch.autograd.set_detect_anomaly(True)
-        with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
-            if statPrints or debugPrints: print(f"Debug tokenToIndex (First 20): {list(self.vocab.tokenToIndex.items())[:20]}")
+        with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:
+            vocab = model.vocab
+            if statPrints or debugPrints: print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
+            for name, param in model.named_parameters(): print(name, param.device)
+            ʕっʘ‿ʘʔっ("COUNTERS INIT")
             self.trainingStepCounter = 1
 
+            self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSampling": 0, "tokenCount": 0,})
+            self.stats_100 = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSampling": 0, "tokenCount": 0,})
+
+            self.tokenCounts = Counter()
+            self.tokenCounts_100 = Counter()
+
+            self.avgLoss_100 = 0
+            self.avgLoss_1000 = 0
+
+            ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
+
             """EPOCH LOOP"""
             ʕっʘ‿ʘʔっ("epoch♥")
             for epoch in range(epochs):
@@ -106,18 +132,20 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥training♥")
                     for i, (inputSeq, targetSeq) in enumerate(trainingDataPairs):
                         ʕっʘ‿ʘʔっ("♥tokenToIndex")
-                        inputTokenIndices = [self.vocab.tokenToIndex.get(t, self.vocab.tokenToIndex["<UNK>"]) for t in inputSeq]
-                        targetTokenIndexSeq = [self.vocab.tokenToIndex.get(t, self.vocab.tokenToIndex["<UNK>"]) for t in targetSeq]
+                        inputTokenIndices = [vocab.tokenToIndex.get(t, vocab.tokenToIndex["<UNK>"]) for t in inputSeq]
+                        targetTokenIndexSeq = [vocab.tokenToIndex.get(t, vocab.tokenToIndex["<UNK>"]) for t in targetSeq]
 
                         ʕっʘ‿ʘʔっ("♥resetMemory")
                         model.resetMemory(context="training")
 
                         ʕっʘ‿ʘʔっ("♥trainStep")
                         result = self.trainStep(inputTokenIndices, targetTokenIndexSeq, model)
-                        loss, predictedTokenIndices, logitSeq, embeds = result
+                        loss, predictedTokenIndices, logitSeq = result
 
                         ʕっʘ‿ʘʔっ("♥basicStats") # CALCULATE BASIC STATS
                         basicStats = model.getBasicStats(logitSeq)
+                        basicStats["lossTUTOR"] = loss.item()
+                        self.stats_100["lossTUTOR"] += loss.item()
                         model.stats.update(basicStats)
 
                         if self.trainingStepCounter % saveModelFreq == 0:
@@ -164,7 +192,7 @@ class TUTOR:
                             ʕっʘ‿ʘʔっ("♥trainingLogFreq_1000♥") # PRINTING LOGS TO TXT AND TERMINAL
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             ʕっʘ‿ʘʔっ("♥getComplexStats")
-                            complexStats = model.getComplexStats(embeds)
+                            complexStats = model.getComplexStats()
                             model.stats.update(complexStats)
                             ʕっʘ‿ʘʔっ("♥calculateTrainingDataRemaining")
                             trainingDataRemaining = len(trainingDataPairs) - self.trainingStepCounter
@@ -181,6 +209,8 @@ class TUTOR:
                             #model.duration.clear()
                             #with open(durationLogPath_1000, "a") as logFile: logFile.write(durationLog_1000 + "\n")
 
+                            self.actualAvgLoss_1000 = self.avgLoss_1000/trainingLogFreq_1000
+
                             ʕっʘ‿ʘʔっ("♥getStringStats")
                             stringStats = model.getStringStats(predictedTokenIndices, self.tokenCounts, self.tokenCounts_100, logFreq_100=False)
 
@@ -190,22 +220,24 @@ class TUTOR:
                                 trainingStepCounter = self.trainingStepCounter,
                                 freq = trainingLogFreq_1000,
                                 stats = model.stats,
-                                #INN_cerebellum_str = "",
-                                #INN_judgeBias_str = "",
-                                #INN_credbilityBias_str = "",
+                                INN_cerebellum_str = stringStats["INN_cerebellum_str"],
+                                INN_judgeBias_str = stringStats["INN_judgeBias_str"],
+                                INN_credbilityBias_str = stringStats["INN_credibilityBias_str"],
                                 topTokens_str = stringStats["topTokens"],
-                                otherInfo_str = f"{stringStats['tokenPerfect']} | TUTOR.py {trainingLogFreq_1000}",
+                                otherInfo_str = f"avgLoss/{trainingLogFreq_1000}: {self.actualAvgLoss_1000} | {stringStats['tokenPerfect']} | {stringStats['windowVotes_str']} | TUTOR.py {trainingLogFreq_1000}"
                             )
                             ʕっʘ‿ʘʔっ("♥finalLogActions")
-                            #model.stats.clear()
+                            model.stats.clear()
+                            self.avgLoss_1000 = 0
                             self.perfectTokenCount = 0
                             self.totalTokenEvaluations = 0
+                            
                             
                         # Track loss every 100 steps
                         if self.trainingStepCounter % trainingLogFreq_100 == 0:
                             ʕっʘ‿ʘʔっ("♥trainingLogFreq_100♥")
                             ʕっʘ‿ʘʔっ("♥getComplexStats")
-                            complexStats = model.getComplexStats(embeds)
+                            complexStats = model.getComplexStats()
                             ʕっʘ‿ʘʔっ("♥calculateTrainingDataRemaining")
                             trainingDataRemaining = len(trainingDataPairs) - self.trainingStepCounter
                             trainingDataPercent = (trainingDataRemaining / len(trainingDataPairs)) * 100
@@ -224,6 +256,8 @@ class TUTOR:
                             #with open(durationLogPath_100, "a") as logFile: logFile.write(durationLog_100 + "\n")
                             #model.duration_100.clear()
 
+                            self.actualAvgLoss_100 = self.avgLoss_100/trainingLogFreq_100
+
                             ʕっʘ‿ʘʔっ("♥getStringStats")
                             stringStats = model.getStringStats(predictedTokenIndices, self.tokenCounts, self.tokenCounts_100, logFreq_100 = True)
 
@@ -232,18 +266,19 @@ class TUTOR:
                                 trainingLogPath = trainingLogPath_100,
                                 trainingStepCounter = self.trainingStepCounter,
                                 freq = trainingLogFreq_100,
-                                #stats = model.stats,
-                                #INN_cerebellum_str = "",
-                                #INN_judgeBias_str = "",
-                                #INN_credbilityBias_str = "",
+                                stats = model.stats,
+                                INN_cerebellum_str = stringStats["INN_cerebellum_str"],
+                                INN_judgeBias_str = stringStats["INN_judgeBias_str"],
+                                INN_credbilityBias_str = stringStats["INN_credibilityBias_str"],
                                 topTokens_str = stringStats["topTokens"],
-                                otherInfo_str = f"{stringStats['tokenPerfect']} | TUTOR.py {trainingLogFreq_100}",
+                                otherInfo_str = f"avgLoss/{trainingLogFreq_100}: {self.actualAvgLoss_100} | {stringStats['tokenPerfect']} | {stringStats['windowVotes_str']} | TUTOR.py {trainingLogFreq_100}"
                             )
 
                             ʕっʘ‿ʘʔっ("♥finalLogActions")
-                            #model.stats_100.clear()
+                            model.stats.clear()
                             self.perfectTokenCounts_100 = 0
                             self.totalTokenEvaluations_100 = 0
+                            self.avgLoss_100 = 0
 
                         ʕっʘ‿ʘʔっ("♥endTurn")
                         self.trainingStepCounter += 1

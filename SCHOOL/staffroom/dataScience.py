@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import mplcursors
 
-trainingLogPath_100 = "/Users/charis/Documents/GitHub/Shkaira/LOGS/training/trainingLog_100_withTotalSteps.txt"
+trainingLogPath_100 = "/Users/charis/Documents/GitHub/Shkaira/SCHOOL/statistics/LOGS/training/trainingLog_100_withTotalSteps.txt"
 
 # Load log
 with open(trainingLogPath_100, "r") as f:

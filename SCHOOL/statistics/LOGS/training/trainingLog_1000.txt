@@ -1023,3 +1023,117 @@ CHANGED LOG FREQUENCY TO EVERY 10000 STEPS
 --- 2025-04-14 05:33:05 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
 
 --- 2025-04-14 05:40:06 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
+
+--- 2025-04-14 15:55:06 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
+
+--- 2025-04-14 16:08:06 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
+
+--- 2025-04-14 16:25:42 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
+
+--- 2025-04-14 16:29:51 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
+
+--- 2025-04-14 16:48:16 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
+
+--- 2025-04-14 16:59:26 --- babyLLM 'right, last time i got to step 1... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 1! what am i learning today?' - charis: ''
+
+--- 2025-04-14 17:14:18 --- babyLLM 'right, last time i got to step 2... want to restart from there?'  - charis: '220' - babyLLM 'damn that's specific! heading to step 220... what am i learning today?' - charis: ''
+
+--- 2025-04-14 17:20:22 --- babyLLM 'right, last time i got to step 221... want to restart from there?'  - charis: 'y' - babyLLM 'ok! let's go to step 221! what am i learning today?' - charis: ''
+
+--- 2025-04-14 17:38:23 --- babyLLM 'right, last time i got to step 222... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 222! what am i learning today?' - charis: ''
+
+--- 2025-04-14 17:44:20 --- babyLLM 'right, last time i got to step 223... want to restart from there?'  - charis: '300' - babyLLM 'damn that's specific! heading to step 300... what am i learning today?' - charis: ''
+
+--- 2025-04-14 17:48:11 --- babyLLM 'right, last time i got to step 301... want to restart from there?'  - charis: '320' - babyLLM 'damn that's specific! heading to step 320... what am i learning today?' - charis: ''
+
+--- 2025-04-14 17:54:11 --- babyLLM 'right, last time i got to step 321... want to restart from there?'  - charis: '400' - babyLLM 'damn that's specific! heading to step 400... what am i learning today?' - charis: ''
+
+--- 2025-04-14 18:01:25 --- babyLLM 'right, last time i got to step 401... want to restart from there?'  - charis: '500' - babyLLM 'damn that's specific! heading to step 500... what am i learning today?' - charis: ''
+
+--- 2025-04-14 18:06:34 --- babyLLM 'right, last time i got to step 501... want to restart from there?'  - charis: '550' - babyLLM 'damn that's specific! heading to step 550... what am i learning today?' - charis: ''
+
+--- 2025-04-14 18:09:13 --- babyLLM 'right, last time i got to step 551... want to restart from there?'  - charis: '570' - babyLLM 'damn that's specific! heading to step 570... what am i learning today?' - charis: ''
+
+--- 2025-04-14 18:10:49 --- babyLLM 'right, last time i got to step 571... want to restart from there?'  - charis: '580' - babyLLM 'damn that's specific! heading to step 580... what am i learning today?' - charis: ''
+
+--- 2025-04-14 18:12:30 --- babyLLM 'right, last time i got to step 581... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 581! what am i learning today?' - charis: ''
+
+--- 2025-04-14 18:37:09 --- babyLLM 'right, last time i got to step 582... want to restart from there?'  - charis: '900' - babyLLM 'damn that's specific! heading to step 900... what am i learning today?' - charis: ''
+
+--- 2025-04-14 18:56:08 --- babyLLM 'right, last time i got to step 901... want to restart from there?'  - charis: '1200' - babyLLM 'damn that's specific! heading to step 1200... what am i learning today?' - charis: ''
+
+--- 2025-04-14 19:15:22 --- babyLLM 'right, last time i got to step 0... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 0! what am i learning today?' - charis: ''
+
+--- 2025-04-14 19:26:21 --- babyLLM 'right, last time i got to step 1... want to restart from there?'  - charis: '2000' - babyLLM 'damn that's specific! heading to step 2000... what am i learning today?' - charis: ''
+
+--- 2025-04-14 19:27:15 --- babyLLM 'right, last time i got to step 2001... want to restart from there?'  - charis: '800' - babyLLM 'damn that's specific! heading to step 800... what am i learning today?' - charis: ''
+
+--- 2025-04-14 19:37:20 --- babyLLM 'right, last time i got to step 801... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 801! what am i learning today?' - charis: ''
+
+--- 2025-04-14 19:41:51 --- babyLLM 'right, last time i got to step 802... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 802! what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:32:34 --- babyLLM 'right, last time i got to step 803... want to restart from there?'  - charis: '0' - babyLLM 'damn that's specific! heading to step 0... what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:41:58 --- babyLLM 'right, last time i got to step 803... want to restart from there?'  - charis: '0' - babyLLM 'damn that's specific! heading to step 0... what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:44:16 --- babyLLM 'right, last time i got to step 1... want to restart from there?'  - charis: '0' - babyLLM 'damn that's specific! heading to step 0... what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:46:25 --- babyLLM 'right, last time i got to step 1... want to restart from there?'  - charis: '29' - babyLLM 'damn that's specific! heading to step 29... what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:48:36 --- babyLLM 'right, last time i got to step 30... want to restart from there?'  - charis: '50' - babyLLM 'damn that's specific! heading to step 50... what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:49:49 --- babyLLM 'right, last time i got to step 51... want to restart from there?'  - charis: '60' - babyLLM 'damn that's specific! heading to step 60... what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:54:29 --- babyLLM 'right, last time i got to step 61... want to restart from there?'  - charis: '80' - babyLLM 'damn that's specific! heading to step 80... what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:57:15 --- babyLLM 'right, last time i got to step 81... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 81! what am i learning today?' - charis: ''
+
+--- 2025-04-14 20:59:06 --- babyLLM 'right, last time i got to step 81... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 81! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:00:31 --- babyLLM 'right, last time i got to step 81... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 81! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:02:25 --- babyLLM 'right, last time i got to step 81... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 81! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:04:44 --- babyLLM 'right, last time i got to step 81... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 81! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:15:52 --- babyLLM 'right, last time i got to step 81... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 81! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:17:30 --- babyLLM 'right, last time i got to step 81... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 81! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:31:28 --- babyLLM 'right, last time i got to step 82... want to restart from there?'  - charis: '250' - babyLLM 'damn that's specific! heading to step 250... what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:37:12 --- babyLLM 'right, last time i got to step 251... want to restart from there?'  - charis: '300' - babyLLM 'damn that's specific! heading to step 300... what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:43:18 --- babyLLM 'right, last time i got to step 301... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 301! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:53:35 --- babyLLM 'right, last time i got to step 302... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 302! what am i learning today?' - charis: ''
+
+--- 2025-04-14 21:59:37 --- babyLLM 'right, last time i got to step 303... want to restart from there?'  - charis: '400' - babyLLM 'damn that's specific! heading to step 400... what am i learning today?' - charis: ''
+
+--- 2025-04-14 22:00:53 --- babyLLM 'right, last time i got to step 401... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 401! what am i learning today?' - charis: ''
+
+--- 2025-04-14 22:38:23 --- babyLLM 'right, last time i got to step 402... want to restart from there?'  - charis: '800' - babyLLM 'damn that's specific! heading to step 800... what am i learning today?' - charis: ''
+
+--- 2025-04-14 22:44:43 --- babyLLM 'right, last time i got to step 801... want to restart from there?'  - charis: '900' - babyLLM 'damn that's specific! heading to step 900... what am i learning today?' - charis: ''
+
+--- 2025-04-14 22:51:41 --- babyLLM 'right, last time i got to step 901... want to restart from there?'  - charis: '990' - babyLLM 'damn that's specific! heading to step 990... what am i learning today?' - charis: ''
+
+--- 2025-04-14 22:57:00 --- babyLLM 'right, last time i got to step 991... want to restart from there?'  - charis: '1020' - babyLLM 'damn that's specific! heading to step 1020... what am i learning today?' - charis: ''
+
+--- 2025-04-14 23:30:28 --- babyLLM 'right, last time i got to step 1021... want to restart from there?'  - charis: '1500' - babyLLM 'damn that's specific! heading to step 1500... what am i learning today?' - charis: ''
+
+--- 2025-04-15 00:19:14 --- babyLLM 'right, last time i got to step 1501... want to restart from there?'  - charis: '2000' - babyLLM 'damn that's specific! heading to step 2000... what am i learning today?' - charis: ''
+
+--- 2025-04-15 01:11:35 --- babyLLM 'right, last time i got to step 2001... want to restart from there?'  - charis: '2700' - babyLLM 'damn that's specific! heading to step 2700... what am i learning today?' - charis: ''
+
+--- 2025-04-15 01:14:02 --- babyLLM 'right, last time i got to step 2001... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2001! what am i learning today?' - charis: ''
+
+--- 2025-04-15 01:23:48 --- babyLLM 'right, last time i got to step 2001... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2001! what am i learning today?' - charis: ''
+
+--- 2025-04-15 01:26:45 --- babyLLM 'right, last time i got to step 2001... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2001! what am i learning today?' - charis: ''
+
+--- 2025-04-15 01:38:42 --- babyLLM 'right, last time i got to step 2001... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2001! what am i learning today?' - charis: ''
+
+--- 2025-04-15 01:39:44 --- babyLLM 'right, last time i got to step 2002... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2002! what am i learning today?' - charis: ''
+
+--- 2025-04-15 02:03:48 --- babyLLM 'right, last time i got to step 2003... want to restart from there?'  - charis: '2300' - babyLLM 'damn that's specific! heading to step 2300... what am i learning today?' - charis: ''

@@ -11,7 +11,7 @@ from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
 from BRAIN.LAYERS.logits import LOGITS
 from BRAIN.LAYERS.memory import MEMORY
 from BRAIN.LAYERS.S_output import *
-from SCHOOL.staffroom import languageAndLiterature
+from SCHOOL.notebook.archive import languageAndLiterature
 from SCHOOL.staffroom.tutor import TUTOR
 from SCHOOL.staffroom.counsellor import *
 from config import *
@@ -32,24 +32,26 @@ class BABYLLM(nn.Module):
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
         self.stats = {}
         self.scheduledSamplingProb = 0
-        self.trainingStepCounter = 1
         self.totalTokenEvaluations = 0
         self.totalTokenEvaluations_100 = 0
+        self.trainingStepCounter = 1
        
         """CONFIG"""
         optimizerClass = getattr(optim, optimizerName)
 
         """LAYERS"""
-        self.embed = EMBED(vocabSize, embedDimension)
+        self.vocab = VOCAB()
+        self.embed = EMBED()
         self.interneuronNetwork = INTERNEURON_NETWORK()
-        self.logits = LOGITS(numNeurons = numNeurons, vocabSize = vocabSize)
-        self.memory = MEMORY(numNeurons = numNeurons)
+        self.logits = LOGITS()
+        self.memory = MEMORY()
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         if debugPrints: print("registered paarameters: ")
         if debugPrints: 
             for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
+        #self.to(modelDevice)
         self.optimizer = optimizerClass(
         self.parameters(),  # <- collects EVERYTHING
         lr=learningRate, weight_decay=0.001)
@@ -77,13 +79,13 @@ class BABYLLM(nn.Module):
             if debugPrints: print(f"Debug: Input to forward: {inputSeq}")
 
             ʕっʘ‿ʘʔっ("inputIndices") # convert inputted tokens to indices (batch processing instead of looping)
-            inputIndices = [vocab.tokenToIndex.get(tokenString, vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
+            #inputIndices = [vocab.tokenToIndex.get(tokenString, vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
 
             ʕっʘ‿ʘʔっ("inputEmbeds") # convert indices to embeddings
             inputEmbeds = []
-            inputIndicesTensor = torch.tensor(inputIndices, device = modelDevice)
-            if lossPrints: print(f"Debug BABYLLM.forward: inputIndicesTensor requires_grad: {inputIndicesTensor.requires_grad} [EXPECTED: FALSE]")
-            inputEmbeds = self.embed(inputIndicesTensor)
+            #inputIndicesTensor = torch.tensor(inputIndices, device = modelDevice)
+            if lossPrints: print(f"Debug BABYLLM.forward: inputIndicesTensor requires_grad: {inputSeq.requires_grad} [EXPECTED: FALSE]")
+            inputEmbeds = self.embed(inputSeq) # DIRECTLY TAKING A TENSOR NOW
             if lossPrints: print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
             ʕっʘ‿ʘʔっ("interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
@@ -113,7 +115,7 @@ class BABYLLM(nn.Module):
             if debugPrints: print("memory output requires_grad?", self.memory.longTermMemory.requires_grad)
 
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
-            return logits, interneuronNetworkOutput, inputEmbeds
+            return logits
 
     
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
@@ -129,57 +131,32 @@ class BABYLLM(nn.Module):
             return loss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
-    def backward(self, loss, durationLogging = durationLogging):
+    def backward(self, loss):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
-            if debugPrints: 
-                if not torch.isfinite(loss): 
-                    ʕっʘ‿ʘʔっ("if not torch.isfinite(loss)")
-                    print("babyLLM.backward.loss.backward !!! Loss is NaN or Inf:", loss)
-                    return
-                else: print("babyLLM.backward.loss.backward - loss is not NaN or Inf:", loss)
+            if not torch.isfinite(loss): 
+                ʕっʘ‿ʘʔっ("if not torch.isfinite(loss)")
+                print("babyLLM.backward.loss.backward !!! Loss is NaN or Inf:", loss)
+                return
             ʕっʘ‿ʘʔっ("optimizer.zero_grad")
             self.optimizer.zero_grad()
-            try:
-                for name, p in self.named_parameters():
-                    if p.grad is None:
-                        if debugPrints or lossPrints: print(f"BEFORE backward: No grad for {name}")
-                    else:
-                        if debugPrints or lossPrints: print(f"Grad BEFORE backward for {name} - requires_grad: {p.requires_grad}")
+            for name, p in self.named_parameters():
+                if p.grad is None:
+                    if debugPrints or lossPrints: print(f"BEFORE backward: No grad for {name}")
+                else:
+                    if debugPrints or lossPrints: print(f"Grad BEFORE backward for {name} - requires_grad: {p.requires_grad}")
+            with torch.autograd.set_detect_anomaly(anomalyDetect):
                 ʕっʘ‿ʘʔっ("loss.backward")
-                with torch.autograd.set_detect_anomaly(True):
-                    loss.backward()
-                for name, p in self.named_parameters():
-                    if p.grad is None:
-                        if debugPrints or lossPrints: print(f"AFTER backward: No grad for {name}")
-                    else:
-                        if debugPrints or lossPrints: print(f"Grad AFTER backward for {name} - requires_grad: {p.requires_grad}")
-            except RuntimeError as e:
-                print("babyLLM.backward.loss.backward failed!", e)
-                ʕっʘ‿ʘʔっ("emptyCache")
+                loss.backward()
+            for name, p in self.named_parameters():
+                if p.grad is None:
+                    if debugPrints or lossPrints: print(f"AFTER backward: No grad for {name}")
+                else:
+                    if debugPrints or lossPrints: print(f"Grad AFTER backward for {name} - requires_grad: {p.requires_grad}")
+            for name, p in self.named_parameters():
+                if p.grad is not None and not torch.isfinite(p.grad).all():
+                    print(f"babyLLM.backward - non-finite grad in: {name}") 
+                    return
                 
-                return
-            
-            if debugPrints: 
-                for name, p in self.named_parameters(): 
-                    if p.grad is not None and not torch.isfinite(p.grad).all(): 
-                        print(f"babyLLM.backward - non-finite grad in: {name}") 
-                        return
-                    else: 
-                        print("babyLLM.backward - all gradients are finite")
-            try:
-                ʕっʘ‿ʘʔっ("clip_grad_norm")
-                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=gradientClipMaxNorm)
-                ʕっʘ‿ʘʔっ("optimizer.step")
-                self.optimizer.step()
-                ʕっʘ‿ʘʔっ("emptyCache")
-                #del loss  # as soon as possible after optimizer.step()
-                #
-            except RuntimeError as e: 
-                print("crash during optimizer.step:", e) 
-                return
-
-            #if modelDevice.type == 'mps': 
-
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
     def getResponseFromLogits(self, logits, temperature = temperature, durationLogging = durationLogging):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
@@ -206,6 +183,7 @@ class BABYLLM(nn.Module):
         with self.counsellor.infodump("getBasicStats") as ʕっʘ‿ʘʔっ:
             #gradNorm = (sum((p.grad.norm(2)**2 for p in self.parameters() if p.grad is not None)))**0.5
             stats = {}
+            stats["avgLoss"]: getattr(self, "latestAverageLoss", 0.0)
 
             if logitSeq:
                 stats["logitMin"] = logitSeq[-1].min(dim=-1).values.mean()
@@ -214,12 +192,12 @@ class BABYLLM(nn.Module):
             stats["scheduledSampling"] = self.scheduledSamplingProb
             return stats
     
-    def getComplexStats(self, embeds):
+    def getComplexStats(self):
         with self.counsellor.infodump("getComplexStats") as ʕっʘ‿ʘʔっ:
-            stats = self.interneuronNetwork.INN_getStats()
+            stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str = self.interneuronNetwork.INN_getStats()
             
-            stats["embedMean"] = embeds.mean()
-            stats["embedStd"] = embeds.std()
+            #stats["embedMean"] = embeds.mean()
+            #stats["embedStd"] = embeds.std()
             #stats["meanActivation"] = activations.mean()
             #stats["activationSparsity"] = (activations.abs() < 1e-6).float().mean()
             
@@ -231,6 +209,7 @@ class BABYLLM(nn.Module):
     """calculates and returns display stats, non numbers, as a string"""
     def getStringStats(self, guessedTokenSeq, tokenCounts, tokenCounts_100, logFreq_100=False):
         with self.counsellor.infodump("getStringStats") as ʕっʘ‿ʘʔっ:
+            stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str = self.interneuronNetwork.INN_getStats()
             if guessedTokenSeq: 
                 ʕっʘ‿ʘʔっ("guessedTokenSeq")
                 tokenCounts.update(guessedTokenSeq)
@@ -250,7 +229,7 @@ class BABYLLM(nn.Module):
                 tokenPerfect_100_str = f"{S_OUTPUT.S_apply('perfect', f'tokenPerfect: {self.perfectTokenCount_100} / {self.totalTokenEvaluations_100}')} → {tokenPerfectRate_100:.2f}%"
             else: tokenPerfect_100_str = ""
 
-            stringStats = {"tokenPerfect": str(tokenPerfect_100_str if logFreq_100 else tokenPerfect_str), "topTokens": str(topTokens_100 if logFreq_100 else topTokens)}
+            stringStats = {"tokenPerfect": str(tokenPerfect_100_str if logFreq_100 else tokenPerfect_str), "topTokens": str(topTokens_100 if logFreq_100 else topTokens), "INN_cerebellum_str": str(INN_cerebellum_str), "INN_judgeBias_str": str(INN_judgeBias_str), "INN_credibilityBias_str": str(INN_credibilityBias_str), "windowVotes_str": str(windowVotes_str)}
 
             return stringStats
         
@@ -263,7 +242,7 @@ class BABYLLM(nn.Module):
             os.replace(tmpPath, filePath)
             print(f"model successfully saved to {filePath}!")
             with open(stepCheckpointFilePath, "w") as f:
-                f.write(str({self.trainingStepCounter+startIndex}))
+                f.write(str(self.trainingStepCounter+startIndex))
 
     """loads the model from a file"""
     def loadModel(self, filePath = modelFilePath):
@@ -412,5 +391,5 @@ if __name__ == "__main__":
         babyLLM.userNote_runStart = userNote_runStart
         trainingDataPairs = vocab.genTrainingData(windowMAX, startIndex = startIndex)
         print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
-        babyLLM.to(modelDevice)
+        #babyLLM.to(modelDevice)
         tutor.trainModel(trainingDataPairs, epochs = epochs, startIndex = startIndex, model=babyLLM)
