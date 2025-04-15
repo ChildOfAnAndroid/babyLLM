@@ -26,7 +26,7 @@ babyName = "babyLLM"
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 10000     # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 499     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
@@ -91,8 +91,8 @@ epochs = 20
 #saveTokenizedData = True
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 500     # creates logs every x number of turns
-trainingLogFreq_100 = 50     # creates logs every x number of turns
+trainingLogFreq_1000 = 5000000    # creates logs every x number of turns
+trainingLogFreq_100 = 100     # creates logs every x number of turns
 
 printFreq = 1
      # how often to print training progress to the terminal
@@ -103,6 +103,7 @@ debugPrints = False
 statPrints = False
 lossPrints = False
 logitPrints = False
+anomalyDetect = True
 
 skipNeuron = False
 skipINN = False

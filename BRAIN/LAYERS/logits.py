@@ -8,7 +8,7 @@ from SCHOOL.staffroom.counsellor import *
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 class LOGITS(nn.Module):
-    def __init__(self, numNeurons, vocabSize):
+    def __init__(self):
         super().__init__()
         self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = modelDevice)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
         self.l_bias = nn.Parameter(torch.zeros(vocabSize, device = modelDevice))
@@ -18,11 +18,11 @@ class LOGITS(nn.Module):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
             activationsTensor = meanActivationsTensor
-            activationsTensor = activationsTensor.to(modelDevice)
+            #activationsTensor = activationsTensor.to(modelDevice)
             if debugPrints or logitPrints: print(f"Debug logits: activationsTensor shape before @ weights: {activationsTensor.shape}")
             if debugPrints or logitPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
             """return logits (not softmax) for better gradient computation in cross-entropy loss"""
-            logitOutput = activationsTensor @ self.l_weights + self.l_bias
+            logitOutput = (activationsTensor @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
             if debugPrints or logitPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
             return logitOutput
     
@@ -30,27 +30,28 @@ class LOGITS(nn.Module):
         with self.counsellor.infodump("getOutputStats") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
                 stats = {}
-                # weight stats
+                ʕっʘ‿ʘʔっ("weightNormStats")
                 weightNorms = torch.norm(self.l_weights, dim=0)
                 stats["logitWeightNormMean"] = weightNorms.mean()
                 stats["logitWeightNormStd"] = weightNorms.std()
                 stats["logitWeightNormMax"] = weightNorms.max()
 
-                # sparsity
+                ʕっʘ‿ʘʔっ("sparsityStat")
                 sparsity = (self.l_weights.abs() < 1e-5).float().mean()
                 stats["logitWeightSparsity"] = sparsity
 
+                ʕっʘ‿ʘʔっ("weightDriftStat")
                 drift = torch.norm(self.l_weights - self.lastSavedWeights)
                 stats["logitWeightDrift"] = drift
                 self.lastSavedWeights = self.l_weights.clone().detach()
 
-                # bias stats
+                ʕっʘ‿ʘʔっ("biasStats")
                 stats["logitBiasMean"] = self.l_bias.mean()
                 stats["logitBiasStd"] = self.l_bias.std()
                 stats["logitBiasMax"] = self.l_bias.max()
 
-                # activation stats
                 if hasattr(self, 'latestActivations'):
+                    ʕっʘ‿ʘʔっ("activationStats")
                     act = self.latestActivations
                     stats["activationStd"] = act.std()
                     stats["activationMean"] = act.mean()

@@ -1,6 +1,6 @@
 import re
 
-with open('/Users/charis/Documents/GitHub/Shkaira/LOGS/training/trainingLog_100.txt', 'r') as f:
+with open('/Users/charis/Documents/GitHub/Shkaira/SCHOOL/statistics/LOGS/training/trainingLog_100.txt', 'r') as f:
     lines = f.readlines()
 
 output = []
@@ -45,7 +45,7 @@ for line in lines:
 
     output.append(line)
 
-with open('/Users/charis/Documents/GitHub/Shkaira/LOGS/training/trainingLog_100_withTotalSteps.txt', 'w') as f:
+with open('/Users/charis/Documents/GitHub/Shkaira/SCHOOL/statistics/LOGS/training/trainingLog_100_withTotalSteps.txt', 'w') as f:
     f.writelines(output)
 
 print("✅ Global running total added ONLY where missing. No resets.")
