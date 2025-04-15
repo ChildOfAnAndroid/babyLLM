@@ -10,9 +10,9 @@ archive*
 archive/*
 **/archive
 # Backup during training
-babyLLM_epoch*.pth
+*.pth
 # Generated
 trainingData.txt
 # No need to commit those, they are raw files
-data/CHARIS/old_fb_messages.htm
-data/CHARIS/discord
+data/CHARIS
+SCHOOL/library/charisStudies
