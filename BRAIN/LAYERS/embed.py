@@ -8,7 +8,7 @@ from SCHOOL.staffroom.counsellor import *
 
 """creates an embedding layer for each word in the vocabulary"""
 class EMBED(nn.Module):
-    def __init__(self, vocabSize, embedDimension):
+    def __init__(self):
         super().__init__()
         """creates the embedding weights matrix with random numbers initially"""
         self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = modelDevice))
@@ -18,7 +18,7 @@ class EMBED(nn.Module):
     def forward(self, tokenIndex):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("tokenIndex.to(self.e_weights.device)")
-            tokenIndex = tokenIndex.to(self.e_weights.device)
+            #tokenIndex = tokenIndex.to(self.e_weights.device)
             ʕっʘ‿ʘʔっ("self.e_weights[tokenIndex]")
             embedVector = self.e_weights[tokenIndex] 
             return embedVector 

@@ -28,7 +28,7 @@ class SCRIBE:
         emote = random.choice(self.scribeEmotes.get(vibe, self.scribeEmotes["default"]))
         timestamp = time.strftime("%H:%M:%S")
         print(f"{timestamp}|{emote} [{tag.upper()}] — {message}")
-        with open("scribeSays.txt", "w") as f:
+        with open("scribeSays.txt", "a") as f:
             f.write(f"--- {timestamp} --- {emote} [scribe]: '{message}\n")
 
     def guessTokensToString(self, inputTokens):

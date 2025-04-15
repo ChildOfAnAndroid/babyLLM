@@ -8,7 +8,7 @@ from SCHOOL.staffroom.counsellor import *
 
 """this makes a rolling buffer of past activations"""
 class MEMORY(nn.Module):
-    def __init__(self, numNeurons=numNeurons):
+    def __init__(self):
         super().__init__()
         self.counsellor = COUNSELLOR("MEMORY", debug=debugPrints, durations=durationLogging)
         # Learnable decay rates
@@ -22,12 +22,13 @@ class MEMORY(nn.Module):
         # Buffers to hold state outside graph
         self.register_buffer("shortTermMemory", torch.zeros(1, numNeurons))
         self.register_buffer("longTermMemory", torch.zeros(1, numNeurons))
+        self.lastInput = None  # for after backward
 
-    def forward(self, activationsTensor): # learns when to forget more or less
+    """def forward(self, activationsTensor): # learns when to forget more or less
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("tensorsToDevice")
             device = modelDevice
-            activationsTensor = activationsTensor.to(device)
+            #activationsTensor = activationsTensor.to(device)
 
             ʕっʘ‿ʘʔっ("detach memories") # Get detached historical memory (not part of current graph)
             oldShort = self.shortTermMemory.detach()
@@ -37,8 +38,6 @@ class MEMORY(nn.Module):
             ʕっʘ‿ʘʔっ("sigmoid gate decays") # make sure decay values stay within [0, 1] range
             shortDecay = torch.sigmoid(self.shortTermDecay)
             longDecay = torch.sigmoid(self.longTermDecay)
-
-            ʕっʘ‿ʘʔっ("updateMemories (compute)") # Compute new memory (attached to current graph)
 
             ʕっʘ‿ʘʔっ("update no grad memory") # Update the state (detached, won’t break graph)
             with torch.no_grad():
@@ -50,20 +49,78 @@ class MEMORY(nn.Module):
 
             ʕっʘ‿ʘʔっ("logGateSizes") # log the memory gate sizes
             gateSum = self.shortGate + self.longGate + self.currentGate + 1e-9
+
+            shortGateNorm = self.shortGate / gateSum
+            longGateNorm = self.longGate / gateSum
+            currentGateNorm = self.currentGate / gateSum
+
+            blendedAct = (
+                (shortGateNorm * newShort) +
+                (longGateNorm * newLong) +
+                (currentGateNorm * activationsTensor)
+            )
+
             self.latestMemoryGates = torch.stack([
                 (self.shortGate / gateSum),
                 (self.longGate / gateSum),
                 (self.currentGate / gateSum)
             ])
 
-            ʕっʘ‿ʘʔっ("blendMemories") # Blend memories, weighted sum, hopefully gradient safe lol
+            return blendedAct"""
+        
+    def forward(self, activationsTensor):
+        with self.counsellor.infodump("forward") as ʕっʘ‿ʘʕっ:
+            ʕっʘ‿ʘʕっ("tensorsToDevice")
+            device = modelDevice
+
+            ʕっʘ‿ʘʕっ("detach memories")
+            oldShort = self.shortTermMemory.detach()
+            oldLong = self.longTermMemory.detach()
+
+            ʕっʘ‿ʘʕっ("sigmoid gate decays")
+            shortDecay = torch.sigmoid(self.shortTermDecay)
+            longDecay = torch.sigmoid(self.longTermDecay)
+
+            ʕっʘ‿ʘʕっ("logGateSizes")
+            gateSum = self.shortGate + self.longGate + self.currentGate + 1e-9
+            shortGateNorm = self.shortGate / gateSum
+            longGateNorm = self.longGate / gateSum
+            currentGateNorm = self.currentGate / gateSum
+
+            newShort = (shortDecay * oldShort) + ((1 - shortDecay) * activationsTensor.detach())
+            newLong = (longDecay * oldLong) + ((1 - longDecay) * activationsTensor.detach())
+
             blendedAct = (
-                ((shortDecay * newShort) +
-                (longDecay * newLong)) +
-                activationsTensor  # keep original graph for this one
+                (shortGateNorm * newShort) +
+                (longGateNorm * newLong) +
+                (currentGateNorm * activationsTensor)
             )
 
+            self.latestMemoryGates = torch.stack([
+                shortGateNorm,
+                longGateNorm,
+                currentGateNorm
+            ])
+
+            self.lastInput = activationsTensor.detach()
+
             return blendedAct
+        
+    def updateMemoryBuffers(self):
+        with self.counsellor.infodump("updateMemoryBuffers") as ʕっʘ‿ʘʕっ:
+            if self.lastInput is None:
+                return  # Nothing to update from
+
+            shortDecay = torch.sigmoid(self.shortTermDecay)
+            longDecay = torch.sigmoid(self.longTermDecay)
+
+            with torch.no_grad():
+                newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * self.lastInput)
+                newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * self.lastInput)
+
+                self.shortTermMemory.copy_(newShort)
+                self.longTermMemory.copy_(newLong)
+
 
     def resetMemory(self):
         with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
