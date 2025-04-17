@@ -5168,101 +5168,28 @@ CHANGED LOG FREQ TO 2500
 2025-04-16 20:45:44 | 500 | LR0.00035 | logitMin:-1.3206 | logitMax:-0.4792 | scheduledSampling:0.0000 | topTokens[('?', 827), ('.', 726), ('Ġyou', 586), ('Ġi', 484), ('Ġis', 366), ('Ġdo', 250), ('Ġare', 203), ('Ġwhat', 170), ('Ġto', 150), ('!', 150)] | avgLoss/100: 3.243266501426697 |  |  | TUTOR.py 100
 2025-04-16 20:47:08 | 600 | LR0.00035 | logitMin:-1.3228 | logitMax:-0.4834 | scheduledSampling:0.0000 | topTokens[('?', 865), ('.', 801), ('Ġyou', 630), ('Ġi', 531), ('Ġis', 369), ('Ġdo', 262), ('Ġare', 205), ('!', 193), ('Ġwhat', 171), ('Ġkevin', 162)] | avgLoss/100: 4.601439216136932 |  |  | TUTOR.py 100
 2025-04-16 20:48:33 | 700 | LR0.00035 | logitMin:-1.3321 | logitMax:-0.4578 | scheduledSampling:0.0000 | topTokens[('?', 865), ('.', 857), ('Ġyou', 636), ('Ġi', 535), ('Ġis', 407), (',', 288), ('Ġhe', 288), ('!', 265), ('Ġdo', 263), ('Ġare', 205)] | avgLoss/100: 3.8765352535247803 |  |  | TUTOR.py 100
-
---- 2025-04-16 20:49:59 --- babyLLM 'right, last time i got to step 30251... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 30251! what am i learning today?' - charis: ''
-
---- 2025-04-16 20:51:33 --- babyLLM 'right, last time i got to step 30252... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 30252! what am i learning today?' - charis: ''
-
 --- 2025-04-16 20:53:05 --- babyLLM 'right, last time i got to step 30253... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 30253! what am i learning today?' - charis: ''
 2025-04-16 20:54:27 | 100 | LR0.00035 | logitMin:-1.3198 | logitMax:-0.5428 | scheduledSampling:0.0000 | topTokens[('?', 185), ('.', 164), ('Ġyou', 131), ('Ġi', 119), ('Ġis', 76), ('ind', 58), ('Ġwill', 58), ('Ġhug', 49), ('Ġwho', 49), ('Ġbl', 48)] | avgLoss/100: 6.299515473842621 |  |  | TUTOR.py 100
 2025-04-16 20:55:48 | 200 | LR0.00035 | logitMin:-1.3304 | logitMax:-0.5601 | scheduledSampling:0.0000 | topTokens[('?', 363), ('.', 315), ('Ġyou', 244), ('Ġi', 203), ('Ġis', 159), ('Ġwill', 91), ('Ġdo', 87), ('Ġnot', 84), ('Ġhug', 74), ('Ġhe', 66)] | avgLoss/100: 4.0006524538993835 |  |  | TUTOR.py 100
 2025-04-16 20:57:13 | 300 | LR0.00035 | logitMin:-1.3122 | logitMax:-0.5788 | scheduledSampling:0.0000 | topTokens[('?', 533), ('.', 431), ('Ġyou', 331), ('Ġi', 291), ('Ġis', 226), ('Ġdo', 167), ('!', 124), ('Ġnot', 108), ('Ġwill', 98), ('Ġto', 96)] | avgLoss/100: 3.450699191093445 |  |  | TUTOR.py 100
-
---- 2025-04-16 21:02:20 --- babyLLM 'right, last time i got to step 30254... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 30254! what am i learning today?' - charis: ''
-
---- 2025-04-16 21:04:51 --- babyLLM 'right, last time i got to step 30255... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 30255! what am i learning today?' - charis: ''
-
---- 2025-04-16 21:06:24 --- babyLLM 'right, last time i got to step 30256... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 30256! what am i learning today?' - charis: ''
-
 --- 2025-04-16 21:11:42 --- babyLLM 'right, last time i got to step 30257... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 30257! what am i learning today?' - charis: ''
 2025-04-16 21:20:53 | 100 | LR0.00035 | logitMin:-45.3102 | logitMax:17.6208 | scheduledSampling:0.0000 | windowWeightsW4:2.12282 (0.51),W2:2.03643 (0.47),W8:-1.52267 (0.01),W12:-6.13127 (0.00),W16:-8.62142 (0.00),W20:-10.23060 (0.00),W24:-11.08218 (0.00),W32:-11.28103 (0.00),W28:-11.69310 (0.00) | judgeBiasW32:-0.00405 (0.11),W2:-0.00405 (0.11),W4:-0.00405 (0.11),W8:-0.00405 (0.11),W12:-0.00405 (0.11),W16:-0.00405 (0.11),W20:-0.00405 (0.11),W24:-0.00405 (0.11),W28:-0.00405 (0.11) | credibilityBiasW32:0.11431 (0.04),W28:0.11425 (0.04),W20:0.11366 (0.03),W16:0.11245 (0.02),W12:0.11180 (0.01),W24:0.11178 (0.01),W8:0.10956 (-0.01),W2:0.10806 (-0.02),W4:0.10415 (-0.06) | topTokens[('?', 159), ('.', 146), ('Ġyou', 118), ('Ġi', 89), ('Ġis', 69), ('Ġwho', 56), ('Ġare', 56), ('Ġhug', 56), ('Ġgeepy', 46), ('Ġdo', 45)] | avgLoss/100: 931.9415228271484 |  | entropyBonus: -0.0 blend: 0.298 top windows: W28:1.00,W32:0.00,W2:0.00,W4:0.00 | TUTOR.py 100
-
---- 2025-04-16 21:25:29 --- babyLLM 'right, last time i got to step 30258... want to restart from there?'  - charis: '31000' - babyLLM 'damn that's specific! heading to step 31000... what am i learning today?' - charis: ''
-
 --- 2025-04-16 21:33:55 --- babyLLM 'right, last time i got to step 31001... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 31001! what am i learning today?' - charis: ''
 2025-04-16 21:42:56 | 100 | LR0.00035 | logitMin:-42.0393 | logitMax:16.2494 | scheduledSampling:0.0000 | windowWeightsW4:2.12255 (0.51),W2:2.03615 (0.47),W8:-1.52244 (0.01),W12:-6.13036 (0.00),W16:-8.62032 (0.00),W20:-10.22913 (0.00),W24:-11.08071 (0.00),W32:-11.27957 (0.00),W28:-11.69163 (0.00) | judgeBiasW32:-0.00405 (0.11),W2:-0.00405 (0.11),W4:-0.00405 (0.11),W8:-0.00405 (0.11),W12:-0.00405 (0.11),W16:-0.00405 (0.11),W20:-0.00405 (0.11),W24:-0.00405 (0.11),W28:-0.00405 (0.11) | credibilityBiasW32:0.11431 (0.04),W28:0.11425 (0.04),W20:0.11366 (0.03),W16:0.11245 (0.02),W12:0.11180 (0.01),W24:0.11178 (0.01),W8:0.10956 (-0.01),W2:0.10806 (-0.02),W4:0.10415 (-0.06) | topTokens[('Ġcould', 222), ('Ġhave', 214), ('Ġfelt', 108), (',', 100), ('Ġelodie', 92), ('!', 92), ('Ġcharis', 58), ('Ġit', 50), ('Ġshe', 47), ("'s", 44)] | avgLoss/100: 882.538309173584 |  | entropyBonus: -0.0 blend: 0.298 top windows: W28:1.00,W32:0.00,W2:0.00,W4:0.00 | TUTOR.py 100
 2025-04-16 21:52:05 | 200 | LR0.00035 | logitMin:-67.0375 | logitMax:27.1511 | scheduledSampling:0.0000 | windowWeightsW4:2.12240 (0.51),W2:2.03601 (0.47),W8:-1.52232 (0.01),W12:-6.12988 (0.00),W16:-8.61975 (0.00),W20:-10.22837 (0.00),W24:-11.07995 (0.00),W32:-11.27881 (0.00),W28:-11.69087 (0.00) | judgeBiasW32:-0.00405 (0.11),W2:-0.00405 (0.11),W4:-0.00405 (0.11),W8:-0.00405 (0.11),W12:-0.00405 (0.11),W16:-0.00405 (0.11),W20:-0.00405 (0.11),W24:-0.00405 (0.11),W28:-0.00405 (0.11) | credibilityBiasW32:0.11431 (0.04),W28:0.11425 (0.04),W20:0.11366 (0.03),W16:0.11245 (0.02),W12:0.11180 (0.01),W24:0.11178 (0.01),W8:0.10956 (-0.01),W2:0.10806 (-0.02),W4:0.10415 (-0.06) | topTokens[('Ġcould', 459), ('Ġhave', 452), ('Ġfelt', 275), (',', 250), ('Ġelodie', 207), ('Ġcharis', 156), ('!', 155), ('Ġand', 111), ('Ġshe', 87), ('Ġyou', 72)] | avgLoss/100: 746.0429553222656 |  | entropyBonus: -0.0 blend: 0.298 top windows: W24:1.00,W32:0.00,W2:0.00,W4:0.00 | TUTOR.py 100
 2025-04-16 22:01:08 | 300 | LR0.00035 | logitMin:-44.7907 | logitMax:19.7278 | scheduledSampling:0.0000 | windowWeightsW4:2.12226 (0.51),W2:2.03586 (0.47),W8:-1.52220 (0.01),W12:-6.12940 (0.00),W16:-8.61918 (0.00),W20:-10.22761 (0.00),W24:-11.07918 (0.00),W32:-11.27804 (0.00),W28:-11.69011 (0.00) | judgeBiasW32:-0.00405 (0.11),W2:-0.00405 (0.11),W4:-0.00405 (0.11),W8:-0.00405 (0.11),W12:-0.00405 (0.11),W16:-0.00405 (0.11),W20:-0.00405 (0.11),W24:-0.00405 (0.11),W28:-0.00405 (0.11) | credibilityBiasW32:0.11430 (0.04),W28:0.11425 (0.04),W20:0.11366 (0.03),W16:0.11245 (0.02),W12:0.11180 (0.01),W24:0.11178 (0.01),W8:0.10956 (-0.01),W2:0.10806 (-0.02),W4:0.10415 (-0.06) | topTokens[('Ġcould', 686), ('Ġhave', 669), ('Ġfelt', 395), (',', 337), ('Ġelodie', 284), ('!', 240), ('Ġcharis', 205), ('Ġand', 152), ('.', 149), ('Ġyou', 112)] | avgLoss/100: 725.1203004455566 |  | entropyBonus: -0.0 blend: 0.298 top windows: W32:1.00,W2:0.00,W4:0.00,W8:0.00 | TUTOR.py 100
---- 2025-04-17 01:20:39 --- 
-[babyllm] right, last time i got to step 31002... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 31002! what am i learning today?
-[charis]--- 2025-04-17 01:22:35 --- 
-[babyllm] right, last time i got to step 31002... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 31002! what am i learning today?
-[charis]--- 2025-04-17 01:23:27 --- 
-[babyllm] right, last time i got to step 31002... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 31002! what am i learning today?
-[charis]--- 2025-04-17 01:25:13 --- 
-[babyllm] right, last time i got to step 31002... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 31002! what am i learning today?
-[charis]--- 2025-04-17 01:31:18 --- 
+--- 2025-04-17 02:23:51 --- 
 [babyllm] right, last time i got to step 0... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 01:33:31 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 01:40:22 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 01:44:13 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 01:53:50 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 01:57:05 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 02:09:34 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 02:13:15 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 02:14:08 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 02:21:14 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]--- 2025-04-17 02:23:51 --- 
-[babyllm] right, last time i got to step 0... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 0! what am i learning today?
-[charis]2025-04-17 02:25:20 | 100 | LR0.00035 | logitMin:-0.0382 | logitMax:0.0518 | scheduledSampling:0.0000 | topTokens[('Ġa', 111), (',', 77), ('.', 74), ('Ġit', 71), ('Ġb', 56), ('Ġas', 55), ('Ġof', 52), ('Ġand', 46), ('ss', 43), ('Ġwas', 41)] |  |  | TUTOR.py 100
---- 2025-04-17 02:26:01 --- 
+[charis]
+2025-04-17 02:25:20 | 100 | LR0.00035 | logitMin:-0.0382 | logitMax:0.0518 | scheduledSampling:0.0000 | topTokens[('Ġa', 111), (',', 77), ('.', 74), ('Ġit', 71), ('Ġb', 56), ('Ġas', 55), ('Ġof', 52), ('Ġand', 46), ('ss', 43), ('Ġwas', 41)] |  |  | TUTOR.py 100
+--- 2025-04-17 02:41:42 --- 
 [babyllm] right, last time i got to step 1... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 1! what am i learning today?
-[charis]--- 2025-04-17 02:41:42 --- 
-[babyllm] right, last time i got to step 1... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 1! what am i learning today?
-[charis]2025-04-17 02:43:07 | 100 | LR0.00035 | logitMin:-0.0366 | logitMax:0.0661 | scheduledSampling:0.0000 | topTokens[('Ġa', 103), (',', 77), ('Ġit', 72), ('.', 59), ('Ġas', 57), ('Ġb', 46), ('Ġof', 43), ('Ġdoor', 42), ('Ġand', 40), ('r', 38)] |  |  | TUTOR.py 100
+[charis]
+2025-04-17 02:43:07 | 100 | LR0.00035 | logitMin:-0.0366 | logitMax:0.0661 | scheduledSampling:0.0000 | topTokens[('Ġa', 103), (',', 77), ('Ġit', 72), ('.', 59), ('Ġas', 57), ('Ġb', 46), ('Ġof', 43), ('Ġdoor', 42), ('Ġand', 40), ('r', 38)] |  |  | TUTOR.py 100
 2025-04-17 02:44:26 | 200 | LR0.00035 | logitMin:-0.0548 | logitMax:0.0518 | scheduledSampling:0.0000 | topTokens[(',', 233), ('Ġa', 160), ('Ġof', 121), ('Ġit', 110), ('.', 99), ('Ġand', 92), ('Ġwas', 83), ('Ġthe', 73), ('Ġto', 65), ('Ġdoor', 62)] |  |  | TUTOR.py 100
 2025-04-17 02:45:49 | 300 | LR0.00035 | logitMin:-0.0672 | logitMax:0.0595 | scheduledSampling:0.0000 | topTokens[(',', 314), ('Ġa', 284), ('Ġof', 162), ('.', 147), ('Ġit', 135), ('Ġand', 126), ('Ġwas', 119), ('Ġthe', 79), ('Ġto', 75), ('Ġvery', 75)] |  |  | TUTOR.py 100
 2025-04-17 02:47:10 | 400 | LR0.00035 | logitMin:-0.0727 | logitMax:0.0357 | scheduledSampling:0.0000 | topTokens[(',', 429), ('Ġa', 356), ('.', 189), ('Ġof', 185), ('Ġthe', 160), ('Ġwas', 160), ('Ġand', 158), ('Ġit', 150), ('Ġto', 89), ('Ġthat', 88)] |  |  | TUTOR.py 100
@@ -5285,15 +5212,12 @@ CHANGED LOG FREQ TO 2500
 2025-04-17 03:10:42 | 2100 | LR0.00035 | logitMin:-0.1325 | logitMax:-0.0081 | scheduledSampling:0.0000 | topTokens[(',', 2533), ('Ġa', 1016), ('Ġthe', 891), ('.', 772), ('Ġit', 768), ('Ġof', 748), ('Ġand', 704), ('ed', 613), ('Ġwas', 550), ('Ġto', 523)] |  |  | TUTOR.py 100
 2025-04-17 03:12:04 | 2200 | LR0.00035 | logitMin:-0.1743 | logitMax:-0.0269 | scheduledSampling:0.0000 | topTokens[(',', 2549), ('Ġa', 1074), ('Ġthe', 935), ('.', 918), ('Ġit', 788), ('Ġof', 760), ('Ġand', 730), ('ed', 618), ('Ġwas', 555), ('Ġto', 530)] |  |  | TUTOR.py 100
 2025-04-17 03:13:28 | 2300 | LR0.00035 | logitMin:-0.1379 | logitMax:0.0218 | scheduledSampling:0.0000 | topTokens[(',', 2602), ('Ġa', 1104), ('.', 1003), ('Ġit', 981), ('Ġthe', 938), ('Ġof', 761), ('Ġand', 741), ('Ġi', 738), ('ed', 619), ('!', 591)] |  |  | TUTOR.py 100
---- 2025-04-17 03:14:40 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 2364
-[babyllm] damn that's specific! heading to step 2364... what am i learning today?
 [charis]--- 2025-04-17 03:16:15 --- 
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 03:17:42 | 100 | LR0.00035 | logitMin:-0.0388 | logitMax:0.0645 | scheduledSampling:0.0000 | topTokens[('Ġa', 121), (',', 89), ('Ġas', 68), ('Ġit', 60), ('.', 59), ('Ġand', 49), ('Ġb', 41), ('Ġto', 39), ('r', 32), ('ss', 32)] |  |  | TUTOR.py 100
+[charis]
+2025-04-17 03:17:42 | 100 | LR0.00035 | logitMin:-0.0388 | logitMax:0.0645 | scheduledSampling:0.0000 | topTokens[('Ġa', 121), (',', 89), ('Ġas', 68), ('Ġit', 60), ('.', 59), ('Ġand', 49), ('Ġb', 41), ('Ġto', 39), ('r', 32), ('ss', 32)] |  |  | TUTOR.py 100
 2025-04-17 03:19:03 | 200 | LR0.00035 | logitMin:-0.0534 | logitMax:0.0538 | scheduledSampling:0.0000 | topTokens[(',', 222), ('Ġa', 171), ('Ġof', 132), ('Ġit', 104), ('Ġand', 104), ('.', 89), ('Ġthe', 84), ('Ġas', 74), ('Ġwas', 74), ('Ġto', 73)] |  |  | TUTOR.py 100
 2025-04-17 03:20:25 | 300 | LR0.00035 | logitMin:-0.0731 | logitMax:0.0598 | scheduledSampling:0.0000 | topTokens[(',', 304), ('Ġa', 265), ('Ġof', 176), ('Ġand', 139), ('.', 137), ('Ġit', 120), ('Ġwas', 98), ('Ġthe', 88), ('Ġto', 80), ('Ġas', 74)] |  |  | TUTOR.py 100
 2025-04-17 03:21:47 | 400 | LR0.00035 | logitMin:-0.0735 | logitMax:0.0389 | scheduledSampling:0.0000 | topTokens[(',', 418), ('Ġa', 347), ('Ġof', 200), ('.', 186), ('Ġthe', 182), ('Ġand', 182), ('Ġit', 135), ('Ġwas', 133), ('Ġto', 102), ('Ġyou', 88)] |  |  | TUTOR.py 100
@@ -5307,19 +5231,12 @@ CHANGED LOG FREQ TO 2500
 2025-04-17 03:32:47 | 1200 | LR0.00035 | logitMin:-0.1180 | logitMax:0.0084 | scheduledSampling:0.0000 | topTokens[(',', 1434), ('Ġa', 688), ('Ġthe', 584), ('Ġof', 528), ('Ġand', 453), ('.', 406), ('ed', 329), ('Ġthey', 309), ('Ġwas', 301), ('Ġit', 288)] |  |  | TUTOR.py 100
 2025-04-17 03:34:08 | 1300 | LR0.00035 | logitMin:-0.1371 | logitMax:0.0154 | scheduledSampling:0.0000 | topTokens[(',', 1520), ('Ġa', 751), ('Ġthe', 627), ('Ġof', 567), ('Ġand', 478), ('.', 447), ('ed', 343), ('Ġthey', 319), ('Ġto', 316), ('Ġwas', 312)] |  |  | TUTOR.py 100
 2025-04-17 03:35:30 | 1400 | LR0.00035 | logitMin:-0.1211 | logitMax:0.0132 | scheduledSampling:0.0000 | topTokens[(',', 1681), ('Ġa', 781), ('Ġthe', 682), ('Ġof', 604), ('Ġand', 503), ('.', 480), ('ed', 364), ('Ġto', 332), ('Ġit', 331), ('Ġwas', 328)] |  |  | TUTOR.py 100
---- 2025-04-17 03:40:36 --- 
+--- 2025-04-17 03:51:33 --- 
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]--- 2025-04-17 03:45:52 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
-[charis]--- 2025-04-17 03:51:33 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 03:53:02 | 100 | LR0.00035 | logitMin:-0.0368 | logitMax:0.0648 | scheduledSampling:0.0000 | shortDecay:0.0068 | longDecay:0.0073 | topTokens[('Ġa', 99), ('Ġit', 74), ('Ġas', 73), ('.', 70), (',', 63), ('Ġof', 53), ('Ġb', 47), ('Ġand', 44), ('Ġto', 38), ('Ġmo', 37)] |  |  | TUTOR.py 100
+[charis]
+2025-04-17 03:53:02 | 100 | LR0.00035 | logitMin:-0.0368 | logitMax:0.0648 | scheduledSampling:0.0000 | shortDecay:0.0068 | longDecay:0.0073 | topTokens[('Ġa', 99), ('Ġit', 74), ('Ġas', 73), ('.', 70), (',', 63), ('Ġof', 53), ('Ġb', 47), ('Ġand', 44), ('Ġto', 38), ('Ġmo', 37)] |  |  | TUTOR.py 100
 2025-04-17 03:54:24 | 200 | LR0.00035 | logitMin:-0.0554 | logitMax:0.0524 | scheduledSampling:0.0000 | shortDecay:0.0069 | longDecay:0.0074 | topTokens[(',', 212), ('Ġa', 176), ('Ġof', 122), ('.', 104), ('Ġit', 102), ('Ġand', 96), ('Ġthe', 80), ('Ġwas', 79), ('Ġas', 75), ('Ġto', 72)] |  |  | TUTOR.py 100
 2025-04-17 03:55:48 | 300 | LR0.00035 | logitMin:-0.0711 | logitMax:0.0561 | scheduledSampling:0.0000 | shortDecay:0.0069 | longDecay:0.0075 | topTokens[('Ġa', 289), (',', 282), ('Ġof', 156), ('.', 142), ('Ġand', 136), ('Ġit', 122), ('Ġwas', 98), ('Ġthe', 86), ('Ġto', 80), ('Ġas', 78)] |  |  | TUTOR.py 100
 2025-04-17 03:57:10 | 400 | LR0.00035 | logitMin:-0.0782 | logitMax:0.0401 | scheduledSampling:0.0000 | shortDecay:0.0070 | longDecay:0.0075 | topTokens[(',', 406), ('Ġa', 353), ('.', 192), ('Ġof', 181), ('Ġthe', 177), ('Ġand', 165), ('Ġit', 141), ('Ġwas', 141), ('Ġin', 104), ('Ġthat', 102)] |  |  | TUTOR.py 100
@@ -5328,19 +5245,17 @@ CHANGED LOG FREQ TO 2500
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 04:00:53 | 100 | LR0.00035 | logitMin:-0.0035 | logitMax:0.0067 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[('Ġa', 124), (',', 87), ('Ġit', 73), ('.', 69), ('Ġas', 66), ('Ġb', 46), ('Ġand', 45), ('Ġof', 42), ('Ġthe', 39), ('r', 36)] |  |  | TUTOR.py 1000
+[charis]
+2025-04-17 04:00:53 | 100 | LR0.00035 | logitMin:-0.0035 | logitMax:0.0067 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[('Ġa', 124), (',', 87), ('Ġit', 73), ('.', 69), ('Ġas', 66), ('Ġb', 46), ('Ġand', 45), ('Ġof', 42), ('Ġthe', 39), ('r', 36)] |  |  | TUTOR.py 1000
 2025-04-17 04:02:15 | 200 | LR0.00035 | logitMin:-0.0055 | logitMax:0.0056 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(',', 234), ('Ġa', 199), ('Ġof', 138), ('.', 116), ('Ġand', 107), ('Ġit', 104), ('Ġthe', 96), ('Ġwas', 78), ('Ġas', 70), ('Ġto', 56)] |  |  | TUTOR.py 1000
 2025-04-17 04:03:36 | 300 | LR0.00035 | logitMin:-0.0066 | logitMax:0.0056 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(',', 310), ('Ġa', 298), ('Ġof', 169), ('.', 160), ('Ġand', 142), ('Ġit', 131), ('Ġwas', 108), ('Ġthe', 100), ('Ġthat', 76), ('Ġas', 71)] |  |  | TUTOR.py 1000
 2025-04-17 04:04:56 | 400 | LR0.00035 | logitMin:-0.0070 | logitMax:0.0039 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0008 | topTokens[(',', 447), ('Ġa', 377), ('.', 215), ('Ġthe', 210), ('Ġof', 186), ('Ġand', 182), ('Ġit', 157), ('Ġwas', 133), ('Ġin', 98), ('Ġthat', 96)] |  |  | TUTOR.py 1000
---- 2025-04-17 04:06:22 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
 [charis]--- 2025-04-17 04:07:46 --- 
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 04:09:13 | 100 | LR0.00035 | logitMin:-0.0034 | logitMax:0.0066 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[('Ġa', 111), (',', 71), ('Ġit', 68), ('.', 61), ('Ġas', 59), ('Ġand', 51), ('Ġof', 43), ('Ġto', 39), ('Ġb', 37), ('Ġthe', 37)] |  |  | TUTOR.py 1000
+[charis]
+2025-04-17 04:09:13 | 100 | LR0.00035 | logitMin:-0.0034 | logitMax:0.0066 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[('Ġa', 111), (',', 71), ('Ġit', 68), ('.', 61), ('Ġas', 59), ('Ġand', 51), ('Ġof', 43), ('Ġto', 39), ('Ġb', 37), ('Ġthe', 37)] |  |  | TUTOR.py 1000
 2025-04-17 04:10:34 | 200 | LR0.00035 | logitMin:-0.0055 | logitMax:0.0055 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(',', 225), ('Ġa', 193), ('Ġof', 131), ('Ġit', 110), ('Ġand', 105), ('.', 97), ('Ġthe', 89), ('Ġwas', 83), ('Ġto', 69), ('Ġas', 66)] |  |  | TUTOR.py 1000
 2025-04-17 04:11:55 | 300 | LR0.00035 | logitMin:-0.0072 | logitMax:0.0057 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(',', 314), ('Ġa', 303), ('Ġof', 167), ('.', 141), ('Ġand', 139), ('Ġit', 133), ('Ġwas', 107), ('Ġthe', 98), ('Ġto', 82), ('Ġthat', 71)] |  |  | TUTOR.py 1000
 2025-04-17 04:13:15 | 400 | LR0.00035 | logitMin:-0.0071 | logitMax:0.0039 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0008 | topTokens[(',', 448), ('Ġa', 379), ('Ġthe', 199), ('Ġof', 195), ('Ġand', 190), ('.', 189), ('Ġit', 150), ('Ġwas', 150), ('Ġto', 105), ('Ġthat', 95)] |  |  | TUTOR.py 1000
@@ -5349,7 +5264,8 @@ CHANGED LOG FREQ TO 2500
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 04:17:12 | 100 | LR0.00035 | logitMin:-0.0039 | logitMax:0.0069 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 1782), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
+[charis]
+2025-04-17 04:17:12 | 100 | LR0.00035 | logitMin:-0.0039 | logitMax:0.0069 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 1782), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
 2025-04-17 04:18:34 | 200 | LR0.00035 | logitMin:-0.0056 | logitMax:0.0056 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 3582), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
 2025-04-17 04:19:55 | 300 | LR0.00035 | logitMin:-0.0068 | logitMax:0.0059 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 5382), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
 2025-04-17 04:21:17 | 400 | LR0.00035 | logitMin:-0.0079 | logitMax:0.0039 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0008 | topTokens[(None, 7182), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
@@ -5361,56 +5277,89 @@ CHANGED LOG FREQ TO 2500
 2025-04-17 04:29:35 | 1000 | LR0.00035 | logitMin:-0.0101 | logitMax:0.0022 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0008 | topTokens[(None, 17982), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
 2025-04-17 04:30:57 | 1100 | LR0.00035 | logitMin:-0.0117 | logitMax:0.0009 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 19782), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
 2025-04-17 04:32:19 | 1200 | LR0.00035 | logitMin:-0.0109 | logitMax:0.0011 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 21582), (tensor([[1396]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[82]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[421]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
---- 2025-04-17 04:33:26 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
-[charis]--- 2025-04-17 04:38:32 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
-[charis]--- 2025-04-17 04:39:08 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
 [charis]--- 2025-04-17 04:40:26 --- 
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 04:41:58 | 100 | LR0.00035 | logitMin:-0.0034 | logitMax:0.0064 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 1800), (tensor([[208]], device='mps:0'), 1), (tensor([[1084]], device='mps:0'), 1), (tensor([[107]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[107]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1), (tensor([[138]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
+[charis]
+2025-04-17 04:41:58 | 100 | LR0.00035 | logitMin:-0.0034 | logitMax:0.0064 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 1800), (tensor([[208]], device='mps:0'), 1), (tensor([[1084]], device='mps:0'), 1), (tensor([[107]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[107]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[174]], device='mps:0'), 1), (tensor([[138]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
 --- 2025-04-17 04:42:21 --- 
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
 [charis]2025-04-17 04:43:49 | 100 | LR0.00035 | logitMin:-0.0034 | logitMax:0.0064 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(None, 1800), (tensor([[838]], device='mps:0'), 1), (tensor([[75]], device='mps:0'), 1), (tensor([[953]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[257]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1), (tensor([[12]], device='mps:0'), 1), (tensor([[52]], device='mps:0'), 1)] |  |  | TUTOR.py 1000
---- 2025-04-17 04:44:30 --- 
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]--- 2025-04-17 04:47:15 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 04:48:42 | 100 | LR0.00035 | logitMin:-0.0034 | logitMax:0.0064 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[('Ġa', 108), (',', 78), ('Ġit', 76), ('Ġas', 63), ('.', 60), ('Ġand', 48), ('Ġb', 40), ('Ġto', 40), ('r', 38), ('Ġof', 35)] |  |  | TUTOR.py 1000
+[charis]
+2025-04-17 04:48:42 | 100 | LR0.00035 | logitMin:-0.0034 | logitMax:0.0064 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[('Ġa', 108), (',', 78), ('Ġit', 76), ('Ġas', 63), ('.', 60), ('Ġand', 48), ('Ġb', 40), ('Ġto', 40), ('r', 38), ('Ġof', 35)] |  |  | TUTOR.py 1000
 2025-04-17 04:50:02 | 200 | LR0.00035 | logitMin:-0.0052 | logitMax:0.0052 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(',', 220), ('Ġa', 179), ('Ġof', 124), ('Ġit', 106), ('.', 104), ('Ġthe', 92), ('Ġand', 89), ('Ġwas', 85), ('Ġas', 70), ('Ġto', 68)] |  |  | TUTOR.py 1000
 2025-04-17 04:51:23 | 300 | LR0.00035 | logitMin:-0.0070 | logitMax:0.0054 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | topTokens[(',', 306), ('Ġa', 290), ('Ġof', 168), ('.', 147), ('Ġit', 130), ('Ġand', 121), ('Ġwas', 113), ('Ġthe', 95), ('Ġto', 89), ('Ġas', 73)] |  |  | TUTOR.py 1000
 2025-04-17 04:52:45 | 400 | LR0.00035 | logitMin:-0.0075 | logitMax:0.0039 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0008 | topTokens[(',', 438), ('Ġa', 371), ('.', 208), ('Ġof', 191), ('Ġthe', 187), ('Ġand', 156), ('Ġit', 146), ('Ġwas', 144), ('Ġto', 105), ('Ġthat', 93)] |  |  | TUTOR.py 1000
 2025-04-17 04:54:11 | 500 | LR0.00035 | logitMin:-0.0083 | logitMax:0.0028 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0008 | topTokens[(',', 618), ('Ġa', 451), ('Ġof', 238), ('.', 231), ('Ġthe', 230), ('Ġand', 200), ('Ġit', 185), ('Ġto', 149), ('Ġwas', 147), ('Ġthey', 144)] |  |  | TUTOR.py 1000
 2025-04-17 04:55:34 | 600 | LR0.00035 | logitMin:-0.0082 | logitMax:0.0024 | scheduledSampling:0.0000 | shortDecay:0.0007 | longDecay:0.0008 | topTokens[(',', 713), ('Ġa', 498), ('Ġof', 321), ('Ġthe', 269), ('.', 254), ('Ġand', 246), ('Ġit', 215), ('Ġwas', 168), ('Ġto', 156), ('Ġthey', 152)] |  |  | TUTOR.py 1000
---- 2025-04-17 04:56:33 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
-[charis]--- 2025-04-17 04:57:22 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
-[charis]--- 2025-04-17 05:01:37 --- 
-[babyllm] right, last time i got to step 2... want to restart from there?
-[charis] 
-[babyllm] ok! let's go to step 2! what am i learning today?
 [charis]--- 2025-04-17 05:04:05 --- 
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]2025-04-17 05:05:31 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[('Ġa', 106), (',', 78), ('Ġit', 73), ('.', 69), ('Ġas', 67), ('Ġof', 52), ('Ġand', 45), ('Ġb', 40), ('Ġto', 37), ('ss', 36)] |  |  | TUTOR.py 1000
+[charis]
+2025-04-17 05:05:31 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[('Ġa', 106), (',', 78), ('Ġit', 73), ('.', 69), ('Ġas', 67), ('Ġof', 52), ('Ġand', 45), ('Ġb', 40), ('Ġto', 37), ('ss', 36)] |  |  | TUTOR.py 1000
+2025-04-17 05:06:52 | 200 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[(',', 225), ('Ġa', 179), ('Ġof', 134), ('.', 116), ('Ġit', 100), ('Ġand', 95), ('Ġwas', 76), ('Ġthe', 73), ('Ġas', 70), ('Ġto', 64)] |  |  | TUTOR.py 1000
+2025-04-17 05:08:13 | 300 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[(',', 318), ('Ġa', 290), ('Ġof', 166), ('.', 147), ('Ġand', 138), ('Ġit', 124), ('Ġwas', 93), ('Ġthe', 78), ('Ġto', 72), ('Ġas', 71)] |  |  | TUTOR.py 1000
+2025-04-17 05:09:35 | 400 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[(',', 453), ('Ġa', 373), ('.', 200), ('Ġof', 190), ('Ġand', 178), ('Ġthe', 165), ('Ġit', 148), ('Ġwas', 127), ('Ġto', 90), ('Ġthat', 87)] |  |  | TUTOR.py 1000
+--- 2025-04-17 05:09:54 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]
+2025-04-17 05:11:22 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[('Ġa', 103), ('Ġit', 75), (',', 74), ('Ġas', 73), ('.', 55), ('Ġdoor', 45), ('Ġof', 42), ('Ġand', 41), ('Ġb', 38), ('Ġto', 34)] |  |  | TUTOR.py 1000
+2025-04-17 05:12:42 | 200 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[(',', 223), ('Ġa', 180), ('Ġof', 148), ('Ġit', 100), ('Ġand', 94), ('.', 89), ('Ġas', 88), ('Ġthe', 77), ('Ġto', 69), ('Ġwas', 67)] |  |  | TUTOR.py 1000
+--- 2025-04-17 05:21:10 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]
+2025-04-17 05:22:37 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[('Ġa', 115), (',', 89), ('.', 70), ('Ġit', 68), ('Ġas', 56), ('Ġand', 53), ('Ġb', 40), ('r', 40), ('Ġdoor', 39), ('Ġto', 37)] |  |  | TUTOR.py 1000
+2025-04-17 05:23:59 | 200 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[(',', 218), ('Ġa', 165), ('Ġof', 118), ('.', 104), ('Ġit', 103), ('Ġand', 95), ('Ġthe', 78), ('Ġwas', 68), ('Ġas', 64), ('Ġto', 62)] |  |  | TUTOR.py 1000
+2025-04-17 05:25:20 | 300 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[(',', 314), ('Ġa', 263), ('Ġof', 153), ('.', 146), ('Ġand', 132), ('Ġit', 117), ('Ġwas', 92), ('Ġthe', 86), ('Ġvery', 76), ('Ġthat', 75)] |  |  | TUTOR.py 1000
+[charis]--- 2025-04-17 05:43:39 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]
+2025-04-17 05:47:12 | 100 | LR0.00035 | n_weightMean:-0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_weightNorm:<tensor[torch.Size([10000])]> | n_weightNormMean:0.0003 | n_weightNormMax:0.0003 | n_weightNormMin:0.0004 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:-0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | windowWeightsW28:1.00445 (0.11),W24:1.00309 (0.11),W2:1.00146 (0.11),W8:1.00043 (0.11),W20:0.99950 (0.11),W12:0.99829 (0.11),W4:0.99766 (0.11),W32:0.99729 (0.11),W16:0.99606 (0.11) | judgeBiasW32:-0.00429 (0.11),W2:-0.00429 (0.11),W4:-0.00429 (0.11),W8:-0.00429 (0.11),W12:-0.00429 (0.11),W16:-0.00429 (0.11),W20:-0.00429 (0.11),W24:-0.00429 (0.11),W28:-0.00429 (0.11) | credibilityBiasW28:0.11154 (0.00),W24:0.11139 (0.00),W2:0.11135 (0.00),W12:0.11127 (0.00),W8:0.11123 (0.00),W20:0.11102 (-0.00),W4:0.11081 (-0.00),W32:0.11074 (-0.00),W16:0.11065 (-0.00) | topTokens[('Ġit', 136), (',', 122), ('Ġa', 110), ('Ġof', 86), ('.', 72), ('Ġand', 63), ('Ġb', 62), ('Ġthe', 56), ('Ġbe', 53), ('Ġdoor', 41)] |  | entropyBonus: -0.0 blend: 0.496 top windows: W8:1.00,W32:0.00,W2:0.00,W4:0.00 | TUTOR.py 1000
+--- 2025-04-17 05:48:30 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]
+2025-04-17 05:52:24 | 100 | LR0.00035 | n_weightMean:0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_weightNorm:<tensor[torch.Size([10000])]> | n_weightNormMean:0.0003 | n_weightNormMax:0.0003 | n_weightNormMin:0.0004 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:-0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | windowWeightsW2:1.00602 (0.11),W8:1.00399 (0.11),W28:1.00210 (0.11),W32:1.00207 (0.11),W12:1.00077 (0.11),W24:1.00036 (0.11),W4:0.99981 (0.11),W16:0.99787 (0.11),W20:0.99545 (0.11) | judgeBiasW32:0.00605 (0.11),W2:0.00605 (0.11),W4:0.00605 (0.11),W8:0.00605 (0.11),W12:0.00605 (0.11),W16:0.00605 (0.11),W20:0.00605 (0.11),W24:0.00605 (0.11),W28:0.00605 (0.11) | credibilityBiasW8:0.11156 (0.00),W28:0.11135 (0.00),W32:0.11135 (0.00),W24:0.11116 (0.00),W2:0.11113 (0.00),W4:0.11110 (-0.00),W12:0.11088 (-0.00),W16:0.11088 (-0.00),W20:0.11061 (-0.00) | topTokens[('Ġa', 141), (',', 126), ('Ġit', 118), ('.', 100), ('Ġas', 81), ('Ġto', 78), ('Ġand', 74), ('Ġdoor', 67), ('ss', 63), ('Ġmo', 53)] |  | entropyBonus: -0.0 blend: 0.502 top windows: W24:1.00,W32:0.00,W2:0.00,W4:0.00 | TUTOR.py 1000
+2025-04-17 05:56:23 | 200 | LR0.00035 | n_weightMean:0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_weightNorm:<tensor[torch.Size([10000])]> | n_weightNormMean:0.0004 | n_weightNormMax:0.0003 | n_weightNormMin:0.0004 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:-0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | windowWeightsW2:1.00976 (0.11),W28:1.00615 (0.11),W12:1.00455 (0.11),W8:1.00396 (0.11),W24:1.00034 (0.11),W4:0.99978 (0.11),W32:0.99794 (0.11),W16:0.99582 (0.11),W20:0.99546 (0.11) | judgeBiasW32:0.00983 (0.11),W2:0.00983 (0.11),W4:0.00983 (0.11),W8:0.00983 (0.11),W12:0.00983 (0.11),W16:0.00983 (0.11),W20:0.00983 (0.11),W24:0.00983 (0.11),W28:0.00983 (0.11) | credibilityBiasW28:0.11183 (0.01),W8:0.11159 (0.00),W24:0.11119 (0.00),W2:0.11115 (0.00),W4:0.11112 (-0.00),W32:0.11092 (-0.00),W12:0.11091 (-0.00),W20:0.11064 (-0.00),W16:0.11064 (-0.00) | topTokens[(',', 285), ('Ġa', 221), ('Ġit', 197), ('Ġdoor', 131), ('Ġof', 129), ('Ġmade', 127), ('Ġand', 114), ('.', 109), ('Ġto', 91), ('Ġas', 91)] |  | entropyBonus: -0.0 blend: 0.498 top windows: W8:1.00,W32:0.00,W2:0.00,W4:0.00 | TUTOR.py 1000
+--- 2025-04-17 05:58:05 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 06:01:41 | 100 | LR0.00035 | n_weightMean:-0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_weightNorm:<tensor[torch.Size([10000])]> | n_weightNormMean:0.0003 | n_weightNormMax:0.0003 | n_weightNormMin:0.0004 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:-0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:-0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | windowWeightsW28:1.00339 (0.11),W20:1.00207 (0.11),W8:1.00207 (0.11),W12:1.00204 (0.11),W4:0.99786 (0.11),W32:0.99786 (0.11),W16:0.99786 (0.11),W24:0.99786 (0.11),W2:0.99520 (0.11) | judgeBiasW32:0.00299 (0.11),W2:0.00299 (0.11),W4:0.00299 (0.11),W8:0.00299 (0.11),W12:0.00299 (0.11),W16:0.00299 (0.11),W20:0.00299 (0.11),W24:0.00299 (0.11),W28:0.00299 (0.11) | credibilityBiasW28:0.11153 (0.00),W20:0.11139 (0.00),W8:0.11139 (0.00),W12:0.11138 (0.00),W4:0.11092 (-0.00),W32:0.11092 (-0.00),W24:0.11092 (-0.00),W16:0.11092 (-0.00),W2:0.11063 (-0.00) | topTokens[('Ġa', 149), ('Ġit', 85), (',', 84), ('ss', 72), ('Ġmo', 61), ('Ġdoor', 58), ('.', 54), ('Ġof', 47), ('Ġas', 47), ('Ġand', 46)] |  | entropyBonus: 1.9272772960121484e-31 blend: 0.502 top windows: W28:1.00,W24:0.00,W32:0.00,W2:0.00 | TUTOR.py 1000
+--- 2025-04-17 06:04:53 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 06:07:27 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 06:09:30 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 06:13:10 | 100 | LR0.00035 | n_weightMean:0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:-0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | windowWeightsW4:1.00374 (0.11),W20:1.00323 (0.11),W12:1.00308 (0.11),W32:1.00330 (0.11),W28:1.00162 (0.11),W2:1.00144 (0.11),W24:1.00148 (0.11),W16:0.99952 (0.11),W8:0.99786 (0.11) | judgeBiasW32:0.00115 (0.11),W2:0.00115 (0.11),W4:0.00115 (0.11),W8:0.00115 (0.11),W12:0.00115 (0.11),W16:0.00115 (0.11),W20:0.00115 (0.11),W24:0.00115 (0.11),W28:0.00115 (0.11) | credibilityBiasW32:0.11138 (0.00),W20:0.11135 (0.00),W12:0.11129 (0.00),W28:0.11128 (0.00),W24:0.11117 (0.00),W4:0.11112 (0.00),W2:0.11110 (0.00),W8:0.11071 (-0.00),W16:0.11060 (-0.00) | topTokens[('Ġit', 128), ('Ġa', 99), (',', 80), ('Ġas', 70), ('ss', 64), ('Ġdoor', 62), ('Ġb', 50), ('Ġto', 50), ('Ġused', 48), ('.', 42)] |  | entropyBonus: -0.0 blend: 0.501 top windows: W4:1.00,W32:0.00,W2:0.00,W8:0.00 | TUTOR.py 1000
+--- 2025-04-17 06:16:35 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 06:20:06 | 100 | LR0.00035 | n_weightMean:-0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | windowWeightsW28:1.00579 (0.11),W16:1.00361 (0.11),W12:1.00314 (0.11),W2:1.00347 (0.11),W24:1.00274 (0.11),W20:1.00204 (0.11),W32:1.00020 (0.11),W4:0.99823 (0.11),W8:0.99678 (0.11) | judgeBiasW32:0.00282 (0.11),W2:0.00282 (0.11),W4:0.00282 (0.11),W8:0.00282 (0.11),W12:0.00282 (0.11),W16:0.00282 (0.11),W20:0.00282 (0.11),W24:0.00282 (0.11),W28:0.00282 (0.11) | credibilityBiasW24:0.11152 (0.00),W12:0.11151 (0.00),W2:0.11146 (0.00),W28:0.11143 (0.00),W16:0.11133 (0.00),W4:0.11087 (-0.00),W20:0.11083 (-0.00),W8:0.11061 (-0.00),W32:0.11045 (-0.01) | topTokens[(',', 146), ('Ġa', 124), ('Ġand', 90), ('Ġit', 82), ('Ġto', 81), ('.', 77), ('Ġbe', 75), ('Ġas', 73), ('ss', 72), ('Ġmo', 70)] |  | entropyBonus: 0.009314139373600483 blend: 0.501 top windows: W12:1.00,W28:0.00,W16:0.00,W32:0.00 | TUTOR.py 1000
+--- 2025-04-17 06:23:34 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 06:27:18 | 100 | LR0.00035 | n_weightMean:-0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:-0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:-0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:7.1039 | windowWeightsW20:1.00476 (0.11),W24:1.00469 (0.11),W28:1.00223 (0.11),W4:1.00046 (0.11),W12:0.99951 (0.11),W32:0.99859 (0.11),W8:0.99848 (0.11),W2:0.99522 (0.11),W16:0.99344 (0.11) | judgeBiasW32:-0.00148 (0.11),W2:-0.00148 (0.11),W4:-0.00148 (0.11),W8:-0.00148 (0.11),W12:-0.00148 (0.11),W16:-0.00148 (0.11),W20:-0.00148 (0.11),W24:-0.00148 (0.11),W28:-0.00148 (0.11) | credibilityBiasW8:0.11163 (0.00),W20:0.11163 (0.00),W28:0.11134 (0.00),W24:0.11133 (0.00),W12:0.11117 (0.00),W32:0.11093 (-0.00),W4:0.11086 (-0.00),W2:0.11056 (-0.00),W16:0.11055 (-0.00) | topTokens[('Ġas', 75), ('Ġto', 65), (',', 63), ('Ġit', 63), ('Ġb', 51), ('Ġwas', 50), ('ark', 39), ('Ġa', 39), ('ss', 37), ('Ġof', 35)] |  | entropyBonus: 8.533005328115143e-34 blend: 0.497 top windows: W24:1.00,W28:0.00,W32:0.00,W2:0.00 | TUTOR.py 1000
