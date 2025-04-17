@@ -3,13 +3,13 @@
 
 import sys, traceback, warnings, torch, os, random
 from datetime import datetime
-from babyLLM import BABYLLM
-from SCHOOL.staffroom.counsellor import COUNSELLOR
-from BRAIN.LAYERS.S_output import S_OUTPUT
-from SCHOOL.staffroom.librarian import LIBRARIAN
-from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
-from SCHOOL.staffroom.tutor import TUTOR
-from config import *
+from VER1_babyLLM import BABYLLM
+from VER1_SCHOOL.staffroom.counsellor import COUNSELLOR
+from VER1_BRAIN.LAYERS.S_output import S_OUTPUT
+from VER1_SCHOOL.staffroom.librarian import LIBRARIAN
+from VER1_SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
+from VER1_SCHOOL.staffroom.tutor import TUTOR
+from VER1_config import *
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if not issubclass(exc_type, KeyboardInterrupt):
@@ -23,7 +23,7 @@ torch.autograd.set_detect_anomaly(True)
 def wakeup():
     try:
         # WAKE UP THE SCHOOL :)
-        
+
         counsellor = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
         with counsellor.infodump("wakeup") as ʕっʘ‿ʘʔっ:
 
@@ -50,7 +50,8 @@ def wakeup():
 
             # START THE LESSONS :)
             ʕっʘ‿ʘʔっ("starting lessons!")
-            tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex, _model = babyLLM)
+            #tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex, _model = babyLLM)
+            babyLLM.trainModel(trainingDataPairs = trainingDataPairs, epochs = epochs)
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]: {e}")

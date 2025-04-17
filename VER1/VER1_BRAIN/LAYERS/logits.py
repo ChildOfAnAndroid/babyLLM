@@ -1,24 +1,28 @@
 # CHARIS CAT 2025
-# BABYLLM - logits.py
+# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
+# OUTPUT LAYER FOR LOGIT PREDICTION
+# BRAIN/LAYERS/logits.py
 
 import torch
 import torch.nn as nn
 from VER1_config import *
-from VER1_SCHOOL.staffroom.counsellor import COUNSELLOR
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 class LOGITS(nn.Module):
-    def __init__(self):
+    def __init__(self, _counsellor, _device):
         super().__init__()
-        self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = modelDevice)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
-        self.l_bias = nn.Parameter(torch.zeros(vocabSize, device = modelDevice))
-        self.counsellor = COUNSELLOR("LOGITS", debug = debugPrints, durations = durationLogging)
+        #self.counsellor = COUNSELLOR("LOGITS", debug = debugPrints, durations = durationLogging)
+        self.device = _device
+        self.counsellor = _counsellor
 
-    def forward(self, meanActivationsTensor):
+        self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = self.device)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
+        self.l_bias = nn.Parameter(torch.zeros(vocabSize, device = self.device))
+
+    def forward(self, _meanActivationsTensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
-            activationsTensor = meanActivationsTensor
-            #activationsTensor = activationsTensor.to(modelDevice)
+            activationsTensor = _meanActivationsTensor
+            #activationsTensor = activationsTensor.to(self.device)
             if debugPrints: print(f"Debug logits: activationsTensor shape before @ weights: {activationsTensor.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
             """return logits (not softmax) for better gradient computation in cross-entropy loss"""

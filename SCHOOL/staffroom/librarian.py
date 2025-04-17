@@ -158,7 +158,7 @@ class LIBRARIAN:
             """generates training data pairs (input sequences and target tokens)"""
             trainingDataPairs = []
             if isinstance(_windowMAX, torch.Tensor):
-                _windowMAX = _windowMAX.item()
+                _windowMAX = _windowMAX
             else:
                 _windowMAX = int(_windowMAX)
             """allows for a random start in the training data file"""
@@ -169,7 +169,7 @@ class LIBRARIAN:
             endIndex = len(self.tokens) - _windowMAX
             numTargetTokens = numTokensPerStep
             if isinstance(numTargetTokens, torch.Tensor):
-                numTargetTokens = numTargetTokens.item()
+                numTargetTokens = numTargetTokens
             else:
                 numTargetTokens = int(numTargetTokens)
             ʕっʘ‿ʘʔっ("start generating training data")

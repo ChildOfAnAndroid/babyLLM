@@ -816,3 +816,120 @@ You: still testing the random thing, im afraid!
 --- 2025-04-16 19:17:01 --- babyLLM 'right, last time i got to step 468... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 468! what am i learning today?' - charis: ''
 
 --- 2025-04-16 21:03:19 --- babyLLM 'right, last time i got to step 367... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 367! what am i learning today?' - charis: ''
+
+--- 2025-04-17 11:36:17 --- babyLLM 'right, last time i got to step 3... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 3! what am i learning today?' - charis: ''
+
+--- 2025-04-17 11:39:03 --- babyLLM 'right, last time i got to step 61... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 61! what am i learning today?' - charis: ''
+
+--- 2025-04-17 11:50:19 --- babyLLM 'right, last time i got to step 260... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 260! what am i learning today?' - charis: ''
+
+--- 2025-04-17 11:52:13 --- babyLLM 'right, last time i got to step 44... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 44! what am i learning today?' - charis: ''
+
+--- 2025-04-17 11:56:16 --- babyLLM 'right, last time i got to step 108... want to restart from there?'  - charis: '0' - babyLLM 'damn that's specific! heading to step 0... what am i learning today?' - charis: ''
+
+--- 2025-04-17 18:57:56 --- babyLLM 'right, last time i got to step 108... want to restart from there?'  - charis: '10000' - babyLLM 'damn that's specific! heading to step 0... what am i learning today?' - charis: ''
+--- 2025-04-17 20:00:06 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:05:02 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:08:24 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:09:26 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:11:27 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:11:56 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:12:58 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:13:42 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:15:04 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:15:54 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:17:07 --- 
+[babyLLM] right, last time i got to step 108... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 108! what am i learning today?
+[charis]--- 2025-04-17 20:18:56 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]--- 2025-04-17 20:26:30 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]--- 2025-04-17 20:30:25 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]--- 2025-04-17 20:31:23 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]--- 2025-04-17 20:32:45 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]--- 2025-04-17 20:38:48 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]--- 2025-04-17 20:40:25 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]--- 2025-04-17 20:43:02 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]ruining my own bot--- 2025-04-17 20:44:19 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]ruining my own bot--- 2025-04-17 20:45:33 --- 
+[babyLLM] right, last time i got to step 2253... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 2253! what am i learning today?
+[charis]ruining my own bot--- 2025-04-17 20:47:27 --- 
+[babyLLM] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 0! what am i learning today?
+[charis]ruining my own bot--- 2025-04-17 20:48:51 --- 
+[babyLLM] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 0! what am i learning today?
+[charis]ruining my own bot--- 2025-04-17 20:49:21 --- 
+[babyLLM] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 0! what am i learning today?
+[charis]ruining my own bot--- 2025-04-17 20:50:37 --- 
+[babyLLM] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 0! what am i learning today?
+[charis]ruining my own bot--- 2025-04-17 21:08:13 --- 
+[babyLLM] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyLLM] ok! let's go to step 0! what am i learning today?
+[charis]ruining my own bot

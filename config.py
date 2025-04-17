@@ -4,6 +4,7 @@
 
 import torch
 modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+#modelDevice = torch.device("cpu")
 
 #from torch import relu 
 from torch.nn.functional import leaky_relu
@@ -103,10 +104,10 @@ printPromptLength = 50     # how many characters of the prompt to display in ter
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
-anomalyDetect = False
+anomalyDetect = True
 
 skipNeuron = False
-skipINN = False # THIS IS WHERE THE SLOWDOWN IS!!!!!
+skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!
 skipINNparliament = False
 skipMemory = False
 
@@ -118,9 +119,9 @@ durationLogging_babyLLM = False
 durationLogging_TUTOR = False
 
 """--- STATS COLLECTION ---"""
-collectStats = True
-n_collectStats = True
-INN_collectStats = True
+collectStats = False
+n_collectStats = False
+INN_collectStats = False
 
 # neuron + interneuronNetwork
 n_weightStats = True

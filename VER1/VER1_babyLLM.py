@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
+#from VER1_SCHOOL.staffroom.librarian import LIBRARIAN
 from VER1_BRAIN.LAYERS.vocab import VOCAB
 from VER1_BRAIN.LAYERS.embed import EMBED
 from VER1_BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
@@ -25,36 +26,30 @@ from VER1_SCHOOL.staffroom.counsellor import COUNSELLOR
 """MULTIWINDOWLAYER: (New) layer to incorporate multi-window context"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
-    def __init__(self, vocab, embedDimension, numNeurons, activationFunction, startIndex):
-        self.counsellor = COUNSELLOR("babyLLM", debug=debugPrints, durations=durationLogging)
+    def __init__(self, _counsellor, _s_output, _scribe, _librarian, _device = modelDevice):
         super().__init__()
-        #os.system('clear')
-        """CONFIG"""
-        self.vocabSize = vocabSize
-        self.vocab = vocab
-        self.embedDimension = embedDimension
-        self.numNeurons = numNeurons
-        self.learningRate = learningRate
-        self.temperature = temperature
-        self.activationFunction = activationFunction
+        self.device = _device
+        self.counsellor = _counsellor
+        self.s_output = _s_output
+        self.scribe = _scribe
+        self.librarian = _librarian
         optimizerClass = getattr(optim, optimizerName)
 
         """LAYERS"""
-        self.s_output = S_OUTPUT()
-        self.embedLayer = EMBED()
-        self.parallelNeuronLayer = INTERNEURON_NETWORK()
-        self.outputLayer = LOGITS()
-        self.memoryLayer = MEMORY()
+        self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
+        self.interneuronNetwork = INTERNEURON_NETWORK(_counsellor = self.counsellor, _device = self.device)
+        self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device)
+        self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device)
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         #print("Registered Parameters:")
         #for name, param in BABYLLM.named_parameters(self):
         #    print(name, param.shape)
         self.optimizer = optimizerClass(
-            list(self.embedLayer.parameters()) +
-            list(self.parallelNeuronLayer.parameters()) + 
-            list(self.outputLayer.parameters()) +
-            list(self.memoryLayer.parameters()),
+            list(self.embed.parameters()) +
+            list(self.interneuronNetwork.parameters()) + 
+            list(self.logits.parameters()) +
+            list(self.memory.parameters()),
             lr=learningRate, weight_decay=0.001
         )
 
@@ -62,24 +57,7 @@ class BABYLLM(nn.Module):
         self.perfectTokenCount = 0
         self.totalTokenEvaluations = 0
 
-        # Hold durations counters in a counter object, this dict ensures values are always defined before print (the value needs to be 0 to ensure a noop)
-        self.durationCategories = {
-            "Step": 0,
-            "Save": 0,
-            "Load": 0,
-            "Print": 0,
-            "Logits": 0,
-            "Combine": 0,
-            "Token": 0,
-        }
-        self.duration = Counter(self.durationCategories)
-        self.durationDetail = Counter(self.durationCategories)
-
-        self.startIndex = startIndex
-
-        self.hud_height = 5
-        self.term_height = shutil.get_terminal_size().lines
-        self.hud_start_line = self.term_height - self.hud_height + 1
+        self.startIndex = 0
 
     """processes input sequence of tokens (str) to generate logits to predict the next token"""
     def forward(self, inputSeq):
@@ -88,31 +66,31 @@ class BABYLLM(nn.Module):
 
             """convert inputted tokens to indices (batch processing instead of looping)"""
             ʕっʘ‿ʘʔっ("inputIndices")
-            inputIndices = [self.vocab.tokenToIndex.get(tokenString, self.vocab.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
+            inputIndices = [self.librarian.tokenToIndex.get(tokenString, self.librarian.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
             if debugPrints: print(f"Debug BABYLLM.forward: inputIndices: {inputIndices}")
 
             """convert indices to embeddings"""
             ʕっʘ‿ʘʔっ("inputEmbeds")
             inputEmbeds = []
             inputIndicesTensor = torch.tensor(inputIndices, device = modelDevice)
-            inputEmbedsBatch = self.embedLayer(inputIndicesTensor)
+            inputEmbedsBatch = self.embed(inputIndicesTensor)
             inputEmbeds = inputEmbedsBatch 
 
             """PARALLEL NEURON LAYER input/processing (feature extraction)"""
             ʕっʘ‿ʘʔっ("neuronForward")
-            parallelNeuronOutput = self.parallelNeuronLayer.forward(inputEmbeds) 
+            parallelNeuronOutput = self.interneuronNetwork.forward(inputEmbeds) 
 
             """RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING"""
             combinedActivationsTensor = torch.mean(parallelNeuronOutput, dim=0, keepdim=True)
 
             """MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS"""
             ʕっʘ‿ʘʔっ("memoryForward")
-            memoryLayerOutput = self.memoryLayer.forward(combinedActivationsTensor)
-            self.latestMemGates = self.memoryLayer.latestMemoryGates.detach() 
+            memoryLayerOutput = self.memory.forward(combinedActivationsTensor)
+            self.latestMemGates = self.memory.latestMemoryGates.detach() 
             combinedActivations = memoryLayerOutput
 
             ʕっʘ‿ʘʔっ("logitsForward")
-            logits = self.outputLayer.forward(combinedActivations)  
+            logits = self.logits.forward(combinedActivations)  
 
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
             return logits
@@ -165,7 +143,7 @@ class BABYLLM(nn.Module):
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, trainingDataPairs, epochs):
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:
-            #print(f"Debug tokenToIndex (First 20): {list(vocab.tokenToIndex.items())[:20]}")
+            #print(f"Debug tokenToIndex (First 20): {list(librarian.tokenToIndex.items())[:20]}")
             numTokens = numTokensPerStep
             if isinstance(numTokens, torch.Tensor):
                 numTokens = numTokens.item()
@@ -204,8 +182,8 @@ class BABYLLM(nn.Module):
                 try:
                     for i, (inputSeq, targetSeq) in enumerate(trainingDataPairs):
                         ʕっʘ‿ʘʔっ("startTrainingStep")
-                        inputTokenIndices = [vocab.tokenToIndex.get(token, vocab.tokenToIndex["<UNK>"]) for token in inputSeq]
-                        targetTokenIndexSeq = [vocab.tokenToIndex.get(target_token, vocab.tokenToIndex["<UNK>"]) for target_token in targetSeq]
+                        inputTokenIndices = [self.librarian.tokenToIndex.get(token, self.librarian.tokenToIndex["<UNK>"]) for token in inputSeq]
+                        targetTokenIndexSeq = [self.librarian.tokenToIndex.get(target_token, self.librarian.tokenToIndex["<UNK>"]) for target_token in targetSeq]
 
                         guessedTokenSeq = []
                         self.resetIfNeeded(context="training")
@@ -331,10 +309,10 @@ class BABYLLM(nn.Module):
                         """SAVE THE MODEL EVERY x STEPS"""
                         if self.trainingStepCounter % saveModelFreq == 0:
                             ʕっʘ‿ʘʔっ("autoSaving")
-                            print(f"{S_OUTPUT.S_apply('dim', "autosaving...")}{S_OUTPUT.S_apply('reset', "")}")
-                            babyLLM.saveModel()
+                            print(f"{self.s_output.S_apply('dim', "autosaving...")}{self.s_output.S_apply('reset', "")}")
+                            self.saveModel()
                             success = f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {self.trainingStepCounter+saveModelFreq}..."
-                            print(f"{S_OUTPUT.S_apply('dim', success)}{S_OUTPUT.S_apply('reset', "")}")
+                            print(f"{self.s_output.S_apply('dim', success)}{self.s_output.S_apply('reset', "")}")
 
                         """PRINTING LOSS TO VER1_LOGS AND TERMINAL"""
                         terminalPrintStartTime = time.time()
@@ -343,12 +321,14 @@ class BABYLLM(nn.Module):
                             # scheduledSamplingProb += scheduledSamplingProbIncrement
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                            runStart = f"\n--- {timestamp} ---\n{babyNote_loadCheckpointCheck}\n{userNote_loadCheckpoint}\n{babyNote_loadCheckpoint}{babyNote_runStart}\n{userNote_runStart}\n"
+                            #runStart = f"\n--- {timestamp} ---\n{babyNote_loadCheckpointCheck}\n{userNote_loadCheckpoint}\n{babyNote_loadCheckpoint}{babyNote_runStart}\n{userNote_runStart}\n"
+                            runStart = ""
                             print(runStart)
                             with open(chatLogPath_forHumans, "a") as logFile:
                                 logFile.write(runStart)
 
-                            trainingChatLine = f"\n--- {timestamp} --- {babyNote_loadCheckpointCheck} - {userNote_loadCheckpoint} - {babyNote_loadCheckpoint}{babyNote_runStart} - {userNote_runStart}\n"
+                            trainingChatLine = "ruining my own bot"
+                            #trainingChatLine = f"\n--- {timestamp} --- {babyNote_loadCheckpointCheck} - {userNote_loadCheckpoint} - {babyNote_loadCheckpoint}{babyNote_runStart} - {userNote_runStart}\n"
                             with open(trainingLogPath_100, "a") as logFile:
                                 logFile.write(trainingChatLine)
                             with open(trainingLogPath_1000, "a") as logFile:
@@ -362,21 +342,21 @@ class BABYLLM(nn.Module):
                             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                             # eventually want this at the end only
-                            self.duration.update(self.durationCategories) # Force a noop update to ensure we have every category
-                            durationLog_1000 = "Durations: " + ", ".join([
-                                f"{name}: {(duration * 1000 / trainingLogFreq_1000 if trainingLogFreq_1000 > 0 else 0):.2f}ms"
-                                for name, duration in self.duration.most_common() # most_common with no parameter returns everything, already sorted in reverse
-                            ])
-                            self.duration.clear()
+                            #self.duration.update(self.durationCategories) # Force a noop update to ensure we have every category
+                            #durationLog_1000 = "Durations: " + ", ".join([
+                            #    f"{name}: {(duration * 1000 / trainingLogFreq_1000 if trainingLogFreq_1000 > 0 else 0):.2f}ms"
+                            #    for name, duration in self.duration.most_common() # most_common with no parameter returns everything, already sorted in reverse
+                            #])
+                            #self.duration.clear()
 
-                            with open(durationLogPath_1000, "a") as logFile:
-                                logFile.write(durationLog_1000 + "\n")
+                            #with open(durationLogPath_1000, "a") as logFile:
+                            #    logFile.write(durationLog_1000 + "\n")
 
                             topTokens = tokenCounts.most_common(10)
                             tokenCounts.clear()
 
                             with torch.no_grad():
-                                normWeights = (babyLLM.parallelNeuronLayer.cerebellum + 0.1)
+                                normWeights = (self.interneuronNetwork.cerebellum + 0.1)
                                 normWeights /= (normWeights.sum() + 0.1)
                                 sortedWeights = sorted(
                                     zip(allWindowSizes, normWeights.cpu().numpy()),
@@ -387,17 +367,17 @@ class BABYLLM(nn.Module):
 
                             if self.totalTokenEvaluations > 0:
                                 tokenPerfectRate = (self.perfectTokenCount / self.totalTokenEvaluations) * 100
-                                print(f"{S_OUTPUT.S_apply('perfect', f'Token Perfect: {self.perfectTokenCount} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%")
+                                print(f"{self.s_output.S_apply('perfect', f'Token Perfect: {self.perfectTokenCount} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%")
 
                             self.s_output.S_logTraining(
-                                trainingLogPath=trainingLogPath_1000,
-                                trainingStepCounter=self.trainingStepCounter,
-                                INN_cerebellum_str=weight_str,
-                                memoryGates_str=memoryGates_str,
-                                stats=self.stats,
-                                freq=trainingLogFreq_1000,
-                                otherInfo_str=f"babyLLM.py {trainingLogFreq_1000}",
-                                topTokens_str=str(topTokens),
+                                _trainingLogPath=trainingLogPath_1000,
+                                _trainingStepCounter=self.trainingStepCounter,
+                                _INN_cerebellum_str=weight_str,
+                                _memoryGates_str=memoryGates_str,
+                                _stats=self.stats,
+                                _freq=trainingLogFreq_1000,
+                                _otherInfo_str=f"self.py {trainingLogFreq_1000}",
+                                _topTokens_str=str(topTokens),
                                 #durationLog_str=durationLog
                             )
                             self.stats.clear()
@@ -412,7 +392,7 @@ class BABYLLM(nn.Module):
                             tokenCountsDetail.clear()
                             
                             with torch.no_grad():
-                                normWeightsDetail = (babyLLM.parallelNeuronLayer.cerebellum + 0.1)
+                                normWeightsDetail = (self.interneuronNetwork.cerebellum + 0.1)
                                 normWeightsDetail /= (normWeightsDetail.sum() + 0.1)
                                 sortedWeightsDetail = sorted(
                                     zip(allWindowSizes, normWeightsDetail.cpu().numpy()),
@@ -421,31 +401,31 @@ class BABYLLM(nn.Module):
                                 )
                                 weightDetail_str = ",".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeightsDetail)
                                 
-                            self.durationDetail.update(self.durationCategories) # Force a noop update to ensure we have every category
+                            #self.durationDetail.update(self.durationCategories) # Force a noop update to ensure we have every category
 
                             #durationLogBabyLLM_inner_100 = (f"inner step {j+1}: forward: {forwardTime*1000:.2f}ms | predict: {predictTime*1000:.2f}ms | loss: {lossTime*1000:.2f}ms")
                             #durationLogBabyLLM_100 = (f"DEBUG: forward() timings: Index: {idxTime*1000:.2f}ms | Embed: {embedTime*1000:.2f}ms | Neuron: {neuronTime*1000:.2f}ms | Memory: {memoryTime*1000:.2f}ms | Output: {outputTime*1000:.2f}ms | Total: {forwardTotal*1000:.2f}ms")
-                            durationLog_100 = "Durations: " + ", ".join([
-                                f"{name}: {(duration * 1000 / trainingLogFreq_100 if trainingLogFreq_100 > 0 else 0):.2f}ms"
-                                for name, duration in self.durationDetail.most_common()
-                            ])
+                            #durationLog_100 = "Durations: " + ", ".join([
+                            #    f"{name}: {(duration * 1000 / trainingLogFreq_100 if trainingLogFreq_100 > 0 else 0):.2f}ms"
+                            #    for name, duration in self.durationDetail.most_common()
+                            #])
                             #durationLogCombined_100 = f"\n--- {timestamp} --- \n{durationLog_100} \n{durationLogBabyLLM_100} \n{durationLogBabyLLM_inner_100}\n"
 
-                            with open(durationLogPath_100, "a") as logFile:
-                                logFile.write(durationLog_100 + "\n")
+                            #with open(durationLogPath_100, "a") as logFile:
+                            #    logFile.write(durationLog_100 + "\n")
 
-                            self.durationDetail.clear()
+                            #self.durationDetail.clear()
 
                             #print(f"DEBUG: logitRange_str before S_logTraining: '{logitRangeDetail_str}'")
                             self.s_output.S_logTraining(
-                                trainingLogPath=trainingLogPath_100,
-                                trainingStepCounter=self.trainingStepCounter,
-                                freq=trainingLogFreq_100,
-                                stats=self.statsDetail,
-                                INN_cerebellum_str=weightDetail_str,
-                                memoryGates_str=memoryGates_str,
-                                otherInfo_str="Training",
-                                topTokens_str=str(topTokensDetail),
+                                _trainingLogPath=trainingLogPath_100,
+                                _trainingStepCounter=self.trainingStepCounter,
+                                _freq=trainingLogFreq_100,
+                                _stats=self.statsDetail,
+                                _INN_cerebellum_str=weightDetail_str,
+                                _memoryGates_str=memoryGates_str,
+                                _otherInfo_str="Training",
+                                _topTokens_str=str(topTokensDetail),
                             )
                             self.statsDetail.clear()
 
@@ -460,16 +440,16 @@ class BABYLLM(nn.Module):
 
                             #print(f"DEBUG: logitRange_str before S_logTraining: '{logitRange_str}'")
                             self.s_output.S_colourPrintTraining(
-                                step=self.trainingStepCounter,
-                                inputSeq=inputSeq,
-                                guessedSeq_str=guessedTokenSeq,
-                                targetSeq_str=targetSeq[:windowMAX],
-                                loss=loss.item(),
+                                _step=self.trainingStepCounter,
+                                _inputSeq=inputSeq,
+                                _guessedSeq_str=guessedTokenSeq,
+                                _targetSeq_str=targetSeq[:windowMAX],
+                                _loss=loss.item(),
                             )
                         
-                            terminalPrintDuration = {"Print": time.time() - terminalPrintStartTime}
-                            self.duration.update(terminalPrintDuration)
-                            self.durationDetail.update(terminalPrintDuration)
+                            #terminalPrintDuration = {"Print": time.time() - terminalPrintStartTime}
+                            #self.duration.update(terminalPrintDuration)
+                            #self.durationDetail.update(terminalPrintDuration)
                             #self.totalTerminalPrintDuration += terminalPrintDuration
 
                             #self.HUD_fixScroll()
@@ -485,27 +465,20 @@ class BABYLLM(nn.Module):
                 except KeyboardInterrupt:
                     ʕっʘ‿ʘʔっ("keyboard interrupt")
                     print("\nit's rude to interrupt people.. but, bye bye! :)")
-                    babyLLM.saveModel()
+                    self.saveModel()
                     sys.exit(8)
 
             print("--- Training Completed! ---")
-        
-    """saves the model to a file"""    
-    def saveModel(self, filePath = modelFilePath):
-        with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
-            saveStartTime = time.time()
 
+    def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex, _trainingStepCounter = 0):
+        with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
             tmpPath = filePath + ".tmp"
             torch.save(self.state_dict(), tmpPath)
-            print(f"model temp file created at {tmpPath}")
+            print(f"model temp file created at {tmpPath}...")
             os.replace(tmpPath, filePath)
             print(f"model successfully saved to {filePath}!")
             with open(stepCheckpointFilePath, "w") as f:
-                f.write(str(self.trainingStepCounter+self.startIndex))
-
-            saveDuration = {"Save": time.time() - saveStartTime}
-            self.duration.update(saveDuration)
-            self.durationDetail.update(saveDuration)
+                f.write(str(_trainingStepCounter+_newStartIndex)) # THIS ISNT REAL, FIX LATER, MAYBE MOVE SAVE AND LOAD TO WAKEUP?
 
     """loads the model from a file"""
     def loadModel(self, filePath = modelFilePath):
@@ -517,18 +490,16 @@ class BABYLLM(nn.Module):
                 print(f"model loaded from {filePath}!")
                 self.resetIfNeeded(context="inference")
                 
-                loadDuration = {"Load": time.time() - loadStartTime}
-                self.duration.update(loadDuration)
-                self.durationDetail.update(loadDuration)
+                #loadDuration = {"Load": time.time() - loadStartTime}
+                #self.duration.update(loadDuration)
+                #self.durationDetail.update(loadDuration)
             except FileNotFoundError:
                 print("No saved model found.")
 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, 
     and then selects most likely response token"""
-    def getResponseFromLogits(self, logits, temperature=None):
+    def getResponseFromLogits(self, logits, temperature=temperature):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
-            if temperature is None:
-                temperature = self.temperature
             logits = logits / temperature
             softmaxed = torch.softmax(logits, dim=1)
 
@@ -537,7 +508,7 @@ class BABYLLM(nn.Module):
     
     def getTokenIndexAsString(self, tokenIndex):
         with self.counsellor.infodump("getTokenIndexAsString") as ʕっʘ‿ʘʔっ:
-            return self.vocab.indexToToken.get(int(tokenIndex), "<UNK>") # tmp fix for token 1999
+            return self.librarian.indexToToken.get(int(tokenIndex), "<UNK>") # tmp fix for token 1999
     
     def getNextToken(self, inputSeq, temperature=None):  
         with self.counsellor.infodump("getNextToken") as ʕっʘ‿ʘʔっ:
@@ -562,11 +533,11 @@ class BABYLLM(nn.Module):
             """returns a single combined output tensor of shape (1, embedDimension)."""
             return finalOutput
 
-    def babyllm_diary_entry(parallelNeuronLayer, step):
+    def babyllm_diary_entry(interneuronNetwork, step):
         with self.counsellor.infodump("babyllm_diary_entry") as ʕっʘ‿ʘʔっ:
             # Grab current window weightings
-            weights = parallelNeuronLayer.cerebellum.detach().cpu().numpy()
-            windows = parallelNeuronLayer.allWindowSizes
+            weights = interneuronNetwork.cerebellum.detach().cpu().numpy()
+            windows = interneuronNetwork.allWindowSizes
 
             # Find the current favourite and least favourite
             fav_idx = weights.argmax()
@@ -598,7 +569,7 @@ class BABYLLM(nn.Module):
             - 'training': optionally resets every N steps/epochs if CONFIGured
             """
             if context == "inference":
-                self.memoryLayer.resetMemory()
+                self.memory.resetMemory()
                 print(f"resetting memory for new conversation...")
             elif context == "training":
                 # Only reset memory every N steps if needed
@@ -608,7 +579,7 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemoryReset = 1
 
                 if self.stepsSinceMemoryReset >= memoryLength:  # adjust this number if needed
-                    self.memoryLayer.resetMemory()
+                    self.memory.resetMemory()
                     print(f"resetting memory after {memoryLength} steps...")
                     self.stepsSinceMemoryReset = 0
     

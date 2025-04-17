@@ -131,22 +131,25 @@ class BABYLLM(nn.Module):
                 #return
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    if debugPrints: print(f"NO GRAD before backward: No grad for {name}")
+                    print(f"NO GRAD before backward: No grad for {name}")
                 else:
                     if debugPrints: print(f"grad before backward for {name} - requires_grad: {p.requires_grad}")
             with torch.autograd.set_detect_anomaly(anomalyDetect):
                 ʕっʘ‿ʘʔっ("loss.backward")
                 _loss.backward()
+                #print(next(self.parameters()).grad)
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    if debugPrints: print(f"NO GRAD after backward: No grad for {name}")
-                else:
-                    if debugPrints: print(f"grad after backward for {name} - requires_grad: {p.requires_grad}")
+                    print(f"NO GRAD after backward: No grad for {name}")
+                else: 
+                    if debugPrints: 
+                        print(f"grad after backward for {name} - requires_grad: {p.requires_grad}")
             #for name, p in self.named_parameters():
                 #if p.grad is not None and not torch.isfinite(p.grad).all():
                     #print(f"babyLLM.backward - non-finite grad in: {name}") 
                     #return
             ʕっʘ‿ʘʔっ("optimizer.step")
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
             self.optimizer.step()  # Update weights
                 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
@@ -202,8 +205,7 @@ class BABYLLM(nn.Module):
             
             return self.stats
         
-    """saves the model to a file"""    
-    def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex):
+    def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex, _trainingStepCounter = 0):
         with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
             tmpPath = filePath + ".tmp"
             torch.save(self.state_dict(), tmpPath)
@@ -211,7 +213,7 @@ class BABYLLM(nn.Module):
             os.replace(tmpPath, filePath)
             print(f"model successfully saved to {filePath}!")
             with open(stepCheckpointFilePath, "w") as f:
-                f.write(str(trainingStartIndex+_newStartIndex)) # THIS ISNT REAL, FIX LATER, MAYBE MOVE SAVE AND LOAD TO WAKEUP?
+                f.write(str(_trainingStepCounter+_newStartIndex)) # THIS ISNT REAL, FIX LATER, MAYBE MOVE SAVE AND LOAD TO WAKEUP?
 
     """loads the model from a file"""
     def loadModel(self, filePath = modelFilePath):
