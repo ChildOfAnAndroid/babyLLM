@@ -95,10 +95,10 @@ epochs = 20
 #saveTokenizedData = True
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 1000    # creates logs every x number of turns
+trainingLogFreq_1000 = -2    # creates logs every x number of turns
 trainingLogFreq_100 = 100     # creates logs every x number of turns
 
-printFreq = 1
+printFreq = 5
      # how often to print training progress to the terminal
 printPromptLength = 50     # how many characters of the prompt to display in terminal
 
@@ -119,7 +119,7 @@ durationLogging_babyLLM = False
 durationLogging_TUTOR = False
 
 """--- STATS COLLECTION ---"""
-collectStats = False
+collectStats = True
 n_collectStats = True
 INN_collectStats = True
 
@@ -129,11 +129,11 @@ n_weightNormStats = True
 n_biasesStats = True
 n_sparsityStat = True
 INN_cerebellumStats = True
-INN_credibilityBiasStats = True
-INN_judgeBiasStats = True
-INN_scoringStats = True
-INN_windowStats = True
-INN_outputTensorStats = True
+INN_credibilityBiasStats = False
+INN_judgeBiasStats = False
+INN_scoringStats = False
+INN_windowStats = False
+INN_outputTensorStats = False
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 

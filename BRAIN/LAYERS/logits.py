@@ -26,11 +26,11 @@ class LOGITS(nn.Module):
             if debugPrints: print(f"Debug logits: activationsTensor shape before @ weights: {activationsTensor.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
             """return logits (not softmax) for better gradient computation in cross-entropy loss"""
-            logitOutputNormalized = (activationsTensor @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
+            #logitOutputNormalized = (activationsTensor @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
             logitOutputOriginal = activationsTensor @ self.l_weights + self.l_bias
-            logitOutput = (logitOutputOriginal + logitOutputNormalized)/2
+            #logitOutput = (logitOutputOriginal + logitOutputNormalized)/2
             if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
-            return logitOutput
+            return logitOutputOriginal
     
     def getOutputStats(self):
         with self.counsellor.infodump("getOutputStats") as ʕっʘ‿ʘʔっ:

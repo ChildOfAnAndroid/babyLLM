@@ -1839,4 +1839,32 @@ CHANGED LOG FREQUENCY TO EVERY 10000 STEPS
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 22:05:12 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 22:06:17 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 22:08:54 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 22:09:54 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 22:10:57 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 22:11:45 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 22:13:28 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
 [charis]
