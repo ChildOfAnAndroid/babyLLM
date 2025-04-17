@@ -2,7 +2,7 @@ import os
 import re
 import json
 from collections import Counter
-filepath = "VER1_SCHOOL/trainingData.txt"
+filepath = "VER1_SCHOOL/library/trainingData.txt"
 
 def get_char_frequencies(filepath):
     """Reads text and counts character frequencies."""
@@ -47,7 +47,7 @@ def clean_file(input_file, output_file, min_occurrences=100):
 # --------------- RUN THE SCRIPT ---------------
 if __name__ == "__main__":
     # Set input and output file paths
-    input_file = "VER1_SCHOOL/trainingData.txt"  # Change this to your actual file
+    input_file = "VER1_SCHOOL/library/trainingData.txt"  # Change this to your actual file
     output_file = "data/CHARIS/trainingData_lessCharacters.txt"
 
     # Clean the text

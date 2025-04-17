@@ -1,5 +1,6 @@
 # CHARIS CAT 2025
-# BABYLLM - config.py
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM CONFIG FILE // config.py
 
 import torch
 modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -22,7 +23,10 @@ guessedTokenSeq = []
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
 userName = "charis"
-babyName = "babyLLM"
+babyName = "babyllm"
+scribeName = "scribe"
+enemyName = "george"
+extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
@@ -36,8 +40,7 @@ modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently traine
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
 
 """--- TRAINING ---"""
-trainingFilePath = "SCHOOL/trainingData.txt"
-tokenizedDataPath = "SCHOOL/tokenizedTrainingData.txt"
+trainingFilePath = "SCHOOL/library/trainingData.txt"
 
 """--- LOGS ---"""
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
@@ -63,7 +66,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-temperature = 0.90     # temperature for softmax in response generation - controls randomness
+temperature = 0.50     # temperature for softmax in response generation - controls randomness
 topP = 0     # top P - probability
 numTokensPerStep = 18     # Number of tokens to predict per step
 inferenceOutputNumTokens = 40
@@ -72,7 +75,7 @@ inferenceOutputNumTokens = 40
 memoryLength = 1000
 
 """optimizer"""
-learningRate = 0.0003     # // 0.0005 // 0.00005 // 0.00001 //
+learningRate = 0.00035     # // 0.0005 // 0.00005 // 0.00001 //
 optimizerName = "AdamW"     # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = leakyRelu       # // leakyRely // relu //
 
@@ -80,18 +83,18 @@ gradientClipMaxNorm = 1.0
 
 """scheduled sampling"""
 scheduledSampling = True 
-scheduledSamplingProbIncrement = 0.00000001     # // 0.0001 // increment probability of using model output by this much PER TURN
+scheduledSamplingProbIncrement = 0.00000001     # // 0.0001 //~increment probability of using model output by this much PER TURN
 
 """--- TRAINING ---"""
 trainingDataSliceSize_min = 50
 trainingDataSliceSize_max = 5000
-trainingStartIndex = 0     # // 'random' (not in babyLLM.py) // 0 //
+trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 #retokenizeOnLoad = False
 #saveTokenizedData = True
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 5000000    # creates logs every x number of turns
+trainingLogFreq_1000 = 1000    # creates logs every x number of turns
 trainingLogFreq_100 = 100     # creates logs every x number of turns
 
 printFreq = 1
@@ -100,14 +103,14 @@ printPromptLength = 50     # how many characters of the prompt to display in ter
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
-statPrints = False
-lossPrints = False
-logitPrints = False
 anomalyDetect = True
 
 skipNeuron = False
-skipINN = False
+skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!
+skipINNparliament = False
 skipMemory = False
+
+skipComputeLoss = False
 
 debugPrints_babyLLM = False
 debugPrints_TUTOR = False
@@ -115,16 +118,16 @@ durationLogging_babyLLM = False
 durationLogging_TUTOR = False
 
 """--- STATS COLLECTION ---"""
-collectStats = True
+collectStats = False
 n_collectStats = True
-INN_collectStats = True
+INN_collectStats = False
 
 # neuron + interneuronNetwork
 n_weightStats = True
 n_weightNormStats = True
 n_biasesStats = True
 n_sparsityStat = True
-INN_cerebellumStats = True
+INN_cerebellumStats = False
 INN_credibilityBiasStats = True
 INN_judgeBiasStats = True
 INN_scoringStats = True
@@ -244,7 +247,7 @@ vocabLoad = "BRAIN/vocabCache/tokenizer.json"
 #trainingFilePath_dict = [{"type": ftype, "in": fname, "out": trainingFilePath} for ftype, fname in rawDataFilepaths]     # Convert to dictionary format when needed
 trainingFilePath_dict = [{"type": ftype, "in": fname, "weight": weight, "out": trainingFilePath} for ftype, fname, weight in rawDataFilepaths]
 
-trainingFilePath_arr = ["SCHOOL/trainingData.txt"]
+trainingFilePath_arr = ["SCHOOL/library/trainingData.txt"]
 tokenizedDataPath = "SCHOOL/tokenizedTrainingData.txt"
 
 trainingFilePath_dict_weighted = []

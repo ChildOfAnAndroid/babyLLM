@@ -1,29 +1,26 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# EMBEDDING LAYER // BRAIN/LAYERS/embed.py
+# BABYLLM - embed.py
 
 import torch
 import torch.nn as nn
-from config import *
+from VER1_config import *
+from VER1_SCHOOL.staffroom.counsellor import COUNSELLOR
 
 """creates an embedding layer for each word in the vocabulary"""
 class EMBED(nn.Module):
-    def __init__(self, _counsellor, _device = modelDevice):
+    def __init__(self):
         super().__init__()
-        #self.counsellor = COUNSELLOR("EMBED", debug=debugPrints, durations=durationLogging)
-        self.counsellor = _counsellor
-        self.device = _device
-
         """creates the embedding weights matrix with random numbers initially"""
-        self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device))
+        self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = modelDevice))
+        self.counsellor = COUNSELLOR("EMBED", debug=debugPrints, durations=durationLogging)
 
     """looks up and returns the embedding vector for a specifc token index"""
-    def forward(self, _tokenIndex):
+    def forward(self, tokenIndex):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("tokenIndex.to(self.e_weights.device)")
             #tokenIndex = tokenIndex.to(self.e_weights.device)
             ʕっʘ‿ʘʔっ("self.e_weights[tokenIndex]")
-            embedVector = self.e_weights[_tokenIndex] 
+            embedVector = self.e_weights[tokenIndex] 
             return embedVector 
     
     def getEmbeddingStats(self):
@@ -40,15 +37,15 @@ class EMBED(nn.Module):
                 stats["embedDimSparsity"] = dimSparsity
 
                 # Drift since last save
-                drift = torch.norm(self.e_weights - lastSavedEmbeds)
+                drift = torch.norm(self.e_weights - self.lastSavedEmbeds)
                 stats["embeddingDrift"] = drift
-                lastSavedEmbeds = self.e_weights
+                self.lastSavedEmbeds = self.e_weights
 
                 return stats
         
-    def cosineSimilarity(self, _idx1, _idx2):
-        e1 = self.e_weights[_idx1]
-        e2 = self.e_weights[_idx2]
+    def cosineSimilarity(self, idx1, idx2):
+        e1 = self.e_weights[idx1]
+        e2 = self.e_weights[idx2]
         return torch.nn.functional.cosine_similarity(e1.unsqueeze(0), e2.unsqueeze(0))
 
     

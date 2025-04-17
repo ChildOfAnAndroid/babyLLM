@@ -1,28 +1,24 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# OUTPUT LAYER FOR LOGIT PREDICTION
-# BRAIN/LAYERS/logits.py
+# BABYLLM - logits.py
 
 import torch
 import torch.nn as nn
-from config import *
+from VER1_config import *
+from VER1_SCHOOL.staffroom.counsellor import COUNSELLOR
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 class LOGITS(nn.Module):
-    def __init__(self, _counsellor, _device):
+    def __init__(self):
         super().__init__()
-        #self.counsellor = COUNSELLOR("LOGITS", debug = debugPrints, durations = durationLogging)
-        self.device = _device
-        self.counsellor = _counsellor
+        self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = modelDevice)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
+        self.l_bias = nn.Parameter(torch.zeros(vocabSize, device = modelDevice))
+        self.counsellor = COUNSELLOR("LOGITS", debug = debugPrints, durations = durationLogging)
 
-        self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = self.device)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
-        self.l_bias = nn.Parameter(torch.zeros(vocabSize, device = self.device))
-
-    def forward(self, _meanActivationsTensor):
+    def forward(self, meanActivationsTensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
-            activationsTensor = _meanActivationsTensor
-            #activationsTensor = activationsTensor.to(self.device)
+            activationsTensor = meanActivationsTensor
+            #activationsTensor = activationsTensor.to(modelDevice)
             if debugPrints: print(f"Debug logits: activationsTensor shape before @ weights: {activationsTensor.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
             """return logits (not softmax) for better gradient computation in cross-entropy loss"""
