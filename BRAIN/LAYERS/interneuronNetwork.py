@@ -180,11 +180,11 @@ class INTERNEURON_NETWORK(nn.Module):
                     
                     if n_weightNormStats:
                         ʕっʘ‿ʘʔっ("♥n_weightNormStats")
-                        stats["n_weightNorm"] = torch.norm(self.neurons.n_weights, dim=1)
-                        stats["n_weightNormMean"] = stats["n_weightNorm"].mean()
-                        stats["n_weightNormMax"] = stats["n_weightNorm"].min()
-                        stats["n_weightNormMin"] = stats["n_weightNorm"].max()
-                        if debugPrints: print(f"neuron weightNorm: {stats["n_weightNorm"]} mean: {stats["n_weightNormMean"]} min: {stats["n_weightNormMax"]} max: {stats["n_weightNormMin"]}")
+                        #stats["n_weightNorm"] = torch.norm(self.neurons.n_weights, dim=1)
+                        #stats["n_weightNormMean"] = stats["n_weightNorm"].mean()
+                        #stats["n_weightNormMax"] = stats["n_weightNorm"].min()
+                        #stats["n_weightNormMin"] = stats["n_weightNorm"].max()
+                        #if debugPrints: print(f"neuron weightNorm: {stats["n_weightNorm"]} mean: {stats["n_weightNormMean"]} min: {stats["n_weightNormMax"]} max: {stats["n_weightNormMin"]}")
 
                     if n_biasesStats:
                         ʕっʘ‿ʘʔっ("♥n_biasesStats")                    

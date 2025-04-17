@@ -66,7 +66,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-temperature = 0.50     # temperature for softmax in response generation - controls randomness
+temperature = 0.7     # temperature for softmax in response generation - controls randomness
 topP = 0     # top P - probability
 numTokensPerStep = 18     # Number of tokens to predict per step
 inferenceOutputNumTokens = 40
@@ -103,10 +103,10 @@ printPromptLength = 50     # how many characters of the prompt to display in ter
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
-anomalyDetect = True
+anomalyDetect = False
 
 skipNeuron = False
-skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!
+skipINN = False # THIS IS WHERE THE SLOWDOWN IS!!!!!
 skipINNparliament = False
 skipMemory = False
 
@@ -118,16 +118,16 @@ durationLogging_babyLLM = False
 durationLogging_TUTOR = False
 
 """--- STATS COLLECTION ---"""
-collectStats = False
+collectStats = True
 n_collectStats = True
-INN_collectStats = False
+INN_collectStats = True
 
 # neuron + interneuronNetwork
 n_weightStats = True
 n_weightNormStats = True
 n_biasesStats = True
 n_sparsityStat = True
-INN_cerebellumStats = False
+INN_cerebellumStats = True
 INN_credibilityBiasStats = True
 INN_judgeBiasStats = True
 INN_scoringStats = True

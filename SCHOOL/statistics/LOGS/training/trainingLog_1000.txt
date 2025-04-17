@@ -1387,4 +1387,68 @@ CHANGED LOG FREQUENCY TO EVERY 10000 STEPS
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:09:54 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:12:56 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:18:32 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:21:10 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:25:29 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:26:07 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:27:43 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:36:44 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:43:39 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:48:30 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:58:05 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 06:04:53 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 06:07:27 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 06:09:30 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 06:16:35 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 06:23:34 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
 [charis]
