@@ -1,12 +1,10 @@
 # CHARIS CAT 2025
-# BABYLLM - vocab.py
+# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
+# VOCAB: TRAINING GENERATION AND TOKENIZATION
+# BRAIN/LAYERS/vocab.py
 
-from collections import Counter
 from VER1_config import *
-from transformers import AutoTokenizer, PreTrainedTokenizerFast
-from tokenizers import Tokenizer, models, trainers, pre_tokenizers, ByteLevelBPETokenizer
-from tokenizers.processors import ByteLevel
-from VER1_SCHOOL.staffroom.counsellor import COUNSELLOR
+from tokenizers import Tokenizer, models, trainers, pre_tokenizers
 import os, re, json, random, torch
 
 """
@@ -21,10 +19,10 @@ This class:
 - Generates training data pairs (input sequence, target token).
 - Saves and loads vocab data to/from files.
 """
-class VOCAB:
-    def __init__(self, vocabSize = vocabSize, vocabPath = vocabLoad):
-        self.v_counsellor = COUNSELLOR("VOCAB", _debug = debugPrints, _durations = durationLogging)
-        vocabSize = vocabSize - 1 # reduces size by 1 to allow space for UNK token
+class LIBRARIAN:
+    def __init__(self, _counsellor, _vocabSize = vocabSize, _vocabPath = vocabLoad):
+        self.v_counsellor = _counsellor
+        vocabSize = _vocabSize - 1 # reduces size by 1 to allow space for UNK token
         self.vocabList = []
         self.tokenToIndex = {}
         self.indexToToken = {}
@@ -40,9 +38,9 @@ class VOCAB:
         self.tokenizerPath = os.path.join(self.vocabCache, self.tokenizerFilename)
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
-            if vocabPath:
+            if _vocabPath:
                 ʕっʘ‿ʘʔっ("if vocabPath") # if vocabPath is provided, load a pretrained tokenizer from that path
-                self.tokenizerPath = vocabPath
+                self.tokenizerPath = _vocabPath
             else:
                 ʕっʘ‿ʘʔっ("else tokenizerPath") # if vocabPath not provided (training mode), set tokenizerPath to the default directory
                 self.tokenizerPath = os.path.join(self.vocabCache, self.tokenizerFilename)
@@ -60,7 +58,7 @@ class VOCAB:
                     raise FileNotFoundError(f"tokenizer not found at {self.tokenizerPath}")
                 
                 ʕっʘ‿ʘʔっ("call tokenizer") # call the chosen tokenizer
-                #tokenizerTrainer = ByteLevelBPETokenizer(lowercase=True)
+                tokenizerTrainer = ByteLevelBPETokenizer(lowercase=True)
                 tokenizerTrainer = Tokenizer(models.BPE(unk_token="<UNK>"))
                 tokenizerTrainer.pre_tokenizer = pre_tokenizers.ByteLevel()
                 trainer = trainers.BpeTrainer(
@@ -101,9 +99,9 @@ class VOCAB:
             #print(f"DEBUG VOCAB.__init__: length of vocabList AFTER buildVocab: {len(self.vocabList)}")
             #print(f"DEBUG VOCAB.__init__: first 20 tokens in vocabList: {self.vocabList[:20]}")
 
-    def tokenizeText(self, text):
+    def tokenizeText(self, _text):
         with self.v_counsellor.infodump("tokenizeText") as ʕっʘ‿ʘʔっ:
-            encoding = self.tokenizer.encode(text)  # Tokenize using encode method
+            encoding = self.tokenizer.encode(_text)  # Tokenize using encode method
             tokens_str = [self.indexToToken.get(idx, "<UNK>") for idx in encoding.ids]  # Convert IDs back to strings
             #print(f"tokenizing: {text}")
             #print(f"token ids: {encoding.ids}")
@@ -129,19 +127,19 @@ class VOCAB:
 
 
     """HUGGING FACE TOKENIZER"""
-    def huggingTokenizer(self, text):
+    def huggingTokenizer(self, _text):
         with self.v_counsellor.infodump("huggingTokenizer") as ʕっʘ‿ʘʔっ:
             """uses the trained/loaded tokenizer to convert input text into tokens"""
-            return self.tokenizer.tokenize(text)
+            return self.tokenizer.tokenize(_text)
 
     """LOAD TRAINING DATA"""
-    def loadTrainingData(self, filepaths, chunk_size=V_chunkSizeLoadData):
+    def loadTrainingData(self, _filepaths, _chunkSize=V_chunkSizeLoadData):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ: #Reads text files in chunks, concatenates the chunks, and removes extra whitespace
             loadTrainingData = ""
-            for filepath in filepaths:
+            for filepath in _filepaths:
                 with open(filepath, "r", encoding="utf-8") as f:
                     while True:
-                        chunk = f.read(chunk_size)
+                        chunk = f.read(_chunkSize)
                         if not chunk:
                             break
                         ʕっʘ‿ʘʔっ("loaded a data chunk!")
@@ -152,30 +150,30 @@ class VOCAB:
             return loadTrainingData
     
     """GENERATE TRAINING DATA"""
-    def genTrainingData(self, windowMAX, startIndex = trainingStartIndex):
+    def genTrainingData(self, _windowMAX = windowMAX, _startIndex = trainingStartIndex):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             """generates training data pairs (input sequences and target tokens)"""
             trainingDataPairs = []
-            if isinstance(windowMAX, torch.Tensor):
-                windowMAX = windowMAX.item()
+            if isinstance(_windowMAX, torch.Tensor):
+                _windowMAX = _windowMAX
             else:
-                windowMAX = int(windowMAX)
+                _windowMAX = int(_windowMAX)
             """allows for a random start in the training data file"""
-            if startIndex == 'random':
-                startIndex = random.randint(0, len(self.tokens) - windowMAX - 1)
+            if _startIndex == 'random':
+                _startIndex = random.randint(0, len(self.tokens) - _windowMAX - 1)
             else:
-                startIndex = int(startIndex)
-            endIndex = len(self.tokens) - windowMAX
+                _startIndex = int(_startIndex)
+            endIndex = len(self.tokens) - _windowMAX
             numTargetTokens = numTokensPerStep
             if isinstance(numTargetTokens, torch.Tensor):
-                numTargetTokens = numTargetTokens.item()
+                numTargetTokens = numTargetTokens
             else:
                 numTargetTokens = int(numTargetTokens)
             ʕっʘ‿ʘʔっ("start generating training data")
-            for i in range(startIndex, endIndex):
+            for i in range(_startIndex, endIndex):
                 ʕっʘ‿ʘʔっ("generate training sequence") # creates sliding windows from the tokenized data to form inputSeq, uses next token as target
-                inputSeq = self.tokens[i:i + windowMAX] # a list of tokens (str) of length `windowMAX`
-                targetTokens = self.tokens[i + windowMAX : i + windowMAX + numTargetTokens] # a single token (str) that follows the input_sequence.
+                inputSeq = self.tokens[i:i + _windowMAX] # a list of tokens (str) of length `windowMAX`
+                targetTokens = self.tokens[i + _windowMAX : i + _windowMAX + numTargetTokens] # a single token (str) that follows the input_sequence.
                 if len(targetTokens) < numTargetTokens:
                     continue
                 if all(token in self.vocabList for token in inputSeq) and all(t_token in self.vocabList for t_token in targetTokens):

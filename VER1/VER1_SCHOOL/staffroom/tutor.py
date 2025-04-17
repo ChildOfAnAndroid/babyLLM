@@ -7,7 +7,7 @@ import random, sys
 from collections import Counter
 from datetime import datetime
 import torch
-from config import *
+from VER1_config import *
 
 class TUTOR:
     def __init__(self, _counsellor, _s_output, _scribe, _librarian, _device = modelDevice):
@@ -143,7 +143,7 @@ class TUTOR:
                     if skipMemory:
                         ʕっʘ‿ʘʔっ("skipMemory")
                     else:
-                        self.model.resetMemory(context="training")
+                        self.model.resetIfNeeded(context="training")
 
                     ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")
                     ʕっʘ‿ʘʔっ("♥trainStep")
@@ -171,7 +171,7 @@ class TUTOR:
 
                     if self.trainingStepCounter % printFreq == 0:
                         ʕっʘ‿ʘʔっ("♥printFreq")
-                        self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
+                        self.guessedTokenSeq = [self.librarian.indexToToken.get(idx, "<UNK>") for idx in self.predictedTokenIndices]
                         if self.guessedTokenSeq: 
                             self.tokenCounts.update(self.guessedTokenSeq)
                         self.printFreqActions()
@@ -222,7 +222,7 @@ class TUTOR:
         print(f"step {self.trainingStepCounter} | tokens remaining: {len(_trainingDataPairs) - self.trainingStepCounter} ({trainingDataPercent:.2f}%)")
         
         #ʕっʘ‿ʘʔっ("♥getStringStats")
-        stringStats = self.model.getStringStats(self.predictedTokenIndices, self.tokenCounts)
+        #stringStats = self.model.getStringStats(self.predictedTokenIndices, self.tokenCounts)
         #ʕっʘ‿ʘʔっ("♥getComplexStats")
         complexStats = self.model.getComplexStats()
         self.stats.update(complexStats)
@@ -234,11 +234,11 @@ class TUTOR:
             _trainingStepCounter = self.trainingStepCounter,
             _freq = trainingLogFreq_1000,
             _stats = self.stats,
-            _INN_cerebellum_str = stringStats["INN_cerebellum_str"],
-            _INN_judgeBias_str = stringStats["INN_judgeBias_str"],
-            _INN_credbilityBias_str = stringStats["INN_credibilityBias_str"],
-            _topTokens_str = stringStats["topTokens"],
-            _otherInfo_str = f"avgLoss/100: {self.averageRecentLoss} | {stringStats['tokenPerfect']} | {stringStats['windowVotes_str']} | TUTOR.py {trainingLogFreq_1000}")
+            _INN_cerebellum_str = "", #stringStats["INN_cerebellum_str"],
+            _INN_judgeBias_str = "", #stringStats["INN_judgeBias_str"],
+            _INN_credbilityBias_str = "", #stringStats["INN_credibilityBias_str"],
+            _topTokens_str = "", #stringStats["topTokens"],
+            _otherInfo_str = f"avgLoss/100: {self.averageRecentLoss} | TUTOR.py {trainingLogFreq_1000}")
         
         #ʕっʘ‿ʘʔっ("♥finalLogActions")
         self.stats.clear()

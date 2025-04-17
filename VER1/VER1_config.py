@@ -13,20 +13,22 @@ guessedTokenSeq = []
 
 userName = "charis"
 babyName = "babyLLM"
+scribeName = "scribe"
 debugPrints = False
 durationLogging = False
 debugPrints = False
 debugPrints = False
 skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!!!!!!
-skipINNparliament = True
+skipINNparliament = False
 skipNeuron = False
 skipComputeLoss = False
+collectStats = False 
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
 saveModelFreq = 10000     # // 50 // 500 // 1000 // saves the model every x number of turns
 
-saveLock = False     # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveLock = True     # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 modelFilePath = "VER1_BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
 
@@ -85,11 +87,11 @@ trainingStartIndex = 0     # // 'random' (not in babyLLM.py) // 0 //
 epochs = 20
 
 """--- VER1_LOGS ---"""
-trainingLogFreq_1000 = 10000000     # creates logs every x number of turns
+trainingLogFreq_1000 = 100000000000000     # creates logs every x number of turns
 trainingLogFreq_100 = 100     # creates logs every x number of turns
 
-printFreq = 1     # how often to print training progress to the terminal
-printPromptLength = 35     # how many characters of the prompt to display in terminal
+printFreq = 2     # how often to print training progress to the terminal
+printPromptLength = 60     # how many characters of the prompt to display in terminal
 
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
@@ -185,7 +187,9 @@ window6 = 15
 window7 = 18
 windowMAX = 21     # THIS MUST BE THE HIGHEST NUMBER
 allWindowSizes = [windowMAX, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
+allWindowSizes_new = [windowMAX, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
 
+skipMemory = False
 attentionWindow = None     # attention head  
 numHeads = 32
 

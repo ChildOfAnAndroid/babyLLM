@@ -72,11 +72,11 @@ if __name__ == "__main__":
     TESTinputSeq = torch.randn(window1, embedDimension)
     TESTinputEmbeds = [TESTinputSeq]
 
-    meanActivationsTensor = parallelNeuronLayer.forward(TESTinputEmbeds)
+    meanActivationsTensor = interneuronNetwork.forward(TESTinputEmbeds)
 
     print("--- PARALLEL NEURON LAYER TESTING START ---")
-    print(f"parallel neuron layer created with {parallelNeuronLayer.numNeurons} neurons.")
-    print(f"inputs per neuron (embed dimension): {parallelNeuronLayer.embedDimension}")
+    print(f"parallel neuron layer created with {interneuronNetwork.numNeurons} neurons.")
+    print(f"inputs per neuron (embed dimension): {interneuronNetwork.embedDimension}")
     print(f"output activations (first 10):")
     print(meanActivationsTensor[:10])
     print(f"output activations shape: {meanActivationsTensor.shape}")
