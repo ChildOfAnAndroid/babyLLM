@@ -10,125 +10,57 @@ from config import *
 class MEMORY(nn.Module):
     def __init__(self, _counsellor, _device):
         super().__init__()
-        #self.counsellor = COUNSELLOR("MEMORY", debug=debugPrints, durations=durationLogging)
         self.device = _device
         self.counsellor = _counsellor
-        # Learnable decay rates
-        self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device = self.device))
-        self.longTermDecay = nn.Parameter(torch.tensor(0.95, device = self.device))
-        # gates for it to learn when to use the memory or not, learnable average
-        self.shortGate = nn.Parameter(torch.tensor(0.25, device = self.device))
-        self.longGate = nn.Parameter(torch.tensor(0.25, device = self.device))
-        self.currentGate = nn.Parameter(torch.tensor(0.5, device = self.device))
 
-        # Buffers to hold state outside graph
+        # Learnable decay rates and gates
+        self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device=self.device))
+        self.longTermDecay = nn.Parameter(torch.tensor(0.95, device=self.device))
+        self.shortGate = nn.Parameter(torch.tensor(0.25, device=self.device))
+        self.longGate = nn.Parameter(torch.tensor(0.25, device=self.device))
+        self.currentGate = nn.Parameter(torch.tensor(0.5, device=self.device))
+
+        # Buffers to store memory (outside gradient)
         self.register_buffer("shortTermMemory", torch.zeros(1, numNeurons))
         self.register_buffer("longTermMemory", torch.zeros(1, numNeurons))
-        self.lastInput = None  # for after backward
 
-    """def forward(self, activationsTensor): # learns when to forget more or less
-        with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("tensorsToDevice")
-            device = self.device
-            #activationsTensor = activationsTensor.to(device)
-
-            ʕっʘ‿ʘʔっ("detach memories") # Get detached historical memory (not part of current graph)
-            oldShort = self.shortTermMemory.detach()
-            oldLong = self.longTermMemory.detach()
-            actClone = activationsTensor.detach()
-
-            ʕっʘ‿ʘʔっ("sigmoid gate decays") # make sure decay values stay within [0, 1] range
-            shortDecay = torch.sigmoid(self.shortTermDecay)
-            longDecay = torch.sigmoid(self.longTermDecay)
-
-            ʕっʘ‿ʘʔっ("update no grad memory") # Update the state (detached, won’t break graph)
-            with torch.no_grad():
-                newShort = (shortDecay * oldShort) + ((1 - shortDecay) * actClone)
-                newLong = (longDecay * oldLong) + ((1 - longDecay) * actClone)
-                self.shortTermMemory.copy_(newShort.clone())
-                self.longTermMemory.copy_(newLong.clone())
-            #print("memory output requires_grad?", self.longTermMemory.requires_grad)
-
-            ʕっʘ‿ʘʔっ("logGateSizes") # log the memory gate sizes
-            gateSum = self.shortGate + self.longGate + self.currentGate + 1e-9
-
-            shortGateNorm = self.shortGate / gateSum
-            longGateNorm = self.longGate / gateSum
-            currentGateNorm = self.currentGate / gateSum
-
-            blendedAct = (
-                (shortGateNorm * newShort) +
-                (longGateNorm * newLong) +
-                (currentGateNorm * activationsTensor)
-            )
-
-            self.latestMemoryGates = torch.stack([
-                (self.shortGate / gateSum),
-                (self.longGate / gateSum),
-                (self.currentGate / gateSum)
-            ])
-
-            return blendedAct"""
-        
     def forward(self, _activationsTensor):
-        with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("tensorsToDevice")
-
-            ʕっʘ‿ʘʔっ("detach memories")
-            oldShort = self.shortTermMemory.detach()
-            oldLong = self.longTermMemory.detach()
-
-            ʕっʘ‿ʘʔっ("sigmoid gate decays")
+        with self.counsellor.infodump("forward"):
             shortDecay = torch.sigmoid(self.shortTermDecay)
             longDecay = torch.sigmoid(self.longTermDecay)
 
-            ʕっʘ‿ʘʔっ("logGateSizes")
+            newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * _activationsTensor)
+            newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * _activationsTensor)
+
             gateSum = self.shortGate + self.longGate + self.currentGate + 1e-9
             shortGateNorm = self.shortGate / gateSum
             longGateNorm = self.longGate / gateSum
             currentGateNorm = self.currentGate / gateSum
 
-            newShort = (shortDecay * oldShort) + ((1 - shortDecay) * _activationsTensor.detach())
-            newLong = (longDecay * oldLong) + ((1 - longDecay) * _activationsTensor.detach())
-
             blendedAct = (
-                (shortGateNorm * newShort) +
-                (longGateNorm * newLong) +
-                (currentGateNorm * _activationsTensor)
+                shortGateNorm * newShort +
+                longGateNorm * newLong +
+                currentGateNorm * _activationsTensor
             )
 
-            self.latestMemoryGates = torch.stack([
-                shortGateNorm,
-                longGateNorm,
-                currentGateNorm
-            ])
+            self.latestMemoryGates = torch.stack([shortGateNorm, longGateNorm, currentGateNorm])
 
-            self.lastInput = _activationsTensor.detach()
+            # store computed memories for after backward
+            self.newShort = newShort
+            self.newLong = newLong
 
             return blendedAct
-        
+
     def updateMemoryBuffers(self):
-        with self.counsellor.infodump("updateMemoryBuffers") as ʕっʘ‿ʘʔっ:
-            if self.lastInput is None:
-                return  # Nothing to update from
-
-            shortDecay = torch.sigmoid(self.shortTermDecay)
-            longDecay = torch.sigmoid(self.longTermDecay)
-
+        with self.counsellor.infodump("updateMemoryBuffers"):
             with torch.no_grad():
-                newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * self.lastInput)
-                newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * self.lastInput)
-
-                self.shortTermMemory.copy_(newShort)
-                self.longTermMemory.copy_(newLong)
-
+                self.shortTermMemory.copy_(self.newShort.detach())
+                self.longTermMemory.copy_(self.newLong.detach())
 
     def resetMemory(self):
-        with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
+        with self.counsellor.infodump("resetMemory"):
             with torch.no_grad():
-                ʕっʘ‿ʘʔっ("shortTerm")
                 self.shortTermMemory.zero_()
-                ʕっʘ‿ʘʔっ("longTerm")
                 self.longTermMemory.zero_()
 
 if __name__ == "__main__":
