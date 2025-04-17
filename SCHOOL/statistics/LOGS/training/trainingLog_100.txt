@@ -5756,4 +5756,82 @@ CHANGED LOG FREQ TO 2500
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]
+[charis]--- 2025-04-17 21:28:58 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:29:43 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:31:04 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 21:31:27 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:4.7685 | topTokens[('.', 158), ('e', 113), ('a', 107), ('Ġje', 107), ('Ġt', 98), ('im', 98), ("'", 95), ('Ġi', 57), ('Ġyou', 51), ('Ġand', 49)] | avgLoss/100: 4.768482208251953 |  |  | TUTOR.py 1000
+2025-04-17 21:31:50 | 200 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:4.7480 | topTokens[('.', 296), ('Ġje', 230), ('a', 225), ('e', 223), ('Ġt', 221), ("'", 216), ('im', 215), ('Ġand', 106), ('Ġyou', 97), ('Ġi', 92)] | avgLoss/100: 4.747956275939941 |  |  | TUTOR.py 1000
+2025-04-17 21:32:13 | 300 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:4.4138 | topTokens[('.', 453), ('a', 309), ('e', 298), ('Ġje', 298), ('Ġt', 295), ("'", 291), ('im', 289), ('Ġyou', 161), ('!', 154), (',', 131)] | avgLoss/100: 4.413830757141113 |  |  | TUTOR.py 1000
+2025-04-17 21:32:36 | 400 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:5.6514 | topTokens[('.', 516), ('a', 315), ('e', 309), ('Ġje', 302), ('Ġt', 301), ("'", 297), ('im', 296), (',', 183), ('!', 183), ('Ġyou', 172)] | avgLoss/100: 5.651350498199463 |  |  | TUTOR.py 1000
+2025-04-17 21:33:02 | 500 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:4.5578 | topTokens[('.', 599), ('a', 359), ('Ġje', 347), ('e', 345), ('im', 343), ("'", 342), ('Ġt', 341), (',', 289), ('Ġyou', 209), ('!', 201)] | avgLoss/100: 4.5577592849731445 |  |  | TUTOR.py 1000
+--- 2025-04-17 21:33:37 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:34:11 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:36:49 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:38:05 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:38:56 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]god knows man2025-04-17 21:42:55 | 100 | LR0.00035 | n_weightMean:0.0000 | n_weightStd:0.0000 | n_weightMin:-0.0001 | n_weightMax:0.0001 | n_biasesMean:-0.0000 | n_biasesStd:0.0000 | n_biasesMin:-0.0000 | n_biasesMax:-0.0000 | n_sparsity:0.0000 | INN_cerebellum:<tensor[torch.Size([9])]> | INN_cerebellumSoft:<tensor[torch.Size([9])]> | INN_cerebellumMean:0.0010 | INN_cerebellumStd:0.0000 | INN_credibilityBias:<tensor[torch.Size([9])]> | INN_credibilityBiasSoft:<tensor[torch.Size([9])]> | INN_credibilityBiasMean:-0.0000 | INN_credibilityBiasStd:0.0000 | INN_judgeBias:<tensor[torch.Size([9])]> | INN_judgeBiasSoft:<tensor[torch.Size([9])]> | INN_judgeBiasMean:0.0000 | INN_judgeBiasStd:0.0000 | shortDecay:0.0007 | longDecay:0.0007 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:624.1978 | windowWeightsW2:1.00082 (0.11),W4:1.00071 (0.11),W8:1.00017 (0.11),W12:1.00008 (0.11),W20:1.00000 (0.11),W24:0.99996 (0.11),W32:0.99995 (0.11),W16:0.99994 (0.11),W28:0.99992 (0.11) | judgeBiasW2:0.00034 (0.11),W4:0.00034 (0.11),W32:0.00034 (0.11),W8:0.00034 (0.11),W12:0.00034 (0.11),W28:0.00034 (0.11),W16:0.00034 (0.11),W20:0.00034 (0.11),W24:0.00034 (0.11) | credibilityBiasW24:-0.00004 (0.11),W16:-0.00015 (0.11),W28:-0.00017 (0.11),W12:-0.00017 (0.11),W32:-0.00023 (0.11),W20:-0.00027 (0.11),W8:-0.00045 (0.11),W4:-0.00136 (0.11),W2:-0.00148 (0.11) | topTokens[('.', 198), ('e', 180), ('Ġlunch', 126), ('Ġje', 126), ('im', 126), ("'", 126), ('a', 108), ('Ġt', 108), ('Ġand', 54), ('Ġi', 54)] | avgLoss/100: 624.19775390625 |  | top windows: W32:0.14,W20:0.11,W28:0.11,W24:0.11 | TUTOR.py 1000
+--- 2025-04-17 21:44:09 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:44:46 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:45:14 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:46:01 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 21:46:42 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:62.7603 | topTokens[('.', 193), ('im', 132), ('Ġt', 122), ("'", 120), ('a', 112), ('e', 103), ('Ġje', 99), ('Ġi', 88), ('Ġand', 72), ('Ġyou', 54)] | avgLoss/100: 62.76030731201172 |  |  | TUTOR.py 1000
+2025-04-17 21:47:23 | 200 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:67.1713 | topTokens[('.', 310), ("'", 237), ('a', 236), ('Ġt', 228), ('Ġje', 219), ('im', 199), ('e', 195), (',', 112), ('Ġand', 107), ('Ġi', 104)] | avgLoss/100: 67.1712646484375 |  |  | TUTOR.py 1000
+2025-04-17 21:48:05 | 300 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:79.2038 | topTokens[('.', 488), ('a', 334), ('Ġt', 319), ('Ġje', 307), ('im', 289), ('e', 286), ("'", 255), ('!', 146), ('Ġyou', 140), ('our', 132)] | avgLoss/100: 79.20384216308594 |  |  | TUTOR.py 1000
+2025-04-17 21:48:46 | 400 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:53.6817 | topTokens[('.', 553), ('im', 379), ('Ġje', 361), ('a', 334), ('Ġt', 324), ("'", 308), ('e', 286), (',', 188), ('!', 163), ('Ġthe', 151)] | avgLoss/100: 53.68167495727539 |  |  | TUTOR.py 1000
+2025-04-17 21:49:30 | 500 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:52.1635 | topTokens[('.', 595), ('im', 415), ("'", 377), ('a', 370), ('Ġje', 361), ('e', 358), ('Ġt', 341), (',', 326), ('Ġyou', 192), ('!', 164)] | avgLoss/100: 52.163536071777344 |  |  | TUTOR.py 1000
+2025-04-17 21:50:12 | 600 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:80.4221 | topTokens[('.', 755), ('im', 504), ('Ġje', 465), ("'", 445), ('Ġt', 433), ('a', 425), ('e', 405), (',', 398), ('!', 258), ('Ġi', 251)] | avgLoss/100: 80.42211151123047 |  |  | TUTOR.py 1000
+--- 2025-04-17 21:50:45 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 21:51:07 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:67.0675 | topTokens[('.', 176), ('im', 150), ('a', 135), ('Ġt', 133), ('Ġje', 111), ('e', 108), ("'", 95), ('Ġi', 66), ('Ġand', 54), ('Ġyou', 54)] | avgLoss/100: 67.06751251220703 |  |  | TUTOR.py 1000
+2025-04-17 21:51:29 | 200 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:80.1443 | topTokens[('.', 296), ('a', 246), ('Ġt', 232), ('e', 231), ('Ġje', 228), ('im', 223), ("'", 205), ('Ġand', 125), ('Ġi', 120), ('Ġthe', 105)] | avgLoss/100: 80.144287109375 |  |  | TUTOR.py 1000
+2025-04-17 21:51:51 | 300 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:79.1634 | topTokens[('.', 439), ('e', 367), ('im', 314), ('Ġje', 307), ('Ġt', 304), ('a', 289), ("'", 278), ('!', 167), ('Ġand', 160), ('Ġyou', 147)] | avgLoss/100: 79.16339874267578 |  |  | TUTOR.py 1000
+2025-04-17 21:52:13 | 400 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:50.0445 | topTokens[('.', 494), ('im', 442), ('e', 367), ('Ġje', 341), ('a', 325), ('Ġt', 304), ("'", 278), (',', 187), ('!', 184), ('Ġand', 173)] | avgLoss/100: 50.04454040527344 |  |  | TUTOR.py 1000
+2025-04-17 21:52:38 | 500 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:58.8077 | topTokens[('.', 589), ('im', 461), ('a', 432), ('e', 388), ('Ġje', 359), ('Ġt', 356), (',', 346), ("'", 332), ('!', 202), ('Ġi', 175)] | avgLoss/100: 58.807674407958984 |  |  | TUTOR.py 1000
+2025-04-17 21:53:00 | 600 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:74.7760 | topTokens[('.', 653), ('a', 504), ('im', 497), ('e', 467), (',', 434), ('Ġje', 426), ('Ġt', 422), ("'", 395), ('!', 277), ('Ġyou', 259)] | avgLoss/100: 74.77595520019531 |  |  | TUTOR.py 1000
+2025-04-17 21:53:22 | 700 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:97.2259 | topTokens[('.', 783), ('im', 614), ('a', 555), (',', 539), ('Ġje', 516), ('Ġt', 513), ("'", 468), ('e', 467), ('!', 331), ('Ġthe', 293)] | avgLoss/100: 97.2259292602539 |  |  | TUTOR.py 1000
+2025-04-17 21:53:45 | 800 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:63.2805 | topTokens[('.', 913), ('im', 628), ('a', 612), (',', 596), ('e', 553), ('Ġje', 551), ('Ġt', 551), ("'", 540), ('!', 366), ('Ġyou', 294)] | avgLoss/100: 63.280487060546875 |  |  | TUTOR.py 1000
+2025-04-17 21:54:07 | 900 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:44.7625 | topTokens[('.', 976), (',', 740), ('im', 628), ('a', 612), ('e', 571), ('Ġt', 569), ('Ġje', 551), ("'", 540), ('Ġthe', 368), ('!', 366)] | avgLoss/100: 44.76252746582031 |  |  | TUTOR.py 1000
+2025-04-17 21:54:32 | 1000 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:44.0530 | topTokens[('.', 1035), (',', 805), ('im', 628), ('a', 612), ('e', 571), ('Ġt', 569), ('Ġje', 551), ("'", 540), ('Ġthe', 405), ('!', 366)] | avgLoss/100: 44.052982330322266 |  |  | TUTOR.py 1000
+2025-04-17 21:54:54 | 1100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:45.9532 | topTokens[('.', 1069), (',', 917), ('im', 628), ('a', 617), ('e', 571), ('Ġt', 569), ('Ġje', 551), ("'", 540), ('Ġthe', 405), ('!', 366)] | avgLoss/100: 45.95317459106445 |  |  | TUTOR.py 1000
+2025-04-17 21:55:17 | 1200 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:49.0040 | topTokens[('.', 1132), (',', 999), ('a', 653), ('im', 628), ('e', 608), ('Ġt', 586), ('Ġje', 551), ("'", 540), ('Ġthe', 405), ('Ġyou', 373)] | avgLoss/100: 49.00395965576172 |  |  | TUTOR.py 1000
+2025-04-17 21:55:39 | 1300 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:48.6788 | topTokens[(',', 1201), ('.', 1164), ('a', 653), ('im', 628), ('e', 626), ('Ġt', 586), ('Ġje', 551), ("'", 540), ('Ġthe', 429), ('Ġa', 385)] | avgLoss/100: 48.67881393432617 |  |  | TUTOR.py 1000
+2025-04-17 21:56:01 | 1400 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:48.1268 | topTokens[(',', 1283), ('.', 1164), ('a', 653), ('im', 628), ('e', 626), ('Ġt', 586), ('Ġje', 551), ("'", 540), ('Ġthe', 493), ('Ġa', 403)] | avgLoss/100: 48.12676239013672 |  |  | TUTOR.py 1000
+2025-04-17 21:56:26 | 1500 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | avgLoss:69.0745 | topTokens[(',', 1466), ('.', 1252), ('a', 667), ('e', 666), ('im', 647), ('Ġt', 586), ('Ġje', 551), ("'", 540), ('Ġthe', 511), ('!', 504)] | avgLoss/100: 69.07445526123047 |  |  | TUTOR.py 1000
