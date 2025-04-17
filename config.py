@@ -120,8 +120,8 @@ durationLogging_TUTOR = False
 
 """--- STATS COLLECTION ---"""
 collectStats = False
-n_collectStats = False
-INN_collectStats = False
+n_collectStats = True
+INN_collectStats = True
 
 # neuron + interneuronNetwork
 n_weightStats = True

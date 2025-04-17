@@ -5728,4 +5728,20 @@ CHANGED LOG FREQ TO 2500
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:20:50 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:21:34 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:22:21 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 21:23:27 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
 [charis]
