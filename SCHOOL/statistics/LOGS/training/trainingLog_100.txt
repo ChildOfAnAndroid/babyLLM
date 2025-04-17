@@ -5405,4 +5405,12 @@ CHANGED LOG FREQ TO 2500
 [babyllm] right, last time i got to step 2... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 2! what am i learning today?
-[charis]
+[charis]--- 2025-04-17 05:01:37 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]--- 2025-04-17 05:04:05 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2! what am i learning today?
+[charis]2025-04-17 05:05:31 | 100 | LR0.00035 | logitMin:0.0000 | logitMax:0.0000 | scheduledSampling:0.0000 | loss:0.0000 | gradNorm:0.0000 | tokenCount:0.0000 | topTokens[('Ġa', 106), (',', 78), ('Ġit', 73), ('.', 69), ('Ġas', 67), ('Ġof', 52), ('Ġand', 45), ('Ġb', 40), ('Ġto', 37), ('ss', 36)] |  |  | TUTOR.py 1000
