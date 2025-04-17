@@ -89,8 +89,8 @@ class INTERNEURON_NETWORK(nn.Module):
                     return torch.zeros_like(perTokenActivationsTensor[0])
                 
                 windowMeanStack = torch.stack(windowMeanActivations, dim=0).squeeze(1)
-                normalizedWeights = F.softmax(self.cerebellum, dim=0)
-                weightedWindowStack = windowMeanStack * normalizedWeights.view(-1, 1)
+                self.cerebellumSoft = F.softmax(self.cerebellum, dim=0)
+                weightedWindowStack = windowMeanStack * self.cerebellumSoft.view(-1, 1)
                 
                 combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
 
@@ -237,6 +237,8 @@ class INTERNEURON_NETWORK(nn.Module):
                         INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellum"], stats["INN_cerebellumSoft"]), key=lambda x: x[1], reverse=True)
                         INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCerebellum)
                         if debugPrints: print(f"{INN_cerebellum_str}")
+                    else:
+                        INN_cerebellum_str = ""
 
                     if INN_credibilityBiasStats:
                         ʕっʘ‿ʘʔっ("♥getCredibilityBiasStats")
@@ -248,7 +250,9 @@ class INTERNEURON_NETWORK(nn.Module):
                         ʕっʘ‿ʘʔっ("♥credibilityBiasString")
                         INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key=lambda x: x[1], reverse=True)
                         INN_credibilityBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCredibilityBias)
-                        if debugPrints: print(f"{INN_credibilityBias_str}")     
+                        if debugPrints: print(f"{INN_credibilityBias_str}") 
+                    else:
+                        INN_credibilityBias_str = ""
 
                     if INN_judgeBiasStats:
                         ʕっʘ‿ʘʔっ("♥getJudgeBiasStats")
@@ -261,6 +265,8 @@ class INTERNEURON_NETWORK(nn.Module):
                         INN_hybridJudgeBias = sorted(zip(allWindowSizes_new, stats["INN_judgeBiasSoft"], stats["INN_judgeBias"]), key=lambda x: x[1], reverse=True)
                         INN_judgeBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridJudgeBias)
                         if debugPrints: print(f"{INN_judgeBias_str}")
+                    else:
+                        INN_judgeBias_str = ""
                         
                     if INN_scoringStats:
                         ʕっʘ‿ʘʔっ("♥getScoringStats")
@@ -279,6 +285,8 @@ class INTERNEURON_NETWORK(nn.Module):
                         #stats["INN_windowEntropy"] = 
                         #stats["INN_effectiveWindowCount"] = torch.exp(torch.tensor(INN_windowEntropy))
                         if debugPrints: print(f"window stats: top: {stats["INN_topWindowWeight"]} std: {stats["INN_windowStd"]} entropy: {stats["INN_windowEntropy"]} effective window count: {stats["INN_effectiveWindowCount"]}")
+                    else:
+                        windowVotes_str = ""
 
             if collectStats:
                 return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str   
