@@ -33,6 +33,7 @@ class TUTOR:
             buffer = torch.zeros(windowMAX, dtype=torch.long, device=self.device) # creates buffer/step instead of recreating tensors inside loop
             buffer[:len(inputSeqPredictions)] = torch.as_tensor(inputSeqPredictions, device=self.device)
             logitSeq = [] # raw output of each prediction
+            self.recentLosses = []
             cumulativeLoss = torch.tensor(0.0, device=self.device) # sum of token losses for THIS sequence - averaged at the end
 
             for j in range(numTokensPerStep): # Predict multiple tokens in a sequence, one at a time
@@ -69,16 +70,11 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("appendStepLoss")
                     cumulativeLoss += stepLoss
 
-            ʕっʘ‿ʘʔっ("actions after looping")
-            loss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device=self.device)
-            if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                ʕっʘ‿ʘʔっ("entropyBonus")
-                loss = loss - (self.model.interneuronNetwork.entropyBonus * 0.05)
-
-            ʕっʘ‿ʘʔっ("increaseScheduledSamplingProb")
-            self.scheduledSamplingProb = min(self.scheduledSamplingProb + scheduledSamplingProbIncrement, 1.0)
-
             ʕっʘ‿ʘʔっ("backward")
+            loss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device=self.device)
+            """if hasattr(self.model.interneuronNetwork, "entropyBonus"):
+                ʕっʘ‿ʘʔっ("entropyBonus")
+                loss = loss - (self.model.interneuronNetwork.entropyBonus * 0.05)"""
             #if not torch.isfinite(loss): 
                 #print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", loss)
                 #return
@@ -86,26 +82,29 @@ class TUTOR:
                 #if debugPrints: print("TUTOR.trainStep.backward - loss is not NaN or Inf:", loss)
                 
             try:
-                with torch.profiler.profile(record_shapes=True) as prof:
+                #with torch.profiler.profile(record_shapes=True) as prof:
                 #with torch.mps.profiler.profile(mode='interval', wait_until_completed=False) as prof:
-                    self.model.backward(loss)
+                self.model.backward(loss)
             except RuntimeError as e:
                 print("TUTOR.trainStep.backward failed!", e)
                 #
                 return
 
-            print(prof.key_averages().table())
+            #print(prof.key_averages().table())
             
             ʕっʘ‿ʘʔっ("clip_grad_norm")
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = gradientClipMaxNorm)
-            ʕっʘ‿ʘʔっ("self.model.optimizer.step")
-            self.model.optimizer.step()
+
+            ʕっʘ‿ʘʔっ("actions after looping")
+            self.stepLossFloat = loss.detach().cpu().item()
+            self.recentLosses.append(self.stepLossFloat)
+            if len(self.recentLosses) > trainingLogFreq_100:
+                self.recentLosses.pop(0)
+            self.model.memory.updateMemoryBuffers()
+            self.scheduledSamplingProb = min(self.scheduledSamplingProb + scheduledSamplingProbIncrement, 1.0)
             if self.device.type == 'mps':
                 ʕっʘ‿ʘʔっ("emptyCache (mps)")
                 torch.mps.empty_cache()
-
-            ʕっʘ‿ʘʔっ("finalActions")
-            self.model.memory.updateMemoryBuffers()
 
             return loss, predictedTokenIndices, logitSeq
         
@@ -145,7 +144,6 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥trainStep")
                     result = self.trainStep(inputTokenIndices, targetTokenIndexSeq, self.model)
                     loss, self.predictedTokenIndices, logitSeq = result
-                    self.stepLossFloat = loss.detach().cpu().item()
 
                     ʕっʘ‿ʘʔっ("♥perfectTokens")
                     target = torch.tensor(targetTokenIndexSeq[:numTokensPerStep], device=modelDevice)
@@ -200,12 +198,14 @@ class TUTOR:
             _inputSeq = self.inputSeq,
             _guessedSeq_str = self.guessedTokenSeq,
             _targetSeq_str = self.targetSeq[:windowMAX],
+            _recentLoss = self.stepLossFloat,
             _loss = self.stepLossFloat,
             _totalTokenCount = self.tokenCounts)
         #ʕっʘ‿ʘʔっ("♥SCRIBE.maybeCommentOnGuess")
         self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.005)
         
     def logFreqActions(self, _trainingDataPairs): # could also do 10x log freq??
+        averageRecentLoss = sum(self.recentLosses) / len(self.recentLosses) if self.recentLosses else 0.0
         
         #ʕっʘ‿ʘʔっ("♥calculateTrainingDataRemaining")
         trainingDataRemaining = len(_trainingDataPairs) - self.trainingStepCounter
@@ -216,6 +216,7 @@ class TUTOR:
         stringStats = self.model.getStringStats(self.predictedTokenIndices, self.tokenCounts)
         #ʕっʘ‿ʘʔっ("♥getComplexStats")
         complexStats = self.model.getComplexStats()
+        self.stats["avgLoss"] = averageRecentLoss
         self.stats.update(complexStats)
 
         #ʕっʘ‿ʘʔっ("♥S_output.S_logTraining")
@@ -241,8 +242,8 @@ class TUTOR:
             self.stats = {}
             if collectStats:
                 self.stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str = self.model.interneuronNetwork.INN_getStats()
-                self.stats["shortDecay"] = torch.sigmoid(self.memory.shortTermDecay)
-                self.stats["longDecay"] = torch.sigmoid(self.memory.longTermDecay)
+                self.stats["shortDecay"] = torch.sigmoid(self.model.memory.shortTermDecay)
+                self.stats["longDecay"] = torch.sigmoid(self.model.memory.longTermDecay)
             else:
                 self.stats = self.model.interneuronNetwork.INN_getStats()
 

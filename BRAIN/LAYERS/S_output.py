@@ -123,17 +123,32 @@ class S_OUTPUT:
 
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _freq, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
+            logOutput = ""
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             delimiter = self.S_apply("dim", " | ")
 
             ʕっʘ‿ʘʔっ("avgStats")
-            doNotAverage = ["tokenCount", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd"]
+            doNotAverage = ["avgLoss", "tokenCount", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd"]
             avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
             logOutput = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{learningRate}")])
 
-            logOutput += delimiter + delimiter.join([self.S_apply("dim", f"{k}:")
-                    + self.S_apply(self.S_getStat(k, v), f"{v:.4f}") for k, v in avgStats.items() if v not in (None, "")])
+            def format_stat(k, v):
+                try:
+                    if isinstance(v, torch.Tensor):
+                        if v.numel() == 1:
+                            v = v.item()  # convert scalar tensor
+                        else:
+                            return self.S_apply("dim", f"{k}:") + self.S_apply("warn", f"<tensor[{v.shape}]>")
+                    return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.4f}")
+                except Exception as e:
+                    return self.S_apply("dim", f"{k}:") + self.S_apply("warn", f"ERR:{str(e)}")
+
+            logOutput += delimiter + delimiter.join([
+                format_stat(k, v)
+                for k, v in avgStats.items()
+                if v not in (None, "")
+            ])
 
             if _INN_cerebellum_str: 
                 ʕっʘ‿ʘʔっ("INN_cerebellum_str")

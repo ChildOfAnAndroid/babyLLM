@@ -129,8 +129,6 @@ class BABYLLM(nn.Module):
                 #ʕっʘ‿ʘʔっ("if not torch.isfinite(loss)")
                 #print("babyLLM.backward.loss.backward !!! Loss is NaN or Inf:", _loss)
                 #return
-            ʕっʘ‿ʘʔっ("optimizer.zero_grad")
-            self.optimizer.zero_grad()
             for name, p in self.named_parameters():
                 if p.grad is None:
                     if debugPrints: print(f"NO GRAD before backward: No grad for {name}")
