@@ -119,7 +119,7 @@ class TUTOR:
             for name, param in self.model.named_parameters(): print(name, param.device)
             ʕっʘ‿ʘʔっ("COUNTERS INIT")
             self.trainingStepCounter = 0
-            self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSampling": 0, "tokenCount": 0,})
+            stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSampling": 0, "tokenCount": 0,})
             self.tokenCounts = Counter()
 
             ʕっʘ‿ʘʔっ("back to school!")
@@ -156,7 +156,7 @@ class TUTOR:
                     self.totalTokenEvaluations += len(target)
 
                     ʕっʘ‿ʘʔっ("♥stats") # CALCULATE BASIC STATS
-                    stats = self.getStats(logitSeq)
+                    self.stats = self.getStats(logitSeq)
                     self.stats.update(stats)
 
                     if self.trainingStepCounter % saveModelFreq == 0:
@@ -223,7 +223,7 @@ class TUTOR:
             _trainingLogPath = trainingLogPath_100,
             _trainingStepCounter = self.trainingStepCounter,
             _freq = trainingLogFreq_1000,
-            _stats = self.model.stats,
+            _stats = self.stats,
             _INN_cerebellum_str = stringStats["INN_cerebellum_str"],
             _INN_judgeBias_str = stringStats["INN_judgeBias_str"],
             _INN_credbilityBias_str = stringStats["INN_credibilityBias_str"],
@@ -231,25 +231,25 @@ class TUTOR:
             _otherInfo_str = f"{stringStats['tokenPerfect']} | {stringStats['windowVotes_str']} | TUTOR.py {trainingLogFreq_1000}")
         
         #ʕっʘ‿ʘʔっ("♥finalLogActions")
-        self.model.stats.clear()
+        self.stats.clear()
         self.perfectTokens = 0
         self.totalTokenEvaluations = 0
 
     def getStats(self, _logitSeq):
         with self.counsellor.infodump("getStats") as ʕっʘ‿ʘʔっ:
             #gradNorm = (sum((p.grad.norm(2)**2 for p in self.parameters() if p.grad is not None)))**0.5
-            stats = {}
+            self.stats = {}
             if collectStats:
-                stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str = self.model.interneuronNetwork.INN_getStats()
-                stats["shortDecay"] = torch.sigmoid(self.memory.shortTermDecay)
-                stats["longDecay"] = torch.sigmoid(self.memory.longTermDecay)
+                self.stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str = self.model.interneuronNetwork.INN_getStats()
+                self.stats["shortDecay"] = torch.sigmoid(self.memory.shortTermDecay)
+                self.stats["longDecay"] = torch.sigmoid(self.memory.longTermDecay)
             else:
-                stats = self.model.interneuronNetwork.INN_getStats()
+                self.stats = self.model.interneuronNetwork.INN_getStats()
 
             if _logitSeq:
-                stats["logitMin"] = _logitSeq[-1].min(dim=-1).values.mean()
-                stats["logitMax"] = _logitSeq[-1].max(dim=-1).values.mean()
+                self.stats["logitMin"] = _logitSeq[-1].min(dim=-1).values.mean()
+                self.stats["logitMax"] = _logitSeq[-1].max(dim=-1).values.mean()
 
-            stats["scheduledSampling"] = self.scheduledSamplingProb
+            self.stats["scheduledSampling"] = self.scheduledSamplingProb
 
-            return stats
+            return self.stats

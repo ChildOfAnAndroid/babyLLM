@@ -197,12 +197,12 @@ class BABYLLM(nn.Module):
     def getComplexStats(self):
         with self.counsellor.infodump("getComplexStats") as ʕっʘ‿ʘʔっ:
             
-            #stats["embedMean"] = embeds.mean()
-            #stats["embedStd"] = embeds.std()
-            #stats["meanActivation"] = activations.mean()
-            #stats["activationSparsity"] = (activations.abs() < 1e-6).float().mean()
+            #self.stats["embedMean"] = embeds.mean()
+            #self.stats["embedStd"] = embeds.std()
+            #self.stats["meanActivation"] = activations.mean()
+            #self.stats["activationSparsity"] = (activations.abs() < 1e-6).float().mean()
             
-            return stats
+            return self.stats
         
     """saves the model to a file"""    
     def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex):
