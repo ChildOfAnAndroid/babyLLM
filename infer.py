@@ -2,7 +2,7 @@
 # BABYLLM - infer.py
 
 from babyLLM import BABYLLM
-from BRAIN.LAYERS.vocab import VOCAB
+from SCHOOL.staffroom.librarian import VOCAB
 from datetime import datetime
 from config import *
 import torch

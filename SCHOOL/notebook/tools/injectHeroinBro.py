@@ -5,7 +5,7 @@ import torch.nn as nn
 import numpy as np
 import os
 from config import *
-from BRAIN.LAYERS.vocab import VOCAB
+from SCHOOL.staffroom.librarian import VOCAB
 from BRAIN.LAYERS.interneuronNetwork import PARALLELNEURONLAYER
 from BRAIN.LAYERS.embed import EMBEDLAYER
 from BRAIN.LAYERS.logits import OUTPUTLAYER

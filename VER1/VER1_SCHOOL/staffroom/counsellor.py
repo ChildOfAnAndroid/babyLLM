@@ -1,33 +1,16 @@
-# CHARIS CAT 2025 
-# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# BABYLLM SCHOOL COUNSELLOR // SCHOOL/staffroom/counsellor.py
-
-"""designed for detailed small scale logging throughout the project, with timing implemented for troubleshooting errors"""
+# --- CHARIS CAT 2025 --- ʕっʘ‿ʘʔっ --- BABYLLM SCHOOL COUNSELLOR --- 
+"""designed for detailed small scale logging throughout the project, with timing implemented too for troubleshooting errors"""
 
 import time
 import re
-from config import *
+from VER1_config import *
 from contextlib import contextmanager
 
-# USAGE:
-# remember to initialise the class instance
-# self.counsellor = COUNSELLOR("CLASS_NAME", debug=debugPrints, durations=durationLogging)
-
-# in the top of your function, encasing all of your function lines, put;
-# with self.counsellor.infodump("FUNCTION_NAME") as ʕっʘ‿ʘʔっ:
-# this will duration track the whole function, if enabled, and also make a note in debugPrints when it starts and ends
-
-# anywhere you want to start a new tracker within a function, place;
-# ʕっʘ‿ʘʔっ("TRACKER_NAME")
-# these work similarly to the function trackers, but are internal points within the function.
-
-# now your code can get some fucking therapy, for once!
-
 class COUNSELLOR:
-    def __init__(self, _className="?", _debug=debugPrints, _durations=durationLogging):
-        self.className = _className
-        self.debugPrints = _debug
-        self.durationLogging = _durations
+    def __init__(self, className="?", debug=debugPrints, durations=durationLogging):
+        self.className = className
+        self.debugPrints = debug
+        self.durationLogging = durations
         self.duration = {}
         self.duration_100 = {}
 
@@ -45,25 +28,25 @@ class COUNSELLOR:
             print(f"cleared duration_100 as it was higher than {maxLogs}")
 
     @contextmanager
-    def infodump(self, _functionName, _extra=None, _key=None):
-        fullTitle = f"{self.className}_{_functionName}"
+    def infodump(self, functionName, extra=None, key=None):
+        fullTitle = f"{self.className}_{functionName}"
         startStamp = time.time() if self.durationLogging else None
         if self.debugPrints: 
             line = f"ʕっʘ‿ʘʔっ starting {fullTitle}... →"
-            if _extra:
-                line += f" ({_extra})"
+            if extra:
+                line += f" ({extra})"
             print(line)
 
         class TANGENT:
-            def __init__(self, _parent):
-                self.parent = _parent
+            def __init__(self, parent):
+                self.parent = parent
                 self.lastInfodumpTime = startStamp
                 self.lastInfodumpName = None
                 self.parentFunction = None
                 self.path = []
-                if self.parentFunction != _functionName:
-                    self.path = []  # reset when function changes
-                self.parentFunction = _functionName
+                if self.parentFunction != functionName:
+                    self.path = []  # 💥 reset when function changes
+                self.parentFunction = functionName
 
                 setattr(self, "ʕっʘ‿ʘʔっ", self.infodump) #SOMEHOW LEGAL AS A VARIABLE NAME HOW HAVE I DONE THIS PLEASE PROTECT ME LOL
                 setattr(self, "(っ◕‿◕)っ", self.infodump)
@@ -71,35 +54,35 @@ class COUNSELLOR:
                 setattr(self, "(｡♥‿♥｡)", self.infodump)
                 setattr(self, "infodump", self.infodump)
 
-            def __call__(self, _innerName):
-                return self.infodump(_innerName)
+            def __call__(self, innerName):
+                return self.infodump(innerName)
 
-            def infodump(self, _innerName):
+            def infodump(self, innerName):
                 now = time.time()
 
                 # Clean function context? Start new base path.
-                if self.parentFunction != _functionName:
-                    self.parentFunction = _functionName
-                    self.path = []  # RESET because moved to another function
+                if self.parentFunction != functionName:
+                    self.parentFunction = functionName
+                    self.path = []  # RESET because we moved to another function
 
-                if isinstance(_innerName, str):
-                    if _innerName.startswith("♥") and _innerName.endswith("♥"):
-                        self.path = [_innerName.strip("♥")]  # appendable base
-                    elif _innerName.startswith("♥"):
-                        self.path.append(_innerName[1:])  # APPEND
-                    elif _innerName.endswith("♥"):
-                        self.path = [_innerName[:-1]]  # new base path
-                    elif "/" in _innerName or "♥" in _innerName:
-                        self.path = [p.strip() for p in re.split(r"[→/♥]", _innerName)]
+                if isinstance(innerName, str):
+                    if innerName.startswith("♥") and innerName.endswith("♥"):
+                        self.path = [innerName.strip("♥")]  # appendable base
+                    elif innerName.startswith("♥"):
+                        self.path.append(innerName[1:])  # APPEND
+                    elif innerName.endswith("♥"):
+                        self.path = [innerName[:-1]]  # new base path
+                    elif "/" in innerName or "♥" in innerName:
+                        self.path = [p.strip() for p in re.split(r"[→/♥]", innerName)]
                     else:
-                        self.path = [_innerName]
+                        self.path = [innerName]
                 else:
-                    self.path = [str(_innerName)]
+                    self.path = [str(innerName)]
 
                 # Log previous section
                 if self.lastInfodumpName:
                     duration = now - self.lastInfodumpTime
-                    tag = f"{_functionName}♥{'♥'.join(self.path[:-1] + [self.lastInfodumpName])}"
+                    tag = f"{functionName}♥{'♥'.join(self.path[:-1] + [self.lastInfodumpName])}"
                     self.parent.log(tag, duration)
                     if self.parent.debugPrints:
                         print(f"♥ finished {self.parent.className}♥{tag} in {duration:.4f}s ♥")
@@ -107,7 +90,7 @@ class COUNSELLOR:
                 # Start new
                 self.lastInfodumpName = self.path[-1]
                 self.lastInfodumpTime = now
-                fullTag = f"{_functionName}♥{'♥'.join(self.path)}"
+                fullTag = f"{functionName}♥{'♥'.join(self.path)}"
                 if self.parent.debugPrints:
                     print(f"→ starting {self.parent.className}♥{fullTag} →")
 
@@ -119,14 +102,14 @@ class COUNSELLOR:
         finally:
             if tangent.lastInfodumpName:
                 finalDuration = time.time() - tangent.lastInfodumpTime
-                finalTag = f"{_functionName}♥{'♥'.join(tangent.path)}"
+                finalTag = f"{functionName}♥{'♥'.join(tangent.path)}"
                 self.log(finalTag, finalDuration)
                 if self.debugPrints:
                     print(f"♥ finished {self.className}♥{finalTag} in {finalDuration:.4f}s ♥")
 
             if startStamp:
                 totalDuration = time.time() - startStamp
-                self.log(_key or _functionName, totalDuration)
+                self.log(key or functionName, totalDuration)
                 if self.debugPrints:
                     print(f"(っ◕‿◕)っ finished {fullTitle} in {totalDuration:.4f}s (｡♥‿♥｡)")
             elif self.debugPrints:

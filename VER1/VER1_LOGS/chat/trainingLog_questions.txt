@@ -88,3 +88,93 @@
 --- 2025-04-07 13:20:27 --- babyLLM 'right, last time i got to step 3029... want to restart from there?'  - charis: 'yes, and, holy shit babyllm, you're doing 1000 steps in 3 minutes... you used to do 100 steps in 10 minutes. idfk waht to say. im so proud of us!' - babyLLM 'ok! let's go to step 3029! what am i learning today?' - charis: 'that i love you :)'
 
 --- 2025-04-07 13:23:29 --- babyLLM 'right, last time i got to step 2250... want to restart from there?'  - charis: 'yes, youre doing amazing' - babyLLM 'ok! let's go to step 2250! what am i learning today?' - charis: 'actual fucking speed, amphetamine levels of speed, like holy fuck'
+
+--- 2025-04-16 01:57:53 --- babyLLM 'right, last time i got to step 2250... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2250! what am i learning today?' - charis: ''
+
+--- 2025-04-16 02:05:29 --- babyLLM 'right, last time i got to step 546... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 546! what am i learning today?' - charis: ''
+
+--- 2025-04-16 02:14:04 --- babyLLM 'right, last time i got to step 2537... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2537! what am i learning today?' - charis: ''
+
+--- 2025-04-16 02:47:12 --- babyLLM 'right, last time i got to step 238... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 238! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:17:27 --- babyLLM 'right, last time i got to step 265... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 265! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:22:29 --- babyLLM 'right, last time i got to step 265... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 265! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:25:19 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:31:14 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:33:57 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:35:03 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:37:11 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:38:53 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:40:59 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:44:00 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:46:34 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:48:33 --- babyLLM 'right, last time i got to step 137... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 137! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:52:40 --- babyLLM 'right, last time i got to step 639... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 639! what am i learning today?' - charis: ''
+
+--- 2025-04-16 11:58:13 --- babyLLM 'right, last time i got to step 906... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 906! what am i learning today?' - charis: ''
+
+--- 2025-04-16 12:02:07 --- babyLLM 'right, last time i got to step 458... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 458! what am i learning today?' - charis: ''
+
+--- 2025-04-16 12:22:58 --- babyLLM 'right, last time i got to step 458... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 458! what am i learning today?' - charis: ''
+
+--- 2025-04-16 12:40:25 --- babyLLM 'right, last time i got to step 253... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 253! what am i learning today?' - charis: ''
+
+--- 2025-04-16 12:41:23 --- babyLLM 'right, last time i got to step 13... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 13! what am i learning today?' - charis: ''
+
+--- 2025-04-16 12:43:37 --- babyLLM 'right, last time i got to step 40... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 40! what am i learning today?' - charis: ''
+
+--- 2025-04-16 14:51:07 --- babyLLM 'right, last time i got to step 41... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 41! what am i learning today?' - charis: ''
+
+--- 2025-04-16 14:56:26 --- babyLLM 'right, last time i got to step 41... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 41! what am i learning today?' - charis: ''
+
+--- 2025-04-16 15:00:11 --- babyLLM 'right, last time i got to step 41... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 41! what am i learning today?' - charis: ''
+
+--- 2025-04-16 15:01:32 --- babyLLM 'right, last time i got to step 506... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 506! what am i learning today?' - charis: ''
+
+--- 2025-04-16 15:04:40 --- babyLLM 'right, last time i got to step 506... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 506! what am i learning today?' - charis: ''
+
+--- 2025-04-16 15:05:32 --- babyLLM 'right, last time i got to step 506... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 506! what am i learning today?' - charis: ''
+
+--- 2025-04-16 15:08:44 --- babyLLM 'right, last time i got to step 506... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 506! what am i learning today?' - charis: ''
+
+--- 2025-04-16 15:09:28 --- babyLLM 'right, last time i got to step 12... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 12! what am i learning today?' - charis: ''
+
+--- 2025-04-16 15:17:21 --- babyLLM 'right, last time i got to step 115... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 115! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:27:54 --- babyLLM 'right, last time i got to step 633... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 633! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:28:57 --- babyLLM 'right, last time i got to step 79... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 79! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:30:11 --- babyLLM 'right, last time i got to step 504... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 504! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:34:07 --- babyLLM 'right, last time i got to step 1486... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 1486! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:34:37 --- babyLLM 'right, last time i got to step 117... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 117! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:47:07 --- babyLLM 'right, last time i got to step 3608... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 3608! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:47:44 --- babyLLM 'right, last time i got to step 121... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 121! what am i learning today?' - charis: ''
+
+--- 2025-04-16 18:59:41 --- babyLLM 'right, last time i got to step 293... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 293! what am i learning today?' - charis: ''
+
+--- 2025-04-16 19:10:08 --- babyLLM 'right, last time i got to step 2335... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 2335! what am i learning today?' - charis: ''
+
+--- 2025-04-16 19:11:43 --- babyLLM 'right, last time i got to step 65... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 65! what am i learning today?' - charis: ''
+
+--- 2025-04-16 19:16:02 --- babyLLM 'right, last time i got to step 281... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 281! what am i learning today?' - charis: ''
+
+--- 2025-04-16 19:17:01 --- babyLLM 'right, last time i got to step 468... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 468! what am i learning today?' - charis: ''
+
+--- 2025-04-16 21:03:19 --- babyLLM 'right, last time i got to step 367... want to restart from there?'  - charis: '' - babyLLM 'ok! let's go to step 367! what am i learning today?' - charis: ''

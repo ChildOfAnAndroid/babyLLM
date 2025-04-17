@@ -1,4 +1,3 @@
-@ -1,618 +1,663 @@
 # CHARIS CAT 2025
 # BABYLLM - babyLLM.py
 
@@ -6,7 +5,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
-from BRAIN.LAYERS.vocab import VOCAB
+from SCHOOL.staffroom.librarian import VOCAB
 from BRAIN.LAYERS.embedLayer import EMBEDLAYER
 from BRAIN.LAYERS.parallelNeuronLayer import PARALLELNEURONLAYER
 from BRAIN.LAYERS.outputLayer import OUTPUTLAYER

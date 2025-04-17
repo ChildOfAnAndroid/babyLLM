@@ -1,0 +1,240 @@
+skipped computeLoss:
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                         aten::isfinite         0.05%       4.209us         1.32%     120.167us     120.167us             1  
+                                               aten::eq         0.27%      24.833us         0.27%      24.833us      24.833us             1  
+                                              aten::abs         0.60%      54.875us         0.78%      71.333us      35.666us             2  
+                                            aten::empty         0.00%       0.375us         0.00%       0.375us       0.375us             1  
+                                     aten::is_same_size         0.00%       0.042us         0.00%       0.042us       0.042us             1  
+                                          aten::resize_         0.01%       0.500us         0.01%       0.500us       0.500us             1  
+                                               aten::ne        10.36%     945.205us        10.37%     945.913us      25.565us            37  
+                                             aten::item         0.15%      13.253us        83.14%       7.583ms     194.429us            39  
+                              aten::_local_scalar_dense        82.60%       7.533ms        83.00%       7.569ms     194.089us            39  
+                                              aten::mul         0.16%      14.792us         0.16%      14.792us      14.792us             1  
+                                       aten::is_nonzero         0.00%       0.417us         2.26%     205.916us     205.916us             1  
+                                       aten::empty_like         0.23%      20.545us         0.41%      37.296us       0.981us            38  
+                                    aten::empty_strided         0.27%      25.003us         0.27%      25.003us       0.455us            55  
+                    Optimizer.zero_grad#AdamW.zero_grad         0.26%      23.708us         0.26%      23.708us      23.708us             1  
+                                        aten::ones_like         0.01%       0.875us         0.32%      28.875us      28.875us             1  
+                                            aten::fill_         0.29%      26.750us         0.29%      26.750us      26.750us             1  
+      autograd::engine::evaluate_function: DivBackward0         0.12%      10.583us         3.00%     273.957us     273.957us             1  
+                                           DivBackward0         0.02%       2.042us         0.32%      29.125us      29.125us             1  
+                                              aten::div         0.29%      26.583us         0.30%      27.083us      27.083us             1  
+                                            aten::isnan         0.15%      13.666us        10.30%     939.038us      26.084us            36  
+                                     aten::_is_any_true         0.12%      11.293us         1.79%     163.129us       4.531us            36  
+                                              aten::any         0.47%      43.007us         1.66%     151.836us       4.218us            36  
+                                          aten::view_as         0.16%      14.373us         0.27%      24.790us       0.689us            36  
+                                             aten::view         0.11%      10.417us         0.11%      10.417us       0.289us            36  
+                                               aten::to         0.02%       2.249us         0.02%       2.249us       0.062us            36  
+                                            aten::copy_         1.49%     135.622us         1.49%     135.622us       2.559us            53  
+      autograd::engine::evaluate_function: AddBackward0         0.70%      63.992us        91.14%       8.312ms     461.803us            18  
+                                           AddBackward0         0.05%       4.542us         0.05%       4.542us       0.252us            18  
+autograd::engine::evaluate_function: torch::autograd...         0.18%      16.586us         1.38%     125.792us       6.988us            18  
+                        torch::autograd::AccumulateGrad         0.36%      33.000us         1.20%     109.206us       6.067us            18  
+                                aten::new_empty_strided         0.14%      12.997us         0.23%      21.249us       1.250us            17  
+                                           aten::detach         0.01%       0.458us         0.01%       1.125us       1.125us             1  
+                                                 detach         0.01%       0.667us         0.01%       0.667us       0.667us             1  
+                              Optimizer.step#AdamW.step         0.32%      29.167us         0.32%      29.167us      29.167us             1  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 9.120ms
+
+not skipped computeLoss:
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                         aten::isfinite         0.01%      24.457us         0.26%     906.289us      82.390us            11  
+                                               aten::eq         0.08%     265.957us         0.08%     265.957us      24.178us            11  
+                                              aten::abs         0.06%     215.042us         0.11%     393.041us      17.865us            22  
+                                            aten::empty         0.01%      46.796us         0.01%      46.796us       0.564us            83  
+                                     aten::is_same_size         0.00%      10.207us         0.00%      10.207us       0.092us           111  
+                                          aten::resize_         0.01%      21.919us         0.01%      21.919us       0.756us            29  
+                                               aten::ne         5.05%      17.791ms         5.06%      17.795ms      18.791us           947  
+                                             aten::item         0.12%     423.659us        80.70%     284.041ms     258.454us          1099  
+                              aten::_local_scalar_dense        80.37%     282.878ms        80.58%     283.617ms     258.068us          1099  
+                                              aten::mul         1.46%       5.149ms         1.46%       5.149ms      21.015us           245  
+                                       aten::is_nonzero         0.00%       3.957us         1.65%       5.809ms     528.120us            11  
+                                       aten::empty_like         0.11%     386.834us         0.22%     762.753us       0.790us           966  
+                                    aten::empty_strided         0.10%     367.669us         0.10%     367.669us       0.384us           958  
+                    Optimizer.zero_grad#AdamW.zero_grad         0.01%      30.625us         0.01%      30.625us      30.625us             1  
+                                        aten::ones_like         0.00%       0.917us         0.01%      20.458us      20.458us             1  
+                                            aten::fill_         0.02%      83.957us         0.02%      83.957us       4.419us            19  
+      autograd::engine::evaluate_function: DivBackward0         0.14%     499.992us        10.59%      37.272ms     409.581us            91  
+                                           DivBackward0         0.05%     168.848us         1.21%       4.245ms      46.644us            91  
+                                              aten::div         1.02%       3.582ms         1.03%       3.611ms      15.907us           227  
+                                            aten::isnan         0.11%     382.385us         5.11%      17.979ms      19.208us           936  
+                                     aten::_is_any_true         0.08%     290.932us         4.34%      15.263ms      16.306us           936  
+                                              aten::any         3.89%      13.696ms         4.25%      14.972ms      15.995us           936  
+                                          aten::view_as         0.04%     154.691us         0.07%     248.428us       0.575us           432  
+                                             aten::view         0.04%     133.735us         0.04%     133.735us       0.275us           486  
+                                               aten::to         0.01%      28.944us         0.01%      51.612us       0.117us           442  
+                                            aten::copy_         0.30%       1.057ms         0.30%       1.057ms       2.298us           460  
+      autograd::engine::evaluate_function: AddBackward0         0.29%       1.024ms        29.02%     102.131ms     567.394us           180  
+                                           AddBackward0         0.01%      46.084us         0.01%      46.084us       0.256us           180  
+autograd::engine::evaluate_function: NllLossBackward...         0.03%      94.833us         1.60%       5.617ms     312.034us            18  
+                                       NllLossBackward0         0.01%      30.501us         0.28%     975.169us      54.176us            18  
+                                aten::nll_loss_backward         0.27%     944.668us         0.27%     944.668us      52.482us            18  
+autograd::engine::evaluate_function: LogSoftmaxBackw...         0.02%      73.748us         1.51%       5.332ms     296.213us            18  
+                                    LogSoftmaxBackward0         0.01%      31.378us         0.19%     666.668us      37.037us            18  
+                       aten::_log_softmax_backward_data         0.18%     635.290us         0.18%     635.290us      35.294us            18  
+                                              aten::sum         1.18%       4.164ms         1.18%       4.164ms      25.703us           162  
+       autograd::engine::evaluate_function: MmBackward0         0.10%     346.238us        21.10%      74.258ms       2.063ms            36  
+                                            MmBackward0         0.03%     107.919us         0.61%       2.140ms      59.452us            36  
+                                                aten::t         0.02%      65.786us         0.05%     162.207us       1.802us            90  
+                                        aten::transpose         0.02%      55.879us         0.03%      96.421us       1.071us            90  
+                                       aten::as_strided         0.02%      65.581us         0.02%      65.581us       0.455us           144  
+                                               aten::mm         0.53%       1.870ms         0.53%       1.870ms      25.974us            72  
+      autograd::engine::evaluate_function: MulBackward0         0.21%     736.633us        14.28%      50.247ms     398.788us           126  
+                                           MulBackward0         0.04%     154.502us         1.27%       4.484ms      35.589us           126  
+     autograd::engine::evaluate_function: RsubBackward1         0.03%     108.376us         2.25%       7.936ms     220.456us            36  
+                                          RsubBackward1         0.01%      29.245us         0.20%     694.121us      19.281us            36  
+                                              aten::neg         0.39%       1.367ms         0.39%       1.375ms      15.283us            90  
+                                             aten::add_         1.71%       6.017ms         1.72%       6.047ms      19.318us           313  
+autograd::engine::evaluate_function: SigmoidBackward...         0.04%     135.217us         2.45%       8.621ms     239.466us            36  
+                                       SigmoidBackward0         0.02%      63.911us         0.17%     591.451us      16.429us            36  
+                                 aten::sigmoid_backward         0.15%     527.540us         0.15%     527.540us      14.654us            36  
+     autograd::engine::evaluate_function: MeanBackward1         0.02%      64.457us         1.76%       6.183ms     343.502us            18  
+                                          MeanBackward1         0.01%      38.586us         0.20%     697.624us      38.757us            18  
+                                           aten::expand         0.01%      30.002us         0.01%      39.835us       2.213us            18  
+    autograd::engine::evaluate_function: ClampBackward1         0.04%     138.666us         2.24%       7.880ms     437.767us            18  
+                                         ClampBackward1         0.02%      66.628us         0.54%       1.916ms     106.423us            18  
+                                    aten::scalar_tensor         0.01%      26.417us         0.03%     102.417us       5.690us            18  
+                                               aten::ge         0.15%     530.457us         0.15%     537.913us      29.884us            18  
+                                               aten::le         0.11%     393.124us         0.11%     398.042us      22.113us            18  
+                                     aten::logical_and_         0.00%      10.872us         0.11%     375.081us      20.838us            18  
+                                      aten::logical_and         0.10%     364.209us         0.10%     364.209us      20.234us            18  
+                                            aten::where         0.12%     414.576us         0.12%     435.537us      24.197us            18  
+autograd::engine::evaluate_function: LeakyReluBackwa...         0.03%      89.457us         1.65%       5.817ms     323.193us            18  
+                                     LeakyReluBackward0         0.01%      20.790us         0.19%     677.579us      37.643us            18  
+                              aten::leaky_relu_backward         0.17%     586.124us         0.19%     656.789us      36.488us            18  
+autograd::engine::evaluate_function: PermuteBackward...         0.03%     106.128us         4.41%      15.532ms     862.896us            18  
+                                       PermuteBackward0         0.00%      16.250us         0.02%      60.374us       3.354us            18  
+                                          aten::permute         0.01%      36.333us         0.01%      44.124us       2.451us            18  
+    autograd::engine::evaluate_function: IndexBackward0         0.04%     129.157us         4.49%      15.817ms     878.722us            18  
+                                         IndexBackward0         0.01%      39.998us         0.12%     421.126us      23.396us            18  
+                                        aten::new_zeros         0.01%      19.171us         0.03%      94.169us       5.232us            18  
+                                        aten::new_empty         0.00%       7.372us         0.01%      24.958us       1.387us            18  
+                                            aten::zero_         0.01%      50.040us         0.01%      50.040us       2.780us            18  
+                                 aten::_index_put_impl_         0.08%     267.462us         0.08%     286.959us      15.942us            18  
+                                          aten::reshape         0.00%       7.414us         0.00%      12.082us       0.671us            18  
+                                              aten::add         0.03%      93.375us         0.03%      93.375us      31.125us             3  
+autograd::engine::evaluate_function: torch::autograd...         0.00%      10.043us         0.01%      42.752us       4.275us            10  
+                        torch::autograd::AccumulateGrad         0.00%      10.958us         0.01%      32.709us       3.271us            10  
+                                           aten::detach         0.00%       3.249us         0.01%      21.751us       2.175us            10  
+                                                 detach         0.01%      18.502us         0.01%      18.502us       1.850us            10  
+                                              aten::all         0.08%     269.375us         0.08%     269.375us      26.938us            10  
+                              Optimizer.step#AdamW.step         0.07%     263.126us         0.64%       2.247ms       2.247ms             1  
+                                         aten::_to_copy         0.00%      13.166us         0.01%      22.668us       2.267us            10  
+                                             aten::mul_         0.12%     423.584us         0.12%     431.168us      21.558us            20  
+                                            aten::lerp_         0.07%     256.372us         0.07%     257.248us      25.725us            10  
+                                      aten::result_type         0.00%       0.876us         0.00%       0.876us       0.088us            10  
+                                         aten::addcmul_         0.08%     288.499us         0.08%     288.499us      28.850us            10  
+                                             aten::sqrt         0.06%     203.915us         0.06%     204.622us      20.462us            10  
+                                         aten::addcdiv_         0.08%     271.167us         0.08%     271.167us      27.117us            10  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 351.969ms
+
+
+
+
+VERSUS ORIGINAL BABYLLM NOT SPLIT VERSION!!:
+ORIGINAL VERSION skipped computeLoss:
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                        aten::ones_like         1.09%       1.419us        22.03%      28.777us      28.777us             1  
+                                       aten::empty_like         1.53%       2.000us         2.14%       2.793us       2.793us             1  
+                                    aten::empty_strided         4.89%       6.382us         4.89%       6.382us       0.355us            18  
+                                            aten::fill_        18.81%      24.565us        18.81%      24.565us      24.565us             1  
+      autograd::engine::evaluate_function: DivBackward0         3.54%       4.629us        24.01%      31.363us      31.363us             1  
+                                           DivBackward0         1.50%       1.961us        20.47%      26.734us      26.734us             1  
+                                              aten::div        18.39%      24.022us        18.97%      24.773us      24.773us             1  
+                                             aten::item         0.48%       0.626us         0.57%       0.751us       0.751us             1  
+                              aten::_local_scalar_dense         0.10%       0.125us         0.10%       0.125us       0.125us             1  
+      autograd::engine::evaluate_function: AddBackward0        10.82%      14.136us        12.90%      16.848us       0.936us            18  
+                                           AddBackward0         2.08%       2.712us         2.08%       2.712us       0.151us            18  
+autograd::engine::evaluate_function: torch::autograd...         8.04%      10.504us        41.06%      53.632us       2.980us            18  
+                        torch::autograd::AccumulateGrad        10.48%      13.683us        33.02%      43.128us       2.396us            18  
+                                aten::new_empty_strided         4.41%       5.755us         8.68%      11.344us       0.667us            17  
+                                            aten::copy_        13.09%      17.101us        13.09%      17.101us       1.006us            17  
+                                           aten::detach         0.35%       0.458us         0.77%       1.000us       1.000us             1  
+                                                 detach         0.41%       0.542us         0.41%       0.542us       0.542us             1  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 130.620us
+
+
+ORIGINAL VERSION not skipped computeLoss:
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                        aten::ones_like         0.01%       1.293us         0.09%      21.042us      21.042us             1  
+                                       aten::empty_like         0.04%       8.502us         0.08%      17.542us       0.923us            19  
+                                    aten::empty_strided         0.00%       0.667us         0.00%       0.667us       0.667us             1  
+                                            aten::fill_         0.35%      82.162us         0.35%      82.162us       4.324us            19  
+      autograd::engine::evaluate_function: DivBackward0         0.78%     180.700us        19.78%       4.601ms      63.030us            73  
+                                           DivBackward0         0.70%     163.246us        14.50%       3.372ms      46.188us            73  
+                                              aten::div        13.04%       3.034ms        13.13%       3.054ms      14.072us           217  
+                                             aten::item         0.10%      23.282us         0.13%      29.828us       0.328us            91  
+                              aten::_local_scalar_dense         0.03%       6.546us         0.03%       6.546us       0.072us            91  
+      autograd::engine::evaluate_function: AddBackward0         1.42%     330.386us        11.47%       2.668ms      14.820us           180  
+                                           AddBackward0         0.17%      39.575us         0.17%      39.575us       0.220us           180  
+autograd::engine::evaluate_function: NllLossBackward...         0.15%      35.832us         3.12%     725.450us      40.303us            18  
+                                       NllLossBackward0         0.11%      26.543us         2.96%     689.618us      38.312us            18  
+                                aten::nll_loss_backward         2.85%     663.075us         2.85%     663.075us      36.838us            18  
+autograd::engine::evaluate_function: LogSoftmaxBackw...         0.13%      29.581us         2.10%     489.164us      27.176us            18  
+                                    LogSoftmaxBackward0         0.07%      15.541us         1.98%     459.583us      25.532us            18  
+                       aten::_log_softmax_backward_data         1.91%     444.042us         1.91%     444.042us      24.669us            18  
+                                              aten::sum        13.80%       3.210ms        13.80%       3.210ms      19.814us           162  
+                                             aten::view         0.10%      22.497us         0.10%      22.497us       0.417us            54  
+       autograd::engine::evaluate_function: MmBackward0         0.38%      88.375us        10.75%       2.501ms      69.467us            36  
+                                            MmBackward0         0.45%     104.712us         8.74%       2.033ms      56.461us            36  
+                                                aten::t         0.20%      46.285us         0.50%     116.706us       1.297us            90  
+                                        aten::transpose         0.19%      44.087us         0.30%      70.421us       0.782us            90  
+                                       aten::as_strided         0.20%      47.543us         0.20%      47.543us       0.293us           162  
+                                               aten::mm         7.79%       1.811ms         7.79%       1.811ms      25.155us            72  
+      autograd::engine::evaluate_function: MulBackward0         1.35%     313.911us        26.47%       6.156ms      48.860us           126  
+                                           MulBackward0         0.46%     107.292us        13.97%       3.251ms      25.799us           126  
+                                              aten::mul        16.03%       3.730ms        16.03%       3.730ms      15.939us           234  
+     autograd::engine::evaluate_function: RsubBackward1         0.15%      35.919us         1.91%     444.586us      12.350us            36  
+                                          RsubBackward1         0.06%      14.878us         1.76%     408.667us      11.352us            36  
+                                              aten::neg         3.90%     907.658us         3.92%     912.200us      10.136us            90  
+                                     aten::is_same_size         0.02%       4.542us         0.02%       4.542us       0.050us            90  
+                                             aten::add_        16.93%       3.938ms        16.93%       3.938ms      13.442us           293  
+autograd::engine::evaluate_function: SigmoidBackward...         0.23%      54.075us         3.65%     847.863us      23.552us            36  
+                                       SigmoidBackward0         0.21%      49.627us         1.95%     452.456us      12.568us            36  
+                                 aten::sigmoid_backward         1.73%     402.829us         1.73%     402.829us      11.190us            36  
+     autograd::engine::evaluate_function: MeanBackward1         0.18%      41.459us         4.57%       1.063ms      29.540us            36  
+                                          MeanBackward1         0.15%      34.499us         4.39%       1.022ms      28.389us            36  
+                                           aten::expand         0.11%      26.209us         0.16%      37.834us       1.051us            36  
+    autograd::engine::evaluate_function: ClampBackward1         0.13%      30.626us         9.16%       2.131ms     118.407us            18  
+                                         ClampBackward1         0.24%      54.955us         9.03%       2.101ms     116.705us            18  
+                                    aten::scalar_tensor         0.06%      13.293us         0.38%      87.413us       4.856us            18  
+                                            aten::empty         0.14%      32.537us         0.14%      32.537us       0.452us            72  
+                                               aten::ge         2.47%     573.668us         2.49%     578.873us      32.160us            18  
+                                               aten::le         2.02%     468.787us         2.04%     473.996us      26.333us            18  
+                                     aten::logical_and_         0.04%       9.752us         1.85%     429.706us      23.873us            18  
+                                      aten::logical_and         1.81%     419.954us         1.81%     419.954us      23.331us            18  
+                                            aten::where         1.98%     460.834us         2.05%     475.748us      26.430us            18  
+                                          aten::resize_         0.05%      11.082us         0.05%      11.082us       0.616us            18  
+autograd::engine::evaluate_function: LeakyReluBackwa...         0.11%      24.791us         2.39%     555.702us      30.872us            18  
+                                     LeakyReluBackward0         0.05%      10.666us         2.28%     530.911us      29.495us            18  
+                              aten::leaky_relu_backward         1.98%     461.120us         2.24%     520.245us      28.903us            18  
+                                            aten::copy_         0.19%      44.249us         0.19%      44.249us       2.458us            18  
+autograd::engine::evaluate_function: PermuteBackward...         0.09%      20.787us         1.48%     345.035us      19.169us            18  
+                                       PermuteBackward0         0.03%       7.543us         0.11%      25.834us       1.435us            18  
+                                          aten::permute         0.06%      14.249us         0.08%      18.291us       1.016us            18  
+    autograd::engine::evaluate_function: IndexBackward0         0.16%      36.877us         2.89%     673.165us      37.398us            18  
+                                         IndexBackward0         0.11%      26.578us         1.46%     339.498us      18.861us            18  
+                                        aten::new_zeros         0.05%      12.754us         0.39%      90.209us       5.012us            18  
+                                        aten::new_empty         0.03%       6.750us         0.08%      18.041us       1.002us            18  
+                                            aten::zero_         0.26%      59.414us         0.26%      59.414us       3.301us            18  
+                                 aten::_index_put_impl_         0.89%     208.002us         0.96%     222.711us      12.373us            18  
+                                          aten::reshape         0.02%       5.751us         0.04%       9.167us       0.509us            18  
+                                              aten::add         0.37%      87.042us         0.37%      87.042us      29.014us             3  
+autograd::engine::evaluate_function: torch::autograd...         0.03%       8.044us         0.16%      38.167us       3.817us            10  
+                        torch::autograd::AccumulateGrad         0.03%       8.123us         0.13%      30.123us       3.012us            10  
+                                           aten::detach         0.07%      16.832us         0.09%      22.000us       2.200us            10  
+                                                 detach         0.02%       5.168us         0.02%       5.168us       0.517us            10  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 23.261ms
+

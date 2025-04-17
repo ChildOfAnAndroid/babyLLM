@@ -194,11 +194,11 @@ def forward(self, inputEmbeds):
         combinedScores = selfScores + peerScores # shape: (32,)
         softCombinedScores = F.softmax(combinedScores, dim=0)
         attentionWindowWeights = softCombinedScores # shape: (32,), sum of weights = 1
-        if statPrints or debugPrints: 
+        if debugPrints: 
             ʕっʘ‿ʘʔっ("♥getWindowEntropy")
             print(f"attentionWindowWeights: {attentionWindowWeights}")
             windowEntropy = -torch.sum(attentionWindowWeights * torch.log(attentionWindowWeights + 1e-12)).item()
-            if statPrints or debugPrints: print(windowEntropy)
+            if debugPrints: print(windowEntropy)
 
         ʕっʘ‿ʘʔっ("weightedWindows") # Weight each window's output (summary) by its soft combined scores (attention weight) and sum
         weightedWindows = windowOutputsTensor * attentionWindowWeights.unsqueeze(1)  # shape: (32, numNeurons)

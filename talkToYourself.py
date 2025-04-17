@@ -7,9 +7,9 @@ import random
 import time
 from datetime import datetime
 from babyLLM import BABYLLM
-from BRAIN.LAYERS.vocab import VOCAB
+from SCHOOL.staffroom.librarian import VOCAB
 from BRAIN.LAYERS.S_output import S_OUTPUT
-from BRAIN.LAYERS.vocab import VOCAB
+from SCHOOL.staffroom.librarian import VOCAB
 from SCHOOL.staffroom.counsellor import *
 from config import *
 import torch

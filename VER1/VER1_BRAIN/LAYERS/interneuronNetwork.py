@@ -1,87 +1,136 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# INTERNEURON NETWORK & NEURONS
-# BRAIN/LAYERS/interneuronNetwork.py
+# BABYLLM - interneuronNetwork.py
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import *
+from VER1_config import *
+from VER1_BRAIN.LAYERS.S_output import S_OUTPUT
+from VER1_SCHOOL.staffroom.counsellor import COUNSELLOR
+import math
 
 class NEURON(nn.Module):
-    def __init__(self, _counsellor, _device = modelDevice):
+    def __init__(self):
         super().__init__()
-        self.device = _device
-        self.n_counsellor = _counsellor
         # SELF ALLOWED - nn.parameter!
-        self.n_weights = nn.Parameter(torch.randn(numNeurons, embedDimension, device = self.device) * 0.01)
-        self.n_biases = nn.Parameter(torch.zeros(numNeurons, device = self.device))
-        #self.n_counsellor = COUNSELLOR("NEURON", debug=debugPrints, durations=durationLogging)
+        self.n_weights = nn.Parameter(torch.randn(numNeurons, embedDimension, device = modelDevice) * 0.01)
+        self.n_biases = nn.Parameter(torch.zeros(numNeurons, device = modelDevice))
+        self.n_counsellor = COUNSELLOR("NEURON", debug=debugPrints, durations=durationLogging)
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         #numNeuron, embedDimension, activationFunction, etc
 
-    def forward(self, _inputEmbeds):  # embed: (batch_size, embed_size)
+    def forward(self, inputEmbeds):  # embed: (batch_size, embed_size)
         with self.n_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             if skipNeuron: 
                 ʕっʘ‿ʘʔっ("skipping forward")
-                activations = _inputEmbeds.mean(dim=-1) # Mean across embed_dim, shape (sequence_length,)
+                activations = inputEmbeds.mean(dim=-1) # Mean across embed_dim, shape (sequence_length,)
                 return activations[-1].unsqueeze(0) # Take LAST activation, unsqueeze to (1, ) for batch dim
             ʕっʘ‿ʘʔっ("computeBatchedDotProduct+bias") # Compute batched dot product + bias: (batch_size, num_neurons)
-            output = torch.matmul(_inputEmbeds, self.n_weights.T) + self.n_biases   
+            output = torch.matmul(inputEmbeds, self.n_weights.T) + self.n_biases   
 
             ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
             output = activationFunction(output)
             if debugPrints: print("Device check:")
-            if debugPrints: print("inputEmbeds:", _inputEmbeds.device)
+            if debugPrints: print("inputEmbeds:", inputEmbeds.device)
             if debugPrints: print("output tensor device:", output.device)
             #output = torch.clamp(output, -5, 5) # ENSURE OUT-OF-PLACE
             output.clamp_(-5, 5) # IN PLACE VER
 
             return output
 
+def stackedWindowMeans(activations: torch.Tensor, windowSizes: list[int]) -> torch.Tensor:
+    """
+    Fully vectorized, loop-free window mean calculation.
+    Returns: (len(windowSizes), embedDim)
+    """
+    seqLen, embedDim = activations.shape
+
+    # Right-aligned padding: (maxW, embedDim)
+    padded = torch.zeros((windowMAX, embedDim), device=modelDevice)
+    padded[-min(seqLen, windowMAX):] = activations[-min(seqLen, windowMAX):]
+
+    # Stack: (numWindows, maxW, embedDim)
+    stacked = padded.unsqueeze(0).repeat(len(windowSizes), 1, 1)
+
+    # Build mask: (numWindows, maxW, 1)
+    range_mask = torch.arange(windowMAX, device=modelDevice).unsqueeze(0)
+    window_tensor = torch.tensor(windowSizes, device=modelDevice).unsqueeze(1)
+    mask = (range_mask < window_tensor).float().unsqueeze(2)
+
+    # Apply mask, compute sums and divide by window sizes
+    masked = stacked * mask
+    sums = masked.sum(dim=1)
+    means = sums / window_tensor
+
+    return means  # shape: (numWindows, embedDim)
+
+
 """layer that applies the same set of neurons to each token embedding independently. - no sequence awareness!"""
 class INTERNEURON_NETWORK(nn.Module):
-    def __init__(self, _counsellor, _device = modelDevice):
+    def __init__(self):
         super().__init__()
-        #self.inn_counsellor = COUNSELLOR("INN", debug = debugPrints, durations = durationLogging)
-        self.inn_counsellor = _counsellor
-        self.device = _device
 
         # SELF ALLOWED - nn.parameter!
-        self.neurons = NEURON(_counsellor = self.inn_counsellor)
+        self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes), device = modelDevice)) # THIS WAS THE WINDOW WEIGHTING LAYER
+        self.windowCombos = nn.ModuleList([nn.Linear(numNeurons, numNeurons, device = modelDevice) for _ in range(len(allWindowSizes))])
 
-        self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
-        self.windowCombos = nn.ModuleList([nn.Linear(numNeurons, numNeurons, device = self.device) for _ in range(len(allWindowSizes_new))])
+        self.queryProj = nn.Linear(numNeurons, embedDimension, bias=True, device=modelDevice)
+        self.keyProj = nn.Linear(numNeurons, embedDimension, bias=True, device=modelDevice)
 
-        self.queryProj = nn.Linear(numNeurons, embedDimension, bias=True, device=self.device)
-        self.keyProj = nn.Linear(numNeurons, embedDimension, bias=True, device=self.device)
+        self.judgeBias = nn.Parameter(torch.zeros(len(allWindowSizes), device = modelDevice))
+        self.credibilityBias = nn.Parameter(torch.zeros(len(allWindowSizes), device = modelDevice))
+        self.parliamentBlend = nn.Parameter(torch.tensor(0.5, device = modelDevice))
 
-        self.judgeBias = nn.Parameter(torch.zeros(len(allWindowSizes_new), device = self.device))
-        self.credibilityBias = nn.Parameter(torch.zeros(len(allWindowSizes_new), device = self.device))
-        self.parliamentBlend = nn.Parameter(torch.tensor(0.5, device = self.device))
+        self.neurons = NEURON()
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
-        #numNeurons, embedDimension, activationFunction, allWindowSizes_new, etc
+        #numNeurons, embedDimension, activationFunction, allWindowSizes, etc
 
+        # NO IDEA IF THESE CAN BE ON SELF (other class calls)
+        self.inn_counsellor = COUNSELLOR("INN", debug = debugPrints, durations = durationLogging)
 
-    def forward(self, _inputEmbeds):  
+"""layer that applies the same set of neurons to each token embedding independently. - no sequence awareness!"""
+class INTERNEURON_NETWORK(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # SELF ALLOWED - nn.parameter!
+        self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes), device = modelDevice)) # THIS WAS THE WINDOW WEIGHTING LAYER
+        self.windowCombos = nn.ModuleList([nn.Linear(numNeurons, numNeurons, device = modelDevice) for _ in range(len(allWindowSizes))])
+
+        self.queryProj = nn.Linear(numNeurons, embedDimension, bias=True, device=modelDevice)
+        self.keyProj = nn.Linear(numNeurons, embedDimension, bias=True, device=modelDevice)
+
+        self.judgeBias = nn.Parameter(torch.zeros(len(allWindowSizes), device = modelDevice))
+        self.credibilityBias = nn.Parameter(torch.zeros(len(allWindowSizes), device = modelDevice))
+        self.parliamentBlend = nn.Parameter(torch.tensor(0.5, device = modelDevice))
+
+        self.neurons = NEURON()
+
+        # MUST NOT BE ON SELF - global parameters that may be used by backward pass
+        #numNeurons, embedDimension, activationFunction, allWindowSizes, etc
+
+        # NO IDEA IF THESE CAN BE ON SELF (other class calls)
+        self.inn_counsellor = COUNSELLOR("INN", debug = debugPrints, durations = durationLogging)
+
+    def forward(self, inputEmbeds):  
         with self.inn_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             if skipINN: 
                 ʕっʘ‿ʘʔっ("skipping INNforward")
-                skipActivations = self.neurons(_inputEmbeds)
+                skipActivations = self.neurons(inputEmbeds)
                 return skipActivations.mean(dim=0, keepdim=True)
             # --- iterates through input embeddings, applies all neurons in parallel for each, produces a vector of neuron outputs
             ʕっʘ‿ʘʔっ("localParamInit") # AVOIDING SELF - parameters only used in this function and never passed
             tinyWindowCount = 0
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
             ʕっʘ‿ʘʔっ("CALL NEURON FORWARD")
-            if debugPrints: print(f"Device check - inputEmbeds: {_inputEmbeds.device}, neuron weights: {self.neurons.n_weights.device}")
-            neuronActivations = self.neurons(_inputEmbeds)
+            if debugPrints: print(f"Device check - inputEmbeds: {inputEmbeds.device}, neuron weights: {self.neurons.n_weights.device}")
+            neuronActivations = self.neurons(inputEmbeds)
             ʕっʘ‿ʘʔっ("windowOutputs") # --- combine activations into their own learnable layer
-            windowOutputsTensor = self.stackedWindowMeans(neuronActivations, allWindowSizes_new)
+            windowOutputsTensor = stackedWindowMeans(neuronActivations, allWindowSizes)
             comboViews = torch.stack([
-                self.windowCombos[i](windowOutputsTensor[i]) for i in range(len(allWindowSizes_new))
+                self.windowCombos[i](windowOutputsTensor[i]) for i in range(len(allWindowSizes))
             ], dim=0)
 
             # Project summaries to queries and keys for attention scoring
@@ -124,7 +173,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         
             ʕっʘ‿ʘʔっ("formatWindowVoteString")
             parliamentBlend_str = f"{self.parliamentBlend.item():.3f}"
-            topWeights = sorted(zip(allWindowSizes_new, combinedWindowWeights.tolist()), key=lambda x: x[1], reverse=True)
+            topWeights = sorted(zip(allWindowSizes, combinedWindowWeights.tolist()), key=lambda x: x[1], reverse=True)
             topWindows_str = ",".join(f"W{w}:{wgt:.2f}" for w, wgt in topWeights[:4])
             self.windowVotes_str = f"entropyBonus: {self.entropyBonus} blend: {parliamentBlend_str} top windows: {topWindows_str}"
 
@@ -137,32 +186,6 @@ class INTERNEURON_NETWORK(nn.Module):
             raw = comboViews.mean(dim=0, keepdim=True) # keeps gradients open
             windowContextVector = windowContextVector + 0.1 * raw
             return windowContextVector
-        
-    def stackedWindowMeans(self, activations: torch.Tensor, windowSizes: list[int]) -> torch.Tensor:
-        """
-        Fully vectorized, loop-free window mean calculation.
-        Returns: (len(windowSizes), embedDim)
-        """
-        seqLen, embedDim = activations.shape
-
-        # Right-aligned padding: (maxW, embedDim)
-        padded = torch.zeros((windowMAX, embedDim), device = self.device)
-        padded[-min(seqLen, windowMAX):] = activations[-min(seqLen, windowMAX):]
-
-        # Stack: (numWindows, maxW, embedDim)
-        stacked = padded.unsqueeze(0).repeat(len(windowSizes), 1, 1)
-
-        # Build mask: (numWindows, maxW, 1)
-        range_mask = torch.arange(windowMAX, device = self.device).unsqueeze(0)
-        window_tensor = torch.tensor(windowSizes, device = self.device).unsqueeze(1)
-        mask = (range_mask < window_tensor).float().unsqueeze(2)
-
-        # Apply mask, compute sums and divide by window sizes
-        masked = stacked * mask
-        sums = masked.sum(dim=1)
-        means = sums / window_tensor
-
-        return means  # shape: (numWindows, embedDim)
     
     def INN_getStats(self):
         with self.inn_counsellor.infodump("INN_getStats") as ʕっʘ‿ʘʔっ:
@@ -210,7 +233,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         stats["INN_cerebellumStd"] = self.cerebellum.std()
                         if debugPrints: print(f"cerebellum: {stats["INN_cerebellum"]}, soft: {stats["INN_cerebellumSoft"]} mean: {stats['INN_cerebellumMean']} std: {stats['INN_cerebellumStd']}")
                         ʕっʘ‿ʘʔっ("♥cerebellumString")
-                        INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellumSoft"], stats["INN_cerebellum"]), key=lambda x: x[1], reverse=True)
+                        INN_hybridCerebellum = sorted(zip(allWindowSizes, stats["INN_cerebellumSoft"], stats["INN_cerebellum"]), key=lambda x: x[1], reverse=True)
                         INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, SOFTMAX, RAW in INN_hybridCerebellum)
                         if debugPrints: print(f"{INN_cerebellum_str}")
 
@@ -222,7 +245,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         stats["INN_credibilityBiasStd"] = self.credibilityBias.std()
                         if debugPrints: print(f"credibilityBias: {stats["INN_credibilityBias"]} soft: {stats["INN_credibilityBiasSoft"]} mean: {stats["INN_credibilityBiasMean"]} std: {stats["INN_credibilityBiasStd"]}")
                         ʕっʘ‿ʘʔっ("♥credibilityBiasString")
-                        INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key=lambda x: x[1], reverse=True)
+                        INN_hybridCredibilityBias = sorted(zip(allWindowSizes, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key=lambda x: x[1], reverse=True)
                         INN_credibilityBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridCredibilityBias)
                         if debugPrints: print(f"{INN_credibilityBias_str}")     
 
@@ -234,7 +257,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         stats["INN_judgeBiasStd"] = self.judgeBias.std()
                         if debugPrints: print(f"judgeBias: {stats["INN_judgeBias"]} soft: {stats["INN_judgeBiasSoft"]} mean: {stats["INN_judgeBiasMean"]} std: {stats["INN_judgeBiasStd"]}")
                         ʕっʘ‿ʘʔっ("♥judgeBiasString")
-                        INN_hybridJudgeBias = sorted(zip(allWindowSizes_new, stats["INN_judgeBiasSoft"], stats["INN_judgeBias"]), key=lambda x: x[1], reverse=True)
+                        INN_hybridJudgeBias = sorted(zip(allWindowSizes, stats["INN_judgeBiasSoft"], stats["INN_judgeBias"]), key=lambda x: x[1], reverse=True)
                         INN_judgeBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridJudgeBias)
                         if debugPrints: print(f"{INN_judgeBias_str}")
                         
@@ -256,10 +279,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         #stats["INN_effectiveWindowCount"] = torch.exp(torch.tensor(INN_windowEntropy))
                         if debugPrints: print(f"window stats: top: {stats["INN_topWindowWeight"]} std: {stats["INN_windowStd"]} entropy: {stats["INN_windowEntropy"]} effective window count: {stats["INN_effectiveWindowCount"]}")
 
-            if collectStats:
-                return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str   
-            else:
-                return stats
+            return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str   
     
 if __name__ == "__main__":
     interneuronNetwork = INTERNEURON_NETWORK()

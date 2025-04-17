@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import json
-from BRAIN.LAYERS.vocab import VOCAB
+from SCHOOL.staffroom.librarian import VOCAB
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import json
@@ -102,4 +102,4 @@ with open(similarTokensFile, "w", encoding="utf-8") as f:
 print("Most similar tokens to 'charis':", find_similar("charis"))
 print("Most similar tokens to 'elodie':", find_similar("elodie"))
 
- __pycache__ BRAIN BRAIN/LAYERS BRAIN/LAYERS/__pycache__ BRAIN/LAYERS/embedLayer.py BRAIN/LAYERS/memoryLayer.py BRAIN/LAYERS/outputLayer.py BRAIN/LAYERS/parallelNeuronLayer.py BRAIN/LAYERS/S_output.py BRAIN/LAYERS/vocab.py BRAIN/shapeofwords BRAIN/soul BRAIN/soul/archive BRAIN/soul/babyLLM_batched.pth BRAIN/soul/babyLLM_legacy.pth BRAIN/soul/babyLLM.pth BRAIN/soul/babyLLM.pth copy BRAIN/soul/stepCheckpoint.txt BRAIN/vocabCache BRAIN/readmeactuallyprobablydont.txt LOGS LOGS/chat LOGS/dataArchive LOGS/duration LOGS/training SCHOOL SCHOOL/library SCHOOL/library/archive SCHOOL/library/charisStudies SCHOOL/library/miniTraining SCHOOL/library/mouseAdventure SCHOOL/library/simpleTraining SCHOOL/library/tenses SCHOOL/notebook SCHOOL/notebook/archive SCHOOL/notebook/tools SCHOOL/notebook/tools/archive SCHOOL/notebook/tools/addTotalSteps.py SCHOOL/notebook/tools/brainAnalysis.py SCHOOL/notebook/tools/geepymatplot.py SCHOOL/notebook/tools/logEmbedToToken.py SCHOOL/notebook/tools/logModel.py SCHOOL/notebook/inferenceQuestionIdeas SCHOOL/notebook/test.pth SCHOOL/notebook/test.py SCHOOL/__trainingData.txt SCHOOL/trainingData.txt .gitattributes .gitignore babyLLM.py chatLogPath_infer config.py infer.py injectHeroinBro.py talkToYourself.py textCleaningTool.py
+ __pycache__ BRAIN BRAIN/LAYERS BRAIN/LAYERS/__pycache__ BRAIN/LAYERS/embedLayer.py BRAIN/LAYERS/memoryLayer.py BRAIN/LAYERS/outputLayer.py BRAIN/LAYERS/parallelNeuronLayer.py BRAIN/LAYERS/S_output.py BRAIN/LAYERS/vocab.py BRAIN/shapeofwords BRAIN/soul BRAIN/soul/archive BRAIN/soul/babyLLM_batched.pth BRAIN/soul/babyLLM_legacy.pth BRAIN/soul/babyLLM.pth BRAIN/soul/babyLLM.pth copy BRAIN/soul/stepCheckpoint.txt BRAIN/vocabCache BRAIN/readmeactuallyprobablydont.txt LOGS LOGS/chat LOGS/dataArchive LOGS/duration LOGS/training SCHOOL SCHOOL/library SCHOOL/library/archive SCHOOL/library/charisStudies SCHOOL/library/miniTraining SCHOOL/library/mouseAdventure SCHOOL/library/simpleTraining SCHOOL/library/tenses SCHOOL/notebook SCHOOL/notebook/archive SCHOOL/notebook/tools SCHOOL/notebook/tools/archive SCHOOL/notebook/tools/addTotalSteps.py SCHOOL/notebook/tools/brainAnalysis.py SCHOOL/notebook/tools/geepymatplot.py SCHOOL/notebook/tools/logEmbedToToken.py SCHOOL/notebook/tools/logModel.py SCHOOL/notebook/inferenceQuestionIdeas SCHOOL/notebook/test.pth SCHOOL/notebook/test.py SCHOOL/__trainingData.txt SCHOOL/library/trainingData.txt .gitattributes .gitignore babyLLM.py chatLogPath_infer config.py infer.py injectHeroinBro.py talkToYourself.py textCleaningTool.py
