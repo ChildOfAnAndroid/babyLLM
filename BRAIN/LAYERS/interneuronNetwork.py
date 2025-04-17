@@ -67,13 +67,37 @@ class INTERNEURON_NETWORK(nn.Module):
 
     def forward(self, _inputEmbeds):  
         with self.inn_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            if skipINN: 
-                ʕっʘ‿ʘʔっ("skipping INNforward")
-                skipActivations = self.neurons(_inputEmbeds)
-                return skipActivations.mean(dim=0, keepdim=True)
             # --- iterates through input embeddings, applies all neurons in parallel for each, produces a vector of neuron outputs
             ʕっʘ‿ʘʔっ("localParamInit") # AVOIDING SELF - parameters only used in this function and never passed
             tinyWindowCount = 0
+            if skipINN: 
+                ʕっʘ‿ʘʔっ("skipping INNforward")
+                perTokenActivationsTensor = self.neurons(_inputEmbeds)
+
+                windowMeanActivations = []
+                for windowSize in allWindowSizes_new:
+                    if perTokenActivationsTensor.shape[0] < windowSize:
+                        tinyWindowCount += 1
+                        emptyWindow = torch.zeros_like(perTokenActivationsTensor[0]).unsqueeze(0)
+                        windowMeanActivations.append(emptyWindow)
+                    else:
+                        windowMean = torch.mean(perTokenActivationsTensor[-windowSize:], dim=0, keepdim=True)
+                        windowMeanActivations.append(windowMean)
+
+                if not windowMeanActivations:
+                    print("no valid window sizes")
+                    return torch.zeros_like(perTokenActivationsTensor[0])
+                
+                windowMeanStack = torch.stack(windowMeanActivations, dim=0).squeeze(1)
+                normalizedWeights = F.softmax(self.cerebellum, dim=0)
+                weightedWindowStack = windowMeanStack * normalizedWeights.view(-1, 1)
+                
+                combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
+
+                if tinyWindowCount > 0:
+                    print(f"saw {perTokenActivationsTensor.shape[0]} tokens; created {tinyWindowCount} empty windows.")
+
+                return combinedActivationsTensor
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
             ʕっʘ‿ʘʔっ("CALL NEURON FORWARD")
             #if debugPrints: print(f"Device check - inputEmbeds: {_inputEmbeds.device}, neuron weights: {self.neurons.n_weights.device}")

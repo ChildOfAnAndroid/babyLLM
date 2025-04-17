@@ -131,7 +131,7 @@ class BABYLLM(nn.Module):
                 #return
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    print(f"NO GRAD before backward: No grad for {name}")
+                    if debugPrints: print(f"NO GRAD before backward: No grad for {name}")
                 else:
                     if debugPrints: print(f"grad before backward for {name} - requires_grad: {p.requires_grad}")
             with torch.autograd.set_detect_anomaly(anomalyDetect):
@@ -140,7 +140,7 @@ class BABYLLM(nn.Module):
                 #print(next(self.parameters()).grad)
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    print(f"NO GRAD after backward: No grad for {name}")
+                    if debugPrints: print(f"NO GRAD after backward: No grad for {name}")
                 else: 
                     if debugPrints: 
                         print(f"grad after backward for {name} - requires_grad: {p.requires_grad}")
