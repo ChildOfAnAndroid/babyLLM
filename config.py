@@ -104,7 +104,7 @@ printPromptLength = 50     # how many characters of the prompt to display in ter
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
-anomalyDetect = True
+anomalyDetect = False
 
 skipNeuron = False
 skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!
@@ -120,8 +120,8 @@ durationLogging_TUTOR = False
 
 """--- STATS COLLECTION ---"""
 collectStats = False
-n_collectStats = True
-INN_collectStats = True
+n_collectStats = False
+INN_collectStats = False
 
 # neuron + interneuronNetwork
 n_weightStats = True
