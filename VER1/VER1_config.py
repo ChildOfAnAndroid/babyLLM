@@ -13,6 +13,14 @@ guessedTokenSeq = []
 
 userName = "charis"
 babyName = "babyLLM"
+debugPrints = False
+durationLogging = False
+debugPrints = False
+debugPrints = False
+skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!!!!!!
+skipINNparliament = True
+skipNeuron = False
+skipComputeLoss = False
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
@@ -20,12 +28,12 @@ saveModelFreq = 10000     # // 50 // 500 // 1000 // saves the model every x numb
 
 saveLock = False     # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
-modelFilePath = "VER1_BRAIN/soul/babyLLM_legacy.pth"     # where your currently trained saved boi is :)
+modelFilePath = "VER1_BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "VER1_BRAIN/soul/stepCheckpoint.txt"
 
 """--- TRAINING ---"""
-trainingFilePath = "VER1_SCHOOL/trainingData.txt"
+trainingFilePath = "VER1_SCHOOL/library/trainingData.txt"
 
 """--- VER1_LOGS ---"""
 trainingLogPath_1000 = "VER1_LOGS/training/trainingLog_1000.txt"
@@ -53,7 +61,7 @@ chatLogPath_trainingLog = "VER1_LOGS/chat/trainingLog_questions.txt"
 """--- MODEL ---"""
 temperature = 0.65     # temperature for softmax in response generation - controls randomness
 topP = 0     # top P - probability
-numTokensPerStep = 4     # Number of tokens to predict per step
+numTokensPerStep = 18     # Number of tokens to predict per step
 
 """memoryLayer"""
 memoryLength = 1000
@@ -77,10 +85,10 @@ trainingStartIndex = 0     # // 'random' (not in babyLLM.py) // 0 //
 epochs = 20
 
 """--- VER1_LOGS ---"""
-trainingLogFreq_1000 = 1000     # creates logs every x number of turns
+trainingLogFreq_1000 = 10000000     # creates logs every x number of turns
 trainingLogFreq_100 = 100     # creates logs every x number of turns
 
-printFreq = 10     # how often to print training progress to the terminal
+printFreq = 1     # how often to print training progress to the terminal
 printPromptLength = 35     # how many characters of the prompt to display in terminal
 
 
@@ -193,7 +201,7 @@ vocabLoad = "VER1_BRAIN/vocabCache/tokenizer.json"
 """--- MISC & EXTRA FORMATS ---"""
 #trainingFilePath_dict = [{"type": ftype, "in": fname, "out": trainingFilePath} for ftype, fname in rawDataFilepaths]     # Convert to dictionary format when needed
 trainingFilePath_dict = [{"type": ftype, "in": fname, "weight": weight, "out": trainingFilePath} for ftype, fname, weight in rawDataFilepaths]
-trainingFilePath_arr = ["VER1_SCHOOL/trainingData.txt"]
+trainingFilePath_arr = ["VER1_SCHOOL/library/trainingData.txt"]
 
 trainingFilePath_dict_weighted = []
 for entry in trainingFilePath_dict:

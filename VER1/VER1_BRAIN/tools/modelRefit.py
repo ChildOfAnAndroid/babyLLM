@@ -2,7 +2,7 @@
 
 import torch
 from VER1_babyLLM import BABYLLM
-from VER1_BRAIN.LAYERS.parallelNeuronLayer import BATCHEDNEURONLAYER
+from VER1_BRAIN.LAYERS.VER1_parallelNeuronLayer import BATCHEDNEURONLAYER
 from VER1_config import *
 
 # ==== LOAD THE OLD MODEL (with ModuleList neurons) ====
