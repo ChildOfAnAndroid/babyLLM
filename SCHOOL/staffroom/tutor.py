@@ -84,15 +84,14 @@ class TUTOR:
                 #if debugPrints: print("TUTOR.trainStep.backward - loss is not NaN or Inf:", loss)
                 
             try:
-                with torch.profiler.profile(record_shapes=True) as prof:
+                #with torch.profiler.profile(record_shapes=True) as prof:
                 #with torch.mps.profiler.profile(mode='interval', wait_until_completed=False) as prof:
-                    self.model.backward(BACKWARDloss)
+                self.model.backward(BACKWARDloss)
             except RuntimeError as e:
                 print("TUTOR.trainStep.backward failed!", e)
-                #
                 return
 
-            print(prof.key_averages().table())
+            #print(prof.key_averages().table())
             
             #ʕっʘ‿ʘʔっ("clip_grad_norm")
             #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = gradientClipMaxNorm)
