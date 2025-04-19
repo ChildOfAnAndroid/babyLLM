@@ -6,6 +6,9 @@
 from config import *
 from datetime import datetime
 import re
+import torch
+import operator
+import random
 
 class S_OUTPUT:
 
@@ -19,6 +22,7 @@ class S_OUTPUT:
         DIM = "\033[2m" # reduces intensity of text colour
         UNDERLINE = "\033[4m"
         FLASH = "\033[5m"
+        ITALIC = "\033[3m"
 
         """COLOURS!!!"""
         PURPLE = "\033[94m"
@@ -41,9 +45,12 @@ class S_OUTPUT:
 
         """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
         self.S_types = {
-            "match":         [UNDERLINE, BOLD, PURPLE_PALE],   #[BOLD, PURPLE],   # 100%
-            "perfect":       [BOLD, PURPLE_PALE],   #[BOLD, PURPLE],   # 100%
-            "almostPerfect": [PURPLE_PALE],         #[PURPLE],         # 90%
+            "match":         [ITALIC, BOLD, PURPLE_PALE],   #[BOLD, PURPLE],   # 100%
+            "static":        [WHITE],
+
+            "negative":      [FLASH, BOLD, GREEN],
+            "perfect":       [BOLD, PURPLE_ALT],   #[BOLD, PURPLE],   # 100%
+            "almostPerfect": [PURPLE_ALT],         #[PURPLE],         # 90%
             "great":         [BOLD, PURPLE],        #[BOLD, MAGENTA],              # 80%
             "good":          [PURPLE],              #[MAGENTA],         # 70%
             "fine":          [BOLD, MAGENTA],       #[PURPLE_PALE],           # 60%
@@ -63,23 +70,87 @@ class S_OUTPUT:
             "bold":          [BOLD]
         }
 
-        defaultStatThresholds = {"perfect": 0.1, "almostPerfect": 0.3375, "great": 0.775, "good": 1.75, "fine": 3.5, "almostFine": 3.75, "meh": 7.5, "bad": 15.0, "worse": 30.0, "emergency": 300.0, "wtf": 3000, "wtf!": 6000, "omg": 60000, "omgwtf": 120000, "omgwtf!": float('inf')}
-        negDefaultStatThresholds = {k: -1*v for k, v in defaultStatThresholds.items()}
+        trainingStepBands = {"perfect": 12800000, "almostPerfect": 6400000, "great": 3200000, "good": 1600000, "fine": 800000, "almostFine": 400000, "meh": 200000, "static": 100000, "bad": 500, "worse": 0.0, "negative": -0.001}
 
-        self.S_statThresholds = {
-            "loss":     defaultStatThresholds,
-            "logitMin": negDefaultStatThresholds,
-            "logitMax": defaultStatThresholds,
-            "gradNorm": defaultStatThresholds, 
+        defaultStatBands = {"negative": -0.001, "perfect": 0.1, "almostPerfect": 0.3375, "great": 0.775, "good": 1.75, "fine": 3.5, "almostFine": 3.75, "meh": 7.5, "bad": 15.0, "worse": 30.0, "emergency": 300.0, "wtf": 600, "wtf!": 3000, "omg": 30000, "omgwtf": 60000, "omgwtf!": float('inf')}
+        neg_defaultStatBands = {k: -1*v for k, v in defaultStatBands.items()}
+        softStatBands = {"negative": -0.001, "perfect": 0.0085, "almostPerfect": 0.0125, "great": 0.025, "good": 0.05, "fine": 0.10, "almostFine": 0.20, "meh": 0.30, "bad": 0.40, "worse": 0.50, "emergency": 0.60, "wtf": 0.90, "wtf!": 1, "omg": 10, "omgwtf": 100, "omgwtf!": float('inf')}
+        neg_softStatBands = {k: -1*v for k, v in softStatBands.items()}
+        repetitionBands = {"negative": 0.999, "perfect": 1.0, "almostPerfect": 1.5, "great": 2, "good": 2.5, "fine": 3, "almostFine": 3.5, "meh": 4, "bad": 4.5, "worse": 5, "emergency": 5.5, "wtf": 6, "wtf!": 60, "omg": 600, "omgwtf": 6000, "omgwtf!": float('inf')}
+        scheduledBands = {"negative": -0.001, "perfect": 1.0, "almostPerfect": 0.9, "great": 0.8, "good": 0.7, "fine": 0.6, "almostFine": 0.5, "meh": 0.4, "bad": 0.3, "worse": 0.2, "emergency": 0.1, "wtf": 0.05, "wtf!": 0.005, "omg": 0.0005, "omgwtf": 0.0, "omgwtf!": -float('inf')}
+
+        stdBands = {"negative": 0.0, "perfect": 0.5, "almostPerfect": 0.55, "great": 0.6, "good": 0.65, "fine": 0.7, "almostFine": 0.75, "meh": 0.8, "bad": 0.85, "worse": 0.9, "emergency": 0.95, "wtf": 1, "wtf!": 10, "omg": 100, "omgwtf": 1000, "omgwtf!": float('inf')}
+        weightMeanBands = {"negative": -float('inf'), "perfect": 0.0, "almostPerfect": 0.01, "great": 0.02, "good": 0.04, "fine": 0.08, "almostFine": 0.16, "meh": 0.32, "bad": 0.64, "worse": 1.28, "emergency": 2.56, "wtf": 5.12, "wtf!": 10.24, "omg": 100, "omgwtf": 1000, "omgwtf!": float('inf')}
+        staticStatBand = {"static": -float('inf')}
+
+        chooseSoon = staticStatBand
+
+        self.S_statBands = {
+            "loss":     defaultStatBands,
+            "avgLoss":  defaultStatBands,
+            "scheduledSampling": scheduledBands,
+            "tokenCount": staticStatBand,
+            "trainingStepCount": trainingStepBands,
+            "repetitionPenalty": repetitionBands,
+            "gradNorm": chooseSoon, # ??
+
+            # NEURON STATS
+            "n_weightMean": weightMeanBands, # ??
+            "n_weightStd": stdBands, # ??
+            "n_weightMin": chooseSoon, # RANGE
+            "n_weightMax": chooseSoon, # RANGE
+
+            "n_biasesMean": chooseSoon, # ??
+            "n_biasesStd": stdBands, # ??
+            "n_biasesMin": chooseSoon, # RANGE
+            "n_biasesMax": chooseSoon, # RANGE
+            "n_sparsity": chooseSoon, # ????? ABS???
+
+            # INTERNEURON NETWORK STATS
+            "INN_cerebellum": chooseSoon, # random tensor? - doesnt work -  INN_cerebellum:<tensor[torch.Size([9])]> 
+            "INN_cerebellumSoft": chooseSoon, # doesnt work - INN_cerebellumSoft:<tensor[torch.Size([9])]> 
+            "INN_cerebellumMean": chooseSoon,
+            "INN_cerebellumStd": stdBands,
+
+            # MEMORY STATS 
+            "shortDecay": softStatBands,
+            "longDecay": softStatBands,
+            "latestMemoryGates": chooseSoon, # doesnt work - latestMemoryGates:<tensor[torch.Size([3])]> 
+
+            # EMBED STATS
+            "embedNormMean": chooseSoon,
+            "embedNormStd": stdBands,
+            "embedNormMax": chooseSoon,
+            "embedDimensionMean": chooseSoon, # doesnt work - embedDimensionMean:<tensor[torch.Size([1024])]> 
+            "embedDimensionSparsity": chooseSoon,
+            "embeddingDrift": chooseSoon,
+
+            # LOGIT STATS
+            "logitMin": chooseSoon, # wants to be higher than -5, also RANGE
+            "logitMax": chooseSoon, # wants to be lower than 5, also RANGE
+            "logitSeq": chooseSoon,  #!!!!!!!!!!! SUS !!!!!!!!!!! logitSeq:ERR:unsupported format string passed to list.__format__ !!!!!!!!!!!!!!! SUS !!!!!!!!!!!!!!!
+
+            "logitWeightNormMean": chooseSoon,
+            "logitWeightNormStd": stdBands,
+            "logitWeightNormMax": chooseSoon,
+            "logitWeightSparsity": chooseSoon,
+            "logitWeightDrift": chooseSoon,
+
+            "logitBiasMean": chooseSoon,
+            "logitBiasStd": stdBands,
+            "logitBiasMax": chooseSoon,
+
         }
+
+        self.avgPlz = []
 
         return
 
     def S_getStat(self, _statType, _statVal):
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
-            thresholds = self.S_statThresholds.get(_statType)
-            if not thresholds: return "reset"
-            for label, limit in thresholds.items():
+            bands = self.S_statBands.get(_statType)
+            if not bands: return "reset"
+            for label, limit in bands.items():
                 if _statVal <= limit: return label
             return "emergency"
 
@@ -128,8 +199,10 @@ class S_OUTPUT:
             delimiter = self.S_apply("dim", " | ")
 
             ʕっʘ‿ʘʔっ("avgStats")
-            doNotAverage = ["avgLoss", "tokenCount", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd"]
-            avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
+            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSampling", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellum", "INN_cerebellumSoft", "INN_cerebellumMean", "INN_cerebellumStd", "shortDecay", "longDecay"]
+            #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
+
+            avgStats = {k: (v / _freq if _freq else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
 
             logOutput = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{learningRate}")])
 
@@ -178,6 +251,73 @@ class S_OUTPUT:
             print(logOutput + "".join(self.S_types.get('reset')))
 
             with open(_trainingLogPath, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
+
+    def willItAverage(self, k, v):
+        if k in self.avgPlz:
+            if isinstance(v, (int, float)): return True
+            if isinstance(v, torch.Tensor) and v.numel() == 1: return True
+        return False
+    
+    def chaosMaths(self, _firstNumbers, _secondNumbers = None, _torch = False, _operator = True):
+        self.t = _torch
+        self.o = _operator
+    
+        operatorMathsForTwo = {
+            "add":     (operator.add, 2),
+            "sub":     (operator.sub, 2),
+            "mul":     (operator.mul, 2),
+            "div":     (operator.truediv, 2),
+            #"floordiv":(operator.floordiv, 2),
+            #"mod":     (operator.mod, 2),
+            #"pow":     (operator.pow, 2),
+        }
+        operatorMathsForOne = {
+            "neg":     (operator.neg, 1),
+        }
+
+        torchMathsForTwo = {
+            "torch_add":     (torch.add, 2),
+            "torch_sub":     (torch.sub, 2),
+            "torch_mul":     (torch.mul, 2),
+            "torch_div":     (torch.div, 2),
+            "torch_pow":     (torch.pow, 2),
+            "torch_max":     (torch.maximum, 2),
+            "torch_min":     (torch.minimum, 2),
+        }
+        torchMathsForOne = {
+            "torch_abs":     (torch.abs, 1),
+            "torch_sin":     (torch.sin, 1),
+            "torch_cos":     (torch.cos, 1),
+            "torch_tanh":    (torch.tanh, 1),
+            "torch_log":     (torch.log1p, 1),   # safer than log(x)
+            "torch_relu":    (torch.relu, 1),
+            "torch_sigmoid": (torch.sigmoid, 1),
+        }
+
+        if _secondNumbers is not None and _secondNumbers.numel() > 0:
+            if self.t and self.o:
+                self.maths = {**torchMathsForTwo, **operatorMathsForTwo}
+            if self.t:
+                self.maths = torchMathsForTwo
+            if self.o:
+                self.maths = operatorMathsForTwo
+    
+        else: 
+            if self.t and self.o:
+                self.maths = {**torchMathsForOne, **operatorMathsForOne}
+            if self.t:
+                self.maths = torchMathsForOne
+            if self.o:
+                self.maths = operatorMathsForOne
+
+        chosenName, (chosenFunction, _) = random.choice(list(self.maths.items()))
+        if _secondNumbers is not None and _secondNumbers.numel() > 0: 
+            result = chosenFunction(_firstNumbers, _secondNumbers)
+        else: 
+            result = chosenFunction(_firstNumbers)
+
+        return result, chosenName
+
 
     if __name__ == "__main__":
         print(S_apply('perfect', "ELODIE IS PERFECT"))

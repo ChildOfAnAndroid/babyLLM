@@ -66,7 +66,7 @@ class S_OUTPUT:
         defaultStatThresholds = {"perfect": 0.1, "almostPerfect": 0.3375, "great": 0.775, "good": 1.75, "fine": 3.5, "almostFine": 3.75, "meh": 7.5, "bad": 15.0, "worse": 30.0, "emergency": 300.0, "wtf": 3000, "wtf!": 6000, "omg": 60000, "omgwtf": 120000, "omgwtf!": float('inf')}
         negDefaultStatThresholds = {k: -1*v for k, v in defaultStatThresholds.items()}
 
-        self.S_statThresholds = {
+        self.S_statBands = {
             "loss":     defaultStatThresholds,
             "logitMin": negDefaultStatThresholds,
             "logitMax": defaultStatThresholds,
@@ -77,7 +77,7 @@ class S_OUTPUT:
 
     def S_getStat(self, _statType, _statVal):
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
-            thresholds = self.S_statThresholds.get(_statType)
+            thresholds = self.S_statBands.get(_statType)
             if not thresholds: return "reset"
             for label, limit in thresholds.items():
                 if _statVal <= limit: return label

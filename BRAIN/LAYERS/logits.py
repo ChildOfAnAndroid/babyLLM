@@ -14,6 +14,7 @@ class LOGITS(nn.Module):
         #self.counsellor = COUNSELLOR("LOGITS", debug = debugPrints, durations = durationLogging)
         self.device = _device
         self.counsellor = _counsellor
+        self.lastSavedWeights = 0 # for stats
 
         self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = self.device)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
         self.l_bias = nn.Parameter(torch.zeros(vocabSize, device = self.device))
@@ -26,14 +27,14 @@ class LOGITS(nn.Module):
             if debugPrints: print(f"Debug logits: activationsTensor shape before @ weights: {activationsTensor.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
             """return logits (not softmax) for better gradient computation in cross-entropy loss"""
-            #logitOutputNormalized = (activationsTensor @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
+            logitOutputNormalized = (activationsTensor @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
             logitOutputOriginal = activationsTensor @ self.l_weights + self.l_bias
-            #logitOutput = (logitOutputOriginal + logitOutputNormalized)/2
+            logitOutput = (logitOutputOriginal + logitOutputNormalized)/2
             if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
-            return logitOutputOriginal
+            return logitOutput
     
-    def getOutputStats(self):
-        with self.counsellor.infodump("getOutputStats") as ʕっʘ‿ʘʔっ:
+    def getLogitStats(self):
+        with self.counsellor.infodump("getLogitStats") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
                 stats = {}
                 ʕっʘ‿ʘʔっ("weightNormStats")
@@ -65,10 +66,10 @@ class LOGITS(nn.Module):
                     stats["activationMin"] = act.min()
                     stats["activationSparsity"] = (act.abs() < 1e-6).float().mean()
 
-                return stats
+        return stats
 
 if __name__ == "__main__":
-    #TESTlayerActivations = torch.randn(numNeurons)
+    TESTlayerActivations = torch.randn(numNeurons)
 
     logits = LOGITS(numNeurons = numNeurons, vocabSize = vocabSize)
     logitOutput = logits.forward(TESTlayerActivations)

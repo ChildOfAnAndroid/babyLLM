@@ -63,6 +63,17 @@ class MEMORY(nn.Module):
                 self.shortTermMemory.zero_()
                 self.longTermMemory.zero_()
 
+    def getMemoryStats(self):
+        with self.counsellor.infodump("getMemoryStats") as ʕっʘ‿ʘʔっ:
+            with torch.no_grad():
+                stats = {}
+                ʕっʘ‿ʘʔっ("decayStats")
+                stats["shortDecay"] = torch.sigmoid(self.shortTermDecay)
+                stats["longDecay"] = torch.sigmoid(self.longTermDecay)
+                stats["latestMemoryGates"] = self.latestMemoryGates
+
+                return stats
+
 if __name__ == "__main__":
     memory = MEMORY(numNeurons = numNeurons)
     print("--- MEMORY TESTING STARTED ---")

@@ -16,3 +16,4 @@ trainingData.txt
 # No need to commit those, they are raw files
 data/CHARIS
 SCHOOL/library/charisStudies
+*.pth copy

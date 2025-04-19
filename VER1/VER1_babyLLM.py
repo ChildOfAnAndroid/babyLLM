@@ -533,7 +533,7 @@ class BABYLLM(nn.Module):
             """returns a single combined output tensor of shape (1, embedDimension)."""
             return finalOutput
 
-    def babyllm_diary_entry(interneuronNetwork, step):
+    def babyllm_diary_entry(self, interneuronNetwork, step):
         with self.counsellor.infodump("babyllm_diary_entry") as ʕっʘ‿ʘʔっ:
             # Grab current window weightings
             weights = interneuronNetwork.cerebellum.detach().cpu().numpy()

@@ -16,18 +16,17 @@ class EMBED(nn.Module):
 
         """creates the embedding weights matrix with random numbers initially"""
         self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device))
+        self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, shouldnt break graph??
 
     """looks up and returns the embedding vector for a specifc token index"""
     def forward(self, _tokenIndex):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("tokenIndex.to(self.e_weights.device)")
-            #tokenIndex = tokenIndex.to(self.e_weights.device)
             ʕっʘ‿ʘʔっ("self.e_weights[tokenIndex]")
             embedVector = self.e_weights[_tokenIndex] 
             return embedVector 
     
-    def getEmbeddingStats(self):
-        with self.counsellor.infodump("getEmbeddingStats") as ʕっʘ‿ʘʔっ:
+    def getEmbedStats(self):
+        with self.counsellor.infodump("getEmbedStats") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
                 stats = {}
                 embedNorms = torch.norm(self.e_weights, dim=1)
@@ -36,13 +35,14 @@ class EMBED(nn.Module):
                 stats["embedNormMax"] = embedNorms.max()
 
                 dimMean = self.e_weights.mean(dim=0)
+                stats["embedDimensionMean"] = dimMean
                 dimSparsity = (dimMean.abs() < 1e-5).float().mean()
-                stats["embedDimSparsity"] = dimSparsity
+                stats["embedDimensionSparsity"] = dimSparsity
 
                 # Drift since last save
-                drift = torch.norm(self.e_weights - lastSavedEmbeds)
+                drift = torch.norm(self.e_weights - self.lastSavedEmbeds)
                 stats["embeddingDrift"] = drift
-                lastSavedEmbeds = self.e_weights
+                self.lastSavedEmbeds = self.e_weights.detach().clone()
 
                 return stats
         

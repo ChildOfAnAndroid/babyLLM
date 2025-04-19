@@ -27,8 +27,9 @@ class NEURON(nn.Module):
                 ʕっʘ‿ʘʔっ("skipping forward")
                 activations = _inputEmbeds.mean(dim=-1) # Mean across embed_dim, shape (sequence_length,)
                 return activations[-1].unsqueeze(0) # Take LAST activation, unsqueeze to (1, ) for batch dim
+            
             ʕっʘ‿ʘʔっ("computeBatchedDotProduct+bias") # Compute batched dot product + bias: (batch_size, num_neurons)
-            output = torch.matmul(_inputEmbeds, self.n_weights.T) + self.n_biases   
+            output = torch.matmul(_inputEmbeds, self.n_weights.T) + self.n_biases 
 
             ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
             output = activationFunction(output)
@@ -97,6 +98,10 @@ class INTERNEURON_NETWORK(nn.Module):
                 if tinyWindowCount > 0:
                     print(f"saw {perTokenActivationsTensor.shape[0]} tokens; created {tinyWindowCount} empty windows.")
 
+                ʕっʘ‿ʘʔっ("entropyReward?")
+                self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
+                self.entropyBonus = self.windowEntropy.item()
+
                 return combinedActivationsTensor
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
             ʕっʘ‿ʘʔっ("CALL NEURON FORWARD")
@@ -118,20 +123,15 @@ class INTERNEURON_NETWORK(nn.Module):
             # Compute attention scores between every pair of windows (32x32 matrix)
 
             ʕっʘ‿ʘʔっ("scores")
-            scores = torch.matmul(query, key.T) / temperature
+            self.scores = torch.matmul(query, key.T) / temperature
 
             ʕっʘ‿ʘʔっ("selfScores & peerScores") # separate self scores (diagonal) and peer scores (off-diagonals)
-            selfScores = torch.diag(scores) # self score for window i: scores[i, i] (shape: (32,))
-            peerScores = scores.sum(dim=0) - selfScores # peer scores for window j: sum of scores[i, j] for all i != j (shape: (32,))
+            self.selfScores = torch.diag(self.scores) # self score for window i: scores[i, i] (shape: (32,))
+            self.peerScores = self.scores.sum(dim=0) - self.selfScores # peer scores for window j: sum of scores[i, j] for all i != j (shape: (32,))
             ʕっʘ‿ʘʔっ("combinedScores")
-            combinedScores = selfScores + peerScores # shape: (32,)
-            softCombinedScores = F.softmax(combinedScores, dim=0)
-            attentionWindowWeights = softCombinedScores  # shape: (32,), sum = 1
-
-            #if debugPrints:
-            #print(f"attentionWindowWeights: {attentionWindowWeights}")
-            #windowEntropy = -torch.sum(attentionWindowWeights * torch.log(attentionWindowWeights + 1e-12))
-            #print(f"windowEntropy: {windowEntropy}")
+            self.combinedScores = self.selfScores + self.peerScores # shape: (32,)
+            softCombinedScores = F.softmax(self.combinedScores, dim=0)
+            self.attentionWindowWeights = softCombinedScores  # shape: (32,), sum = 1
 
             ʕっʘ‿ʘʔっ("parliamentBlendMix") # learned mix instinct vs votes
             parliamentBlendClamped = torch.sigmoid(self.parliamentBlend)  # stays in [0, 1]
@@ -139,13 +139,9 @@ class INTERNEURON_NETWORK(nn.Module):
             if skipINNparliament:
                 combinedWindowWeights = self.cerebellumSoft
             else:
-                blended = ((1.0 - parliamentBlendClamped) * self.cerebellum + parliamentBlendClamped * combinedScores) * self.cerebellum
+                blended = ((1.0 - parliamentBlendClamped) * self.cerebellum + parliamentBlendClamped * self.combinedScores) * self.cerebellum
                 combinedWindowWeights = F.softmax(blended, dim=0)
                 
-            ʕっʘ‿ʘʔっ("entropyReward?")
-            #entropy = windowEntropy
-            #self.entropyBonus = entropy.item()  # optional for logging
-                        
             ʕっʘ‿ʘʔっ("formatWindowVoteString")
             #parliamentBlend_str = f"{self.parliamentBlend.item():.3f}"
             topWeights = sorted(zip(allWindowSizes_new, combinedWindowWeights.tolist()), key=lambda x: x[1], reverse=True)
@@ -160,6 +156,11 @@ class INTERNEURON_NETWORK(nn.Module):
 
             raw = comboViews.mean(dim=0, keepdim=True) # keeps gradients open
             windowContextVector = windowContextVector + 0.2 * raw
+
+            ʕっʘ‿ʘʔっ("entropyReward?")
+            self.windowEntropy = -torch.sum(self.attentionWindowWeights * torch.log(self.attentionWindowWeights + 1e-12))
+            self.entropyBonus = self.windowEntropy.item()
+
             return windowContextVector
         
     def stackedWindowMeans(self, activations: torch.Tensor, windowSizes: list[int]) -> torch.Tensor:
@@ -190,6 +191,10 @@ class INTERNEURON_NETWORK(nn.Module):
     
     def INN_getStats(self):
         with self.inn_counsellor.infodump("INN_getStats") as ʕっʘ‿ʘʔっ:
+            INN_cerebellum_str = ""
+            INN_credibilityBias_str = ""
+            INN_judgeBias_str = ""
+            self.windowVotes_str = ""
             stats = {}
             if collectStats and n_collectStats:
                 ʕっʘ‿ʘʔっ("torch.no_grad♥")
@@ -204,11 +209,11 @@ class INTERNEURON_NETWORK(nn.Module):
                     
                     if n_weightNormStats:
                         ʕっʘ‿ʘʔっ("♥n_weightNormStats")
-                        #stats["n_weightNorm"] = torch.norm(self.neurons.n_weights, dim=1)
-                        #stats["n_weightNormMean"] = stats["n_weightNorm"].mean()
-                        #stats["n_weightNormMax"] = stats["n_weightNorm"].min()
-                        #stats["n_weightNormMin"] = stats["n_weightNorm"].max()
-                        #if debugPrints: print(f"neuron weightNorm: {stats["n_weightNorm"]} mean: {stats["n_weightNormMean"]} min: {stats["n_weightNormMax"]} max: {stats["n_weightNormMin"]}")
+                        stats["n_weightNorm"] = torch.norm(self.neurons.n_weights, dim=1)
+                        stats["n_weightNormMean"] = stats["n_weightNorm"].mean()
+                        stats["n_weightNormMax"] = stats["n_weightNorm"].min()
+                        stats["n_weightNormMin"] = stats["n_weightNorm"].max()
+                        if debugPrints: print(f"neuron weightNorm: {stats["n_weightNorm"]} mean: {stats["n_weightNormMean"]} min: {stats["n_weightNormMax"]} max: {stats["n_weightNormMin"]}")
 
                     if n_biasesStats:
                         ʕっʘ‿ʘʔっ("♥n_biasesStats")                    
@@ -237,8 +242,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellum"], stats["INN_cerebellumSoft"]), key=lambda x: x[1], reverse=True)
                         INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCerebellum)
                         if debugPrints: print(f"{INN_cerebellum_str}")
-                    else:
-                        INN_cerebellum_str = ""
+
 
                     if INN_credibilityBiasStats:
                         ʕっʘ‿ʘʔっ("♥getCredibilityBiasStats")
@@ -251,8 +255,6 @@ class INTERNEURON_NETWORK(nn.Module):
                         INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key=lambda x: x[1], reverse=True)
                         INN_credibilityBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCredibilityBias)
                         if debugPrints: print(f"{INN_credibilityBias_str}") 
-                    else:
-                        INN_credibilityBias_str = ""
 
                     if INN_judgeBiasStats:
                         ʕっʘ‿ʘʔっ("♥getJudgeBiasStats")
@@ -265,8 +267,6 @@ class INTERNEURON_NETWORK(nn.Module):
                         INN_hybridJudgeBias = sorted(zip(allWindowSizes_new, stats["INN_judgeBiasSoft"], stats["INN_judgeBias"]), key=lambda x: x[1], reverse=True)
                         INN_judgeBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridJudgeBias)
                         if debugPrints: print(f"{INN_judgeBias_str}")
-                    else:
-                        INN_judgeBias_str = ""
                         
                     if INN_scoringStats:
                         ʕっʘ‿ʘʔっ("♥getScoringStats")
@@ -280,18 +280,13 @@ class INTERNEURON_NETWORK(nn.Module):
                     if INN_windowStats:
                         ʕっʘ‿ʘʔっ("♥windowStats")
                         windowVotes_str = self.windowVotes_str
-                        #stats["INN_topWindowWeight"] = attentionWindowWeights.max()
-                        #stats["INN_windowStd"] = INN_attentionWindowWeights.std()
-                        #stats["INN_windowEntropy"] = 
-                        #stats["INN_effectiveWindowCount"] = torch.exp(torch.tensor(INN_windowEntropy))
-                        if debugPrints: print(f"window stats: top: {stats["INN_topWindowWeight"]} std: {stats["INN_windowStd"]} entropy: {stats["INN_windowEntropy"]} effective window count: {stats["INN_effectiveWindowCount"]}")
-                    else:
-                        windowVotes_str = ""
+                        #stats["INN_topWindowWeight"] = self.attentionWindowWeights.max()
+                        #stats["INN_windowStd"] = self.attentionWindowWeights.std()
+                        #stats["INN_windowEntropy"] = self.entropyBonus
+                        #stats["INN_effectiveWindowCount"] = torch.exp(torch.tensor(self.windowEntropy))
+                        #if debugPrints: print(f"window stats: top: {stats["INN_topWindowWeight"]} std: {stats["INN_windowStd"]} entropy: {stats["INN_windowEntropy"]} effective window count: {stats["INN_effectiveWindowCount"]}")
 
-            if collectStats:
-                return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str   
-            else:
-                return stats
+        return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str, windowVotes_str 
     
 if __name__ == "__main__":
     interneuronNetwork = INTERNEURON_NETWORK()

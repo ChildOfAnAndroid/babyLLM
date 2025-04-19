@@ -31,11 +31,11 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 499     # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 999     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
-saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = False    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
-modelFilePath = "BRAIN/soul/babyLLM_legacy_x.pth"     # where your currently trained saved boi is :)
+modelFilePath = "BRAIN/soul/babyllm.pth"     # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
@@ -68,12 +68,16 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
 temperature = 0.7     # temperature for softmax in response generation - controls randomness
+temperatureIncrement = 0.00001
+
 topP = 0     # top P - probability
-numTokensPerStep = 18     # Number of tokens to predict per step
+numTokensPerStep = 32     # Number of tokens to predict per step
+tokenIncrement = 0.0001
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
 memoryLength = 1000
+memoryLengthIncrement = 0.0001
 
 """optimizer"""
 learningRate = 0.00035     # // 0.0005 // 0.00005 // 0.00001 //
@@ -81,10 +85,16 @@ optimizerName = "AdamW"     # // "AdamW" //~decoupled weights adam, helps avoid 
 activationFunction = leakyRelu       # // leakyRely // relu //
 
 gradientClipMaxNorm = 1.0
+gradClipIncrement = 0.00001
 
 """scheduled sampling"""
 scheduledSampling = True 
-scheduledSamplingProbIncrement = 0.00000001     # // 0.0001 //~increment probability of using model output by this much PER TURN
+scheduledSamplingIncrement = 0.00002     # // 0.0001 //~increment probability of using model output by this much PER TURN
+
+"""repetition penalty"""
+penaltyWindow = 16          # how many tokens to look back for repetition
+repetitionPenalty = 1.6
+repetitionPenaltyIncrement = -0.00005
 
 """--- TRAINING ---"""
 trainingDataSliceSize_min = 50
@@ -98,9 +108,8 @@ epochs = 20
 trainingLogFreq_1000 = -2    # creates logs every x number of turns
 trainingLogFreq_100 = 100     # creates logs every x number of turns
 
-printFreq = 5
-     # how often to print training progress to the terminal
-printPromptLength = 50     # how many characters of the prompt to display in terminal
+printFreq = 5     # how often to print training progress to the terminal
+printPromptLength = 90     # how many characters of the prompt to display in terminal
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
@@ -119,21 +128,35 @@ durationLogging_babyLLM = False
 durationLogging_TUTOR = False
 
 """--- STATS COLLECTION ---"""
+profiler = False
+mpsProfiler = False
+forwardProfiler = False
+
 collectStats = True
+static_collectStats = True
+
+embed_collectStats = True
+token_collectStats = True 
+
+logit_collectStats = True
+
 n_collectStats = True
 INN_collectStats = True
+
+memory_collectStats = True
 
 # neuron + interneuronNetwork
 n_weightStats = True
 n_weightNormStats = True
 n_biasesStats = True
 n_sparsityStat = True
+
 INN_cerebellumStats = True
-INN_credibilityBiasStats = False
-INN_judgeBiasStats = False
-INN_scoringStats = False
-INN_windowStats = False
-INN_outputTensorStats = False
+INN_credibilityBiasStats = True
+INN_judgeBiasStats = True
+INN_scoringStats = True
+INN_windowStats = True
+INN_outputTensorStats = True
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 

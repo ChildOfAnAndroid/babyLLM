@@ -229,16 +229,16 @@ class LIBRARIAN:
 # EXAMPLE RUNNING
 if __name__ == "__main__":
 
-    vocab = VOCAB(vocabSize = vocabSize)
+    librarian = LIBRARIAN(vocabSize = vocabSize)
 
-    print(f"--- 1701-2000 ---: {vocab.vocabList[1701:2000]}")
-    print(f"--- 1001-1700 ---: {vocab.vocabList[301:1700]}")
-    print(f"--- 301-1000 ---: {vocab.vocabList[301:1000]}")
-    print(f"--- 101-300 ---: {vocab.vocabList[101:300]}")
-    print(f"--- Top 100 ---: {vocab.vocabList[:100]}")
-    print(f"vocab size: {len(vocab.vocabList)}")
+    print(f"--- 1701-2000 ---: {self.vocabList[1701:2000]}")
+    print(f"--- 1001-1700 ---: {self.vocabList[301:1700]}")
+    print(f"--- 301-1000 ---: {self.vocabList[301:1000]}")
+    print(f"--- 101-300 ---: {self.vocabList[101:300]}")
+    print(f"--- Top 100 ---: {self.vocabList[:100]}")
+    print(f"vocab size: {len(self.vocabList)}")
 
     #print(vocab.huggingTokenizer("charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"))
     sample_text = "charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"
-    tokenizedOutput = vocab.tokenizeText(sample_text)
+    tokenizedOutput = self.tokenizeText(sample_text)
     print(f"Tokenized: {tokenizedOutput}")

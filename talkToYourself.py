@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from babyLLM import BABYLLM
 from SCHOOL.staffroom.librarian import VOCAB
-from BRAIN.LAYERS.S_output import S_OUTPUT
+from SCHOOL.staffroom.calligraphist import S_OUTPUT
 from SCHOOL.staffroom.librarian import VOCAB
 from SCHOOL.staffroom.counsellor import *
 from config import *
@@ -131,7 +131,7 @@ def trainOnAnswer(inputText, targetText):
             normWeights = (babyLLM.parallelNeuronLayer.cerebellum + 0.1)
             normWeights /= (normWeights.sum() + 0.1)
             sortedWeights = sorted(
-                zip(allWindowSizes, normWeights),
+                zip(allWindowSizes_new, normWeights),
                 key=lambda x: x[1],
                 reverse=True
             )
@@ -160,7 +160,7 @@ def trainOnAnswer(inputText, targetText):
         """PRINTING LOSS TO LOGS AND TERMINAL"""
         if trainingStepCounter == 0:
             userNote = input("what am i learning today?").strip()
-            scheduledSamplingProb += scheduledSamplingProbIncrement
+            scheduledSampling += scheduledSamplingIncrement
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             runStart = f"\n--- {timestamp} ---"
             runStart += f"\nbabyLLM: what am i learning today?"
@@ -191,7 +191,7 @@ def trainOnAnswer(inputText, targetText):
                 logitRange_str=f"{avgLogitMin:.2f} → {avgLogitMax:.2f}",
                 windowWeights_str=windowWeights_str,
                 gradientNorm_str=f"{avgGradNorm:.3f}",
-                scheduledSamplingProb_str = "",
+                scheduledSampling_str = "",
                 epoch_str = "",
                 prompt = "",
                 guess = "",
@@ -226,7 +226,7 @@ def trainOnAnswer(inputText, targetText):
                 logitRange_str=f"{avgLogitMin_100:.2f} → {avgLogitMax_100:.2f}",
                 windowWeights_str=windowWeights_str,
                 gradientNorm_str=f"{avgGradNorm_100:.3f}",
-                scheduledSamplingProb_str = "",
+                scheduledSampling_str = "",
                 epoch_str = "",
                 prompt = "",
                 guess = "",

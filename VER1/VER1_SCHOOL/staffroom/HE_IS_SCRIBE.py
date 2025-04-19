@@ -106,7 +106,7 @@ class SCRIBE:
             ]}
         }
         mood = None
-        for k, threshold in self.s_output.S_statThresholds["loss"].items():
+        for k, threshold in self.s_output.S_statBands["loss"].items():
             if k in moodBoard and _lossValue < threshold:
                 mood = moodBoard.get(k, None)
                 break
