@@ -10,7 +10,7 @@ from BRAIN.LAYERS.embedLayer import EMBEDLAYER
 from BRAIN.LAYERS.parallelNeuronLayer import PARALLELNEURONLAYER
 from BRAIN.LAYERS.outputLayer import OUTPUTLAYER
 from BRAIN.LAYERS.memoryLayer import MEMORYLAYER
-import BRAIN.LAYERS.S_output as S_output
+import SCHOOL.staffroom.S_output as S_output
 from config import *
 from datetime import datetime
 import random, os, sys, shutil, time

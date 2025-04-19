@@ -7,11 +7,12 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
-from SCHOOL.staffroom.librarian import LIBRARIAN
+
 from BRAIN.LAYERS.embed import EMBED
 from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
 from BRAIN.LAYERS.logits import LOGITS
 from BRAIN.LAYERS.memory import MEMORY
+#from BRAIN.LAYERS.sensoryWobble import WOBBLE
 from config import *
 
 """this class combines all the core components of the babyLLM:"""
@@ -20,19 +21,22 @@ from config import *
 """LOGITS: output layer to generate logits"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
-    def __init__(self, _counsellor, _s_output, _scribe, _librarian, _device = modelDevice):
+    def __init__(self, _counsellor, _s_output, _scribe, _librarian, _wobble, _device = modelDevice):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
         self.s_output = _s_output
         self.scribe = _scribe
         self.librarian = _librarian
+        #self.wobble = _wobble
 
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
         self.stats = {}
-        self.scheduledSamplingProb = 0
+        self.scheduledSampling = 0
         self.totalTokenEvaluations = 0
         self.totalTokenEvaluations_100 = 0
+        self.recentGeneratedTokens = []  # used for repetition penalty
+        self.learningRate = learningRate
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
@@ -131,7 +135,7 @@ class BABYLLM(nn.Module):
                 #return
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    if debugPrints: print(f"NO GRAD before backward: No grad for {name}")
+                    print(f"NO GRAD before backward: No grad for {name}")
                 else:
                     if debugPrints: print(f"grad before backward for {name} - requires_grad: {p.requires_grad}")
             with torch.autograd.set_detect_anomaly(anomalyDetect):
@@ -140,7 +144,7 @@ class BABYLLM(nn.Module):
                 #print(next(self.parameters()).grad)
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    if debugPrints: print(f"NO GRAD after backward: No grad for {name}")
+                    print(f"NO GRAD after backward: No grad for {name}")
                 else: 
                     if debugPrints: 
                         print(f"grad after backward for {name} - requires_grad: {p.requires_grad}")
@@ -153,12 +157,48 @@ class BABYLLM(nn.Module):
             self.optimizer.step()  # Update weights
                 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
-    def getResponseFromLogits(self, _logits, _temperature = temperature):
+    """def getResponseFromLogits(self, _logits, _temperature = temperature):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
             _logits /= _temperature
             if debugPrints: print(f"Debug BABYLLM.getResponseFromLogits: logits shape BEFORE softmax: {_logits.shape}")
+            if _logits.dim() == 1: _logits = _logits.unsqueeze(0)
             probs = torch.softmax(_logits, dim=1)
             responseFromLogits = torch.multinomial(probs, 1)
+            return responseFromLogits"""
+        
+
+    def getResponseFromLogits(self, _logits, _temperature = temperature, _repetitionPenalty = repetitionPenalty):
+        with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
+            self.repetitionPenalty = _repetitionPenalty
+            _logits / _temperature
+
+            if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
+
+            # repetition penalty
+            if self.recentGeneratedTokens:
+                #stats = {}
+                last_tokens = self.recentGeneratedTokens[-penaltyWindow:]
+                unique_tokens = set(last_tokens)
+                repeated_tokens = [t for t in last_tokens if last_tokens.count(t) > 1]
+                repeatedPercent = len(repeated_tokens) / len(last_tokens)
+
+                #stats.update({"repetitionRatio": repeatedPercent})
+
+                for token in unique_tokens:
+                    _logits[0, token] /= self.repetitionPenalty  # reduce score of repeated token
+
+                if debugPrints:
+                    print(f"[REP PENALTY] {repeatedPercent:.2%} repeated | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in unique_tokens]}")
+
+            # Sample from softmaxed logits
+            probs = torch.softmax(_logits, dim=1)
+            responseFromLogits = torch.multinomial(probs, 1)
+
+            # history buffer
+            self.recentGeneratedTokens.append(responseFromLogits.item())
+            if len(self.recentGeneratedTokens) > penaltyWindow * 2:
+                self.recentGeneratedTokens.pop(0)
+
             return responseFromLogits
 
     def getNextToken(self, _inputSeq, _temperature = temperature):  
@@ -166,44 +206,6 @@ class BABYLLM(nn.Module):
             logits, *_ = self.forward(_inputSeq) # unpacks the first value of the tuple and ignores the rest
             nextToken = self.getResponseFromLogits(logits, _temperature)
             return nextToken
-    
-    """calculates and returns display stats, non numbers, as a string"""
-    def getStringStats(self, _guessedTokenSeq, _tokenCounts):
-        with self.counsellor.infodump("getStringStats") as ʕっʘ‿ʘʔっ:
-            if collectStats:
-                stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str,  windowVotes_str = self.interneuronNetwork.INN_getStats()
-            else:
-                stats = self.interneuronNetwork.INN_getStats()
-
-            if _guessedTokenSeq: 
-                ʕっʘ‿ʘʔっ("guessedTokenSeq")
-                _tokenCounts.update(_guessedTokenSeq)
-            topTokens = _tokenCounts.most_common(10)
-
-            if self.totalTokenEvaluations > 0:
-                ʕっʘ‿ʘʔっ("tokenPerfectRate")
-                tokenPerfectRate = (self.perfectTokenCount / self.totalTokenEvaluations) * 100
-                tokenPerfect_str = f"{S_OUTPUT.S_apply('perfect', f'tokenPerfect: {self.perfectTokenCount} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%"
-            else: tokenPerfect_str = ""
-            if collectStats:
-                INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str), "INN_judgeBias_str": str(INN_judgeBias_str), "INN_credibilityBias_str": str(INN_credibilityBias_str), "windowVotes_str": str(windowVotes_str)}
-            else:
-                INN_stringStats = {k: "" for k in ["INN_cerebellum_str", "INN_judgeBias_str", "INN_credibilityBias_str", "windowVotes_str"]}
-
-            stringStats = {"tokenPerfect": str(tokenPerfect_str), "topTokens": str(topTokens)}
-            stringStats.update(INN_stringStats)
-
-            return stringStats
-        
-    def getComplexStats(self):
-        with self.counsellor.infodump("getComplexStats") as ʕっʘ‿ʘʔっ:
-            
-            #self.stats["embedMean"] = embeds.mean()
-            #self.stats["embedStd"] = embeds.std()
-            #self.stats["meanActivation"] = activations.mean()
-            #self.stats["activationSparsity"] = (activations.abs() < 1e-6).float().mean()
-            
-            return self.stats
         
     def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex, _trainingStepCounter = 0):
         with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
@@ -274,6 +276,10 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemoryReset = 0 
                     print(f"resetting memory after {memoryLength} steps...")
 
+    #def setLearningRate(self, _newLearningRate):
+    #    self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
+    #    for param_group in self.optimizer.param_groups:
+    #        param_group["lr"] = self.learningRate
     
 if __name__ == "__main__":
     exit(0)
