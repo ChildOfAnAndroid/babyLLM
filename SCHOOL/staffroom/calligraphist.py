@@ -48,7 +48,7 @@ class S_OUTPUT:
             "match":         [ITALIC, BOLD, PURPLE_PALE],   #[BOLD, PURPLE],   # 100%
             "static":        [WHITE],
 
-            "negative":      [FLASH, BOLD, GREEN],
+            "negative":      [BOLD, GREEN],
             "perfect":       [BOLD, PURPLE_ALT],   #[BOLD, PURPLE],   # 100%
             "almostPerfect": [PURPLE_ALT],         #[PURPLE],         # 90%
             "great":         [BOLD, PURPLE],        #[BOLD, MAGENTA],              # 80%
@@ -63,7 +63,7 @@ class S_OUTPUT:
             "wtf!":          [BOLD, ORANGE],
             "omg":           [RED_BRIGHT],
             "omgwtf":        [BOLD, RED_BRIGHT],
-            "omgwtf!":       [FLASH, BOLD, RED_BRIGHT],
+            "omgwtf!":       [ITALIC, BOLD, RED_BRIGHT],
 
             "reset":         [RESET],               # normal terminal
             "dim":           [RESET, DIM],          # dim style for background elements - arrows, colons, etc.
