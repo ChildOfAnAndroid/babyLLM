@@ -1,14 +1,17 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 
+from rich.traceback import install
 import sys, traceback, warnings, torch, os, random
 from datetime import datetime
+
 from babyLLM import BABYLLM
 from SCHOOL.staffroom.counsellor import COUNSELLOR
-from BRAIN.LAYERS.S_output import S_OUTPUT
+from SCHOOL.staffroom.calligraphist import S_OUTPUT
 from SCHOOL.staffroom.librarian import LIBRARIAN
 from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
+#from BRAIN.LAYERS.sensoryWobble import WOBBLE
 from config import *
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -18,12 +21,12 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = handle_exception
 warnings.simplefilter("default") # show all warnings (PyTorch hides some by default)
-torch.autograd.set_detect_anomaly(True)
+torch.autograd.set_detect_anomaly(anomalyDetect)
+install(show_locals=True)
 
 def wakeup():
     try:
         # WAKE UP THE SCHOOL :)
-        
         counsellor = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
         with counsellor.infodump("wakeup") as ʕっʘ‿ʘʔっ:
 
@@ -37,15 +40,18 @@ def wakeup():
             if debugPrints: print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
 
             ʕっʘ‿ʘʔっ("loading chaos agents...")
-            s_output = S_OUTPUT(_counsellor = counsellor)
-            scribe = SCRIBE(_counsellor = counsellor, _s_output = s_output, _librarian = librarian)
+            calligraphist = S_OUTPUT(_counsellor = counsellor)
+            scribe = SCRIBE(_counsellor = counsellor, _s_output = calligraphist, _librarian = librarian)
+            #wobble = WOBBLE(_counsellor = counsellor, _calligraphist = calligraphist, _device = modelDevice, _activationFunction = activationFunction)
 
             ʕっʘ‿ʘʔっ("waking up tutor...")
-            tutor = TUTOR(_counsellor = counsellor, _s_output = s_output, _scribe = scribe, _librarian = librarian)
+            tutor = TUTOR(_counsellor = counsellor, _s_output = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = None, _device = modelDevice)
 
             # WAKE UP THE BABY :)
             ʕっʘ‿ʘʔっ("loading babyLLM...")
-            babyLLM = BABYLLM(_counsellor = counsellor, _s_output = s_output, _scribe = scribe, _librarian = librarian, _device = modelDevice)
+            babyLLM = BABYLLM(_counsellor = counsellor, _s_output = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = None, _device = modelDevice)
+            babyLLM.loadModel()
+            #wobble.to(modelDevice)
             babyLLM.to(modelDevice)
 
             # START THE LESSONS :)
@@ -53,27 +59,31 @@ def wakeup():
             tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex, _model = babyLLM)
 
     except Exception as e:
-        print(f"[RIP ʕっₓᴥₓʔっ]: {e}")
+        print(f"[RIP ʕっₓᴥₓʔっ]")
         raise
     except KeyboardInterrupt:
         ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
+        if tutor.trainingStepCounter:
+            step = tutor.trainingStepCounter
+        else:
+            step = 1
         choice = input("save, cancel (do not save before exit) or interact?" + f"\n{userName}: ").lower()
         if choice in ("save", "") or choice.startswith("s"): 
             ʕっʘ‿ʘʔっ("♥choice = s")
-            babyLLM.saveModel(_newStartIndex = newStartIndex)
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
             print("\nit's rude to interrupt people.. but, bye bye! :)")
         elif choice == "cancel" or choice.startswith("c"): 
             ʕっʘ‿ʘʔっ("♥choice = c")
             print("\nhey! i wanted to remember that! :(")
         elif choice == "interact" or choice.startswith("i"):
             ʕっʘ‿ʘʔっ("♥choice = i")
-            babyLLM.saveModel(_newStartIndex = newStartIndex)
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
             import code
-            print("try:\nbabyLLM.stats\nbabyLLM.scheduledSamplingProb\nbabyLLM.memory.memory\nbabyLLM.interneuronNetwork.cerebellum\nbabyLLM.logits.forward(...)\nUse `exit()` to return to terminal.\n")
+            print("try:\nbabyLLM.stats\nbabyLLM.scheduledSampling\nbabyLLM.memory.memory\nbabyLLM.interneuronNetwork.cerebellum\nbabyLLM.logits.forward(...)\nUse `exit()` to return to terminal.\n")
             code.interact(local=locals())
         else: 
             ʕっʘ‿ʘʔっ("♥choice = None")
-            babyLLM.saveModel(_newStartIndex = newStartIndex)
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
             print("\nuhh... i'm confused, but i saved anyway!")
         sys.exit(8)
 

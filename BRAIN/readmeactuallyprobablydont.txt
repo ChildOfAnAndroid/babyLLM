@@ -29,7 +29,7 @@ MODEL TRAINING FLOW AFTER TOKENIZATION:
 
 --- USING STUFF ---
 how to call stat thresholds for a particular stat:
-        self.s_output.S_statThresholds["loss"]["perfect"] # will cause key error
-        self.s_output.S_statThresholds["loss"].get("perfect", None) # will ignore key error
+        self.s_output.S_statBands["loss"]["perfect"] # will cause key error
+        self.s_output.S_statBands["loss"].get("perfect", None) # will ignore key error
 
 
