@@ -11,7 +11,7 @@ from SCHOOL.staffroom.calligraphist import S_OUTPUT
 from SCHOOL.staffroom.librarian import LIBRARIAN
 from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
-#from BRAIN.LAYERS.sensoryWobble import WOBBLE
+from BRAIN.LAYERS.sensoryWobble import WOBBLE
 from config import *
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -42,16 +42,16 @@ def wakeup():
             ʕっʘ‿ʘʔっ("loading chaos agents...")
             calligraphist = S_OUTPUT(_counsellor = counsellor)
             scribe = SCRIBE(_counsellor = counsellor, _s_output = calligraphist, _librarian = librarian)
-            #wobble = WOBBLE(_counsellor = counsellor, _calligraphist = calligraphist, _device = modelDevice, _activationFunction = activationFunction)
+            wobble = WOBBLE(_counsellor = counsellor, _calligraphist = calligraphist, _device = modelDevice, _activationFunction = activationFunction)
 
             ʕっʘ‿ʘʔっ("waking up tutor...")
-            tutor = TUTOR(_counsellor = counsellor, _s_output = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = None, _device = modelDevice)
+            tutor = TUTOR(_counsellor = counsellor, _s_output = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = wobble, _device = modelDevice)
 
             # WAKE UP THE BABY :)
             ʕっʘ‿ʘʔっ("loading babyLLM...")
-            babyLLM = BABYLLM(_counsellor = counsellor, _s_output = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = None, _device = modelDevice)
+            babyLLM = BABYLLM(_counsellor = counsellor, _s_output = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = wobble, _device = modelDevice)
             babyLLM.loadModel()
-            #wobble.to(modelDevice)
+            wobble.to(modelDevice)
             babyLLM.to(modelDevice)
 
             # START THE LESSONS :)

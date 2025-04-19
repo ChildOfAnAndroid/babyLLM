@@ -10,13 +10,12 @@ from config import *
 class EMBED(nn.Module):
     def __init__(self, _counsellor, _device = modelDevice):
         super().__init__()
-        #self.counsellor = COUNSELLOR("EMBED", debug=debugPrints, durations=durationLogging)
         self.counsellor = _counsellor
         self.device = _device
 
         """creates the embedding weights matrix with random numbers initially"""
         self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device))
-        self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, shouldnt break graph??
+        self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, DOES NOT BREAK GRAPH CONFIRMED!!
 
     """looks up and returns the embedding vector for a specifc token index"""
     def forward(self, _tokenIndex):

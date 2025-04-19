@@ -33,7 +33,7 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 """--- MODEL ---"""
 saveModelFreq = 999     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
-saveStrict = False    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 modelFilePath = "BRAIN/soul/babyllm.pth"     # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
@@ -119,6 +119,7 @@ skipNeuron = False
 skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!
 skipINNparliament = False
 skipMemory = False
+skipWobble = True
 
 skipComputeLoss = False
 

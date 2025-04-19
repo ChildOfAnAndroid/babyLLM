@@ -11,7 +11,6 @@ from config import *
 class LOGITS(nn.Module):
     def __init__(self, _counsellor, _device):
         super().__init__()
-        #self.counsellor = COUNSELLOR("LOGITS", debug = debugPrints, durations = durationLogging)
         self.device = _device
         self.counsellor = _counsellor
         self.lastSavedWeights = 0 # for stats
