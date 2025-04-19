@@ -71,13 +71,8 @@ class BABYLLM(nn.Module):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
             if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
 
-            ʕっʘ‿ʘʔっ("inputIndices") # convert inputted tokens to indices (batch processing instead of looping)
-            #inputIndices = [self.librarian.tokenToIndex.get(tokenString, self.librarian.tokenToIndex["<UNK>"]) if not isinstance(tokenString, int) else tokenString for tokenString in inputSeq]
-
             ʕっʘ‿ʘʔっ("inputEmbeds") # convert indices to embeddings
             inputEmbeds = []
-            #inputIndicesTensor = torch.tensor(inputIndices, device = self.device)
-            if debugPrints: print(f"Debug BABYLLM.forward: inputIndicesTensor requires_grad: {_inputSeq.requires_grad} [EXPECTED: FALSE]")
             inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
             if debugPrints: print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
@@ -86,7 +81,6 @@ class BABYLLM(nn.Module):
             if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(interneuronNetworkOutput)}") 
 
             ʕっʘ‿ʘʔっ("combinedActivationsTensor") # RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING
-            #combinedActivationsTensor = torch.mean(interneuronNetworkOutput, dim=0, keepdim=True)
             combinedActivationsTensor = interneuronNetworkOutput
             if debugPrints: print("combinedActivationsTensor.requires_grad:", combinedActivationsTensor.requires_grad)
             if debugPrints: print("combinedActivationsTensor.grad_fn:", combinedActivationsTensor.grad_fn)
@@ -135,7 +129,7 @@ class BABYLLM(nn.Module):
                 #return
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    print(f"NO GRAD before backward: No grad for {name}")
+                    if debugPrints: print(f"NO GRAD before backward: No grad for {name}")
                 else:
                     if debugPrints: print(f"grad before backward for {name} - requires_grad: {p.requires_grad}")
             with torch.autograd.set_detect_anomaly(anomalyDetect):
@@ -144,7 +138,7 @@ class BABYLLM(nn.Module):
                 #print(next(self.parameters()).grad)
             for name, p in self.named_parameters():
                 if p.grad is None:
-                    print(f"NO GRAD after backward: No grad for {name}")
+                    if debugPrints: print(f"NO GRAD after backward: No grad for {name}")
                 else: 
                     if debugPrints: 
                         print(f"grad after backward for {name} - requires_grad: {p.requires_grad}")
@@ -176,13 +170,12 @@ class BABYLLM(nn.Module):
 
             # repetition penalty
             if self.recentGeneratedTokens:
-                #stats = {}
                 last_tokens = self.recentGeneratedTokens[-penaltyWindow:]
                 unique_tokens = set(last_tokens)
                 repeated_tokens = [t for t in last_tokens if last_tokens.count(t) > 1]
                 repeatedPercent = len(repeated_tokens) / len(last_tokens)
 
-                #stats.update({"repetitionRatio": repeatedPercent})
+                self.stats.update({"repetitionRatio": repeatedPercent})
 
                 for token in unique_tokens:
                     _logits[0, token] /= self.repetitionPenalty  # reduce score of repeated token
@@ -276,10 +269,10 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemoryReset = 0 
                     print(f"resetting memory after {memoryLength} steps...")
 
-    #def setLearningRate(self, _newLearningRate):
-    #    self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
-    #    for param_group in self.optimizer.param_groups:
-    #        param_group["lr"] = self.learningRate
+    def setLearningRate(self, _newLearningRate):
+        self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = self.learningRate
     
 if __name__ == "__main__":
     exit(0)

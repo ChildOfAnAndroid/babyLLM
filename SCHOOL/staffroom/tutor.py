@@ -11,12 +11,12 @@ from config import *
 import numpy as np
 
 class TUTOR:
-    def __init__(self, _counsellor, _s_output, _scribe, _librarian, _wobble, _device = modelDevice, _gradientClipMaxNorm = None, _temperature = None, _numTokensPerStep = None):
+    def __init__(self, _counsellor, _s_output, _scribe, _librarian, _wobble, _device = modelDevice, _gradientClipMaxNorm = gradientClipMaxNorm, _temperature = temperature, _numTokensPerStep = numTokensPerStep):
         self.counsellor = _counsellor
         self.s_output = _s_output
         self.scribe = _scribe
         self.librarian = _librarian
-        #self.wobble = _wobble
+        self.wobble = _wobble
         self.device = _device
 
         self.perfectTokens = 0
@@ -29,6 +29,9 @@ class TUTOR:
         self.stats = {}
         self.stringStats = {}
         self.trainingStepCounter = 1
+        self.gradientClipMaxNorm = _gradientClipMaxNorm
+        self.temperature = _temperature
+        self.numTokensPerStep = _numTokensPerStep
         #model.to(self.device)
 
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss, _repetitionPenalty, _model):
@@ -147,7 +150,7 @@ class TUTOR:
                 """TRAINING DATA (batches)"""
                 for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
                     ʕっʘ‿ʘʔっ("♥BEFORE TRAINING STEP")
-                    inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq)
+                    inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                     ʕっʘ‿ʘʔっ("♥TRAINING STEP")
                     self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None, _repetitionPenalty = repetitionPenalty, _model = self.model)
 
@@ -179,22 +182,22 @@ class TUTOR:
         print("--- tutoring complete! ---")
         return
 
-    def startTurnActions(self, _inputSeq, _targetSeq):
+    def startTurnActions(self, _inputSeq, _targetSeq, _lastTurnLossDelta):
         with self.counsellor.infodump("startTurnActions") as ʕっʘ‿ʘʔっ:
-            #self.lastTurnLossDelta = _lastTurnLossDelta
+            self.lastTurnLossDelta = _lastTurnLossDelta
             inputTokenIndices = [self.librarian.tokenToIndex.get(t, self.librarian.tokenToIndex["<UNK>"]) for t in _inputSeq]
             targetTokenIndexSeq = [self.librarian.tokenToIndex.get(t, self.librarian.tokenToIndex["<UNK>"]) for t in _targetSeq]
             self.inputSeq = _inputSeq
             self.targetSeq = _targetSeq
 
-            #if self.stats["windowEntropy"]:
-            #    self.winEnt = self.stats["windowEntropy"]
-            #else:
-            #    self.winEnt = 0
+            if self.stats["windowEntropy"]:
+                self.winEnt = self.stats["windowEntropy"]
+            else:
+                self.winEnt = 0
 
             #values = np.array([
             #    self.lastTurnLossDelta, 
-            #    self.stepLossFloat, 
+            #    self.recentLosses, 
             #    self.perfectTokens, 
             #    self.winEnt
             #], dtype = np.float32)
@@ -205,16 +208,35 @@ class TUTOR:
             #self.wobbleIncrements = wobbleIncrements
 
             ʕっʘ‿ʘʔっ("♥incrementCounters")
-            #if self.wobbleIncrements is not None:
-                #self.scheduledSampling = max(min((self.scheduledSampling + self.wobbleIncrements[0].item()), 2.0), 0.0)
-                #self.repetitionPenalty = max(min((self.repetitionPenalty + self.wobbleIncrements[1].item()), 10.0), 0.1)
-                #newLR = max(min(learningRate + self.wobbleIncrements[2].item(), 0.01), 1e-5)
-                #self.model.setLearningRate(newLR)
-                #self.gradientClipMaxNorm = max(min((gradientClipMaxNorm + self.wobbleIncrements[4]).item(), 3.0), 0.1)
-                #self.temperature = max(min((temperature + self.wobbleIncrements[3].item()), 3.0), 0.3)
-            #else:
-                #self.gradientClipMaxNorm = gradientClipMaxNorm
-                #self.temperature = temperature
+            if skipWobble:
+                schedIncrement = scheduledSamplingIncrement
+                repeatIncrement = repetitionPenaltyIncrement
+                LRIncrement = learningRate/10000
+                clipIncrement = gradClipIncrement
+                tempIncrement = temperature
+                schedUpdate = random.choice([scheduledSamplingIncrement, -scheduledSamplingIncrement, scheduledSamplingIncrement])
+                repeatUpdate = random.choice([repetitionPenaltyIncrement, -repetitionPenaltyIncrement, repetitionPenaltyIncrement])
+                newLR = learningRate
+                clipUpdate = gradClipIncrement
+                tempUpdate = temperatureIncrement
+            elif self.wobbleIncrements is not None:
+                schedIncrement = self.wobbleIncrements[0].item()
+                repeatIncrement = self.wobbleIncrements[1].item()
+                LRIncrement = (learningRate + self.wobbleIncrements[2].item())
+                clipIncrement = (self.wobbleIncrements[4]).item()
+                tempIncrement = (temperature + self.wobbleIncrements[3].item())
+                schedUpdate = random.choice([(max(min((schedIncrement), 0.0001), -0.0001)), -1])
+                repeatUpdate = random.choice([(max(min((repeatIncrement), 0.0001), -0.0001)), -1])
+                newLR = (max(min((random.choice([(max(min((LRIncrement), 0.000000001), -0.000000001)), -0.00000001])), 0.00040), 0.00030))
+                clipUpdate = random.choice([((max(min((clipIncrement), 0.0001)), -0.0001)), -1])
+                tempUpdate = random.choice([(max(min((tempIncrement), 0.0001)), -0.0001), -0.01])
+
+
+            self.scheduledSampling = (max(min((self.scheduledSampling + schedUpdate), 1.0), 0.2))
+            self.repetitionPenalty = (max(min((self.repetitionPenalty + repeatUpdate), 1.4), 0.2))
+            self.model.setLearningRate(newLR)
+            self.gradientClipMaxNorm = (max(min((self.gradientClipMaxNorm + clipUpdate), 1.4), 0.6))
+            self.temperature = (max(min((self.temperature + tempUpdate), 1.4), 0.4))
 
             if skipMemory:
                 ʕっʘ‿ʘʔっ("♥skipMemory")
