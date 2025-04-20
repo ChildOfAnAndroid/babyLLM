@@ -7,11 +7,11 @@ import time
 from config import *
 
 class SCRIBE:
-    def __init__(self, _counsellor, _s_output, _librarian):
+    def __init__(self, _counsellor, _calligraphist, _librarian):
         #self.counsellor = COUNSELLOR("BabyLLM", _debug=debugPrints, _durations=durationLogging)
         #self.s_output = S_OUTPUT()
         self.counsellor = _counsellor
-        self.s_output = _s_output
+        self.calligraphist = _calligraphist
         self.librarian = _librarian
 
         self.scribeEmotes = {"default": ["ʕっʘ‿ʘʔっ", "ʕᵔᴥᵔʔっ", "ʕっෆ.ෆʔっ", "ʕ✰.✰ʔっ", "ʕᵔ‿ᵔʔっ♡"],
@@ -106,7 +106,7 @@ class SCRIBE:
             ]}
         }
         mood = None
-        for k, threshold in self.s_output.S_statBands["loss"].items():
+        for k, threshold in self.calligraphist.S_statBands["loss"].items():
             if k in moodBoard and _lossValue < threshold:
                 mood = moodBoard.get(k, None)
                 break

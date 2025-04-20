@@ -49,8 +49,8 @@ class S_OUTPUT:
             "static":        [WHITE],
 
             "negative":      [BOLD, GREEN],
-            "perfect":       [BOLD, PURPLE_ALT],   #[BOLD, PURPLE],   # 100%
-            "almostPerfect": [PURPLE_ALT],         #[PURPLE],         # 90%
+            "perfect":       [BOLD, PURPLE_PALE],   #[BOLD, PURPLE],   # 100%
+            "almostPerfect": [PURPLE_PALE],         #[PURPLE],         # 90%
             "great":         [BOLD, PURPLE],        #[BOLD, MAGENTA],              # 80%
             "good":          [PURPLE],              #[MAGENTA],         # 70%
             "fine":          [BOLD, MAGENTA],       #[PURPLE_PALE],           # 60%
@@ -77,52 +77,62 @@ class S_OUTPUT:
         softStatBands = {"negative": -0.001, "perfect": 0.0085, "almostPerfect": 0.0125, "great": 0.025, "good": 0.05, "fine": 0.10, "almostFine": 0.20, "meh": 0.30, "bad": 0.40, "worse": 0.50, "emergency": 0.60, "wtf": 0.90, "wtf!": 1, "omg": 10, "omgwtf": 100, "omgwtf!": float('inf')}
         neg_softStatBands = {k: -1*v for k, v in softStatBands.items()}
         repetitionBands = {"negative": 0.999, "perfect": 1.0, "almostPerfect": 1.5, "great": 2, "good": 2.5, "fine": 3, "almostFine": 3.5, "meh": 4, "bad": 4.5, "worse": 5, "emergency": 5.5, "wtf": 6, "wtf!": 60, "omg": 600, "omgwtf": 6000, "omgwtf!": float('inf')}
-        scheduledBands = {"negative": -0.001, "perfect": 1.0, "almostPerfect": 0.9, "great": 0.8, "good": 0.7, "fine": 0.6, "almostFine": 0.5, "meh": 0.4, "bad": 0.3, "worse": 0.2, "emergency": 0.1, "wtf": 0.05, "wtf!": 0.005, "omg": 0.0005, "omgwtf": 0.0, "omgwtf!": -float('inf')}
+        scheduledBands = {"perfect": 1.0, "almostPerfect": 0.9, "great": 0.8, "good": 0.7, "fine": 0.6, "almostFine": 0.5, "meh": 0.4, "bad": 0.3, "worse": 0.2, "emergency": 0.1, "wtf": 0.05, "wtf!": 0.005, "omg": 0.0005, "omgwtf": 0.0, "omgwtf!": -float('inf')}
 
         stdBands = {"negative": 0.0, "perfect": 0.5, "almostPerfect": 0.55, "great": 0.6, "good": 0.65, "fine": 0.7, "almostFine": 0.75, "meh": 0.8, "bad": 0.85, "worse": 0.9, "emergency": 0.95, "wtf": 1, "wtf!": 10, "omg": 100, "omgwtf": 1000, "omgwtf!": float('inf')}
         weightMeanBands = {"negative": -float('inf'), "perfect": 0.0, "almostPerfect": 0.01, "great": 0.02, "good": 0.04, "fine": 0.08, "almostFine": 0.16, "meh": 0.32, "bad": 0.64, "worse": 1.28, "emergency": 2.56, "wtf": 5.12, "wtf!": 10.24, "omg": 100, "omgwtf": 1000, "omgwtf!": float('inf')}
         staticStatBand = {"static": -float('inf')}
+        softBiasBands = {"omgwtf!": float('-inf'), "omgwtf": 0.0000001, "omg": 0.000001, "wtf!": 0.00001, "wtf": 0.0001, "emergency": 0.001, "worse": 0.01, "bad": 0.05, "meh": 0.10, "fine": 0.30, "good": 0.50, "great": 0.70, "almostPerfect": 0.85, "perfect": 1, "negative": 1.1}
+        temperatureBands = {"perfect": 0.3,"almostPerfect": 0.45,"great": 0.6,"good": 0.75,"fine": 0.85,"meh": 1.0,"bad": 1.25,"worse": 1.5,"emergency": 2.0,"wtf": 3.0,"wtf!": 5.0,"omg": 10.0,"omgwtf": 100.0,"omgwtf!": float("inf")}
+        logitWeightNormMeanBands = {"perfect": 15.0,"great": 30.0,"good": 50.0,"fine": 75.0,"meh": 90.0,"bad": 100.0,"worse": 125.0,"emergency": 150.0,"wtf": 200.0,"wtf!": 300.0,"omg": 500.0,"omgwtf": 1000.0,"omgwtf!": float("inf")}
+        logitBiasMeanBands = {"omgwtf!": float("-inf"),"omgwtf": -200,"omg": -100,"wtf!": -75,"wtf": -50,"emergency": -40,"worse": -30,"bad": -20,"meh": -10,"fine": -5,"good": 0,"perfect": 0.01}
+        INN_cerebellumMeanBands = {"omgwtf!": float("-inf"),"omgwtf": -15,"omg": -10,"wtf!": -7,"wtf": -5,"emergency": -3.5,"worse": -2.5,"bad": -1.5,"meh": -0.8,"fine": -0.4,"good": -0.2,"perfect": 0}
+        tiny = {"omgwtf!": float('-inf'), "omgwtf": 0.0000000000001, "omg": 0.000000000001, "wtf!": 0.00000000001, "wtf": 0.0000000001, "emergency": 0.000000001, "worse": 0.00000001, "bad": 0.0000001, "meh": 0.0000001, "fine": 0.000001, "good": 0.00001, "great": 0.0001, "almostPerfect": 0.001, "perfect": 0.01, "negative": 0.1}
+        percentileBands = {"omgwtf!": float('-inf'), "omgwtf": 0.005, "omg": 0.05, "wtf!": 0.1, "wtf": 0.2, "emergency": 0.3, "worse": 0.4, "bad": 0.5, "meh": 0.6, "fine": 0.7, "good": 0.8, "great": 0.9, "almostPerfect": 0.95, "perfect": 1.0, "negative": 1.001}
+
 
         chooseSoon = staticStatBand
 
         self.S_statBands = {
-            "loss":     defaultStatBands,
-            "avgLoss":  defaultStatBands,
-            "scheduledSampling": scheduledBands,
-            "tokenCount": staticStatBand,
-            "trainingStepCount": trainingStepBands,
-            "repetitionPenalty": repetitionBands,
+            "loss":                     defaultStatBands,
+            "avgLoss":                  defaultStatBands,
+            "AvgLoss":                  defaultStatBands,
+            "scheduledSamplingRate":    scheduledBands,
+            "tokenCount":               staticStatBand,
+            "trainingStepCount":        trainingStepBands,
+            "repetitionPenalty":        repetitionBands,
             "gradNorm": chooseSoon, # ??
+            "temperature":              temperatureBands,
 
             # NEURON STATS
-            "n_weightMean": weightMeanBands, # ??
-            "n_weightStd": stdBands, # ??
+            "n_weightMean":             weightMeanBands, # ??
+            "n_weightStd":              stdBands, # ??
             "n_weightMin": chooseSoon, # RANGE
             "n_weightMax": chooseSoon, # RANGE
 
             "n_biasesMean": chooseSoon, # ??
-            "n_biasesStd": stdBands, # ??
+            "n_biasesStd":              stdBands, # ??
             "n_biasesMin": chooseSoon, # RANGE
             "n_biasesMax": chooseSoon, # RANGE
-            "n_sparsity": chooseSoon, # ????? ABS???
+            "n_sparsity":               tiny, # ????? ABS???
 
             # INTERNEURON NETWORK STATS
             "INN_cerebellum": chooseSoon, # random tensor? - doesnt work -  INN_cerebellum:<tensor[torch.Size([9])]> 
-            "INN_cerebellumSoft": chooseSoon, # doesnt work - INN_cerebellumSoft:<tensor[torch.Size([9])]> 
-            "INN_cerebellumMean": chooseSoon,
-            "INN_cerebellumStd": stdBands,
+            "INN_cerebellumSoft":       softBiasBands, # doesnt work - INN_cerebellumSoft:<tensor[torch.Size([9])]> 
+            "INN_cerebellumMean":       INN_cerebellumMeanBands,
+            "INN_cerebellumStd":        stdBands,
 
             # MEMORY STATS 
-            "shortDecay": softStatBands,
-            "longDecay": softStatBands,
+            "shortDecay":               softStatBands,
+            "longDecay":                softStatBands,
             "latestMemoryGates": chooseSoon, # doesnt work - latestMemoryGates:<tensor[torch.Size([3])]> 
 
             # EMBED STATS
             "embedNormMean": chooseSoon,
-            "embedNormStd": stdBands,
+            "embedNormStd":             stdBands,
             "embedNormMax": chooseSoon,
             "embedDimensionMean": chooseSoon, # doesnt work - embedDimensionMean:<tensor[torch.Size([1024])]> 
-            "embedDimensionSparsity": chooseSoon,
+            "embedDimensionSparsity":   tiny,
             "embeddingDrift": chooseSoon,
 
             # LOGIT STATS
@@ -130,19 +140,20 @@ class S_OUTPUT:
             "logitMax": chooseSoon, # wants to be lower than 5, also RANGE
             "logitSeq": chooseSoon,  #!!!!!!!!!!! SUS !!!!!!!!!!! logitSeq:ERR:unsupported format string passed to list.__format__ !!!!!!!!!!!!!!! SUS !!!!!!!!!!!!!!!
 
-            "logitWeightNormMean": chooseSoon,
-            "logitWeightNormStd": stdBands,
-            "logitWeightNormMax": chooseSoon,
-            "logitWeightSparsity": chooseSoon,
+            "logitWeightNormMean":      logitWeightNormMeanBands,
+            "logitWeightNormStd":       stdBands,
+            "logitWeightNormMax":       logitWeightNormMeanBands,
+            "logitWeightSparsity":      tiny,
             "logitWeightDrift": chooseSoon,
 
-            "logitBiasMean": chooseSoon,
-            "logitBiasStd": stdBands,
+            "logitBiasMean":            logitBiasMeanBands,
+            "logitBiasStd":             stdBands,
             "logitBiasMax": chooseSoon,
+            "PT%":                      percentileBands,
 
         }
 
-        self.avgPlz = []
+        self.avgPlz = ["embedNormMean", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellumMean", "INN_cerebellumStd"]
 
         return
 
@@ -192,19 +203,19 @@ class S_OUTPUT:
                 + f"{self.S_apply('dim', 'guess → ')}{guess_str}{self.S_apply(S_type, ' [!] ') if match else self.S_apply('dim', ' [?] ')}\n"
                 + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}")
 
-    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _freq, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
+    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _freq, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
             logOutput = ""
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             delimiter = self.S_apply("dim", " | ")
 
             ʕっʘ‿ʘʔっ("avgStats")
-            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSampling", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellum", "INN_cerebellumSoft", "INN_cerebellumMean", "INN_cerebellumStd", "shortDecay", "longDecay"]
+            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellum", "INN_cerebellumSoft", "INN_cerebellumMean", "INN_cerebellumStd", "shortDecay", "longDecay"]
             #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
             avgStats = {k: (v / _freq if _freq else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
 
-            logOutput = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{learningRate}")])
+            logOutput = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR}")])
 
             def format_stat(k, v):
                 try:
@@ -212,10 +223,10 @@ class S_OUTPUT:
                         if v.numel() == 1:
                             v = v.item()  # convert scalar tensor
                         else:
-                            return self.S_apply("dim", f"{k}:") + self.S_apply("warn", f"<tensor[{v.shape}]>")
+                            return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"<tensor[{v.shape}]>")
                     return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.4f}")
                 except Exception as e:
-                    return self.S_apply("dim", f"{k}:") + self.S_apply("warn", f"ERR:{str(e)}")
+                    return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"ERR:{str(e)}")
 
             logOutput += delimiter + delimiter.join([
                 format_stat(k, v)
@@ -317,6 +328,20 @@ class S_OUTPUT:
             result = chosenFunction(_firstNumbers)
 
         return result, chosenName
+    
+    def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes):
+        try:
+            triplets = sorted(zip(windowSizes, rawTensor, softTensor), key=lambda x: x[1], reverse=True)
+            formatted = []
+            for w, raw, soft in triplets:
+                raw_style = self.S_getStat(f"{label}", raw.item())
+                soft_style = self.S_getStat(f"{label}Soft", soft.item())
+                chunk = f"W{w}:{self.S_apply(raw_style, f'{raw.item():.5f}')} ({self.S_apply(soft_style, f'{soft.item():.2f}')})"
+                formatted.append(chunk)
+            return ", ".join(formatted)
+        except Exception as e:
+            return f"<ERR in S_formatWindowBiasTriplets: {e}>"
+
 
 
     if __name__ == "__main__":

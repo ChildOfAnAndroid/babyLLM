@@ -14,7 +14,7 @@ class EMBED(nn.Module):
         self.device = _device
 
         """creates the embedding weights matrix with random numbers initially"""
-        self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device))
+        self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device)) # [2000,]
         self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, DOES NOT BREAK GRAPH CONFIRMED!!
 
     """looks up and returns the embedding vector for a specifc token index"""
@@ -35,7 +35,7 @@ class EMBED(nn.Module):
 
                 dimMean = self.e_weights.mean(dim=0)
                 stats["embedDimensionMean"] = dimMean
-                dimSparsity = (dimMean.abs() < 1e-5).float().mean()
+                dimSparsity = (dimMean.abs() < 1e-4).float().mean()
                 stats["embedDimensionSparsity"] = dimSparsity
 
                 # Drift since last save
