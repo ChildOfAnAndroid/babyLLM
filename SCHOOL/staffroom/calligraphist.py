@@ -15,6 +15,10 @@ class S_OUTPUT:
     def __init__(self, _counsellor):
         #self.counsellor = COUNSELLOR("S_OUTPUT", debug=debugPrints, durations=durationLogging)
         self.counsellor = _counsellor
+        self.rollingAverages = None
+        self.S_statBands = None  # Lazy-load this later
+        self.cantPrint = 0
+
 
         """TERMINAL CODES"""
         RESET = "\033[0m" # normal terminal
@@ -45,125 +49,155 @@ class S_OUTPUT:
 
         """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
         self.S_types = {
-            "match":         [ITALIC, BOLD, PURPLE_PALE],   #[BOLD, PURPLE],   # 100%
+            "match":         [ITALIC, BOLD, PURPLE_PALE],
             "static":        [WHITE],
 
-            "negative":      [BOLD, GREEN],
-            "perfect":       [BOLD, PURPLE_PALE],   #[BOLD, PURPLE],   # 100%
-            "almostPerfect": [PURPLE_PALE],         #[PURPLE],         # 90%
-            "great":         [BOLD, PURPLE],        #[BOLD, MAGENTA],              # 80%
-            "good":          [PURPLE],              #[MAGENTA],         # 70%
-            "fine":          [BOLD, MAGENTA],       #[PURPLE_PALE],           # 60%
-            "almostFine":    [MAGENTA],             #[PURPLE_PALE, DIM],                 # 50%
-            "meh":           [BOLD, BLUE],          #[BLUE],              # 40%
-            "bad":           [BLUE],                #[BLUE, DIM],                 # 30%
-            "worse":         [BOLD, CYAN],           #[PURPLE_PALE, DIM],          # 20%
-            "emergency":     [CYAN],                #[DIM],   # 10%
-            "wtf":           [ORANGE],
-            "wtf!":          [BOLD, ORANGE],
-            "omg":           [RED_BRIGHT],
-            "omgwtf":        [BOLD, RED_BRIGHT],
-            "omgwtf!":       [ITALIC, BOLD, RED_BRIGHT],
+            "superPerfect":  [BOLD, PURPLE_PALE],       # < 0 //
 
+            "perfect":       [BOLD, PURPLE_PALE],       # 0.125 //
+            "almostPerfect": [PURPLE_PALE],             # 0.25 //
+            "superGreat":    [PURPLE_PALE],             # 0.5 //
+            "great":         [PURPLE],                  # 1 //
+            "good":          [BOLD, MAGENTA],           # 2 //
+            "fine":          [MAGENTA],                 # 3 //
+            "almostFine":    [BOLD, BLUE],              # 4 //
+            "meh":           [BLUE],                    # 5 //
+            "bad":           [BOLD, CYAN],              # 6 //
+            "worse":         [CYAN],                    # 7 //
+            "emergency":     [ORANGE],                  # 8 //
+            "wtf":           [BOLD, ORANGE],            # 9 //
+            "wtf!":          [RED_BRIGHT],              # 9.5 //
+            "omg":           [BOLD, RED_BRIGHT],        # 9.75 //
+            "omgwtf":        [RED],                     # 9.875 //
+
+            "omgwtf!":       [BOLD, RED],               # > 10 //
+
+            "negative":      [BOLD, GREEN],
             "reset":         [RESET],               # normal terminal
             "dim":           [RESET, DIM],          # dim style for background elements - arrows, colons, etc.
             "bold":          [BOLD]
         }
 
-        trainingStepBands = {"perfect": 12800000, "almostPerfect": 6400000, "great": 3200000, "good": 1600000, "fine": 800000, "almostFine": 400000, "meh": 200000, "static": 100000, "bad": 500, "worse": 0.0, "negative": -0.001}
-
-        defaultStatBands = {"negative": -0.001, "perfect": 0.1, "almostPerfect": 0.3375, "great": 0.775, "good": 1.75, "fine": 3.5, "almostFine": 3.75, "meh": 7.5, "bad": 15.0, "worse": 30.0, "emergency": 300.0, "wtf": 600, "wtf!": 3000, "omg": 30000, "omgwtf": 60000, "omgwtf!": float('inf')}
-        neg_defaultStatBands = {k: -1*v for k, v in defaultStatBands.items()}
-        softStatBands = {"negative": -0.001, "perfect": 0.0085, "almostPerfect": 0.0125, "great": 0.025, "good": 0.05, "fine": 0.10, "almostFine": 0.20, "meh": 0.30, "bad": 0.40, "worse": 0.50, "emergency": 0.60, "wtf": 0.90, "wtf!": 1, "omg": 10, "omgwtf": 100, "omgwtf!": float('inf')}
-        neg_softStatBands = {k: -1*v for k, v in softStatBands.items()}
-        repetitionBands = {"negative": 0.999, "perfect": 1.0, "almostPerfect": 1.5, "great": 2, "good": 2.5, "fine": 3, "almostFine": 3.5, "meh": 4, "bad": 4.5, "worse": 5, "emergency": 5.5, "wtf": 6, "wtf!": 60, "omg": 600, "omgwtf": 6000, "omgwtf!": float('inf')}
-        scheduledBands = {"perfect": 1.0, "almostPerfect": 0.9, "great": 0.8, "good": 0.7, "fine": 0.6, "almostFine": 0.5, "meh": 0.4, "bad": 0.3, "worse": 0.2, "emergency": 0.1, "wtf": 0.05, "wtf!": 0.005, "omg": 0.0005, "omgwtf": 0.0, "omgwtf!": -float('inf')}
-
-        stdBands = {"negative": 0.0, "perfect": 0.5, "almostPerfect": 0.55, "great": 0.6, "good": 0.65, "fine": 0.7, "almostFine": 0.75, "meh": 0.8, "bad": 0.85, "worse": 0.9, "emergency": 0.95, "wtf": 1, "wtf!": 10, "omg": 100, "omgwtf": 1000, "omgwtf!": float('inf')}
-        weightMeanBands = {"negative": -float('inf'), "perfect": 0.0, "almostPerfect": 0.01, "great": 0.02, "good": 0.04, "fine": 0.08, "almostFine": 0.16, "meh": 0.32, "bad": 0.64, "worse": 1.28, "emergency": 2.56, "wtf": 5.12, "wtf!": 10.24, "omg": 100, "omgwtf": 1000, "omgwtf!": float('inf')}
-        staticStatBand = {"static": -float('inf')}
-        softBiasBands = {"omgwtf!": float('-inf'), "omgwtf": 0.0000001, "omg": 0.000001, "wtf!": 0.00001, "wtf": 0.0001, "emergency": 0.001, "worse": 0.01, "bad": 0.05, "meh": 0.10, "fine": 0.30, "good": 0.50, "great": 0.70, "almostPerfect": 0.85, "perfect": 1, "negative": 1.1}
-        temperatureBands = {"perfect": 0.3,"almostPerfect": 0.45,"great": 0.6,"good": 0.75,"fine": 0.85,"meh": 1.0,"bad": 1.25,"worse": 1.5,"emergency": 2.0,"wtf": 3.0,"wtf!": 5.0,"omg": 10.0,"omgwtf": 100.0,"omgwtf!": float("inf")}
-        logitWeightNormMeanBands = {"perfect": 15.0,"great": 30.0,"good": 50.0,"fine": 75.0,"meh": 90.0,"bad": 100.0,"worse": 125.0,"emergency": 150.0,"wtf": 200.0,"wtf!": 300.0,"omg": 500.0,"omgwtf": 1000.0,"omgwtf!": float("inf")}
-        logitBiasMeanBands = {"omgwtf!": float("-inf"),"omgwtf": -200,"omg": -100,"wtf!": -75,"wtf": -50,"emergency": -40,"worse": -30,"bad": -20,"meh": -10,"fine": -5,"good": 0,"perfect": 0.01}
-        INN_cerebellumMeanBands = {"omgwtf!": float("-inf"),"omgwtf": -15,"omg": -10,"wtf!": -7,"wtf": -5,"emergency": -3.5,"worse": -2.5,"bad": -1.5,"meh": -0.8,"fine": -0.4,"good": -0.2,"perfect": 0}
-        tiny = {"omgwtf!": float('-inf'), "omgwtf": 0.0000000000001, "omg": 0.000000000001, "wtf!": 0.00000000001, "wtf": 0.0000000001, "emergency": 0.000000001, "worse": 0.00000001, "bad": 0.0000001, "meh": 0.0000001, "fine": 0.000001, "good": 0.00001, "great": 0.0001, "almostPerfect": 0.001, "perfect": 0.01, "negative": 0.1}
-        percentileBands = {"omgwtf!": float('-inf'), "omgwtf": 0.005, "omg": 0.05, "wtf!": 0.1, "wtf": 0.2, "emergency": 0.3, "worse": 0.4, "bad": 0.5, "meh": 0.6, "fine": 0.7, "good": 0.8, "great": 0.9, "almostPerfect": 0.95, "perfect": 1.0, "negative": 1.001}
-
-
-        chooseSoon = staticStatBand
-
-        self.S_statBands = {
-            "loss":                     defaultStatBands,
-            "avgLoss":                  defaultStatBands,
-            "AvgLoss":                  defaultStatBands,
-            "scheduledSamplingRate":    scheduledBands,
-            "tokenCount":               staticStatBand,
-            "trainingStepCount":        trainingStepBands,
-            "repetitionPenalty":        repetitionBands,
-            "gradNorm": chooseSoon, # ??
-            "temperature":              temperatureBands,
-
-            # NEURON STATS
-            "n_weightMean":             weightMeanBands, # ??
-            "n_weightStd":              stdBands, # ??
-            "n_weightMin": chooseSoon, # RANGE
-            "n_weightMax": chooseSoon, # RANGE
-
-            "n_biasesMean": chooseSoon, # ??
-            "n_biasesStd":              stdBands, # ??
-            "n_biasesMin": chooseSoon, # RANGE
-            "n_biasesMax": chooseSoon, # RANGE
-            "n_sparsity":               tiny, # ????? ABS???
-
-            # INTERNEURON NETWORK STATS
-            "INN_cerebellum": chooseSoon, # random tensor? - doesnt work -  INN_cerebellum:<tensor[torch.Size([9])]> 
-            "INN_cerebellumSoft":       softBiasBands, # doesnt work - INN_cerebellumSoft:<tensor[torch.Size([9])]> 
-            "INN_cerebellumMean":       INN_cerebellumMeanBands,
-            "INN_cerebellumStd":        stdBands,
-
-            # MEMORY STATS 
-            "shortDecay":               softStatBands,
-            "longDecay":                softStatBands,
-            "latestMemoryGates": chooseSoon, # doesnt work - latestMemoryGates:<tensor[torch.Size([3])]> 
-
-            # EMBED STATS
-            "embedNormMean": chooseSoon,
-            "embedNormStd":             stdBands,
-            "embedNormMax": chooseSoon,
-            "embedDimensionMean": chooseSoon, # doesnt work - embedDimensionMean:<tensor[torch.Size([1024])]> 
-            "embedDimensionSparsity":   tiny,
-            "embeddingDrift": chooseSoon,
-
-            # LOGIT STATS
-            "logitMin": chooseSoon, # wants to be higher than -5, also RANGE
-            "logitMax": chooseSoon, # wants to be lower than 5, also RANGE
-            "logitSeq": chooseSoon,  #!!!!!!!!!!! SUS !!!!!!!!!!! logitSeq:ERR:unsupported format string passed to list.__format__ !!!!!!!!!!!!!!! SUS !!!!!!!!!!!!!!!
-
-            "logitWeightNormMean":      logitWeightNormMeanBands,
-            "logitWeightNormStd":       stdBands,
-            "logitWeightNormMax":       logitWeightNormMeanBands,
-            "logitWeightSparsity":      tiny,
-            "logitWeightDrift": chooseSoon,
-
-            "logitBiasMean":            logitBiasMeanBands,
-            "logitBiasStd":             stdBands,
-            "logitBiasMax": chooseSoon,
-            "PT%":                      percentileBands,
-
-        }
-
         self.avgPlz = ["embedNormMean", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellumMean", "INN_cerebellumStd"]
 
         return
+    
+    def S_generateStatBands(self):
+
+        softmaxBands = {"omgwtf!": -float('inf'),      
+            "omgwtf":       0.0125,    "omg":              0.0250,    "wtf!":         0.0500, # PURPLE_PALE      
+            "wtf":          0.1000,    "emergency":        0.2000,    "worst":        0.3000,     
+            "bad":          0.4000,    "meh":              0.5000,    "almostFiine":  0.6000,      
+            "fine":         0.7000,    "good":             0.8000,    "great":        0.9000,      
+            "superGreat":   0.9500,    "almostPerfect":    0.9750,    "perfect":      0.9875,
+            "superPerfect": float('inf'),}
+        
+        staticBand = {"fine":   float('inf')}
+
+        return {
+            "loss":                     self.getDynamicPercentileBands("loss"),
+            "avgLoss":                  staticBand,
+            "AvgLoss":                  staticBand,
+            "stepLoss":                 staticBand,
+            "scheduledSamplingRate":    self.getDynamicPercentileBands("scheduledSamplingRate"),
+            "tokenCount":               staticBand,
+            "trainingStepCount":        staticBand,
+            "repetitionPenalty":        self.getDynamicPercentileBands("repetitionPenalty"),
+            "gradNorm":                 staticBand,
+            "temperature":              self.getDynamicPercentileBands("temperature"),
+            "sampledTokens":            self.getDynamicPercentileBands("sampledTokens"),
+            "PT%":                      self.getDynamicPercentileBands("PT%"),
+
+            # Neuron stats
+            "n_weightMean":             self.getDynamicPercentileBands("n_weightMean"),
+            "n_weightStd":              staticBand,
+            "n_weightMin":              staticBand,
+            "n_weightMax":              staticBand,
+            "n_biasesMean":             self.getDynamicPercentileBands("n_biasesMean"),
+            "n_biasesStd":              staticBand,
+            "n_biasesMin":              staticBand,
+            "n_biasesMax":              staticBand,
+            "n_sparsity":               {"negative": -0.1, "perfect": 0.01, "meh": 0.1, "bad": 0.5, "omgwtf!": float('inf')},
+
+            # INN stats
+            "INN_cerebellum":           self.getDynamicPercentileBands("INN_cerebellum"),
+            "INN_cerebellumSoft":       softmaxBands,
+            "INN_cerebellumMean":       self.getDynamicPercentileBands("INN_cerebellumMean"),
+            "INN_cerebellumStd":        {"negative": 0.0, "perfect": 0.5, "meh": 0.8, "wtf": 1, "omgwtf!": float('inf')},
+
+            # Memory stats
+            "shortDecay":               self.getDynamicPercentileBands("shortDecay"),
+            "longDecay":                self.getDynamicPercentileBands("longDecay"),
+            "latestMemoryGates":        staticBand,
+
+            # Embed stats
+            "embedNormMean":            self.getDynamicPercentileBands("embedNormMean"),
+            "embedNormStd":             staticBand,
+            "embedNormMax":             self.getDynamicPercentileBands("embedNormMax"),
+            "embedDimensionMean":       self.getDynamicPercentileBands("embedDimensionMean"),
+            "embedDimensionSparsity":   {"perfect": 0.01, "meh": 0.2, "bad": 0.4, "omgwtf!": float("inf")},
+            "embeddingDrift":           staticBand,
+
+            # Logit stats
+            "logitMin":                 self.getDynamicPercentileBands("logitMin"),
+            "logitMax":                 self.getDynamicPercentileBands("logitMax"),
+            "logitSeq":                 staticBand,
+            "logitWeightNormMean":      self.getDynamicPercentileBands("logitWeightNormMean"),
+            "logitWeightNormStd":       staticBand,
+            "logitWeightNormMax":       staticBand,
+            "logitWeightSparsity":      {"perfect": 0.001, "meh": 0.05, "wtf": 0.2, "omgwtf!": float("inf")},
+            "logitWeightDrift":         staticBand,
+            "logitBiasMean":            self.getDynamicPercentileBands("logitBiasMean"),
+            "logitBiasStd":             staticBand,
+            "logitBiasMax":             staticBand,
+        }
+
+    def getDynamicPercentileBands(self, statKey):
+        if not self.rollingAverages:
+            self.cantPrint += 1
+            if self.cantPrint > 10:
+                print("ʕっ-ᴥ-ʔっ no stat buffers found x10!")
+                self.cantPrint = 0
+            return {"dim": -float('inf')}
+
+        values = self.rollingAverages.get(statKey, [])
+        if len(values) < 2:
+            return {"dim": -float('inf')}
+
+        stat = sorted(values)
+        #print(f"→ Generating bands for '{statKey}'")
+        #print(f"   values: {values}")
+
+        return{"superPerfect": -float('inf'),      
+            "perfect":      self.getP(stat, 0.0125),    "almostPerfect":    self.getP(stat, 0.0250),    "superGreat":   self.getP(stat, 0.0500), # PURPLE_PALE      
+            "great":        self.getP(stat, 0.1000),    "good":             self.getP(stat, 0.2000),    "fine":         self.getP(stat, 0.3000),     
+            "almostFine":   self.getP(stat, 0.4000),    "meh":              self.getP(stat, 0.5000),    "bad":          self.getP(stat, 0.6000),      
+            "worse":        self.getP(stat, 0.7000),    "emergency":        self.getP(stat, 0.8000),    "wtf":          self.getP(stat, 0.9000),      
+            "wtf!":         self.getP(stat, 0.9500),    "omg":              self.getP(stat, 0.9750),    "omgwtf":       self.getP(stat, 0.9875),
+            "omgwtf!":      float('inf'),}
 
     def S_getStat(self, _statType, _statVal):
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
-            bands = self.S_statBands.get(_statType)
-            if not bands: return "reset"
+            values = self.rollingAverages.get(_statType, []) if self.rollingAverages else []
+            if not values or len(values) < 2:
+                return "dim"
+
+            if self.S_statBands is None:
+                self.S_statBands = self.S_generateStatBands()
+
+            bands = self.S_statBands.get(_statType, {})
             for label, limit in bands.items():
-                if _statVal <= limit: return label
+                if _statVal <= limit:
+                    return label
             return "emergency"
+        
+    def refreshStatBands(self, _rollingAverages):
+        self.rollingAverages = _rollingAverages
+        if self.rollingAverages and all(len(v) > 1 for v in self.rollingAverages.values()):
+            self.S_statBands = self.S_generateStatBands()
+        else:
+            print("ʕっ•ᴥ•ʔっ not enough data to refresh stat bands yet")
+
 
     def S_apply(self, _S_type, _text): 
         with self.counsellor.infodump("S_apply") as ʕっʘ‿ʘʔっ:
@@ -179,8 +213,20 @@ class S_OUTPUT:
             S_bold = "".join(self.S_types["bold"])
 
             ʕっʘ‿ʘʔっ("conditionalFormatGuess+truth")
-            guess = [f"{S_bold}{t}{"".join(self.S_types.get('reset'))}" if i < len(_targetSeq_str) and t == _targetSeq_str[i] else self.S_apply(S_type, t) for i, t in enumerate(_guessedSeq_str)]
-            truth  = [f"{S_bold}{"".join(self.S_types.get('dim'))}{t}{"".join(self.S_types.get('reset'))}" if i < len(_guessedSeq_str) and t == _guessedSeq_str[i] else f"{"".join(self.S_types.get('dim'))}{self.S_apply(S_type, t)}" for i, t in enumerate(_targetSeq_str)]
+            reset = "".join(self.S_types.get('reset'))
+            dim = "".join(self.S_types.get('dim'))
+
+            guess = [
+                f"{S_bold}{t}{reset}" if i < len(_targetSeq_str) and t == _targetSeq_str[i]
+                else self.S_apply(S_type, t)
+                for i, t in enumerate(_guessedSeq_str)
+            ]
+
+            truth = [
+                f"{S_bold}{dim}{t}{reset}" if i < len(_guessedSeq_str) and t == _guessedSeq_str[i]
+                else f"{dim}{self.S_apply(S_type, t)}"
+                for i, t in enumerate(_targetSeq_str)
+            ]
 
             ʕっʘ‿ʘʔっ("createTextStrings")
             guess_str = "".join(guess).replace("Ġ", " ")
@@ -196,12 +242,20 @@ class S_OUTPUT:
                 delta = _recentLoss - _loss
                 delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_type, f'{delta:+.3f}')}{'↑' if delta < 0 else '↓'}"
 
+            rollingAvgLoss_str = ""
+            if self.rollingAverages and "loss" in self.rollingAverages:
+                losses = self.rollingAverages["loss"]
+                if losses:
+                    rollingAvgLoss = sum(losses) / len(losses)
+                    rollingAvgLoss_str = f"{self.S_apply(S_type, f'{rollingAvgLoss:.3f}')}{self.S_apply('dim', 'mean ')}"
+
             ʕっʘ‿ʘʔっ("printGuess+truth")
             print(f"{self.S_apply('dim', f'{_step}')}|{self.S_apply('dim', prompt_str)}|{self.S_apply('dim', 'loss: ')}{self.S_apply(S_type, f'{_loss:.3f}')}{self.S_apply('dim', '/1 ')}"
-                + (f"{self.S_apply(S_type, f'{_recentLoss:.3f}')}{self.S_apply('dim', f'/{printFreq} ')}" if _recentLoss else "")
-                + delta_str + "|\n"
+                + (f"{self.S_apply(S_type, f'{_recentLoss:.3f}')}{self.S_apply('dim', f'/{trainingLogFreq_100} ')}" if _recentLoss else "")
+                + rollingAvgLoss_str + delta_str + "|\n"
                 + f"{self.S_apply('dim', 'guess → ')}{guess_str}{self.S_apply(S_type, ' [!] ') if match else self.S_apply('dim', ' [?] ')}\n"
                 + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}")
+            if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
 
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _freq, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
@@ -342,7 +396,10 @@ class S_OUTPUT:
         except Exception as e:
             return f"<ERR in S_formatWindowBiasTriplets: {e}>"
 
-
+    def getP(self, _sortedStat, _percentile):
+        if not _sortedStat: return 0.0
+        index = min(int(_percentile * len(_sortedStat)), len(_sortedStat) - 1)
+        return _sortedStat[index]
 
     if __name__ == "__main__":
         print(S_apply('perfect', "ELODIE IS PERFECT"))

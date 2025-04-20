@@ -62,7 +62,7 @@ def wakeup():
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
-        raise e
+        raise
     except KeyboardInterrupt as k:
         ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
         if tutor.trainingStepCounter:

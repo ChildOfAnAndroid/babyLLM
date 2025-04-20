@@ -4,15 +4,17 @@
 # SCHOOL/staffroom/tutor.py
 
 import random, sys
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime
 import torch
 from config import *
 import numpy as np
+import math
 from SCHOOL.staffroom.newsletter import deep_model_summary, STATS
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _newsletter, _wobble, _model, _device = modelDevice, _gradientClipMaxNorm = gradientClipMaxNorm, _temperature = temperature, _numTokensPerStep = numTokensPerStep):
+        
         self.counsellor = _counsellor
         self.calligraphist = _calligraphist
         self.scribe = _scribe
@@ -21,6 +23,22 @@ class TUTOR:
         self.device = _device
         self.model = _model
         self.newsletter = STATS()
+        
+        def makeStatRecord():
+            return {
+                "now": 0.0,
+                "prev": 0.0,
+                "top": float('-inf'),
+                "bot": float('inf'),
+                "delta": 0.0,
+                "totSum": 0.0,
+                "totNum": 0,
+                "totAvg": 0.0,
+                f"roll{100}": [],
+                "rollAvg": 0.0
+            }
+
+        self.ʕっෆ‿ෆʔっ = defaultdict(makeStatRecord)
 
         self.perfectTokens = 0
         self.totalTokenEvaluations = 0
@@ -36,6 +54,8 @@ class TUTOR:
         self.temperature = _temperature
         self.numTokensPerStep = _numTokensPerStep
         self.learningRate = learningRate
+        self.rollingAverages = defaultdict(list)
+        self.rollingAveragesBufferLen = trainingLogFreq_1000
         #model.to(self.device)
 
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss, _repetitionPenalty):
@@ -79,7 +99,7 @@ class TUTOR:
 
                 sampledTokens = scheduledSampling and random.random() < self.scheduledSamplingRate
                 if sampledTokens:
-                    self.stats['scheduledSampledCount'] = self.stats.get('scheduledSampledCount', 0) + 1
+                    self.stats['sampledTokens'] = self.stats.get('sampledTokens', 0) + 1
 
                 nextTokenInput = (predictedTokenIndex.item() if sampledTokens # .ITEM() REQUIRED!! FOR APPENDING ONLY ONE TOKEN (grids?)
                     else _targetTokenIndexSeq[j] if j < len(_targetTokenIndexSeq)
@@ -137,7 +157,7 @@ class TUTOR:
                 ʕっʘ‿ʘʔっ("emptyCache (mps)")
                 torch.mps.empty_cache()
 
-            return self.predictedTokenIndices, self.logitSeq
+            return self.predictedTokenIndices, self.logitSeq, BACKWARDloss
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
@@ -163,10 +183,10 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥BEFORE TRAINING STEP")
                     inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                     ʕっʘ‿ʘʔっ("♥TRAINING STEP")
-                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None, _repetitionPenalty = self.repetitionPenalty)
+                    self.predictedTokenIndices, self.logitSeq, BACKWARDloss_ = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None, _repetitionPenalty = self.repetitionPenalty)
 
                     ʕっʘ‿ʘʔっ("♥collectTurnStats")
-                    LOGstats, LOGstringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
+                    LOGstats, LOGstringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices, _BACKWARDloss = BACKWARDloss_)
 
                     if self.trainingStepCounter % saveModelFreq == 0:
                         ʕっʘ‿ʘʔっ("♥saveFreq")
@@ -257,7 +277,7 @@ class TUTOR:
 
         return inputTokenIndices, targetTokenIndexSeq, #self.repetitionPenalty, #self.wobbleLoss
     
-    def collectTurnStats(self, _targetTokenIndexSeq, _predictedTokenIndices):
+    def collectTurnStats(self, _targetTokenIndexSeq, _predictedTokenIndices, _BACKWARDloss):
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
             self.averageRecentLoss = sum(self.recentLosses) / len(self.recentLosses) if self.recentLosses else 0.0
@@ -294,13 +314,23 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥if static_collectStats")
                     self.stats["scheduledSamplingRate"] = self.scheduledSamplingRate
                     self.stats["repetitionPenalty"] = self.repetitionPenalty
-                    #self.stats["stepLoss"] = self.stepLossFloat # this is ONE STEP of loss.. oh
                     self.stats["AvgLoss"] = self.averageRecentLoss
+                    self.stats["loss"] = _BACKWARDloss
                     self.stats["temperature"] = self.temperature
                     self.stats["lR"] = self.learningRate
                     self.stats["gradientClip"] = self.gradientClipMaxNorm
                     self.stats["latestLossDelta"] = self.latestLossDelta
-                    self.stats["scheduledSampledCount"] = self.stats.get("scheduledSampledCount", 0)
+                    for statsK, statsV in self.stats.items():
+                        if isinstance(statsV, torch.Tensor) and statsV.numel() == 1:
+                            statsV = statsV.item()
+                        if isinstance(statsV, (float, int)):
+                            if statsK not in self.rollingAverages:
+                                self.rollingAverages[statsK] = []
+                            self.rollingAverages[statsK].append(statsV)
+                            if len(self.rollingAverages[statsK]) > self.rollingAveragesBufferLen:
+                                self.rollingAverages[statsK].pop(0)
+
+                self.collectAllTimeStats()
  
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")
@@ -375,29 +405,12 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.stats = _stats
-            
+            self.stats.update(self.ʕっෆ‿ෆʔっ)
+
             ʕっʘ‿ʘʔっ("calculateTrainingDataRemaining")
             trainingDataRemaining = len(_trainingDataPairs) - self.trainingStepCounter
             trainingDataPercent = (trainingDataRemaining / len(_trainingDataPairs)) * 100
             remainingData_str = f"remainingTokens: {len(_trainingDataPairs) - self.trainingStepCounter} ({trainingDataPercent:.2f}%)"
-
-            """for name, p in self.model.named_parameters():
-                if p.grad is None:
-                    pass
-                    #print(f"{self.calligraphist.S_apply("dim", f"no grad: {name}")}")
-                else:
-                    grad = p.grad
-                    shape = tuple(grad.shape)
-                    norm = grad.norm().item()
-                    nonzero = grad.count_nonzero().item()
-                    total = grad.numel()
-                    sparsity = 1 - (nonzero / total)
-                    mean = grad.mean().item()
-                    std = grad.std().item()
-                    print(f"{self.calligraphist.S_apply("good", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")"""
-
-            #deep_model_summary(self.model, tracker = self.newsletter, step=self.trainingStepCounter, loss = self.stepLossFloat, calligraphist=self.calligraphist)
-            #self.newsletter.track("scheduledSamplingRate", self.scheduledSamplingRate)
 
             tokenPerfect_str = ""
             if self.totalTokenEvaluations > 0:
@@ -421,11 +434,91 @@ class TUTOR:
                 _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats['windowVotes_str']} | {remainingData_str} | TUTOR.py {trainingLogFreq_100}")
             
             ʕっʘ‿ʘʔっ("finalLogActions")
+            self.calligraphist.refreshStatBands(_rollingAverages = self.rollingAverages)
             self.stats.clear()
             self.stringStats.clear()
             self.tokenPerfectRate = 0
             self.perfectTokens = 0
             self.totalTokenEvaluations = 0
+
+    def collectAllTimeStats(self):
+        for key, value in self.stats.items():
+            if not isinstance(value, (int, float)):
+                continue
+
+            if key not in self.ʕっෆ‿ෆʔっ:
+                self.ʕっෆ‿ෆʔっ[key] = value
+                self.ʕっෆ‿ෆʔっ[f"{key}_avg"] = value
+                self.ʕっෆ‿ෆʔっ[f"{key}_top"] = value
+                self.ʕっෆ‿ෆʔっ[f"{key}_bot"] = value
+                self.ʕっෆ‿ෆʔっ[f"{key}_count"] = 1
+                self.ʕっෆ‿ෆʔっ[f"{key}_sum"] = value
+                self.ʕっෆ‿ෆʔっ[f"{key}_roll"] = value
+            else:
+                if value > self.ʕっෆ‿ෆʔっ[f"{key}_top"]:
+                    self.ʕっෆ‿ෆʔっ[f"{key}_top"] = value
+                if value < self.ʕっෆ‿ෆʔっ[f"{key}_bot"]:
+                    self.ʕっෆ‿ෆʔっ[f"{key}_bot"] = value
+
+                self.ʕっෆ‿ෆʔっ[f"{key}_count"] += 1
+                self.ʕっෆ‿ෆʔっ[f"{key}_sum"] += value
+                count = self.ʕっෆ‿ෆʔっ[f"{key}_count"]
+                total = self.ʕっෆ‿ෆʔっ[f"{key}_sum"]
+                self.ʕっෆ‿ෆʔっ[f"{key}_avg"] = total / count
+
+    def collectAllTimeStats(self):
+        for key, value in self.stats.items():
+            if not isinstance(value, (int, float)): continue  # skip strings, tensors, weird stuff
+            """KEYS ETC"""
+            ෆ‿ෆ                     = self.ʕっෆ‿ෆʔっ[key]
+            ෆ1                      = printFreq
+            ෆ10                     = ෆ1 * 10
+            ෆ100                    = trainingLogFreq_100
+            ෆ1000                   = trainingLogFreq_1000
+
+
+            """VERY CURRENT"""
+            ෆ‿ෆ["prev"]             = ෆ‿ෆ["now"]
+            ෆ‿ෆ["now"]              = value
+
+            ෆ‿ෆ[f"roll{ෆ1}Avg"]     = sum(ෆ‿ෆ[f"roll{ෆ1}"]) / len(ෆ‿ෆ[f"roll{ෆ1}"]) if ෆ‿ෆ[f"roll{ෆ1}"] else 0.0
+            ෆ‿ෆ[f"roll{ෆ1}△"]           = ෆ‿ෆ["prev"] - ෆ‿ෆ["now"] if ෆ‿ෆ["prev"] else 0.0
+            ෆ‿ෆ[f"roll{ෆ1}std"]         = self.stdTest(ෆ‿ෆ[f"roll{ෆ1}"])
+
+
+            """ROLLING 10"""
+            ෆ‿ෆ[f"roll{ෆ10}"].append(value) if len(ෆ‿ෆ[f"roll{ෆ10}"]) > ෆ10: ෆ‿ෆ[f"roll{ෆ10}"].pop(0)
+
+            ෆ‿ෆ[f"roll{ෆ10}Avg"]    = sum(ෆ‿ෆ[f"roll{ෆ10}"]) / len(ෆ‿ෆ[f"roll{ෆ10}"]) if ෆ‿ෆ[f"roll{ෆ10}"] else 0.0
+            ෆ‿ෆ[f"roll{ෆ10}△"]      = ෆ‿ෆ["now"] - ෆ‿ෆ[f"roll{ෆ10}Avg"] if ෆ‿ෆ[f"roll{ෆ10}Avg"] else 0.0
+            ෆ‿ෆ[f"roll{ෆ10}Std"]    = self.stdTest(ෆ‿ෆ[f"roll{ෆ10}"])
+
+
+            """ROLLING 100""" # self.recentLosses.append(self.stepLossFloat) if len(self.recentLosses) > trainingLogFreq_100: self.recentLosses.pop(0)
+            ෆ‿ෆ[f"roll{ෆ100}"].append(value) if len(ෆ‿ෆ[f"roll{ෆ100}"]) > ෆ100: ෆ‿ෆ[f"roll{ෆ100}"].pop(0)
+
+            ෆ‿ෆ[f"roll{ෆ100}Avg"]   = sum(ෆ‿ෆ[f"roll{ෆ100}"]) / len(ෆ‿ෆ[f"roll{ෆ100}"]) if ෆ‿ෆ[f"roll{ෆ100}"] else 0.0
+            ෆ‿ෆ[f"roll{ෆ100}△"]     = ෆ‿ෆ["now"] - ෆ‿ෆ[f"roll{ෆ100}Avg"] if ෆ‿ෆ[f"roll{ෆ100}Avg"] else 0.0 
+            ෆ‿ෆ[f"roll{ෆ100}Std"]   = self.stdTest(ෆ‿ෆ[f"roll{ෆ100}"])
+
+
+            """TOTALS"""
+            ෆ‿ෆ["totSum"]          += value
+            ෆ‿ෆ["totNum"]          += 1
+            ෆ‿ෆ["totAvg"]           = ෆ‿ෆ["totSum"] / ෆ‿ෆ["totNum"]
+            ෆ‿ෆ["totAvg△"]          = ෆ‿ෆ["now"] - ෆ‿ෆ["totAvg"] if ෆ‿ෆ["totAvg"] else 0.0
+            ෆ‿ෆ[f"totAvgStd"]       = self.stdTest(ෆ‿ෆ[f"roll{ෆ100}"])
+
+
+            """RECORDS"""
+            ෆ‿ෆ["top"]              = max(ෆ‿ෆ["top"], value)
+            ෆ‿ෆ["bot"]              = min(ෆ‿ෆ["bot"], value)
+
+    def stdTest(self, values):
+        if len(values) <= 1: return 0.0
+        avg = sum(values) / len(values)
+        variance = sum((x - avg)**2 for x in values) / (len(values) - 1)
+        return math.sqrt(variance)
 
     def modelSummary(self, printLongValues=True, maxShape=10000):
         print("--- MODEL SUMMARY ---")
