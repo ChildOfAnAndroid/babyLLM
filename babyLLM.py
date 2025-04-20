@@ -21,18 +21,18 @@ from config import *
 """LOGITS: output layer to generate logits"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
-    def __init__(self, _counsellor, _s_output, _scribe, _librarian, _wobble, _device = modelDevice):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _wobble, _device = modelDevice):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
-        self.s_output = _s_output
+        self.calligraphist = _calligraphist
         self.scribe = _scribe
         self.librarian = _librarian
         #self.wobble = _wobble
 
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
         self.stats = {}
-        self.scheduledSampling = 0
+        self.scheduledSamplingRate = 0
         self.totalTokenEvaluations = 0
         self.totalTokenEvaluations_100 = 0
         self.recentGeneratedTokens = []  # used for repetition penalty
@@ -40,7 +40,7 @@ class BABYLLM(nn.Module):
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
-        self.interneuronNetwork = INTERNEURON_NETWORK(_counsellor = self.counsellor, _device = self.device)
+        self.interneuronNetwork = INTERNEURON_NETWORK(_counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device)
 
@@ -65,7 +65,7 @@ class BABYLLM(nn.Module):
         )"""
 
         #self.to(self.device)
-        self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSampling": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
+        self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSamplingRate": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
 
     def forward(self, _inputSeq):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
@@ -127,21 +127,37 @@ class BABYLLM(nn.Module):
                 #ʕっʘ‿ʘʔっ("if not torch.isfinite(loss)")
                 #print("babyLLM.backward.loss.backward !!! Loss is NaN or Inf:", _loss)
                 #return
-            for name, p in self.named_parameters():
-                if p.grad is None:
-                    if debugPrints: print(f"NO GRAD before backward: No grad for {name}")
-                else:
-                    if debugPrints: print(f"grad before backward for {name} - requires_grad: {p.requires_grad}")
-            with torch.autograd.set_detect_anomaly(anomalyDetect):
-                ʕっʘ‿ʘʔっ("loss.backward")
-                _loss.backward()
-                #print(next(self.parameters()).grad)
-            for name, p in self.named_parameters():
-                if p.grad is None:
-                    if debugPrints: print(f"NO GRAD after backward: No grad for {name}")
-                else: 
-                    if debugPrints: 
-                        print(f"grad after backward for {name} - requires_grad: {p.requires_grad}")
+            if debugPrints:
+                for name, p in self.named_parameters():
+                    if p.grad is None:
+                        print(f"before = {self.calligraphist.S_apply("dim", f"no grad: {name}")}")
+                    else:
+                        grad = p.grad
+                        shape = tuple(grad.shape)
+                        norm = grad.norm().item()
+                        nonzero = grad.count_nonzero().item()
+                        total = grad.numel()
+                        sparsity = 1 - (nonzero / total)
+                        mean = grad.mean().item()
+                        std = grad.std().item()
+                        print(f"before = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
+            ʕっʘ‿ʘʔっ("loss.backward")
+            _loss.backward()
+            #print(next(self.parameters()).grad)
+            if debugPrints:
+                for name, p in self.named_parameters():
+                    if p.grad is None:
+                        print(f"after = {self.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
+                    else: 
+                        grad = p.grad
+                        shape = tuple(grad.shape)
+                        norm = grad.norm().item()
+                        nonzero = grad.count_nonzero().item()
+                        total = grad.numel()
+                        sparsity = 1 - (nonzero / total)
+                        mean = grad.mean().item()
+                        std = grad.std().item()
+                        print(f"after = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
             #for name, p in self.named_parameters():
                 #if p.grad is not None and not torch.isfinite(p.grad).all():
                     #print(f"babyLLM.backward - non-finite grad in: {name}") 
