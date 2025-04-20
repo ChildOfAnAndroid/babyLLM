@@ -9,19 +9,22 @@ from datetime import datetime
 import torch
 from config import *
 import numpy as np
+from SCHOOL.staffroom.newsletter import deep_model_summary, STATS
 
 class TUTOR:
-    def __init__(self, _counsellor, _s_output, _scribe, _librarian, _wobble, _device = modelDevice, _gradientClipMaxNorm = gradientClipMaxNorm, _temperature = temperature, _numTokensPerStep = numTokensPerStep):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _newsletter, _wobble, _model, _device = modelDevice, _gradientClipMaxNorm = gradientClipMaxNorm, _temperature = temperature, _numTokensPerStep = numTokensPerStep):
         self.counsellor = _counsellor
-        self.s_output = _s_output
+        self.calligraphist = _calligraphist
         self.scribe = _scribe
         self.librarian = _librarian
         self.wobble = _wobble
         self.device = _device
+        self.model = _model
+        self.newsletter = STATS()
 
         self.perfectTokens = 0
         self.totalTokenEvaluations = 0
-        self.scheduledSampling = 0
+        self.scheduledSamplingRate = scheduledSamplingRate
         self.recentLosses = []
         self.predictedTokenIndices = [] # this list grows each time a new token is predicted
         self.averageRecentLoss = 0
@@ -32,12 +35,12 @@ class TUTOR:
         self.gradientClipMaxNorm = _gradientClipMaxNorm
         self.temperature = _temperature
         self.numTokensPerStep = _numTokensPerStep
+        self.learningRate = learningRate
         #model.to(self.device)
 
-    def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss, _repetitionPenalty, _model):
+    def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss, _repetitionPenalty):
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("_model.optimizer.zero_grad")
-            self.model = _model
             self.repetitionPenalty = _repetitionPenalty
             self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
             self.trainingStepCounter += 1
@@ -68,11 +71,20 @@ class TUTOR:
 
                 ʕっʘ‿ʘʔっ("inputSeqPredictions")
                 self.predictedTokenIndices.append(predictedTokenIndex) # tensor shape [1]
-                self.logitSeq.append(logits)
-                nextTokenInput = (predictedTokenIndex 
-                    if scheduledSampling and random.random() < self.scheduledSampling # 
-                    else _targetTokenIndexSeq[j] if j < len(_targetTokenIndexSeq) #
-                    else predictedTokenIndex) #
+                nextTokenInput = (
+                    predictedTokenIndex.item() if scheduledSampling and random.random() < self.scheduledSamplingRate
+                    else _targetTokenIndexSeq[j] if j < len(_targetTokenIndexSeq)
+                    else predictedTokenIndex.item()
+                )
+
+                sampledTokens = scheduledSampling and random.random() < self.scheduledSamplingRate
+                if sampledTokens:
+                    self.stats['scheduledSampledCount'] = self.stats.get('scheduledSampledCount', 0) + 1
+
+                nextTokenInput = (predictedTokenIndex.item() if sampledTokens # .ITEM() REQUIRED!! FOR APPENDING ONLY ONE TOKEN (grids?)
+                    else _targetTokenIndexSeq[j] if j < len(_targetTokenIndexSeq)
+                    else predictedTokenIndex.item() # .ITEM() REQUIRED!! FOR APPENDING ONLY ONE TOKEN (grids?)
+                )
                 inputSeqPredictions.append(nextTokenInput) # multi-token autoregressive generation: append next token to your current input — becomes the prompt for the next token
 
                 ʕっʘ‿ʘʔっ("loop through tokens for this step")
@@ -89,9 +101,10 @@ class TUTOR:
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device=self.device)
             #BACKWARDloss_ = (0.025*self.BACKWARDwobbleLoss)+(0.975*BACKWARDloss)
-            """if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                ʕっʘ‿ʘʔっ("entropyBonus")
-                BACKWARDloss = BACKWARDloss - (self.model.interneuronNetwork.entropyBonus * 0.05)"""
+            if windowEntropyBonus:
+                if hasattr(self.model.interneuronNetwork, "entropyBonus"):
+                    ʕっʘ‿ʘʔっ("entropyBonus")
+                    BACKWARDloss = BACKWARDloss - (self.model.interneuronNetwork.entropyBonus * 0.05)
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
                 return
@@ -114,7 +127,7 @@ class TUTOR:
             if profiler: print(prof.key_averages().table())
             
             ʕっʘ‿ʘʔっ("clip_grad_norm")
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = gradientClipMaxNorm)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = self.gradientClipMaxNorm)
             self.model.optimizer.step()
 
             ʕっʘ‿ʘʔっ("actions after looping")
@@ -127,10 +140,8 @@ class TUTOR:
             return self.predictedTokenIndices, self.logitSeq
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
-    def trainModel(self, _trainingDataPairs, _epochs, _startIndex, _model):
-        self.model = _model
+    def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
         self.startIndex = _startIndex
-        torch.autograd.set_detect_anomaly(True)
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:
             #if debugPrints: print(f"Debug tokenToIndex (First 20): {list(librarian.tokenToIndex.items())[:20]}")
             for name, param in self.model.named_parameters(): print(name, param.device)
@@ -152,7 +163,7 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥BEFORE TRAINING STEP")
                     inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                     ʕっʘ‿ʘʔっ("♥TRAINING STEP")
-                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None, _repetitionPenalty = repetitionPenalty, _model = self.model)
+                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None, _repetitionPenalty = self.repetitionPenalty)
 
                     ʕっʘ‿ʘʔっ("♥collectTurnStats")
                     LOGstats, LOGstringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
@@ -172,10 +183,11 @@ class TUTOR:
 
                     #if self.trainingStepCounter % trainingLogFreq_1000 == 0:
                         #ʕっʘ‿ʘʔっ("♥trainingLogFreq_1000") # PRINTING LOGS TO TXT AND TERMINAL
+                        #deep_model_summary(self.model, tracker = self.newsletter, step=self.trainingStepCounter, loss = self.stepLossFloat, calligraphist=self.calligraphist)
                         #self.logFreqActions(_trainingDataPairs)
 
                     ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
-                    self.endTurnActions()
+                    self.latestLossDelta = self.endTurnActions()
                     # < indent (5)
                 ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
                 self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter)
@@ -211,18 +223,18 @@ class TUTOR:
             if skipWobble:
                 schedIncrement = scheduledSamplingIncrement
                 repeatIncrement = repetitionPenaltyIncrement
-                LRIncrement = learningRate/10000
+                LRIncrement = self.learningRate/100000
                 clipIncrement = gradClipIncrement
-                tempIncrement = temperature
+                tempIncrement = temperatureIncrement
                 schedUpdate = random.choice([scheduledSamplingIncrement, -scheduledSamplingIncrement, scheduledSamplingIncrement])
                 repeatUpdate = random.choice([repetitionPenaltyIncrement, -repetitionPenaltyIncrement, repetitionPenaltyIncrement])
-                newLR = learningRate
-                clipUpdate = gradClipIncrement
-                tempUpdate = temperatureIncrement
+                newLR = random.choice([LRIncrement, -LRIncrement])
+                clipUpdate = random.choice([gradClipIncrement, -gradClipIncrement])
+                tempUpdate = random.choice([tempIncrement, -tempIncrement])
             elif self.wobbleIncrements is not None:
                 schedIncrement = self.wobbleIncrements[0].item()
                 repeatIncrement = self.wobbleIncrements[1].item()
-                LRIncrement = (learningRate + self.wobbleIncrements[2].item())
+                LRIncrement = (self.learningRate + self.wobbleIncrements[2].item())
                 clipIncrement = (self.wobbleIncrements[4]).item()
                 tempIncrement = (temperature + self.wobbleIncrements[3].item())
                 schedUpdate = random.choice([(max(min((schedIncrement), 0.0001), -0.0001)), -1])
@@ -231,12 +243,11 @@ class TUTOR:
                 clipUpdate = random.choice([((max(min((clipIncrement), 0.0001)), -0.0001)), -1])
                 tempUpdate = random.choice([(max(min((tempIncrement), 0.0001)), -0.0001), -0.01])
 
-
-            self.scheduledSampling = (max(min((self.scheduledSampling + schedUpdate), 1.0), 0.2))
-            self.repetitionPenalty = (max(min((self.repetitionPenalty + repeatUpdate), 1.4), 0.2))
+            self.scheduledSamplingRate = (max(min((self.scheduledSamplingRate + schedUpdate), maxSchedSamp), minSchedSamp))
+            self.repetitionPenalty = (max(min((self.repetitionPenalty + repeatUpdate), maxRepPen), minRepPen))
             self.model.setLearningRate(newLR)
-            self.gradientClipMaxNorm = (max(min((self.gradientClipMaxNorm + clipUpdate), 1.4), 0.6))
-            self.temperature = (max(min((self.temperature + tempUpdate), 1.4), 0.4))
+            self.gradientClipMaxNorm = (max(min((self.gradientClipMaxNorm + clipUpdate), maxGradClip), minGradClip))
+            self.temperature = (max(min((self.temperature + tempUpdate), maxTemp), minTemp))
 
             if skipMemory:
                 ʕっʘ‿ʘʔっ("♥skipMemory")
@@ -249,12 +260,13 @@ class TUTOR:
     def collectTurnStats(self, _targetTokenIndexSeq, _predictedTokenIndices):
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
+            self.averageRecentLoss = sum(self.recentLosses) / len(self.recentLosses) if self.recentLosses else 0.0
             self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
             if self.guessedTokenSeq: 
                 self.tokenCounts.update(self.guessedTokenSeq)
 
             ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
-            self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.005)
+            self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
 
             ʕっʘ‿ʘʔっ("collectStats♥")
 
@@ -278,17 +290,18 @@ class TUTOR:
                     self.perfectTokens += correct
                     self.totalTokenEvaluations += len(target)
 
-                    tokenPerfect_str = ""
-                    tokenPerfectRate = 0
-                    if self.totalTokenEvaluations > 0:
-                        tokenPerfectRate = (self.perfectTokens / self.totalTokenEvaluations) * 100
-                        tokenPerfect_str = f"{self.s_output.S_apply('perfect', f'tokenPerfect: {self.perfectTokens} / {self.totalTokenEvaluations}')} → {tokenPerfectRate:.2f}%"
-                
                 if static_collectStats:
                     ʕっʘ‿ʘʔっ("♥if static_collectStats")
-                    self.stats["scheduledSampling"] = self.scheduledSampling
+                    self.stats["scheduledSamplingRate"] = self.scheduledSamplingRate
                     self.stats["repetitionPenalty"] = self.repetitionPenalty
-
+                    #self.stats["stepLoss"] = self.stepLossFloat # this is ONE STEP of loss.. oh
+                    self.stats["AvgLoss"] = self.averageRecentLoss
+                    self.stats["temperature"] = self.temperature
+                    self.stats["lR"] = self.learningRate
+                    self.stats["gradientClip"] = self.gradientClipMaxNorm
+                    self.stats["latestLossDelta"] = self.latestLossDelta
+                    self.stats["scheduledSampledCount"] = self.stats.get("scheduledSampledCount", 0)
+ 
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")
                     self.stats.update(self.model.embed.getEmbedStats())
@@ -296,11 +309,11 @@ class TUTOR:
                 if logit_collectStats:
                     ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
                     self.stats.update(self.model.logits.getLogitStats())
-                    #self.stats["logitSeq"] = self.logitSeq
-                    #if self.stats["logitSeq"]:
-                    #    ʕっʘ‿ʘʔっ("♥logit max & min")
-                    #    self.stats["logitMin"] = self.stats["logitSeq"][-1].min(dim=-1).values.mean()
-                    #    self.stats["logitMax"] = self.stats["logitSeq"][-1].max(dim=-1).values.mean()
+                    self.stats["logitSeq"] = self.logitSeq
+                    if self.stats["logitSeq"]:
+                        ʕっʘ‿ʘʔっ("♥logit max & min")
+                        self.stats["logitMin"] = self.stats["logitSeq"][-1].min(dim=-1).values.mean()
+                        self.stats["logitMax"] = self.stats["logitSeq"][-1].max(dim=-1).values.mean()
 
                 #self.stats.update(self.wobble.getWobbleStats())
 
@@ -317,14 +330,12 @@ class TUTOR:
                 self.stats.update(INN_stats)
                 INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str), "INN_judgeBias_str": str(INN_judgeBias_str), "INN_credibilityBias_str": str(INN_credibilityBias_str), "windowVotes_str": str(windowVotes_str)}
                 self.stringStats.update(INN_stringStats)
-                self.stringStats.update({"tokenPerfect": str(tokenPerfect_str), "topTokens": str(topTokens)})
+                self.stringStats.update({"topTokens": str(topTokens)})
 
         return self.stats, self.stringStats, self.guessedTokenSeq
 
     def endTurnActions(self):
         with self.counsellor.infodump("endTurnActions") as ʕっʘ‿ʘʔっ:
-            self.perfectTokens = 0
-            self.totalTokenEvaluations = 0
             #self.lastTurnLossDelta = 0
 
             ʕっʘ‿ʘʔっ("increment counters")
@@ -333,30 +344,25 @@ class TUTOR:
                 self.recentLosses.pop(0)
 
             ʕっʘ‿ʘʔっ("♥calculateLossDelta")
-            #if self.recentLosses: self.latestLossDelta = self.stepLossFloat - (sum(self.recentLosses) / len(self.recentLosses))
-            #else: self.latestLossDelta = 0.0
-            self.scheduledSampling = self.scheduledSampling + scheduledSamplingIncrement
-            self.repetitionPenalty = self.scheduledSampling - repetitionPenaltyIncrement
-
-            ʕっʘ‿ʘʔっ("finalLogActions")
-            #self.stats.clear()
-            #self.stringStats.clear()
+            if self.recentLosses: self.latestLossDelta = self.stepLossFloat - (sum(self.recentLosses) / len(self.recentLosses))
+            else: self.latestLossDelta = 0.0
+            #self.scheduledSamplingRate = self.scheduledSamplingRate + scheduledSamplingIncrement
+            #self.repetitionPenalty = self.repetitionPenalty - repetitionPenaltyIncrement
         
-        return
+        return self.latestLossDelta
 
     def saveFreqActions(self): 
         with self.counsellor.infodump("saveFreqActions") as ʕっʘ‿ʘʔっ: # SAVE THE MODEL EVERY x STEPS
-            print(self.s_output.S_apply('dim', 'autosaving...') + self.s_output.S_apply('reset', ''))
+            print(self.calligraphist.S_apply('dim', 'autosaving...') + self.calligraphist.S_apply('reset', ''))
             self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter)
             p = self.trainingStepCounter + saveModelFreq
-            print(self.s_output.S_apply('dim', f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {p}...") + self.s_output.S_apply('reset', ''))
+            print(self.calligraphist.S_apply('dim', f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {p}...") + self.calligraphist.S_apply('reset', ''))
                     
     def printFreqActions(self): 
         with self.counsellor.infodump("printFreqActions") as ʕっʘ‿ʘʔっ: # PRINTING TRAINING OUTPUT TO TERMINAL
             #recentLoss = sum(self.recentPrintLosses)/len(self.recentPrintLosses) if self.recentPrintLosses else None
-            ʕっʘ‿ʘʔっ("S_output.S_colourPrintTraining")
-            self.averageRecentLoss = sum(self.recentLosses) / len(self.recentLosses) if self.recentLosses else 0.0
-            self.s_output.S_colourPrintTraining(
+            ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
+            self.calligraphist.S_colourPrintTraining(
                 _step = self.trainingStepCounter,
                 _inputSeq = self.inputSeq,
                 _guessedSeq_str = self.guessedTokenSeq,
@@ -369,21 +375,97 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.stats = _stats
-            self.averageRecentLoss = sum(self.recentLosses) / len(self.recentLosses) if self.recentLosses else 0.0
             
             ʕっʘ‿ʘʔっ("calculateTrainingDataRemaining")
             trainingDataRemaining = len(_trainingDataPairs) - self.trainingStepCounter
             trainingDataPercent = (trainingDataRemaining / len(_trainingDataPairs)) * 100
+            remainingData_str = f"remainingTokens: {len(_trainingDataPairs) - self.trainingStepCounter} ({trainingDataPercent:.2f}%)"
 
-            ʕっʘ‿ʘʔっ("S_output.S_logTraining")
-            self.s_output.S_logTraining(
+            """for name, p in self.model.named_parameters():
+                if p.grad is None:
+                    pass
+                    #print(f"{self.calligraphist.S_apply("dim", f"no grad: {name}")}")
+                else:
+                    grad = p.grad
+                    shape = tuple(grad.shape)
+                    norm = grad.norm().item()
+                    nonzero = grad.count_nonzero().item()
+                    total = grad.numel()
+                    sparsity = 1 - (nonzero / total)
+                    mean = grad.mean().item()
+                    std = grad.std().item()
+                    print(f"{self.calligraphist.S_apply("good", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")"""
+
+            #deep_model_summary(self.model, tracker = self.newsletter, step=self.trainingStepCounter, loss = self.stepLossFloat, calligraphist=self.calligraphist)
+            #self.newsletter.track("scheduledSamplingRate", self.scheduledSamplingRate)
+
+            tokenPerfect_str = ""
+            if self.totalTokenEvaluations > 0:
+                self.tokenPerfectRate = (self.perfectTokens / self.totalTokenEvaluations) * 100
+                statType = self.calligraphist.S_getStat("PT%", self.tokenPerfectRate)
+                styledRate = self.calligraphist.S_apply(statType, f"{self.tokenPerfectRate:.2f}%")
+                tokenPerfect_str = (f"{self.calligraphist.S_apply('dim', f'perfectTokens: {self.perfectTokens} / {self.totalTokenEvaluations}')} → {styledRate}")
+
+            ʕっʘ‿ʘʔっ("calligraphist.S_logTraining")
+            self.calligraphist.S_logTraining(
                 _trainingLogPath = trainingLogPath_100,
                 _trainingStepCounter = self.trainingStepCounter,
                 _stats = self.stats,
                 _freq = trainingLogFreq_100,
+                _LR = self.learningRate,
                 _INN_cerebellum_str = self.stringStats["INN_cerebellum_str"],
                 _INN_judgeBias_str = self.stringStats["INN_judgeBias_str"],
                 _INN_credbilityBias_str = self.stringStats["INN_credibilityBias_str"],
                 _memoryGates_str = "",
                 _topTokens_str = self.stringStats["topTokens"],
-                _otherInfo_str = f"{self.stringStats['tokenPerfect']} | {self.stringStats['windowVotes_str']} | remainingTokens: {len(_trainingDataPairs) - self.trainingStepCounter} ({trainingDataPercent:.2f}%) | TUTOR.py {trainingLogFreq_100}")
+                _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats['windowVotes_str']} | {remainingData_str} | TUTOR.py {trainingLogFreq_100}")
+            
+            ʕっʘ‿ʘʔっ("finalLogActions")
+            self.stats.clear()
+            self.stringStats.clear()
+            self.tokenPerfectRate = 0
+            self.perfectTokens = 0
+            self.totalTokenEvaluations = 0
+
+    def modelSummary(self, printLongValues=True, maxShape=10000):
+        print("--- MODEL SUMMARY ---")
+
+        for name, module in self.model.named_modules():
+            for attr in dir(module):
+                if attr.startswith("_"): continue  # skip private attrs
+                try:
+                    value = getattr(module, attr)
+                    full_name = f"{name}.{attr}" if name else attr
+
+                    if isinstance(value, torch.nn.Parameter):
+                        data = value.data
+                        shape = tuple(data.shape)
+                        numel = data.numel()
+                        norm = data.norm().item()
+                        mean = data.mean().item()
+                        std = data.std().item()
+                        sparsity = 1 - (data.count_nonzero().item() / numel)
+
+                        summary = f"{full_name:<40} | shape: {shape:<20} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}"
+                        print(summary)
+                        if printLongValues and numel < maxShape:
+                            print("→", data)
+
+                    elif isinstance(value, torch.Tensor) and value.numel() > 0:
+                        shape = tuple(value.shape)
+                        if value.numel() > maxShape:
+                            print(f"{full_name:<40} | tensor shape: {shape} (too big to print)")
+                        else:
+                            mean = value.mean().item()
+                            std = value.std().item()
+                            print(f"{full_name:<40} | tensor shape: {shape} | mean: {mean:.4f} | std: {std:.4f}")
+                            if printLongValues:
+                                print("→", value)
+
+                    elif isinstance(value, (float, int)):
+                        print(f"{full_name:<40} = {value}")
+
+                except Exception as e:
+                    pass  # some attributes throw when accessed, ignore
+
+

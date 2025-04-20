@@ -43,11 +43,12 @@ class NEURON(nn.Module):
 
 """layer that applies the same set of neurons to each token embedding independently. - no sequence awareness!"""
 class INTERNEURON_NETWORK(nn.Module):
-    def __init__(self, _counsellor, _device = modelDevice):
+    def __init__(self, _counsellor, _calligraphist, _device = modelDevice):
         super().__init__()
         #self.inn_counsellor = COUNSELLOR("INN", debug = debugPrints, durations = durationLogging)
         self.inn_counsellor = _counsellor
         self.device = _device
+        self.calligraphist = _calligraphist
 
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(_counsellor = self.inn_counsellor)
@@ -211,8 +212,8 @@ class INTERNEURON_NETWORK(nn.Module):
                         ʕっʘ‿ʘʔっ("♥n_weightNormStats")
                         stats["n_weightNorm"] = torch.norm(self.neurons.n_weights, dim=1)
                         stats["n_weightNormMean"] = stats["n_weightNorm"].mean()
-                        stats["n_weightNormMax"] = stats["n_weightNorm"].min()
-                        stats["n_weightNormMin"] = stats["n_weightNorm"].max()
+                        stats["n_weightNormMin"] = stats["n_weightNorm"].min()
+                        stats["n_weightNormMax"] = stats["n_weightNorm"].max()
                         if debugPrints: print(f"neuron weightNorm: {stats["n_weightNorm"]} mean: {stats["n_weightNormMean"]} min: {stats["n_weightNormMax"]} max: {stats["n_weightNormMin"]}")
 
                     if n_biasesStats:
@@ -225,7 +226,7 @@ class INTERNEURON_NETWORK(nn.Module):
 
                     if n_sparsityStat:
                         ʕっʘ‿ʘʔっ("♥getSparsityStat")
-                        stats["n_sparsity"] = (self.neurons.n_weights.abs() < 1e-6).float().mean()
+                        stats["n_sparsity"] = (self.neurons.n_weights.abs() < 1e-5).float().mean()
                         if debugPrints: print(f"neuron sparsity: {stats["n_sparsity"]}")
 
             if collectStats and INN_collectStats:
@@ -239,8 +240,9 @@ class INTERNEURON_NETWORK(nn.Module):
                         stats["INN_cerebellumStd"] = self.cerebellum.std()
                         if debugPrints: print(f"cerebellum: {stats["INN_cerebellum"]}, soft: {stats["INN_cerebellumSoft"]} mean: {stats['INN_cerebellumMean']} std: {stats['INN_cerebellumStd']}")
                         ʕっʘ‿ʘʔっ("♥cerebellumString")
-                        INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellum"], stats["INN_cerebellumSoft"]), key=lambda x: x[1], reverse=True)
-                        INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCerebellum)
+                        #INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellum"], stats["INN_cerebellumSoft"]), key=lambda x: x[1], reverse=True)
+                        #INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCerebellum)
+                        INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor=stats["INN_cerebellum"], softTensor=stats["INN_cerebellumSoft"], windowSizes=allWindowSizes_new)
                         if debugPrints: print(f"{INN_cerebellum_str}")
 
 
@@ -252,8 +254,9 @@ class INTERNEURON_NETWORK(nn.Module):
                         stats["INN_credibilityBiasStd"] = self.credibilityBias.std()
                         if debugPrints: print(f"credibilityBias: {stats["INN_credibilityBias"]} soft: {stats["INN_credibilityBiasSoft"]} mean: {stats["INN_credibilityBiasMean"]} std: {stats["INN_credibilityBiasStd"]}")
                         ʕっʘ‿ʘʔっ("♥credibilityBiasString")
-                        INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key=lambda x: x[1], reverse=True)
-                        INN_credibilityBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCredibilityBias)
+                        #INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key=lambda x: x[1], reverse=True)
+                        #INN_credibilityBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCredibilityBias)
+                        INN_credibilityBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_credibilityBias", rawTensor=stats["INN_credibilityBias"], softTensor=stats["INN_credibilityBiasSoft"], windowSizes=allWindowSizes_new)
                         if debugPrints: print(f"{INN_credibilityBias_str}") 
 
                     if INN_judgeBiasStats:
@@ -264,8 +267,9 @@ class INTERNEURON_NETWORK(nn.Module):
                         stats["INN_judgeBiasStd"] = self.judgeBias.std()
                         if debugPrints: print(f"judgeBias: {stats["INN_judgeBias"]} soft: {stats["INN_judgeBiasSoft"]} mean: {stats["INN_judgeBiasMean"]} std: {stats["INN_judgeBiasStd"]}")
                         ʕっʘ‿ʘʔっ("♥judgeBiasString")
-                        INN_hybridJudgeBias = sorted(zip(allWindowSizes_new, stats["INN_judgeBiasSoft"], stats["INN_judgeBias"]), key=lambda x: x[1], reverse=True)
-                        INN_judgeBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridJudgeBias)
+                        #INN_hybridJudgeBias = sorted(zip(allWindowSizes_new, stats["INN_judgeBiasSoft"], stats["INN_judgeBias"]), key=lambda x: x[1], reverse=True)
+                        #INN_judgeBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridJudgeBias)
+                        INN_judgeBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_judgeBias", rawTensor=stats["INN_judgeBias"], softTensor=stats["INN_judgeBiasSoft"], windowSizes=allWindowSizes_new)
                         if debugPrints: print(f"{INN_judgeBias_str}")
                         
                     if INN_scoringStats:
