@@ -283,7 +283,7 @@ class BABYLLM(nn.Module):
                 if self.stepsSinceMemoryReset >= memoryLength: 
                     self.memory.resetMemory()
                     self.stepsSinceMemoryReset = 0 
-                    print(f"resetting memory after {memoryLength} steps...")
+                    if debugPrints: print(f"resetting memory after {memoryLength} steps...")
 
     def setLearningRate(self, _newLearningRate):
         self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
