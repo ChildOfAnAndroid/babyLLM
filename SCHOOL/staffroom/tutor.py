@@ -12,6 +12,22 @@ import numpy as np
 import math
 from SCHOOL.staffroom.newsletter import deep_model_summary, STATS
 
+def makeStatRecord():
+    base = {
+        "now": 0.0,
+        "prev": 0.0,
+        "top": float('-inf'),
+        "bot": float('inf'),
+        "delta": 0.0,
+        "totSum": 0.0,
+        "totNum": 0,
+        "totAvg": 0.0
+    }
+    for n in [printFreq, printFreq*10, trainingLogFreq_100, trainingLogFreq_1000]:
+        base[f"roll{n}"] = []
+
+    return base
+
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _newsletter, _wobble, _model, _device = modelDevice, _gradientClipMaxNorm = gradientClipMaxNorm, _temperature = temperature, _numTokensPerStep = numTokensPerStep):
         
@@ -23,27 +39,12 @@ class TUTOR:
         self.device = _device
         self.model = _model
         self.newsletter = STATS()
-        
-        def makeStatRecord():
-            return {
-                "now": 0.0,
-                "prev": 0.0,
-                "top": float('-inf'),
-                "bot": float('inf'),
-                "delta": 0.0,
-                "totSum": 0.0,
-                "totNum": 0,
-                "totAvg": 0.0,
-                f"roll{100}": [],
-                "rollAvg": 0.0
-            }
 
         self.ʕっෆ‿ෆʔっ = defaultdict(makeStatRecord)
 
         self.perfectTokens = 0
         self.totalTokenEvaluations = 0
         self.scheduledSamplingRate = scheduledSamplingRate
-        self.recentLosses = []
         self.predictedTokenIndices = [] # this list grows each time a new token is predicted
         self.averageRecentLoss = 0
         self.repetitionPenalty = repetitionPenalty
@@ -162,6 +163,7 @@ class TUTOR:
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
         self.startIndex = _startIndex
+        self.collectAllTimeStats()
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:
             #if debugPrints: print(f"Debug tokenToIndex (First 20): {list(librarian.tokenToIndex.items())[:20]}")
             for name, param in self.model.named_parameters(): print(name, param.device)
@@ -280,7 +282,23 @@ class TUTOR:
     def collectTurnStats(self, _targetTokenIndexSeq, _predictedTokenIndices, _BACKWARDloss):
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
-            self.averageRecentLoss = sum(self.recentLosses) / len(self.recentLosses) if self.recentLosses else 0.0
+            lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
+            rollup100AvgKey = f"rollup{trainingLogFreq_100}_avg"
+            roll1000AvgKey = f"roll{trainingLogFreq_1000}_avg"
+            roll100AvgKey = f"roll{trainingLogFreq_100}_avg"
+            rollPrintAvgKey = f"roll{printFreq}_avg"
+
+            if rollup100AvgKey in lossStats and len(rollup100AvgKey) > 100:
+                self.averageRecentLoss = lossStats[roll1000AvgKey]
+            elif roll1000AvgKey in lossStats and len(roll1000AvgKey) > 100:
+                self.averageRecentLoss = lossStats[roll1000AvgKey]
+            elif roll100AvgKey in lossStats:
+                self.averageRecentLoss = lossStats[roll100AvgKey]
+            elif rollPrintAvgKey in lossStats:
+                self.latestLossDelta = lossStats[rollPrintAvgKey]
+            else:
+                self.averageRecentLoss = 0.0
+
             self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
             if self.guessedTokenSeq: 
                 self.tokenCounts.update(self.guessedTokenSeq)
@@ -329,8 +347,6 @@ class TUTOR:
                             self.rollingAverages[statsK].append(statsV)
                             if len(self.rollingAverages[statsK]) > self.rollingAveragesBufferLen:
                                 self.rollingAverages[statsK].pop(0)
-
-                self.collectAllTimeStats()
  
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")
@@ -361,23 +377,26 @@ class TUTOR:
                 INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str), "INN_judgeBias_str": str(INN_judgeBias_str), "INN_credibilityBias_str": str(INN_credibilityBias_str), "windowVotes_str": str(windowVotes_str)}
                 self.stringStats.update(INN_stringStats)
                 self.stringStats.update({"topTokens": str(topTokens)})
+                self.collectAllTimeStats()
 
         return self.stats, self.stringStats, self.guessedTokenSeq
 
     def endTurnActions(self):
         with self.counsellor.infodump("endTurnActions") as ʕっʘ‿ʘʔっ:
-            #self.lastTurnLossDelta = 0
-
-            ʕっʘ‿ʘʔっ("increment counters")
-            self.recentLosses.append(self.stepLossFloat)
-            if len(self.recentLosses) > trainingLogFreq_100:
-                self.recentLosses.pop(0)
-
             ʕっʘ‿ʘʔっ("♥calculateLossDelta")
-            if self.recentLosses: self.latestLossDelta = self.stepLossFloat - (sum(self.recentLosses) / len(self.recentLosses))
-            else: self.latestLossDelta = 0.0
-            #self.scheduledSamplingRate = self.scheduledSamplingRate + scheduledSamplingIncrement
-            #self.repetitionPenalty = self.repetitionPenalty - repetitionPenaltyIncrement
+            lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
+
+            roll100AvgKey = f"roll{trainingLogFreq_100}_avg"
+            roll100DeltaKey = f"roll{trainingLogFreq_100}_△"
+            rollPrintAvgKey = f"roll{printFreq}_avg"
+            rollPrintDeltaKey = f"roll{printFreq}_△"
+
+            if roll100AvgKey in lossStats and roll100DeltaKey in lossStats:
+                self.latestLossDelta = lossStats[roll100DeltaKey]
+            elif rollPrintAvgKey in lossStats and rollPrintDeltaKey in lossStats:
+                self.latestLossDelta = lossStats[rollPrintDeltaKey]
+            else:
+                self.latestLossDelta = 0.0
         
         return self.latestLossDelta
 
@@ -405,7 +424,6 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.stats = _stats
-            self.stats.update(self.ʕっෆ‿ෆʔっ)
 
             ʕっʘ‿ʘʔっ("calculateTrainingDataRemaining")
             trainingDataRemaining = len(_trainingDataPairs) - self.trainingStepCounter
@@ -434,6 +452,8 @@ class TUTOR:
                 _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats['windowVotes_str']} | {remainingData_str} | TUTOR.py {trainingLogFreq_100}")
             
             ʕっʘ‿ʘʔっ("finalLogActions")
+            for key in self.ʕっෆ‿ෆʔっ:
+                print(key, self.ʕっෆ‿ෆʔっ[key])
             self.calligraphist.refreshStatBands(_rollingAverages = self.rollingAverages)
             self.stats.clear()
             self.stringStats.clear()
@@ -442,77 +462,83 @@ class TUTOR:
             self.totalTokenEvaluations = 0
 
     def collectAllTimeStats(self):
-        for key, value in self.stats.items():
-            if not isinstance(value, (int, float)):
-                continue
+        for _statKey, _value in self.stats.items():
+            if not isinstance(_value, (int, float)): continue  # skip strings, tensors, weird stuff
 
-            if key not in self.ʕっෆ‿ෆʔっ:
-                self.ʕっෆ‿ෆʔっ[key] = value
-                self.ʕっෆ‿ෆʔっ[f"{key}_avg"] = value
-                self.ʕっෆ‿ෆʔっ[f"{key}_top"] = value
-                self.ʕっෆ‿ෆʔっ[f"{key}_bot"] = value
-                self.ʕっෆ‿ෆʔっ[f"{key}_count"] = 1
-                self.ʕっෆ‿ෆʔっ[f"{key}_sum"] = value
-                self.ʕっෆ‿ෆʔっ[f"{key}_roll"] = value
-            else:
-                if value > self.ʕっෆ‿ෆʔっ[f"{key}_top"]:
-                    self.ʕっෆ‿ෆʔっ[f"{key}_top"] = value
-                if value < self.ʕっෆ‿ෆʔっ[f"{key}_bot"]:
-                    self.ʕっෆ‿ෆʔっ[f"{key}_bot"] = value
+            """ෆෆෆ^ ♥ KEYS ETC ♥ ^ෆෆෆ"""
+            _               = self.ʕっෆ‿ෆʔっ[_statKey]  # this will autoinit with defaultdict
+            ෆ‿ෆ             = self.ʕっෆ‿ෆʔっ[_statKey]
+            ෆ1              = printFreq
+            ෆ100            = trainingLogFreq_100
+            ෆ1000           = trainingLogFreq_1000
+            important       = ["loss"]
+            percentiles     = [99.99, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0.5]
 
-                self.ʕっෆ‿ෆʔっ[f"{key}_count"] += 1
-                self.ʕっෆ‿ෆʔっ[f"{key}_sum"] += value
-                count = self.ʕっෆ‿ෆʔっ[f"{key}_count"]
-                total = self.ʕっෆ‿ෆʔっ[f"{key}_sum"]
-                self.ʕっෆ‿ෆʔっ[f"{key}_avg"] = total / count
+            """ ෆෆෆ^ ♥ UPDATE EVERY TURN ♥ ^ෆෆෆ   """
+            """ ෆෆෆ^ ♥ turn stats ♥ ^ෆෆෆ  """
+            ෆ‿ෆ["prev"]     = ෆ‿ෆ.get("now", 0.0)
+            ෆ‿ෆ["now"]      = _value
 
-    def collectAllTimeStats(self):
-        for key, value in self.stats.items():
-            if not isinstance(value, (int, float)): continue  # skip strings, tensors, weird stuff
-            """KEYS ETC"""
-            ෆ‿ෆ                     = self.ʕっෆ‿ෆʔっ[key]
-            ෆ1                      = printFreq
-            ෆ10                     = ෆ1 * 10
-            ෆ100                    = trainingLogFreq_100
-            ෆ1000                   = trainingLogFreq_1000
+            """ ෆෆෆ^ ♥ totals ♥ ^ෆෆෆ  """
+            ෆ‿ෆ["totSum"]   = ෆ‿ෆ.get("totSum", 0.0)    + _value
+            ෆ‿ෆ["totNum"]   = ෆ‿ෆ.get("totNum", 0)      + 1
+            ෆ‿ෆ["totAvg"]   = ෆ‿ෆ["totSum"] / ෆ‿ෆ["totNum"]
+            ෆ‿ෆ["totAvg△"]  = ෆ‿ෆ["now"]    - ෆ‿ෆ["totAvg"]
 
+            """ ෆෆෆ^ ♥ records ♥ ^ෆෆෆ """
+            ෆ‿ෆ["top"]      = max(ෆ‿ෆ.get("top", _value), _value)
+            ෆ‿ෆ["bot"]      = min(ෆ‿ෆ.get("bot", _value), _value)
 
-            """VERY CURRENT"""
-            ෆ‿ෆ["prev"]             = ෆ‿ෆ["now"]
-            ෆ‿ෆ["now"]              = value
+            """ ෆෆෆ^ ♥ ROLLING STATS ♥ ^ෆෆෆ   """
+            for freq in [ෆ1, ෆ100]:
+                rollKey = f"roll{freq}"
+                if rollKey not in ෆ‿ෆ:
+                    ෆ‿ෆ[rollKey]        = []
+                if len(ෆ‿ෆ[rollKey])   >= freq:
+                    ෆ‿ෆ[rollKey].pop(0)
+                ෆ‿ෆ[rollKey].append(_value)
 
-            ෆ‿ෆ[f"roll{ෆ1}Avg"]     = sum(ෆ‿ෆ[f"roll{ෆ1}"]) / len(ෆ‿ෆ[f"roll{ෆ1}"]) if ෆ‿ෆ[f"roll{ෆ1}"] else 0.0
-            ෆ‿ෆ[f"roll{ෆ1}△"]           = ෆ‿ෆ["prev"] - ෆ‿ෆ["now"] if ෆ‿ෆ["prev"] else 0.0
-            ෆ‿ෆ[f"roll{ෆ1}std"]         = self.stdTest(ෆ‿ෆ[f"roll{ෆ1}"])
+                if ෆ‿ෆ[rollKey]:
+                    unrolledKey         = ෆ‿ෆ[rollKey]
+                    average             = sum(unrolledKey) / len(unrolledKey)
+                    delta               = ෆ‿ෆ["now"] - average
+                    standardDeviation   = self.stdTest(unrolledKey)
+                    top                 = max(unrolledKey)
+                    bottom              = min(unrolledKey)
 
+                    ෆ‿ෆ[f"{rollKey}_avg"]   = average
+                    ෆ‿ෆ[f"{rollKey}_△"]     = delta
+                    ෆ‿ෆ[f"{rollKey}_std"]   = standardDeviation
+                    ෆ‿ෆ[f"{rollKey}_top"]   = max(top, ෆ‿ෆ.get(f"{rollKey}_top", top))
+                    ෆ‿ෆ[f"{rollKey}_bot"]   = min(bottom, ෆ‿ෆ.get(f"{rollKey}_bot", bottom))
 
-            """ROLLING 10"""
-            ෆ‿ෆ[f"roll{ෆ10}"].append(value) if len(ෆ‿ෆ[f"roll{ෆ10}"]) > ෆ10: ෆ‿ෆ[f"roll{ෆ10}"].pop(0)
+                    for p in percentiles:
+                        ෆ‿ෆ[f"{rollKey}_p{p}"] = np.percentile(unrolledKey, p)
 
-            ෆ‿ෆ[f"roll{ෆ10}Avg"]    = sum(ෆ‿ෆ[f"roll{ෆ10}"]) / len(ෆ‿ෆ[f"roll{ෆ10}"]) if ෆ‿ෆ[f"roll{ෆ10}"] else 0.0
-            ෆ‿ෆ[f"roll{ෆ10}△"]      = ෆ‿ෆ["now"] - ෆ‿ෆ[f"roll{ෆ10}Avg"] if ෆ‿ෆ[f"roll{ෆ10}Avg"] else 0.0
-            ෆ‿ෆ[f"roll{ෆ10}Std"]    = self.stdTest(ෆ‿ෆ[f"roll{ෆ10}"])
+            if _statKey in important and self.trainingStepCounter % ෆ100 == 0:
+                for upFreq in [ෆ100]:
+                    rollupKey = f"rollup{upFreq}"
+                    if rollupKey not in ෆ‿ෆ:
+                        ෆ‿ෆ[rollupKey]      = []
+                    if len(ෆ‿ෆ[rollupKey]) >= ෆ100:
+                        ෆ‿ෆ[rollupKey].pop(0)
+                    ෆ‿ෆ[rollupKey].append(_value)
 
+                    if ෆ‿ෆ[rollupKey]:
+                        unrolledupKey       = ෆ‿ෆ[rollupKey]
+                        upaverage           = sum(unrolledupKey) / len(unrolledupKey)
+                        upstandardDeviation = self.stdTest(unrolledupKey)
+                        uptop               = max(unrolledupKey)
+                        upbottom            = min(unrolledupKey)
 
-            """ROLLING 100""" # self.recentLosses.append(self.stepLossFloat) if len(self.recentLosses) > trainingLogFreq_100: self.recentLosses.pop(0)
-            ෆ‿ෆ[f"roll{ෆ100}"].append(value) if len(ෆ‿ෆ[f"roll{ෆ100}"]) > ෆ100: ෆ‿ෆ[f"roll{ෆ100}"].pop(0)
+                        ෆ‿ෆ[f"{rollupKey}_avg"] = upaverage
+                        ෆ‿ෆ[f"{rollupKey}_std"] = upstandardDeviation
+                        ෆ‿ෆ[f"{rollupKey}_top"] = max(uptop, ෆ‿ෆ.get(f"{rollupKey}_top", uptop))
+                        ෆ‿ෆ[f"{rollupKey}_bot"] = min(upbottom, ෆ‿ෆ.get(f"{rollupKey}_bot", upbottom))
 
-            ෆ‿ෆ[f"roll{ෆ100}Avg"]   = sum(ෆ‿ෆ[f"roll{ෆ100}"]) / len(ෆ‿ෆ[f"roll{ෆ100}"]) if ෆ‿ෆ[f"roll{ෆ100}"] else 0.0
-            ෆ‿ෆ[f"roll{ෆ100}△"]     = ෆ‿ෆ["now"] - ෆ‿ෆ[f"roll{ෆ100}Avg"] if ෆ‿ෆ[f"roll{ෆ100}Avg"] else 0.0 
-            ෆ‿ෆ[f"roll{ෆ100}Std"]   = self.stdTest(ෆ‿ෆ[f"roll{ෆ100}"])
-
-
-            """TOTALS"""
-            ෆ‿ෆ["totSum"]          += value
-            ෆ‿ෆ["totNum"]          += 1
-            ෆ‿ෆ["totAvg"]           = ෆ‿ෆ["totSum"] / ෆ‿ෆ["totNum"]
-            ෆ‿ෆ["totAvg△"]          = ෆ‿ෆ["now"] - ෆ‿ෆ["totAvg"] if ෆ‿ෆ["totAvg"] else 0.0
-            ෆ‿ෆ[f"totAvgStd"]       = self.stdTest(ෆ‿ෆ[f"roll{ෆ100}"])
-
-
-            """RECORDS"""
-            ෆ‿ෆ["top"]              = max(ෆ‿ෆ["top"], value)
-            ෆ‿ෆ["bot"]              = min(ෆ‿ෆ["bot"], value)
+                        for p in percentiles:
+                            ෆ‿ෆ[f"{rollupKey}_p{p}"] = np.percentile(unrolledupKey, p)
+        return
 
     def stdTest(self, values):
         if len(values) <= 1: return 0.0
