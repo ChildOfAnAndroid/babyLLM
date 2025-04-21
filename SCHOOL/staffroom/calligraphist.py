@@ -50,7 +50,7 @@ class S_OUTPUT:
         """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
         self.S_types = {
 
-            "superPerfect":  [BOLD, GOLD],              # new top score ever //
+            "superPerfect":  [ITALIC, GOLD],              # new top score ever //
             "perfect":       [GOLD],                    # top score ever //
 
             "almostPerfect": [BOLD, PURPLE_PALE],       # 0.975 //
@@ -65,10 +65,10 @@ class S_OUTPUT:
             "bad":           [CYAN],                    # 0.30 //
             "worse":         [ORANGE],                  # 0.20 //
             "wtf":           [BOLD, ORANGE],            # 0.10 //
-            "omg":           [RED_BRIGHT],              # 0.05 //
+            "omg":           [RED],              # 0.05 //
 
-            "omgwtf":        [BOLD, RED_BRIGHT],        # bottom score ever //
-            "omgwtf!":       [BOLD, GREEN],             # new bottom score ever //
+            "omgwtf":        [RED],        # bottom score ever //
+            "omgwtf!":       [ITALIC, RED_BRIGHT],             # new bottom score ever //
 
 
             "negative":      [BOLD, GREEN],
