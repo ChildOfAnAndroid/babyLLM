@@ -3,6 +3,7 @@
 
 from rich.traceback import install
 install(show_locals=True)
+from torch.profiler import profile, record_function, ProfilerActivity
 import sys, traceback, warnings, torch, os, random
 from datetime import datetime
 
@@ -50,7 +51,6 @@ def wakeup():
             ʕっʘ‿ʘʔっ("loading babyLLM...")
             babyLLM = BABYLLM(_counsellor = counsellor, _calligraphist = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = wobble, _device = modelDevice)
 
-            ʕっʘ‿ʘʔっ("waking up tutor...")
             tutor = TUTOR(_counsellor = counsellor, _calligraphist = calligraphist, _scribe = scribe, _librarian = librarian, _newsletter = newsletter, _wobble = wobble, _model = babyLLM, _device = modelDevice)
             babyLLM.loadModel()
             #wobble.to(modelDevice)
