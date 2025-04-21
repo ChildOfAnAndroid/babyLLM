@@ -57,6 +57,7 @@ class TUTOR:
         self.learningRate = learningRate
         self.rollingAverages = defaultdict(list)
         self.rollingAveragesBufferLen = trainingLogFreq_1000
+        self.memoryLength = memoryLength
         #model.to(self.device)
 
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss, _repetitionPenalty):
@@ -186,7 +187,7 @@ class TUTOR:
                     inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                     ʕっʘ‿ʘʔっ("♥TRAINING STEP")
                     self.predictedTokenIndices, self.logitSeq, BACKWARDloss_ = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None, _repetitionPenalty = self.repetitionPenalty)
-
+                    """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                     ʕっʘ‿ʘʔっ("♥collectTurnStats")
                     LOGstats, LOGstringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices, _BACKWARDloss = BACKWARDloss_)
 
@@ -248,11 +249,13 @@ class TUTOR:
                 LRIncrement = self.learningRate/100000
                 clipIncrement = gradClipIncrement
                 tempIncrement = temperatureIncrement
+                memIncrement = memoryLengthIncrement
                 schedUpdate = random.choice([scheduledSamplingIncrement, -scheduledSamplingIncrement, scheduledSamplingIncrement])
                 repeatUpdate = random.choice([repetitionPenaltyIncrement, -repetitionPenaltyIncrement, repetitionPenaltyIncrement])
                 newLR = random.choice([LRIncrement, -LRIncrement])
                 clipUpdate = random.choice([gradClipIncrement, -gradClipIncrement])
                 tempUpdate = random.choice([tempIncrement, -tempIncrement])
+                memUpdate = random.choice([memIncrement, -memIncrement])
             elif self.wobbleIncrements is not None:
                 schedIncrement = self.wobbleIncrements[0].item()
                 repeatIncrement = self.wobbleIncrements[1].item()
@@ -270,6 +273,7 @@ class TUTOR:
             self.model.setLearningRate(newLR)
             self.gradientClipMaxNorm = (max(min((self.gradientClipMaxNorm + clipUpdate), maxGradClip), minGradClip))
             self.temperature = (max(min((self.temperature + tempUpdate), maxTemp), minTemp))
+            self.memoryLength = (max(min((self.memoryLength + memUpdate), 100), 1))
 
             if skipMemory:
                 ʕっʘ‿ʘʔっ("♥skipMemory")
@@ -278,108 +282,6 @@ class TUTOR:
                 self.model.resetMemory(context="training")
 
         return inputTokenIndices, targetTokenIndexSeq, #self.repetitionPenalty, #self.wobbleLoss
-    
-    def collectTurnStats(self, _targetTokenIndexSeq, _predictedTokenIndices, _BACKWARDloss):
-        with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
-            lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
-            rollup100AvgKey = f"rollup{trainingLogFreq_100}_avg"
-            roll1000AvgKey = f"roll{trainingLogFreq_1000}_avg"
-            roll100AvgKey = f"roll{trainingLogFreq_100}_avg"
-            rollPrintAvgKey = f"roll{printFreq}_avg"
-
-            if rollup100AvgKey in lossStats and len(rollup100AvgKey) > 100:
-                self.averageRecentLoss = lossStats[roll1000AvgKey]
-            elif roll1000AvgKey in lossStats and len(roll1000AvgKey) > 100:
-                self.averageRecentLoss = lossStats[roll1000AvgKey]
-            elif roll100AvgKey in lossStats:
-                self.averageRecentLoss = lossStats[roll100AvgKey]
-            elif rollPrintAvgKey in lossStats:
-                self.latestLossDelta = lossStats[rollPrintAvgKey]
-            else:
-                self.averageRecentLoss = 0.0
-
-            self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
-            if self.guessedTokenSeq: 
-                self.tokenCounts.update(self.guessedTokenSeq)
-
-            ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
-            self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
-
-            ʕっʘ‿ʘʔっ("collectStats♥")
-
-            if collectStats:
-                ʕっʘ‿ʘʔっ("♥if collectStats♥")
-
-                if token_collectStats:
-                    ʕっʘ‿ʘʔっ("♥if token_collectStats♥")
-                    self.predictedTokenIndices = _predictedTokenIndices
-
-                    ʕっʘ‿ʘʔっ("♥most common tokens")
-                    topTokens = ""
-                    topTokens = self.tokenCounts.most_common(10)
-
-                    ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
-                    if not _predictedTokenIndices:
-                        return self.stats, [], self.guessedTokenSeq
-                    target = torch.tensor(_targetTokenIndexSeq[:numTokensPerStep], device=modelDevice)
-                    predicted = torch.tensor(self.predictedTokenIndices, device=modelDevice)
-                    correct = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
-                    self.perfectTokens += correct
-                    self.totalTokenEvaluations += len(target)
-
-                if static_collectStats:
-                    ʕっʘ‿ʘʔっ("♥if static_collectStats")
-                    self.stats["scheduledSamplingRate"] = self.scheduledSamplingRate
-                    self.stats["repetitionPenalty"] = self.repetitionPenalty
-                    self.stats["AvgLoss"] = self.averageRecentLoss
-                    self.stats["loss"] = _BACKWARDloss
-                    self.stats["temperature"] = self.temperature
-                    self.stats["lR"] = self.learningRate
-                    self.stats["gradientClip"] = self.gradientClipMaxNorm
-                    self.stats["latestLossDelta"] = self.latestLossDelta
-                    for statsK, statsV in self.stats.items():
-                        if isinstance(statsV, torch.Tensor) and statsV.numel() == 1:
-                            statsV = statsV.item()
-                        if isinstance(statsV, (float, int)):
-                            if statsK not in self.rollingAverages:
-                                self.rollingAverages[statsK] = []
-                            self.rollingAverages[statsK].append(statsV)
-                            if len(self.rollingAverages[statsK]) > self.rollingAveragesBufferLen:
-                                self.rollingAverages[statsK].pop(0)
- 
-                if embed_collectStats:
-                    ʕっʘ‿ʘʔっ("♥if embed_collectStats")
-                    self.stats.update(self.model.embed.getEmbedStats())
-
-                if logit_collectStats:
-                    ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
-                    self.stats.update(self.model.logits.getLogitStats())
-                    self.stats["logitSeq"] = self.logitSeq
-                    if self.stats["logitSeq"]:
-                        ʕっʘ‿ʘʔっ("♥logit max & min")
-                        self.stats["logitMin"] = self.stats["logitSeq"][-1].min(dim=-1).values.mean()
-                        self.stats["logitMax"] = self.stats["logitSeq"][-1].max(dim=-1).values.mean()
-
-                #self.stats.update(self.wobble.getWobbleStats())
-
-                if skipMemory:
-                    ʕっʘ‿ʘʔっ("♥skipMemory")
-                else:
-                    self.model.memory.updateMemoryBuffers()
-                    if memory_collectStats:
-                        ʕっʘ‿ʘʔっ("♥if memory_collectStats")
-                        self.stats.update(self.model.memory.getMemoryStats())
-
-                ʕっʘ‿ʘʔっ("♥INN_collectStats")
-                INN_stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str, windowVotes_str = self.model.interneuronNetwork.INN_getStats()
-                self.stats.update(INN_stats)
-                INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str), "INN_judgeBias_str": str(INN_judgeBias_str), "INN_credibilityBias_str": str(INN_credibilityBias_str), "windowVotes_str": str(windowVotes_str)}
-                self.stringStats.update(INN_stringStats)
-                self.stringStats.update({"topTokens": str(topTokens)})
-                self.collectAllTimeStats()
-
-        return self.stats, self.stringStats, self.guessedTokenSeq
 
     def endTurnActions(self):
         with self.counsellor.infodump("endTurnActions") as ʕっʘ‿ʘʔっ:
@@ -452,14 +354,118 @@ class TUTOR:
                 _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats['windowVotes_str']} | {remainingData_str} | TUTOR.py {trainingLogFreq_100}")
             
             ʕっʘ‿ʘʔっ("finalLogActions")
-            for key in self.ʕっෆ‿ෆʔっ:
-                print(key, self.ʕっෆ‿ෆʔっ[key])
+            if debugPrints:
+                for key in self.ʕっෆ‿ෆʔっ:
+                    print(key, self.ʕっෆ‿ෆʔっ[key])
             self.calligraphist.refreshStatBands(_rollingAverages = self.rollingAverages)
             self.stats.clear()
             self.stringStats.clear()
             self.tokenPerfectRate = 0
             self.perfectTokens = 0
             self.totalTokenEvaluations = 0
+
+    def collectTurnStats(self, _targetTokenIndexSeq, _predictedTokenIndices, _BACKWARDloss):
+        with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
+            ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
+            lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
+            rollup100AvgKey = f"rollup{trainingLogFreq_100}_avg"
+            roll1000AvgKey = f"roll{trainingLogFreq_1000}_avg"
+            roll100AvgKey = f"roll{trainingLogFreq_100}_avg"
+            rollPrintAvgKey = f"roll{printFreq}_avg"
+
+            if rollup100AvgKey in lossStats and len(rollup100AvgKey) > 100:
+                self.averageRecentLoss = lossStats[roll1000AvgKey]
+            elif roll1000AvgKey in lossStats and len(roll1000AvgKey) > 100:
+                self.averageRecentLoss = lossStats[roll1000AvgKey]
+            elif roll100AvgKey in lossStats:
+                self.averageRecentLoss = lossStats[roll100AvgKey]
+            elif rollPrintAvgKey in lossStats:
+                self.latestLossDelta = lossStats[rollPrintAvgKey]
+            else:
+                self.averageRecentLoss = 0.0
+
+            self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
+            if self.guessedTokenSeq: 
+                self.tokenCounts.update(self.guessedTokenSeq)
+
+            ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
+            self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
+
+            ʕっʘ‿ʘʔっ("collectStats♥")
+
+            if collectStats:
+                ʕっʘ‿ʘʔっ("♥if collectStats♥")
+
+                if token_collectStats:
+                    ʕっʘ‿ʘʔっ("♥if token_collectStats♥")
+                    self.predictedTokenIndices = _predictedTokenIndices
+
+                    ʕっʘ‿ʘʔっ("♥most common tokens")
+                    topTokens = ""
+                    topTokens = self.tokenCounts.most_common(10)
+
+                    ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
+                    if not _predictedTokenIndices:
+                        return self.stats, [], self.guessedTokenSeq
+                    target = torch.tensor(_targetTokenIndexSeq[:numTokensPerStep], device=modelDevice)
+                    predicted = torch.tensor(self.predictedTokenIndices, device=modelDevice)
+                    correct = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
+                    self.perfectTokens += correct
+                    self.totalTokenEvaluations += len(target)
+
+                if static_collectStats:
+                    ʕっʘ‿ʘʔっ("♥if static_collectStats")
+                    self.stats["scheduledSamplingRate"] = self.scheduledSamplingRate
+                    self.stats["repetitionPenalty"] = self.repetitionPenalty
+                    self.stats["AvgLoss"] = self.averageRecentLoss
+                    self.stats["loss"] = _BACKWARDloss
+                    self.stats["temperature"] = self.temperature
+                    self.stats["lR"] = self.learningRate
+                    self.stats["gradientClip"] = self.gradientClipMaxNorm
+                    self.stats["latestLossDelta"] = self.latestLossDelta
+                    self.stats["memoryLength"] = self.memoryLength
+                    for statsK, statsV in self.stats.items():
+                        if isinstance(statsV, torch.Tensor) and statsV.numel() == 1:
+                            statsV = statsV.item()
+                        if isinstance(statsV, (float, int)):
+                            if statsK not in self.rollingAverages:
+                                self.rollingAverages[statsK] = []
+                            self.rollingAverages[statsK].append(statsV)
+                            if len(self.rollingAverages[statsK]) > self.rollingAveragesBufferLen:
+                                self.rollingAverages[statsK].pop(0)
+ 
+                if embed_collectStats:
+                    ʕっʘ‿ʘʔっ("♥if embed_collectStats")
+                    self.stats.update(self.model.embed.getEmbedStats())
+
+                if logit_collectStats:
+                    ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
+                    self.stats.update(self.model.logits.getLogitStats())
+                    self.stats["logitSeq"] = self.logitSeq
+                    if self.stats["logitSeq"]:
+                        ʕっʘ‿ʘʔっ("♥logit max & min")
+                        self.stats["logitMin"] = self.stats["logitSeq"][-1].min(dim=-1).values.mean()
+                        self.stats["logitMax"] = self.stats["logitSeq"][-1].max(dim=-1).values.mean()
+
+                #self.stats.update(self.wobble.getWobbleStats())
+
+                if skipMemory:
+                    ʕっʘ‿ʘʔっ("♥skipMemory")
+                else:
+                    self.model.memory.updateMemoryBuffers()
+                    if memory_collectStats:
+                        ʕっʘ‿ʘʔっ("♥if memory_collectStats")
+                        self.stats.update(self.model.memory.getMemoryStats())
+
+                ʕっʘ‿ʘʔっ("♥INN_collectStats")
+                INN_stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str, windowVotes_str = self.model.interneuronNetwork.INN_getStats()
+                self.stats.update(INN_stats)
+                INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str), "INN_judgeBias_str": str(INN_judgeBias_str), "INN_credibilityBias_str": str(INN_credibilityBias_str), "windowVotes_str": str(windowVotes_str)}
+                self.stringStats.update(INN_stringStats)
+                self.stringStats.update({"topTokens": str(topTokens)})
+                self.collectAllTimeStats()
+
+        return self.stats, self.stringStats, self.guessedTokenSeq
 
     def collectAllTimeStats(self):
         for _statKey, _value in self.stats.items():
@@ -471,7 +477,8 @@ class TUTOR:
             ෆ1              = printFreq
             ෆ100            = trainingLogFreq_100
             ෆ1000           = trainingLogFreq_1000
-            important       = ["loss"]
+            important       = ["loss", "gradNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
+            rolling         = important
             percentiles     = [99.99, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0.5]
 
             """ ෆෆෆ^ ♥ UPDATE EVERY TURN ♥ ^ෆෆෆ   """
@@ -490,55 +497,43 @@ class TUTOR:
             ෆ‿ෆ["bot"]      = min(ෆ‿ෆ.get("bot", _value), _value)
 
             """ ෆෆෆ^ ♥ ROLLING STATS ♥ ^ෆෆෆ   """
-            for freq in [ෆ1, ෆ100]:
-                rollKey = f"roll{freq}"
-                if rollKey not in ෆ‿ෆ:
-                    ෆ‿ෆ[rollKey]        = []
-                if len(ෆ‿ෆ[rollKey])   >= freq:
-                    ෆ‿ෆ[rollKey].pop(0)
-                ෆ‿ෆ[rollKey].append(_value)
-
-                if ෆ‿ෆ[rollKey]:
-                    unrolledKey         = ෆ‿ෆ[rollKey]
-                    average             = sum(unrolledKey) / len(unrolledKey)
-                    delta               = ෆ‿ෆ["now"] - average
-                    standardDeviation   = self.stdTest(unrolledKey)
-                    top                 = max(unrolledKey)
-                    bottom              = min(unrolledKey)
-
-                    ෆ‿ෆ[f"{rollKey}_avg"]   = average
-                    ෆ‿ෆ[f"{rollKey}_△"]     = delta
-                    ෆ‿ෆ[f"{rollKey}_std"]   = standardDeviation
-                    ෆ‿ෆ[f"{rollKey}_top"]   = max(top, ෆ‿ෆ.get(f"{rollKey}_top", top))
-                    ෆ‿ෆ[f"{rollKey}_bot"]   = min(bottom, ෆ‿ෆ.get(f"{rollKey}_bot", bottom))
-
-                    for p in percentiles:
-                        ෆ‿ෆ[f"{rollKey}_p{p}"] = np.percentile(unrolledKey, p)
+            if _statKey in rolling:
+                for freq in [ෆ1, ෆ100]:
+                    tag = f"roll{freq}"
+                    if tag not in ෆ‿ෆ: ෆ‿ෆ[tag]        = []
+                    if len(ෆ‿ෆ[tag])   >= freq: ෆ‿ෆ[tag].pop(0)
+                    ෆ‿ෆ[tag].append(_value)
+                    if ෆ‿ෆ[tag]:
+                        self.updateRollingStats(_ෆ‿ෆ = ෆ‿ෆ, _values = ෆ‿ෆ[tag], _freq = freq, _percentiles = percentiles)
 
             if _statKey in important and self.trainingStepCounter % ෆ100 == 0:
-                for upFreq in [ෆ100]:
-                    rollupKey = f"rollup{upFreq}"
-                    if rollupKey not in ෆ‿ෆ:
-                        ෆ‿ෆ[rollupKey]      = []
-                    if len(ෆ‿ෆ[rollupKey]) >= ෆ100:
-                        ෆ‿ෆ[rollupKey].pop(0)
-                    ෆ‿ෆ[rollupKey].append(_value)
+                for importantFreq in [ෆ100]:
+                    importantTag = f"/{importantFreq}"
+                    if importantTag not in ෆ‿ෆ:         ෆ‿ෆ[importantTag] = []
+                    if len(ෆ‿ෆ[importantTag]) >= ෆ100:  ෆ‿ෆ[importantTag].pop(0)
+                    ෆ‿ෆ[importantTag].append(_value)
+                    if ෆ‿ෆ[importantTag]:
+                        self.updateRollingStats(_ෆ‿ෆ = ෆ‿ෆ, _values = ෆ‿ෆ[importantTag], _freq = importantFreq, _percentiles = percentiles)
 
-                    if ෆ‿ෆ[rollupKey]:
-                        unrolledupKey       = ෆ‿ෆ[rollupKey]
-                        upaverage           = sum(unrolledupKey) / len(unrolledupKey)
-                        upstandardDeviation = self.stdTest(unrolledupKey)
-                        uptop               = max(unrolledupKey)
-                        upbottom            = min(unrolledupKey)
+    def updateRollingStats(self, _ෆ‿ෆ, _values, _freq, _percentiles = None):
+        average                 = sum(_values) / len(_values)
+        _ෆ‿ෆ[f"/{_freq}_avg"]   = average
 
-                        ෆ‿ෆ[f"{rollupKey}_avg"] = upaverage
-                        ෆ‿ෆ[f"{rollupKey}_std"] = upstandardDeviation
-                        ෆ‿ෆ[f"{rollupKey}_top"] = max(uptop, ෆ‿ෆ.get(f"{rollupKey}_top", uptop))
-                        ෆ‿ෆ[f"{rollupKey}_bot"] = min(upbottom, ෆ‿ෆ.get(f"{rollupKey}_bot", upbottom))
+        standardDeviation       = self.stdTest(_values)
+        _ෆ‿ෆ[f"/{_freq}_std"]   = standardDeviation
 
-                        for p in percentiles:
-                            ෆ‿ෆ[f"{rollupKey}_p{p}"] = np.percentile(unrolledupKey, p)
-        return
+        top                     = max(_values)
+        _ෆ‿ෆ[f"/{_freq}_top"]   = max(top, _ෆ‿ෆ.get(f"{_freq}_top", top))
+
+        bottom                  = min(_values)
+        _ෆ‿ෆ[f"/{_freq}_bot"]   = min(bottom, _ෆ‿ෆ.get(f"{_freq}_bot", bottom))
+
+        delta                   = _ෆ‿ෆ["now"] - average
+        _ෆ‿ෆ[f"/{_freq}_△"]     = delta
+
+        if _percentiles:
+            for p in _percentiles:
+                _ෆ‿ෆ[f"/{_freq}_p{p}"]  = np.percentile(_values, p)
 
     def stdTest(self, values):
         if len(values) <= 1: return 0.0
