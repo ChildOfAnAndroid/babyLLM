@@ -63,7 +63,7 @@ def wakeup():
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
         raise
-    except KeyboardInterrupt as k:
+    except KeyboardInterrupt: #as k
         ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
         if tutor.trainingStepCounter:
             step = tutor.trainingStepCounter
@@ -86,13 +86,15 @@ def wakeup():
         elif choice == "restart" or choice.startswith("r"):
             ʕっʘ‿ʘʔっ("♥choice = r")
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
-            wakeup()
             print("you spin me right round, babyllm, right round...")
+            wakeup()
         else: 
             ʕっʘ‿ʘʔっ("♥choice = None")
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
             print("\nuhh... i'm confused, but i saved anyway!")
-        raise k
+        if modelDevice.type == 'mps':
+            torch.mps.empty_cache()
+        raise #k
 
 def setStartIndex():
     if os.path.exists(stepCheckpointFilePath):
