@@ -115,7 +115,7 @@ epochs = 20
 #saveTokenizedData = True
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 10    # creates logs every x number of turns
+trainingLogFreq_1000 = 1000    # creates logs every x number of turns
 trainingLogFreq_100 = 100     # creates logs every x number of turns
 
 printFreq = 5     # how often to print training progress to the terminal
