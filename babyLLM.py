@@ -37,6 +37,7 @@ class BABYLLM(nn.Module):
         self.totalTokenEvaluations_100 = 0
         self.recentGeneratedTokens = []  # used for repetition penalty
         self.learningRate = learningRate
+        self.memoryLength = memoryLength
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
@@ -280,10 +281,10 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemoryReset += 1
                 else: 
                     self.stepsSinceMemoryReset = 1
-                if self.stepsSinceMemoryReset >= memoryLength: 
+                if self.stepsSinceMemoryReset >= self.memoryLength: 
                     self.memory.resetMemory()
                     self.stepsSinceMemoryReset = 0 
-                    if debugPrints: print(f"resetting memory after {memoryLength} steps...")
+                    if debugPrints: print(f"resetting memory after {self.memoryLength} steps...")
 
     def setLearningRate(self, _newLearningRate):
         self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
