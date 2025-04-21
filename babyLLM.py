@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
+import torch.optim.lr_scheduler
 
 from BRAIN.LAYERS.embed import EMBED
 from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
@@ -51,7 +52,9 @@ class BABYLLM(nn.Module):
             for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
         optimizerClass = getattr(optim, optimizerName)
-        self.optimizer = optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.001)
+        #self.opttimz = optim.AdamW()
+        self.optimizer = optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.001, fused = True)
+        #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, verbose=True)
 
         if debugPrints:
             for name, param in self.named_parameters():
@@ -166,6 +169,7 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("optimizer.step")
             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
             self.optimizer.step()  # Update weights
+            #self.scheduler.step(_loss)
                 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
     """def getResponseFromLogits(self, _logits, _temperature = temperature):

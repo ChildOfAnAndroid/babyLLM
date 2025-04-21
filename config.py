@@ -107,18 +107,18 @@ maxRepPen = 1.4
 windowEntropyBonus = True
 
 """--- TRAINING ---"""
-trainingDataSliceSize_min = 10
-trainingDataSliceSize_max = 15000
+trainingDataSliceSize_min = 100
+trainingDataSliceSize_max = 5000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 #retokenizeOnLoad = False
 #saveTokenizedData = True
 
 """--- LOGS ---"""
-trainingLogFreq_1000 = 1000    # creates logs every x number of turns
-trainingLogFreq_100 = 100     # creates logs every x number of turns
+trainingLogFreq_1000 = 10000    # creates logs every x number of turns
+trainingLogFreq_100 = 100    # creates logs every x number of turns
 
-printFreq = 5     # how often to print training progress to the terminal
+printFreq = 20     # how often to print training progress to the terminal
 printPromptLength = 90     # how many characters of the prompt to display in terminal
 
 durationLogging = False     # // True // False // activates debug time logging
