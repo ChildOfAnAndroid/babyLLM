@@ -79,6 +79,12 @@ class S_OUTPUT:
             "static":        [DIM, PURPLE_PALE]
         
         }
+        for key, pkey in {
+            "perfect": 0.01, "almostPerfect": 10, "superGreat": 20, "great": 30, "good": 40, "fine": 50, "almostFine": 60,
+            "average": 70, "meh": 80, "bad": 90, "worse": 95, "wtf": 99.99
+        }.items():
+            self.S_types[pkey] = self.S_types[key]
+        # percentiles     = [99.99, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0.01]
 
         """PERCENTILE CALCS"""
         # new top score ever        #superPerfect
@@ -183,17 +189,32 @@ class S_OUTPUT:
         if len(values) < 2:
             return {"dim": -float('inf')}
 
-        stat = sorted(values)
-        #print(f"→ Generating bands for '{statKey}'")
-        #print(f"   values: {values}")
+        if statKey in ["loss", "scheduledSamplingRate", "repetitionPenalty", "AvgLoss", "temperature", "sampledTokens"]: #values is dict:
+            keyList = {f"/{printFreq}": printFreq, f"/{trainingLogFreq_A}": trainingLogFreq_A, f"/BIG{trainingLogFreq_A}": trainingLogFreq_A}
+            requiredKey = list(keyList.keys())[0]
+            for key, freq in keyList.items():
+                if key in values and len(values[key]) >= freq:
+                    requiredKey = key
+            bands = {}
+            keyMatch = f"{requiredKey}_p"
+            keyLen = len(keyMatch)
+            for k, v in values.items():
+                if k.startswith(keyMatch):
+                    bands[float(k[keyLen:])] = v
+            return dict(sorted(bands.items(), key=lambda item: item[1]), reversed=True)
+        else:
 
-        return{"superPerfect": -float('inf'),      
-            "perfect":      self.getP(stat, 0.0001),    "almostPerfect":    self.getP(stat, 0.0010),    "superGreat":   self.getP(stat, 0.0100), # PURPLE_PALE      
-            "great":        self.getP(stat, 0.1000),    "good":             self.getP(stat, 0.2000),    "fine":         self.getP(stat, 0.3000),     
-            "almostFine":   self.getP(stat, 0.4000),    "average":          self.getP(stat, 0.5000),    "meh":          self.getP(stat, 0.6000),      
-            "bad":          self.getP(stat, 0.7000),    "worse":            self.getP(stat, 0.8000),    "wtf":          self.getP(stat, 0.9000),      
-            "omg":          self.getP(stat, 0.9500),    "omgwtf":           self.getP(stat, 0.9990),    "omgwtf!":      float('inf'),}
-    
+            stat = sorted(values)
+            #print(f"→ Generating bands for '{statKey}'")
+            #print(f"   values: {values}")
+
+            return{"superPerfect": -float('inf'),      
+                "perfect":      self.getP(stat, 0.0001),    "almostPerfect":    self.getP(stat, 0.0010),    "superGreat":   self.getP(stat, 0.0100), # PURPLE_PALE      
+                "great":        self.getP(stat, 0.1000),    "good":             self.getP(stat, 0.2000),    "fine":         self.getP(stat, 0.3000),     
+                "almostFine":   self.getP(stat, 0.4000),    "average":          self.getP(stat, 0.5000),    "meh":          self.getP(stat, 0.6000),      
+                "bad":          self.getP(stat, 0.7000),    "worse":            self.getP(stat, 0.8000),    "wtf":          self.getP(stat, 0.9000),      
+                "omg":          self.getP(stat, 0.9500),    "omgwtf":           self.getP(stat, 0.9990),    "omgwtf!":      float('inf'),}
+        
 
     def S_getStat(self, _statType, _statVal):
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
@@ -207,6 +228,7 @@ class S_OUTPUT:
             bands = self.S_statBands.get(_statType, {})
             for label, limit in bands.items():
                 if _statVal <= limit:
+                    if _statType == "loss" and debugPrints: print(f"Ok here is the selected label: {label} for value {_statVal} and bands: {bands}")
                     return label
             return "emergency"
         
@@ -262,11 +284,11 @@ class S_OUTPUT:
                 delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_type, f'{delta:+.3f}')}{'↑' if delta < 0 else '↓'}"
 
             rollingAvgLoss_str = ""
-            if self.rollingAverages and "loss" in self.rollingAverages:
-                losses = self.rollingAverages["loss"]
-                if losses:
-                    rollingAvgLoss = sum(losses) / len(losses)
-                    rollingAvgLoss_str = f"{self.S_apply(S_type, f'{rollingAvgLoss:.3f}')}{self.S_apply('dim', 'mean ')}"
+            #if self.rollingAverages and "loss" in self.rollingAverages:
+            #    losses = self.rollingAverages["loss"]
+            #    if losses:
+            #        rollingAvgLoss = sum(losses) / len(losses)
+            #        rollingAvgLoss_str = f"{self.S_apply(S_type, f'{rollingAvgLoss:.3f}')}{self.S_apply('dim', 'mean ')}"
 
             ʕっʘ‿ʘʔっ("printGuess+truth")
             print(f"{self.S_apply('dim', f'{_step}')}|{self.S_apply('dim', prompt_str)}|{self.S_apply('dim', 'loss: ')}{self.S_apply(S_type, f'{_loss:.3f}')}{self.S_apply('dim', '/1 ')}"
@@ -288,7 +310,9 @@ class S_OUTPUT:
 
             avgStats = {k: (v / _freq if _freq else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
 
-            logOutput = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR}")])
+            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR}")])
+            logOutput = stampAndStep
+            littleLogOutput = stampAndStep
 
             def format_stat(k, v):
                 try:
@@ -299,7 +323,7 @@ class S_OUTPUT:
                             return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"<tensor[{v.shape}]>")
                     return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.4f}")
                 except Exception as e:
-                    return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"ERR:{str(e)}")
+                    return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"ERR:{str(e)} key:{k} value:{v}")
 
             logOutput += delimiter + delimiter.join([
                 format_stat(k, v)
@@ -307,9 +331,18 @@ class S_OUTPUT:
                 if v not in (None, "")
             ])
 
+            littleLogOutput += delimiter + delimiter.join([
+                format_stat(k, v)
+                for k, v in avgStats.items()
+                if k in ["loss", "scheduledSamplingRate", "repetitionPenalty", "AvgLoss", "temperature", "sampledTokens"]
+                if v not in (None, "")
+            ])
+
             if _INN_cerebellum_str: 
                 ʕっʘ‿ʘʔっ("INN_cerebellum_str")
-                logOutput += delimiter + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
+                cerebellum = delimiter + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
+                logOutput += cerebellum
+                littleLogOutput += cerebellum
 
             if _INN_judgeBias_str: 
                 ʕっʘ‿ʘʔっ("INN_judgeBias_str")
@@ -325,16 +358,23 @@ class S_OUTPUT:
             if _memoryGates_str: logOutput += delimiter + f"memoryGates{self.S_apply('reset', _memoryGates_str)}"
 
             ʕっʘ‿ʘʔっ("topTokens_str")
-            if _topTokens_str: logOutput += delimiter + f"topTokens{self.S_apply('reset', _topTokens_str)}"
+            if _topTokens_str: 
+                topTokens = delimiter + f"topTokens{self.S_apply('reset', _topTokens_str)}"
+                logOutput += topTokens
+                littleLogOutput += topTokens
 
             ʕっʘ‿ʘʔっ("prompt+otherInfo")
             if _prompt: logOutput += f"{delimiter}prompt → {self.S_apply('reset', _prompt)} | guess → {self.S_apply('reset', _guess)} | truth → {self.S_apply('reset', _truth)}"
             if _otherInfo_str: logOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
 
             ʕっʘ‿ʘʔっ("logOutput")
-            print(logOutput + "".join(self.S_types.get('reset')))
+            if detailedLogging == True: print(logOutput + "".join(self.S_types.get('reset')))
 
-            with open(_trainingLogPath, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
+            ʕっʘ‿ʘʔっ("littleLogOutput")   
+            if detailedLogging == False: print(littleLogOutput + "".join(self.S_types.get('reset')))         
+
+            with open(_trainingLogPath, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+            with open(trainingLogPath_1000, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
 
     def willItAverage(self, k, v):
         if k in self.avgPlz:

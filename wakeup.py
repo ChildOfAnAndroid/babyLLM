@@ -94,7 +94,8 @@ def wakeup():
             print("\nuhh... i'm confused, but i saved anyway!")
         if modelDevice.type == 'mps':
             torch.mps.empty_cache()
-        raise #k
+            print(f"cache emptied")
+        exit(8)
 
 def setStartIndex():
     if os.path.exists(stepCheckpointFilePath):
