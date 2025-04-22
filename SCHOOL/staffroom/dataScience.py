@@ -3,10 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import mplcursors
 
-trainingLogPath_100 = "/Users/charis/Documents/GitHub/Shkaira/SCHOOL/statistics/LOGS/training/trainingLog_100_withTotalSteps.txt"
+trainingLogPath_A = "/Users/charis/Documents/GitHub/Shkaira/SCHOOL/statistics/LOGS/training/trainingLog_100_withTotalSteps.txt"
 
 # Load log
-with open(trainingLogPath_100, "r") as f:
+with open(trainingLogPath_A, "r") as f:
     log_text = f.read()
 
 # Pattern to extract total steps + all Wxx weights

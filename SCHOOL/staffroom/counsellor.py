@@ -29,7 +29,7 @@ class COUNSELLOR:
         self.debugPrints = _debug
         self.durationLogging = _durations
         self.duration = {}
-        self.duration_100 = {}
+        self.duration_A = {}
 
     def log(self, key, value):
         maxLogs = 5000
@@ -38,11 +38,11 @@ class COUNSELLOR:
         self.duration[key] = self.duration.get(key, 0) + value
         if len(self.duration) > maxLogs: 
             self.duration.clear()
-            print(f"cleared duration_1000 as it was higher than {maxLogs}")
-        self.duration_100[key] = self.duration_100.get(key, 0) + value
-        if len(self.duration_100) > maxLogs: 
-            self.duration_100.clear()
-            print(f"cleared duration_100 as it was higher than {maxLogs}")
+            print(f"cleared duration_B as it was higher than {maxLogs}")
+        self.duration_A[key] = self.duration_A.get(key, 0) + value
+        if len(self.duration_A) > maxLogs: 
+            self.duration_A.clear()
+            print(f"cleared duration_A as it was higher than {maxLogs}")
 
     @contextmanager
     def infodump(self, _functionName, _extra=None, _key=None):

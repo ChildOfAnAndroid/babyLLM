@@ -35,7 +35,7 @@ class BABYLLM(nn.Module):
         self.stats = {}
         self.scheduledSamplingRate = 0
         self.totalTokenEvaluations = 0
-        self.totalTokenEvaluations_100 = 0
+        self.totalTokenEvaluations_A = 0
         self.recentGeneratedTokens = []  # used for repetition penalty
         self.learningRate = learningRate
         self.memoryLength = memoryLength
