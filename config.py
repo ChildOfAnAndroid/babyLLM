@@ -67,8 +67,8 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-temperature = 0.01     # 0.8 // temperature for softmax in response generation - controls randomness
-temperatureIncrement = 0.1 # 0.00001 
+temperature = 0.8     # 0.8 // temperature for softmax in response generation - controls randomness
+temperatureIncrement = 0.00001 # 0.00001 
 minTemp = 0.01 # 0.4
 maxTemp = 1.4
 
@@ -106,17 +106,9 @@ minRepPen = 0.01
 maxRepPen = 1.4
 windowEntropyBonus = True
 
-"""--- TRAINING ---"""
-trainingDataSliceSize_min = 100
-trainingDataSliceSize_max = 5000
-trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
-epochs = 20
-#retokenizeOnLoad = False
-#saveTokenizedData = True
-
 """--- LOGS ---"""
-trainingLogFreq_1000 = 10000    # creates logs every x number of turns
-trainingLogFreq_100 = 100    # creates logs every x number of turns
+trainingLogFreq_B = 10000    # creates logs every x number of turns
+trainingLogFreq_A = 1000    # creates logs every x number of turns
 
 printFreq = 20     # how often to print training progress to the terminal
 printPromptLength = 90     # how many characters of the prompt to display in terminal
@@ -173,6 +165,12 @@ INN_outputTensorStats = True
 
 
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
+
+trainingDataSliceSize_min = 100
+trainingDataSliceSize_max = 100000
+trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
+epochs = 20
+
 rawDataFilepaths = [     # for textCleaningTool.py
 
     #-*- CHARIS STUDIES -*-
@@ -241,6 +239,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 1),     #  training
     ("text", "SCHOOL/library/charisStudies/thames.txt", 1),
     ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 1),
+    ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 1),
 
 ]
 
