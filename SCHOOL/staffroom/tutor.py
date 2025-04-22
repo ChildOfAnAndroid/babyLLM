@@ -354,6 +354,7 @@ class TUTOR:
                 tokenPerfect_str = (f"{self.calligraphist.S_apply('dim', f'perfectTokens: {self.perfectTokens} / {self.totalTokenEvaluations}')} → {styledRate}")
 
             ʕっʘ‿ʘʔっ("calligraphist.S_logTraining")
+            self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ) #self.rollingAverages)
             self.calligraphist.S_logTraining(
                 _trainingLogPath = trainingLogPath_100,
                 _trainingStepCounter = self.trainingStepCounter,
@@ -371,7 +372,6 @@ class TUTOR:
             if debugPrints: # or True:
                 for key in self.ʕっෆ‿ෆʔっ:
                     print(key, self.ʕっෆ‿ෆʔっ[key])
-            self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ) #self.rollingAverages)
             self.stats.clear()
             self.stringStats.clear()
             self.tokenPerfectRate = 0
@@ -445,7 +445,6 @@ class TUTOR:
                     self.stats["repetitionPenalty"] = self.repetitionPenalty
                     self.stats["AvgLoss"] = self.averageRecentLoss
                     self.stats["loss"] = self.stepLossFloat
-                    self.stats["stepLoss"] = self.stepLossFloat
                     self.stats["temperature"] = self.temperature
                     self.stats["lR"] = self.learningRate
                     self.stats["gradientClip"] = self.gradientClipMaxNorm

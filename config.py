@@ -41,7 +41,8 @@ modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently traine
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
 
 """--- TRAINING ---"""
-trainingFilePath = "SCHOOL/library/trainingData.txt"
+trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
+trainingFilePathTEST = "SCHOOL/library/trainingDataTEST.txt"
 
 """--- LOGS ---"""
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
@@ -108,10 +109,11 @@ windowEntropyBonus = True
 
 """--- LOGS ---"""
 trainingLogFreq_B = 10000    # creates logs every x number of turns
-trainingLogFreq_A = 1000    # creates logs every x number of turns
+trainingLogFreq_A = 500    # creates logs every x number of turns
+detailedLogging = False
 
 printFreq = 20     # how often to print training progress to the terminal
-printPromptLength = 90     # how many characters of the prompt to display in terminal
+printPromptLength = 100     # how many characters of the prompt to display in terminal
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
@@ -166,6 +168,7 @@ INN_outputTensorStats = True
 
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
+trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 100
 trainingDataSliceSize_max = 100000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
@@ -283,8 +286,8 @@ vocabLoad = "BRAIN/vocabCache/tokenizer.json"
 #trainingFilePath_dict = [{"type": ftype, "in": fname, "out": trainingFilePath} for ftype, fname in rawDataFilepaths]     # Convert to dictionary format when needed
 trainingFilePath_dict = [{"type": ftype, "in": fname, "weight": weight, "out": trainingFilePath} for ftype, fname, weight in rawDataFilepaths]
 
-trainingFilePath_arr = ["SCHOOL/library/trainingData.txt"]
-tokenizedDataPath = "SCHOOL/tokenizedTrainingData.txt"
+trainingFilePath_arr = [trainingFilePath]
+#tokenizedDataPath = "SCHOOL/tokenizedTrainingData.txt"
 
 trainingFilePath_dict_weighted = []
 for entry in trainingFilePath_dict:
