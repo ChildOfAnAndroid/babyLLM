@@ -79,7 +79,7 @@ tokenIncrement = 0.0001
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
-memoryLength = 5
+memoryLength = 10
 memoryLengthIncrement = 0.0001
 
 """optimizer"""
@@ -264,10 +264,11 @@ window2 = 8
 window3 = 12
 window4 = 16     
 window5 = 20
-window6 = 24
+window6 = 32
 window7 = 28
+window8 = 24
 windowMAX = 32     # THIS MUST BE THE HIGHEST NUMBER
-allWindowSizes_new = [windowMAX, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
+allWindowSizes_new = [window8, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
 #allWindowSizes = list(range(1, 33))
 
 attentionWindow = None     # attention head  

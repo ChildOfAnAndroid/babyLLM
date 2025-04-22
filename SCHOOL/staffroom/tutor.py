@@ -375,7 +375,7 @@ class TUTOR:
             self.stats.clear()
             self.stringStats.clear()
             self.tokenPerfectRate = 0
-            self.sampledTokens = 0 
+            self.stats['sampledTokens'] = 0
             self.perfectTokens = 0
             self.totalTokenEvaluations = 0
             self.cheekyAvgLoss = 0
@@ -504,8 +504,8 @@ class TUTOR:
             _               = self.ʕっෆ‿ෆʔっ[_statKey]  # this will autoinit with defaultdict
             ෆ‿ෆ             = self.ʕっෆ‿ෆʔっ[_statKey]
             important       = ["loss"]
-            rolling         = ["loss", "gradNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
-            percentiles     = [99.99, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0.01]
+            rolling         = ["AvgLoss", "loss", "gradNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
+            percentiles     = [99.99, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.01]
 
             """ ෆෆෆ^ ♥ UPDATE EVERY TURN ♥ ^ෆෆෆ   """
             """ ෆෆෆ^ ♥ turn stats ♥ ^ෆෆෆ  """
@@ -519,8 +519,8 @@ class TUTOR:
             ෆ‿ෆ["totAvgΔ"]  = ෆ‿ෆ["now"]    - ෆ‿ෆ["totAvg"]
 
             """ ෆෆෆ^ ♥ records ♥ ^ෆෆෆ """
-            ෆ‿ෆ["top"]      = max(ෆ‿ෆ.get("top", _value), _value)
-            ෆ‿ෆ["bot"]      = min(ෆ‿ෆ.get("bot", _value), _value)
+            ෆ‿ෆ["_p100"]    = max(ෆ‿ෆ.get("_p100", _value), _value) # TOP EVER RECORD // PERCENTILE 100
+            ෆ‿ෆ["_p0.00"]      = min(ෆ‿ෆ.get("_p0", _value), _value) # BOTTOM EVER RECORD // PERCENTILE 0
 
             """ ෆෆෆ^ ♥ ROLLING STATS ♥ ^ෆෆෆ   """
             if _statKey in rolling:
@@ -551,12 +551,6 @@ class TUTOR:
 
         standardDeviation       = self.stdTest(_values)
         _ෆ‿ෆ[f"{_tag}_std"]     = standardDeviation
-
-        top                     = max(_values)
-        _ෆ‿ෆ[f"{_tag}_top"]     = max(top, _ෆ‿ෆ.get(f"{_tag}_top", top))
-
-        bottom                  = min(_values)
-        _ෆ‿ෆ[f"{_tag}_bot"]     = min(bottom, _ෆ‿ෆ.get(f"{_tag}_bot", bottom))
 
         delta                   = _ෆ‿ෆ["now"] - average
         _ෆ‿ෆ[f"{_tag}_Δ"]       = delta
