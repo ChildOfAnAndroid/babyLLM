@@ -75,7 +75,7 @@ class S_OUTPUT:
             "reset":         [RESET],                   # normal terminal
             "dim":           [RESET, DIM],              # dim style for background elements - arrows, colons, etc.
             "bold":          [BOLD],
-            "match":         [ITALIC, BOLD, PURPLE_PALE],
+            "match":         [ITALIC, BOLD, GOLD],
             "static":        [DIM, PURPLE_PALE]
         
         }
@@ -270,10 +270,10 @@ class S_OUTPUT:
 
             ʕっʘ‿ʘʔっ("printGuess+truth")
             print(f"{self.S_apply('dim', f'{_step}')}|{self.S_apply('dim', prompt_str)}|{self.S_apply('dim', 'loss: ')}{self.S_apply(S_type, f'{_loss:.3f}')}{self.S_apply('dim', '/1 ')}"
-                + (f"{self.S_apply(S_type, f'{_recentLoss:.3f}')}{self.S_apply('dim', f'/{trainingLogFreq_100} ')}" if _recentLoss else "")
+                + (f"{self.S_apply(S_type, f'{_recentLoss:.3f}')}{self.S_apply('dim', f'/{trainingLogFreq_A} ')}" if _recentLoss else "")
                 + rollingAvgLoss_str + delta_str + "|\n"
                 + f"{self.S_apply('dim', 'guess → ')}{guess_str}{self.S_apply(S_type, ' [!] ') if match else self.S_apply('dim', ' [?] ')}\n"
-                + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}")
+                + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}\n")
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
 
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _freq, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
