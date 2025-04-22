@@ -38,6 +38,21 @@ class S_OUTPUT:
         RED = "\033[38;5;124m" #256 colour palette
         RED_BRIGHT = "\033[91m"
 
+        """red-blue scale"""
+        REDRED_ = "\033[38;5;196m"
+        RED_ = "\033[38;5;161m"
+        REDPURP_ = "\033[38;5;126m"
+        PURPRED_ = "\033[38;5;91m"
+        PURPBLUE_ = "\033[38;5;56m"
+
+        """blue-pink scale"""
+        BLUE_ = "\033[38;5;21m"
+        BLUEPURP_ = "\033[38;5;57m"
+        PURP_ = "\033[38;5;93m"
+        PURPPINK_ = "\033[38;5;129m"
+        PINK_ = "\033[38;5;165m"
+        PINKPINK_ = "\033[38;5;201m"
+
         """extra colours"""
         GOLD = "\033[93m"
         RED_ALT = "\033[31m"
@@ -50,41 +65,45 @@ class S_OUTPUT:
         """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
         self.S_types = {
 
-            "superPerfect":  [ITALIC, GOLD],              # new top score ever //
-            "perfect":       [GOLD],                    # top score ever //
+            "superPerfect":  [ITALIC, GOLD],            # new top score ever // if above max
+            "perfect":       [GOLD],                    # 0.00 // top score ever // if below max and above almost perf
 
-            "almostPerfect": [BOLD, PURPLE_PALE],       # 0.975 //
-            "superGreat":    [PURPLE_PALE],             # 0.95 //
-            "great":         [PURPLE],                  # 0.90 //
-            "good":          [BOLD, MAGENTA],           # 0.80 //
-            "fine":          [MAGENTA],                 # 0.70 //
-            "almostFine":    [BOLD, BLUE],              # 0.60 //
+            "almostPerfect": [PINKPINK_],               #[BOLD, MAGENTA],   # 0.01 //
+            "superGreat":    [PINK_],                   #[MAGENTA],         # 5 //
+            "great":         [PURPPINK_],               #[BOLD, PURPLE],    # 10 //
+            "good":          [PURP_],                   #[PURPLE],          # 20 //
 
-            "average":       [BLUE],                    # 0.50 //
-            "meh":           [BOLD, CYAN],              # 0.40 //
-            "bad":           [CYAN],                    # 0.30 //
-            "worse":         [ORANGE],                  # 0.20 //
-            "wtf":           [BOLD, ORANGE],            # 0.10 //
-            "omg":           [RED],              # 0.05 //
+            "fine":          [BLUEPURP_],               #[PURPLE],          # 35 //
+            "almostFine":    [BLUE_],                   #[BOLD, BLUE],      # 50 //
+            "average":       [PURPBLUE_],               #[BLUE],            # 65 //
 
-            "omgwtf":        [RED],        # bottom score ever //
-            "omgwtf!":       [ITALIC, RED_BRIGHT],             # new bottom score ever //
+            "meh":           [PURPRED_],                #[BOLD, CYAN],      # 80 //
+            "bad":           [REDPURP_],                #[CYAN],            # 85 //
+            "worse":         [RED_],                    #[ORANGE],          # 90 //
+            "wtf":           [RED_],                 #[BOLD, ORANGE],    # 95 //
+            "omg":           [REDRED_],                 # 99.99 //
+
+            "omgwtf":        [ITALIC, REDRED_],         # 100.00 // bottom score ever // if above min and below omg
+            "omgwtf!":       [CYAN],                    # new bottom score ever // if below min
 
 
             "negative":      [BOLD, GREEN],
             "reset":         [RESET],                   # normal terminal
             "dim":           [RESET, DIM],              # dim style for background elements - arrows, colons, etc.
             "bold":          [BOLD],
-            "match":         [ITALIC, BOLD, GOLD],
+            "match":         [BOLD],
             "static":        [DIM, PURPLE_PALE]
         
         }
-        for key, pkey in {
-            "perfect": 0.01, "almostPerfect": 10, "superGreat": 20, "great": 30, "good": 40, "fine": 50, "almostFine": 60,
-            "average": 70, "meh": 80, "bad": 90, "worse": 95, "wtf": 99.99
+        for key, pkey in {"perfect": 0.00,
+            "almostPerfect": 0.01, "superGreat": 5, "great": 10, "good": 20, 
+            "fine": 35, "almostFine": 50, "average": 65,
+            "meh": 80, "bad": 85, "worse": 90, "wtf": 95, "omg": 99.99,
+            "omgwtf": 100,
         }.items():
             self.S_types[pkey] = self.S_types[key]
         # percentiles     = [99.99, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0.01]
+        # perchjcjed      = [99.99, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.01]
 
         """PERCENTILE CALCS"""
         # new top score ever        #superPerfect
@@ -230,7 +249,7 @@ class S_OUTPUT:
                 if _statVal <= limit:
                     if _statType == "loss" and debugPrints: print(f"Ok here is the selected label: {label} for value {_statVal} and bands: {bands}")
                     return label
-            return "emergency"
+            return "omgwtf"
         
     def refreshStatBands(self, _rollingAverages):
         self.rollingAverages = _rollingAverages
