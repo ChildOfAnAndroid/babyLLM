@@ -29,36 +29,61 @@ torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 def wakeup():
     try:
         # WAKE UP THE SCHOOL :)
-        counsellor = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
+        counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
         with counsellor.infodump("wakeup") as ʕっʘ‿ʘʔっ:
 
             # OPEN THE LIBRARY :)
             ʕっʘ‿ʘʔっ("waking the librarian...")
-            librarian = LIBRARIAN(_counsellor = counsellor)
+            librarian           = LIBRARIAN (_counsellor                = counsellor)
+            newsletter          = STATS     ()
+
             ʕっʘ‿ʘʔっ("opening questions...")
-            newStartIndex = openingQuestions(_counsellor = counsellor, _librarian = librarian)
+            newStartIndex       =           openingQuestions(_counsellor = counsellor, _librarian = librarian)
+
             ʕっʘ‿ʘʔっ("generating training data pairs...")
-            trainingDataPairs = librarian.genTrainingData(_windowMAX = windowMAX, _startIndex = newStartIndex)
-            if debugPrints: print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
+            trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _startIndex = newStartIndex)
+            if debugPrints:                 print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
 
             ʕっʘ‿ʘʔっ("loading chaos agents...")
-            calligraphist = S_OUTPUT(_counsellor = counsellor)
-            scribe = SCRIBE(_counsellor = counsellor, _calligraphist = calligraphist, _librarian = librarian)
-            wobble = WOBBLE(_counsellor = counsellor, _calligraphist = calligraphist, _device = modelDevice, _activationFunction = activationFunction)
-            newsletter = STATS()
+            calligraphist       = S_OUTPUT  (_counsellor                = counsellor)
+
+            scribe              = SCRIBE    (_counsellor                = counsellor, 
+                                                _calligraphist          = calligraphist, 
+                                                _librarian              = librarian)
+            
+            wobble              = WOBBLE    (_counsellor                = counsellor,
+                                                _calligraphist          = calligraphist, 
+                                                _device                 = modelDevice,
+                                                _activationFunction     = activationFunction)
 
             # WAKE UP THE BABY :)
             ʕっʘ‿ʘʔっ("loading babyLLM...")
-            babyLLM = BABYLLM(_counsellor = counsellor, _calligraphist = calligraphist, _scribe = scribe, _librarian = librarian, _wobble = wobble, _device = modelDevice)
+            babyLLM             = BABYLLM   (_counsellor                = counsellor,
+                                                _calligraphist          = calligraphist, 
+                                                _scribe                 = scribe,
+                                                _librarian              = librarian, 
+                                                _wobble                 = wobble,
+                                                _device                 = modelDevice)
 
-            tutor = TUTOR(_counsellor = counsellor, _calligraphist = calligraphist, _scribe = scribe, _librarian = librarian, _newsletter = newsletter, _wobble = wobble, _model = babyLLM, _device = modelDevice)
+            tutor               = TUTOR     (_counsellor                = counsellor,
+                                                _calligraphist          = calligraphist, 
+                                                _scribe                 = scribe,
+                                                _librarian              = librarian, 
+                                                _newsletter             = newsletter,
+                                                _wobble                 = wobble, 
+                                                _model                  = babyLLM,
+                                                _device                 = modelDevice, 
+                                                _temperature            = babyLLM.temperature,
+                                                _repetitionPenalty      = babyLLM.repetitionPenalty,
+                                                _scheduledSamplingRate  = babyLLM.scheduledSamplingRate)
+            
             babyLLM.loadModel()
             #wobble.to(modelDevice)
             babyLLM.to(modelDevice)
 
             # START THE LESSONS :)
             ʕっʘ‿ʘʔっ("starting lessons!")
-            tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
+            tutor.trainModel                (_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")

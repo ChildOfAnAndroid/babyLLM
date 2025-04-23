@@ -69,9 +69,8 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
 temperature = 0.8     # 0.8 // temperature for softmax in response generation - controls randomness
-temperatureIncrement = 0.00001 # 0.00001 
-minTemp = 0.01 # 0.4
-maxTemp = 1.4
+#minTemp = 0.01 # 0.4
+#maxTemp = 1.4
 
 topP = 0     # top P - probability
 numTokensPerStep = 32     # Number of tokens to predict per step
@@ -100,15 +99,15 @@ minSchedSamp = -0.01
 maxSchedSamp = 1.0
 
 """repetition penalty"""
-penaltyWindow = 16          # how many tokens to look back for repetition
-repetitionPenalty = 1.3
+penaltyWindow = 31          # how many tokens to look back for repetition
+repetitionPenalty = 1.9
 repetitionPenaltyIncrement = -0.00001
 minRepPen = 0.01
-maxRepPen = 1.4
+maxRepPen = 2.5
 windowEntropyBonus = True
 
 """--- LOGS ---"""
-trainingLogFreq_B = 10000    # creates logs every x number of turns
+trainingLogFreq_B = 50000    # creates logs every x number of turns
 trainingLogFreq_A = 500    # creates logs every x number of turns
 detailedLogging = False
 
@@ -126,6 +125,7 @@ skipMemory = False
 skipWobble = True
 
 skipComputeLoss = False
+skipMetaLoss = False
 
 debugPrints_babyLLM = False
 debugPrints_TUTOR = False
@@ -169,8 +169,9 @@ INN_outputTensorStats = True
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 100
-trainingDataSliceSize_max = 100000
+trainingDataSliceSize_min = 1
+trainingDataSliceSize_max = 500000
+trainingDataPairNumber = 200000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 
@@ -258,17 +259,20 @@ numNeurons = 10000     # number of neurons in the parallel neuron layer
 """windows"""
 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 
-windowMIN = 2     # Small Context Window
-window1 = 4
-window2 = 8
-window3 = 12
-window4 = 16     
-window5 = 20
-window6 = 32
-window7 = 28
-window8 = 24
+windowMIN = 4     # Small Context Window
+
+window0 = 32 #32
+window1 = 28 #28
+window2 = 24 #248
+window3 = 20 #20
+window4 = 16 #16    
+window5 = 12 #12
+window6 = 8 #8
+window7 = 4 #4
+window8 = 2 #2
+
 windowMAX = 32     # THIS MUST BE THE HIGHEST NUMBER
-allWindowSizes_new = [window8, windowMIN, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
+allWindowSizes_new = [window8, window0, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
 #allWindowSizes = list(range(1, 33))
 
 attentionWindow = None     # attention head  

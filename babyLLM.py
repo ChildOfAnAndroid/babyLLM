@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
 import torch.optim.lr_scheduler
+import math
 
 from BRAIN.LAYERS.embed import EMBED
 from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
@@ -33,26 +34,32 @@ class BABYLLM(nn.Module):
 
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
         self.stats = {}
-        self.scheduledSamplingRate = 0
         self.totalTokenEvaluations = 0
+        self.latestLossDelta = 0
         self.totalTokenEvaluations_A = 0
         self.recentGeneratedTokens = []  # used for repetition penalty
-        self.learningRate = learningRate
         self.memoryLength = memoryLength
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
-        self.interneuronNetwork = INTERNEURON_NETWORK(_counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device)
+        self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device)
 
+        """LEARNABLE LEARNING PARAMETERS"""
+        self.logLR = nn.Parameter(torch.tensor(math.log(1e-4), device = self.device))
+        self.temperature = nn.Parameter(torch.tensor(1.0, device = self.device))
+        self.logGradClip = nn.Parameter(torch.tensor(math.log(1.0), device=self.device))
+        self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.0, device=self.device))
+        self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device=self.device))
+        self.memoryLength = nn.Parameter(torch.tensor(float(memoryLength), device=self.device))
+
         """OPTIMIZER - this updates all of the layers learnable parameters"""
-        if debugPrints: print("registered paarameters: ")
         if debugPrints: 
+            print("registered parameters: ")
             for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
         optimizerClass = getattr(optim, optimizerName)
-        #self.opttimz = optim.AdamW()
         self.optimizer = optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.001, fused = True)
         #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, verbose=True)
 
@@ -101,15 +108,17 @@ class BABYLLM(nn.Module):
             if debugPrints: print("combinedActivations.requires_grad:", combinedActivations.requires_grad)
 
             ʕっʘ‿ʘʔっ("logits.forward")
-            if debugPrints: print("memory output requires_grad?", self.memory.longTermMemory.requires_grad)
+            if debugPrints: print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
+            if debugPrints: print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
             logits = self.logits.forward(combinedActivations)  
-            if debugPrints: print("memory output requires_grad?", self.memory.longTermMemory.requires_grad)
+            if debugPrints: print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
+            if debugPrints: print("AFTER memory output requires_grad?", self.memory.longTermMemory.requires_grad)
 
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
             return logits
     
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
-    def computeLoss(self, _logits, _targetTokenIndex):
+    def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta):
         with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
             if skipComputeLoss:
                 ʕっʘ‿ʘʔっ("skipping loss!")
@@ -121,8 +130,21 @@ class BABYLLM(nn.Module):
                 if _logits.dim() == 1: _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
                 ʕっʘ‿ʘʔっ("cross Entropy Loss")
                 loss = F.cross_entropy(_logits, targetTensor)
+                if skipMetaLoss:
+                    return loss
+                else:
+                    tempReg = (torch.clamp(self.temperature, 0.01, 10.0) - 1.0).pow(2) # linked (mostly?)
+                    lrReg = (torch.exp(self.logLR) - 1e-4).pow(2) # linked
+                    gradClipReg = (torch.exp(self.logGradClip) - 1.0).pow(2) # linked in one place at least
+                    repeatReg = (torch.clamp(self.repetitionPenalty, 0.8, 2.0) - 1.5).pow(2)
+                    schedReg = (torch.clamp(self.scheduledSamplingRate, 0.0, 1.0) - 0.5).pow(2)
+                    memReg = (torch.clamp(self.memoryLength, 1.0, 100.0) - 50.0).pow(2)
+
+                    metaWeight = 0.01 * (1.0 if self.latestLossDelta > 0 else 0.1)
+                    metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + repeatReg + schedReg + memReg)
+
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
-            return loss
+            return loss + metaLoss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
     def backward(self, _loss):
@@ -167,7 +189,10 @@ class BABYLLM(nn.Module):
                     #print(f"babyLLM.backward - non-finite grad in: {name}") 
                     #return
             ʕっʘ‿ʘʔっ("optimizer.step")
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = gradientClipMaxNorm)
+            learnedLR = torch.exp(self.logLR).item()
+            for g in self.optimizer.param_groups:
+                g['lr'] = learnedLR
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = self.logGradClip)
             self.optimizer.step()  # Update weights
             #self.scheduler.step(_loss)
                 
@@ -182,10 +207,9 @@ class BABYLLM(nn.Module):
             return responseFromLogits"""
         
 
-    def getResponseFromLogits(self, _logits, _temperature = temperature, _repetitionPenalty = repetitionPenalty):
+    def getResponseFromLogits(self, _logits):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
-            self.repetitionPenalty = _repetitionPenalty
-            _logits / _temperature
+            _logits / self.temperature
 
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
 
@@ -215,10 +239,10 @@ class BABYLLM(nn.Module):
 
             return responseFromLogits
 
-    def getNextToken(self, _inputSeq, _temperature = temperature):  
+    def getNextToken(self, _inputSeq):  
         with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
             logits, *_ = self.forward(_inputSeq) # unpacks the first value of the tuple and ignores the rest
-            nextToken = self.getResponseFromLogits(logits, _temperature)
+            nextToken = self.getResponseFromLogits(logits, self.temperature)
             return nextToken
         
     def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex, _trainingStepCounter = 0):

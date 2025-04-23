@@ -29,47 +29,56 @@ def makeStatRecord():
     return base
 
 class TUTOR:
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _newsletter, _wobble, _model, _device = modelDevice, _gradientClipMaxNorm = gradientClipMaxNorm, _temperature = temperature, _numTokensPerStep = numTokensPerStep):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _newsletter, _wobble, _model, 
+                    _device                 = modelDevice,              
+                    _gradientClipMaxNorm    = gradientClipMaxNorm, 
+                    _temperature            = temperature,                  
+                    _repetitionPenalty      = repetitionPenalty, 
+                    _scheduledSamplingRate  = scheduledSamplingRate,            
+                    _memoryLength           = memoryLength, 
+                    _numTokensPerStep       = numTokensPerStep):
         
-        self.counsellor = _counsellor
-        self.calligraphist = _calligraphist
-        self.scribe = _scribe
-        self.librarian = _librarian
-        self.wobble = _wobble
-        self.device = _device
-        self.model = _model
-        self.newsletter = STATS()
+        self.temperature                = _temperature
+        self.repetitionPenalty          = _repetitionPenalty
+        self.scheduledSamplingRate      = _scheduledSamplingRate
+        #self.scheduledSamplingRate      = self.scheduledSamplingRate + 0.05
+        self.gradientClipMaxNorm        = _gradientClipMaxNorm
+        self.memoryLength               = _memoryLength
+        
+        self.counsellor                 = _counsellor
+        self.calligraphist              = _calligraphist
+        self.scribe                     = _scribe
+        self.librarian                  = _librarian
+        self.wobble                     = _wobble
+        self.device                     = _device
+        self.model                      = _model
+        self.newsletter                 = STATS()
 
-        self.ʕっෆ‿ෆʔっ = defaultdict(makeStatRecord)
+        self.ʕっෆ‿ෆʔっ                  = defaultdict(makeStatRecord)
 
-        self.perfectTokens = 0
-        self.totalTokenEvaluations = 0
-        self.scheduledSamplingRate = scheduledSamplingRate
-        self.predictedTokenIndices = [] # this list grows each time a new token is predicted
-        self.averageRecentLoss = 0
-        self.repetitionPenalty = repetitionPenalty
-        self.stats = {}
-        self.stringStats = {}
-        self.trainingStepCounter = 1
-        self.gradientClipMaxNorm = _gradientClipMaxNorm
-        self.temperature = _temperature
-        self.numTokensPerStep = _numTokensPerStep
-        self.learningRate = learningRate
-        self.rollingAverages = defaultdict(list)
-        self.rollingAveragesBufferLen = trainingLogFreq_B
-        self.memoryLength = memoryLength
-        self.cheekyAvgLoss = 0
-        self.cheekyTotLoss = 0
-        self.cheekyTotPrint = 1
+        self.perfectTokens              = 0
+        self.totalTokenEvaluations      = 0
+        self.predictedTokenIndices      = [] # this list grows each time a new token is predicted
+        self.averageRecentLoss          = 0
+        self.stats                      = {}
+        self.stringStats                = {}
+        self.trainingStepCounter        = 1
+        self.numTokensPerStep           = _numTokensPerStep
+        self.learningRate               = learningRate
+        self.rollingAverages            = defaultdict(list)
+        self.rollingAveragesBufferLen   = trainingLogFreq_B
+        self.cheekyAvgLoss              = 0
+        self.cheekyTotLoss              = 0
+        self.cheekyTotPrint             = 1
+        self.stepLossFloat              = 0
         #model.to(self.device)
 
-    def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss, _repetitionPenalty):
+    def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss):
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("_model.optimizer.zero_grad")
-            self.repetitionPenalty = _repetitionPenalty
             self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
-            self.trainingStepCounter += 1
-            self.predictedTokenIndices = []
+            self.trainingStepCounter   += 1
+            self.predictedTokenIndices  = []
             inputSeqPredictions = list(_inputTokenIndices)  # Start with input context, create a COPY!
             buffer = torch.zeros(windowMAX, dtype=torch.long, device=self.device) # creates buffer/step instead of recreating tensors inside loop
             buffer[:len(inputSeqPredictions)] = torch.as_tensor(inputSeqPredictions, device=self.device)
@@ -92,7 +101,7 @@ class TUTOR:
                 if forwardProfiler: print(prof.key_averages().table())
 
                 ʕっʘ‿ʘʔっ("getResponseFromLogits")
-                predictedTokenIndex = self.model.getResponseFromLogits(logits, _repetitionPenalty = repetitionPenalty)
+                predictedTokenIndex = self.model.getResponseFromLogits(logits)
 
                 ʕっʘ‿ʘʔっ("inputSeqPredictions")
                 self.predictedTokenIndices.append(predictedTokenIndex) # tensor shape [1]
@@ -118,7 +127,7 @@ class TUTOR:
                     self.totalTokenEvaluations += 1
 
                     ʕっʘ‿ʘʔっ("computeLoss")
-                    stepLoss = self.model.computeLoss(logits, _targetTokenIndexSeq[j])
+                    stepLoss = self.model.computeLoss(logits, _targetTokenIndexSeq[j], self.latestLossDelta)
 
                     ʕっʘ‿ʘʔっ("appendStepLoss")
                     cumulativeLoss += stepLoss
@@ -128,8 +137,7 @@ class TUTOR:
             #BACKWARDloss_ = (0.025*self.BACKWARDwobbleLoss)+(0.975*BACKWARDloss)
             if windowEntropyBonus:
                 if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                    ʕっʘ‿ʘʔっ("entropyBonus")
-                    BACKWARDloss = BACKWARDloss - (self.model.interneuronNetwork.entropyBonus * 0.05)
+                    BACKWARDloss = BACKWARDloss - (0.1 * self.model.interneuronNetwork.entropyBonus)
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
                 return
@@ -157,6 +165,7 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("actions after looping")
             self.stepLossFloat = BACKWARDloss.detach().cpu().numpy().item()
+            self.learningRate  = math.exp(self.model.logLR.detach().cpu().item())
             self.endTurnActions()
             if self.device.type == 'mps':
                 ʕっʘ‿ʘʔっ("emptyCache (mps)")
@@ -189,7 +198,7 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥BEFORE TRAINING STEP")
                     inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                     ʕっʘ‿ʘʔっ("♥TRAINING STEP")
-                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None, _repetitionPenalty = self.repetitionPenalty)
+                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
                     """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                     ʕっʘ‿ʘʔっ("♥collectTurnStats")
                     _, LOGstringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
@@ -245,38 +254,35 @@ class TUTOR:
             #self.wobbleLoss = wobbleLoss
             #self.wobbleIncrements = wobbleIncrements
 
-            ʕっʘ‿ʘʔっ("♥incrementCounters")
-            if skipWobble:
-                schedIncrement = scheduledSamplingIncrement
-                repeatIncrement = repetitionPenaltyIncrement
-                LRIncrement = self.learningRate/100000
-                clipIncrement = gradClipIncrement
-                tempIncrement = temperatureIncrement
-                memIncrement = memoryLengthIncrement
-                schedUpdate = random.choice([scheduledSamplingIncrement, -scheduledSamplingIncrement, scheduledSamplingIncrement])
-                repeatUpdate = random.choice([repetitionPenaltyIncrement, -repetitionPenaltyIncrement, repetitionPenaltyIncrement])
-                newLR = random.choice([LRIncrement, -LRIncrement])
-                clipUpdate = random.choice([gradClipIncrement, -gradClipIncrement])
-                tempUpdate = random.choice([tempIncrement, -tempIncrement])
-                memUpdate = random.choice([memIncrement, -memIncrement])
-            elif self.wobbleIncrements is not None:
-                schedIncrement = self.wobbleIncrements[0].item()
-                repeatIncrement = self.wobbleIncrements[1].item()
-                LRIncrement = (self.learningRate + self.wobbleIncrements[2].item())
-                clipIncrement = (self.wobbleIncrements[4]).item()
-                tempIncrement = (temperature + self.wobbleIncrements[3].item())
-                schedUpdate = random.choice([(max(min((schedIncrement), 0.0001), -0.0001)), -1])
-                repeatUpdate = random.choice([(max(min((repeatIncrement), 0.0001), -0.0001)), -1])
-                newLR = (max(min((random.choice([(max(min((LRIncrement), 0.000000001), -0.000000001)), -0.00000001])), 0.00040), 0.00030))
-                clipUpdate = random.choice([((max(min((clipIncrement), 0.0001)), -0.0001)), -1])
-                tempUpdate = random.choice([(max(min((tempIncrement), 0.0001)), -0.0001), -0.01])
+            #ʕっʘ‿ʘʔっ("♥incrementCounters")
+            #if skipWobble:
+                #schedIncrement = scheduledSamplingIncrement
+                #repeatIncrement = repetitionPenaltyIncrement
+                #LRIncrement = self.learningRate/100000
+                #clipIncrement = gradClipIncrement
+                #memIncrement = memoryLengthIncrement
+                #schedUpdate = random.choice([scheduledSamplingIncrement, -scheduledSamplingIncrement, scheduledSamplingIncrement])
+                #repeatUpdate = random.choice([repetitionPenaltyIncrement, -repetitionPenaltyIncrement, repetitionPenaltyIncrement])
+                #newLR = random.choice([LRIncrement, -LRIncrement])
+                #clipUpdate = random.choice([gradClipIncrement, -gradClipIncrement])
+                #tempUpdate = random.choice([tempIncrement, -tempIncrement])
+                #memUpdate = random.choice([memIncrement, -memIncrement])
+            #elif self.wobbleIncrements is not None:
+                #schedIncrement = self.wobbleIncrements[0].item()
+                #repeatIncrement = self.wobbleIncrements[1].item()
+                #LRIncrement = (self.learningRate + self.wobbleIncrements[2].item())
+                #clipIncrement = (self.wobbleIncrements[4]).item()
+                #schedUpdate = random.choice([(max(min((schedIncrement), 0.0001), -0.0001)), -1])
+                #repeatUpdate = random.choice([(max(min((repeatIncrement), 0.0001), -0.0001)), -1])
+                #newLR = (max(min((random.choice([(max(min((LRIncrement), 0.000000001), -0.000000001)), -0.00000001])), 0.00040), 0.00030))
+                #clipUpdate = random.choice([((max(min((clipIncrement), 0.0001)), -0.0001)), -1])
+                #tempUpdate = random.choice([(max(min((tempIncrement), 0.0001)), -0.0001), -0.01])
 
-            self.scheduledSamplingRate = (max(min((self.scheduledSamplingRate + schedUpdate), maxSchedSamp), minSchedSamp))
-            self.repetitionPenalty = (max(min((self.repetitionPenalty + repeatUpdate), maxRepPen), minRepPen))
-            self.model.setLearningRate(newLR)
-            self.gradientClipMaxNorm = (max(min((self.gradientClipMaxNorm + clipUpdate), maxGradClip), minGradClip))
-            self.temperature = (max(min((self.temperature + tempUpdate), maxTemp), minTemp))
-            self.memoryLength = (max(min((self.memoryLength + memUpdate), 100), 1))
+            #self.scheduledSamplingRate = (max(min((self.scheduledSamplingRate + schedUpdate), maxSchedSamp), minSchedSamp))
+            #self.repetitionPenalty = (max(min((self.repetitionPenalty + repeatUpdate), maxRepPen), minRepPen))
+            #self.model.setLearningRate(newLR)
+            #self.gradientClipMaxNorm = (max(min((self.gradientClipMaxNorm + clipUpdate), maxGradClip), minGradClip))
+            #self.memoryLength = (max(min((self.memoryLength + memUpdate), 100), 1))
 
             if skipMemory:
                 ʕっʘ‿ʘʔっ("♥skipMemory")
@@ -322,6 +328,8 @@ class TUTOR:
             self.cheekyTotPrint += 1
             self.cheekyTotLoss += self.stepLossFloat
             self.cheekyAvgLoss = self.cheekyTotLoss/self.cheekyTotPrint
+            if self.trainingStepCounter < trainingLogFreq_A:
+                self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
             ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
             self.calligraphist.S_colourPrintTraining(
                 _step = self.trainingStepCounter,
@@ -330,6 +338,7 @@ class TUTOR:
                 _targetSeq_str = self.targetSeq[:windowMAX],
                 _recentLoss = self.ʕっෆ‿ෆʔっ.get("loss", {}).get(f"/{trainingLogFreq_A}_avg", 0), # self.stepLossFloat,
                 _loss = self.stepLossFloat,
+                #_latestLossDelta = self.latestLossDelta,
                 _totalTokenCount = self.tokenCounts)
 
         
@@ -504,7 +513,7 @@ class TUTOR:
             _               = self.ʕっෆ‿ෆʔっ[_statKey]  # this will autoinit with defaultdict
             ෆ‿ෆ             = self.ʕっෆ‿ෆʔっ[_statKey]
             important       = ["loss"]
-            rolling         = ["AvgLoss", "loss", "gradNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
+            rolling         = ["memoryLength", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "gradientClipMaxNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
             percentiles     = [99.99, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.01]
 
             """ ෆෆෆ^ ♥ UPDATE EVERY TURN ♥ ^ෆෆෆ   """
