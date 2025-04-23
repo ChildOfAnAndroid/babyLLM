@@ -111,7 +111,7 @@ trainingLogFreq_B = 50000    # creates logs every x number of turns
 trainingLogFreq_A = 500    # creates logs every x number of turns
 detailedLogging = False
 
-printFreq = 20     # how often to print training progress to the terminal
+printFreq = 10     # how often to print training progress to the terminal
 printPromptLength = 100     # how many characters of the prompt to display in terminal
 
 durationLogging = False     # // True // False // activates debug time logging
@@ -170,8 +170,8 @@ INN_outputTensorStats = True
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 1
-trainingDataSliceSize_max = 500000
-trainingDataPairNumber = 200000
+trainingDataSliceSize_max = 5000
+trainingDataPairNumber = 300000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 
@@ -194,12 +194,12 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", 10),     #  even more of elodies lovely mouse story!
 
     #--- MINI TRAINING ---
-    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 10),     # i am happy! i did it! i know it!
-    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 10),     # training: i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 100),     # i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 100),     # training: i am happy! i did it! i know it!
 
     #--- BABYLLM CHAT LOGS ---
-    ("text", chatLogPath_trainingLog, 1),     # log: 'what am i learning today?'
     ("text", chatLogPath_talkToYourself, 1),     #  i answer my own previous chat messages
+    ("text", chatLogPath_trainingLog, 1),     # log: 'what am i learning today?'
     ("text", chatLogPath_infer, 1),     # log: babyLLM infer.py history!
     ("text", chatLogPath_talkToYourselfComparisons, 1),     # log: comparing babyllms answers to my answers
 

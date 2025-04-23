@@ -209,8 +209,8 @@ class S_OUTPUT:
         if len(values) < 2:
             return {"dim": -float('inf')}
 
-        if statKey in ["memoryRate", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]: #values is dict:
-            keyList = {f"/{printFreq}": printFreq, f"/{trainingLogFreq_A}": trainingLogFreq_A, f"/BIG{trainingLogFreq_A}": trainingLogFreq_A}
+        if statKey in ["memoryLength", "LR", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "gradientClipMaxNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]: #values is dict:
+            keyList = {f"{printFreq}": printFreq, f"{trainingLogFreq_A}": trainingLogFreq_A, f"BIG{trainingLogFreq_A}": trainingLogFreq_A}
             requiredKey = list(keyList.keys())[0]
             for key, freq in keyList.items():
                 if key in values and len(values[key]) >= freq:
@@ -268,11 +268,12 @@ class S_OUTPUT:
         with self.counsellor.infodump("S_stripForLogging") as ʕっʘ‿ʘʔっ:
             return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', _text)
 
-    def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss=None, _latestLossDelta=None, _totalLoss=None, _totalTokenCount=None):
+    def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss, _latestLossDelta, _totalLoss=None, _totalTokenCount=None):
         with self.counsellor.infodump("S_colourPrintTraining") as ʕっʘ‿ʘʔっ:
             S_type = self.S_getStat("loss", _loss)
             S_avgType = self.S_getStat("AvgLoss", _recentLoss)
-            #S_deltaType = self.S_getStat("latestLossDelta", _latestLossDelta)
+            S_delta = _latestLossDelta
+            S_deltaType = self.S_getStat("latestLossDelta", _latestLossDelta)
             S_bold = "".join(self.S_types["bold"])
 
             ʕっʘ‿ʘʔっ("conditionalFormatGuess+truth")
@@ -303,7 +304,7 @@ class S_OUTPUT:
             ʕっʘ‿ʘʔっ("calculateLossDelta") # Calculate delta
             if _recentLoss is not None:
                 delta = _recentLoss - _loss
-                delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_avgType, f'{delta:+.3f}')}{'↗' if delta < 0 else '↘'}"
+                delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_deltaType, f'{S_delta:+.3f}')}{'↗' if S_delta < 0 else '↘'}"
 
             rollingAvgLoss_str = ""
             #if self.rollingAverages and "loss" in self.rollingAverages:
@@ -356,7 +357,7 @@ class S_OUTPUT:
             littleLogOutput += delimiter + delimiter.join([
                 format_stat(k, v)
                 for k, v in avgStats.items()
-                if k in ["learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "maxGradClipNorm", "memoryLength", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
+                if k in ["memoryLength", "LR", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "gradientClipMaxNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
                 if v not in (None, "")
             ])
 
