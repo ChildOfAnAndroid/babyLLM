@@ -24,7 +24,7 @@ def makeStatRecord():
         "totAvg": 0.0
     }
     for n in [printFreq, printFreq*10, trainingLogFreq_A, trainingLogFreq_B]:
-        base[f"/{n}"] = []
+        base[f"{n}"] = []
 
     return base
 
@@ -40,8 +40,7 @@ class TUTOR:
         
         self.temperature                = _temperature
         self.repetitionPenalty          = _repetitionPenalty
-        self.scheduledSamplingRate      = _scheduledSamplingRate
-        #self.scheduledSamplingRate      = self.scheduledSamplingRate + 0.05
+        self.scheduledSamplingRate      = _scheduledSamplingRate + torch.tensor(0.1, device=_scheduledSamplingRate.device)
         self.gradientClipMaxNorm        = _gradientClipMaxNorm
         self.memoryLength               = _memoryLength
         
@@ -71,6 +70,15 @@ class TUTOR:
         self.cheekyTotLoss              = 0
         self.cheekyTotPrint             = 1
         self.stepLossFloat              = 0
+        self.aaa = 0
+        self.bbb = 0
+        self.ccc = 0
+        self.ppp = 0
+        self.nnn = 0
+        self.aaaa = 0
+        self.dddd = 0
+        self.bbbb = 0
+        self.nnnn = 0
         #model.to(self.device)
 
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss):
@@ -164,8 +172,11 @@ class TUTOR:
             self.model.optimizer.step()
 
             ʕっʘ‿ʘʔっ("actions after looping")
-            self.stepLossFloat = BACKWARDloss.detach().cpu().numpy().item()
-            self.learningRate  = math.exp(self.model.logLR.detach().cpu().item())
+            self.stepLossFloat              = BACKWARDloss.detach().cpu().numpy().item()
+            self.learningRate               = math.exp(self.model.logLR.detach().cpu().item())
+            self.temperatureFloat           = self.temperature.detach().cpu().numpy().item()
+            self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
+
             self.endTurnActions()
             if self.device.type == 'mps':
                 ʕっʘ‿ʘʔっ("emptyCache (mps)")
@@ -297,20 +308,41 @@ class TUTOR:
             ʕっʘ‿ʘʔっ("♥getLatestLossDelta")
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
 
-            rollA_avgKey = f"/BIG{trainingLogFreq_A}_avg"
-            rollA_ΔKey = f"/{trainingLogFreq_A}_Δ"
+            rollA_Key = f"{trainingLogFreq_A}"
+            rollA_ΔKey = f"{trainingLogFreq_A}_Δ"
 
-            rollPrint_avgKey = f"/{printFreq}_avg"
-            rollPrint_ΔKey = f"/{printFreq}_Δ"
+            rollPrint_Key = f"{printFreq}"
+            rollPrint_ΔKey = f"{printFreq}_Δ"
 
-            if rollA_avgKey in lossStats and rollA_ΔKey in lossStats:
-                ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollA_ΔKey} for latestLossDelta")
+            ΔKey = f"_Δ"
+
+            if ΔKey in lossStats:
+                ʕっʘ‿ʘʔっ(f"♥usingLossStats{ΔKey} for latestLossDelta")
+                #self.dddd += 1
+                #if self.dddd > 100: 
+                #    print(f"♥usedLossStats{ΔKey} for latestLossDelta 100x")
+                #    self.dddd = 0
                 self.latestLossDelta = lossStats[rollA_ΔKey]
-            elif rollPrint_avgKey in lossStats and rollPrint_ΔKey in lossStats:
+            elif rollA_Key in lossStats: #and rollA_ΔKey in lossStats:
+                ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollA_ΔKey} for latestLossDelta")
+                #self.aaaa += 1
+                #if self.aaaa > 100: 
+                #    print(f"♥usedLossStats{rollA_ΔKey} for latestLossDelta 100x")
+                #    self.aaaa = 0
+                self.latestLossDelta = lossStats[rollA_ΔKey]
+            elif rollPrint_Key in lossStats: #and rollPrint_ΔKey in lossStats:
                 ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollPrint_ΔKey} for latestLossDelta")
+                #self.bbbb += 1
+                #if self.bbbb > 100: 
+                #    print(f"♥usedLossStats{rollPrint_ΔKey} for latestLossDelta 100x")
+                #    self.bbbb = 0
                 self.latestLossDelta = lossStats[rollPrint_ΔKey]
             else:
                 ʕっʘ‿ʘʔっ(f"♥using 0.0 for latestLossDelta")
+                self.nnnn += 1
+                if self.nnnn > 100: 
+                    print(f"♥used 0.0 for latestLossDelta 100x")
+                    self.nnnn = 0
                 self.latestLossDelta = 0.0
         
         return self.latestLossDelta
@@ -336,9 +368,9 @@ class TUTOR:
                 _inputSeq = self.inputSeq,
                 _guessedSeq_str = self.guessedTokenSeq,
                 _targetSeq_str = self.targetSeq[:windowMAX],
-                _recentLoss = self.ʕっෆ‿ෆʔっ.get("loss", {}).get(f"/{trainingLogFreq_A}_avg", 0), # self.stepLossFloat,
+                _recentLoss = self.averageRecentLoss, #self.ʕっෆ‿ෆʔっ.get("loss", {}).get(f"{trainingLogFreq_A}_avg", 0), # self.stepLossFloat,
                 _loss = self.stepLossFloat,
-                #_latestLossDelta = self.latestLossDelta,
+                _latestLossDelta = self.latestLossDelta,
                 _totalTokenCount = self.tokenCounts)
 
         
@@ -395,27 +427,49 @@ class TUTOR:
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
-            rollupA_key = f"/BIG{trainingLogFreq_A}"
+            rollupA_key = f"BIG{trainingLogFreq_A}"
             rollupA_avgKey = f"{rollupA_key}_avg"
-            rollB_key = f"/{trainingLogFreq_B}"
+            rollB_key = f"{trainingLogFreq_B}"
             rollB_avgKey = f"{rollB_key}_avg"
-            rollA_avgKey = f"/{trainingLogFreq_A}_avg"
-            rollPrint_avgKey = f"/{printFreq}_avg"
+            rollA_key = f"{trainingLogFreq_A}"
+            rollA_avgKey = f"{trainingLogFreq_A}_avg"
+            rollPrint_key = f"{printFreq}"
+            rollPrint_avgKey = f"{printFreq}_avg"
 
-            if rollupA_avgKey in lossStats and rollupA_key in lossStats and len(lossStats[rollupA_key]) > trainingLogFreq_A:
-                if debugPrints: print(f"Using {rollupA_avgKey} for averageRecentLoss: {lossStats[rollupA_avgKey]}")
+            """if rollupA_avgKey in lossStats and rollupA_key in lossStats:# and len(lossStats[rollupA_key]) > trainingLogFreq_A:
+                if debugPrints or True: 
+                    self.aaa += 1
+                    if self.aaa > 10: 
+                        print(f"Used {rollupA_avgKey} for averageRecentLoss: {lossStats[rollupA_avgKey]} 10x")
+                        self.aaa = 0
                 self.averageRecentLoss = lossStats[rollupA_avgKey]
-            elif rollB_avgKey in lossStats and rollB_key in lossStats and len(lossStats[rollB_key]) > trainingLogFreq_B:
-                if debugPrints: print(f"Using {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]}")
-                self.averageRecentLoss = lossStats[rollB_avgKey]
-            elif rollA_avgKey in lossStats:
-                if debugPrints: print(f"Using {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]}")
+            elif rollB_avgKey in lossStats and rollB_key in lossStats:# and len(lossStats[rollB_key]) > trainingLogFreq_B:
+                if debugPrints or True: 
+                    self.bbb += 1
+                    if self.bbb > 10: 
+                        print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} 10x")
+                        self.bbb = 0
+                self.averageRecentLoss = lossStats[rollB_avgKey]"""
+            if rollA_avgKey in lossStats and rollA_key in lossStats:# and len(lossStats[rollA_key]) > trainingLogFreq_A:
+                if debugPrints: 
+                    self.ccc += 1
+                    if self.ccc > 100: 
+                        print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} 100x")
+                        self.ccc = 0
                 self.averageRecentLoss = lossStats[rollA_avgKey]
-            elif rollPrint_avgKey in lossStats:
-                if debugPrints: print(f"Using {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]}")
+            elif rollPrint_avgKey in lossStats and rollPrint_key in lossStats and len(lossStats[rollPrint_key]) > printFreq:
+                if debugPrints: 
+                    self.ppp += 1
+                    if self.ppp > 100: 
+                        print(f"Used {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]} 100x")
+                        self.ppp = 0
                 self.averageRecentLoss = lossStats[rollPrint_avgKey]
             else:
-                if debugPrints: print(f"Using self.cheekyAvgLoss for averageRecentLoss: {self.cheekyAvgLoss}")
+                if debugPrints or True: 
+                    self.nnn += 1
+                    if self.nnn > 100: 
+                        print(f"Used self.cheekyAvgLoss for averageRecentLoss: {self.cheekyAvgLoss} 100x")
+                        self.nnn = 0
                 self.averageRecentLoss = self.cheekyAvgLoss
 
             self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
@@ -424,6 +478,14 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.trainingStepCounter > trainingLogFreq_A:
+                #if self.stepLossFloat >= lossStats["p_90"]:
+                    #self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.09)
+                #elif self.stepLossFloat <= lossStats["bot"]:
+                #    self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 1.0)
+                #elif self.stepLossFloat <= lossStats["p_10"]:
+                #    self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 1.009)
+                #elif self.stepLossFloat >= lossStats["top"]:
+                #    self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
                 self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
 
             ʕっʘ‿ʘʔっ("collectStats♥")
@@ -450,13 +512,13 @@ class TUTOR:
 
                 if static_collectStats:
                     ʕっʘ‿ʘʔっ("♥if static_collectStats")
-                    self.stats["scheduledSamplingRate"] = self.scheduledSamplingRate
+                    self.stats["scheduledSamplingRate"] = self.scheduledSamplingRateFloat
                     self.stats["repetitionPenalty"] = self.repetitionPenalty
                     self.stats["AvgLoss"] = self.averageRecentLoss
                     self.stats["loss"] = self.stepLossFloat
-                    self.stats["temperature"] = self.temperature
-                    self.stats["lR"] = self.learningRate
-                    self.stats["gradientClip"] = self.gradientClipMaxNorm
+                    self.stats["temperature"] = self.temperatureFloat
+                    self.stats["LR"] = self.learningRate
+                    self.stats["gradientClipMaxNorm"] = self.gradientClipMaxNorm
                     self.stats["latestLossDelta"] = self.latestLossDelta
                     self.stats["memoryLength"] = self.memoryLength
                     for statsK, statsV in self.stats.items():
@@ -476,11 +538,10 @@ class TUTOR:
                 if logit_collectStats:
                     ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
                     self.stats.update(self.model.logits.getLogitStats())
-                    self.stats["logitSeq"] = self.logitSeq
                     if self.stats["logitSeq"]:
                         ʕっʘ‿ʘʔっ("♥logit max & min")
-                        self.stats["logitMin"] = self.stats["logitSeq"][-1].min(dim=-1).values.mean()
-                        self.stats["logitMax"] = self.stats["logitSeq"][-1].max(dim=-1).values.mean()
+                        self.stats["logitMin"] = self.logitSeq[-1].min(dim=-1).values.mean()
+                        self.stats["logitMax"] = self.logitSeq[-1].max(dim=-1).values.mean()
 
                 #self.stats.update(self.wobble.getWobbleStats())
 
@@ -513,13 +574,14 @@ class TUTOR:
             _               = self.ʕっෆ‿ෆʔっ[_statKey]  # this will autoinit with defaultdict
             ෆ‿ෆ             = self.ʕっෆ‿ෆʔっ[_statKey]
             important       = ["loss"]
-            rolling         = ["memoryLength", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "gradientClipMaxNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
+            rolling         = ["memoryLength", "LR", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "maxGradClipNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
             percentiles     = [99.99, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.01]
 
             """ ෆෆෆ^ ♥ UPDATE EVERY TURN ♥ ^ෆෆෆ   """
             """ ෆෆෆ^ ♥ turn stats ♥ ^ෆෆෆ  """
             ෆ‿ෆ["prev"]     = ෆ‿ෆ.get("now", 0.0)
             ෆ‿ෆ["now"]      = _value
+            ෆ‿ෆ["_Δ"]       = ෆ‿ෆ["now"]    - ෆ‿ෆ["prev"]
 
             """ ෆෆෆ^ ♥ totals ♥ ^ෆෆෆ  """
             ෆ‿ෆ["totSum"]   = ෆ‿ෆ.get("totSum", 0.0)    + _value
@@ -534,7 +596,7 @@ class TUTOR:
             """ ෆෆෆ^ ♥ ROLLING STATS ♥ ^ෆෆෆ   """
             if _statKey in rolling:
                 for freq in [printFreq, trainingLogFreq_A]:
-                    tag = f"/{freq}"
+                    tag = f"{freq}"
                     if tag not in ෆ‿ෆ:
                         ෆ‿ෆ[tag] = []
                     if len(ෆ‿ෆ[tag]) >= freq: 
@@ -545,7 +607,7 @@ class TUTOR:
 
             if _statKey in important and self.trainingStepCounter % trainingLogFreq_A == 0:
                 for importantFreq in [trainingLogFreq_A]:
-                    importantTag = f"/BIG{importantFreq}"
+                    importantTag = f"BIG{importantFreq}"
                     if importantTag not in ෆ‿ෆ:
                         ෆ‿ෆ[importantTag] = []
                     if len(ෆ‿ෆ[importantTag]) >= trainingLogFreq_A:
@@ -561,7 +623,7 @@ class TUTOR:
         standardDeviation       = self.stdTest(_values)
         _ෆ‿ෆ[f"{_tag}_std"]     = standardDeviation
 
-        delta                   = _ෆ‿ෆ["now"] - average
+        delta                   = _ෆ‿ෆ["now"] - _ෆ‿ෆ["prev"]
         _ෆ‿ෆ[f"{_tag}_Δ"]       = delta
 
         if _percentiles:

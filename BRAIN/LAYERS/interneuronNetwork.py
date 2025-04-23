@@ -94,9 +94,10 @@ class INTERNEURON_NETWORK(nn.Module):
                 
                 windowMeanStack = torch.stack(windowMeanActivations, dim=0).squeeze(1)
                 clampedCerebellum = self.cerebellum.clamp(min=-2.0, max=2.0)
+                #self.parliamentBlendClamped = torch.sigmoid(self.parliamentBlend)
 
                 self.cerebellumSoft = F.softmax(clampedCerebellum - (clampedCerebellum.abs() / 2), dim=0)
-                mix = 0.5 * self.cerebellumSoft + 0.5 * torch.tanh(clampedCerebellum)
+                mix = (0.5 * self.cerebellumSoft) + (0.5 * torch.tanh(clampedCerebellum))
                 weightedWindowStack = windowMeanStack * mix.reshape(-1, 1)
                 #weightedWindowStack = windowMeanStack * self.cerebellumSoft.reshape(-1, 1)
                 
@@ -251,10 +252,13 @@ class INTERNEURON_NETWORK(nn.Module):
                         stats["INN_cerebellumSoft"] = self.cerebellumSoft
                         stats["INN_cerebellumMean"] = self.cerebellum.mean()
                         stats["INN_cerebellumStd"] = self.cerebellum.std()
+                        #stats["INN_parliament"] = self.parliamentBlend
+                        #stats["INN_parliamentSoft"] = self.parliamentBlendClamped
                         if debugPrints: print(f"cerebellum: {stats["INN_cerebellum"]}, soft: {stats["INN_cerebellumSoft"]} mean: {stats['INN_cerebellumMean']} std: {stats['INN_cerebellumStd']}")
                         ʕっʘ‿ʘʔっ("♥cerebellumString")
                         #INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellum"], stats["INN_cerebellumSoft"]), key=lambda x: x[1], reverse=True)
                         #INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCerebellum)
+                        #windowVotes_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_parliament", rawTensor=stats["INN_parliament"], softTensor=stats["INN_parliamentSoft"], windowSizes=allWindowSizes_new)
                         INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor=stats["INN_cerebellum"], softTensor=stats["INN_cerebellumSoft"], windowSizes=allWindowSizes_new)
                         if debugPrints: print(f"{INN_cerebellum_str}")
 
