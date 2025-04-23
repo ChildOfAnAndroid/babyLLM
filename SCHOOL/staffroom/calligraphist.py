@@ -78,12 +78,12 @@ class S_OUTPUT:
             "average":       [PURPBLUE_],               #[BLUE],            # 65 //
 
             "meh":           [PURPRED_],                #[BOLD, CYAN],      # 80 //
-            "bad":           [REDPURP_],                #[CYAN],            # 85 //
-            "worse":         [RED_],                    #[ORANGE],          # 90 //
-            "wtf":           [RED_],                 #[BOLD, ORANGE],    # 95 //
-            "omg":           [REDRED_],                 # 99.99 //
+            "bad":           [PURPRED_],                #[CYAN],            # 85 //
+            "worse":         [REDPURP_],                #[ORANGE],          # 90 //
+            "wtf":           [REDPURP_],                #[BOLD, ORANGE],    # 95 //
+            "omg":           [RED_],                    # 99.99 //
 
-            "omgwtf":        [ITALIC, REDRED_],         # 100.00 // bottom score ever // if above min and below omg
+            "omgwtf":        [REDRED_],         # 100.00 // bottom score ever // if above min and below omg
             "omgwtf!":       [CYAN],                    # new bottom score ever // if below min
 
 
@@ -173,6 +173,7 @@ class S_OUTPUT:
             "shortDecay":               self.getDynamicPercentileBands("shortDecay"),
             "longDecay":                self.getDynamicPercentileBands("longDecay"),
             "latestMemoryGates":        self.getDynamicPercentileBands("latestMemoryGates"),
+            "memoryLength":             self.getDynamicPercentileBands("memoryLength"),
 
             # Embed stats
             "embedNormMean":            self.getDynamicPercentileBands("embedNormMean"),
@@ -208,7 +209,7 @@ class S_OUTPUT:
         if len(values) < 2:
             return {"dim": -float('inf')}
 
-        if statKey in ["loss", "scheduledSamplingRate", "repetitionPenalty", "AvgLoss", "temperature", "sampledTokens"]: #values is dict:
+        if statKey in ["memoryRate", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]: #values is dict:
             keyList = {f"/{printFreq}": printFreq, f"/{trainingLogFreq_A}": trainingLogFreq_A, f"/BIG{trainingLogFreq_A}": trainingLogFreq_A}
             requiredKey = list(keyList.keys())[0]
             for key, freq in keyList.items():
@@ -267,9 +268,11 @@ class S_OUTPUT:
         with self.counsellor.infodump("S_stripForLogging") as ʕっʘ‿ʘʔっ:
             return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', _text)
 
-    def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss=None, _totalLoss=None, _totalTokenCount=None):
+    def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss=None, _latestLossDelta=None, _totalLoss=None, _totalTokenCount=None):
         with self.counsellor.infodump("S_colourPrintTraining") as ʕっʘ‿ʘʔっ:
             S_type = self.S_getStat("loss", _loss)
+            S_avgType = self.S_getStat("AvgLoss", _recentLoss)
+            #S_deltaType = self.S_getStat("latestLossDelta", _latestLossDelta)
             S_bold = "".join(self.S_types["bold"])
 
             ʕっʘ‿ʘʔっ("conditionalFormatGuess+truth")
@@ -300,7 +303,7 @@ class S_OUTPUT:
             ʕっʘ‿ʘʔっ("calculateLossDelta") # Calculate delta
             if _recentLoss is not None:
                 delta = _recentLoss - _loss
-                delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_type, f'{delta:+.3f}')}{'↑' if delta < 0 else '↓'}"
+                delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_avgType, f'{delta:+.3f}')}{'↗' if delta < 0 else '↘'}"
 
             rollingAvgLoss_str = ""
             #if self.rollingAverages and "loss" in self.rollingAverages:
@@ -311,7 +314,7 @@ class S_OUTPUT:
 
             ʕっʘ‿ʘʔっ("printGuess+truth")
             print(f"{self.S_apply('dim', f'{_step}')}|{self.S_apply('dim', prompt_str)}|{self.S_apply('dim', 'loss: ')}{self.S_apply(S_type, f'{_loss:.3f}')}{self.S_apply('dim', '/1 ')}"
-                + (f"{self.S_apply(S_type, f'{_recentLoss:.3f}')}{self.S_apply('dim', f'/{trainingLogFreq_A} ')}" if _recentLoss else "")
+                + (f"{self.S_apply(S_avgType, f'{_recentLoss:.3f}')}{self.S_apply('dim', f'/{trainingLogFreq_A} ')}" if _recentLoss else "")
                 + rollingAvgLoss_str + delta_str + "|\n"
                 + f"{self.S_apply('dim', 'guess → ')}{guess_str}{self.S_apply(S_type, ' [!] ') if match else self.S_apply('dim', ' [?] ')}\n"
                 + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}\n")
@@ -329,7 +332,7 @@ class S_OUTPUT:
 
             avgStats = {k: (v / _freq if _freq else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
 
-            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR}")])
+            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.6f}")])
             logOutput = stampAndStep
             littleLogOutput = stampAndStep
 
@@ -340,7 +343,7 @@ class S_OUTPUT:
                             v = v.item()  # convert scalar tensor
                         else:
                             return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"<tensor[{v.shape}]>")
-                    return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.4f}")
+                    return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.6f}")
                 except Exception as e:
                     return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"ERR:{str(e)} key:{k} value:{v}")
 
@@ -353,7 +356,7 @@ class S_OUTPUT:
             littleLogOutput += delimiter + delimiter.join([
                 format_stat(k, v)
                 for k, v in avgStats.items()
-                if k in ["loss", "scheduledSamplingRate", "repetitionPenalty", "AvgLoss", "temperature", "sampledTokens"]
+                if k in ["learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "maxGradClipNorm", "memoryLength", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
                 if v not in (None, "")
             ])
 

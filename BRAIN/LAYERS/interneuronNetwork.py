@@ -6,6 +6,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import random
 from config import *
 
 class NEURON(nn.Module):
@@ -43,9 +44,10 @@ class NEURON(nn.Module):
 
 """layer that applies the same set of neurons to each token embedding independently. - no sequence awareness!"""
 class INTERNEURON_NETWORK(nn.Module):
-    def __init__(self, _counsellor, _calligraphist, _device = modelDevice):
+    def __init__(self, _model, _counsellor, _calligraphist, _device = modelDevice):
         super().__init__()
         #self.inn_counsellor = COUNSELLOR("INN", debug = debugPrints, durations = durationLogging)
+        self.model = _model
         self.inn_counsellor = _counsellor
         self.device = _device
         self.calligraphist = _calligraphist
@@ -91,8 +93,12 @@ class INTERNEURON_NETWORK(nn.Module):
                     return torch.zeros_like(perTokenActivationsTensor[0])
                 
                 windowMeanStack = torch.stack(windowMeanActivations, dim=0).squeeze(1)
-                self.cerebellumSoft = F.softmax(self.cerebellum, dim=0)
-                weightedWindowStack = windowMeanStack * self.cerebellumSoft.view(-1, 1)
+                clampedCerebellum = self.cerebellum.clamp(min=-2.0, max=2.0)
+
+                self.cerebellumSoft = F.softmax(clampedCerebellum - (clampedCerebellum.abs() / 2), dim=0)
+                mix = 0.5 * self.cerebellumSoft + 0.5 * torch.tanh(clampedCerebellum)
+                weightedWindowStack = windowMeanStack * mix.reshape(-1, 1)
+                #weightedWindowStack = windowMeanStack * self.cerebellumSoft.reshape(-1, 1)
                 
                 combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
 
@@ -101,9 +107,16 @@ class INTERNEURON_NETWORK(nn.Module):
 
                 ʕっʘ‿ʘʔっ("entropyReward?")
                 self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
-                self.entropyBonus = self.windowEntropy.item()
+                self.entropyBonus = self.windowEntropy
+
+                #target = 0.0
+                #rate = 0.001
+                #with torch.no_grad():
+                    #delta = (target - self.cerebellum) * rate
+                    #self.cerebellum.add_(delta)
 
                 return combinedActivationsTensor
+            
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
             ʕっʘ‿ʘʔっ("CALL NEURON FORWARD")
             #if debugPrints: print(f"Device check - inputEmbeds: {_inputEmbeds.device}, neuron weights: {self.neurons.n_weights.device}")
@@ -124,7 +137,7 @@ class INTERNEURON_NETWORK(nn.Module):
             # Compute attention scores between every pair of windows (32x32 matrix)
 
             ʕっʘ‿ʘʔっ("scores")
-            self.scores = torch.matmul(query, key.T) / temperature
+            self.scores = torch.matmul(query, key.T) / self.model.temperature
 
             ʕっʘ‿ʘʔっ("selfScores & peerScores") # separate self scores (diagonal) and peer scores (off-diagonals)
             self.selfScores = torch.diag(self.scores) # self score for window i: scores[i, i] (shape: (32,))

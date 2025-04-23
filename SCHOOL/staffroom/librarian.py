@@ -155,6 +155,7 @@ class LIBRARIAN:
     """GENERATE TRAINING DATA"""
     def genTrainingData(self, _windowMAX = windowMAX, _startIndex = trainingStartIndex):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
+            genCount = 0
             """generates training data pairs (input sequences and target tokens)"""
             trainingDataPairs = []
             if isinstance(_windowMAX, torch.Tensor):
@@ -180,7 +181,12 @@ class LIBRARIAN:
                 if len(targetTokens) < numTargetTokens:
                     continue
                 if all(token in self.vocabList for token in inputSeq) and all(t_token in self.vocabList for t_token in targetTokens):
+                    genCount += 1
+                    if genCount >= trainingDataPairNumber:
+                        break
                     trainingDataPairs.append((inputSeq, targetTokens))
+                    if genCount % 10000 == 0:
+                        print(f"generated {genCount}x trainingDataPairs!")
                 else:
                     print(f"skipping UNK - inputSeq: '{inputSeq}', targetSeq: '{targetTokens}'")
         """returns a list of tuples: (inputSeq, targetToken)"""
