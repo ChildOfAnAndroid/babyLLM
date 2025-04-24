@@ -50,7 +50,7 @@ class BABYLLM(nn.Module):
         self.logLR = nn.Parameter(torch.tensor(math.log(1e-4), device = self.device))
         self.temperature = nn.Parameter(torch.tensor(1.0, device = self.device))
         self.logGradClip = nn.Parameter(torch.tensor(math.log(1.0), device=self.device))
-        self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.0, device=self.device))
+        self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.2, device=self.device))
         self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device=self.device))
         self.memoryLength = nn.Parameter(torch.tensor(float(memoryLength), device=self.device))
 
@@ -118,8 +118,10 @@ class BABYLLM(nn.Module):
             return logits
     
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
-    def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta):
+    def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta = 0, _perfectTokens = 0):
         with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
+            self.latestLossDelta = _latestLossDelta
+            self.perfectTokens = _perfectTokens
             if skipComputeLoss:
                 ʕっʘ‿ʘʔっ("skipping loss!")
                 return torch.tensor([0.1], requires_grad=True, device=self.device)  # Constant scalar tensor
@@ -136,12 +138,15 @@ class BABYLLM(nn.Module):
                     tempReg = (torch.clamp(self.temperature, 0.01, 10.0) - 1.0).pow(2) # linked (mostly?)
                     lrReg = (torch.exp(self.logLR) - 1e-4).pow(2) # linked
                     gradClipReg = (torch.exp(self.logGradClip) - 1.0).pow(2) # linked in one place at least
-                    repeatReg = (torch.clamp(self.repetitionPenalty, 0.8, 2.0) - 1.5).pow(2)
-                    schedReg = (torch.clamp(self.scheduledSamplingRate, 0.0, 1.0) - 0.5).pow(2)
+                    repeatReg = (torch.clamp(self.repetitionPenalty, 0.8, 2.0) - 1.5).pow(2) # seems to work??
+                    schedReg = (torch.clamp(self.scheduledSamplingRate, 0.01, 1.0) - 0.5).pow(2) # !!!! not workin
                     memReg = (torch.clamp(self.memoryLength, 1.0, 100.0) - 50.0).pow(2)
+                    lossDeltaABS = abs(self.latestLossDelta)
 
-                    metaWeight = 0.01 * (1.0 if self.latestLossDelta > 0 else 0.1)
-                    metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + repeatReg + schedReg + memReg)
+                    metaPerfect = 1 * (0.3 if self.perfectTokens > 0 else 0.7)
+                    # good (stay still) > latestlossdelta < bad (explore)
+                    metaWeight = 0.01 * (min(lossDeltaABS, 1) if self.latestLossDelta >= 0 else (min(lossDeltaABS, 25)*0.1))
+                    metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + memReg + (metaPerfect * (repeatReg + schedReg)))
 
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
             return loss + metaLoss
