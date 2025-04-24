@@ -93,10 +93,10 @@ class INTERNEURON_NETWORK(nn.Module):
                     return torch.zeros_like(perTokenActivationsTensor[0])
                 
                 windowMeanStack = torch.stack(windowMeanActivations, dim=0).squeeze(1)
-                clampedCerebellum = self.cerebellum.clamp(min=-2.0, max=2.0)
+                clampedCerebellum = self.cerebellum.clamp(min=-1.0, max=1.0)
                 #self.parliamentBlendClamped = torch.sigmoid(self.parliamentBlend)
 
-                self.cerebellumSoft = F.softmax(clampedCerebellum - (clampedCerebellum.abs() / 2), dim=0)
+                self.cerebellumSoft = F.softmax(clampedCerebellum + (clampedCerebellum.abs() / 2), dim=0)
                 mix = (0.5 * self.cerebellumSoft) + (0.5 * torch.tanh(clampedCerebellum))
                 weightedWindowStack = windowMeanStack * mix.reshape(-1, 1)
                 #weightedWindowStack = windowMeanStack * self.cerebellumSoft.reshape(-1, 1)
