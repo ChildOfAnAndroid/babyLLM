@@ -40,7 +40,7 @@ class TUTOR:
         
         self.temperature                = _temperature
         self.repetitionPenalty          = _repetitionPenalty
-        self.scheduledSamplingRate      = _scheduledSamplingRate + torch.tensor(0.1, device=_scheduledSamplingRate.device)
+        self.scheduledSamplingRate      = _scheduledSamplingRate
         self.gradientClipMaxNorm        = _gradientClipMaxNorm
         self.memoryLength               = _memoryLength
         
@@ -135,7 +135,7 @@ class TUTOR:
                     self.totalTokenEvaluations += 1
 
                     ʕっʘ‿ʘʔっ("computeLoss")
-                    stepLoss = self.model.computeLoss(logits, _targetTokenIndexSeq[j], self.latestLossDelta)
+                    stepLoss = self.model.computeLoss(logits, _targetTokenIndexSeq[j], self.latestLossDelta, self.perfectTokens)
 
                     ʕっʘ‿ʘʔっ("appendStepLoss")
                     cumulativeLoss += stepLoss
@@ -195,7 +195,7 @@ class TUTOR:
             self.trainingStepCounter = 0
             self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "tokenCount": 0})
             self.tokenCounts = Counter()
-            self.latestLossDelta = None
+            self.latestLossDelta = 0
 
             ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
@@ -417,7 +417,6 @@ class TUTOR:
             self.stringStats.clear()
             self.tokenPerfectRate = 0
             self.stats['sampledTokens'] = 0
-            self.perfectTokens = 0
             self.totalTokenEvaluations = 0
             self.cheekyAvgLoss = 0
             self.cheekyTotLoss = 0
@@ -500,13 +499,14 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥most common tokens")
                     topTokens = ""
                     topTokens = self.tokenCounts.most_common(10)
+                    self.perfectTokens = 0
 
                     ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
                     if not _predictedTokenIndices:
                         return self.stats, [], self.guessedTokenSeq
-                    target = torch.tensor(_targetTokenIndexSeq[:numTokensPerStep], device=modelDevice)
-                    predicted = torch.tensor(self.predictedTokenIndices, device=modelDevice)
-                    correct = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
+                    target      = torch.tensor(_targetTokenIndexSeq[:numTokensPerStep], device=modelDevice)
+                    predicted   = torch.tensor(self.predictedTokenIndices, device=modelDevice)
+                    correct     = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
                     self.perfectTokens += correct
                     self.totalTokenEvaluations += len(target)
 
@@ -521,6 +521,7 @@ class TUTOR:
                     self.stats["gradientClipMaxNorm"] = self.gradientClipMaxNorm
                     self.stats["latestLossDelta"] = self.latestLossDelta
                     self.stats["memoryLength"] = self.memoryLength
+                    self.stats["perfectTokens"] = self.perfectTokens
                     for statsK, statsV in self.stats.items():
                         if isinstance(statsV, torch.Tensor) and statsV.numel() == 1:
                             statsV = statsV.item()
