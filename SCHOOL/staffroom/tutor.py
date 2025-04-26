@@ -29,14 +29,14 @@ def makeStatRecord():
     return base
 
 class TUTOR:
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _newsletter, _wobble, _model, 
-                    _device                 = modelDevice,              
-                    _gradientClipMaxNorm    = gradientClipMaxNorm, 
-                    _temperature            = temperature,                  
-                    _repetitionPenalty      = repetitionPenalty, 
-                    _scheduledSamplingRate  = scheduledSamplingRate,            
-                    _memoryLength           = memoryLength, 
-                    _numTokensPerStep       = numTokensPerStep):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
+                _device                 = modelDevice,              
+                _gradientClipMaxNorm    = gradientClipMaxNorm, 
+                _temperature            = temperature,                  
+                _repetitionPenalty      = 0, 
+                _scheduledSamplingRate  = 0,            
+                _memoryLength           = 0, 
+                _numTokensPerStep       = numTokensPerStep):
         
         self.temperature                = _temperature
         self.repetitionPenalty          = _repetitionPenalty
@@ -48,7 +48,6 @@ class TUTOR:
         self.calligraphist              = _calligraphist
         self.scribe                     = _scribe
         self.librarian                  = _librarian
-        self.wobble                     = _wobble
         self.device                     = _device
         self.model                      = _model
         self.newsletter                 = STATS()
@@ -308,42 +307,60 @@ class TUTOR:
             ʕっʘ‿ʘʔっ("♥getLatestLossDelta")
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
 
-            rollA_Key = f"{trainingLogFreq_A}"
-            rollA_ΔKey = f"{trainingLogFreq_A}_Δ"
+            #rollA_Key = f"{trainingLogFreq_A}"
+            #rollA_ΔKey = f"{trainingLogFreq_A}_Δ"
 
-            rollPrint_Key = f"{printFreq}"
-            rollPrint_ΔKey = f"{printFreq}_Δ"
+            #rollPrint_Key = f"{printFreq}"
+            #rollPrint_ΔKey = f"{printFreq}_Δ"
 
-            ΔKey = f"_Δ"
+            #ΔKey = f"_Δ"
 
-            if ΔKey in lossStats:
-                ʕっʘ‿ʘʔっ(f"♥usingLossStats{ΔKey} for latestLossDelta")
-                #self.dddd += 1
-                #if self.dddd > 100: 
-                #    print(f"♥usedLossStats{ΔKey} for latestLossDelta 100x")
-                #    self.dddd = 0
-                self.latestLossDelta = lossStats[rollA_ΔKey]
-            elif rollA_Key in lossStats: #and rollA_ΔKey in lossStats:
-                ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollA_ΔKey} for latestLossDelta")
-                #self.aaaa += 1
-                #if self.aaaa > 100: 
-                #    print(f"♥usedLossStats{rollA_ΔKey} for latestLossDelta 100x")
-                #    self.aaaa = 0
-                self.latestLossDelta = lossStats[rollA_ΔKey]
-            elif rollPrint_Key in lossStats: #and rollPrint_ΔKey in lossStats:
-                ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollPrint_ΔKey} for latestLossDelta")
-                #self.bbbb += 1
-                #if self.bbbb > 100: 
-                #    print(f"♥usedLossStats{rollPrint_ΔKey} for latestLossDelta 100x")
-                #    self.bbbb = 0
-                self.latestLossDelta = lossStats[rollPrint_ΔKey]
-            else:
-                ʕっʘ‿ʘʔっ(f"♥using 0.0 for latestLossDelta")
-                self.nnnn += 1
-                if self.nnnn > 100: 
-                    print(f"♥used 0.0 for latestLossDelta 100x")
-                    self.nnnn = 0
-                self.latestLossDelta = 0.0
+            #self.latestLossDelta = lossStats.get(f"_Δ", 0.0)
+            self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
+
+            #if rollPrint_Key in lossStats: #and rollPrint_ΔKey in lossStats:
+            #    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollPrint_ΔKey} for latestLossDelta")
+            #    self.latestLossDelta = lossStats[rollPrint_ΔKey]
+            #    #print(f"Loss delta is apparently {self.latestLossDelta} now \nstats:{lossStats}")
+            #elif ΔKey in lossStats:
+            #    ʕっʘ‿ʘʔっ(f"♥usingLossStats{ΔKey} for latestLossDelta")
+            #    self.latestLossDelta = lossStats[ΔKey]
+            #elif rollA_Key in lossStats: #and rollA_ΔKey in lossStats:
+            #    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollA_ΔKey} for latestLossDelta")
+            #    self.latestLossDelta = lossStats[rollA_ΔKey]
+                #self.latestLossDelta = 0.0
+            ##else:
+            if False:
+                if ΔKey in lossStats:
+                    ʕっʘ‿ʘʔっ(f"♥usingLossStats{ΔKey} for latestLossDelta")
+                    #self.dddd += 1
+                    #if self.dddd > 100: 
+                    #    print(f"♥usedLossStats{ΔKey} for latestLossDelta 100x")
+                    #    self.dddd = 0
+                    ### ??? was the wrong key here the issue ??? ok no that just makes everything even worse somehow self.latestLossDelta = lossStats[rollA_ΔKey]
+                    self.latestLossDelta = lossStats[ΔKey]
+                elif rollA_Key in lossStats: #and rollA_ΔKey in lossStats:
+                    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollA_ΔKey} for latestLossDelta")
+                    #self.aaaa += 1
+                    #if self.aaaa > 100: 
+                    #    print(f"♥usedLossStats{rollA_ΔKey} for latestLossDelta 100x")
+                    #    self.aaaa = 0
+                    self.latestLossDelta = lossStats[rollA_ΔKey]
+                elif rollPrint_Key in lossStats: #and rollPrint_ΔKey in lossStats:
+                    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollPrint_ΔKey} for latestLossDelta")
+                    #self.bbbb += 1
+                    #if self.bbbb > 100: 
+                    #    print(f"♥usedLossStats{rollPrint_ΔKey} for latestLossDelta 100x")
+                    #    self.bbbb = 0
+                    ### ??? was this even the right variable ??? self.l = lossStats[rollPrint_ΔKey]
+                    self.latestLossDelta = lossStats[rollPrint_ΔKey]
+                else:
+                    ʕっʘ‿ʘʔっ(f"♥using 0.0 for latestLossDelta")
+                    self.nnnn += 1
+                    if self.nnnn > 100: 
+                        print(f"♥used 0.0 for latestLossDelta 100x")
+                        self.nnnn = 0
+                    self.latestLossDelta = 0.0
         
         return self.latestLossDelta
 
@@ -360,8 +377,7 @@ class TUTOR:
             self.cheekyTotPrint += 1
             self.cheekyTotLoss += self.stepLossFloat
             self.cheekyAvgLoss = self.cheekyTotLoss/self.cheekyTotPrint
-            if self.trainingStepCounter < trainingLogFreq_A:
-                self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
+            self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
             ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
             self.calligraphist.S_colourPrintTraining(
                 _step = self.trainingStepCounter,
@@ -395,7 +411,7 @@ class TUTOR:
                 tokenPerfect_str = (f"{self.calligraphist.S_apply('dim', f'perfectTokens: {self.perfectTokens} / {self.totalTokenEvaluations}')} → {styledRate}")
 
             ʕっʘ‿ʘʔっ("calligraphist.S_logTraining")
-            self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ) #self.rollingAverages)
+            #self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ) #self.rollingAverages)
             self.calligraphist.S_logTraining(
                 _trainingLogPath = trainingLogPath_100,
                 _trainingStepCounter = self.trainingStepCounter,
@@ -449,25 +465,25 @@ class TUTOR:
                         print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} 10x")
                         self.bbb = 0
                 self.averageRecentLoss = lossStats[rollB_avgKey]"""
-            if rollA_avgKey in lossStats and rollA_key in lossStats:# and len(lossStats[rollA_key]) > trainingLogFreq_A:
-                if debugPrints: 
+            if rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= trainingLogFreq_A:
+                if debugPrints or True: 
                     self.ccc += 1
-                    if self.ccc > 100: 
-                        print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} 100x")
+                    if self.ccc > 1000: 
+                        print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} 1000x")
                         self.ccc = 0
                 self.averageRecentLoss = lossStats[rollA_avgKey]
-            elif rollPrint_avgKey in lossStats and rollPrint_key in lossStats and len(lossStats[rollPrint_key]) > printFreq:
-                if debugPrints: 
+            elif rollPrint_avgKey in lossStats and rollPrint_key in lossStats and len(lossStats[rollPrint_key]) >= printFreq:
+                if debugPrints or True: 
                     self.ppp += 1
-                    if self.ppp > 100: 
-                        print(f"Used {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]} 100x")
+                    if self.ppp > 1000: 
+                        print(f"Used {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]} 1000x")
                         self.ppp = 0
                 self.averageRecentLoss = lossStats[rollPrint_avgKey]
             else:
                 if debugPrints or True: 
                     self.nnn += 1
-                    if self.nnn > 100: 
-                        print(f"Used self.cheekyAvgLoss for averageRecentLoss: {self.cheekyAvgLoss} 100x")
+                    if self.nnn > 1000: 
+                        print(f"Used self.cheekyAvgLoss for averageRecentLoss: {self.cheekyAvgLoss} 1000x")
                         self.nnn = 0
                 self.averageRecentLoss = self.cheekyAvgLoss
 
@@ -575,14 +591,17 @@ class TUTOR:
             _               = self.ʕっෆ‿ෆʔっ[_statKey]  # this will autoinit with defaultdict
             ෆ‿ෆ             = self.ʕっෆ‿ෆʔっ[_statKey]
             important       = ["loss"]
-            rolling         = ["memoryLength", "LR", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "maxGradClipNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
-            percentiles     = [99.99, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.01]
+            rolling         = mostImportantStats
+            percentiles     = percentileBands
 
             """ ෆෆෆ^ ♥ UPDATE EVERY TURN ♥ ^ෆෆෆ   """
             """ ෆෆෆ^ ♥ turn stats ♥ ^ෆෆෆ  """
-            ෆ‿ෆ["prev"]     = ෆ‿ෆ.get("now", 0.0)
+            #if _statKey == "loss":
+                #print(f"Setting prev to: {ෆ‿ෆ.get("now", 0.0)}, Setting now to: {_value}, Setting _Δ to {_value - ෆ‿ෆ.get("now", 0.0)}")
             ෆ‿ෆ["now"]      = _value
-            ෆ‿ෆ["_Δ"]       = ෆ‿ෆ["now"]    - ෆ‿ෆ["prev"]
+            if ෆ‿ෆ["prev"]:
+                ෆ‿ෆ["_Δ"]   = _value - ෆ‿ෆ["prev"]
+            ෆ‿ෆ["prev"]     = ෆ‿ෆ.get("now", 0.0)
 
             """ ෆෆෆ^ ♥ totals ♥ ^ෆෆෆ  """
             ෆ‿ෆ["totSum"]   = ෆ‿ෆ.get("totSum", 0.0)    + _value
@@ -591,8 +610,8 @@ class TUTOR:
             ෆ‿ෆ["totAvgΔ"]  = ෆ‿ෆ["now"]    - ෆ‿ෆ["totAvg"]
 
             """ ෆෆෆ^ ♥ records ♥ ^ෆෆෆ """
-            ෆ‿ෆ["_p100"]    = max(ෆ‿ෆ.get("_p100", _value), _value) # TOP EVER RECORD // PERCENTILE 100
-            ෆ‿ෆ["_p0.00"]      = min(ෆ‿ෆ.get("_p0", _value), _value) # BOTTOM EVER RECORD // PERCENTILE 0
+            #ෆ‿ෆ["_p100"]    = max(ෆ‿ෆ.get("_p100", _value), _value) # TOP EVER RECORD // PERCENTILE 100
+            #ෆ‿ෆ["_p0.00"]   = min(ෆ‿ෆ.get("_p0.00", _value), _value) # BOTTOM EVER RECORD // PERCENTILE 0
 
             """ ෆෆෆ^ ♥ ROLLING STATS ♥ ^ෆෆෆ   """
             if _statKey in rolling:
@@ -624,7 +643,7 @@ class TUTOR:
         standardDeviation       = self.stdTest(_values)
         _ෆ‿ෆ[f"{_tag}_std"]     = standardDeviation
 
-        delta                   = _ෆ‿ෆ["now"] - _ෆ‿ෆ["prev"]
+        delta                   = _ෆ‿ෆ["now"] - _ෆ‿ෆ[f"{_tag}_avg"]
         _ෆ‿ෆ[f"{_tag}_Δ"]       = delta
 
         if _percentiles:
