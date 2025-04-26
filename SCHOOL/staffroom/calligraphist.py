@@ -53,6 +53,22 @@ class S_OUTPUT:
         PINK_ = "\033[38;5;165m"
         PINKPINK_ = "\033[38;5;201m"
 
+        """sdjfslfs"""
+        A = "\033[38;5;196m"
+        B = "\033[38;5;160m"
+        C = "\033[38;5;161m"
+        D = "\033[38;5;162m"
+        E = "\033[38;5;163m"
+        F = "\033[38;5;164m"
+        G = "\033[38;5;127m"
+        H = "\033[38;5;134m"
+        I = "\033[38;5;135m"
+        J = "\033[38;5;99m"
+        K = "\033[38;5;63m"
+        L = "\033[38;5;27m"
+        M = "\033[38;5;33m"
+        N = "\033[38;5;39m"
+
         """extra colours"""
         GOLD = "\033[93m"
         RED_ALT = "\033[31m"
@@ -66,28 +82,27 @@ class S_OUTPUT:
         self.S_types = {
 
             "superPerfect":  [ITALIC, GOLD],            # new top score ever // if above max
-            "perfect":       [GOLD],                    # 0.00 // top score ever // if below max and above almost perf
+            "perfect":       [N],                    # 0.2 // -4.8 top score ever // if below max and above almost perf
 
-            "almostPerfect": [PINKPINK_],               #[BOLD, MAGENTA],   # 0.01 //
-            "superGreat":    [PINK_],                   #[MAGENTA],         # 5 //
-            "great":         [PURPPINK_],               #[BOLD, PURPLE],    # 10 //
-            "good":          [PURP_],                   #[PURPLE],          # 20 //
+            "almostPerfect": [M],   #[PINKPINK_],               #[BOLD, MAGENTA],   # 5 // -5
+            "superGreat":    [L],   #[PINK_],                   #[MAGENTA],         # 10 // -5
+            "great":         [K],   #[PURPPINK_],               #[BOLD, PURPLE],    # 15 // -5
+            "good":          [J],   #[PURP_],                   #[PURPLE],          # 20 // -15
 
-            "fine":          [BLUEPURP_],               #[PURPLE],          # 35 //
-            "almostFine":    [BLUE_],                   #[BOLD, BLUE],      # 50 //
-            "average":       [PURPBLUE_],               #[BLUE],            # 65 //
+            "fine":          [I],   #[BLUEPURP_],               #[PURPLE],          # 35 // -15
+            "almostFine":    [H],   #[BLUE_],                   #[BOLD, BLUE],      # 50 //
+            "average":       [G],   #[PURPBLUE_],               #[BLUE],            # 65 // +15
 
-            "meh":           [PURPRED_],                #[BOLD, CYAN],      # 80 //
-            "bad":           [PURPRED_],                #[CYAN],            # 85 //
-            "worse":         [REDPURP_],                #[ORANGE],          # 90 //
-            "wtf":           [REDPURP_],                #[BOLD, ORANGE],    # 95 //
-            "omg":           [RED_],                    # 99.99 //
+            "meh":           [F],   #[PURPRED_],                #[BOLD, CYAN],      # 80 // +15
+            "bad":           [E],   #[PURPRED_],                #[CYAN],            # 85 // +5
+            "worse":         [D],   #[REDPURP_],                #[ORANGE],          # 90 // +5
+            "wtf":           [C],   #[REDPURP_],                #[BOLD, ORANGE],    # 95 // +5
+            "omg":           [B],   #[RED_],                                        # 99.8 // +4.8
 
-            "omgwtf":        [REDRED_],         # 100.00 // bottom score ever // if above min and below omg
-            "omgwtf!":       [CYAN],                    # new bottom score ever // if below min
+            "omgwtf":        [A],   #[REDRED_],         # 100.00 // bottom score ever // if above min and below omg
+            "omgwtf!":       [ITALIC, A],   #[CYAN],                    # new bottom score ever // if below min
 
-
-            "negative":      [BOLD, GREEN],
+            "emergency":     [BOLD, GREEN],
             "reset":         [RESET],                   # normal terminal
             "dim":           [RESET, DIM],              # dim style for background elements - arrows, colons, etc.
             "bold":          [BOLD],
@@ -95,15 +110,16 @@ class S_OUTPUT:
             "static":        [DIM, PURPLE_PALE]
         
         }
-        for key, pkey in {"perfect": 0.00,
-            "almostPerfect": 0.01, "superGreat": 5, "great": 10, "good": 20, 
-            "fine": 35, "almostFine": 50, "average": 65,
-            "meh": 80, "bad": 85, "worse": 90, "wtf": 95, "omg": 99.99,
-            "omgwtf": 100,
-        }.items():
+        for key, pkey in {"superPerfect": 0.0, # this works to show top record in super perfect direction, as it will be less than the min value
+                        "perfect": 0.2,          "almostPerfect": 5,       "superGreat": 10,        "great": 15,        "good": 20,
+                        "fine": 35,                 "almostFine": 50,       "average": 65,
+                        "meh": 80,                  "bad": 85,              "worse": 90,        "wtf": 95,    "omg": 99.8,
+                        "omgwtf": 100.0,}.items(): # this uses infinite fallback for omgwtf! in getDynamicPercentileBands so that it can show 'worst ever'
             self.S_types[pkey] = self.S_types[key]
         # percentiles     = [99.99, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0.01]
         # perchjcjed      = [99.99, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.01]
+        #percentiles = percentileBands
+
 
         """PERCENTILE CALCS"""
         # new top score ever        #superPerfect
@@ -151,6 +167,9 @@ class S_OUTPUT:
             "temperature":              self.getDynamicPercentileBands("temperature"),
             "sampledTokens":            self.getDynamicPercentileBands("sampledTokens"),
             "PT%":                      self.getDynamicPercentileBands("PT%"),
+            "latestLossDelta":          self.getDynamicPercentileBands("latestLossDelta"),
+            "gradientClipMaxNorm":      self.getDynamicPercentileBands("gradientClipMaxNorm"),
+            "LR":                       self.getDynamicPercentileBands("LR"),
 
             # Neuron stats
             "n_weightMean":             self.getDynamicPercentileBands("n_weightMean"),
@@ -209,13 +228,13 @@ class S_OUTPUT:
         if len(values) < 2:
             return {"dim": -float('inf')}
 
-        if statKey in ["memoryLength", "LR", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "gradientClipMaxNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]: #values is dict:
+        if statKey in mostImportantStats: #values is dict:
             keyList = {f"{printFreq}": printFreq, f"{trainingLogFreq_A}": trainingLogFreq_A, f"BIG{trainingLogFreq_A}": trainingLogFreq_A}
             requiredKey = list(keyList.keys())[0]
             for key, freq in keyList.items():
                 if key in values and len(values[key]) >= freq:
                     requiredKey = key
-            bands = {}
+            bands = {"omgwtf!": float("inf")}
             keyMatch = f"{requiredKey}_p"
             keyLen = len(keyMatch)
             for k, v in values.items():
@@ -228,7 +247,7 @@ class S_OUTPUT:
             #print(f"→ Generating bands for '{statKey}'")
             #print(f"   values: {values}")
 
-            return{"superPerfect": -float('inf'),      
+            return{"superPerfect": -float('inf'),      # MAKE SAME AS THE OTHERS LOL
                 "perfect":      self.getP(stat, 0.0001),    "almostPerfect":    self.getP(stat, 0.0010),    "superGreat":   self.getP(stat, 0.0100), # PURPLE_PALE      
                 "great":        self.getP(stat, 0.1000),    "good":             self.getP(stat, 0.2000),    "fine":         self.getP(stat, 0.3000),     
                 "almostFine":   self.getP(stat, 0.4000),    "average":          self.getP(stat, 0.5000),    "meh":          self.getP(stat, 0.6000),      
@@ -240,6 +259,7 @@ class S_OUTPUT:
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
             values = self.rollingAverages.get(_statType, []) if self.rollingAverages else []
             if not values or len(values) < 2:
+                if debugPrints: print(f"Returning a dim color for stat {_statType} and value {_statVal} (values is {values} (key present:{_statType in self.rollingAverages}))")
                 return "dim"
 
             if self.S_statBands is None:
@@ -250,7 +270,8 @@ class S_OUTPUT:
                 if _statVal <= limit:
                     if _statType == "loss" and debugPrints: print(f"Ok here is the selected label: {label} for value {_statVal} and bands: {bands}")
                     return label
-            return "omgwtf"
+            print(f"Returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})")
+            return "emergency"
         
     def refreshStatBands(self, _rollingAverages):
         self.rollingAverages = _rollingAverages
@@ -357,7 +378,7 @@ class S_OUTPUT:
             littleLogOutput += delimiter + delimiter.join([
                 format_stat(k, v)
                 for k, v in avgStats.items()
-                if k in ["memoryLength", "LR", "learningRate", "latestLossDelta", "AvgLoss", "loss", "gradNorm", "gradientClipMaxNorm", "scheduledSamplingRate", "sampledTokens", "repetitionPenalty", "temperature"]
+                if k in mostImportantStats
                 if v not in (None, "")
             ])
 
@@ -484,13 +505,20 @@ class S_OUTPUT:
         return _sortedStat[index]
 
     if __name__ == "__main__":
+        print(S_apply('superPerfect', "ELODIE IS PERFECT"))
         print(S_apply('perfect', "ELODIE IS PERFECT"))
         print(S_apply('almostPerfect', "BABYLLM IS ALMOST PERFECT"))
+        print(S_apply('superGreat', "BABYLLM IS SUPER GREAT"))
         print(S_apply('great', "BABYLLM IS GREAT"))
         print(S_apply('good', "BABYLLM IS GOOD"))
         print(S_apply('fine', "BABYLLM IS FINE"))
         print(S_apply('almostFine', "CHARIS IS ALMOST FINE"))
+        print(S_apply('average', "GEORGE IS AVERAGE"))
         print(S_apply('meh', "BABYLLM IS MEH"))
         print(S_apply('bad', "BABYLLM IS BAD"))
         print(S_apply('worse', "GEORGE IS WORSE"))
+        print(S_apply('wtf', "KEVIN IS WTF"))
+        print(S_apply('omg', "PETE IS OMG"))
+        print(S_apply('omgwtf', "PETE IS OMGWTF"))
+        print(S_apply('omgwtf', "CHARIS IS OMGWTF!"))
         print(S_apply('emergency', "BABYLLM IS EMERGENCY"))

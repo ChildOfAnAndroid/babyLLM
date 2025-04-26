@@ -23,7 +23,7 @@ from config import *
 """LOGITS: output layer to generate logits"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _wobble, _device = modelDevice):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _device = modelDevice):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
@@ -38,13 +38,18 @@ class BABYLLM(nn.Module):
         self.latestLossDelta = 0
         self.totalTokenEvaluations_A = 0
         self.recentGeneratedTokens = []  # used for repetition penalty
-        self.memoryLength = memoryLength
+        self.lastLossBaby = 0
+        self.computeLossCount = 0
+        self.repeatedPercent = 0
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device)
+        self.metaMeta = torch.nn.Sequential(torch.nn.Linear(16, 32, device = self.device), 
+                                            torch.nn.LeakyReLU(negative_slope=0.01),
+                                            torch.nn.Linear(32, 1, device = self.device))
 
         """LEARNABLE LEARNING PARAMETERS"""
         self.logLR = nn.Parameter(torch.tensor(math.log(1e-4), device = self.device))
@@ -52,7 +57,13 @@ class BABYLLM(nn.Module):
         self.logGradClip = nn.Parameter(torch.tensor(math.log(1.0), device=self.device))
         self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.2, device=self.device))
         self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device=self.device))
-        self.memoryLength = nn.Parameter(torch.tensor(float(memoryLength), device=self.device))
+        #self.memoryLength = nn.Parameter(torch.tensor(float(memoryLengthGOAL), device=self.device)) # delete soon lol
+        self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device=self.device))
+        self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device=self.device))
+
+        """stuff"""
+        self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
+        self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         if debugPrints: 
@@ -99,11 +110,11 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("memoryLayer") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
             if skipMemory:
                 if debugPrints: print("skipping memory layer...")
-                latestMemGates = torch.tensor([0.0, 0.0, 1.0], device=self.device)  # dummy gates
+                self.latestMemGates = torch.tensor([0.0, 0.0, 1.0], device=self.device)  # dummy gates
                 combinedActivations = combinedActivationsTensor.detach()  # no grad path, super light
             else:
                 memoryOutput = self.memory.forward(combinedActivationsTensor)
-                latestMemGates = self.memory.latestMemoryGates
+                self.latestMemGates = self.memory.latestMemoryGates
                 combinedActivations = memoryOutput
             if debugPrints: print("combinedActivations.requires_grad:", combinedActivations.requires_grad)
 
@@ -120,7 +131,7 @@ class BABYLLM(nn.Module):
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
     def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta = 0, _perfectTokens = 0):
         with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
-            self.latestLossDelta = _latestLossDelta
+            #self.latestLossDelta = _latestLossDelta
             self.perfectTokens = _perfectTokens
             if skipComputeLoss:
                 ʕっʘ‿ʘʔっ("skipping loss!")
@@ -128,28 +139,69 @@ class BABYLLM(nn.Module):
             else:     
                 ʕっʘ‿ʘʔっ("targetTensor")          
                 targetTensor = torch.tensor([_targetTokenIndex], dtype=torch.long, device = self.device)
-                #if debugPrints: print(f"[LOSS DEBUG] logits shape: {logits.shape} | target: {targetTokenIndex}")
+                if debugPrints: print(f"[LOSS DEBUG] logits shape: {_logits.shape} | target: {_targetTokenIndex}")
                 if _logits.dim() == 1: _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
                 ʕっʘ‿ʘʔっ("cross Entropy Loss")
                 loss = F.cross_entropy(_logits, targetTensor)
+                if debugPrints: print(f"CrossEntropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
+                self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
+                if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ")
+                # take loss here for loss delta
                 if skipMetaLoss:
                     return loss
                 else:
                     tempReg = (torch.clamp(self.temperature, 0.01, 10.0) - 1.0).pow(2) # linked (mostly?)
                     lrReg = (torch.exp(self.logLR) - 1e-4).pow(2) # linked
-                    gradClipReg = (torch.exp(self.logGradClip) - 1.0).pow(2) # linked in one place at least
+                    gradClipReg = (torch.exp(self.logGradClip) - 0.8).pow(2) # linked in one place at least
                     repeatReg = (torch.clamp(self.repetitionPenalty, 0.8, 2.0) - 1.5).pow(2) # seems to work??
                     schedReg = (torch.clamp(self.scheduledSamplingRate, 0.01, 1.0) - 0.5).pow(2) # !!!! not workin
-                    memReg = (torch.clamp(self.memoryLength, 1.0, 100.0) - 50.0).pow(2)
-                    lossDeltaABS = abs(self.latestLossDelta)
+                    #memReg = (torch.clamp(self.memoryLength, 1.0, 100.0) - memoryLengthGOAL).pow(2)
+                    memRegLog = (torch.exp(self.logMemoryLength) - memoryLengthGOAL).pow(2)
+                    repeatWindowLog = (torch.exp(self.logRepetitionWindow) - memoryLengthGOAL).pow(2)
+                    lossDeltaABS = abs(self.CELossDelta) #ABS UN-REMOVED, FIXES EXPLODING NEGATIVE LOSS
 
-                    metaPerfect = 1 * (0.3 if self.perfectTokens > 0 else 0.7)
-                    # good (stay still) > latestlossdelta < bad (explore)
-                    metaWeight = 0.01 * (min(lossDeltaABS, 1) if self.latestLossDelta >= 0 else (min(lossDeltaABS, 25)*0.1))
-                    metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + memReg + (metaPerfect * (repeatReg + schedReg)))
+                    # more tokens (better) > perfTokens > less tokens (worse)
+                    # HIGHER NUMBER > 2 > LOWER NUMBER
+                    # 0.3x > 2 > 1.3x
+                    metaPerfect = 1 * (0.3 if self.perfectTokens > 2 else 1.3)
+
+                    # worse (explore) > latestlossdelta > better (stay still)
+                    # POSITIVE NUMBER > 0 > NEGATIVE NUMBER 
+                    # +4 Delta (worse) > 0 > -4 Delta (better)
+                    # [0-25]x0.1 > 0 > [0-1]
+                    # 0-2.5 > 0 > 0-1
+                    metaWeight = 0.01 * ((min(lossDeltaABS, 25)*0.1) if self.CELossDelta >= 0 else min(lossDeltaABS, 1)) # Direct and linear, worse loss = worse penalty - more fast reactions
+                    #metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + (metaPerfect * (memReg + repeatReg + schedReg)))
+
+                    lossWeight = max((metaWeight * metaPerfect), 0)
+
+                    metaVector = torch.stack([tempReg, lrReg, gradClipReg, memRegLog, repeatReg, schedReg, repeatWindowLog, 
+                                            torch.tensor(float(_targetTokenIndex), device = self.device),
+                                            torch.tensor(float(self.computeLossCount), device = self.device),
+                                            torch.tensor(float(self.CELossDelta), device = self.device),
+                                            torch.tensor(float(lossWeight), device = self.device),
+                                            torch.tensor(float(loss), device = self.device),
+                                            torch.tensor(float(lossDeltaABS), device = self.device),
+                                            torch.tensor(float(self.lastLossBaby or 0.0), device = self.device),
+                                            torch.tensor(float(self.perfectTokens), device = self.device),
+                                            torch.tensor(float(self.repeatedPercent), device = self.device)])
+
+                    metaMetaLoss = abs((lossWeight) * self.metaMeta(metaVector).squeeze())
+                    if debugPrints or True:
+                        self.computeLossCount += 1
+                        if self.computeLossCount >= ((numTokensPerStep * printFreq)*8):
+                            metaOut = abs(self.metaMeta(metaVector).squeeze())
+                            print(f"tempReg: {tempReg} |  lrReg: {lrReg} | gradClipReg: {gradClipReg} | memRegLog: {memRegLog} | repeatReg: {repeatReg} | schedReg: {schedReg} | ")
+                            print(f"repeatWindowLog: {repeatWindowLog} | _targetTokenIndex: {torch.tensor(float(_targetTokenIndex), device = self.device)} | computeLossCount: {torch.tensor(float(self.computeLossCount), device = self.device)} | CELossDelta: {torch.tensor(float(self.CELossDelta), device = self.device)} | lossWeight: {torch.tensor(float(lossWeight), device = self.device)} | loss: {torch.tensor(float(loss), device = self.device)} | ")
+                            print(f"lossDeltaABS: {torch.tensor(float(lossDeltaABS), device = self.device)} | lastLossBaby: {torch.tensor(float(self.lastLossBaby or 0.0), device = self.device)} | perfectTokens: {torch.tensor(float(self.perfectTokens), device = self.device)} | repeatedPercent: {torch.tensor(float(self.repeatedPercent), device = self.device)} | ")
+                            print(f"metaVector: {metaVector} | metaOut:{metaOut:.6f} | lossWeight: {lossWeight} | scaledMetaLoss:{(lossWeight * metaOut):.6f}")
+                            print(f"metameta: loss:{loss.item():.4f} | last: {self.lastLossBaby:.4f} | Δ:{self.CELossDelta.item():+.4f} | perfect:{self.perfectTokens} | rep:{self.stats.get('repetitionRatio', 0.0):.2%} | ")
+                            self.computeLossCount = 0
+                    FINALloss = abs(loss + metaMetaLoss)
+                    self.lastLossBaby = loss.item()
 
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
-            return loss + metaLoss
+            return FINALloss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
     def backward(self, _loss):
@@ -197,6 +249,8 @@ class BABYLLM(nn.Module):
             learnedLR = torch.exp(self.logLR).item()
             for g in self.optimizer.param_groups:
                 g['lr'] = learnedLR
+            self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
+            self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = self.logGradClip)
             self.optimizer.step()  # Update weights
             #self.scheduler.step(_loss)
@@ -217,21 +271,22 @@ class BABYLLM(nn.Module):
             _logits / self.temperature
 
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
+            self.repetitionSlice = max(1,int(self.repetitionWindow))
 
             # repetition penalty
             if self.recentGeneratedTokens:
-                last_tokens = self.recentGeneratedTokens[-penaltyWindow:]
-                unique_tokens = set(last_tokens)
-                repeated_tokens = [t for t in last_tokens if last_tokens.count(t) > 1]
-                repeatedPercent = len(repeated_tokens) / len(last_tokens)
+                lastTokens = self.recentGeneratedTokens[-self.repetitionSlice:]
+                uniqueTokens = set(lastTokens)
+                repeatedTokens = [t for t in lastTokens if lastTokens.count(t) > 1]
+                self.repeatedPercent = len(repeatedTokens) / len(lastTokens)
 
-                self.stats.update({"repetitionRatio": repeatedPercent})
+                self.stats.update({"PT%": self.repeatedPercent})
 
-                for token in unique_tokens:
+                for token in uniqueTokens:
                     _logits[0, token] /= self.repetitionPenalty  # reduce score of repeated token
 
                 if debugPrints:
-                    print(f"[REP PENALTY] {repeatedPercent:.2%} repeated | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in unique_tokens]}")
+                    print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
 
             # Sample from softmaxed logits
             probs = torch.softmax(_logits, dim=1)
@@ -239,7 +294,7 @@ class BABYLLM(nn.Module):
 
             # history buffer
             self.recentGeneratedTokens.append(responseFromLogits.item())
-            if len(self.recentGeneratedTokens) > penaltyWindow * 2:
+            if len(self.recentGeneratedTokens) > self.repetitionSlice:
                 self.recentGeneratedTokens.pop(0)
 
             return responseFromLogits
@@ -314,10 +369,10 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemoryReset += 1
                 else: 
                     self.stepsSinceMemoryReset = 1
-                if self.stepsSinceMemoryReset >= self.memoryLength: 
+                if self.stepsSinceMemoryReset >= self.logMemoryLength: 
                     self.memory.resetMemory()
+                    if debugPrints: print(f"resetting memory after {self.stepsSinceMemoryReset} steps... (learned mem length: {self.logMemoryLength})")
                     self.stepsSinceMemoryReset = 0 
-                    if debugPrints: print(f"resetting memory after {self.memoryLength} steps...")
 
     def setLearningRate(self, _newLearningRate):
         self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
