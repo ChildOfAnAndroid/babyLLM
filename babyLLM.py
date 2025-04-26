@@ -135,10 +135,10 @@ class BABYLLM(nn.Module):
             self.perfectTokens = _perfectTokens
             if skipComputeLoss:
                 ʕっʘ‿ʘʔっ("skipping loss!")
-                return torch.tensor([0.1], requires_grad=True, device=self.device)  # Constant scalar tensor
+                return torch.tensor([0.1], requires_grad = True, device = self.device)  # Constant scalar tensor
             else:     
                 ʕっʘ‿ʘʔっ("targetTensor")          
-                targetTensor = torch.tensor([_targetTokenIndex], dtype=torch.long, device = self.device)
+                targetTensor = torch.tensor([_targetTokenIndex], dtype = torch.long, device = self.device)
                 if debugPrints: print(f"[LOSS DEBUG] logits shape: {_logits.shape} | target: {_targetTokenIndex}")
                 if _logits.dim() == 1: _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
                 ʕっʘ‿ʘʔっ("cross Entropy Loss")
@@ -155,9 +155,8 @@ class BABYLLM(nn.Module):
                     gradClipReg = (torch.exp(self.logGradClip) - 0.8).pow(2) # linked in one place at least
                     repeatReg = (torch.clamp(self.repetitionPenalty, 0.8, 2.0) - 1.5).pow(2) # seems to work??
                     schedReg = (torch.clamp(self.scheduledSamplingRate, 0.01, 1.0) - 0.5).pow(2) # !!!! not workin
-                    #memReg = (torch.clamp(self.memoryLength, 1.0, 100.0) - memoryLengthGOAL).pow(2)
                     memRegLog = (torch.exp(self.logMemoryLength) - memoryLengthGOAL).pow(2)
-                    repeatWindowLog = (torch.exp(self.logRepetitionWindow) - memoryLengthGOAL).pow(2)
+                    repeatWindowLog = (torch.exp(self.logRepetitionWindow) - repetitionWindowGOAL).pow(2)
                     lossDeltaABS = abs(self.CELossDelta) #ABS UN-REMOVED, FIXES EXPLODING NEGATIVE LOSS
 
                     # more tokens (better) > perfTokens > less tokens (worse)
@@ -189,7 +188,7 @@ class BABYLLM(nn.Module):
                     metaMetaLoss = abs((lossWeight) * self.metaMeta(metaVector).squeeze())
                     if debugPrints or True:
                         self.computeLossCount += 1
-                        if self.computeLossCount >= ((numTokensPerStep * printFreq)*8):
+                        if self.computeLossCount >= ((numTokensPerStep * printFreq)*32):
                             metaOut = abs(self.metaMeta(metaVector).squeeze())
                             print(f"tempReg: {tempReg} |  lrReg: {lrReg} | gradClipReg: {gradClipReg} | memRegLog: {memRegLog} | repeatReg: {repeatReg} | schedReg: {schedReg} | ")
                             print(f"repeatWindowLog: {repeatWindowLog} | _targetTokenIndex: {torch.tensor(float(_targetTokenIndex), device = self.device)} | computeLossCount: {torch.tensor(float(self.computeLossCount), device = self.device)} | CELossDelta: {torch.tensor(float(self.CELossDelta), device = self.device)} | lossWeight: {torch.tensor(float(lossWeight), device = self.device)} | loss: {torch.tensor(float(loss), device = self.device)} | ")
@@ -251,6 +250,7 @@ class BABYLLM(nn.Module):
                 g['lr'] = learnedLR
             self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
             self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
+            self.memoryLength = torch.exp(self.logMemoryLength).item()
             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = self.logGradClip)
             self.optimizer.step()  # Update weights
             #self.scheduler.step(_loss)
@@ -286,7 +286,7 @@ class BABYLLM(nn.Module):
                     _logits[0, token] /= self.repetitionPenalty  # reduce score of repeated token
 
                 if debugPrints:
-                    print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
+                    print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
 
             # Sample from softmaxed logits
             probs = torch.softmax(_logits, dim=1)

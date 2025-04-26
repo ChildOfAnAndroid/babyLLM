@@ -74,7 +74,8 @@ def wakeup():
                                                 _memoryLength           = babyLLM.logMemoryLength,
                                                 _scheduledSamplingRate  = babyLLM.scheduledSamplingRate,
                                                 _repetitionPenalty      = babyLLM.repetitionPenalty,
-                                                _gradientClipMaxNorm    = babyLLM.gradientClipMaxNorm)
+                                                _logGradClip            = babyLLM.logGradClip,
+                                                _logRepetitionWindow    = babyLLM.logRepetitionWindow,)
             
             babyLLM.loadModel()
             #wobble.to(modelDevice)

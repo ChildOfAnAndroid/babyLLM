@@ -31,7 +31,7 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 9999     # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 999     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "BRAIN/soul/babyllm.pth"     # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
@@ -47,8 +47,8 @@ printFreq = 1               # how often to print training progress to the termin
 printPromptLength = 100     # how many characters of the prompt to display in terminal
 gradientLength = 3000
 
-trainingLogFreq_A = 500   # creates logs every x number of turns
-trainingLogFreq_B = 50000   # creates logs every x number of turns
+trainingLogFreq_A = 100   # creates logs every x number of turns
+trainingLogFreq_B = 1000   # creates logs every x number of turns
 
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
 trainingLogPath_100 = "SCHOOL/statistics/LOGS/training/trainingLog_100.txt"
@@ -113,7 +113,7 @@ maxRepPen = 2.5
 windowEntropyBonus = True
 
 """--- LOGS ---"""
-detailedLogging = True
+detailedLogging = False
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
@@ -142,7 +142,7 @@ mostImportantStats = ["memoryLength",       "LR",                   "learningRat
                       "latestLossDelta",    "AvgLoss",              "loss", 
                       "gradNorm",           "gradientClipMaxNorm",  "scheduledSamplingRate", 
                       "sampledTokens",      "repetitionPenalty",    "temperature",
-                      "INN_cerebellum",     "INN_cerebellumSoft"]
+                      "INN_cerebellum",     "INN_cerebellumSoft",   "repetitionWindow"]
 
 percentileBands = [100.0, 99.8, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.2, 0.00]
 
@@ -181,7 +181,7 @@ trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainin
 trainingDataSliceSize_min = 5000
 trainingDataSliceSize_max = 300000
 # --- #
-trainingDataPairNumber = 40000
+trainingDataPairNumber = 200
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 
@@ -262,7 +262,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
 
 
 """--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
-saveStrict = False    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 """--- MODEL ---"""
 embedDimension = 1024     # dimensionality of token embeddings
