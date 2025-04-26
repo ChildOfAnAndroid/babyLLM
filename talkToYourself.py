@@ -17,7 +17,7 @@ from collections import Counter
 
 trainingFilePath = trainingFilePath
 S_output = S_OUTPUT()
-counsellor = COUNSELLOR("BabyLLM", debug=debugPrints, durations=durationLogging)
+counsellor = COUNSELLOR("BabyLLM", debug = debugPrints, durations = durationLogging)
 chatLogPath_talkToYourself = chatLogPath_talkToYourself
 guessFilePath = chatLogPath_talkToYourselfComparisons
 chatLogPath_forHumans = chatLogPath_forHumans
@@ -116,7 +116,7 @@ def trainOnAnswer(inputText, targetText):
         totalLoss_100 += loss.item()
 
         with torch.no_grad():
-            logitsTensor = torch.cat(logitSeq, dim=0)
+            logitsTensor = torch.cat(logitSeq, dim = 0)
             logitMin = logitsTensor.min(dim=-1).values.mean().item()
             logitMax = logitsTensor.max(dim=-1).values.mean().item()
             totalLogitMin_100 += logitMin 
@@ -124,7 +124,7 @@ def trainOnAnswer(inputText, targetText):
             totalLogitMin += logitMin 
             totalLogitMax += logitMax
 
-            gradNorm = torch.nn.utils.clip_grad_norm_(babyLLM.parameters(), max_norm = gradientClipMaxNorm, norm_type=2.0).item()
+            gradNorm = torch.nn.utils.clip_grad_norm_(babyLLM.parameters(), max_norm = gradientClipMaxNorm, norm_type = 2.0).item()
             totalGradNorm_100 += gradNorm
             totalGradNorm += gradNorm
 
@@ -132,8 +132,8 @@ def trainOnAnswer(inputText, targetText):
             normWeights /= (normWeights.sum() + 0.1)
             sortedWeights = sorted(
                 zip(allWindowSizes_new, normWeights),
-                key=lambda x: x[1],
-                reverse=True
+                key = lambda x: x[1],
+                reverse = True
             )
             windowWeights_str = "  ".join(f"W{wsize}:{weight:.5f}" for wsize, weight in sortedWeights)
             totalWindowWeights_100 += normWeights.max().item()
@@ -148,11 +148,11 @@ def trainOnAnswer(inputText, targetText):
                 memGates_str = "N/A"
 
         S_output.S_colourPrintTraining(
-            step=trainingStepCounter,
-            inputSeq=inputText,
-            guessedSeq_str=guessedTokensStr,
-            targetSeq_str=targetTokensStrJoined,
-            loss=avgLoss,
+            step = trainingStepCounter,
+            inputSeq = inputText,
+            guessedSeq_str = guessedTokensStr,
+            targetSeq_str = targetTokensStrJoined,
+            loss = avgLoss,
         )
 
         similarity = compareAnswersSimilarity(inputText, guessedTokensStr)
@@ -184,23 +184,23 @@ def trainOnAnswer(inputText, targetText):
             avgGuessSimilarity = similarity
 
             S_output.S_logTraining(
-                trainingLogPath_1000=trainingLogPath_1000,
-                step=trainingStepCounter,
-                avgLoss=avgLoss,
-                learningRate=learningRate,
-                logitRange_str=f"{avgLogitMin:.2f} → {avgLogitMax:.2f}",
-                windowWeights_str=windowWeights_str,
-                gradientNorm_str=f"{avgGradNorm:.3f}",
+                trainingLogPath_1000 = trainingLogPath_1000,
+                step = trainingStepCounter,
+                avgLoss = avgLoss,
+                learningRate = learningRate,
+                logitRange_str = f"{avgLogitMin:.2f} → {avgLogitMax:.2f}",
+                windowWeights_str = windowWeights_str,
+                gradientNorm_str = f"{avgGradNorm:.3f}",
                 scheduledSampling_str = "",
                 epoch_str = "",
                 prompt = "",
                 guess = "",
                 truth = "",
-                memGates_str=memGates_str,
+                memGates_str = memGates_str,
                 topTokens_str = "",
                 durationLog_str = "",
-                #guessSimilarity_str=f"{avgGuessSimilarity:.2f}",
-                otherInfo=f"TalkToYourself Training",
+                #guessSimilarity_str = f"{avgGuessSimilarity:.2f}",
+                otherInfo = f"TalkToYourself Training",
             )
 
             totalLoss = 0
@@ -219,23 +219,23 @@ def trainOnAnswer(inputText, targetText):
             avgGuessSimilarity_100 = similarity
 
             S_output.S_logTraining(
-                trainingLogPath_100=trainingLogPath_100,
-                step=trainingStepCounter,
-                avgLoss=avgLoss_100,
-                learningRate=learningRate,
-                logitRange_str=f"{avgLogitMin_100:.2f} → {avgLogitMax_100:.2f}",
-                windowWeights_str=windowWeights_str,
-                gradientNorm_str=f"{avgGradNorm_100:.3f}",
+                trainingLogPath_100 = trainingLogPath_100,
+                step = trainingStepCounter,
+                avgLoss = avgLoss_100,
+                learningRate = learningRate,
+                logitRange_str = f"{avgLogitMin_100:.2f} → {avgLogitMax_100:.2f}",
+                windowWeights_str = windowWeights_str,
+                gradientNorm_str = f"{avgGradNorm_100:.3f}",
                 scheduledSampling_str = "",
                 epoch_str = "",
                 prompt = "",
                 guess = "",
                 truth = "",
-                memGates_str=memGates_str,
+                memGates_str = memGates_str,
                 topTokens_str = "",
                 durationLog_str = "",
-                #guessSimilarity_str=f"{avgGuessSimilarity_100:.2f}",
-                otherInfo=f"TalkToYourself Training _100",
+                #guessSimilarity_str = f"{avgGuessSimilarity_100:.2f}",
+                otherInfo = f"TalkToYourself Training _100",
             )
             
             totalLoss_100 = 0
@@ -259,7 +259,7 @@ if __name__ == "__main__":
 
         print(f"\n[{ghostName}]: {prompt}")
         try:
-            print(f"[{userName}] (waiting {waitTimeSeconds}s): ", end='', flush=True)
+            print(f"[{userName}] (waiting {waitTimeSeconds}s): ", end='', flush = True)
             start = time.time()
             userInput = None
             while True:

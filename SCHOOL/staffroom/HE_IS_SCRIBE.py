@@ -8,7 +8,7 @@ from config import *
 
 class SCRIBE:
     def __init__(self, _counsellor, _calligraphist, _librarian):
-        #self.counsellor = COUNSELLOR("BabyLLM", _debug=debugPrints, _durations=durationLogging)
+        #self.counsellor = COUNSELLOR("BabyLLM", _debug = debugPrints, _durations = durationLogging)
         #self.s_output = S_OUTPUT()
         self.counsellor = _counsellor
         self.calligraphist = _calligraphist
@@ -74,7 +74,7 @@ class SCRIBE:
         with open("scribeSays.txt", "a") as f:
             f.write(babySay)
 
-    def maybeCommentOnGuess(self, _inputTokens, _lossValue, _scribeName=scribeName, _chance=0.05):
+    def maybeCommentOnGuess(self, _inputTokens, _lossValue, _scribeName = scribeName, _chance = 0.05):
         if random.random() > _chance:
             return
         
@@ -119,4 +119,4 @@ class SCRIBE:
             messages = mood["messages"]
 
         message = random.choice(messages)
-        self.scribeSay(message, _vibe=vibe, _scribeName=_scribeName)
+        self.scribeSay(message, _vibe = vibe, _scribeName = _scribeName)

@@ -47,12 +47,12 @@ class WOBBLE(nn.Module):
 
         """OPTIMIZER"""
         self.optimizerClass     = getattr(optim, optimizerName)
-        self.WOBBLEoptimizer    = self.optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.001)
+        self.WOBBLEoptimizer    = self.optimizerClass(self.parameters(), lr = learningRate, weight_decay = 0.001)
 
     def forward(self, _wobbleInputStats, _lastTurnLossDelta):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             self.lastTurnLossDelta = _lastTurnLossDelta
-            #_wobbleInputStats = torch.tensor([lossDelta, avgLoss, tokenAccuracy, windowEntropy], device=modelDevice)
+            #_wobbleInputStats = torch.tensor([lossDelta, avgLoss, tokenAccuracy, windowEntropy], device = modelDevice)
             wob = self.inputLayer(_wobbleInputStats)  #matrix multiplication + bias
             wob = self.activationFunction(wob) 
             wob = self.hiddenLayer(wob)  # double blending them, chance to make combinations of combinations
@@ -83,7 +83,7 @@ class WOBBLE(nn.Module):
             chaos = self.calligraphist.chaosMaths
             self.lastTurnLossDelta = _lastTurnLossDelta
             self.wobbleLogits = _wobbleLogits
-            self.softWobbleLogits = F.softmax(self.wobbleLogits / temperature, dim=0)
+            self.softWobbleLogits = F.softmax(self.wobbleLogits / temperature, dim = 0)
             self.predictedDelta = self.softWobbleLogits.mean()
 
             self.wobbleIncrementsDict = {"wobblySampleIncrement": self.wobblySampleIncrement, 
@@ -100,7 +100,7 @@ class WOBBLE(nn.Module):
                 self.wobblyClipIncrement    += (chaos(self.lastTurnLossDelta, self.softWobbleLogits * self.wobbleFactor) + self.lastTurnLossDelta) * 0.0001
                 abs = (((((self.lastTurnLossDelta + self.softWobbleLogits.mean())/2) * ((self.wobbleFactor + self.lastTurnLossDelta)/2))/2) * 0.0000000000001).abs()
                 neg = -abs
-                nil = torch.tensor(0.0, device=self.device)
+                nil = torch.tensor(0.0, device = self.device)
                 update = random.choice([abs, neg, nil])
                 update = torch.tanh(update) * 0.5
                 self.wobblySampleIncrement.data.add_(update)
