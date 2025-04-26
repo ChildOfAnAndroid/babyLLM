@@ -170,6 +170,7 @@ class S_OUTPUT:
             "latestLossDelta":          self.getDynamicPercentileBands("latestLossDelta"),
             "gradientClipMaxNorm":      self.getDynamicPercentileBands("gradientClipMaxNorm"),
             "LR":                       self.getDynamicPercentileBands("LR"),
+            "repetitionWindow":         self.getDynamicPercentileBands("repetitionWindow"),
 
             # Neuron stats
             "n_weightMean":             self.getDynamicPercentileBands("n_weightMean"),
@@ -342,7 +343,7 @@ class S_OUTPUT:
                 + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}\n")
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
 
-    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _freq, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
+    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
             logOutput = ""
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -352,7 +353,7 @@ class S_OUTPUT:
             #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellum", "INN_cerebellumSoft", "INN_cerebellumMean", "INN_cerebellumStd", "shortDecay", "longDecay"]
             #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
-            avgStats = {k: (v / _freq if _freq else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
+            avgStats = {k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
 
             stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.6f}")])
             logOutput = stampAndStep
@@ -412,13 +413,13 @@ class S_OUTPUT:
             if _otherInfo_str: logOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
 
             ʕっʘ‿ʘʔっ("logOutput")
-            if detailedLogging == True: print(logOutput + "".join(self.S_types.get('reset')))
+            if _detailedLogging == True: 
+                print(logOutput + "".join(self.S_types.get('reset')))
+                with open(trainingLogPath_1000, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
 
             ʕっʘ‿ʘʔっ("littleLogOutput")   
-            if detailedLogging == False: print(littleLogOutput + "".join(self.S_types.get('reset')))         
-
+            if _detailedLogging == False: print(littleLogOutput + "".join(self.S_types.get('reset')))         
             with open(_trainingLogPath, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
-            with open(trainingLogPath_1000, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
 
     def willItAverage(self, k, v):
         if k in self.avgPlz:
