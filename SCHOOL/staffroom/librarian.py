@@ -61,12 +61,12 @@ class LIBRARIAN:
                     raise FileNotFoundError(f"tokenizer not found at {self.tokenizerPath}")
                 
                 ʕっʘ‿ʘʔっ("call tokenizer") # call the chosen tokenizer
-                tokenizerTrainer = ByteLevelBPETokenizer(lowercase=True)
+                tokenizerTrainer = ByteLevelBPETokenizer(lowercase = True)
                 tokenizerTrainer = Tokenizer(models.BPE(unk_token="<UNK>"))
                 tokenizerTrainer.pre_tokenizer = pre_tokenizers.ByteLevel()
                 trainer = trainers.BpeTrainer(
-                    vocab_size=vocabSize,
-                    min_frequency=minTokenFreq,
+                    vocab_size = vocabSize,
+                    min_frequency = minTokenFreq,
                     special_tokens=["<UNK>"]
                 )
                 ʕっʘ‿ʘʔっ("process training data")
@@ -115,7 +115,7 @@ class LIBRARIAN:
         with self.v_counsellor.infodump("buildVocabMap") as ʕっʘ‿ʘʔっ:
             # Load vocab from trained tokenizer
             vocab = self.tokenizer.get_vocab()  # Get vocab dictionary from tokenizer
-            self.vocabList = sorted(vocab.keys(), key=lambda x: vocab[x])  # Sort by ID order
+            self.vocabList = sorted(vocab.keys(), key = lambda x: vocab[x])  # Sort by ID order
             self.tokenToIndex = vocab  # tokenToIndex is the vocab dict itself
             self.indexToToken = {v: k for k, v in vocab.items()}  # FIXED: Direct mapping
 
@@ -136,7 +136,7 @@ class LIBRARIAN:
             return self.tokenizer.tokenize(_text)
 
     """LOAD TRAINING DATA"""
-    def loadTrainingData(self, _filepaths, _chunkSize=V_chunkSizeLoadData):
+    def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ: #Reads text files in chunks, concatenates the chunks, and removes extra whitespace
             loadTrainingData = ""
             for filepath in _filepaths:
@@ -195,16 +195,16 @@ class LIBRARIAN:
     """saves vocab data to JSON files in vocabCache directory, meaning it can be reloaded without tokenization"""
     def saveVocab(self):
         with self.v_counsellor.infodump("saveVocab") as ʕっʘ‿ʘʔっ:
-            os.makedirs(self.vocabCache, exist_ok=True)  # Ensure directory exists
+            os.makedirs(self.vocabCache, exist_ok = True)  # Ensure directory exists
             with open(self.vocabListFile, "w", encoding="utf-8") as f:
                 ʕっʘ‿ʘʔっ("save vocabList")
-                json.dump(self.vocabList, f, indent=4)
+                json.dump(self.vocabList, f, indent = 4)
             with open(self.tokenToIndexFile, "w", encoding="utf-8") as f:
                 ʕっʘ‿ʘʔっ("save tokenToIndex")
-                json.dump(self.tokenToIndex, f, indent=4)
+                json.dump(self.tokenToIndex, f, indent = 4)
             with open(self.indexToTokenFile, "w", encoding="utf-8") as f:
                 ʕっʘ‿ʘʔっ("save indexToToken")
-                json.dump(self.indexToToken, f, indent=4)
+                json.dump(self.indexToToken, f, indent = 4)
 
     """loads vocab data from JSON files in vocabCache directory"""
     def loadVocab(self):

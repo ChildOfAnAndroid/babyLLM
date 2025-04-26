@@ -37,7 +37,7 @@ class LOGITS(nn.Module):
             with torch.no_grad():
                 stats = {}
                 ʕっʘ‿ʘʔっ("weightNormStats")
-                weightNorms = torch.norm(self.l_weights, dim=0)
+                weightNorms = torch.norm(self.l_weights, dim = 0)
                 stats["logitWeightNormMean"] = weightNorms.mean()
                 stats["logitWeightNormStd"] = weightNorms.std()
                 stats["logitWeightNormMax"] = weightNorms.max()

@@ -58,7 +58,7 @@ plt.xlabel("Total Steps")
 plt.legend(title="Window", bbox_to_anchor=(1.05, 1), loc="upper left")
 plt.tight_layout()
 
-cursor = mplcursors.cursor(ax.lines, hover=True)
+cursor = mplcursors.cursor(ax.lines, hover = True)
 cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
 
 plt.show()

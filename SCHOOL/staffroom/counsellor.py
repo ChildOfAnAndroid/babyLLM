@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 # USAGE:
 # remember to initialise the class instance
-# self.counsellor = COUNSELLOR("CLASS_NAME", debug=debugPrints, durations=durationLogging)
+# self.counsellor = COUNSELLOR("CLASS_NAME", debug = debugPrints, durations = durationLogging)
 
 # in the top of your function, encasing all of your function lines, put;
 # with self.counsellor.infodump("FUNCTION_NAME") as ʕっʘ‿ʘʔっ:
@@ -24,7 +24,7 @@ from contextlib import contextmanager
 # now your code can get some fucking therapy, for once!
 
 class COUNSELLOR:
-    def __init__(self, _className="?", _debug=debugPrints, _durations=durationLogging):
+    def __init__(self, _className="?", _debug = debugPrints, _durations = durationLogging):
         self.className = _className
         self.debugPrints = _debug
         self.durationLogging = _durations
@@ -45,7 +45,7 @@ class COUNSELLOR:
             print(f"cleared duration_A as it was higher than {maxLogs}")
 
     @contextmanager
-    def infodump(self, _functionName, _extra=None, _key=None):
+    def infodump(self, _functionName, _extra = None, _key = None):
         fullTitle = f"{self.className}_{_functionName}"
         startStamp = time.time() if self.durationLogging else None
         if self.debugPrints: 
