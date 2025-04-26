@@ -3,8 +3,8 @@ import numpy as np
 from collections import defaultdict, deque
 
 class STATS:
-    def __init__(self, max_len=100):
-        self.history = defaultdict(lambda: deque(maxlen=max_len))
+    def __init__(self, max_len = 100):
+        self.history = defaultdict(lambda: deque(maxlen = max_len))
 
     def track(self, name, value):
         self.history[name].append(float(value))
@@ -22,7 +22,7 @@ class STATS:
         delta = self.get_delta(name)
         return f"{name} | avg: {avg:.4f} | ∆: {delta:+.4f}"
 
-def tensor_stats(tensor, name=None, include_values=False, print_limit=float('inf')):
+def tensor_stats(tensor, name = None, include_values = False, print_limit = float('inf')):
     shape = tuple(tensor.shape)
     if tensor.numel() > print_limit:
         mean = tensor.mean().item()
@@ -40,7 +40,7 @@ def tensor_stats(tensor, name=None, include_values=False, print_limit=float('inf
             text += f"\n→ {tensor.detach().cpu()}"
         return text
 
-def log_param_with_grad(name, param, calligraphist=None):
+def log_param_with_grad(name, param, calligraphist = None):
     stat = tensor_stats(param.data, name)
     if param.grad is not None:
         grad_stats = tensor_stats(param.grad, f"{name} [grad]")
@@ -53,7 +53,7 @@ def log_param_with_grad(name, param, calligraphist=None):
             #stats = calligraphist.S_apply("dim", f"{name} | NO GRAD\n{stats}")
     return stat
 
-def deep_model_summary(model, tracker=None, calligraphist=None, step=None, loss=None, print_limit=float('inf')):
+def deep_model_summary(model, tracker = None, calligraphist = None, step = None, loss = None, print_limit = float('inf')):
     print("\n--- MODEL SNAPSHOT ---")
     if step is not None:
         print(f"Step: {step}")
@@ -70,7 +70,7 @@ def deep_model_summary(model, tracker=None, calligraphist=None, step=None, loss=
         try:
             val = getattr(model, attr)
             if isinstance(val, torch.Tensor):
-                print(tensor_stats(val, name=attr, print_limit=print_limit))
+                print(tensor_stats(val, name = attr, print_limit = print_limit))
             elif isinstance(val, (float, int)):
                 if tracker:
                     tracker.track(attr, val)
@@ -90,6 +90,6 @@ def deep_model_summary(model, tracker=None, calligraphist=None, step=None, loss=
     print("\n--- BUFFER STATS ---")
     for name, buffer in model.named_buffers():
         try:
-            print(tensor_stats(buffer, name, print_limit=print_limit))
+            print(tensor_stats(buffer, name, print_limit = print_limit))
         except Exception:
             print(f"{name} | BUFFER ERROR")

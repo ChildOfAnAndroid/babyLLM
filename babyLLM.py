@@ -48,18 +48,18 @@ class BABYLLM(nn.Module):
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device)
         self.metaMeta = torch.nn.Sequential(torch.nn.Linear(16, 32, device = self.device), 
-                                            torch.nn.LeakyReLU(negative_slope=0.01),
+                                            torch.nn.LeakyReLU(negative_slope = 0.01),
                                             torch.nn.Linear(32, 1, device = self.device))
 
         """LEARNABLE LEARNING PARAMETERS"""
         self.logLR = nn.Parameter(torch.tensor(math.log(1e-4), device = self.device))
         self.temperature = nn.Parameter(torch.tensor(1.0, device = self.device))
-        self.logGradClip = nn.Parameter(torch.tensor(math.log(1.0), device=self.device))
-        self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.2, device=self.device))
-        self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device=self.device))
-        #self.memoryLength = nn.Parameter(torch.tensor(float(memoryLengthGOAL), device=self.device)) # delete soon lol
-        self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device=self.device))
-        self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device=self.device))
+        self.logGradClip = nn.Parameter(torch.tensor(math.log(1.0), device = self.device))
+        self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.2, device = self.device))
+        self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device = self.device))
+        #self.memoryLength = nn.Parameter(torch.tensor(float(memoryLengthGOAL), device = self.device)) # delete soon lol
+        self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
+        self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
 
         """stuff"""
         self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
@@ -71,8 +71,8 @@ class BABYLLM(nn.Module):
             for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
         optimizerClass = getattr(optim, optimizerName)
-        self.optimizer = optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.001, fused = True)
-        #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, verbose=True)
+        self.optimizer = optimizerClass(self.parameters(), lr = learningRate, weight_decay = 0.001, fused = True)
+        #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, verbose = True)
 
         if debugPrints:
             for name, param in self.named_parameters():
@@ -83,7 +83,7 @@ class BABYLLM(nn.Module):
             list(self.interneuronNetwork.parameters()) + 
             list(self.logits.parameters()) +
             list(self.memory.parameters()),
-            lr=learningRate, weight_decay=0.001
+            lr = learningRate, weight_decay = 0.001
         )"""
 
         #self.to(self.device)
@@ -110,7 +110,7 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("memoryLayer") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
             if skipMemory:
                 if debugPrints: print("skipping memory layer...")
-                self.latestMemGates = torch.tensor([0.0, 0.0, 1.0], device=self.device)  # dummy gates
+                self.latestMemGates = torch.tensor([0.0, 0.0, 1.0], device = self.device)  # dummy gates
                 combinedActivations = combinedActivationsTensor.detach()  # no grad path, super light
             else:
                 memoryOutput = self.memory.forward(combinedActivationsTensor)
@@ -186,7 +186,7 @@ class BABYLLM(nn.Module):
                                             torch.tensor(float(self.repeatedPercent), device = self.device)])
 
                     metaMetaLoss = abs((lossWeight) * self.metaMeta(metaVector).squeeze())
-                    if debugPrints or True:
+                    if debugPrints:
                         self.computeLossCount += 1
                         if self.computeLossCount >= ((numTokensPerStep * printFreq)*32):
                             metaOut = abs(self.metaMeta(metaVector).squeeze())
@@ -261,10 +261,9 @@ class BABYLLM(nn.Module):
             _logits /= _temperature
             if debugPrints: print(f"Debug BABYLLM.getResponseFromLogits: logits shape BEFORE softmax: {_logits.shape}")
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)
-            probs = torch.softmax(_logits, dim=1)
+            probs = torch.softmax(_logits, dim = 1)
             responseFromLogits = torch.multinomial(probs, 1)
             return responseFromLogits"""
-        
 
     def getResponseFromLogits(self, _logits):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
@@ -289,7 +288,7 @@ class BABYLLM(nn.Module):
                     print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
 
             # Sample from softmaxed logits
-            probs = torch.softmax(_logits, dim=1)
+            probs = torch.softmax(_logits, dim = 1)
             responseFromLogits = torch.multinomial(probs, 1)
 
             # history buffer
@@ -320,7 +319,7 @@ class BABYLLM(nn.Module):
         with self.counsellor.infodump("loadModel") as ʕっʘ‿ʘʔっ:
             try:
                 print(f"loading model from path: {filePath}") 
-                self.load_state_dict(torch.load(filePath), strict=saveStrict)
+                self.load_state_dict(torch.load(filePath), strict = saveStrict)
                 print(f"model loaded from {filePath}!")
                 self.to(self.device)
                 print(f"device set to {self.device}!")
@@ -360,11 +359,11 @@ class BABYLLM(nn.Module):
         with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
             """Reset memory depending on the context: inference always resets, training resets every n turns"""
             if context == "inference": 
-                ʕっʘ‿ʘʔっ("context=inference")
+                ʕっʘ‿ʘʔっ("context = inference")
                 self.memory.resetMemory()
                 print(f"resetting memory for new conversation...")
             elif context == "training":
-                ʕっʘ‿ʘʔっ("context=training")
+                ʕっʘ‿ʘʔっ("context = training")
                 if hasattr(self, "stepsSinceMemoryReset"): 
                     self.stepsSinceMemoryReset += 1
                 else: 

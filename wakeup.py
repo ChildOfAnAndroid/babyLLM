@@ -23,7 +23,7 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = handle_exception
 warnings.simplefilter("default") # show all warnings (PyTorch hides some by default)
-install(show_locals=True)
+install(show_locals = True)
 torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
 def wakeup():
@@ -89,6 +89,19 @@ def wakeup():
         print(f"[RIP ʕっₓᴥₓʔっ]")
         raise
     except KeyboardInterrupt: #as k
+        for name, p in babyLLM.named_parameters():
+            if p.grad is None:
+                print(f"keyboard interrupt = {babyLLM.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
+            else: 
+                grad = p.grad
+                shape = tuple(grad.shape)
+                norm = grad.norm().item()
+                nonzero = grad.count_nonzero().item()
+                total = grad.numel()
+                sparsity = 1 - (nonzero / total)
+                mean = grad.mean().item()
+                std = grad.std().item()
+                print(f"keyboard interrupt = {babyLLM.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
         ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
         if tutor.trainingStepCounter:
             step = tutor.trainingStepCounter
@@ -107,7 +120,7 @@ def wakeup():
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
             import code
             print("try:\nbabyLLM.stats\nbabyLLM.scheduledSampling\nbabyLLM.memory.memory\nbabyLLM.interneuronNetwork.cerebellum\nbabyLLM.logits.forward(...)\nUse `exit()` to return to terminal.\n")
-            code.interact(local=locals())
+            code.interact(local = locals())
         elif choice == "restart" or choice.startswith("r"):
             ʕっʘ‿ʘʔっ("♥choice = r")
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)

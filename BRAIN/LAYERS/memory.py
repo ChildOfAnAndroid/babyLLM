@@ -14,11 +14,11 @@ class MEMORY(nn.Module):
         self.counsellor = _counsellor
 
         # Learnable decay rates and gates
-        self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device=self.device))
-        self.longTermDecay = nn.Parameter(torch.tensor(0.95, device=self.device))
-        self.shortGate = nn.Parameter(torch.tensor(0.25, device=self.device))
-        self.longGate = nn.Parameter(torch.tensor(0.25, device=self.device))
-        self.currentGate = nn.Parameter(torch.tensor(0.5, device=self.device))
+        self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device = self.device))
+        self.longTermDecay = nn.Parameter(torch.tensor(0.95, device = self.device))
+        self.shortGate = nn.Parameter(torch.tensor(0.25, device = self.device))
+        self.longGate = nn.Parameter(torch.tensor(0.25, device = self.device))
+        self.currentGate = nn.Parameter(torch.tensor(0.5, device = self.device))
 
         # Buffers to store memory (outside gradient)
         self.register_buffer("shortTermMemory", torch.zeros(1, numNeurons))

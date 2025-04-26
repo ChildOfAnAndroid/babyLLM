@@ -13,7 +13,7 @@ import random
 class S_OUTPUT:
 
     def __init__(self, _counsellor):
-        #self.counsellor = COUNSELLOR("S_OUTPUT", debug=debugPrints, durations=durationLogging)
+        #self.counsellor = COUNSELLOR("S_OUTPUT", debug = debugPrints, durations = durationLogging)
         self.counsellor = _counsellor
         self.rollingAverages = None
         self.S_statBands = None  # Lazy-load this later
@@ -241,7 +241,7 @@ class S_OUTPUT:
             for k, v in values.items():
                 if k.startswith(keyMatch):
                     bands[float(k[keyLen:])] = v
-            return dict(sorted(bands.items(), key=lambda item: item[1]), reversed=True)
+            return dict(sorted(bands.items(), key = lambda item: item[1]), reversed = True)
         else:
 
             stat = sorted(values)
@@ -290,7 +290,7 @@ class S_OUTPUT:
         with self.counsellor.infodump("S_stripForLogging") as ʕっʘ‿ʘʔっ:
             return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', _text)
 
-    def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss, _latestLossDelta, _totalLoss=None, _totalTokenCount=None):
+    def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss, _latestLossDelta, _totalLoss = None, _totalTokenCount = None):
         with self.counsellor.infodump("S_colourPrintTraining") as ʕっʘ‿ʘʔっ:
             S_type = self.S_getStat("loss", _loss)
             S_avgType = self.S_getStat("AvgLoss", _recentLoss)
@@ -415,11 +415,12 @@ class S_OUTPUT:
             ʕっʘ‿ʘʔっ("logOutput")
             if _detailedLogging == True: 
                 print(logOutput + "".join(self.S_types.get('reset')))
-                with open(trainingLogPath_1000, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
+            with open(trainingLogPath_1000, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
 
             ʕっʘ‿ʘʔっ("littleLogOutput")   
-            if _detailedLogging == False: print(littleLogOutput + "".join(self.S_types.get('reset')))         
-            with open(_trainingLogPath, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+            if _detailedLogging == False: 
+                print(littleLogOutput + "".join(self.S_types.get('reset')))         
+                with open(trainingLogPath_100, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
 
     def willItAverage(self, k, v):
         if k in self.avgPlz:
@@ -489,7 +490,7 @@ class S_OUTPUT:
     
     def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes):
         try:
-            triplets = sorted(zip(windowSizes, rawTensor, softTensor), key=lambda x: x[1], reverse=True)
+            triplets = sorted(zip(windowSizes, rawTensor, softTensor), key = lambda x: x[1], reverse = True)
             formatted = []
             for w, raw, soft in triplets:
                 raw_style = self.S_getStat(f"{label}", raw.item())

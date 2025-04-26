@@ -8,7 +8,7 @@ modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if tor
 
 #from torch import relu 
 from torch.nn.functional import leaky_relu
-leakyRelu = lambda x: leaky_relu(x, negative_slope=0.01)     # leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
+leakyRelu = lambda x: leaky_relu(x, negative_slope = 0.01)     # leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
 guessedTokenSeq = []
 """if activationFunction == 'leaky_relu':
             output = F.leaky_relu(output, 0.01)
@@ -47,8 +47,8 @@ printFreq = 1               # how often to print training progress to the termin
 printPromptLength = 100     # how many characters of the prompt to display in terminal
 gradientLength = 3000
 
-trainingLogFreq_A = 100   # creates logs every x number of turns
-trainingLogFreq_B = 1000   # creates logs every x number of turns
+trainingLogFreq_A = 1000    # creates logs every x number of turns
+trainingLogFreq_B = 4200   # creates logs every x number of turns
 
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
 trainingLogPath_100 = "SCHOOL/statistics/LOGS/training/trainingLog_100.txt"
@@ -180,8 +180,9 @@ INN_outputTensorStats = True
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 5000
 trainingDataSliceSize_max = 300000
+reflectionFreq = 299
 # --- #
-trainingDataPairNumber = 200
+trainingDataPairNumber = 200000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 

@@ -1,11 +1,13 @@
 import re
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import mplcursors
+import numpy as np
 
 trainingLogPath_A = "/Users/charis/Documents/GitHub/Shkaira/SCHOOL/statistics/LOGS/training/trainingLog_100_withTotalSteps.txt"
 
-# Load log
+# Load and parse
 with open(trainingLogPath_A, "r") as f:
     log_text = f.read()
 
@@ -48,61 +50,71 @@ for block in log_blocks:
     if 'total_steps' in row:
         entries.append(row)
 
-# DataFrame
 df = pd.DataFrame(entries).set_index("total_steps").sort_index()
 
-# 🚨 NEW CLIP EXTREME OUTLIERS
+# Remove window weights with too few unique values (flat or useless)
+df = df.drop(columns=[col for col in df.columns if col.startswith('W') and df[col].nunique() <= 3])
+
+# Clip outliers at 1st/99th percentile
 lower = df.quantile(0.01)
 upper = df.quantile(0.99)
-df_clipped = df.clip(lower=lower, upper=upper, axis=1)
+df_clipped = df.clip(lower = lower, upper = upper, axis = 1)
 
-# 🚨 NEW FANCY SCALING: Positive and Negative Separate
-df_scaled = pd.DataFrame(index=df_clipped.index)
+# Fancy scaling: 0 is neutral, pos → [0, 1], neg → [0, -1]
+df_scaled = pd.DataFrame(index = df_clipped.index)
 
 for col in df_clipped.columns:
     positive = df_clipped[col].where(df_clipped[col] > 0)
     negative = df_clipped[col].where(df_clipped[col] < 0)
-    scaled_col = pd.Series(index=df_clipped.index, dtype=float)
+    scaled_col = pd.Series(index = df_clipped.index, dtype = float)
 
     if positive.notna().any():
         scaled_col.update(positive / positive.max())
     if negative.notna().any():
         scaled_col.update(negative / (-negative.min()))
 
-    # 0 stays 0 naturally
     df_scaled[col] = scaled_col
 
-# --- Plot ---
-fig, ax1 = plt.subplots(figsize=(20, 10))
-
-lines = []
-
+# Split groups
 metric_cols = [col for col in df_scaled.columns if not col.startswith('W')]
 weight_cols = [col for col in df_scaled.columns if col.startswith('W')]
 
-for col in metric_cols:
-    line, = ax1.plot(df_scaled.index, df_scaled[col], label=col, linewidth=2)
+# Colors
+metric_colors = cm.get_cmap('viridis', len(metric_cols))
+weight_colors = cm.get_cmap('autumn', len(weight_cols))
+
+# Plot
+fig, ax1 = plt.subplots(figsize=(22, 12))
+lines = []
+
+# Plot metrics (solid, coloured)
+for i, col in enumerate(metric_cols):
+    color = metric_colors(i)
+    line, = ax1.plot(df_scaled.index, df_scaled[col], label = f"[METRIC] {col}", color = color, linewidth = 2)
     lines.append(line)
 
-ax1.set_ylabel('Scaled Metrics', fontsize=14)
-ax1.set_xlabel('Total Steps', fontsize=14)
+ax1.set_ylabel('Scaled Metrics', fontsize = 14)
+ax1.set_xlabel('Total Steps', fontsize = 14)
 ax1.grid(True)
 
+# Weights (dashed, warm)
 ax2 = ax1.twinx()
-for col in weight_cols:
-    line, = ax2.plot(df_scaled.index, df_scaled[col], label=col, linestyle='--', alpha=0.8)
+for i, col in enumerate(weight_cols):
+    color = weight_colors(i)
+    line, = ax2.plot(df_scaled.index, df_scaled[col], label = f"[WEIGHT] {col}", color = color, linestyle='--', linewidth = 2)
     lines.append(line)
 
-ax2.set_ylabel('Scaled Window Weights', fontsize=14)
+ax2.set_ylabel('Scaled Window Weights', fontsize = 14)
+plt.title("Training Metrics + Window Weights (Cleaned & Beautiful)", fontsize = 20)
 
-plt.title("Training Metrics + Window Weights (0 centered Scaling)", fontsize=18)
-
-labels = [l.get_label() for l in lines]
-ax1.legend(lines, labels, title="Metric / Weight", bbox_to_anchor=(1.15, 1), loc="upper left", fontsize=10)
+# Smart legend (grouped + readable)
+labels = [line.get_label() for line in lines]
+ax1.legend(lines, labels, title="Legend", bbox_to_anchor=(1.20, 1), loc="upper left", fontsize = 10)
 
 plt.tight_layout()
 
-cursor = mplcursors.cursor(lines, hover=True)
+# Hover still works
+cursor = mplcursors.cursor(lines, hover = True)
 cursor.connect("add", lambda sel: sel.annotation.set_text(sel.artist.get_label()))
 
 plt.show()

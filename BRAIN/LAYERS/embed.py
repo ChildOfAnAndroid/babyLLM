@@ -28,12 +28,12 @@ class EMBED(nn.Module):
         with self.counsellor.infodump("getEmbedStats") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
                 stats = {}
-                embedNorms = torch.norm(self.e_weights, dim=1)
+                embedNorms = torch.norm(self.e_weights, dim = 1)
                 stats["embedNormMean"] = embedNorms.mean()
                 stats["embedNormStd"] = embedNorms.std()
                 stats["embedNormMax"] = embedNorms.max()
 
-                dimMean = self.e_weights.mean(dim=0)
+                dimMean = self.e_weights.mean(dim = 0)
                 stats["embedDimensionMean"] = dimMean
                 dimSparsity = (dimMean.abs() < 1e-4).float().mean()
                 stats["embedDimensionSparsity"] = dimSparsity
