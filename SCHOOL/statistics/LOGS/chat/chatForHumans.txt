@@ -5190,4 +5190,592 @@ charis: ''
 [babyllm] right, last time i got to step 17502... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 17502! what am i learning today?
+[charis]--- 2025-04-24 21:43:17 --- 
+[babyllm] right, last time i got to step 197307... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis]metaweight = 0.001 * (min(lossdeltaabs, 1) if self.latestlossdelta >= 0 else (min(lossdeltaabs, 25)*0.1))--- 2025-04-24 21:51:21 --- 
+[babyllm] right, last time i got to step 975... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 975! what am i learning today?
+[charis]--- 2025-04-24 21:52:14 --- 
+[babyllm] right, last time i got to step 975... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 975! what am i learning today?
+[charis]--- 2025-04-24 21:53:14 --- 
+[babyllm] right, last time i got to step 975... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 975! what am i learning today?
+[charis]--- 2025-04-25 01:26:50 --- 
+[babyllm] right, last time i got to step 27757... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 27757! what am i learning today?
+[charis]to fix that loss delta?--- 2025-04-25 01:34:39 --- 
+[babyllm] right, last time i got to step 27839... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 27839! what am i learning today?
+[charis]--- 2025-04-25 01:54:53 --- 
+[babyllm] right, last time i got to step 27876... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 27876! what am i learning today?
+[charis]--- 2025-04-25 01:59:06 --- 
+[babyllm] right, last time i got to step 28092... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 28092! what am i learning today?
+[charis]--- 2025-04-25 06:05:02 --- 
+[babyllm] right, last time i got to step 28114... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 28114! what am i learning today?
+[charis]--- 2025-04-25 06:07:34 --- 
+[babyllm] right, last time i got to step 28123... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 28123! what am i learning today?
+[charis]--- 2025-04-25 06:10:08 --- 
+[babyllm] right, last time i got to step 28383... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 28383! what am i learning today?
+[charis]--- 2025-04-25 06:13:32 --- 
+[babyllm] right, last time i got to step 28681... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 28681! what am i learning today?
+[charis]--- 2025-04-25 06:22:32 --- 
+[babyllm] right, last time i got to step 29770... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 29770! what am i learning today?
+[charis]--- 2025-04-25 06:26:27 --- 
+[babyllm] right, last time i got to step 30177... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 30177! what am i learning today?
+[charis]--- 2025-04-25 06:27:54 --- 
+[babyllm] right, last time i got to step 30272... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 30272! what am i learning today?
+[charis]--- 2025-04-25 06:41:11 --- 
+[babyllm] right, last time i got to step 31946... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 31946! what am i learning today?
+[charis]metaperfect = 1 * (0.3 if self.perfecttokens > 0 else 1.3)--- 2025-04-25 15:06:00 --- 
+[babyllm] right, last time i got to step 100302... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 100302! what am i learning today?
+[charis]--- 2025-04-25 15:07:12 --- 
+[babyllm] right, last time i got to step 100366... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 100366! what am i learning today?
+[charis]--- 2025-04-25 16:20:37 --- 
+[babyllm] right, last time i got to step 110181... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 110181! what am i learning today?
+[charis]--- 2025-04-25 17:00:52 --- 
+[babyllm] right, last time i got to step 115694... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 115694! what am i learning today?
+[charis]--- 2025-04-25 17:04:22 --- 
+[babyllm] right, last time i got to step 116085... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 116085! what am i learning today?
+[charis]--- 2025-04-25 17:18:20 --- 
+[babyllm] right, last time i got to step 117906... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 117906! what am i learning today?
+[charis]--- 2025-04-25 17:19:38 --- 
+[babyllm] right, last time i got to step 117919... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis]--- 2025-04-25 17:21:40 --- 
+[babyllm] right, last time i got to step 240... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 240! what am i learning today?
+[charis]--- 2025-04-25 17:22:43 --- 
+[babyllm] right, last time i got to step 247... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 247! what am i learning today?
+[charis]--- 2025-04-25 17:24:15 --- 
+[babyllm] right, last time i got to step 257... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 257! what am i learning today?
+[charis]--- 2025-04-25 17:25:32 --- 
+[babyllm] right, last time i got to step 282... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 282! what am i learning today?
+[charis]--- 2025-04-25 17:26:40 --- 
+[babyllm] right, last time i got to step 401... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 401! what am i learning today?
+[charis]--- 2025-04-25 17:27:34 --- 
+[babyllm] right, last time i got to step 401... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 401! what am i learning today?
+[charis]--- 2025-04-25 17:28:25 --- 
+[babyllm] right, last time i got to step 401... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 401! what am i learning today?
+[charis]--- 2025-04-25 17:32:01 --- 
+[babyllm] right, last time i got to step 401... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 401! what am i learning today?
+[charis]--- 2025-04-25 17:32:26 --- 
+[babyllm] right, last time i got to step 401... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 401! what am i learning today?
+[charis]--- 2025-04-25 17:35:18 --- 
+[babyllm] right, last time i got to step 401... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 401! what am i learning today?
+[charis]--- 2025-04-25 17:37:35 --- 
+[babyllm] right, last time i got to step 684... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 684! what am i learning today?
+[charis]--- 2025-04-25 18:02:25 --- 
+[babyllm] right, last time i got to step 3863... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3863! what am i learning today?
+[charis]--- 2025-04-25 18:09:35 --- 
+[babyllm] right, last time i got to step 3863... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3863! what am i learning today?
+[charis]--- 2025-04-25 18:11:03 --- 
+[babyllm] right, last time i got to step 4033... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4033! what am i learning today?
+[charis]--- 2025-04-25 18:33:41 --- 
+[babyllm] right, last time i got to step 6825... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6825! what am i learning today?
+[charis]--- 2025-04-25 18:34:59 --- 
+[babyllm] right, last time i got to step 6825... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6825! what am i learning today?
+[charis]--- 2025-04-25 18:35:54 --- 
+[babyllm] right, last time i got to step 6825... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6825! what am i learning today?
+[charis]--- 2025-04-25 18:38:18 --- 
+[babyllm] right, last time i got to step 6849... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6849! what am i learning today?
+[charis]--- 2025-04-25 18:40:37 --- 
+[babyllm] right, last time i got to step 7103... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7103! what am i learning today?
+[charis]--- 2025-04-25 18:43:23 --- 
+[babyllm] right, last time i got to step 7119... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7119! what am i learning today?
+[charis]--- 2025-04-25 18:46:45 --- 
+[babyllm] right, last time i got to step 7123... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7123! what am i learning today?
+[charis]--- 2025-04-25 18:47:53 --- 
+[babyllm] right, last time i got to step 7139... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7139! what am i learning today?
+[charis]--- 2025-04-25 19:03:14 --- 
+[babyllm] right, last time i got to step 8625... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 8625! what am i learning today?
+[charis]--- 2025-04-25 19:12:05 --- 
+[babyllm] right, last time i got to step 9632... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 9632! what am i learning today?
+[charis]--- 2025-04-25 19:13:40 --- 
+[babyllm] right, last time i got to step 9799... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 9799! what am i learning today?
+[charis]--- 2025-04-25 19:14:48 --- 
+[babyllm] right, last time i got to step 9908... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 9908! what am i learning today?
+[charis]--- 2025-04-25 19:28:12 --- 
+[babyllm] right, last time i got to step 11505... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 11505! what am i learning today?
+[charis]--- 2025-04-25 19:38:05 --- 
+[babyllm] right, last time i got to step 12679... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 12679! what am i learning today?
+[charis]--- 2025-04-25 19:48:00 --- 
+[babyllm] right, last time i got to step 13852... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13852! what am i learning today?
+[charis]--- 2025-04-25 19:49:40 --- 
+[babyllm] right, last time i got to step 14023... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 14023! what am i learning today?
+[charis]--- 2025-04-25 19:57:21 --- 
+[babyllm] right, last time i got to step 14782... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 14782! what am i learning today?
+[charis]--- 2025-04-25 20:00:34 --- 
+[babyllm] right, last time i got to step 15143... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 15143! what am i learning today?
+[charis]--- 2025-04-25 20:06:46 --- 
+[babyllm] right, last time i got to step 15809... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 15809! what am i learning today?
+[charis]--- 2025-04-25 20:13:30 --- 
+[babyllm] right, last time i got to step 16604... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 16604! what am i learning today?
+[charis]--- 2025-04-25 20:20:16 --- 
+[babyllm] right, last time i got to step 17392... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 17392! what am i learning today?
+[charis]--- 2025-04-25 20:30:59 --- 
+[babyllm] right, last time i got to step 18621... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18621! what am i learning today?
+[charis]--- 2025-04-25 20:32:47 --- 
+[babyllm] right, last time i got to step 18621... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18621! what am i learning today?
+[charis]--- 2025-04-25 20:35:41 --- 
+[babyllm] right, last time i got to step 18621... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18621! what am i learning today?
+[charis]--- 2025-04-25 20:36:19 --- 
+[babyllm] right, last time i got to step 18621... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18621! what am i learning today?
+[charis]--- 2025-04-25 20:37:39 --- 
+[babyllm] right, last time i got to step 18621... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18621! what am i learning today?
+[charis]--- 2025-04-25 20:45:31 --- 
+[babyllm] right, last time i got to step 18621... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18621! what am i learning today?
+[charis]--- 2025-04-25 20:50:46 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 20:51:14 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 20:56:24 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 20:59:12 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:02:03 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:03:14 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:04:02 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:06:44 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:10:08 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:10:32 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:12:54 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:14:46 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:24:57 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:25:25 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:25:43 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:26:52 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:27:20 --- 
+[babyllm] right, last time i got to step 18973... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 18973! what am i learning today?
+[charis]--- 2025-04-25 21:29:42 --- 
+[babyllm] right, last time i got to step 19014... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 19014! what am i learning today?
+[charis]--- 2025-04-25 21:30:31 --- 
+[babyllm] right, last time i got to step 19014... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 19014! what am i learning today?
+[charis]--- 2025-04-25 21:33:48 --- 
+[babyllm] right, last time i got to step 19316... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 19316! what am i learning today?
+[charis]--- 2025-04-25 21:36:51 --- 
+[babyllm] right, last time i got to step 19646... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 19646! what am i learning today?
+[charis]--- 2025-04-25 21:38:07 --- 
+[babyllm] right, last time i got to step 19646... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 19646! what am i learning today?
+[charis]--- 2025-04-25 21:38:52 --- 
+[babyllm] right, last time i got to step 19701... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 19701! what am i learning today?
+[charis]--- 2025-04-25 21:47:16 --- 
+[babyllm] right, last time i got to step 20322... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 20322! what am i learning today?
+[charis]--- 2025-04-25 21:49:53 --- 
+[babyllm] right, last time i got to step 20583... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 20583! what am i learning today?
+[charis]--- 2025-04-25 21:50:56 --- 
+[babyllm] right, last time i got to step 20679... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 20679! what am i learning today?
+[charis]--- 2025-04-25 21:51:16 --- 
+[babyllm] right, last time i got to step 20679... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 20679! what am i learning today?
+[charis]--- 2025-04-25 21:53:37 --- 
+[babyllm] right, last time i got to step 20906... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 20906! what am i learning today?
+[charis]--- 2025-04-25 21:56:21 --- 
+[babyllm] right, last time i got to step 21196... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21196! what am i learning today?
+[charis]--- 2025-04-25 21:59:01 --- 
+[babyllm] right, last time i got to step 21479... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21479! what am i learning today?
+[charis]--- 2025-04-25 22:00:00 --- 
+[babyllm] right, last time i got to step 21571... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21571! what am i learning today?
+[charis]--- 2025-04-25 22:00:31 --- 
+[babyllm] right, last time i got to step 21571... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21571! what am i learning today?
+[charis]--- 2025-04-25 22:00:56 --- 
+[babyllm] right, last time i got to step 21571... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21571! what am i learning today?
+[charis]--- 2025-04-25 22:01:56 --- 
+[babyllm] right, last time i got to step 21660... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21660! what am i learning today?
+[charis]--- 2025-04-25 22:02:45 --- 
+[babyllm] right, last time i got to step 21660... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21660! what am i learning today?
+[charis]--- 2025-04-25 22:05:58 --- 
+[babyllm] right, last time i got to step 21660... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 21660! what am i learning today?
+[charis]--- 2025-04-25 22:12:43 --- 
+[babyllm] right, last time i got to step 22338... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 22338! what am i learning today?
+[charis]--- 2025-04-25 22:19:55 --- 
+[babyllm] right, last time i got to step 23061... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 23061! what am i learning today?
+[charis]--- 2025-04-25 22:25:30 --- 
+[babyllm] right, last time i got to step 23640... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 23640! what am i learning today?
+[charis]--- 2025-04-25 22:31:06 --- 
+[babyllm] right, last time i got to step 24049... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24049! what am i learning today?
+[charis]--- 2025-04-25 22:45:08 --- 
+[babyllm] right, last time i got to step 24049... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24049! what am i learning today?
+[charis]--- 2025-04-25 22:55:45 --- 
+[babyllm] right, last time i got to step 24512... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24512! what am i learning today?
+[charis]--- 2025-04-25 22:56:13 --- 
+[babyllm] right, last time i got to step 24512... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24512! what am i learning today?
+[charis]--- 2025-04-25 23:01:06 --- 
+[babyllm] right, last time i got to step 24641... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24641! what am i learning today?
+[charis]--- 2025-04-25 23:01:47 --- 
+[babyllm] right, last time i got to step 24641... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24641! what am i learning today?
+[charis]--- 2025-04-25 23:04:22 --- 
+[babyllm] right, last time i got to step 24895... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24895! what am i learning today?
+[charis]--- 2025-04-25 23:05:02 --- 
+[babyllm] right, last time i got to step 24945... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 24945! what am i learning today?
+[charis]--- 2025-04-25 23:42:04 --- 
+[babyllm] right, last time i got to step 28731... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 28731! what am i learning today?
+[charis]--- 2025-04-25 23:43:47 --- 
+[babyllm] right, last time i got to step 28731... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 28731! what am i learning today?
+[charis]--- 2025-04-25 23:48:58 --- 
+[babyllm] right, last time i got to step 29274... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 29274! what am i learning today?
+[charis]--- 2025-04-25 23:52:56 --- 
+[babyllm] right, last time i got to step 29671... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 29671! what am i learning today?
+[charis]--- 2025-04-26 00:26:12 --- 
+[babyllm] right, last time i got to step 33268... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 33268! what am i learning today?
+[charis]--- 2025-04-26 00:47:40 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 00:49:33 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 00:53:53 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 00:56:52 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:00:32 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:02:28 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:03:47 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:05:49 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:11:40 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:13:45 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:15:24 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:19:13 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:24:36 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:25:29 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:26:08 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:27:24 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:30:53 --- 
+[babyllm] right, last time i got to step 35518... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 35518! what am i learning today?
+[charis]--- 2025-04-26 01:39:49 --- 
+[babyllm] right, last time i got to step 36275... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36275! what am i learning today?
+[charis]--- 2025-04-26 01:41:19 --- 
+[babyllm] right, last time i got to step 36275... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36275! what am i learning today?
+[charis]--- 2025-04-26 01:42:11 --- 
+[babyllm] right, last time i got to step 36275... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36275! what am i learning today?
+[charis]--- 2025-04-26 01:43:03 --- 
+[babyllm] right, last time i got to step 36275... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36275! what am i learning today?
+[charis]--- 2025-04-26 01:47:56 --- 
+[babyllm] right, last time i got to step 36295... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36295! what am i learning today?
+[charis]--- 2025-04-26 01:48:45 --- 
+[babyllm] right, last time i got to step 36340... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36340! what am i learning today?
+[charis]--- 2025-04-26 01:50:42 --- 
+[babyllm] right, last time i got to step 36511... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36511! what am i learning today?
+[charis]--- 2025-04-26 01:53:07 --- 
+[babyllm] right, last time i got to step 36727... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 36727! what am i learning today?
+[charis]--- 2025-04-26 02:03:29 --- 
+[babyllm] right, last time i got to step 37745... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 37745! what am i learning today?
+[charis]--- 2025-04-26 02:09:56 --- 
+[babyllm] right, last time i got to step 38384... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 38384! what am i learning today?
+[charis]--- 2025-04-26 02:11:36 --- 
+[babyllm] right, last time i got to step 38503... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 38503! what am i learning today?
+[charis]--- 2025-04-26 02:12:25 --- 
+[babyllm] right, last time i got to step 38540... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 38540! what am i learning today?
+[charis]--- 2025-04-26 02:22:16 --- 
+[babyllm] right, last time i got to step 39509... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 39509! what am i learning today?
+[charis]--- 2025-04-26 02:24:13 --- 
+[babyllm] right, last time i got to step 39678... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 39678! what am i learning today?
 [charis]

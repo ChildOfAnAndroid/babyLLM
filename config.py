@@ -31,9 +31,7 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 999     # // 500 // 5000 // 10000 // saves the model every x number of turns
-
-saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveModelFreq = 9999     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "BRAIN/soul/babyllm.pth"     # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
@@ -45,6 +43,13 @@ trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
 trainingFilePathTEST = "SCHOOL/library/trainingDataTEST.txt"
 
 """--- LOGS ---"""
+printFreq = 1               # how often to print training progress to the terminal
+printPromptLength = 100     # how many characters of the prompt to display in terminal
+gradientLength = 3000
+
+trainingLogFreq_A = 500   # creates logs every x number of turns
+trainingLogFreq_B = 50000   # creates logs every x number of turns
+
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
 trainingLogPath_100 = "SCHOOL/statistics/LOGS/training/trainingLog_100.txt"
 
@@ -78,7 +83,8 @@ tokenIncrement = 0.0001
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
-memoryLength = 10
+#memoryLength = 10
+memoryLengthGOAL = 7
 memoryLengthIncrement = 0.0001
 
 """optimizer"""
@@ -86,33 +92,28 @@ learningRate = 0.00035     # // 0.0005 // 0.00005 // 0.00001 //
 optimizerName = "AdamW"     # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = leakyRelu       # // leakyRely // relu //
 
+#gradClipIncrement = 0.00001
 gradientClipMaxNorm = 1.0
-gradClipIncrement = 0.00001
 minGradClip = 0.6
 maxGradClip = 1.4
 
 """scheduled sampling"""
 scheduledSampling = True 
-scheduledSamplingRate = 0
-scheduledSamplingIncrement = 0.00001     # // 0.0001 //~increment probability of using model output by this much PER TURN
+#scheduledSamplingRate = 0
+#scheduledSamplingIncrement = 0.00001     # // 0.0001 //~increment probability of using model output by this much PER TURN
 minSchedSamp = -0.01
 maxSchedSamp = 1.0
 
 """repetition penalty"""
-penaltyWindow = 31          # how many tokens to look back for repetition
-repetitionPenalty = 1.9
-repetitionPenaltyIncrement = -0.00001
+repetitionWindowGOAL = 31          # how many tokens to look back for repetition
+#repetitionPenalty = 1.9
+#repetitionPenaltyIncrement = -0.00001
 minRepPen = 0.01
 maxRepPen = 2.5
 windowEntropyBonus = True
 
 """--- LOGS ---"""
-trainingLogFreq_B = 50000    # creates logs every x number of turns
-trainingLogFreq_A = 500    # creates logs every x number of turns
-detailedLogging = False
-
-printFreq = 10     # how often to print training progress to the terminal
-printPromptLength = 100     # how many characters of the prompt to display in terminal
+detailedLogging = True
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
@@ -136,6 +137,14 @@ durationLogging_TUTOR = False
 profiler = False
 mpsProfiler = False
 forwardProfiler = False
+
+mostImportantStats = ["memoryLength",       "LR",                   "learningRate", 
+                      "latestLossDelta",    "AvgLoss",              "loss", 
+                      "gradNorm",           "gradientClipMaxNorm",  "scheduledSamplingRate", 
+                      "sampledTokens",      "repetitionPenalty",    "temperature",
+                      "INN_cerebellum",     "INN_cerebellumSoft"]
+
+percentileBands = [100.0, 99.8, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.2, 0.00]
 
 collectStats = True
 static_collectStats = True
@@ -169,9 +178,10 @@ INN_outputTensorStats = True
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 1
-trainingDataSliceSize_max = 5000
-trainingDataPairNumber = 300000
+trainingDataSliceSize_min = 5000
+trainingDataSliceSize_max = 300000
+# --- #
+trainingDataPairNumber = 40000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 
@@ -252,6 +262,8 @@ rawDataFilepaths = [     # for textCleaningTool.py
 
 
 """--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
+saveStrict = False    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+
 """--- MODEL ---"""
 embedDimension = 1024     # dimensionality of token embeddings
 numNeurons = 10000     # number of neurons in the parallel neuron layer

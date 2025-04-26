@@ -12,8 +12,8 @@ from SCHOOL.staffroom.calligraphist import S_OUTPUT
 from SCHOOL.staffroom.librarian import LIBRARIAN
 from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
-from BRAIN.LAYERS.sensoryWobble import WOBBLE
-from SCHOOL.staffroom.newsletter import STATS
+# from BRAIN.LAYERS.sensoryWobble import WOBBLE
+# from SCHOOL.staffroom.newsletter import STATS
 from config import *
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -35,7 +35,6 @@ def wakeup():
             # OPEN THE LIBRARY :)
             ʕっʘ‿ʘʔっ("waking the librarian...")
             librarian           = LIBRARIAN (_counsellor                = counsellor)
-            newsletter          = STATS     ()
 
             ʕっʘ‿ʘʔっ("opening questions...")
             newStartIndex       =           openingQuestions(_counsellor = counsellor, _librarian = librarian)
@@ -51,31 +50,31 @@ def wakeup():
                                                 _calligraphist          = calligraphist, 
                                                 _librarian              = librarian)
             
-            wobble              = WOBBLE    (_counsellor                = counsellor,
-                                                _calligraphist          = calligraphist, 
-                                                _device                 = modelDevice,
-                                                _activationFunction     = activationFunction)
-
+            wobble              = None
+            # wobble            = WOBBLE    (_counsellor                = counsellor,
+            #                                    _calligraphist          = calligraphist, 
+            #                                    _device                 = modelDevice,
+            #                                    _activationFunction     = activationFunction)
+            
             # WAKE UP THE BABY :)
             ʕっʘ‿ʘʔっ("loading babyLLM...")
             babyLLM             = BABYLLM   (_counsellor                = counsellor,
                                                 _calligraphist          = calligraphist, 
                                                 _scribe                 = scribe,
                                                 _librarian              = librarian, 
-                                                _wobble                 = wobble,
                                                 _device                 = modelDevice)
 
             tutor               = TUTOR     (_counsellor                = counsellor,
                                                 _calligraphist          = calligraphist, 
                                                 _scribe                 = scribe,
                                                 _librarian              = librarian, 
-                                                _newsletter             = newsletter,
-                                                _wobble                 = wobble, 
                                                 _model                  = babyLLM,
                                                 _device                 = modelDevice, 
                                                 _temperature            = babyLLM.temperature,
+                                                _memoryLength           = babyLLM.logMemoryLength,
+                                                _scheduledSamplingRate  = babyLLM.scheduledSamplingRate,
                                                 _repetitionPenalty      = babyLLM.repetitionPenalty,
-                                                _scheduledSamplingRate  = babyLLM.scheduledSamplingRate)
+                                                _gradientClipMaxNorm    = babyLLM.gradientClipMaxNorm)
             
             babyLLM.loadModel()
             #wobble.to(modelDevice)
