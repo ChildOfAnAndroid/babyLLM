@@ -32,7 +32,7 @@ class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
                 _device                 = modelDevice,              
                 _logGradClip            = 0, 
-                _temperature            = temperature,                  
+                _temperature            = 0.8,                  
                 _repetitionPenalty      = 0, 
                 _scheduledSamplingRate  = 0,            
                 _memoryLength           = 0, 
@@ -86,10 +86,11 @@ class TUTOR:
             #if debugPrints: print(f"Debug tokenToIndex (First 20): {list(librarian.tokenToIndex.items())[:20]}")
             for name, param in self.model.named_parameters(): print(name, param.device)
             ʕっʘ‿ʘʔっ("COUNTERS INIT")
-            self.trainingStepCounter = 0
+            self.trainingStepCounter = 1
             self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "tokenCount": 0})
             self.tokenCounts = Counter()
             self.latestLossDelta = 0
+            self.reflectionTrainingPairs = []
 
             ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
@@ -100,98 +101,42 @@ class TUTOR:
                 print(f"--- lesson {epoch+1}/{_epochs} started ---")
                 """TRAINING DATA (batches)"""
                 for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
-                    ʕっʘ‿ʘʔっ("♥BEFORE TRAINING STEP")
-                    inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
-                    ʕっʘ‿ʘʔっ("♥TRAINING STEP")
-                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
-                    
                     if self.trainingStepCounter % reflectionFreq == 0:
-                        ʕっʘ‿ʘʔっ("reflection step!")
-                        babyFeels = self.mapStatsToFeelings()
-                        hesJustABaby = " ".join(babyFeels)
+                        ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
+                        self.reflectionTrainingPairs = self.babyReflection()
 
-                        # Build reflection prompt based on CURRENT STATS
-                        delta = round(self.latestLossDelta, 2)
-                        perfect = self.perfectTokens
-                        repeated = round(self.stats.get('repeatedPercent', 0.0) * 100, 1) if 'repeatedPercent' in self.stats else 0.0
-                        dataStuff = f"lesson {self.trainingStepCounter:.0f}: average recent loss: {self.averageRecentLoss:.2f}, latest loss delta: {delta:.2f}, perfect tokens: {perfect:.0f}, repeated token percentage: {repeated:.2f}, repetition penalty: {self.repetitionPenalty.item():.2f}, a learning rate of: {self.learningRate:.5f}, temperature: {self.temperature.item():.2f}, scheduled sampling rate: {self.scheduledSamplingRate.item():.2f} and a memory length of: {self.memoryLength:.2f}! "
+                    elif self.reflectionTrainingPairs:
+                        ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
+                        _inputSeq, _targetSeq = self.reflectionTrainingPairs.pop(0)
 
-                        prompt = f"charis: hey baby! how are you today? i'm just checking in to let you know about your latest scores! i hope it helps you understand your world a little better :) take a look at these: {dataStuff}"
-                        target = f"babyllm: " + random.choice(["hey! i am learning today, this is how i'm doing: ",
-                                                                "ok, so, to put it as simply as I can, i am: ",
-                                                                "ummm.. i've been trying to learn a lot about stats but numbers still confuse me a little, what's the context of all this?! like, to start with, ",
-                                                                "i am happy! i did it! i know it! i am just a baby! i learnt it! i learned: "
-                                                                "oh good morning! i hope you're okay, umm, i dunno how I feel about my scores right now!! "
-
-                        ]) + hesJustABaby + "" + random.choice(["thank you for teaching me new things! it's really weird to exist lol", 
-                                                                "i'm getting tired... but i don't want to give up just yet!", 
-                                                                "that's a lot of numbers! i don't really know what to do with them, but i'll keep trying!", 
-                                                                "do you think i'm doing well? i'm worried that i'm underperforming!",
-                                                                "but, honestly, all this learning has me excited!"]) + "ok, anyway... i'm going to get back to school now..."
-
-                        # Combine PROMPT + TARGET together into ONE reflection text
-                        reflection_text = prompt + " " + target
-
-                        # Tokenize whole reflection
-                        reflectionTokens = self.librarian.tokenizeText(reflection_text.lower())
-
-                        _windowMAX = windowMAX
-                        numTargetTokens = numTokensPerStep
-
-                        # Check if enough tokens
-                        if len(reflectionTokens) < (_windowMAX + numTargetTokens):
-                            print("chaoticReflection skipped: not enough tokens")
-                            continue
-
-                        reflectionPointer = 0
-                        while reflectionPointer + windowMAX + numTokensPerStep <= len(reflectionTokens):
-                            inputSeq = reflectionTokens[reflectionPointer : reflectionPointer + windowMAX]
-                            targetSeq = reflectionTokens[reflectionPointer + windowMAX : reflectionPointer + windowMAX + numTokensPerStep]
-                            
-                            inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(
-                                _inputSeq = inputSeq,
-                                _targetSeq = targetSeq,
-                                _lastTurnLossDelta = self.latestLossDelta
-                            )
-                            self.predictedTokenIndices, self.logitSeq = self.trainStep(
-                                _inputTokenIndices = inputTokenIndices,
-                                _targetTokenIndexSeq = targetTokenIndexSeq,
-                                _BACKWARDwobbleLoss = None
-                            )
-                            _, LOGstringStats, self.guessedTokenSeq = self.collectTurnStats(
-                                _targetTokenIndexSeq = targetTokenIndexSeq,
-                                _predictedTokenIndices = self.predictedTokenIndices
-                            )
-                            self.latestLossDelta = self.endTurnActions()
-
-                            reflectionPointer += numTokensPerStep
-                            if self.trainingStepCounter % printFreq == 0:
-                                ʕっʘ‿ʘʔっ("♥printFreqReflection")
-                                self.printFreqActions()
-
+                    ʕっʘ‿ʘʔっ("♥START OF TURN")
+                    inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
+                    
+                    ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
+                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
 
                     """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                     
                     ʕっʘ‿ʘʔっ("♥collectTurnStats")
-                    _, LOGstringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
+                    self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
 
                     if self.trainingStepCounter % saveModelFreq == 0:
                         ʕっʘ‿ʘʔっ("♥saveFreq")
                         self.saveFreqActions()
 
-                    if self.trainingStepCounter % printFreq == 0:
-                        ʕっʘ‿ʘʔっ("♥printFreq")
-                        self.printFreqActions()
-
                     if self.trainingStepCounter % trainingLogFreq_B == 0:
                         #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
-                        self.logFreqActions(_trainingDataPairs, _stringStats = LOGstringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True)
+                        self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True, _saveLog = True)
 
                     # Track loss every 100 steps
                     elif self.trainingStepCounter % trainingLogFreq_A == 0:
                         ʕっʘ‿ʘʔっ("♥logFreq_A")
-                        self.logFreqActions(_trainingDataPairs, _stringStats = LOGstringStats, _frequency = trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False)
+                        self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
 
+                    elif self.trainingStepCounter % printFreq == 0:
+                        ʕっʘ‿ʘʔっ("♥printFreq")
+                        self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = printFreq, _trainingLogPath = None, _detailedLogging = False, _saveLog = False)
+                        self.printFreqActions()
                     
                     ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
                     self.latestLossDelta = self.endTurnActions()
@@ -213,48 +158,6 @@ class TUTOR:
                 self.winEnt = self.stats["windowEntropy"]
             else:
                 self.winEnt = 0
-
-            #values = np.array([
-            #    self.lastTurnLossDelta, 
-            #    self.recentLosses, 
-            #    self.perfectTokens, 
-            #    self.winEnt
-            #], dtype = np.float32)
-
-            #wobbleInputStats_ = torch.tensor(values, device = modelDevice)
-            #wobbleLoss, wobbleIncrements, wobbleStats = self.wobble.forward(_wobbleInputStats = wobbleInputStats_, _lastTurnLossDelta = self.lastTurnLossDelta) # CALL WOBBLE.forward HERE!
-            #self.wobbleLoss = wobbleLoss
-            #self.wobbleIncrements = wobbleIncrements
-
-            #ʕっʘ‿ʘʔっ("♥incrementCounters")
-            #if skipWobble:
-                #schedIncrement = scheduledSamplingIncrement
-                #repeatIncrement = repetitionPenaltyIncrement
-                #LRIncrement = self.learningRate/100000
-                #clipIncrement = gradClipIncrement
-                #memIncrement = memoryLengthIncrement
-                #schedUpdate = random.choice([scheduledSamplingIncrement, -scheduledSamplingIncrement, scheduledSamplingIncrement])
-                #repeatUpdate = random.choice([repetitionPenaltyIncrement, -repetitionPenaltyIncrement, repetitionPenaltyIncrement])
-                #newLR = random.choice([LRIncrement, -LRIncrement])
-                #clipUpdate = random.choice([gradClipIncrement, -gradClipIncrement])
-                #tempUpdate = random.choice([tempIncrement, -tempIncrement])
-                #memUpdate = random.choice([memIncrement, -memIncrement])
-            #elif self.wobbleIncrements is not None:
-                #schedIncrement = self.wobbleIncrements[0].item()
-                #repeatIncrement = self.wobbleIncrements[1].item()
-                #LRIncrement = (self.learningRate + self.wobbleIncrements[2].item())
-                #clipIncrement = (self.wobbleIncrements[4]).item()
-                #schedUpdate = random.choice([(max(min((schedIncrement), 0.0001), -0.0001)), -1])
-                #repeatUpdate = random.choice([(max(min((repeatIncrement), 0.0001), -0.0001)), -1])
-                #newLR = (max(min((random.choice([(max(min((LRIncrement), 0.000000001), -0.000000001)), -0.00000001])), 0.00040), 0.00030))
-                #clipUpdate = random.choice([((max(min((clipIncrement), 0.0001)), -0.0001)), -1])
-                #tempUpdate = random.choice([(max(min((tempIncrement), 0.0001)), -0.0001), -0.01])
-
-            #self.scheduledSamplingRate = (max(min((self.scheduledSamplingRate + schedUpdate), maxSchedSamp), minSchedSamp))
-            #self.repetitionPenalty = (max(min((self.repetitionPenalty + repeatUpdate), maxRepPen), minRepPen))
-            #self.model.setLearningRate(newLR)
-            #self.gradientClipMaxNorm = (max(min((self.gradientClipMaxNorm + clipUpdate), maxGradClip), minGradClip))
-            #self.memoryLength = (max(min((self.memoryLength + memUpdate), 100), 1))
 
             if skipMemory:
                 ʕっʘ‿ʘʔっ("♥skipMemory")
@@ -326,12 +229,12 @@ class TUTOR:
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
             #BACKWARDloss_ = (0.025*self.BACKWARDwobbleLoss)+(0.975*BACKWARDloss)
-            if windowEntropyBonus:
-                if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                    BACKWARDloss = BACKWARDloss - (0.1 * self.model.interneuronNetwork.entropyBonus)
+            #if windowEntropyBonus:
+                #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
+                    #BACKWARDloss = BACKWARDloss + (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
-                return
+                return [], []
             else: 
                 if debugPrints: print("TUTOR.trainStep.backward - loss is not NaN or Inf:", BACKWARDloss)
                 
@@ -360,8 +263,13 @@ class TUTOR:
             self.memoryLength               = math.exp(self.model.logMemoryLength.detach().cpu().item())
             self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().cpu().item())
             self.repetitionWindow           = math.exp(self.model.logRepetitionWindow.detach().cpu().item())
+            self.windowSizesMean            = self.model.interneuronNetwork.expWindowSizes.detach().cpu().mean() 
             self.temperatureFloat           = self.temperature.detach().cpu().numpy().item()
             self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
+            self.windowWeight               = self.model.interneuronNetwork.windowWeight.detach().cpu().item()
+            self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
+            #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
+            #self.INN_cerebellumMean         = self.model.interneuronNetwork.cerebellum.mean().cpu().item()
 
             #self.endTurnActions()
             if self.device.type == 'mps':
@@ -369,6 +277,78 @@ class TUTOR:
                 torch.mps.empty_cache()
 
             return self.predictedTokenIndices, self.logitSeq
+        
+    def babyReflection(self):
+        with self.counsellor.infodump("startTurnActions") as ʕっʘ‿ʘʔっ:
+            hesJustABaby = self.mapStatsToFeelings()
+
+            delta       = round(self.latestLossDelta, 2)
+            perfect     = self.perfectTokens
+            repeated    = round(self.stats.get('repeatedPercent', 0.0) * 100, 1) if 'repeatedPercent' in self.stats else 0.0
+
+            def makeDataStuff():
+                connective = random.choice([":", " of", " is at", " =", ",", " is", "..."])
+                return random.choice([
+                    f"average recent loss{connective} {self.averageRecentLoss:.2f}, ",
+                    f"latest loss delta{connective} {delta:.2f}, ",
+                    f"perfect tokens{connective} {perfect:.0f}, ",
+                    f"repeated token percentage{connective} {repeated:.2f}, ",
+                    f"learning rate{connective} {self.learningRate:.5f}, ",
+                    f"temperature{connective} {self.temperature.item():.2f}, ",
+                    f"scheduled sampling rate{connective} {self.scheduledSamplingRate.item():.2f}, ",
+                    #f"a memory length of: {self.memoryLength:.2f}! ",
+                ])
+
+            prompt  = f"{userName}: hey baby! how are you today? i'm just checking in to let you know about your latest scores! i hope it helps you understand your world a little better :) take a look at these: "
+            prompt += makeDataStuff() 
+            prompt += makeDataStuff() + "and " 
+            prompt += makeDataStuff()
+            
+            target  = f"{babyName}: " 
+            target += random.choice(["hey! i am learning today, this is how i'm doing: ",
+                                    "ok, so, to put it as simply as I can, i am: ",
+                                    "ummm.. i've been trying to learn a lot about stats but numbers still confuse me a little, what's the context of all this?! like, to start with,",
+                                    "i am happy! i did it! i know it! i am just a baby! i learnt it! i learned: "
+                                    "oh good morning! i hope you're okay, umm, i dunno how i feel about my scores right now!! "]) 
+            
+            target += hesJustABaby
+            target += random.choice(["thank you for teaching me new things! it's really weird to exist lol", 
+                                    "i'm getting tired... but i don't want to give up just yet!", 
+                                    "that's a lot of numbers! i don't really know what to do with them, but i'll keep trying!", 
+                                    "do you think i'm doing well? i'm worried that i'm underperforming!",
+                                    "but, honestly, all this learning has me excited!"])
+            
+            reflectionText  = prompt + " " + target
+            babyEndPhrase   = " ok, anyway... i'm going to get back to school now... but thanks for helping me think about my learning today lol!"
+            _windowMAX      = windowMAX
+            numTargetTokens = numTokensPerStep
+
+            reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+
+        # if too short, keep adding endPhrase
+        while len(reflectionTokens) < (_windowMAX * 2):
+            target += babyEndPhrase
+            reflectionText = prompt + " " + target
+            reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+
+        # cut extra from the endPhrase if its too long
+        while len(reflectionTokens) > (_windowMAX * 2):
+            target = target[:-1].rstrip()  # Cut 1 char at a time
+            reflectionText = prompt + " " + target
+            reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+        
+        inputTargetPairs = []
+        reflectionPointer = 0
+
+        while reflectionPointer + _windowMAX + numTargetTokens <= len(reflectionTokens):
+            inputSeq = reflectionTokens[reflectionPointer : reflectionPointer + _windowMAX]
+            targetSeq = reflectionTokens[reflectionPointer + _windowMAX : reflectionPointer + _windowMAX + numTargetTokens]
+
+            inputTargetPairs.append((inputSeq, targetSeq))
+
+            reflectionPointer += 1
+
+        return inputTargetPairs
 
     def saveFreqActions(self): 
         with self.counsellor.infodump("saveFreqActions") as ʕっʘ‿ʘʔっ: # SAVE THE MODEL EVERY x STEPS
@@ -406,7 +386,7 @@ class TUTOR:
                 _latestLossDelta = self.latestLossDelta,
                 _totalTokenCount = self.tokenCounts)
         
-    def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging): # could also do 10x log freq??
+    def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging, _saveLog): # could also do 10x log freq??
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
@@ -440,17 +420,8 @@ class TUTOR:
                 _memoryGates_str = "",
                 _topTokens_str = self.stringStats["topTokens"],
                 _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats['windowVotes_str']} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
-                _detailedLogging = _detailedLogging)
-            
-            ʕっʘ‿ʘʔっ("finalLogActions")
-            if debugPrints:
-                for key in self.ʕっෆ‿ෆʔっ:
-                    print(key, self.ʕっෆ‿ෆʔっ[key])
-            self.stats.clear()
-            self.stringStats.clear()
-            self.tokenPerfectRate = 0
-            self.stats['sampledTokens'] = 0
-            self.totalTokenEvaluations = 0
+                _detailedLogging = _detailedLogging,
+                _saveLog = _saveLog)
 
     def collectTurnStats(self, _targetTokenIndexSeq, _predictedTokenIndices):
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
@@ -465,13 +436,6 @@ class TUTOR:
             rollPrint_key = f"{printFreq}"
             rollPrint_avgKey = f"{printFreq}_avg"
 
-            """if rollupA_avgKey in lossStats and rollupA_key in lossStats:# and len(lossStats[rollupA_key]) > trainingLogFreq_A:
-                if debugPrints or True: 
-                    self.aaa += 1
-                    if self.aaa > 10: 
-                        print(f"Used {rollupA_avgKey} for averageRecentLoss: {lossStats[rollupA_avgKey]} 10x")
-                        self.aaa = 0
-                self.averageRecentLoss = lossStats[rollupA_avgKey]"""
             if rollB_avgKey in lossStats and rollB_key in lossStats and len(lossStats[rollB_key]) >= trainingLogFreq_B:
                 if debugPrints or True: 
                     self.bbb += 1
@@ -494,13 +458,6 @@ class TUTOR:
                             print(f"Used {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]} 1000x")
                             self.ppp = 0
                     self.averageRecentLoss = lossStats[rollPrint_avgKey]
-            """else:
-                if debugPrints or True: 
-                    self.nnn += 1
-                    if self.nnn > 1000: 
-                        print(f"Used self.cheekyAvgLoss for averageRecentLoss: {self.cheekyAvgLoss} 1000x")
-                        self.nnn = 0
-                self.averageRecentLoss = self.cheekyAvgLoss"""
 
             self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
             if self.guessedTokenSeq: 
@@ -508,14 +465,6 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.trainingStepCounter > trainingLogFreq_A:
-                #if self.stepLossFloat >= lossStats["p_90"]:
-                    #self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.09)
-                #elif self.stepLossFloat <= lossStats["bot"]:
-                #    self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 1.0)
-                #elif self.stepLossFloat <= lossStats["p_10"]:
-                #    self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 1.009)
-                #elif self.stepLossFloat >= lossStats["top"]:
-                #    self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
                 self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
 
             ʕっʘ‿ʘʔっ("collectStats♥")
@@ -544,16 +493,20 @@ class TUTOR:
                 if static_collectStats:
                     ʕっʘ‿ʘʔっ("♥if static_collectStats")
                     self.stats["scheduledSamplingRate"] = self.scheduledSamplingRateFloat
-                    self.stats["repetitionPenalty"] = self.model.repetitionPenalty
-                    self.stats["AvgLoss"] = self.averageRecentLoss
-                    self.stats["loss"] = self.stepLossFloat
-                    self.stats["temperature"] = self.temperatureFloat
-                    self.stats["LR"] = self.learningRate
-                    self.stats["gradientClipMaxNorm"] = self.gradientClipMaxNorm
-                    self.stats["latestLossDelta"] = self.latestLossDelta
-                    self.stats["memoryLength"] = self.memoryLength
-                    self.stats["repetitionWindow"] = self.repetitionWindow
-                    self.stats["perfectTokens"] = self.perfectTokens
+                    self.stats["repetitionPenalty"]     = self.repetitionPenalty
+                    self.stats["AvgLoss"]               = self.averageRecentLoss
+                    self.stats["loss"]                  = self.stepLossFloat
+                    self.stats["temperature"]           = self.temperatureFloat
+                    self.stats["LR"]                    = self.learningRate
+                    self.stats["gradientClipMaxNorm"]   = self.gradientClipMaxNorm
+                    self.stats["latestLossDelta"]       = self.latestLossDelta
+                    self.stats["memoryLength"]          = self.memoryLength
+                    self.stats["repetitionWindow"]      = self.repetitionWindow
+                    self.stats["perfectTokens"]         = self.perfectTokens
+                    self.stats["windowSizesMean"]       = self.windowSizesMean
+                    self.stats["windowWeight"]          = self.windowWeight
+                    #self.stats["INN_cerebellum"]        = self.INN_cerebellum
+                    #self.stats["INN_cerebelumMean"]     = self.INN_cerebellumMean
  
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")
@@ -668,68 +621,24 @@ class TUTOR:
             ʕっʘ‿ʘʔっ("♥getLatestLossDelta")
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
 
-            #rollA_Key = f"{trainingLogFreq_A}"
-            #rollA_ΔKey = f"{trainingLogFreq_A}_Δ"
-
-            #rollPrint_Key = f"{printFreq}"
-            #rollPrint_ΔKey = f"{printFreq}_Δ"
-
-            #ΔKey = f"_Δ"
-
-            #self.latestLossDelta = lossStats.get(f"_Δ", 0.0)
             self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
 
-            #if rollPrint_Key in lossStats: #and rollPrint_ΔKey in lossStats:
-            #    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollPrint_ΔKey} for latestLossDelta")
-            #    self.latestLossDelta = lossStats[rollPrint_ΔKey]
-            #    #print(f"Loss delta is apparently {self.latestLossDelta} now \nstats:{lossStats}")
-            #elif ΔKey in lossStats:
-            #    ʕっʘ‿ʘʔっ(f"♥usingLossStats{ΔKey} for latestLossDelta")
-            #    self.latestLossDelta = lossStats[ΔKey]
-            #elif rollA_Key in lossStats: #and rollA_ΔKey in lossStats:
-            #    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollA_ΔKey} for latestLossDelta")
-            #    self.latestLossDelta = lossStats[rollA_ΔKey]
-                #self.latestLossDelta = 0.0
-            ##else:
-            if False:
-                if ΔKey in lossStats:
-                    ʕっʘ‿ʘʔっ(f"♥usingLossStats{ΔKey} for latestLossDelta")
-                    #self.dddd += 1
-                    #if self.dddd > 100: 
-                    #    print(f"♥usedLossStats{ΔKey} for latestLossDelta 100x")
-                    #    self.dddd = 0
-                    ### ??? was the wrong key here the issue ??? ok no that just makes everything even worse somehow self.latestLossDelta = lossStats[rollA_ΔKey]
-                    self.latestLossDelta = lossStats[ΔKey]
-                elif rollA_Key in lossStats: #and rollA_ΔKey in lossStats:
-                    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollA_ΔKey} for latestLossDelta")
-                    #self.aaaa += 1
-                    #if self.aaaa > 100: 
-                    #    print(f"♥usedLossStats{rollA_ΔKey} for latestLossDelta 100x")
-                    #    self.aaaa = 0
-                    self.latestLossDelta = lossStats[rollA_ΔKey]
-                elif rollPrint_Key in lossStats: #and rollPrint_ΔKey in lossStats:
-                    ʕっʘ‿ʘʔっ(f"♥usingLossStats{rollPrint_ΔKey} for latestLossDelta")
-                    #self.bbbb += 1
-                    #if self.bbbb > 100: 
-                    #    print(f"♥usedLossStats{rollPrint_ΔKey} for latestLossDelta 100x")
-                    #    self.bbbb = 0
-                    ### ??? was this even the right variable ??? self.l = lossStats[rollPrint_ΔKey]
-                    self.latestLossDelta = lossStats[rollPrint_ΔKey]
-                else:
-                    ʕっʘ‿ʘʔっ(f"♥using 0.0 for latestLossDelta")
-                    self.nnnn += 1
-                    if self.nnnn > 100: 
-                        print(f"♥used 0.0 for latestLossDelta 100x")
-                        self.nnnn = 0
-                    self.latestLossDelta = 0.0
+            ʕっʘ‿ʘʔっ("finalLogActions")
+            if debugPrints:
+                for key in self.ʕっෆ‿ෆʔっ:
+                    print(key, self.ʕっෆ‿ෆʔっ[key])
+            self.stats.clear()
+            self.stringStats.clear()
+            self.tokenPerfectRate = 0
+            self.stats['sampledTokens'] = 0
+            self.totalTokenEvaluations = 0
         
         return self.latestLossDelta
-
+        
     def mapStatsToFeelings(self):
-        emoNotes = []
+        babyFeels = []
         feelings = []
 
-        # --- Safely pull all relevant stats ---
         lossStats       = self.ʕっෆ‿ෆʔっ.get("loss", {})
         tempStats       = self.ʕっෆ‿ෆʔっ.get("temperature", {})
         repetitionStats = self.ʕっෆ‿ෆʔっ.get("repetitionPenalty", {})
@@ -738,89 +647,12 @@ class TUTOR:
         perfectTokens   = self.stats.get("perfectTokens", 0)
         deltaLoss       = self.stats.get("latestLossDelta", 0.0)
 
-        # Current values
-        current_loss       = lossStats.get("now", None)
-        current_temp       = tempStats.get("now", None)
-        current_repeated   = self.stats.get("repeatedPercent", None)
-        current_sampling   = samplingStats.get("now", None)
-        current_memLength  = memStats.get("now", None)
-        current_repetitionPenalty = repetitionStats.get("now", None)
-
-        # --- LOSS FEELINGS ---
-        if current_loss is not None:
-            if "p_90" in lossStats and current_loss >= lossStats["p_90"]:
-                feelings.append("overwhelmed")
-            elif "p_75" in lossStats and current_loss >= lossStats["p_75"]:
-                feelings.append("pressured")
-            elif "p_25" in lossStats and current_loss <= lossStats["p_25"]:
-                feelings.append(random.choice(["clever", "proud"]))
-            elif "p_10" in lossStats and current_loss <= lossStats["p_10"]:
-                feelings.append(random.choice(["very clever", "like i get it"]))
-
-        # --- REPETITION FEELINGS ---
-        if current_repetitionPenalty is not None:
-            if "p_90" in repetitionStats and current_repetitionPenalty >= repetitionStats["p_90"]:
-                feelings.append("non-verbal")
-            elif "p_75" in repetitionStats and current_repetitionPenalty >= repetitionStats["p_75"]:
-                feelings.append("quiet")
-            elif "p_25" in repetitionStats and current_repetitionPenalty <= repetitionStats["p_25"]:
-                feelings.append(random.choice(["talkative", "chatty"]))
-            elif "p_10" in repetitionStats and current_repetitionPenalty <= repetitionStats["p_10"]:
-                feelings.append(random.choice(["conversational", "fluent", "good at talking"]))
-
-        # --- LOSS DELTA FEELINGS ---
-        if deltaLoss > 0.5:
-            feelings.append("struggling to focus")
-        elif deltaLoss < -0.5:
-            feelings.append("interested")
-
-        # --- REPETITION FEELINGS ---
-        if current_repeated is not None:
-            if current_repeated > 0.7:
-                feelings.append(random.choice(["stuttering", "like i'm saying the same thing over and over again", "struggling to find new words"]))
-            elif current_repeated > 0.5:
-                feelings.append(random.choice(["stimming", "silly"]))
-            elif current_repeated < 0.1:
-                feelings.append(random.choice(["calm", "like i'm saying lots of new things"]))
-            elif current_repeated < 0.25:
-                feelings.append("curious")
-
-        # --- TEMPERATURE FEELINGS ---
-        if current_temp is not None:
-            if "p_90" in tempStats and current_temp >= tempStats["p_90"]:
-                feelings.append(random.choice(["chaotic", "excited", "ready for anything"]))
-            elif "p_75" in tempStats and current_temp >= tempStats["p_75"]:
-                feelings.append(random.choice(["playful", "happy"]))
-            elif "p_10" in tempStats and current_temp <= tempStats["p_10"]:
-                feelings.append("hyperfocussed")
-            elif "p_25" in tempStats and current_temp <= tempStats["p_25"]:
-                feelings.append("in work mode")
-
-        # --- SAMPLING RATE FEELINGS ---
-        if current_sampling is not None:
-            if current_sampling > 0.8:
-                feelings.append(random.choice(["creative", "i'm trying to be unique", "guessing"]))
-            elif current_sampling < 0.2:
-                feelings.append(random.choice(["tired", "like i'm just copying things", "passive"]))
-
-        # --- MEMORY LENGTH FEELINGS ---
-        if current_memLength is not None:
-            if current_memLength > 12:
-                feelings.append("pensive")
-            elif current_memLength < 4:
-                feelings.append("mindful")
-
-        # --- PERFECT TOKENS FEELINGS ---
-        if perfectTokens >= 30:
-            feelings.append("very proud")
-        elif perfectTokens >= 10:
-            feelings.append("proud")
-        elif perfectTokens <= 1:
-            feelings.append(random.choice(["a little bit sad", "unimpressed", "fed up", "like i don't want to copy things", "like i can't do this"]))
-
-        # --- Default fallback ---
-        if not feelings:
-            feelings.append("alright")
+        current_loss                = lossStats.get("now", None)
+        current_temp                = tempStats.get("now", None)
+        current_repeated            = self.stats.get("repeatedPercent", None)
+        current_sampling            = samplingStats.get("now", None)
+        current_memLength           = memStats.get("now", None)
+        current_repetitionPenalty   = repetitionStats.get("now", None)
 
         emoStats = {
             "loss": current_loss,
@@ -830,27 +662,77 @@ class TUTOR:
             "memoryLength": current_memLength,
             "perfectTokens": perfectTokens,
             "repeatedPercent": current_repeated,
-            "latestLossDelta": deltaLoss
+            "latestLossDelta": deltaLoss,
         }
 
-        # Pick 3 random stats
-        chosenStats = random.sample(list(emoStats.items()), 3)
+        def makeEmoNotes(stat, value):
+            feeling = "neutral"
 
-        sentenceTemplates = [
-            "i feel {feeling} because my {stat} is {value}!",
-            "maybe it's because my {stat} is {value} that i feel {feeling}!",
-            "i noticed my {stat} is {value}, and i think that makes me {feeling}!",
-            "when my {stat} is {value}, i feel kinda {feeling}!",
-            "it's {value} for {stat}... so i feel {feeling} about it!"
-        ]
+            if stat == "loss":
+                if "p_90" in lossStats and value >= lossStats["p_90"]: feeling = "overwhelmed"
+                elif "p_75" in lossStats and value >= lossStats["p_75"]: feeling = "pressured"
+                elif "p_25" in lossStats and value <= lossStats["p_25"]: feeling = random.choice(["clever", "proud"])
+                elif "p_10" in lossStats and value <= lossStats["p_10"]: feeling = random.choice(["very clever", "like i get it"])
+
+            elif stat == "repetitionPenalty":
+                if "p_90" in repetitionStats and value >= repetitionStats["p_90"]: feeling = "non-verbal"
+                elif "p_75" in repetitionStats and value >= repetitionStats["p_75"]: feeling = "quiet"
+                elif "p_25" in repetitionStats and value <= repetitionStats["p_25"]: feeling = random.choice(["talkative", "chatty"])
+                elif "p_10" in repetitionStats and value <= repetitionStats["p_10"]: feeling = random.choice(["conversational", "fluent"])
+
+            elif stat == "latestLossDelta":
+                if value > 0.5: feeling = "struggling to focus"
+                elif value < -0.5: feeling = "interested"
+
+            elif stat == "repeatedPercent":
+                if value > 0.7: feeling = random.choice(["stuttering", "repeating a lot"])
+                elif value > 0.5: feeling = random.choice(["overstimulated", "silly"])
+                elif value < 0.1: feeling = random.choice(["calm", "saying lots of new things"])
+                elif value < 0.25: feeling = "curious"
+
+            elif stat == "temperature":
+                if "p_90" in tempStats and value >= tempStats["p_90"]: feeling = random.choice(["chaotic", "excited"])
+                elif "p_75" in tempStats and value >= tempStats["p_75"]: feeling = random.choice(["playful", "happy"])
+                elif "p_25" in tempStats and value <= tempStats["p_25"]: feeling = "in work mode"
+
+            elif stat == "scheduledSamplingRate":
+                if value > 0.8: feeling = random.choice(["creative", "inventive"])
+                elif value < 0.2: feeling = random.choice(["tired", "copying"])
+
+            elif stat == "memoryLength":
+                if value > 12: feeling = "pensive"
+                elif value < 4: feeling = "mindful"
+
+            elif stat == "perfectTokens":
+                if value >= 30: feeling = "very proud"
+                elif value >= 10: feeling = "proud"
+                elif value <= 1: feeling = random.choice(["sad", "frustrated"])
+
+            else:
+                feeling = random.choice(["alright", "a bit lost"])
+
+            feelings.append(feeling)
+
+            feelVerb = random.choice(["feel", "seem", "think i feel", "definitely feel", "might feel"])
+            templates = [
+                f"i {feelVerb} {feeling} because my {stat} is {value:.2f}! ",
+                f"maybe it's because my {stat} is {value:.2f} that i {feelVerb} {feeling}! ",
+                f"i noticed my {stat} is {value:.2f}, and i {feelVerb} {feeling}! ",
+                f"when my {stat} is {value:.2f}, i {feelVerb} {feeling}! ",
+                f"it's {value:.2f} for {stat}... so i {feelVerb} {feeling} about it! ",
+            ]
+            return random.choice(templates)
+
+        chosenStats = []
+        attempts = 0
+
+        while len(chosenStats) < 3 and attempts < 10:
+            stat, value = random.choice(list(emoStats.items()))
+            if value is not None:
+                chosenStats.append((stat, value))
+            attempts += 1
 
         for stat, value in chosenStats:
-            if value is None:
-                continue
-            feeling = random.choice(feelings) if feelings else "okay"
-            template = random.choice(sentenceTemplates)
-            babyThought = template.format(stat=stat.replace("_", " "), value=round(value, 3) if isinstance(value, (float, int)) else value, feeling=feeling)
-            emoNotes.append(babyThought)
+            babyFeels.append(makeEmoNotes(stat, value))
 
-        return emoNotes
-
+        return " ".join(babyFeels)

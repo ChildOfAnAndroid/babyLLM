@@ -31,7 +31,7 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 999     # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 1298     # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "BRAIN/soul/babyllm.pth"     # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"     # where your currently trained saved boi is :)
@@ -44,11 +44,8 @@ trainingFilePathTEST = "SCHOOL/library/trainingDataTEST.txt"
 
 """--- LOGS ---"""
 printFreq = 1               # how often to print training progress to the terminal
-printPromptLength = 100     # how many characters of the prompt to display in terminal
+printPromptLength = 1000     # how many characters of the prompt to display in terminal
 gradientLength = 3000
-
-trainingLogFreq_A = 1000    # creates logs every x number of turns
-trainingLogFreq_B = 4200   # creates logs every x number of turns
 
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
 trainingLogPath_100 = "SCHOOL/statistics/LOGS/training/trainingLog_100.txt"
@@ -73,47 +70,36 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-temperature = 0.8     # 0.8 // temperature for softmax in response generation - controls randomness
-#minTemp = 0.01 # 0.4
-#maxTemp = 1.4
-
-topP = 0     # top P - probability
 numTokensPerStep = 32     # Number of tokens to predict per step
-tokenIncrement = 0.0001
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
-#memoryLength = 10
 memoryLengthGOAL = 7
-memoryLengthIncrement = 0.0001
 
 """optimizer"""
 learningRate = 0.00035     # // 0.0005 // 0.00005 // 0.00001 //
 optimizerName = "AdamW"     # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = leakyRelu       # // leakyRely // relu //
 
-#gradClipIncrement = 0.00001
 gradientClipMaxNorm = 1.0
-minGradClip = 0.6
-maxGradClip = 1.4
 
 """scheduled sampling"""
 scheduledSampling = True 
-#scheduledSamplingRate = 0
-#scheduledSamplingIncrement = 0.00001     # // 0.0001 //~increment probability of using model output by this much PER TURN
-minSchedSamp = -0.01
-maxSchedSamp = 1.0
 
 """repetition penalty"""
 repetitionWindowGOAL = 31          # how many tokens to look back for repetition
-#repetitionPenalty = 1.9
-#repetitionPenaltyIncrement = -0.00001
-minRepPen = 0.01
-maxRepPen = 2.5
 windowEntropyBonus = True
 
 """--- LOGS ---"""
-detailedLogging = False
+detailedLogging = True
+
+trainingLogFreq_A = 1000    # creates logs every x number of turns
+trainingLogFreq_B = 10000   # creates logs every x number of turns
+
+dontSaveEveryPrint = True
+saveFreq_littleLog = 500
+
+newLineBetweenStats = True
 
 durationLogging = False     # // True // False // activates debug time logging
 debugPrints = False
@@ -123,40 +109,26 @@ skipNeuron = False
 skipINN = True # THIS IS WHERE THE SLOWDOWN IS!!!!!
 skipINNparliament = False
 skipMemory = False
-skipWobble = True
 
 skipComputeLoss = False
-skipMetaLoss = False
-
-debugPrints_babyLLM = False
-debugPrints_TUTOR = False
-durationLogging_babyLLM = False
-durationLogging_TUTOR = False
+skipMetaLoss = True
 
 """--- STATS COLLECTION ---"""
-profiler = False
-mpsProfiler = False
-forwardProfiler = False
-
 mostImportantStats = ["memoryLength",       "LR",                   "learningRate", 
                       "latestLossDelta",    "AvgLoss",              "loss", 
                       "gradNorm",           "gradientClipMaxNorm",  "scheduledSamplingRate", 
                       "sampledTokens",      "repetitionPenalty",    "temperature",
-                      "INN_cerebellum",     "INN_cerebellumSoft",   "repetitionWindow"]
+                      "repetitionWindow",   "windowSizesMean",      "INN_cerebellumMean", ]
 
 percentileBands = [100.0, 99.8, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.2, 0.00]
 
 collectStats = True
 static_collectStats = True
-
 embed_collectStats = True
 token_collectStats = True 
-
 logit_collectStats = True
-
 n_collectStats = True
 INN_collectStats = True
-
 memory_collectStats = True
 
 # neuron + interneuronNetwork
@@ -164,13 +136,16 @@ n_weightStats = True
 n_weightNormStats = True
 n_biasesStats = True
 n_sparsityStat = True
-
 INN_cerebellumStats = True
 INN_credibilityBiasStats = False
 INN_judgeBiasStats = False
 INN_scoringStats = False
 INN_windowStats = True
 INN_outputTensorStats = True
+
+profiler = False
+mpsProfiler = False
+forwardProfiler = False
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
@@ -180,7 +155,7 @@ INN_outputTensorStats = True
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 5000
 trainingDataSliceSize_max = 300000
-reflectionFreq = 299
+reflectionFreq = 420
 # --- #
 trainingDataPairNumber = 200000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
@@ -261,7 +236,6 @@ rawDataFilepaths = [     # for textCleaningTool.py
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 """-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""
 
-
 """--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
 saveStrict = True    # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
@@ -272,17 +246,17 @@ numNeurons = 10000     # number of neurons in the parallel neuron layer
 """windows"""
 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 
-windowMIN = 4     # Small Context Window
+windowMIN = 2      # Small Context Window
 
-window0 = 32 #32
-window1 = 28 #28
-window2 = 24 #248
-window3 = 20 #20
-window4 = 16 #16    
-window5 = 12 #12
-window6 = 8 #8
-window7 = 4 #4
-window8 = 2 #2
+window0 = 32.01 #32
+window1 = 28.01 #28
+window2 = 24.01 #248
+window3 = 20.01 #20
+window4 = 16.01 #16    
+window5 = 12.01 #12
+window6 = 8.01 #8
+window7 = 4.01 #4
+window8 = 2.01 #2
 
 windowMAX = 32     # THIS MUST BE THE HIGHEST NUMBER
 allWindowSizes_new = [window8, window0, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!

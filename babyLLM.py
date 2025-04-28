@@ -127,77 +127,97 @@ class BABYLLM(nn.Module):
 
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
             return logits
-    
+
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
     def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta = 0, _perfectTokens = 0):
         with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
-            #self.latestLossDelta = _latestLossDelta
             self.perfectTokens = _perfectTokens
             if skipComputeLoss:
                 ʕっʘ‿ʘʔっ("skipping loss!")
                 return torch.tensor([0.1], requires_grad = True, device = self.device)  # Constant scalar tensor
-            else:     
-                ʕっʘ‿ʘʔっ("targetTensor")          
-                targetTensor = torch.tensor([_targetTokenIndex], dtype = torch.long, device = self.device)
-                if debugPrints: print(f"[LOSS DEBUG] logits shape: {_logits.shape} | target: {_targetTokenIndex}")
-                if _logits.dim() == 1: _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
-                ʕっʘ‿ʘʔっ("cross Entropy Loss")
-                loss = F.cross_entropy(_logits, targetTensor)
-                if debugPrints: print(f"CrossEntropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
-                self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
-                if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ")
-                # take loss here for loss delta
-                if skipMetaLoss:
-                    return loss
-                else:
-                    tempReg = (torch.clamp(self.temperature, 0.01, 10.0) - 1.0).pow(2) # linked (mostly?)
-                    lrReg = (torch.exp(self.logLR) - 1e-4).pow(2) # linked
-                    gradClipReg = (torch.exp(self.logGradClip) - 0.8).pow(2) # linked in one place at least
-                    repeatReg = (torch.clamp(self.repetitionPenalty, 0.8, 2.0) - 1.5).pow(2) # seems to work??
-                    schedReg = (torch.clamp(self.scheduledSamplingRate, 0.01, 1.0) - 0.5).pow(2) # !!!! not workin
-                    memRegLog = (torch.exp(self.logMemoryLength) - memoryLengthGOAL).pow(2)
-                    repeatWindowLog = (torch.exp(self.logRepetitionWindow) - repetitionWindowGOAL).pow(2)
-                    lossDeltaABS = abs(self.CELossDelta) #ABS UN-REMOVED, FIXES EXPLODING NEGATIVE LOSS
+            
+            ʕっʘ‿ʘʔっ("targetTensor")          
+            targetTensor = torch.tensor([_targetTokenIndex], dtype = torch.long, device = self.device)
+            
+            if debugPrints: print(f"[LOSS DEBUG] logits shape: {_logits.shape} | target: {_targetTokenIndex}")
+            if _logits.dim() == 1: 
+                _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
+            
+            ʕっʘ‿ʘʔっ("cross Entropy Loss")
+            loss = F.cross_entropy(_logits, targetTensor)
+            if debugPrints: print(f"CrossEntropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
+            
+            self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
+            if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
-                    # more tokens (better) > perfTokens > less tokens (worse)
-                    # HIGHER NUMBER > 2 > LOWER NUMBER
-                    # 0.3x > 2 > 1.3x
-                    metaPerfect = 1 * (0.3 if self.perfectTokens > 2 else 1.3)
+            entropy = 0.001 * self.interneuronNetwork.entropyBonus
+            loss = loss - entropy
 
-                    # worse (explore) > latestlossdelta > better (stay still)
-                    # POSITIVE NUMBER > 0 > NEGATIVE NUMBER 
-                    # +4 Delta (worse) > 0 > -4 Delta (better)
-                    # [0-25]x0.1 > 0 > [0-1]
-                    # 0-2.5 > 0 > 0-1
-                    metaWeight = 0.01 * ((min(lossDeltaABS, 25)*0.1) if self.CELossDelta >= 0 else min(lossDeltaABS, 1)) # Direct and linear, worse loss = worse penalty - more fast reactions
-                    #metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + (metaPerfect * (memReg + repeatReg + schedReg)))
+            if skipMetaLoss:
+                return loss - entropy
+            else:
+                tempReg = 100 * (torch.clamp(self.temperature, 0.01, 10.0) - 1.0).pow(2) # linked (mostly?)
+                lrReg = 100 * (self.logLR - math.log(1e-4))**2
+                #lrReg = 100 * (torch.exp(self.logLR) - 1e-4).pow(2) # < this option seems to be very insensitive at high rates, prob because its regulating exp not log??? # linked
+                gradClipReg = 100 * (torch.exp(self.logGradClip) - 0.8).pow(2) # linked in one place at least
+                repeatReg = 100 * (torch.clamp(self.repetitionPenalty, 0.8, 2.0) - 1.5).pow(2) # seems to work??
+                schedReg = 100 * (torch.clamp(self.scheduledSamplingRate, 0.01, 1.0) - 0.5).pow(2) # !!!! not workin
+                memRegLog = 100 * (torch.exp(self.logMemoryLength) - memoryLengthGOAL).pow(2)
+                repeatWindowLog = 100 * (torch.exp(self.logRepetitionWindow) - repetitionWindowGOAL).pow(2)
+                lossDeltaABS = abs(self.CELossDelta) #ABS UN-REMOVED, FIXES EXPLODING NEGATIVE LOSS
 
-                    lossWeight = max((metaWeight * metaPerfect), 0)
+                # more tokens (better) > perfTokens > less tokens (worse)
+                # HIGHER NUMBER > 2 > LOWER NUMBER
+                # 0.3x > 2 > 1.3x
+                metaPerfect = 1 * (0.3 if self.perfectTokens > 2 else 1.3)
 
-                    metaVector = torch.stack([tempReg, lrReg, gradClipReg, memRegLog, repeatReg, schedReg, repeatWindowLog, 
-                                            torch.tensor(float(_targetTokenIndex), device = self.device),
-                                            torch.tensor(float(self.computeLossCount), device = self.device),
-                                            torch.tensor(float(self.CELossDelta), device = self.device),
-                                            torch.tensor(float(lossWeight), device = self.device),
-                                            torch.tensor(float(loss), device = self.device),
-                                            torch.tensor(float(lossDeltaABS), device = self.device),
-                                            torch.tensor(float(self.lastLossBaby or 0.0), device = self.device),
-                                            torch.tensor(float(self.perfectTokens), device = self.device),
-                                            torch.tensor(float(self.repeatedPercent), device = self.device)])
+                # worse (explore) > latestlossdelta > better (stay still)
+                # POSITIVE NUMBER > 0 > NEGATIVE NUMBER 
+                # +4 Delta (worse) > 0 > -4 Delta (better)
+                # [0-25]x0.1 > 0 > [0-1]
+                # 0-2.5 > 0 > 0-1
+                #metaWeight = 0.01 * ((min(lossDeltaABS, 25)*0.1) if lossMiddle >= 0 else min(lossDeltaABS, 1)) # Direct and linear, worse loss = worse penalty - more fast reactions
+                metaWeight = 0.01 * (min(lossDeltaABS, 25) * (0.1 if self.CELossDelta >= 0 else 1))
 
-                    metaMetaLoss = abs((lossWeight) * self.metaMeta(metaVector).squeeze())
-                    if debugPrints:
-                        self.computeLossCount += 1
-                        if self.computeLossCount >= ((numTokensPerStep * printFreq)*32):
-                            metaOut = abs(self.metaMeta(metaVector).squeeze())
-                            print(f"tempReg: {tempReg} |  lrReg: {lrReg} | gradClipReg: {gradClipReg} | memRegLog: {memRegLog} | repeatReg: {repeatReg} | schedReg: {schedReg} | ")
-                            print(f"repeatWindowLog: {repeatWindowLog} | _targetTokenIndex: {torch.tensor(float(_targetTokenIndex), device = self.device)} | computeLossCount: {torch.tensor(float(self.computeLossCount), device = self.device)} | CELossDelta: {torch.tensor(float(self.CELossDelta), device = self.device)} | lossWeight: {torch.tensor(float(lossWeight), device = self.device)} | loss: {torch.tensor(float(loss), device = self.device)} | ")
-                            print(f"lossDeltaABS: {torch.tensor(float(lossDeltaABS), device = self.device)} | lastLossBaby: {torch.tensor(float(self.lastLossBaby or 0.0), device = self.device)} | perfectTokens: {torch.tensor(float(self.perfectTokens), device = self.device)} | repeatedPercent: {torch.tensor(float(self.repeatedPercent), device = self.device)} | ")
-                            print(f"metaVector: {metaVector} | metaOut:{metaOut:.6f} | lossWeight: {lossWeight} | scaledMetaLoss:{(lossWeight * metaOut):.6f}")
-                            print(f"metameta: loss:{loss.item():.4f} | last: {self.lastLossBaby:.4f} | Δ:{self.CELossDelta.item():+.4f} | perfect:{self.perfectTokens} | rep:{self.stats.get('repetitionRatio', 0.0):.2%} | ")
-                            self.computeLossCount = 0
-                    FINALloss = abs(loss + metaMetaLoss)
-                    self.lastLossBaby = loss.item()
+                #metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + (metaPerfect * (memReg + repeatReg + schedReg)))
+                if self.CELossDelta < 0 and abs(self.CELossDelta) < 0.1:
+                    metaWeight *= -0.3  # gentle stabilising reward
+
+                lossWeight = metaWeight * metaPerfect # stabilizing this to zero causes issues, babyllm cant tell when changes in metaweight create improvements vs cause problems
+                                                        # therefore learns to downregulate because of the lack of a 'reward signal'. 
+                                                        # allowing this to go negative helps a lot with this (theoretically so far!!)
+
+                metaVector = torch.stack([tempReg, lrReg, gradClipReg, memRegLog, repeatReg, schedReg, repeatWindowLog, 
+                                        torch.tensor(float(_targetTokenIndex), device = self.device),
+                                        torch.tensor(float(self.computeLossCount), device = self.device),
+                                        torch.tensor(float(self.CELossDelta), device = self.device),
+                                        torch.tensor(float(lossWeight), device = self.device),
+                                        torch.tensor(float(loss), device = self.device),
+                                        torch.tensor(float(lossDeltaABS), device = self.device),
+                                        torch.tensor(float(self.lastLossBaby or 0.0), device = self.device),
+                                        torch.tensor(float(self.perfectTokens), device = self.device),
+                                        torch.tensor(float(self.repeatedPercent), device = self.device)])
+
+                metaMetaLoss = (lossWeight) * self.metaMeta(metaVector).squeeze() # same stabilizing to 0 issues, testing.
+                if not hasattr(self, 'metaMetaMovingAvg'):
+                    self.metaMetaMovingAvg = 0.0  # Initialize if missing
+
+                self.metaMetaMovingAvg = 0.995 * self.metaMetaMovingAvg + 0.005 * metaMetaLoss.item()
+                metaMetaCentered = metaMetaLoss - self.metaMetaMovingAvg                
+
+                if debugPrints:
+                    self.computeLossCount += 1
+                    if self.computeLossCount >= ((numTokensPerStep * printFreq)*32):
+                        metaOut = abs(self.metaMeta(metaVector).squeeze())
+                        print(f"tempReg: {tempReg} |  lrReg: {lrReg} | gradClipReg: {gradClipReg} | memRegLog: {memRegLog} | repeatReg: {repeatReg} | schedReg: {schedReg} | ")
+                        print(f"repeatWindowLog: {repeatWindowLog} | _targetTokenIndex: {torch.tensor(float(_targetTokenIndex), device = self.device)} | computeLossCount: {torch.tensor(float(self.computeLossCount), device = self.device)} | CELossDelta: {torch.tensor(float(self.CELossDelta), device = self.device)} | lossWeight: {torch.tensor(float(lossWeight), device = self.device)} | loss: {torch.tensor(float(loss), device = self.device)} | ")
+                        print(f"lossDeltaABS: {torch.tensor(float(lossDeltaABS), device = self.device)} | lastLossBaby: {torch.tensor(float(self.lastLossBaby or 0.0), device = self.device)} | perfectTokens: {torch.tensor(float(self.perfectTokens), device = self.device)} | repeatedPercent: {torch.tensor(float(self.repeatedPercent), device = self.device)} | ")
+                        print(f"metaVector: {metaVector} | metaOut:{metaOut:.6f} | lossWeight: {lossWeight} | scaledMetaLoss:{(lossWeight * metaOut):.6f}")
+                        print(f"metameta: loss:{loss.item():.4f} | last: {self.lastLossBaby:.4f} | Δ:{self.CELossDelta.item():+.4f} | perfect:{self.perfectTokens} | rep:{self.stats.get('repetitionRatio', 0.0):.2%} | ")
+                        self.computeLossCount = 0
+                FINALloss = (loss + (metaMetaCentered * 0.01)).clamp(min=loss * 0.9) 
+                #FINALloss = loss + metaMetaCentered # this SHOULD stabilize to 0, because otherwise the optimizer will see a negative signal and just drive loss to -inf!
+                self.lastLossBaby = loss.item()
 
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
             return FINALloss
@@ -245,15 +265,36 @@ class BABYLLM(nn.Module):
                     #print(f"babyLLM.backward - non-finite grad in: {name}") 
                     #return
             ʕっʘ‿ʘʔっ("optimizer.step")
-            learnedLR = torch.exp(self.logLR).item()
-            for g in self.optimizer.param_groups:
-                g['lr'] = learnedLR
-            self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
-            self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
-            self.memoryLength = torch.exp(self.logMemoryLength).item()
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = self.logGradClip)
-            self.optimizer.step()  # Update weights
-            #self.scheduler.step(_loss)
+
+            #with torch.no_grad():
+                # Reset learnable parameters to their initial values
+                #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
+                #self.scheduledSamplingRate.data.fill_(1.0)  # Scheduled sampling full (no scheduled sampling yet)
+                #self.temperature.data.fill_(1.0)  # Temperature normal
+                #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
+                #self.logMemoryLength.data.fill_(math.log(memoryLengthGOAL))  # Memory length default
+                #self.logRepetitionWindow.data.fill_(math.log(repetitionWindowGOAL))  # Repetition window default
+                #self.interneuronNetwork.logWindowSizes.data.copy_(
+                #    torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))
+                #)
+                #for module in self.interneuronNetwork.windowMeta:
+                #    if isinstance(module, torch.nn.Linear):
+                #        module.reset_parameters()
+
+            if skipMetaLoss:
+                pass
+            else:
+                with torch.no_grad():
+                    self.logLR.clamp_(math.log(1e-5), math.log(1e-2))  # CLAMP IT! IN MEMORY OF THE AMAZING 1.00 SELF LEARNED LOSS RUN OF 27-APRIL-2025! - you certainly dropped the delta! you win!
+                learnedLR = torch.exp(self.logLR).item()
+                for g in self.optimizer.param_groups:
+                    g['lr'] = learnedLR
+                self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
+                self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
+                self.memoryLength = torch.exp(self.logMemoryLength).item()
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = self.logGradClip)
+                self.optimizer.step()  # Update weights
+                #self.scheduler.step(_loss)
                 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
     """def getResponseFromLogits(self, _logits, _temperature = temperature):

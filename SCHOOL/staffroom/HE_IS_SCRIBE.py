@@ -5,6 +5,7 @@
 import random
 import time
 from config import *
+from SCHOOL.notebook.tools.genBoi import *
 
 class SCRIBE:
     def __init__(self, _counsellor, _calligraphist, _librarian):
@@ -34,7 +35,7 @@ class SCRIBE:
         timestamp = time.strftime("%H:%M:%S")
         print(f"{timestamp}|{emote} [{_scribeName.upper()}] — {_message}")
         with open("scribeSays.txt", "a") as f:
-            f.write(f"--- {timestamp} --- {emote} [scribe]: '{_message}\n")
+            f.write(f"{timestamp}|{emote} [{_scribeName}]: '{_message}\n")
 
     def guessTokensToString(self, _inputTokens):
         tokenString = "".join(_inputTokens).replace("Ġ", " ")
@@ -67,8 +68,9 @@ class SCRIBE:
         babyResponse = self.librarian.getNextToken(miniTokenized[-windowMAX:])
         babyTokens = self.librarian.indexToToken.get(babyResponse, '<UNK>')
         babySentence = self.guessTokensToString(babyTokens)
+        emote = makeDatBoi()
 
-        babySay = (f"{timestamp}| [{_babyName.lower()}] — {babySentence}")
+        babySay = (f"{timestamp}|{emote} [{_babyName.lower()}]: {babySentence}")
         print(babySay)
 
         with open("scribeSays.txt", "a") as f:

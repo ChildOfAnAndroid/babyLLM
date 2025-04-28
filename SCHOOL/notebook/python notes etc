@@ -11,9 +11,83 @@ error: ʕ꩜.꩜ʔ
 ʕっ⸝⸝⸝⸝ᴥ⸝⸝⸝⸝ʔっ
 ʕ〃⸝⸝⸝⸝ᴥ⸝⸝⸝⸝〃ʔっ
 ʕっ≧⸝⸝ᴥ⸝⸝≦ʔっ
-ʕっ⸝⸝⸝⸝⸝ᴥ⸝⸝⸝⸝⸝ʔっっʕっ⸝⸝⸝⸝ᴥ⸝⸝⸝⸝ʔっ
+ʕっ⸝⸝⸝⸝⸝ᴥ⸝⸝⸝⸝⸝ʔっ
+っʕっ⸝⸝⸝⸝ᴥ⸝⸝⸝⸝ʔっ
 ʕっᵕᴥᵕʔっ
 ʕっ-ᴥ-ʔっ
+
+def babyReflection(self):
+    with self.counsellor.infodump("startTurnActions") as ʕっʘ‿ʘʔっ:
+        babyFeels = self.mapStatsToFeelings()
+        hesJustABaby = " ".join(babyFeels)
+
+        delta = round(self.latestLossDelta, 2)
+        perfect = self.perfectTokens
+        repeated = round(self.stats.get('repeatedPercent', 0.0) * 100, 1) if 'repeatedPercent' in self.stats else 0.0
+
+
+
+        prompt += makeDataStuff() + makeDataStuff() + "and " + makeDataStuff()
+
+        babyEndPhrase = " ok, anyway... i'm going to get back to school now..."
+
+        target = f"{babyName}: " + random.choice([
+            "hey! i am learning today, this is how i'm doing:",
+            "ok, so, to put it as simply as I can, i am:",
+            "ummm.. i've been trying to learn a lot about stats but numbers still confuse me a little, what's the context of all this?! like, to start with,",
+            "i am happy! i did it! i know it! i am just a baby! i learnt it! i learned:"
+            "oh good morning! i hope you're okay, umm, i dunno how I feel about my scores right now!!"
+        ])
+        target += " " + hesJustABaby
+        target += " " + random.choice([
+            "thank you for teaching me new things! it's really weird to exist lol",
+            "i'm getting tired... but i don't want to give up just yet!",
+            "that's a lot of numbers! i don't really know what to do with them, but i'll keep trying!",
+            "do you think i'm doing well? i'm worried that i'm underperforming!",
+            "but, honestly, all this learning has me excited!"
+        ])
+        target += babyEndPhrase
+
+        # Build initial full text
+        reflectionText = prompt + " " + target
+
+        _windowMAX = windowMAX
+        numTargetTokens = numTokensPerStep
+        totalNeeded = _windowMAX * 2
+
+        # Tokenize
+        reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+
+        # 🔥 If too short, keep adding ONLY "ok i'm gonna go back to school now" multiple times
+        while len(reflectionTokens) < totalNeeded:
+            target += babyEndPhrase
+            reflectionText = prompt + " " + target
+            reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+
+        # 🔥 If it's *too long* now, you can cut the extra "ok..." parts cleanly
+        while len(reflectionTokens) > totalNeeded + _windowMAX:
+            if babyEndPhrase in target:
+                # Try cutting off one "ok..." at a time
+                target = target.rsplit(babyEndPhrase, 1)[0]
+                reflectionText = prompt + " " + target
+                reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+            else:
+                break  # no more to cut
+
+        # Now final sliding generation
+        inputTargetPairs = []
+        reflectionPointer = 0
+
+        while reflectionPointer + _windowMAX + numTargetTokens <= len(reflectionTokens):
+            inputSeq = reflectionTokens[reflectionPointer : reflectionPointer + _windowMAX]
+            targetSeq = reflectionTokens[reflectionPointer + _windowMAX : reflectionPointer + _windowMAX + numTargetTokens]
+
+            inputTargetPairs.append((inputSeq, targetSeq))
+
+            reflectionPointer += 1
+
+        return inputTargetPairs
+
 
 ::SCRIBE:: ʕっʘ‿ʘʔっ
 ::polite:: ʕ •ᴥ•ʔゝ
@@ -207,3 +281,11 @@ pass - carry on the code, noop, can get out of ifs if theyre blocking st
 continue - go back to start of for loop for next item
 return - end the function aka 'def'
 break - get out of loop carry on function
+
+Tension and release.
+Attention and withdrawal.
+Silence and eruption.
+Attraction and revulsion.
+Rhythm and stillness.
+Curiosity and retreat.
+

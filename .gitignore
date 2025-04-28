@@ -17,3 +17,11 @@ trainingData.txt
 data/CHARIS
 SCHOOL/library/charisStudies
 *.pth copy
+*.pth copy 2
+*.pth copy 4
+*.pth EARLYSELFTRAIN
+*.pth PRE SELF TRAIN
+*.pth early self train with reset parameters
+SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
+SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
+SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
