@@ -101,7 +101,7 @@ class TUTOR:
                 print(f"--- lesson {epoch+1}/{_epochs} started ---")
                 """TRAINING DATA (batches)"""
                 for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
-                    if self.trainingStepCounter % reflectionFreq == 0:
+                    if self.trainingStepCounter % reflectionFreq == 0: #and self.trainingStepCounter > trainingLogFreq_A:
                         ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
                         self.reflectionTrainingPairs = self.babyReflection()
 
@@ -264,7 +264,7 @@ class TUTOR:
             self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().cpu().item())
             self.repetitionWindow           = math.exp(self.model.logRepetitionWindow.detach().cpu().item())
             self.windowSizesMean            = self.model.interneuronNetwork.expWindowSizes.detach().cpu().mean() 
-            self.temperatureFloat           = self.temperature.detach().cpu().numpy().item()
+            self.temperatureFloat           = self.model.temperature
             self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
             self.windowWeight               = self.model.interneuronNetwork.windowWeight.detach().cpu().item()
             self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
@@ -294,13 +294,15 @@ class TUTOR:
                     f"perfect tokens{connective} {perfect:.0f}, ",
                     f"repeated token percentage{connective} {repeated:.2f}, ",
                     f"learning rate{connective} {self.learningRate:.5f}, ",
-                    f"temperature{connective} {self.temperature.item():.2f}, ",
+                    f"temperature{connective} {self.temperature:.2f}, ",
                     f"scheduled sampling rate{connective} {self.scheduledSamplingRate.item():.2f}, ",
                     #f"a memory length of: {self.memoryLength:.2f}! ",
                 ])
 
             prompt  = f"{userName}: hey baby! how are you today? i'm just checking in to let you know about your latest scores! i hope it helps you understand your world a little better :) take a look at these: "
             prompt += makeDataStuff() 
+            prompt += makeDataStuff() + "and " 
+            prompt += makeDataStuff()
             prompt += makeDataStuff() + "and " 
             prompt += makeDataStuff()
             
@@ -310,39 +312,54 @@ class TUTOR:
                                     "ummm.. i've been trying to learn a lot about stats but numbers still confuse me a little, what's the context of all this?! like, to start with,",
                                     "i am happy! i did it! i know it! i am just a baby! i learnt it! i learned: "
                                     "oh good morning! i hope you're okay, umm, i dunno how i feel about my scores right now!! "]) 
-            
             target += hesJustABaby
             target += random.choice(["thank you for teaching me new things! it's really weird to exist lol", 
                                     "i'm getting tired... but i don't want to give up just yet!", 
                                     "that's a lot of numbers! i don't really know what to do with them, but i'll keep trying!", 
                                     "do you think i'm doing well? i'm worried that i'm underperforming!",
                                     "but, honestly, all this learning has me excited!"])
-            
             reflectionText  = prompt + " " + target
-            babyEndPhrase   = " ok, anyway... i'm going to get back to school now... but thanks for helping me think about my learning today lol!"
+            babyEndings = ["ok, anyway... i'm going to get back to school now... ",
+                            "thanks for helping me think! ",
+                            "learning is weird but i like it! ",
+                            "i guess i've gotta go keep trying! ",
+                            "i'm just a baby! ",
+                            "i know it! ",
+                            "i did it! ",
+                            "i feel it! ",
+                            "i am happy! ",
+                            "i am learning! ",
+                            "i learned it! ",
+                            "lol ",
+                            ":) ",
+                            "talk in a bit! ",
+                            "i'm gonna carry on with it now :D ",
+                        ]
             _windowMAX      = windowMAX
             numTargetTokens = numTokensPerStep
 
             reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
 
-        # if too short, keep adding endPhrase
-        while len(reflectionTokens) < (_windowMAX * 2):
-            target += babyEndPhrase
-            reflectionText = prompt + " " + target
-            reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+            tries = 0
+            while len(reflectionTokens) < (_windowMAX * 3) and tries < 50:
+                target += " " + random.choice([random.choice(babyEndings), makeDataStuff()])
+                reflectionText = prompt + " " + target
+                reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
+                tries += 1
+                if tries % 5 == 0:
+                    print(f"[babyReflection] still too short after {tries} tries: {len(reflectionTokens)} tokens")
+            if tries >= 50:
+                raise ValueError(f"babyReflection failed: could not reach enough tokens after {tries} tries.")
 
-        # cut extra from the endPhrase if its too long
-        while len(reflectionTokens) > (_windowMAX * 2):
-            target = target[:-1].rstrip()  # Cut 1 char at a time
-            reflectionText = prompt + " " + target
-            reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
         
         inputTargetPairs = []
         reflectionPointer = 0
 
-        while reflectionPointer + _windowMAX + numTargetTokens <= len(reflectionTokens):
+        reflectionPointer = 0
+
+        while reflectionPointer + _windowMAX * 2 <= len(reflectionTokens):
             inputSeq = reflectionTokens[reflectionPointer : reflectionPointer + _windowMAX]
-            targetSeq = reflectionTokens[reflectionPointer + _windowMAX : reflectionPointer + _windowMAX + numTargetTokens]
+            targetSeq = reflectionTokens[reflectionPointer + _windowMAX : reflectionPointer + _windowMAX * 2]
 
             inputTargetPairs.append((inputSeq, targetSeq))
 
@@ -414,9 +431,9 @@ class TUTOR:
                 _stats = self.stats,
                 _frequency = _frequency,
                 _LR = self.learningRate,
-                _INN_cerebellum_str = self.stringStats["INN_cerebellum_str"],
-                _INN_judgeBias_str = self.stringStats["INN_judgeBias_str"],
-                _INN_credbilityBias_str = self.stringStats["INN_credibilityBias_str"],
+                _INN_cerebellum_str = f"{self.stringStats["INN_cerebellum_str"]}",
+                _INN_judgeBias_str = f"{self.stringStats["INN_judgeBias_str"]}",
+                _INN_credbilityBias_str = f"{self.stringStats["INN_credibilityBias_str"]}",
                 _memoryGates_str = "",
                 _topTokens_str = self.stringStats["topTokens"],
                 _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats['windowVotes_str']} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
@@ -497,6 +514,7 @@ class TUTOR:
                     self.stats["AvgLoss"]               = self.averageRecentLoss
                     self.stats["loss"]                  = self.stepLossFloat
                     self.stats["temperature"]           = self.temperatureFloat
+                    self.temperature                    = self.stats["temperature"]
                     self.stats["LR"]                    = self.learningRate
                     self.stats["gradientClipMaxNorm"]   = self.gradientClipMaxNorm
                     self.stats["latestLossDelta"]       = self.latestLossDelta
@@ -505,8 +523,8 @@ class TUTOR:
                     self.stats["perfectTokens"]         = self.perfectTokens
                     self.stats["windowSizesMean"]       = self.windowSizesMean
                     self.stats["windowWeight"]          = self.windowWeight
-                    #self.stats["INN_cerebellum"]        = self.INN_cerebellum
                     #self.stats["INN_cerebelumMean"]     = self.INN_cerebellumMean
+                    ##self.stats["INN_cerebellum"]        = self.INN_cerebellum
  
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")

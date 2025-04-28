@@ -155,7 +155,7 @@ forwardProfiler = False
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 5000
 trainingDataSliceSize_max = 300000
-reflectionFreq = 420
+reflectionFreq = 1234
 # --- #
 trainingDataPairNumber = 200000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
