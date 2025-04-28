@@ -52,11 +52,14 @@ class BABYLLM(nn.Module):
                                             torch.nn.Linear(32, 1, device = self.device))
 
         """LEARNABLE LEARNING PARAMETERS"""
+        self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device = self.device))
+        self.logTemp = nn.Parameter(torch.tensor(math.log(0.8), device = self.device))
+
+
         self.logLR = nn.Parameter(torch.tensor(math.log(1e-4), device = self.device))
-        self.temperature = nn.Parameter(torch.tensor(1.0, device = self.device))
+        #self.temperature = nn.Parameter(torch.tensor(1.0, device = self.device))
         self.logGradClip = nn.Parameter(torch.tensor(math.log(1.0), device = self.device))
         self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.2, device = self.device))
-        self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device = self.device))
         #self.memoryLength = nn.Parameter(torch.tensor(float(memoryLengthGOAL), device = self.device)) # delete soon lol
         self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
@@ -64,6 +67,7 @@ class BABYLLM(nn.Module):
         """stuff"""
         self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
         self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
+        self.temperature = torch.exp(self.logTemp).item()
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         if debugPrints: 
@@ -148,12 +152,15 @@ class BABYLLM(nn.Module):
             if debugPrints: print(f"CrossEntropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
             
             self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
+            #tempReg = (torch.clamp(self.logTemp, 0.7, 0.9) - 0.8).pow(2)
+
             if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
             entropy = 0.001 * self.interneuronNetwork.entropyBonus
             loss = loss - entropy
 
             if skipMetaLoss:
+                self.lastLossBaby = loss.item()
                 return loss - entropy
             else:
                 tempReg = 100 * (torch.clamp(self.temperature, 0.01, 10.0) - 1.0).pow(2) # linked (mostly?)
@@ -269,17 +276,20 @@ class BABYLLM(nn.Module):
             #with torch.no_grad():
                 # Reset learnable parameters to their initial values
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
-                #self.scheduledSamplingRate.data.fill_(1.0)  # Scheduled sampling full (no scheduled sampling yet)
-                #self.temperature.data.fill_(1.0)  # Temperature normal
+                #self.scheduledSamplingRate.data.fill_(0.4)  # Scheduled sampling full (no scheduled sampling yet)
+                #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 #self.logMemoryLength.data.fill_(math.log(memoryLengthGOAL))  # Memory length default
-                #self.logRepetitionWindow.data.fill_(math.log(repetitionWindowGOAL))  # Repetition window default
+                #self.logRepetitionWindow.data.fill_(math.log(4))  # Repetition window default
                 #self.interneuronNetwork.logWindowSizes.data.copy_(
                 #    torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))
                 #)
                 #for module in self.interneuronNetwork.windowMeta:
                 #    if isinstance(module, torch.nn.Linear):
-                #        module.reset_parameters()
+               #        module.reset_parameters()
+            with torch.no_grad():
+                self.logTemp.clamp_(math.log(0.7), math.log(0.9))
+                #temperature = math.exp(self.logTemp)
 
             if skipMetaLoss:
                 pass
@@ -289,11 +299,12 @@ class BABYLLM(nn.Module):
                 learnedLR = torch.exp(self.logLR).item()
                 for g in self.optimizer.param_groups:
                     g['lr'] = learnedLR
-                self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
-                self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
-                self.memoryLength = torch.exp(self.logMemoryLength).item()
-                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = self.logGradClip)
-                self.optimizer.step()  # Update weights
+                #self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
+                #self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
+                #self.memoryLength = torch.exp(self.logMemoryLength).item()
+
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = 1.0)
+            self.optimizer.step()  # Update weights
                 #self.scheduler.step(_loss)
                 
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
@@ -308,6 +319,7 @@ class BABYLLM(nn.Module):
 
     def getResponseFromLogits(self, _logits):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
+            self.temperature = math.exp(self.logTemp)
             _logits / self.temperature
 
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
@@ -341,6 +353,7 @@ class BABYLLM(nn.Module):
 
     def getNextToken(self, _inputSeq):  
         with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
+            self.temperature = math.exp(self.logTemp)
             logits, *_ = self.forward(_inputSeq) # unpacks the first value of the tuple and ignores the rest
             nextToken = self.getResponseFromLogits(logits, self.temperature)
             return nextToken
