@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import random
+import math
 from config import *
 
 class NEURON(nn.Module):
@@ -135,7 +136,7 @@ class INTERNEURON_NETWORK(nn.Module):
             # Compute attention scores between every pair of windows (32x32 matrix)
 
             ʕっʘ‿ʘʔっ("scores")
-            self.scores = torch.matmul(query, key.T) / self.model.temperature
+            self.scores = torch.matmul(query, key.T) / math.exp(self.model.logTemp)
 
             ʕっʘ‿ʘʔっ("selfScores & peerScores") # separate self scores (diagonal) and peer scores (off-diagonals)
             self.selfScores = torch.diag(self.scores) # self score for window i: scores[i, i] (shape: (32,))
