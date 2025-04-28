@@ -51,11 +51,18 @@ class INTERNEURON_NETWORK(nn.Module):
         self.inn_counsellor = _counsellor
         self.device = _device
         self.calligraphist = _calligraphist
+        self.entropyBonus = 0
 
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(_counsellor = self.inn_counsellor)
 
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
+        self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))) # one tensor per window size!
+        self.windowMeta = torch.nn.Sequential(torch.nn.Linear(6, 18, device = self.device), 
+                                            torch.nn.LeakyReLU(negative_slope = 0.01),
+                                            torch.nn.Linear(18, 1, device = self.device))
+
+        # parliament stuff
         self.windowCombos = nn.ModuleList([nn.Linear(numNeurons, numNeurons, device = self.device) for _ in range(len(allWindowSizes_new))])
 
         self.queryProj = nn.Linear(numNeurons, embedDimension, bias = True, device = self.device)
@@ -77,46 +84,36 @@ class INTERNEURON_NETWORK(nn.Module):
             if skipINN: 
                 ʕっʘ‿ʘʔっ("skipping INNforward")
                 perTokenActivationsTensor = self.neurons(_inputEmbeds)
+                self.expWindowSizes = torch.exp(self.logWindowSizes).round().detach() # < DETACHING THIS CAUSE I CBA RIGHT NOW LOMFAOOAKDFOA
+                self.roundWindows = torch.exp(self.logWindowSizes).round()
 
-                windowMeanActivations = []
-                for windowSize in allWindowSizes_new:
-                    if perTokenActivationsTensor.shape[0] < windowSize:
-                        tinyWindowCount += 1
-                        emptyWindow = torch.zeros_like(perTokenActivationsTensor[0]).unsqueeze(0)
-                        windowMeanActivations.append(emptyWindow)
-                    else:
-                        windowMean = torch.mean(perTokenActivationsTensor[-windowSize:], dim = 0, keepdim = True)
-                        windowMeanActivations.append(windowMean)
-
-                if not windowMeanActivations:
-                    print("no valid window sizes")
-                    return torch.zeros_like(perTokenActivationsTensor[0])
-                
-                windowMeanStack = torch.stack(windowMeanActivations, dim = 0).squeeze(1)
+                windowMeanStack = self.stackedWindowMeans(perTokenActivationsTensor, self.expWindowSizes)
+                                
                 clampedCerebellum = self.cerebellum.clamp(min=-1.0, max = 1.0)
-                #self.parliamentBlendClamped = torch.sigmoid(self.parliamentBlend)
-
-                self.cerebellumSoft = F.softmax(clampedCerebellum + (clampedCerebellum.abs() / 2), dim = 0)
-                mix = (0.5 * self.cerebellumSoft) + (0.5 * torch.tanh(clampedCerebellum))
+                #self.cerebellumSoft = F.softmax(clampedCerebellum + (clampedCerebellum.abs() / 2), dim = 0)
+                self.cerebellumSoft = F.softmax(clampedCerebellum, dim=0)# ONLY HERE FOR STATS ETC
+                mix = torch.tanh(clampedCerebellum)
                 weightedWindowStack = windowMeanStack * mix.reshape(-1, 1)
                 #weightedWindowStack = windowMeanStack * self.cerebellumSoft.reshape(-1, 1)
-                
-                combinedActivationsTensor = weightedWindowStack.sum(dim = 0, keepdim = True)
 
-                if tinyWindowCount > 0:
-                    print(f"saw {perTokenActivationsTensor.shape[0]} tokens; created {tinyWindowCount} empty windows.")
+                combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
 
                 ʕっʘ‿ʘʔっ("entropyReward?")
                 self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
                 self.entropyBonus = self.windowEntropy
+                if debugPrints: print(f"{torch.exp(self.logWindowSizes)}")
+                
+                #entropyTensor = self.entropyBonus.expand(self.expWindowSizes.shape[0])  # (9,)
+                #seqLenTensor = torch.full_like(self.expWindowSizes, float(perTokenActivationsTensor.shape[0]))  # (9,)
 
-                #target = 0.0
-                #rate = 0.001
-                #with torch.no_grad():
-                    #delta = (target - self.cerebellum) * rate
-                    #self.cerebellum.add_(delta)
+                windowMetaVector = torch.stack([self.expWindowSizes, clampedCerebellum, self.cerebellumSoft,
+                                                mix, mix, mix], dim=1)  # (9, 6)
 
-                return combinedActivationsTensor
+                windowMetaOut = self.windowMeta(windowMetaVector)  # (9, 1)
+                self.windowWeight = windowMetaOut.mean()
+                #if debugPrints: print(f"windowMetaOut.mean(): {self.windowWeight}")
+
+                return combinedActivationsTensor #* (0.01 * self.windowWeight)
             
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
             ʕっʘ‿ʘʔっ("CALL NEURON FORWARD")
@@ -173,36 +170,31 @@ class INTERNEURON_NETWORK(nn.Module):
             windowContextVector = windowContextVector + 0.2 * raw
 
             ʕっʘ‿ʘʔっ("entropyReward?")
-            self.windowEntropy = -torch.sum(self.attentionWindowWeights * torch.log(self.attentionWindowWeights + 1e-12))
-            self.entropyBonus = self.windowEntropy.item()
+            #self.windowEntropy = -torch.sum(self.attentionWindowWeights * torch.log(self.attentionWindowWeights + 1e-12))
+            #self.entropyBonus = self.windowEntropy.item()
 
             return windowContextVector
-        
-    def stackedWindowMeans(self, activations: torch.Tensor, windowSizes: list[int]) -> torch.Tensor:
-        """
-        Fully vectorized, loop-free window mean calculation.
-        Returns: (len(windowSizes), embedDim)
-        """
+    
+    def stackedWindowMeans(self, activations: torch.Tensor, windowSizes: torch.Tensor) -> torch.Tensor:
+        """ Fully vectorized, loop-free window mean calculation. Returns: (len(windowSizes), embedDim) """
         seqLen, embedDim = activations.shape
 
-        # Right-aligned padding: (maxW, embedDim)
-        padded = torch.zeros((windowMAX, embedDim), device = self.device)
+        padded = torch.zeros((windowMAX, embedDim), device=self.device)
         padded[-min(seqLen, windowMAX):] = activations[-min(seqLen, windowMAX):]
 
-        # Stack: (numWindows, maxW, embedDim)
-        stacked = padded.unsqueeze(0).repeat(len(windowSizes), 1, 1)
+        stacked = padded.unsqueeze(0).repeat(windowSizes.shape[0], 1, 1)
 
-        # Build mask: (numWindows, maxW, 1)
-        range_mask = torch.arange(windowMAX, device = self.device).unsqueeze(0)
-        window_tensor = torch.tensor(windowSizes, device = self.device).unsqueeze(1)
-        mask = (range_mask < window_tensor).float().unsqueeze(2)
+        range_mask = torch.arange(windowMAX, device=self.device).unsqueeze(0)  # (1, maxW)
+        window_tensor = torch.clamp(windowSizes.round(), min=1).unsqueeze(1)  # (numWindows, 1)
 
-        # Apply mask, compute sums and divide by window sizes
+        mask = (range_mask < window_tensor).float().unsqueeze(2)  # (numWindows, maxW, 1)
+
         masked = stacked * mask
-        sums = masked.sum(dim = 1)
+        sums = masked.sum(dim=1)  # (numWindows, embedDim)
         means = sums / window_tensor
 
         return means  # shape: (numWindows, embedDim)
+
     
     def INN_getStats(self):
         with self.inn_counsellor.infodump("INN_getStats") as ʕっʘ‿ʘʔっ:
@@ -259,7 +251,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         #INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellum"], stats["INN_cerebellumSoft"]), key = lambda x: x[1], reverse = True)
                         #INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCerebellum)
                         #windowVotes_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_parliament", rawTensor = stats["INN_parliament"], softTensor = stats["INN_parliamentSoft"], windowSizes = allWindowSizes_new)
-                        INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = stats["INN_cerebellum"], softTensor = stats["INN_cerebellumSoft"], windowSizes = allWindowSizes_new)
+                        INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = stats["INN_cerebellum"], softTensor = stats["INN_cerebellumSoft"], windowSizes = self.expWindowSizes)
                         if debugPrints: print(f"{INN_cerebellum_str}")
 
 
@@ -273,7 +265,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         ʕっʘ‿ʘʔっ("♥credibilityBiasString")
                         #INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key = lambda x: x[1], reverse = True)
                         #INN_credibilityBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCredibilityBias)
-                        INN_credibilityBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_credibilityBias", rawTensor = stats["INN_credibilityBias"], softTensor = stats["INN_credibilityBiasSoft"], windowSizes = allWindowSizes_new)
+                        INN_credibilityBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_credibilityBias", rawTensor = stats["INN_credibilityBias"], softTensor = stats["INN_credibilityBiasSoft"], windowSizes = self.expWindowSizes)
                         if debugPrints: print(f"{INN_credibilityBias_str}") 
 
                     if INN_judgeBiasStats:

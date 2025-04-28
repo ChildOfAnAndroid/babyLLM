@@ -9,6 +9,7 @@ from transformers import AutoTokenizer, PreTrainedTokenizerFast
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers, ByteLevelBPETokenizer
 from tokenizers.processors import ByteLevel
 import os, re, json, random, torch
+from SCHOOL.notebook.tools.genBoi import *
 
 """
 Handles vocab creation, loading, and tokenization.
@@ -153,40 +154,42 @@ class LIBRARIAN:
             return loadTrainingData
     
     """GENERATE TRAINING DATA"""
-    def genTrainingData(self, _windowMAX = windowMAX, _startIndex = trainingStartIndex):
+    def genTrainingData(self, _windowMAX = windowMAX, _startIndex = trainingStartIndex, _trainingDataPairNumber = trainingDataPairNumber):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             genCount = 0
-            """generates training data pairs (input sequences and target tokens)"""
             trainingDataPairs = []
-            if isinstance(_windowMAX, torch.Tensor):
-                _windowMAX = _windowMAX
-            else:
-                _windowMAX = int(_windowMAX)
+
+            ʕっʘ‿ʘʔっ("generating training data pairs")
+            if isinstance(_windowMAX, torch.Tensor): _windowMAX = _windowMAX
+            else: _windowMAX = int(_windowMAX)
+
             """allows for a random start in the training data file"""
-            if _startIndex == 'random':
-                _startIndex = random.randint(0, len(self.tokens) - _windowMAX - 1)
-            else:
-                _startIndex = int(_startIndex)
+            if _startIndex == 'random': _startIndex = random.randint(0, len(self.tokens) - _windowMAX - 1)
+            else: _startIndex = int(_startIndex)
+
             endIndex = len(self.tokens) - _windowMAX
             numTargetTokens = numTokensPerStep
-            if isinstance(numTargetTokens, torch.Tensor):
-                numTargetTokens = numTargetTokens
-            else:
-                numTargetTokens = int(numTargetTokens)
-            ʕっʘ‿ʘʔっ("start generating training data")
+
+            if isinstance(numTargetTokens, torch.Tensor): numTargetTokens = numTargetTokens
+            else: numTargetTokens = int(numTargetTokens)
+
+            ʕっʘ‿ʘʔっ("create sliding window training pairs") # creates sliding windows from the tokenized data to form inputSeq, uses next token as target
             for i in range(_startIndex, endIndex):
-                ʕっʘ‿ʘʔっ("generate training sequence") # creates sliding windows from the tokenized data to form inputSeq, uses next token as target
-                inputSeq = self.tokens[i:i + _windowMAX] # a list of tokens (str) of length `windowMAX`
-                targetTokens = self.tokens[i + _windowMAX : i + _windowMAX + numTargetTokens] # a single token (str) that follows the input_sequence.
-                if len(targetTokens) < numTargetTokens:
-                    continue
+                ʕっʘ‿ʘʔっ("token input sequence, as strings, length _windowMax")
+                inputSeq = self.tokens[i:i + _windowMAX]
+
+                ʕっʘ‿ʘʔっ("target token, as a string")
+                targetTokens = self.tokens[i + _windowMAX : i + _windowMAX + numTargetTokens]
+
+                if len(targetTokens) < numTargetTokens: continue
+
                 if all(token in self.vocabList for token in inputSeq) and all(t_token in self.vocabList for t_token in targetTokens):
                     genCount += 1
-                    if genCount >= trainingDataPairNumber:
+                    if genCount >= _trainingDataPairNumber:
                         break
                     trainingDataPairs.append((inputSeq, targetTokens))
                     if genCount % 10000 == 0:
-                        print(f"generated {genCount}x trainingDataPairs!")
+                        print(f"\n{makeDatBoi()} {babyName}: generated {genCount}x trainingDataPairs!")
                 else:
                     print(f"skipping UNK - inputSeq: '{inputSeq}', targetSeq: '{targetTokens}'")
         """returns a list of tuples: (inputSeq, targetToken)"""
