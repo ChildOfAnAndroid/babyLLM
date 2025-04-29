@@ -16,10 +16,10 @@ def makeDatBoi():
 
     # >> -- ʕ"っ"☯‿☯ʔっ
     leftArmsIn = ["ฅ", "っ", "ノ", "⊃", "ゝ"]
-    leftArmsIn += hairThingys
+    ### leftArmsIn += hairThingys # what the hell, she said!
 
     # ʕっ"ʘ"‿"ʘ"ʔっ
-    eyes = ["꩜", "⚈", "◉", "•", "o", "ʘ", "ₓ", "ʘ", "•̀", "•́", 
+    eyes = ["⚈", "◉", "•", "o", "ʘ", "ₓ", "ʘ", "•̀", "•́", "꩜ ", 
             "⋆", "✰", "♡", "‿", "ෆ", "ᵔ", "-", "☯", "⊗", "˙",
             "☉",]
 
@@ -61,7 +61,7 @@ def makeDatBoi():
 
     hugRight = random.choice([True, False])
     if hugRight: datBoi += random.choice(rightArmsIn)
-    rightHair = random.choice([True,False])
+    rightHair = random.choice([True, False])
     if rightHair and hugRight is False and leftHair is False and thingyLeft is False: datBoi += random.choice(hairThingys)
     datBoi += random.choice(rightSides)
 

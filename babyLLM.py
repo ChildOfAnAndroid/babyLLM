@@ -280,15 +280,15 @@ class BABYLLM(nn.Module):
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 #self.logMemoryLength.data.fill_(math.log(memoryLengthGOAL))  # Memory length default
-                #self.logRepetitionWindow.data.fill_(math.log(4))  # Repetition window default
+                #self.logRepetitionWindow.data.fill_(math.log(16))  # Repetition window default
                 #self.interneuronNetwork.logWindowSizes.data.copy_(
                 #    torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))
                 #)
                 #for module in self.interneuronNetwork.windowMeta:
                 #    if isinstance(module, torch.nn.Linear):
                #        module.reset_parameters()
-            with torch.no_grad():
-                self.logTemp.clamp_(math.log(0.7), math.log(0.9))
+            #with torch.no_grad():
+                #self.logTemp.clamp_(math.log(0.7), math.log(0.9))
                 #temperature = math.exp(self.logTemp)
 
             if skipMetaLoss:
