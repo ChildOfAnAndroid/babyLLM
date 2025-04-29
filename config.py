@@ -118,7 +118,22 @@ mostImportantStats = ["memoryLength",       "LR",                   "learningRat
                       "latestLossDelta",    "AvgLoss",              "loss", 
                       "gradNorm",           "gradientClipMaxNorm",  "scheduledSamplingRate", 
                       "sampledTokens",      "repetitionPenalty",    "temperature",
-                      "repetitionWindow",   "windowSizesMean",      "INN_cerebellumMean", ]
+                      "repetitionWindow",   "windowSizesMean",      "INN_cerebellumMean", 
+                      "combinedActivationsTensorNorm",              "refinedActivations", 
+                      "avgAdjustmentINN"]
+
+allRecordedOtherStats = ["avgLoss", "stepLoss", "tokenCount",
+                         "trainingStepCount", "windowWeight", "INN_cerebellumStd",
+                         "shortDecay", "longDecay", "latestMemoryGates",
+                         "embedNormMean", "embedNormStd", "embedNormMax",
+                         "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift",
+                         "logitMin", "logitMax", "logitSeq",
+                         "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax",
+                         "logitWeightSparsity", "logitWeightDrift", "logitBiasMean",
+                         "logitBiasStd", "logitBiasMax", "n_weightMean",
+                         "n_weightStd", "n_weightMin", "n_weightMax",
+                         "n_biasesMean", "n_biasesStd", "n_biasesMin",
+                         "n_biasesMax", "n_sparsity"]
 
 percentileBands = [100.0, 99.8, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.2, 0.00]
 
@@ -155,7 +170,7 @@ forwardProfiler = False
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 5000
 trainingDataSliceSize_max = 300000
-reflectionFreq = 1234
+reflectionFreq = 3456
 # --- #
 trainingDataPairNumber = 200000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
