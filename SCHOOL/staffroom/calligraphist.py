@@ -153,7 +153,7 @@ class S_OUTPUT:
             "almostPerfect":0.9750,    "perfect":    0.9875,    "superPerfect": float('inf'),}
         
         staticBand = {"fine":   float('inf')}
-
+        return {v: self.getDynamicPercentileBands(v) for v in mostImportantStats + allRecordedOtherStats}
         return {
             "loss":                     self.getDynamicPercentileBands("loss"),
             "avgLoss":                  self.getDynamicPercentileBands("avgLoss"),
@@ -519,7 +519,7 @@ class S_OUTPUT:
             for w, raw, soft in triplets:
                 raw_style = self.S_getStat(f"{label}", raw.item())
                 soft_style = self.S_getStat(f"{label}Soft", soft.item())
-                chunk = f"{self.S_apply(raw_style, f'{raw.item():.6f}')} ({self.S_apply(soft_style, f'{soft.item():.2f}')}) {self.S_apply('dim', f'w{int(w)} ({w:.6f})')}"
+                chunk = f"{self.S_apply(raw_style, f'{raw.item():.10f}')} ({self.S_apply(soft_style, f'{soft.item():.4f}')}) {self.S_apply('dim', f'w{int(w)} ({w:.2f})')}"
                 formatted.append(chunk)
             return "\n".join(formatted)
         except Exception as e:

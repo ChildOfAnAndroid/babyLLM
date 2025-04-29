@@ -28,3 +28,11 @@ print(output.S_apply('perfect', "ELODIE IS PERFECT owo uwu"))
 #print(output.S_apply('omgwtf', "PETE IS OMGWTF"))
 #print(output.S_apply('omgwtf', "CHARIS IS OMGWTF!"))
 #print(output.S_apply('emergency', "BABYLLM IS EMERGENCY"))
+
+print("❀ ʕ⊃✰✰⋆⋆")
+print("✰✰⋆⋆")
+print("✰✰⋆⋆꩜ ❀ ꩜ ʕ꩜ ⊃꩜")
+
+print("ʕっ•̀o•́ʔっ✰✰⋆⋆")
+
+print("ʕっ꩜ o꩜ ʔっ✰✰⋆⋆")

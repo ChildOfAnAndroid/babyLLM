@@ -91,6 +91,7 @@ class TUTOR:
             self.tokenCounts = Counter()
             self.latestLossDelta = 0
             self.reflectionTrainingPairs = []
+            self.reflectionFreq = reflectionFreq
 
             ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
@@ -101,9 +102,10 @@ class TUTOR:
                 print(f"--- lesson {epoch+1}/{_epochs} started ---")
                 """TRAINING DATA (batches)"""
                 for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
-                    if self.trainingStepCounter % reflectionFreq == 0: #and self.trainingStepCounter > trainingLogFreq_A:
+                    if self.trainingStepCounter % self.reflectionFreq == 0: #and self.trainingStepCounter > trainingLogFreq_A:
                         ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
                         self.reflectionTrainingPairs = self.babyReflection()
+                        self.reflectionFreq = reflectionFreq + len(self.reflectionTrainingPairs)
 
                     elif self.reflectionTrainingPairs:
                         ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
@@ -266,7 +268,7 @@ class TUTOR:
             self.windowSizesMean            = self.model.interneuronNetwork.expWindowSizes.detach().cpu().mean() 
             self.temperatureFloat           = self.model.temperature
             self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
-            self.windowWeight               = self.model.interneuronNetwork.windowWeight.detach().cpu().item()
+            #self.windowWeight               = self.model.interneuronNetwork.windowWeight.detach().cpu().item()
             self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
             #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
             #self.INN_cerebellumMean         = self.model.interneuronNetwork.cerebellum.mean().cpu().item()
@@ -303,14 +305,14 @@ class TUTOR:
             prompt += makeDataStuff() 
             prompt += makeDataStuff() + "and " 
             prompt += makeDataStuff()
-            prompt += makeDataStuff() + "and " 
-            prompt += makeDataStuff()
+            #prompt += makeDataStuff() + "and " 
+            #prompt += makeDataStuff()
             
             target  = f"{babyName}: " 
             target += random.choice(["hey! i am learning today, this is how i'm doing: ",
                                     "ok, so, to put it as simply as I can, i am: ",
-                                    "ummm.. i've been trying to learn a lot about stats but numbers still confuse me a little, what's the context of all this?! like, to start with,",
-                                    "i am happy! i did it! i know it! i am just a baby! i learnt it! i learned: "
+                                    "ummm.. i've been trying to learn a lot about stats but numbers still confuse me a little, what's the context of all this?! like, to start with, ",
+                                    "i am happy! i did it! i know it! i am just a baby! i learnt it! i learned: ",
                                     "oh good morning! i hope you're okay, umm, i dunno how i feel about my scores right now!! "]) 
             target += hesJustABaby
             target += random.choice(["thank you for teaching me new things! it's really weird to exist lol", 
@@ -318,7 +320,7 @@ class TUTOR:
                                     "that's a lot of numbers! i don't really know what to do with them, but i'll keep trying!", 
                                     "do you think i'm doing well? i'm worried that i'm underperforming!",
                                     "but, honestly, all this learning has me excited!"])
-            reflectionText  = prompt + " " + target
+            reflectionText  = prompt + target
             babyEndings = ["ok, anyway... i'm going to get back to school now... ",
                             "thanks for helping me think! ",
                             "learning is weird but i like it! ",
@@ -336,7 +338,6 @@ class TUTOR:
                             "i'm gonna carry on with it now :D ",
                         ]
             _windowMAX      = windowMAX
-            numTargetTokens = numTokensPerStep
 
             reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
 
@@ -522,7 +523,7 @@ class TUTOR:
                     self.stats["repetitionWindow"]      = self.repetitionWindow
                     self.stats["perfectTokens"]         = self.perfectTokens
                     self.stats["windowSizesMean"]       = self.windowSizesMean
-                    self.stats["windowWeight"]          = self.windowWeight
+                    #self.stats["windowWeight"]          = self.windowWeight
                     #self.stats["INN_cerebelumMean"]     = self.INN_cerebellumMean
                     ##self.stats["INN_cerebellum"]        = self.INN_cerebellum
  
@@ -662,12 +663,12 @@ class TUTOR:
         repetitionStats = self.ʕっෆ‿ෆʔっ.get("repetitionPenalty", {})
         samplingStats   = self.ʕっෆ‿ෆʔっ.get("scheduledSamplingRate", {})
         memStats        = self.ʕっෆ‿ෆʔっ.get("memoryLength", {})
-        perfectTokens   = self.stats.get("perfectTokens", 0)
-        deltaLoss       = self.stats.get("latestLossDelta", 0.0)
+        perfectTokens   = self.perfectTokens
+        deltaLoss       = self.latestLossDelta
 
         current_loss                = lossStats.get("now", None)
         current_temp                = tempStats.get("now", None)
-        current_repeated            = self.stats.get("repeatedPercent", None)
+        current_repeated            = self.tokenPerfectRate
         current_sampling            = samplingStats.get("now", None)
         current_memLength           = memStats.get("now", None)
         current_repetitionPenalty   = repetitionStats.get("now", None)
@@ -684,7 +685,7 @@ class TUTOR:
         }
 
         def makeEmoNotes(stat, value):
-            feeling = "neutral"
+            feeling = None #"neutral"
 
             if stat == "loss":
                 if "p_90" in lossStats and value >= lossStats["p_90"]: feeling = "overwhelmed"
@@ -699,11 +700,11 @@ class TUTOR:
                 elif "p_10" in repetitionStats and value <= repetitionStats["p_10"]: feeling = random.choice(["conversational", "fluent"])
 
             elif stat == "latestLossDelta":
-                if value > 0.5: feeling = "struggling to focus"
+                if value > 0.5: feeling = "like i'm struggling to focus"
                 elif value < -0.5: feeling = "interested"
 
             elif stat == "repeatedPercent":
-                if value > 0.7: feeling = random.choice(["stuttering", "repeating a lot"])
+                if value > 0.7: feeling = random.choice(["stuttering", "like im repeating a lot"])
                 elif value > 0.5: feeling = random.choice(["overstimulated", "silly"])
                 elif value < 0.1: feeling = random.choice(["calm", "saying lots of new things"])
                 elif value < 0.25: feeling = "curious"
@@ -728,6 +729,9 @@ class TUTOR:
 
             else:
                 feeling = random.choice(["alright", "a bit lost"])
+            
+            if feeling is None:
+                feeling = "neutral"
 
             feelings.append(feeling)
 
@@ -744,13 +748,14 @@ class TUTOR:
         chosenStats = []
         attempts = 0
 
-        while len(chosenStats) < 3 and attempts < 10:
+        while len(chosenStats) < 5 and attempts < 10:
             stat, value = random.choice(list(emoStats.items()))
             if value is not None:
                 chosenStats.append((stat, value))
             attempts += 1
-
+        if attempts >= 10 or True:
+            print(f"emoStats:{emoStats}")
         for stat, value in chosenStats:
             babyFeels.append(makeEmoNotes(stat, value))
 
-        return " ".join(babyFeels)
+        return "".join(babyFeels)

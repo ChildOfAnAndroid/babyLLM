@@ -54,14 +54,19 @@ class INTERNEURON_NETWORK(nn.Module):
         self.calligraphist = _calligraphist
         self.entropyBonus = 0
 
+        self.stats = {}
+        self.refinerAdjustmentHistory = []
+        self.refHistory = []
+        self.combHistory = []
+
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(_counsellor = self.inn_counsellor)
 
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
         self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))) # one tensor per window size!
-        self.windowMeta = torch.nn.Sequential(torch.nn.Linear(6, 18, device = self.device), 
-                                            torch.nn.LeakyReLU(negative_slope = 0.01),
-                                            torch.nn.Linear(18, 1, device = self.device))
+        self.refinement = torch.nn.Sequential(nn.Linear(10000, 32, device=self.device),
+                                                nn.LeakyReLU(negative_slope=0.01),
+                                                nn.Linear(32, 10000, device=self.device))
 
         # parliament stuff
         self.windowCombos = nn.ModuleList([nn.Linear(numNeurons, numNeurons, device = self.device) for _ in range(len(allWindowSizes_new))])
@@ -97,24 +102,39 @@ class INTERNEURON_NETWORK(nn.Module):
                 weightedWindowStack = windowMeanStack * mix.reshape(-1, 1)
                 #weightedWindowStack = windowMeanStack * self.cerebellumSoft.reshape(-1, 1)
 
-                combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
-
                 ʕっʘ‿ʘʔっ("entropyReward?")
                 self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
                 self.entropyBonus = self.windowEntropy
                 if debugPrints: print(f"{torch.exp(self.logWindowSizes)}")
-                
+
+                combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
+
+                refinedActivations = self.refinement(combinedActivationsTensor)
+
+                combinedActivationsMeta = combinedActivationsTensor + refinedActivations # residual skip connection, lets neither of them be too powerful to start with + preserves original info
+
+                if True:
+                    adjustment = (refinedActivations.norm() / (combinedActivationsTensor.norm() + 1e-8)).item()
+                    self.refinerAdjustmentHistory.append(adjustment)
+                    self.combHistory.append(combinedActivationsTensor.norm().item())
+                    self.refHistory.append(refinedActivations.norm().item())
+
+                    if len(self.refinerAdjustmentHistory) >= 32:
+                        avgAdjustment = sum(self.refinerAdjustmentHistory) / len(self.refinerAdjustmentHistory)
+                        avgComb = sum(self.combHistory) / len(self.combHistory)
+                        avgRef = sum(self.refHistory) / len(self.refHistory)
+                        self.stats["combinedActivationsTensorNorm"] = avgComb
+                        self.stats["refinedActivations"] = avgRef
+                        self.stats["avgAdjustmentINN"] = avgAdjustment
+                        if debugPrints: print(f"[refinement vs cerebellum ratio thingy (over 32 tokens)]: {avgAdjustment:.6f}")
+
+                        self.refinerAdjustmentHistory = []
+                        self.combHistory = []
+                        self.refHistory = []  # reset after printing
                 #entropyTensor = self.entropyBonus.expand(self.expWindowSizes.shape[0])  # (9,)
                 #seqLenTensor = torch.full_like(self.expWindowSizes, float(perTokenActivationsTensor.shape[0]))  # (9,)
 
-                windowMetaVector = torch.stack([self.expWindowSizes, clampedCerebellum, self.cerebellumSoft,
-                                                mix, mix, mix], dim=1)  # (9, 6)
-
-                windowMetaOut = self.windowMeta(windowMetaVector)  # (9, 1)
-                self.windowWeight = windowMetaOut.mean()
-                #if debugPrints: print(f"windowMetaOut.mean(): {self.windowWeight}")
-
-                return combinedActivationsTensor #* (0.01 * self.windowWeight)
+                return combinedActivationsMeta #* (0.01 * self.windowWeight)
             
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
             ʕっʘ‿ʘʔっ("CALL NEURON FORWARD")
@@ -203,104 +223,103 @@ class INTERNEURON_NETWORK(nn.Module):
             INN_credibilityBias_str = ""
             INN_judgeBias_str = ""
             self.windowVotes_str = ""
-            stats = {}
             if collectStats and n_collectStats:
                 ʕっʘ‿ʘʔっ("torch.no_grad♥")
                 with torch.no_grad():
                     if n_weightStats:
                         ʕっʘ‿ʘʔっ("♥n_weightStats")
-                        stats["n_weightMean"] = self.neurons.n_weights.mean()
-                        stats["n_weightStd"] = self.neurons.n_weights.std()
-                        stats["n_weightMin"] = self.neurons.n_weights.min()
-                        stats["n_weightMax"] = self.neurons.n_weights.max()
-                        if debugPrints: print(f"neuron weight mean: {stats["n_weightMean"]} std: {stats["n_weightStd"]} min: {stats["n_weightMin"]} max: {stats["n_weightMax"]}")
+                        self.stats["n_weightMean"] = self.neurons.n_weights.mean()
+                        self.stats["n_weightStd"] = self.neurons.n_weights.std()
+                        self.stats["n_weightMin"] = self.neurons.n_weights.min()
+                        self.stats["n_weightMax"] = self.neurons.n_weights.max()
+                        if debugPrints: print(f"neuron weight mean: {self.stats["n_weightMean"]} std: {self.stats["n_weightStd"]} min: {self.stats["n_weightMin"]} max: {self.stats["n_weightMax"]}")
                     
                     if n_weightNormStats:
                         ʕっʘ‿ʘʔっ("♥n_weightNormStats")
-                        stats["n_weightNorm"] = torch.norm(self.neurons.n_weights, dim = 1)
-                        stats["n_weightNormMean"] = stats["n_weightNorm"].mean()
-                        stats["n_weightNormMin"] = stats["n_weightNorm"].min()
-                        stats["n_weightNormMax"] = stats["n_weightNorm"].max()
-                        if debugPrints: print(f"neuron weightNorm: {stats["n_weightNorm"]} mean: {stats["n_weightNormMean"]} min: {stats["n_weightNormMax"]} max: {stats["n_weightNormMin"]}")
+                        self.stats["n_weightNorm"] = torch.norm(self.neurons.n_weights, dim = 1)
+                        self.stats["n_weightNormMean"] = self.stats["n_weightNorm"].mean()
+                        self.stats["n_weightNormMin"] = self.stats["n_weightNorm"].min()
+                        self.stats["n_weightNormMax"] = self.stats["n_weightNorm"].max()
+                        if debugPrints: print(f"neuron weightNorm: {self.stats["n_weightNorm"]} mean: {self.stats["n_weightNormMean"]} min: {self.stats["n_weightNormMax"]} max: {self.stats["n_weightNormMin"]}")
 
                     if n_biasesStats:
                         ʕっʘ‿ʘʔっ("♥n_biasesStats")                    
-                        stats["n_biasesMean"] = self.neurons.n_biases.mean()
-                        stats["n_biasesStd"] = self.neurons.n_biases.std()
-                        stats["n_biasesMin"] = self.neurons.n_biases.min()
-                        stats["n_biasesMax"] = self.neurons.n_biases.max()
-                        if debugPrints: print(f"neuron biases mean: {stats["n_biasesMean"]} std: {stats["n_biasesStd"]} min: {stats["n_biasesMin"]} max: {stats["n_biasesMax"]}")
+                        self.stats["n_biasesMean"] = self.neurons.n_biases.mean()
+                        self.stats["n_biasesStd"] = self.neurons.n_biases.std()
+                        self.stats["n_biasesMin"] = self.neurons.n_biases.min()
+                        self.stats["n_biasesMax"] = self.neurons.n_biases.max()
+                        if debugPrints: print(f"neuron biases mean: {self.stats["n_biasesMean"]} std: {self.stats["n_biasesStd"]} min: {self.stats["n_biasesMin"]} max: {self.stats["n_biasesMax"]}")
 
                     if n_sparsityStat:
                         ʕっʘ‿ʘʔっ("♥getSparsityStat")
-                        stats["n_sparsity"] = (self.neurons.n_weights.abs() < 1e-5).float().mean()
-                        if debugPrints: print(f"neuron sparsity: {stats["n_sparsity"]}")
+                        self.stats["n_sparsity"] = (self.neurons.n_weights.abs() < 1e-5).float().mean()
+                        if debugPrints: print(f"neuron sparsity: {self.stats["n_sparsity"]}")
 
             if collectStats and INN_collectStats:
                 ʕっʘ‿ʘʔっ("torch.no_grad♥")
                 with torch.no_grad():
                     if INN_cerebellumStats:
                         ʕっʘ‿ʘʔっ("♥getCerebellumStats") #THIS WAS WINDOWWEIGHTING
-                        stats["INN_cerebellum"] = self.cerebellum
-                        stats["INN_cerebellumSoft"] = self.cerebellumSoft
-                        stats["INN_cerebellumMean"] = self.cerebellum.mean()
-                        stats["INN_cerebellumStd"] = self.cerebellum.std()
-                        #stats["INN_parliament"] = self.parliamentBlend
-                        #stats["INN_parliamentSoft"] = self.parliamentBlendClamped
-                        if debugPrints: print(f"cerebellum: {stats["INN_cerebellum"]}, soft: {stats["INN_cerebellumSoft"]} mean: {stats['INN_cerebellumMean']} std: {stats['INN_cerebellumStd']}")
+                        self.stats["INN_cerebellum"] = self.cerebellum
+                        self.stats["INN_cerebellumSoft"] = self.cerebellumSoft
+                        self.stats["INN_cerebellumMean"] = self.cerebellum.mean()
+                        self.stats["INN_cerebellumStd"] = self.cerebellum.std()
+                        #self.stats["INN_parliament"] = self.parliamentBlend
+                        #self.stats["INN_parliamentSoft"] = self.parliamentBlendClamped
+                        if debugPrints: print(f"cerebellum: {self.stats["INN_cerebellum"]}, soft: {self.stats["INN_cerebellumSoft"]} mean: {self.stats['INN_cerebellumMean']} std: {self.stats['INN_cerebellumStd']}")
                         ʕっʘ‿ʘʔっ("♥cerebellumString")
-                        #INN_hybridCerebellum = sorted(zip(allWindowSizes_new, stats["INN_cerebellum"], stats["INN_cerebellumSoft"]), key = lambda x: x[1], reverse = True)
+                        #INN_hybridCerebellum = sorted(zip(allWindowSizes_new, self.stats["INN_cerebellum"], self.stats["INN_cerebellumSoft"]), key = lambda x: x[1], reverse = True)
                         #INN_cerebellum_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCerebellum)
-                        #windowVotes_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_parliament", rawTensor = stats["INN_parliament"], softTensor = stats["INN_parliamentSoft"], windowSizes = allWindowSizes_new)
-                        INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = stats["INN_cerebellum"], softTensor = stats["INN_cerebellumSoft"], windowSizes = self.expWindowSizes)
+                        #windowVotes_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_parliament", rawTensor = self.stats["INN_parliament"], softTensor = self.stats["INN_parliamentSoft"], windowSizes = allWindowSizes_new)
+                        INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.stats["INN_cerebellum"], softTensor = self.stats["INN_cerebellumSoft"], windowSizes = self.expWindowSizes)
                         if debugPrints: print(f"{INN_cerebellum_str}")
 
 
                     if INN_credibilityBiasStats:
                         ʕっʘ‿ʘʔっ("♥getCredibilityBiasStats")
-                        stats["INN_credibilityBias"] = self.credibilityBias
-                        stats["INN_credibilityBiasSoft"] = F.softmax(self.credibilityBias, dim = 0)
-                        stats["INN_credibilityBiasMean"] = self.credibilityBias.mean()
-                        stats["INN_credibilityBiasStd"] = self.credibilityBias.std()
-                        if debugPrints: print(f"credibilityBias: {stats["INN_credibilityBias"]} soft: {stats["INN_credibilityBiasSoft"]} mean: {stats["INN_credibilityBiasMean"]} std: {stats["INN_credibilityBiasStd"]}")
+                        self.stats["INN_credibilityBias"] = self.credibilityBias
+                        self.stats["INN_credibilityBiasSoft"] = F.softmax(self.credibilityBias, dim = 0)
+                        self.stats["INN_credibilityBiasMean"] = self.credibilityBias.mean()
+                        self.stats["INN_credibilityBiasStd"] = self.credibilityBias.std()
+                        if debugPrints: print(f"credibilityBias: {self.stats["INN_credibilityBias"]} soft: {self.stats["INN_credibilityBiasSoft"]} mean: {self.stats["INN_credibilityBiasMean"]} std: {self.stats["INN_credibilityBiasStd"]}")
                         ʕっʘ‿ʘʔっ("♥credibilityBiasString")
-                        #INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, stats["INN_credibilityBias"], stats["INN_credibilityBiasSoft"]), key = lambda x: x[1], reverse = True)
+                        #INN_hybridCredibilityBias = sorted(zip(allWindowSizes_new, self.stats["INN_credibilityBias"], self.stats["INN_credibilityBiasSoft"]), key = lambda x: x[1], reverse = True)
                         #INN_credibilityBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFTMAX:.2f})" for w, RAW, SOFTMAX in INN_hybridCredibilityBias)
-                        INN_credibilityBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_credibilityBias", rawTensor = stats["INN_credibilityBias"], softTensor = stats["INN_credibilityBiasSoft"], windowSizes = self.expWindowSizes)
+                        INN_credibilityBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_credibilityBias", rawTensor = self.stats["INN_credibilityBias"], softTensor = self.stats["INN_credibilityBiasSoft"], windowSizes = self.expWindowSizes)
                         if debugPrints: print(f"{INN_credibilityBias_str}") 
 
                     if INN_judgeBiasStats:
                         ʕっʘ‿ʘʔっ("♥getJudgeBiasStats")
-                        stats["INN_judgeBias"] = self.judgeBias
-                        stats["INN_judgeBiasSoft"] = F.softmax(self.judgeBias, dim = 0)
-                        stats["INN_judgeBiasMean"] = self.judgeBias.mean()
-                        stats["INN_judgeBiasStd"] = self.judgeBias.std()
-                        if debugPrints: print(f"judgeBias: {stats["INN_judgeBias"]} soft: {stats["INN_judgeBiasSoft"]} mean: {stats["INN_judgeBiasMean"]} std: {stats["INN_judgeBiasStd"]}")
+                        self.stats["INN_judgeBias"] = self.judgeBias
+                        self.stats["INN_judgeBiasSoft"] = F.softmax(self.judgeBias, dim = 0)
+                        self.stats["INN_judgeBiasMean"] = self.judgeBias.mean()
+                        self.stats["INN_judgeBiasStd"] = self.judgeBias.std()
+                        if debugPrints: print(f"judgeBias: {self.stats["INN_judgeBias"]} soft: {self.stats["INN_judgeBiasSoft"]} mean: {self.stats["INN_judgeBiasMean"]} std: {self.stats["INN_judgeBiasStd"]}")
                         ʕっʘ‿ʘʔっ("♥judgeBiasString")
-                        #INN_hybridJudgeBias = sorted(zip(allWindowSizes_new, stats["INN_judgeBiasSoft"], stats["INN_judgeBias"]), key = lambda x: x[1], reverse = True)
+                        #INN_hybridJudgeBias = sorted(zip(allWindowSizes_new, self.stats["INN_judgeBiasSoft"], self.stats["INN_judgeBias"]), key = lambda x: x[1], reverse = True)
                         #INN_judgeBias_str = ",".join(f"W{w}:{RAW:.5f} ({SOFT:.2f})" for w, SOFT, RAW in INN_hybridJudgeBias)
-                        INN_judgeBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_judgeBias", rawTensor = stats["INN_judgeBias"], softTensor = stats["INN_judgeBiasSoft"], windowSizes = allWindowSizes_new)
+                        INN_judgeBias_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_judgeBias", rawTensor = self.stats["INN_judgeBias"], softTensor = self.stats["INN_judgeBiasSoft"], windowSizes = allWindowSizes_new)
                         if debugPrints: print(f"{INN_judgeBias_str}")
                         
                     if INN_scoringStats:
                         ʕっʘ‿ʘʔっ("♥getScoringStats")
-                        #stats["INN_scores"] = self.scores
-                        #stats["INN_selfScores"] = self.selfScores
-                        #stats["INN_peerScores"] = self.peerScores
-                        #stats["INN_combinedScores"] = self.combinedScores
+                        #self.stats["INN_scores"] = self.scores
+                        #self.stats["INN_selfScores"] = self.selfScores
+                        #self.stats["INN_peerScores"] = self.peerScores
+                        #self.stats["INN_combinedScores"] = self.combinedScores
                         #if debugPrints: print(f"INN Parliament Scores: {INN_scores} self: {INN_selfScores} peer: {INN_peerScores} combined: {INN_combinedScores}")
 
-                    """window stats"""
+                    """window self.stats"""
                     if INN_windowStats:
                         ʕっʘ‿ʘʔっ("♥windowStats")
                         windowVotes_str = self.windowVotes_str
-                        #stats["INN_topWindowWeight"] = self.attentionWindowWeights.max()
-                        #stats["INN_windowStd"] = self.attentionWindowWeights.std()
-                        #stats["INN_windowEntropy"] = self.entropyBonus
-                        #stats["INN_effectiveWindowCount"] = torch.exp(torch.tensor(self.windowEntropy))
-                        #if debugPrints: print(f"window stats: top: {stats["INN_topWindowWeight"]} std: {stats["INN_windowStd"]} entropy: {stats["INN_windowEntropy"]} effective window count: {stats["INN_effectiveWindowCount"]}")
+                        #self.stats["INN_topWindowWeight"] = self.attentionWindowWeights.max()
+                        #self.stats["INN_windowStd"] = self.attentionWindowWeights.std()
+                        #self.stats["INN_windowEntropy"] = self.entropyBonus
+                        #self.stats["INN_effectiveWindowCount"] = torch.exp(torch.tensor(self.windowEntropy))
+                        #if debugPrints: print(f"window self.stats: top: {self.stats["INN_topWindowWeight"]} std: {self.stats["INN_windowStd"]} entropy: {self.stats["INN_windowEntropy"]} effective window count: {self.stats["INN_effectiveWindowCount"]}")
 
-        return stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str, windowVotes_str 
+        return self.stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str, windowVotes_str 
     
 if __name__ == "__main__":
     interneuronNetwork = INTERNEURON_NETWORK()
