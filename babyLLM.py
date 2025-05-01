@@ -125,7 +125,7 @@ class BABYLLM(nn.Module):
             if True:
                 self.normalisedHistory.append(self.normalisedActivations.norm().detach().item())
 
-                if len(self.normalisedHistory) >= 32:
+                if len(self.normalisedHistory) >= windowMAX:
                     avgNormalised = sum(self.normalisedHistory) / len(self.normalisedHistory)
                     self.stats["normalisedActivationsNorm"] = avgNormalised
                     self.normalisedHistory = []
@@ -168,9 +168,9 @@ class BABYLLM(nn.Module):
 
             if skipMetaLoss:
                 self.lastLossBaby = loss.item()
-                tempSoftClamp = 0.5 * (self.logTemp - math.log(0.8)).pow(2)
-                repeatWindowSoftClamp = 0.0125 * (self.logRepetitionWindow - math.log(repetitionWindowGOAL)).pow(2)
-                loss += tempSoftClamp + repeatWindowSoftClamp  # use .detach() if you don't want this to affect .backward()
+                tempSoftClamp = 0.45 * (self.logTemp - math.log(0.8)).pow(2)
+                #repeatWindowSoftClamp = 0.0125 * (self.logRepetitionWindow - math.log(repetitionWindowGOAL)).pow(2)
+                loss += tempSoftClamp  # use .detach() if you don't want this to affect .backward()
 
                 return loss
             else:
@@ -282,10 +282,10 @@ class BABYLLM(nn.Module):
                     #return
             ʕっʘ‿ʘʔっ("optimizer.step")
 
-            #with torch.no_grad():
+            with torch.no_grad():
                 # Reset learnable parameters to their initial values
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
-                #self.scheduledSamplingRate.data.fill_(0.85)  # Scheduled sampling full (no scheduled sampling yet)
+                self.scheduledSamplingRate.data.fill_(0.5)  # Scheduled sampling full (no scheduled sampling yet)
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 #self.logMemoryLength.data.fill_(math.log(1))  # Memory length default

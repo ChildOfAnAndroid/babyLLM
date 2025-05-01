@@ -18,6 +18,7 @@ class NEURON(nn.Module):
         # SELF ALLOWED - nn.parameter!
         self.n_weights = nn.Parameter(torch.randn(numNeurons, embedDimension, device = self.device) * 0.01)
         self.n_biases = nn.Parameter(torch.zeros(numNeurons, device = self.device))
+        self.neuronNorm = nn.LayerNorm(numNeurons, elementwise_affine=True, device=self.device)
         #self.n_counsellor = COUNSELLOR("NEURON", debug = debugPrints, durations = durationLogging)
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
@@ -31,17 +32,24 @@ class NEURON(nn.Module):
                 return activations[-1].unsqueeze(0) # Take LAST activation, unsqueeze to (1, ) for batch dim
             
             ʕっʘ‿ʘʔっ("computeBatchedDotProduct+bias") # Compute batched dot product + bias: (batch_size, num_neurons)
-            output = torch.matmul(_inputEmbeds, self.n_weights.T) + self.n_biases 
+            #output = torch.matmul(_inputEmbeds, self.n_weights.T) + self.n_biases 
+            rawOutput = torch.matmul(_inputEmbeds, self.n_weights.T) + self.n_biases  # shape: (seq_len, numNeurons)
+
+            ʕっʘ‿ʘʔっ("activationFunction")
+            activated = activationFunction(rawOutput)
+
+            ʕっʘ‿ʘʔっ("layerNorm")
+            normed = self.neuronNorm(activated)  # keeps shape: (seq_len, numNeurons)
 
             ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
-            output = activationFunction(output)
+            #output = activationFunction(output)
             if debugPrints: print("Device check:")
             if debugPrints: print("inputEmbeds:", _inputEmbeds.device)
-            if debugPrints: print("output tensor device:", output.device)
+            if debugPrints: print("normed tensor device:", normed.device)
             #output = torch.clamp(output, -5, 5) # ENSURE OUT-OF-PLACE
             #output.clamp_(-5, 5) # IN PLACE VER
 
-            return output
+            return normed
 
 """layer that applies the same set of neurons to each token embedding independently. - no sequence awareness!"""
 class INTERNEURON_NETWORK(nn.Module):
@@ -104,16 +112,15 @@ class INTERNEURON_NETWORK(nn.Module):
 
                 windowMeanStack = self.stackedWindowMeans(perTokenActivationsTensor, self.expWindowSizes)
                                  
-                sigmoidWeights = torch.sigmoid(self.cerebellum)           # squish raw values into [0, 1]
-                clamped = torch.clamp(sigmoidWeights, min=1e-4)           # avoid 0s
-                self.cerebellumSoft = clamped / clamped.sum()             # normalize across all windows
-
+                sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
+                clamped = torch.clamp(sigmoidWeights, min=1e-4) # avoid 0s
+                self.cerebellumSoft = clamped / clamped.sum()   # normalize across all windows
 
                 #clampedCerebellum = self.cerebellum.clamp(min=-1.0, max = 1.0)
                 #self.cerebellumSoft = F.softmax(clampedCerebellum + (clampedCerebellum.abs() / 2), dim = 0)
                 #self.cerebellumSoft = F.softmax(clampedCerebellum, dim=0)# ONLY HERE FOR STATS ETC
+
                 weightedWindowStack = windowMeanStack * self.cerebellumSoft.reshape(-1, 1)
-                #weightedWindowStack = windowMeanStack * self.cerebellumSoft.reshape(-1, 1)
 
                 ʕっʘ‿ʘʔっ("entropyReward?")
                 self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
