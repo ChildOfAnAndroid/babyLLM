@@ -5848,4 +5848,24 @@
 [babyllm] right, last time i got to step 91665... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 91665! what am i learning today?
+[charis]--- 2025-05-01 21:01:09 --- 
+[babyllm] right, last time i got to step 96422... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 96422! what am i learning today?
+[charis]--- 2025-05-01 21:03:10 --- 
+[babyllm] right, last time i got to step 96422... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 96422! what am i learning today?
+[charis]--- 2025-05-01 21:05:13 --- 
+[babyllm] right, last time i got to step 96483... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 96483! what am i learning today?
+[charis]--- 2025-05-01 21:06:19 --- 
+[babyllm] right, last time i got to step 96497... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 96497! what am i learning today?
+[charis]--- 2025-05-01 21:28:43 --- 
+[babyllm] right, last time i got to step 97569... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 97569! what am i learning today?
 [charis]
