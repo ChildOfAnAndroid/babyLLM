@@ -236,7 +236,7 @@ class TUTOR:
             _stats = self.stats,
             _INN_cerebellum_str = "", #stringStats["INN_cerebellum_str"],
             _INN_judgeBias_str = "", #stringStats["INN_judgeBias_str"],
-            _INN_credbilityBias_str = "", #stringStats["INN_credibilityBias_str"],
+            _INN_credibilityBias_str = "", #stringStats["INN_credibilityBias_str"],
             _topTokens_str = "", #stringStats["topTokens"],
             _otherInfo_str = f"avgLoss/100: {self.averageRecentLoss} | TUTOR.py {trainingLogFreq_1000}")
         
