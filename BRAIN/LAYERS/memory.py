@@ -43,6 +43,9 @@ class MEMORY(nn.Module):
                 currentGateNorm * _activationsTensor
             )
 
+            self.latestShortGateNorm = shortGateNorm
+            self.latestLongGateNorm = longGateNorm
+            self.latestCurrentGateNorm = currentGateNorm
             self.latestMemoryGates = torch.stack([shortGateNorm, longGateNorm, currentGateNorm])
 
             # store computed memories for after backward
@@ -70,6 +73,9 @@ class MEMORY(nn.Module):
                 ʕっʘ‿ʘʔっ("decayStats")
                 stats["shortDecay"] = torch.sigmoid(self.shortTermDecay)
                 stats["longDecay"] = torch.sigmoid(self.longTermDecay)
+                stats["latestShortGateNorm"] = self.latestShortGateNorm
+                stats["latestLongGateNorm"] = self.latestLongGateNorm
+                stats["latestCurrentGateNorm"] = self.latestCurrentGateNorm
                 stats["latestMemoryGates"] = self.latestMemoryGates
 
                 return stats

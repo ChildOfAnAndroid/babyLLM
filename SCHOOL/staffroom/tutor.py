@@ -102,10 +102,10 @@ class TUTOR:
                 print(f"--- lesson {epoch+1}/{_epochs} started ---")
                 """TRAINING DATA (batches)"""
                 for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
-                    if self.trainingStepCounter % self.reflectionFreq == 0: #and self.trainingStepCounter > trainingLogFreq_A:
+                    if self.trainingStepCounter == self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
                         ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
                         self.reflectionTrainingPairs = self.babyReflection()
-                        self.reflectionFreq = reflectionFreq + len(self.reflectionTrainingPairs)
+                        self.reflectionFreq = self.trainingStepCounter + reflectionFreq + len(self.reflectionTrainingPairs)
 
                     elif self.reflectionTrainingPairs:
                         ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
@@ -208,6 +208,9 @@ class TUTOR:
                 )
 
                 sampledTokens = scheduledSampling and random.random() < self.scheduledSamplingRate
+                if j == 0:
+                    self.sampledFlags = []  # Only clear at start
+                self.sampledFlags.append(sampledTokens)
                 if sampledTokens:
                     self.stats['sampledTokens'] = self.stats.get('sampledTokens', 0) + 1
 
@@ -228,6 +231,8 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("appendStepLoss")
                     cumulativeLoss += stepLoss
 
+            self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
+            self.inputSampledFlags = self.sampledFlags.copy()
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
             #BACKWARDloss_ = (0.025*self.BACKWARDwobbleLoss)+(0.975*BACKWARDloss)
@@ -256,7 +261,7 @@ class TUTOR:
             if profiler: print(prof.key_averages().table())
             
             ʕっʘ‿ʘʔっ("clip_grad_norm")
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = self.gradientClipMaxNorm)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = 1)
             self.model.optimizer.step()
 
             ʕっʘ‿ʘʔっ("actions after looping")
@@ -268,6 +273,7 @@ class TUTOR:
             self.windowSizesMean            = self.model.interneuronNetwork.expWindowSizes.detach().cpu().mean() 
             self.temperatureFloat           = self.model.temperature
             self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
+            #self.normalisedActivations      = self.model.normalisedActivations.norm().detach().cpu().numpy().item()
             #self.windowWeight               = self.model.interneuronNetwork.windowWeight.detach().cpu().item()
             self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
             #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
@@ -356,8 +362,6 @@ class TUTOR:
         inputTargetPairs = []
         reflectionPointer = 0
 
-        reflectionPointer = 0
-
         while reflectionPointer + _windowMAX * 2 <= len(reflectionTokens):
             inputSeq = reflectionTokens[reflectionPointer : reflectionPointer + _windowMAX]
             targetSeq = reflectionTokens[reflectionPointer + _windowMAX : reflectionPointer + _windowMAX * 2]
@@ -398,7 +402,7 @@ class TUTOR:
                 _step = self.trainingStepCounter,
                 _inputSeq = self.inputSeq,
                 _guessedSeq_str = self.guessedTokenSeq,
-                _targetSeq_str = self.targetSeq[:windowMAX],
+                _targetSeq_str = self.stringStats.get("usedInputSeq", []),
                 _recentLoss = self.averageRecentLoss, #self.ʕっෆ‿ෆʔっ.get("loss", {}).get(f"{trainingLogFreq_A}_avg", 0), # self.stepLossFloat,
                 _loss = self.stepLossFloat,
                 _latestLossDelta = self.latestLossDelta,
@@ -432,12 +436,12 @@ class TUTOR:
                 _stats = self.stats,
                 _frequency = _frequency,
                 _LR = self.learningRate,
-                _INN_cerebellum_str = f"{self.stringStats["INN_cerebellum_str"]}",
-                _INN_judgeBias_str = f"{self.stringStats["INN_judgeBias_str"]}",
-                _INN_credbilityBias_str = f"{self.stringStats["INN_credibilityBias_str"]}",
+                _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
+                _INN_judgeBias_str = str(self.stringStats.get("INN_judgeBias_str", "<missing judgeBias>")),
+                _INN_credibilityBias_str = str(self.stringStats.get("INN_credibilityBias_str", "<missing credibilityBias>")),
+                _topTokens_str = str(self.stringStats.get("topTokens", "<missing topTokens>")),
                 _memoryGates_str = "",
-                _topTokens_str = self.stringStats["topTokens"],
-                _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats['windowVotes_str']} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
+                _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats.get('windowVotes_str', '<missing windowVotes>')} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 
@@ -490,6 +494,23 @@ class TUTOR:
             if collectStats:
                 ʕっʘ‿ʘʔっ("♥if collectStats♥")
 
+                ʕっʘ‿ʘʔっ("♥build usedInputSeq with styling")
+                usedInputSeq = self.inputSeqPredictions[-numTokensPerStep:]
+                formattedUsed = []
+
+                for i, idx in enumerate(usedInputSeq):
+                    tok = self.librarian.indexToToken.get(idx, "<UNK>")
+                    sampled = self.inputSampledFlags[-numTokensPerStep + i] if i < len(self.inputSampledFlags) else False
+
+                    if sampled:
+                        styled = self.calligraphist.S_apply(self.calligraphist.S_getStat('loss', self.stepLossFloat), tok)
+                    else:
+                        styled = self.calligraphist.S_apply('dim', tok)
+
+                    formattedUsed.append(styled)
+
+                self.stringStats["usedInputSeq"] = formattedUsed
+
                 if token_collectStats:
                     ʕっʘ‿ʘʔっ("♥if token_collectStats♥")
                     self.predictedTokenIndices = _predictedTokenIndices
@@ -501,7 +522,8 @@ class TUTOR:
 
                     ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
                     if not _predictedTokenIndices:
-                        return self.stats, [], self.guessedTokenSeq
+                        print("!! no predicted token indices — returning \{\} for stringStats")
+                        return self.stats, {}, self.guessedTokenSeq # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
                     target      = torch.tensor(_targetTokenIndexSeq[:numTokensPerStep], device = modelDevice)
                     predicted   = torch.tensor(self.predictedTokenIndices, device = modelDevice)
                     correct     = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
@@ -523,6 +545,8 @@ class TUTOR:
                     self.stats["repetitionWindow"]      = self.repetitionWindow
                     self.stats["perfectTokens"]         = self.perfectTokens
                     self.stats["windowSizesMean"]       = self.windowSizesMean
+                    self.stats["normalisedActivationsNorm"] = self.model.stats["normalisedActivationsNorm"]
+                    #self.stats["normalisedActivations"] = self.normalisedActivations
                     #self.stats["windowWeight"]          = self.windowWeight
                     #self.stats["INN_cerebelumMean"]     = self.INN_cerebellumMean
                     ##self.stats["INN_cerebellum"]        = self.INN_cerebellum
@@ -562,8 +586,8 @@ class TUTOR:
     def collectAllTimeStats(self):
         for _statKey, _value in self.stats.items():
             if not isinstance(_value, (int, float)):
-                if _statKey == "loss":
-                    print(f"Loss value is : {_value}, loss value type is {type(_value)}")
+                if debugPrints and _statKey == "loss":
+                    print(f"{_statKey} value is : {_value}, {_statKey} value type is {type(_value)}")
                 continue  # skip strings, tensors, weird stuff
 
             """ෆෆෆ^ ♥ KEYS ETC ♥ ^ෆෆෆ"""
@@ -593,7 +617,7 @@ class TUTOR:
             #ෆ‿ෆ["_p0.00"]   = min(ෆ‿ෆ.get("_p0.00", _value), _value) # BOTTOM EVER RECORD // PERCENTILE 0
 
             """ ෆෆෆ^ ♥ ROLLING STATS ♥ ^ෆෆෆ   """
-            if _statKey in rolling:
+            if _statKey in rolling or _statKey.startswith("INN_cerebellum_W"):
                 for freq in [printFreq, trainingLogFreq_A, trainingLogFreq_B]:
                     tag = f"{freq}"
                     if tag not in ෆ‿ෆ:

@@ -18,7 +18,7 @@ class S_OUTPUT:
         self.rollingAverages = None
         self.S_statBands = None  # Lazy-load this later
         self.cantPrint = 0
-
+        self.allKeys = None
 
         """TERMINAL CODES"""
         RESET = "\033[0m" # normal terminal
@@ -81,7 +81,7 @@ class S_OUTPUT:
         """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
         self.S_types = {
 
-            "superPerfect":  [ITALIC, GOLD],            # new top score ever // if above max
+            "superPerfect":  [GOLD],            # new top score ever // if above max
             "perfect":       [N],                    # 0.2 // -4.8 top score ever // if below max and above almost perf
 
             "almostPerfect": [M],   #[PINKPINK_],               #[BOLD, MAGENTA],   # 5 // -5
@@ -100,9 +100,11 @@ class S_OUTPUT:
             "omg":           [B],   #[RED_],                                        # 99.8 // +4.8
 
             "omgwtf":        [A],   #[REDRED_],         # 100.00 // bottom score ever // if above min and below omg
-            "omgwtf!":       [ITALIC, A],   #[CYAN],                    # new bottom score ever // if below min
+            "omgwtf!":       [BOLD, REDRED_],   #[CYAN],                    # new bottom score ever // if below min
 
             "emergency":     [BOLD, GREEN],
+            "italic":        [ITALIC],
+            "underline":     [UNDERLINE],
             "reset":         [RESET],                   # normal terminal
             "dim":           [RESET, DIM],              # dim style for background elements - arrows, colons, etc.
             "bold":          [BOLD],
@@ -153,7 +155,7 @@ class S_OUTPUT:
             "almostPerfect":0.9750,    "perfect":    0.9875,    "superPerfect": float('inf'),}
         
         staticBand = {"fine":   float('inf')}
-        return {v: self.getDynamicPercentileBands(v) for v in mostImportantStats + allRecordedOtherStats}
+        return {v: self.getDynamicPercentileBands(v) for v in ((mostImportantStats + allRecordedOtherStats) if self.allKeys is None else self.allKeys)}
         return {
             "loss":                     self.getDynamicPercentileBands("loss"),
             "avgLoss":                  self.getDynamicPercentileBands("avgLoss"),
@@ -231,7 +233,7 @@ class S_OUTPUT:
         if len(values) < 2:
             return {"dim": -float('inf')}
 
-        if statKey in mostImportantStats: #values is dict:
+        if statKey in mostImportantStats or statKey.startswith("INN_cerebellum_W"): #values is dict:
             keyList = {f"{printFreq}": printFreq, f"{trainingLogFreq_A}": trainingLogFreq_A, f"BIG{trainingLogFreq_A}": trainingLogFreq_A}
             requiredKey = list(keyList.keys())[0]
             for key, freq in keyList.items():
@@ -262,7 +264,7 @@ class S_OUTPUT:
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
             values = self.rollingAverages.get(_statType, []) if self.rollingAverages else []
             if not values or len(values) < 2:
-                if debugPrints: print(f"Returning a dim color for stat {_statType} and value {_statVal} (values is {values} (key present:{_statType in self.rollingAverages}))")
+                if debugPrints: print(f"Returning a dim color for stat {_statType} and value {_statVal} (values is {values} (key present:{_statType in self.rollingAverages if self.rollingAverages is not None else 'False'}))")
                 return "dim"
 
             if self.S_statBands is None:
@@ -345,7 +347,7 @@ class S_OUTPUT:
                 + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}\n")
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
 
-    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credbilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
+    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credibilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
             logOutput = ""
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -357,6 +359,7 @@ class S_OUTPUT:
             #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
             avgStats = {k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
+            self.allKeys = _stats.keys()
 
             stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.6f}")])
             logOutput = stampAndStep
@@ -388,7 +391,7 @@ class S_OUTPUT:
             ])
 
             newLineLittle += newLineDelim.join([
-                self.S_apply(self.S_getStat(k, v), f"{v:.10f}") + " " + self.S_apply("dim", k)
+                self.S_apply(self.S_getStat(k, v), f"{v:.6f}") + " " + self.S_apply("dim", k)
                 for k, v in avgStats.items()
                 if k in mostImportantStats
                 if v not in (None, "")
@@ -406,10 +409,10 @@ class S_OUTPUT:
                 print("→ trying to log judgeBias")
                 logOutput += delimiter + f"judgeBias{self.S_apply('reset', _INN_judgeBias_str)}"
 
-            if _INN_credbilityBias_str: 
+            if _INN_credibilityBias_str: 
                 ʕっʘ‿ʘʔっ("INN_credibilityBias_str")
                 print("→ trying to log credibilityBias")
-                logOutput += delimiter + f"credibilityBias{self.S_apply('reset', _INN_credbilityBias_str)}"
+                logOutput += delimiter + f"credibilityBias{self.S_apply('reset', _INN_credibilityBias_str)}"
 
             ʕっʘ‿ʘʔっ("memoryGates_str")
             if _memoryGates_str: logOutput += delimiter + f"memoryGates{self.S_apply('reset', _memoryGates_str)}"
@@ -512,14 +515,14 @@ class S_OUTPUT:
 
         return result, chosenName
     
-    def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes):
+    def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes, per_window_style = False):
         try:
             triplets = sorted(zip(windowSizes, rawTensor, softTensor), key=lambda x: x[1], reverse=True)
             formatted = []
             for w, raw, soft in triplets:
-                raw_style = self.S_getStat(f"{label}", raw.item())
-                soft_style = self.S_getStat(f"{label}Soft", soft.item())
-                chunk = f"{self.S_apply(raw_style, f'{raw.item():.10f}')} ({self.S_apply(soft_style, f'{soft.item():.4f}')}) {self.S_apply('dim', f'w{int(w)} ({w:.2f})')}"
+                raw_style = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(w)}", raw.item())
+                soft_style = self.S_getStat(f"{label}Soft" if not per_window_style else f"{label}_W{int(w)}", soft.item())
+                chunk = f"{self.S_apply(raw_style, f'{raw.item():.6f}')} ({self.S_apply(soft_style, f'{soft.item():.6f}')}) {self.S_apply('dim', f'w{int(w)} ({w:.2f})')}"
                 formatted.append(chunk)
             return "\n".join(formatted)
         except Exception as e:
