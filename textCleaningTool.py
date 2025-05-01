@@ -150,10 +150,6 @@ def clean_text(text):
     text = re.sub(r'\b(?:gn+)\b', 'good night', text, flags = re.IGNORECASE)
     # casually
     #text = re.sub(r'\b(?:caj+)\b', 'casually', text, flags = re.IGNORECASE)
-    # little
-    text = re.sub(r'\b(?:li+l+)\b', 'lil', text, flags = re.IGNORECASE) #burn him!
-    # and
-    text = re.sub(r'\b(?:&)\b', 'and', text, flags = re.IGNORECASE) #burn him!
 
     # ACROYNMS??
     # omg
