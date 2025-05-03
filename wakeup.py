@@ -206,7 +206,7 @@ def printStartLogs(_babyNote_loadCheckpointCheck, _userNote_loadCheckpoint, _bab
     #ʕっʘ‿ʘʔっ("♥bootPrints") # BOOT PRINTS TO TXT AND TERMINAL
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     babyNote_runStart = f" what am i learning today?" # no tag of 'babyllm:' because it merges with the end of above message in logs
-    userNote_runStart = f"[{userName}]" + input(babyNote_runStart + f"\n[{userName}] ").strip().lower() + ""
+    userNote_runStart = f"[{userName}] " + input(babyNote_runStart + f"\n[{userName}] ").strip().lower() + ""
     notesString = f"--- {timestamp} --- \n{_babyNote_loadCheckpointCheck}\n{_userNote_loadCheckpoint}\n{_babyNote_loadCheckpoint}{babyNote_runStart}\n{userNote_runStart}"
     print(notesString)
     #ʕっʘ‿ʘʔっ("♥printStartLogs")

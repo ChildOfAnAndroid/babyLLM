@@ -127,7 +127,9 @@ mostImportantStats  =   ["memoryLength",                    "LR",               
                         "avgAdjustmentINN",                 "combinedActivationsScale",     "refinedActivationsScale",
                         "normalisedActivationsNorm",        "windowInputNormalised",        "rawActivations",
                         "longDecay",                        "shortDecay",                   "latestShortGateNorm",
-                        "latestLongGateNorm",               "latestCurrentGateNorm"]
+                        "latestLongGateNorm",               "latestCurrentGateNorm",        "CA+RA_LayerNorm",
+                        "embedVector",                      "embedNormed",                  "embedFinal",
+                        "embedVectorScale",                 "embedNormedScale"]
 
 allRecordedOtherStats = ["avgLoss",                         "stepLoss",                     "tokenCount",
                          "trainingStepCount",               "windowWeight",                 "INN_cerebellumStd",
@@ -179,7 +181,7 @@ trainingDataSliceSize_min = 5000000000
 trainingDataSliceSize_max = 3000000000000
 reflectionFreq = 3456
 # --- #
-trainingDataPairNumber = 200000
+trainingDataPairNumber = 100000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 
@@ -259,7 +261,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
 """-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""
 
 """--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
-saveStrict = True   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = False   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 """--- MODEL ---"""
 embedDimension = 1024   # dimensionality of token embeddings
