@@ -66,7 +66,7 @@ class BABYLLM(nn.Module):
 
         """stuff"""
         self.gradientClipMaxNorm = torch.exp(self.logGradClip)
-        self.repetitionWindow = torch.exp(self.logRepetitionWindow)
+        #self.repetitionWindow = torch.exp(self.logRepetitionWindow)
         self.temperature = torch.exp(self.logTemp)
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
@@ -168,9 +168,9 @@ class BABYLLM(nn.Module):
 
             if skipMetaLoss:
                 self.lastLossBaby = loss.item()
-                tempSoftClamp = 0.45 * (self.logTemp - math.log(0.8)).pow(2)
-                #repeatWindowSoftClamp = 0.0125 * (self.logRepetitionWindow - math.log(repetitionWindowGOAL)).pow(2)
-                loss += tempSoftClamp  # use .detach() if you don't want this to affect .backward()
+                tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
+                #repeatWindowSoftClamp = 0.0000125 * (self.logRepetitionWindow - math.log(repetitionWindowGOAL)).pow(2)
+                loss += tempSoftClamp #+ repeatWindowSoftClamp # use .detach() if you don't want this to affect .backward()
 
                 return loss
             else:
@@ -284,8 +284,8 @@ class BABYLLM(nn.Module):
 
             with torch.no_grad():
                 # Reset learnable parameters to their initial values
-                #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
-                self.scheduledSamplingRate.data.fill_(0.5)  # Scheduled sampling full (no scheduled sampling yet)
+                self.logLR.data.fill_(math.log(0.0002))  # Learning rate back to 1e-4
+                self.scheduledSamplingRate.data.fill_(0.2)  # Scheduled sampling full (no scheduled sampling yet)
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 #self.logMemoryLength.data.fill_(math.log(1))  # Memory length default
@@ -332,7 +332,7 @@ class BABYLLM(nn.Module):
             _logits /= self.temperature
 
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
-            self.repetitionWindow = torch.exp(self.logRepetitionWindow).clamp(min=1.0)
+            self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
             self.repetitionSlice = self.repetitionWindow.round().int().item()
 
             # repetition penalty
