@@ -5,10 +5,7 @@
 
 from config import *
 from datetime import datetime
-import re
-import torch
-import operator
-import random
+import re, torch, operator, random, math
 
 class S_OUTPUT:
 
@@ -358,10 +355,21 @@ class S_OUTPUT:
             #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellum", "INN_cerebellumSoft", "INN_cerebellumMean", "INN_cerebellumStd", "shortDecay", "longDecay"]
             #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
-            avgStats = {k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v for k, v in _stats.items()}
+            avgStats = {k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v for k, v in sorted(_stats.items()) if k != "embedDimensionMean" and k != "latestMemoryGates"}
             self.allKeys = _stats.keys()
 
-            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.6f}")])
+            try:
+                # OK, so... we need to pad:
+                # add 1 for the sign,
+                #     1 for the decimal dot and
+                #     1 for the fact that log is missing 1 (i.e. log10([100-1000[) is in [2,3[, when 100 takes 3 chars)
+                decLen = 6
+                statTopLen = math.trunc(decLen + 1 + 1 + 1 + math.log(max(max(avgStats.values()), abs(min(avgStats.values()))), 10))
+            except Exception as e:
+                statTopLen = 10
+                print(f"Failed getting statTopLen for avgStats: {avgStats} {e}")
+
+            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.{decLen}f}")])
             logOutput = stampAndStep
             littleLogOutput = stampAndStep
             newLineLittle = stampAndStep + "\n"
@@ -373,7 +381,7 @@ class S_OUTPUT:
                             v = v.item()  # convert scalar tensor
                         else:
                             return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"<tensor[{v.shape}]>")
-                    return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.6f}")
+                    return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.{decLen}f}")
                 except Exception as e:
                     return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"ERR:{str(e)} key:{k} value:{v}")
 
@@ -391,7 +399,7 @@ class S_OUTPUT:
             ])
 
             newLineLittle += newLineDelim.join([
-                self.S_apply(self.S_getStat(k, v), f"{v:.6f}") + " " + self.S_apply("dim", k)
+                self.S_apply(self.S_getStat(k, v), f"{v:+{statTopLen}.{decLen}f}") + " " + self.S_apply("dim", k)
                 for k, v in avgStats.items()
                 if k in mostImportantStats
                 if v not in (None, "")

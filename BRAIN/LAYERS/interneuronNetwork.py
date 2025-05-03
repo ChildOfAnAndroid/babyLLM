@@ -72,6 +72,7 @@ class INTERNEURON_NETWORK(nn.Module):
         self.normedMeanInputHistory = []
         self.activationsHistory = []
         self.combiScaleHistory = []
+        self.combiOutHistory = []
 
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(_counsellor = self.inn_counsellor)
@@ -84,6 +85,7 @@ class INTERNEURON_NETWORK(nn.Module):
         self.logitScale = nn.Parameter(torch.tensor(1.0, device=self.device))        
         self.combiScale = nn.Parameter(torch.tensor(1.0, device=self.device))    
         self.windowMeanNorm = nn.LayerNorm(numNeurons, elementwise_affine=True, device=self.device)
+        self.combiOutNorm = nn.LayerNorm(numNeurons, elementwise_affine=True, device=self.device)
 
         # parliament stuff
         self.windowCombos = nn.ModuleList([nn.Linear(numNeurons, numNeurons, device = self.device) for _ in range(len(allWindowSizes_new))])
@@ -111,7 +113,7 @@ class INTERNEURON_NETWORK(nn.Module):
                 self.roundWindows = torch.exp(self.logWindowSizes).round()
 
                 windowMeanStack = self.stackedWindowMeans(perTokenActivationsTensor, self.expWindowSizes)
-                                 
+
                 sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
                 clamped = torch.clamp(sigmoidWeights, min=1e-4) # avoid 0s
                 self.cerebellumSoft = clamped / clamped.sum()   # normalize across all windows
@@ -131,6 +133,7 @@ class INTERNEURON_NETWORK(nn.Module):
                 refinedActivations = self.refinement(combinedActivationsTensor)
 
                 combinedActivationsMeta = (combinedActivationsTensor * self.combiScale) + (refinedActivations * self.logitScale) # residual skip connection, lets neither of them be too powerful to start with + preserves original info
+                FINALout = self.combiOutNorm(combinedActivationsMeta)
 
                 if True:
                     adjustment = (refinedActivations.norm() / (combinedActivationsTensor.norm() + 1e-8)).item()
@@ -142,6 +145,7 @@ class INTERNEURON_NETWORK(nn.Module):
                     self.normedMeanInputHistory.append(self.normedActivations.norm().item())
                     self.activationsHistory.append(self.activations.norm().item())
                     self.combiScaleHistory.append(self.combiScale.norm().item())
+                    self.combiOutHistory.append(FINALout.norm().item())
 
                     if len(self.refinerAdjustmentHistory) >= windowMAX:
                         avgAdjustment = sum(self.refinerAdjustmentHistory) / len(self.refinerAdjustmentHistory)
@@ -152,6 +156,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         avgNormedMeanInput = sum(self.normedMeanInputHistory) / len(self.normedMeanInputHistory)
                         avgAct = sum(self.activationsHistory) / len(self.activationsHistory)
                         avgCombiScale = sum(self.combiScaleHistory) / len(self.combiScaleHistory)
+                        avgCombiOut = sum(self.combiOutHistory) / len(self.combiOutHistory)
                         self.stats["combinedActivationsTensorNorm"] = avgComb 
                         self.stats["refinedActivationsNorm"] = avgRef
                         self.stats["avgAdjustmentINN"] = avgAdjustment
@@ -160,6 +165,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         self.stats["windowInputNormalised"] = avgNormedMeanInput
                         self.stats["rawActivations"] = avgAct
                         self.stats["combinedActivationsScale"] = avgCombiScale
+                        self.stats["CA+RA_LayerNorm"] = avgCombiOut
                         if debugPrints: print(f"[refinement vs cerebellum ratio thingy (over 32 tokens)]: {avgAdjustment:.6f}")
 
                         self.refinerAdjustmentHistory = []
@@ -168,10 +174,11 @@ class INTERNEURON_NETWORK(nn.Module):
                         self.logitHistory = []
                         self.refHistory = []
                         self.normedMeanInputHistory = []
-                        self.activationsHistory = []  # reset after printing
+                        self.activationsHistory = [] 
+                        self.combiOutHistory = [] # reset after printing
                 #entropyTensor = self.entropyBonus.expand(self.expWindowSizes.shape[0])  # (9,)
                 #seqLenTensor = torch.full_like(self.expWindowSizes, float(perTokenActivationsTensor.shape[0]))  # (9,)
-                return combinedActivationsMeta
+                return FINALout
             
             # --- DO NOT TAKE ANYTHING TO SELF PAST HERE, IT SHOULD ALL PASS THROUGH BACKWARD WITHOUT SAVING! --- #
             ʕっʘ‿ʘʔっ("CALL NEURON FORWARD")

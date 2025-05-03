@@ -15,14 +15,19 @@ class EMBED(nn.Module):
 
         """creates the embedding weights matrix with random numbers initially"""
         self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device)) # [2000,]
+        self.embedNorm = nn.LayerNorm(embedDimension, device = self.device)
+        self.weightsScale = nn.Parameter(torch.tensor(0.5)) 
+        self.normScale = nn.Parameter(torch.tensor(0.5)) 
         self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, DOES NOT BREAK GRAPH CONFIRMED!!
 
     """looks up and returns the embedding vector for a specifc token index"""
     def forward(self, _tokenIndex):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("self.e_weights[tokenIndex]")
-            embedVector = self.e_weights[_tokenIndex] 
-            return embedVector 
+            self.embedVector = self.e_weights[_tokenIndex] 
+            self.embedNormed = self.embedNorm(self.embedVector)
+            self.finalEmbed = (self.embedVector * (min(self.weightsScale, 1.1)) + (self.embedNormed * self.normScale) 
+            return self.finalEmbed 
     
     def getEmbedStats(self):
         with self.counsellor.infodump("getEmbedStats") as ʕっʘ‿ʘʔっ:
@@ -32,6 +37,12 @@ class EMBED(nn.Module):
                 stats["embedNormMean"] = embedNorms.mean()
                 stats["embedNormStd"] = embedNorms.std()
                 stats["embedNormMax"] = embedNorms.max()
+
+                stats["embedVector"] = self.embedVector.norm().item()
+                stats["embedNormed"] = self.embedNormed.norm().item()
+                stats["embedFinal"] = self.finalEmbed.norm().item()
+                stats["embedVectorScale"] = self.weightsScale.norm().item()
+                stats["embedNormedScale"] = self.normScale.norm().item()
 
                 dimMean = self.e_weights.mean(dim = 0)
                 stats["embedDimensionMean"] = dimMean
