@@ -7,17 +7,17 @@ import random
 import time
 from datetime import datetime
 from babyLLM import BABYLLM
-from SCHOOL.staffroom.librarian import VOCAB
+from SCHOOL.staffroom.librarian import LIBRARIAN
 from SCHOOL.staffroom.calligraphist import S_OUTPUT
-from SCHOOL.staffroom.librarian import VOCAB
 from SCHOOL.staffroom.counsellor import *
+from SCHOOL.staffroom.HE_IS_SCRIBE import *
 from config import *
 import torch
 from collections import Counter
 
 trainingFilePath = trainingFilePath
-S_output = S_OUTPUT()
-counsellor = COUNSELLOR("BabyLLM", debug = debugPrints, durations = durationLogging)
+counsellor = COUNSELLOR("talkToYourself", _debug = debugPrints, _durations = durationLogging)
+S_output = S_OUTPUT(_counsellor = counsellor)
 chatLogPath_talkToYourself = chatLogPath_talkToYourself
 guessFilePath = chatLogPath_talkToYourselfComparisons
 chatLogPath_forHumans = chatLogPath_forHumans
@@ -31,8 +31,9 @@ totalLogitMax_100 = 0
 totalLogitMin = 0       
 totalLogitMax = 0  
 
-vocab = VOCAB()
-babyLLM = BABYLLM(vocab, embedDimension = embedDimension, numNeurons = numNeurons, activationFunction = activationFunction)
+vocab = LIBRARIAN(_counsellor = counsellor)
+scribe = SCRIBE(_counsellor = counsellor, _calligraphist = S_output, _librarian = vocab)
+babyLLM = BABYLLM(_counsellor = counsellor, _calligraphist = S_output, _scribe = scribe, _librarian = vocab, _device = modelDevice)
 babyLLM.loadModel(modelFilePath)
 
 existingLines = set()
