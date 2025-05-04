@@ -49,9 +49,6 @@ class BABYLLM(nn.Module):
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device)
-        self.metaMeta = torch.nn.Sequential(torch.nn.Linear(16, 32, device = self.device), 
-                                            torch.nn.LeakyReLU(negative_slope = 0.01),
-                                            torch.nn.Linear(32, 1, device = self.device))
         self.finalNormLayer = nn.LayerNorm(numNeurons, device=self.device)
 
         """LEARNABLE LEARNING PARAMETERS"""
@@ -60,13 +57,11 @@ class BABYLLM(nn.Module):
         self.logLR = nn.Parameter(torch.tensor(math.log(1e-4), device = self.device))
         self.logGradClip = nn.Parameter(torch.tensor(math.log(1.0), device = self.device))
         self.scheduledSamplingRate = nn.Parameter(torch.tensor(0.2, device = self.device))
-        #self.memoryLength = nn.Parameter(torch.tensor(float(memoryLengthGOAL), device = self.device)) # delete soon lol
         self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
 
         """stuff"""
         self.gradientClipMaxNorm = torch.exp(self.logGradClip)
-        #self.repetitionWindow = torch.exp(self.logRepetitionWindow)
         self.temperature = torch.exp(self.logTemp)
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
@@ -92,6 +87,7 @@ class BABYLLM(nn.Module):
         #self.to(self.device)
         self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSamplingRate": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
 
+    @whocalled
     def forward(self, _inputSeq):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
             if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
@@ -133,7 +129,9 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("logits.forward")
             if debugPrints: print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
             if debugPrints: print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
+            if debugPrints: print("before logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
             logits = self.logits.forward(self.normalisedActivations) 
+            if debugPrints: print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
             if debugPrints: print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
             if debugPrints: print("AFTER memory output requires_grad?", self.memory.longTermMemory.requires_grad)
 
@@ -151,100 +149,46 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("targetTensor")          
             targetTensor = torch.tensor([_targetTokenIndex], dtype = torch.long, device = self.device)
             
-            if debugPrints: print(f"[LOSS DEBUG] logits shape: {_logits.shape} | target: {_targetTokenIndex}")
+            if debugPrints: print(f"logits shape: {_logits.shape} | target: {_targetTokenIndex}")
             if _logits.dim() == 1: 
                 _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
             
             ʕっʘ‿ʘʔっ("cross Entropy Loss")
             loss = F.cross_entropy(_logits, targetTensor)
-            if debugPrints: print(f"CrossEntropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
+            if debugPrints: print(f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
             
             self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
             #tempReg = (torch.clamp(self.logTemp, 0.7, 0.9) - 0.8).pow(2)
 
             if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
-            entropy = 0.001 * self.interneuronNetwork.entropyBonus
+            #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            if skipMetaLoss:
-                self.lastLossBaby = loss.item()
-                tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
-                #repeatWindowSoftClamp = 0.0000125 * (self.logRepetitionWindow - math.log(repetitionWindowGOAL)).pow(2)
-                loss += tempSoftClamp #+ repeatWindowSoftClamp # use .detach() if you don't want this to affect .backward()
+            self.lastLossBaby = loss.item()
 
-                return loss
-            else:
-                lrReg = 100 * (self.logLR - math.log(1e-4))**2
-                #lrReg = 100 * (torch.exp(self.logLR) - 1e-4).pow(2) # < this option seems to be very insensitive at high rates, prob because its regulating exp not log??? # linked
-                gradClipReg = 100 * (torch.exp(self.logGradClip) - 0.8).pow(2) # linked in one place at least
-                schedReg = 100 * (torch.clamp(self.scheduledSamplingRate, 0.01, 1.0) - 0.5).pow(2) # !!!! not workin
-                memRegLog = 100 * (torch.exp(self.logMemoryLength) - memoryLengthGOAL).pow(2)
-                repeatWindowLog = 100 * (torch.exp(self.logRepetitionWindow) - repetitionWindowGOAL).pow(2)
-                lossDeltaABS = abs(self.CELossDelta) #ABS UN-REMOVED, FIXES EXPLODING NEGATIVE LOSS
+            tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
+            repeatWindowSoftClamp = 0.0000125 * (self.logRepetitionWindow - math.log(repetitionWindowGOAL)).pow(2)
+            lrSoftClamp = 1 * (self.logLR - math.log(0.0002)).pow(2)
+
+            loss += tempSoftClamp + repeatWindowSoftClamp + lrSoftClamp # use .detach() to avoid .backward()
 
                 # more tokens (better) > perfTokens > less tokens (worse)
                 # HIGHER NUMBER > 2 > LOWER NUMBER
                 # 0.3x > 2 > 1.3x
-                metaPerfect = 1 * (0.3 if self.perfectTokens > 2 else 1.3)
 
                 # worse (explore) > latestlossdelta > better (stay still)
                 # POSITIVE NUMBER > 0 > NEGATIVE NUMBER 
                 # +4 Delta (worse) > 0 > -4 Delta (better)
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
-                #metaWeight = 0.01 * ((min(lossDeltaABS, 25)*0.1) if lossMiddle >= 0 else min(lossDeltaABS, 1)) # Direct and linear, worse loss = worse penalty - more fast reactions
-                metaWeight = 0.01 * (min(lossDeltaABS, 25) * (0.1 if self.CELossDelta >= 0 else 1))
-
-                #metaLoss = metaWeight * (tempReg + lrReg + gradClipReg + (metaPerfect * (memReg + repeatReg + schedReg)))
-                if self.CELossDelta < 0 and abs(self.CELossDelta) < 0.1:
-                    metaWeight *= -0.3  # gentle stabilising reward
-
-                lossWeight = metaWeight * metaPerfect # stabilizing this to zero causes issues, babyllm cant tell when changes in metaweight create improvements vs cause problems
-                                                        # therefore learns to downregulate because of the lack of a 'reward signal'. 
-                                                        # allowing this to go negative helps a lot with this (theoretically so far!!)
-
-                metaVector = torch.stack([tempReg, lrReg, gradClipReg, memRegLog, repeatReg, schedReg, repeatWindowLog, 
-                                        torch.tensor(float(_targetTokenIndex), device = self.device),
-                                        torch.tensor(float(self.computeLossCount), device = self.device),
-                                        torch.tensor(float(self.CELossDelta), device = self.device),
-                                        torch.tensor(float(lossWeight), device = self.device),
-                                        torch.tensor(float(loss), device = self.device),
-                                        torch.tensor(float(lossDeltaABS), device = self.device),
-                                        torch.tensor(float(self.lastLossBaby or 0.0), device = self.device),
-                                        torch.tensor(float(self.perfectTokens), device = self.device),
-                                        torch.tensor(float(self.repeatedPercent), device = self.device)])
-
-                metaMetaLoss = (lossWeight) * self.metaMeta(metaVector).squeeze() # same stabilizing to 0 issues, testing.
-                if not hasattr(self, 'metaMetaMovingAvg'):
-                    self.metaMetaMovingAvg = 0.0  # Initialize if missing
-
-                self.metaMetaMovingAvg = 0.995 * self.metaMetaMovingAvg + 0.005 * metaMetaLoss.item()
-                metaMetaCentered = metaMetaLoss - self.metaMetaMovingAvg                
-
-                if debugPrints:
-                    self.computeLossCount += 1
-                    if self.computeLossCount >= ((numTokensPerStep * printFreq)*64):
-                        metaOut = abs(self.metaMeta(metaVector).squeeze())
-                        print(f"tempReg: {tempReg} |  lrReg: {lrReg} | gradClipReg: {gradClipReg} | memRegLog: {memRegLog} | repeatReg: {repeatReg} | schedReg: {schedReg} | ")
-                        print(f"repeatWindowLog: {repeatWindowLog} | _targetTokenIndex: {torch.tensor(float(_targetTokenIndex), device = self.device)} | computeLossCount: {torch.tensor(float(self.computeLossCount), device = self.device)} | CELossDelta: {torch.tensor(float(self.CELossDelta), device = self.device)} | lossWeight: {torch.tensor(float(lossWeight), device = self.device)} | loss: {torch.tensor(float(loss), device = self.device)} | ")
-                        print(f"lossDeltaABS: {torch.tensor(float(lossDeltaABS), device = self.device)} | lastLossBaby: {torch.tensor(float(self.lastLossBaby or 0.0), device = self.device)} | perfectTokens: {torch.tensor(float(self.perfectTokens), device = self.device)} | repeatedPercent: {torch.tensor(float(self.repeatedPercent), device = self.device)} | ")
-                        print(f"metaVector: {metaVector} | metaOut:{metaOut:.6f} | lossWeight: {lossWeight} | scaledMetaLoss:{(lossWeight * metaOut):.6f}")
-                        print(f"metameta: loss:{loss.item():.4f} | last: {self.lastLossBaby:.4f} | Δ:{self.CELossDelta.item():+.4f} | perfect:{self.perfectTokens} | rep:{self.stats.get('repetitionRatio', 0.0):.2%} | ")
-                        self.computeLossCount = 0
-                FINALloss = (loss + (metaMetaCentered * 0.01)).clamp(min=loss * 0.9) 
-                #FINALloss = loss + metaMetaCentered # this SHOULD stabilize to 0, because otherwise the optimizer will see a negative signal and just drive loss to -inf!
-                self.lastLossBaby = loss.item()
 
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
+            FINALloss = loss
             return FINALloss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
     def backward(self, _loss):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
-            #if not torch.isfinite(_loss): 
-                #ʕっʘ‿ʘʔっ("if not torch.isfinite(loss)")
-                #print("babyLLM.backward.loss.backward !!! Loss is NaN or Inf:", _loss)
-                #return
             if debugPrints:
                 for name, p in self.named_parameters():
                     if p.grad is None:
@@ -276,16 +220,10 @@ class BABYLLM(nn.Module):
                         mean = grad.mean().item()
                         std = grad.std().item()
                         print(f"after = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
-            #for name, p in self.named_parameters():
-                #if p.grad is not None and not torch.isfinite(p.grad).all():
-                    #print(f"babyLLM.backward - non-finite grad in: {name}") 
-                    #return
-            ʕっʘ‿ʘʔっ("optimizer.step")
 
-            with torch.no_grad():
-                # Reset learnable parameters to their initial values
-                self.logLR.data.fill_(math.log(0.0002))  # Learning rate back to 1e-4
-                self.scheduledSamplingRate.data.fill_(0.2)  # Scheduled sampling full (no scheduled sampling yet)
+            with torch.no_grad(): # RESET LEARNABLE PARAMETERS
+                #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
+                self.scheduledSamplingRate.data.fill_(0.05)  # Scheduled sampling full (no scheduled sampling yet)
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 #self.logMemoryLength.data.fill_(math.log(1))  # Memory length default
@@ -296,26 +234,27 @@ class BABYLLM(nn.Module):
                 #for module in self.interneuronNetwork.windowMeta:
                 #    if isinstance(module, torch.nn.Linear):
                #        module.reset_parameters()
-            #with torch.no_grad():
-                #self.logTemp.clamp_(math.log(0.7), math.log(0.9))
-                #temperature = math.exp(self.logTemp)
 
-            if skipMetaLoss:
-                pass
-            else:
+            if True:
                 with torch.no_grad():
-                    self.logLR.clamp_(math.log(1e-5), math.log(1e-2))  # CLAMP IT! IN MEMORY OF THE AMAZING 1.00 SELF LEARNED LOSS RUN OF 27-APRIL-2025! - you certainly dropped the delta! you win!
+                    self.logLR.clamp_(math.log(0.0001), math.log(0.001))  # CLAMP IT! IN MEMORY OF THE AMAZING 1.00 SELF LEARNED LOSS RUN OF 27-APRIL-2025! - you certainly dropped the delta! you win!
                 learnedLR = torch.exp(self.logLR).item()
                 for g in self.optimizer.param_groups:
                     g['lr'] = learnedLR
                 #self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
                 #self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
                 #self.memoryLength = torch.exp(self.logMemoryLength).item()
+                #self.logLR.data.fill_(self.logLR+0.000001) # increment LR manually (break grid)
 
+            ʕっʘ‿ʘʔっ("clip_grad_norm")
             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = 1.0)
+            ʕっʘ‿ʘʔっ("optimizer.step")
             self.optimizer.step()  # Update weights
-                #self.scheduler.step(_loss)
-                
+
+            #with torch.no_grad(): # FORCE RESET THE MEMORY GATES IF OVER USING LONG
+                #self.memory.currentGate.data = self.memory.currentGate.data.abs()
+                #self.memory.shortGate.data = self.memory.shortGate.data.abs()
+                    
     """this takes the output logits, does temperature scaling and softmax to create a probability distribution over the vocab, and then selects most likely response token"""
     """def getResponseFromLogits(self, _logits, _temperature = temperature):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
@@ -326,18 +265,25 @@ class BABYLLM(nn.Module):
             responseFromLogits = torch.multinomial(probs, 1)
             return responseFromLogits"""
 
+    @whocalled
     def getResponseFromLogits(self, _logits):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
             self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
             _logits /= self.temperature
 
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
+
+            ʕっʘ‿ʘʔっ("repetitionWindow...")
             self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
-            self.repetitionSlice = self.repetitionWindow.round().int().item()
+            #self.repetitionSlice = self.repetitionWindow.round().int().item()
+
+            #self.repetitionWindow = torch.exp(self.logRepetitionWindow) + torch.exp(self.logRepetitionWindow).round().detach() - torch.exp(self.logRepetitionWindow).detach()
+            #self.repetitionSlice = self.repetitionWindow + self.repetitionWindow.round().int().item() - self.repetitionWindow
 
             # repetition penalty
             if self.recentGeneratedTokens:
-                lastTokens = self.recentGeneratedTokens[-self.repetitionSlice:]
+                lastTokens = self.recentGeneratedTokens[-int(self.repetitionWindow.item()):] # <3 <3 <3
+                #lastTokens = self.recentGeneratedTokens[-self.repetitionWindow:]
                 uniqueTokens = set(lastTokens)
                 repeatedTokens = [t for t in lastTokens if lastTokens.count(t) > 1]
                 self.repeatedPercent = len(repeatedTokens) / len(lastTokens)
@@ -345,18 +291,19 @@ class BABYLLM(nn.Module):
                 self.stats.update({"PT%": self.repeatedPercent})
 
                 for token in uniqueTokens:
+                    ʕっʘ‿ʘʔっ("add repetitionPenalties...")
                     _logits[0, token] /= self.repetitionPenalty  # reduce score of repeated token
 
-                if debugPrints:
-                    print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
+                #if debugPrints:
+                    #print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
 
             # Sample from softmaxed logits
             probs = torch.softmax(_logits, dim = 1)
             responseFromLogits = torch.multinomial(probs, 1)
 
-            # history buffer
+            ʕっʘ‿ʘʔっ("create windows using rolling buffer")
             self.recentGeneratedTokens.append(responseFromLogits.item())
-            if len(self.recentGeneratedTokens) > self.repetitionSlice:
+            if len(self.recentGeneratedTokens) > self.repetitionWindow:
                 self.recentGeneratedTokens.pop(0)
 
             return responseFromLogits
@@ -432,7 +379,7 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemoryReset += 1
                 else: 
                     self.stepsSinceMemoryReset = 1
-                if self.stepsSinceMemoryReset >= self.logMemoryLength: 
+                if self.stepsSinceMemoryReset >= int(self.logMemoryLength.item()): 
                     self.memory.resetMemory()
                     if debugPrints: print(f"resetting memory after {self.stepsSinceMemoryReset} steps... (learned mem length: {self.logMemoryLength})")
                     self.stepsSinceMemoryReset = 0 

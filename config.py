@@ -13,6 +13,20 @@ import torch.nn as nn
 relu6 = nn.ReLU6()
 gelu = nn.GELU()
 
+import inspect
+def whocalled(func):
+    if debugPrints:
+        def inner(*args, **kwargs):
+            caller_stack = []
+            for stack in inspect.stack():
+                caller_stack.append(stack[0].f_code.co_qualname)
+            print(f"Calling {func.__qualname__} from: {', '.join(caller_stack)}")
+
+            return func(*args, **kwargs)
+
+        return inner
+    return func
+
 guessedTokenSeq = []
 """if activationFunction == 'leaky_relu':
             output = F.leaky_relu(output, 0.01)
@@ -118,18 +132,49 @@ skipComputeLoss = False
 skipMetaLoss = True
 
 """--- STATS COLLECTION ---"""
-mostImportantStats  =   ["memoryLength",                    "LR",                           "learningRate", 
-                        "latestLossDelta",                  "AvgLoss",                      "loss", 
-                        "gradNorm",                         "gradientClipMaxNorm",          "scheduledSamplingRate", 
-                        "sampledTokens",                    "repetitionPenalty",            "temperature",
-                        "repetitionWindow",                 "windowSizesMean",              "INN_cerebellumMean", 
-                        "combinedActivationsTensorNorm",    "refinedActivationsNorm",       "combinedActivationsMetaNorm",
-                        "avgAdjustmentINN",                 "combinedActivationsScale",     "refinedActivationsScale",
-                        "normalisedActivationsNorm",        "windowInputNormalised",        "rawActivations",
-                        "longDecay",                        "shortDecay",                   "latestShortGateNorm",
-                        "latestLongGateNorm",               "latestCurrentGateNorm",        "CA+RA_LayerNorm",
-                        "embedVector",                      "embedNormed",                  "embedFinal",
-                        "embedVectorScale",                 "embedNormedScale"]
+mostImportantStats  =   ["memoryLength",                        "LR",                               "learningRate", 
+                        "latestLossDelta",                      "AvgLoss",                          "loss", 
+                        "gradNorm",                             "gradientClipMaxNorm",              "scheduledSamplingRate", 
+                        "sampledTokens",                        "repetitionPenalty",                "temperature",
+                        "repetitionWindow",                     "windowSizesMean",                  "INN_cerebellumMean", 
+
+                        "1E_1_embedVector_norm",                "1E_1_embedVector_scale",
+                            "1E_1_embedVector_norm_token",          "1E_1_embedVector_norm_neuron",                
+                        "1E_2_embedNormed_norm",                "1E_2_embedNormed_scale",  
+                            "1E_2_embedNormed_norm_token",          "1E_2_embedNormed_norm_neuron",       
+                        "1E_3_embedFinal_norm",
+                            "1E_3_embedFinal_norm_token",           "1E_3_embedFinal_norm_neuron",
+
+                        "2N_1_rawOutput_norm",
+                            "2N_1_rawOutput_norm_token",            "2N_1_rawOutput_norm_neuron",
+                        "2N_2_activatedOutput_norm", 
+                            "2N_2_activatedOutput_norm_token",      "2N_2_activatedOutput_norm_neuron", 
+                        "2N_3_normedOutput_norm",
+                            "2N_3_normedOutput_norm_token",         "2N_3_normedOutput_norm_neuron",
+
+                        "3INN_1_rawActivations_norm",    
+                            "3INN_1_rawActivations_norm_token",         "3INN_1_rawActivations_norm_neuron",         
+                        "3INN_2_rawActivationsLayerNorm_norm",  
+                            "3INN_2_rawActivationsLayerNorm_norm_token","3INN_2_rawActivationsLayerNorm_norm_neuron",
+                        "3INN_3_combinedActivations_norm",       "3INN_3_combinedActivations_scale", 
+                            "3INN_3_combinedActivations_norm_token",    "3INN_3_combinedActivations_norm_neuron",  
+                        "3INN_4_refinedActivations_norm",        "3INN_4_refinedActivations_scale",
+                            "3INN_4_refinedActivations_norm_token",     "3INN_4_refinedActivations_norm_neuron", 
+                        "3INN_5_combinedActivationsMeta_norm",
+                            "3INN_5_combinedActivationsMeta_norm_token", "3INN_5_combinedActivationsMeta_norm_neuron",
+                        "3INN_6_FINALoutLayerNorm_norm",
+                            "3INN_6_FINALoutLayerNorm_norm_token",      "3INN_6_FINALoutLayerNorm_norm_neuron",
+
+                        "4M_longDecay",                          "4M_shortDecay",                     "4M_shortGateWeight",
+                        "4M_longGateWeight",                     "4M_currentGateWeight",
+
+                        "5L_1_activationsTensor_norm",          "5L_1_activationsTensor_scale",
+                        "5L_2_normedActivationsTensor_norm",    "5L_2_normedActivationsTensor_scale",
+                        "5L_3_activations",
+                        "5L_4_logitOutput_norm",                "5L_4_logitOutput_scale",
+                        "5L_5_logitNormed_norm",                "5L_5_logitNormed_scale", 
+                        "5L_6_finalLogit_norm",
+                        ]
 
 allRecordedOtherStats = ["avgLoss",                         "stepLoss",                     "tokenCount",
                          "trainingStepCount",               "windowWeight",                 "INN_cerebellumStd",
@@ -181,7 +226,7 @@ trainingDataSliceSize_min = 5000000000
 trainingDataSliceSize_max = 3000000000000
 reflectionFreq = 3456
 # --- #
-trainingDataPairNumber = 100000
+trainingDataPairNumber = 30000
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 

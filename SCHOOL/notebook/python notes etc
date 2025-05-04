@@ -88,6 +88,32 @@ def babyReflection(self):
 
         return inputTargetPairs
 
+Calling EMBED.forward from: 
+    BABYLLM.forward <- TUTOR.trainStep <- TUTOR.trainModel
+Calling INTERNEURON_NETWORK.forward from: 
+    BABYLLM.forward <- TUTOR.trainStep <- TUTOR.trainModel
+Calling NEURON.forward from: 
+    INTERNEURON_NETWORK.forward <- BABYLLM.forward <- TUTOR.trainStep <- TUTOR.trainModel
+
+this is useful, particularly for error detecting and stuff so i wouldnt delete it, but does it only work on the functions? because i believe that is the same 
+    roadblock i came up against with my counsellor thingy, its really hard to track specific numbers through the system rather than just trace the algebra 
+    backwards (huh, that must be what traceback means...). its gotten a little futher than my one though because i gave up once I realised lmaooo
+
+im just trying to actually track the flow of the data through the system, which, in my head, is kinda different to the order of functions, as;
+    the output of embed forward is called into the neurons as a 'number', but into the INN as an element of a 'function'(?). 
+    I might just be completely confused though honestly. 
+    its not a linear system and so its practically impossible to track linearly, i have been v slowly accepting over the past 2 months LMAO
+
+cause right now I just have that;
+    input from tutor -> 
+        ???(potentially logits or embed or both??)? -> neurons(x10000) -> interneuronLayer -> ???(potentially logits???)? -> ???memory???
+            -> guess to tutor
+
+start HERE : (or up if ur nerd)
+but i love you and i understand how it feels when someone seems to be looking with scrutiny and potential disappointment/tiredness/confusion at something 
+    clever/risky youve done, its something i feel a lot when your face is showing the tired tism too, so i understand and i am not mad at you feeling anxious. 
+    plus you already burned out of a job from that anxiety, i understand it, sorry that i didnt express well. i tried to comfort you but it made me anxious too.
+
 
 ::SCRIBE:: ʕっʘ‿ʘʔっ
 ::polite:: ʕ •ᴥ•ʔゝ

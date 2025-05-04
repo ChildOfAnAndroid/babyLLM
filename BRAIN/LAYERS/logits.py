@@ -17,55 +17,116 @@ class LOGITS(nn.Module):
 
         self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = self.device)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
         self.l_bias = nn.Parameter(torch.zeros(vocabSize, device = self.device))
+        self.activationNorm = nn.LayerNorm(numNeurons, device = self.device)
+        self.rawActivationsScale = nn.Parameter(torch.tensor(0.5)) 
+        self.normedActivationsScale = nn.Parameter(torch.tensor(0.5)) 
 
+        self.logitNorm = nn.LayerNorm(vocabSize, device = self.device)
+        self.outputScale = nn.Parameter(torch.tensor(0.5)) 
+        self.normOutputScale = nn.Parameter(torch.tensor(0.5)) 
+
+        self.stats = {}
+        self.tensorHist = []
+        self.normedHist = []
+        self.activHist = []
+        self.logitHist = []
+        self.logitNormHist = []
+        self.finalLogitHist = []
+
+    @whocalled
     def forward(self, _meanActivationsTensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
+            # <- = from
+            # INN? -> L1 -> L2 -> L3 -> L4 -> L5 -> L6 -> *
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
-            activationsTensor = _meanActivationsTensor
-            #activationsTensor = activationsTensor.to(self.device)
-            if debugPrints: print(f"Debug logits: activationsTensor shape before @ weights: {activationsTensor.shape}")
+            ʕっʘ‿ʘʔっ("L1: activationsTensor") # <- INN?
+            self.activationsTensor = _meanActivationsTensor # _1
+            ʕっʘ‿ʘʔっ("L2: normedActivationsTensor") # <- L1
+            self.normedActivationsTensor = self.activationNorm(self.activationsTensor) # _2
+            ʕっʘ‿ʘʔっ("L3: scaledActivations") # <- L1 + L2
+            self.scaledActivations = (self.activationsTensor * self.rawActivationsScale) + (self.normedActivationsTensor * self.normedActivationsScale) # _3
+            if debugPrints: print(f"Debug logits: activations shape before @ weights: {self.scaledActivations.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
-            """return logits (not softmax) for better gradient computation in cross-entropy loss"""
-            logitOutputNormalized = (activationsTensor @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
-            logitOutputOriginal = activationsTensor @ self.l_weights + self.l_bias
-            logitOutput = (logitOutputOriginal + logitOutputNormalized)/2
-            if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
-            return logitOutput
+
+            ʕっʘ‿ʘʔっ("L4: logitOutput") # <- L3 (with weights and bias)
+            logitOutputNormalized = (self.scaledActivations @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
+            logitOutputOriginal = self.scaledActivations @ self.l_weights + self.l_bias
+            self.logitOutput = (logitOutputOriginal + logitOutputNormalized)/2 # _4
+
+            ʕっʘ‿ʘʔっ("L5: logitNormed") # <- L4
+            self.logitNormed = self.logitNorm(self.logitOutput) # _5
+            ʕっʘ‿ʘʔっ("L6: finalLogit") # <- L4 + L5
+            self.finalLogit = (self.logitOutput * self.outputScale) + (self.logitNormed * self.normOutputScale) # _6
+            if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {self.logitOutput.shape}")
+
+            ʕっʘ‿ʘʔっ("append rolling self.stats")
+            self.tensorHist.append(self.activationsTensor.norm().item())
+            self.normedHist.append(self.normedActivationsTensor.norm().item())
+            self.activHist.append(self.scaledActivations.norm().item())
+            self.logitHist.append(self.logitOutput.norm().item())
+            self.logitNormHist.append(self.logitNormed.norm().item())
+            self.finalLogitHist.append(self.finalLogit.norm().item())
+
+            if len(self.tensorHist) >= windowMAX:
+                ʕっʘ‿ʘʔっ("clear rolling self.stats at end of window")
+                self.stats = {
+                    "5L_1_activationsTensor_norm": sum(self.tensorHist) / len(self.tensorHist),
+                    "5L_2_normedActivationsTensor_norm": sum(self.normedHist) / len(self.normedHist),
+                    "5L_3_activations": sum(self.activHist) / len(self.activHist),
+                    "5L_4_logitOutput_norm": sum(self.logitHist) / len(self.logitHist),
+                    "5L_5_logitNormed_norm": sum(self.logitNormHist) / len(self.logitNormHist),
+                    "5L_6_finalLogit_norm": sum(self.finalLogitHist) / len(self.finalLogitHist),
+                }
+                self.tensorHist = []
+                self.normedHist = []
+                self.activHist = []
+                self.logitHist = []
+                self.logitNormHist = []
+                self.finalLogitHist = []
+
+            # return logits (not softmax) for better gradient computation in cross-entropy loss
+            return self.finalLogit # L6 ->
     
     def getLogitStats(self):
         with self.counsellor.infodump("getLogitStats") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
-                stats = {}
+                self.stats = {}
                 ʕっʘ‿ʘʔっ("weightNormStats")
                 weightNorms = torch.norm(self.l_weights, dim = 0)
-                stats["logitWeightNormMean"] = weightNorms.mean()
-                stats["logitWeightNormStd"] = weightNorms.std()
-                stats["logitWeightNormMax"] = weightNorms.max()
+                self.stats["logitWeightNormMean"] = weightNorms.mean()
+                self.stats["logitWeightNormStd"] = weightNorms.std()
+                self.stats["logitWeightNormMax"] = weightNorms.max()
+
+                # scales (dont need on per token history as only updated in backward)
+                self.stats["5L_1_activationsTensor_scale"] = self.rawActivationsScale.norm().item()
+                self.stats["5L_2_normedActivationsTensor_scale"] = self.normedActivationsScale.norm().item()
+                self.stats["5L_4_logitOutput_scale"] = self.outputScale.norm().item()
+                self.stats["5L_5_logitNormed_scale"] = self.normOutputScale.norm().item()
 
                 ʕっʘ‿ʘʔっ("sparsityStat")
                 sparsity = (self.l_weights.abs() < 1e-5).float().mean()
-                stats["logitWeightSparsity"] = sparsity
+                self.stats["logitWeightSparsity"] = sparsity
 
                 ʕっʘ‿ʘʔっ("weightDriftStat")
                 drift = torch.norm(self.l_weights - self.lastSavedWeights)
-                stats["logitWeightDrift"] = drift
+                self.stats["logitWeightDrift"] = drift
                 self.lastSavedWeights = self.l_weights.clone().detach()
 
                 ʕっʘ‿ʘʔっ("biasStats")
-                stats["logitBiasMean"] = self.l_bias.mean()
-                stats["logitBiasStd"] = self.l_bias.std()
-                stats["logitBiasMax"] = self.l_bias.max()
+                self.stats["logitBiasMean"] = self.l_bias.mean()
+                self.stats["logitBiasStd"] = self.l_bias.std()
+                self.stats["logitBiasMax"] = self.l_bias.max()
 
                 if hasattr(self, 'latestActivations'):
                     ʕっʘ‿ʘʔっ("activationStats")
                     act = self.latestActivations
-                    stats["activationStd"] = act.std()
-                    stats["activationMean"] = act.mean()
-                    stats["activationMax"] = act.max()
-                    stats["activationMin"] = act.min()
-                    stats["activationSparsity"] = (act.abs() < 1e-6).float().mean()
+                    self.stats["activationStd"] = act.std()
+                    self.stats["activationMean"] = act.mean()
+                    self.stats["activationMax"] = act.max()
+                    self.stats["activationMin"] = act.min()
+                    self.stats["activationSparsity"] = (act.abs() < 1e-6).float().mean()
 
-        return stats
+        return self.stats
 
 if __name__ == "__main__":
     TESTlayerActivations = torch.randn(numNeurons)

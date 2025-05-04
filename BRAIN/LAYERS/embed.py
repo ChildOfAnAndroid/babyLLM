@@ -12,6 +12,7 @@ class EMBED(nn.Module):
         super().__init__()
         self.counsellor = _counsellor
         self.device = _device
+        self.stats = {}
 
         """creates the embedding weights matrix with random numbers initially"""
         self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device)) # [2000,]
@@ -21,40 +22,43 @@ class EMBED(nn.Module):
         self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, DOES NOT BREAK GRAPH CONFIRMED!!
 
     """looks up and returns the embedding vector for a specifc token index"""
+    @whocalled
     def forward(self, _tokenIndex):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("self.e_weights[tokenIndex]")
+            ʕっʘ‿ʘʔっ("E1_embedVector") # <- vocab????
             self.embedVector = self.e_weights[_tokenIndex] 
+            ʕっʘ‿ʘʔっ("E2_embedNormed") # <- E1
             self.embedNormed = self.embedNorm(self.embedVector)
-            self.finalEmbed = (self.embedVector * (min(self.weightsScale, 1.1)) + (self.embedNormed * self.normScale) 
-            return self.finalEmbed 
+            ʕっʘ‿ʘʔっ("E3_embedFinal") # <- E2
+            self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
+            return self.embedFinal # E3 -> N??
     
     def getEmbedStats(self):
         with self.counsellor.infodump("getEmbedStats") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
-                stats = {}
+                self.stats = {}
                 embedNorms = torch.norm(self.e_weights, dim = 1)
-                stats["embedNormMean"] = embedNorms.mean()
-                stats["embedNormStd"] = embedNorms.std()
-                stats["embedNormMax"] = embedNorms.max()
+                self.stats["embedNormMean"] = embedNorms.mean()
+                self.stats["embedNormStd"] = embedNorms.std()
+                self.stats["embedNormMax"] = embedNorms.max()
 
-                stats["embedVector"] = self.embedVector.norm().item()
-                stats["embedNormed"] = self.embedNormed.norm().item()
-                stats["embedFinal"] = self.finalEmbed.norm().item()
-                stats["embedVectorScale"] = self.weightsScale.norm().item()
-                stats["embedNormedScale"] = self.normScale.norm().item()
+                self.stats["1E_1_embedVector_norm"] = self.embedVector.norm().item()
+                self.stats["1E_2_embedNormed_norm"] = self.embedNormed.norm().item()
+                self.stats["1E_3_embedFinal_norm"] = self.embedFinal.norm().item()
+                self.stats["1E_1_embedVector_scale"] = self.weightsScale.norm().item()
+                self.stats["1E_2_embedNormed_scale"] = self.normScale.norm().item()
 
                 dimMean = self.e_weights.mean(dim = 0)
-                stats["embedDimensionMean"] = dimMean
+                self.stats["embedDimensionMean"] = dimMean
                 dimSparsity = (dimMean.abs() < 1e-4).float().mean()
-                stats["embedDimensionSparsity"] = dimSparsity
+                self.stats["embedDimensionSparsity"] = dimSparsity
 
                 # Drift since last save
                 drift = torch.norm(self.e_weights - self.lastSavedEmbeds)
-                stats["embeddingDrift"] = drift
+                self.stats["embeddingDrift"] = drift
                 self.lastSavedEmbeds = self.e_weights.detach().clone()
 
-                return stats
+                return self.stats
         
     def cosineSimilarity(self, _idx1, _idx2):
         e1 = self.e_weights[_idx1]

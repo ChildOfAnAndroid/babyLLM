@@ -437,10 +437,7 @@ class TUTOR:
                 _frequency = _frequency,
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
-                _INN_judgeBias_str = str(self.stringStats.get("INN_judgeBias_str", "<missing judgeBias>")),
-                _INN_credibilityBias_str = str(self.stringStats.get("INN_credibilityBias_str", "<missing credibilityBias>")),
                 _topTokens_str = str(self.stringStats.get("topTokens", "<missing topTokens>")),
-                _memoryGates_str = "",
                 _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats.get('windowVotes_str', '<missing windowVotes>')} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
@@ -574,9 +571,9 @@ class TUTOR:
                         self.stats.update(self.model.memory.getMemoryStats())
 
                 ʕっʘ‿ʘʔっ("♥INN_collectStats")
-                INN_stats, INN_cerebellum_str, INN_judgeBias_str, INN_credibilityBias_str, windowVotes_str = self.model.interneuronNetwork.INN_getStats()
+                INN_stats, INN_cerebellum_str = self.model.interneuronNetwork.INN_getStats()
                 self.stats.update(INN_stats)
-                INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str), "INN_judgeBias_str": str(INN_judgeBias_str), "INN_credibilityBias_str": str(INN_credibilityBias_str), "windowVotes_str": str(windowVotes_str)}
+                INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str)}
                 self.stringStats.update(INN_stringStats)
                 self.stringStats.update({"topTokens": str(topTokens)})
                 self.collectAllTimeStats()

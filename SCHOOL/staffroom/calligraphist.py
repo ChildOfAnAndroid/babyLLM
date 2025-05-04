@@ -344,7 +344,8 @@ class S_OUTPUT:
                 + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}\n")
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
 
-    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, _LR = learningRate, _INN_cerebellum_str="", _INN_judgeBias_str="", _INN_credibilityBias_str="", _memoryGates_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
+    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, 
+                      _LR = learningRate, _INN_cerebellum_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
             logOutput = ""
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -411,19 +412,6 @@ class S_OUTPUT:
                 logOutput += cerebellum
                 littleLogOutput += cerebellum
                 newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
-
-            if _INN_judgeBias_str: 
-                ʕっʘ‿ʘʔっ("INN_judgeBias_str")
-                print("→ trying to log judgeBias")
-                logOutput += delimiter + f"judgeBias{self.S_apply('reset', _INN_judgeBias_str)}"
-
-            if _INN_credibilityBias_str: 
-                ʕっʘ‿ʘʔっ("INN_credibilityBias_str")
-                print("→ trying to log credibilityBias")
-                logOutput += delimiter + f"credibilityBias{self.S_apply('reset', _INN_credibilityBias_str)}"
-
-            ʕっʘ‿ʘʔっ("memoryGates_str")
-            if _memoryGates_str: logOutput += delimiter + f"memoryGates{self.S_apply('reset', _memoryGates_str)}"
 
             ʕっʘ‿ʘʔっ("topTokens_str")
             if _topTokens_str: 
