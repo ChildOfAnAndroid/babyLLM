@@ -36,3 +36,40 @@ print("✰✰⋆⋆꩜ ❀ ꩜ ʕ꩜ ⊃꩜")
 print("ʕっ•̀o•́ʔっ✰✰⋆⋆")
 
 print("ʕっ꩜ o꩜ ʔっ✰✰⋆⋆")
+
+import inspect
+
+def decorator(func):
+    def inner(*args, **kwargs):
+        caller_stack = []
+        for stack in inspect.stack():
+            caller_stack.append(stack[0].f_code.co_qualname)
+        print(f"Calling {func.__class__}.{func.__name__} from: {', '.join(caller_stack)}")
+        return func(*args, **kwargs)
+
+    return inner
+
+@decorator
+def tryme1():
+    pass
+
+@decorator
+def tryme2():
+    tryme4()
+
+@decorator
+def tryme3():
+    tryme2()
+
+@decorator
+def tryme4():
+    tryme5()
+
+@decorator
+def tryme5():
+    tryme1()
+class t:
+    def __init__(self):
+        tryme3()
+
+t()

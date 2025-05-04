@@ -13,17 +13,23 @@ class MEMORY(nn.Module):
         self.device = _device
         self.counsellor = _counsellor
 
-        # Learnable decay rates and gates
+        # learnable decay rates and gates
         self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device = self.device))
         self.longTermDecay = nn.Parameter(torch.tensor(0.95, device = self.device))
         self.shortGate = nn.Parameter(torch.tensor(0.25, device = self.device))
         self.longGate = nn.Parameter(torch.tensor(0.25, device = self.device))
         self.currentGate = nn.Parameter(torch.tensor(0.5, device = self.device))
 
-        # Buffers to store memory (outside gradient)
+        # buffers to store memory (outside gradient)
         self.register_buffer("shortTermMemory", torch.zeros(1, numNeurons))
         self.register_buffer("longTermMemory", torch.zeros(1, numNeurons))
 
+        # stats
+        self.shortGateWeightHistory = []
+        self.longGateWeightHistory = []
+        self.currentGateWeightHistory = []
+
+    @whocalled
     def forward(self, _activationsTensor):
         with self.counsellor.infodump("forward"):
             shortDecay = torch.sigmoid(self.shortTermDecay)
@@ -32,21 +38,43 @@ class MEMORY(nn.Module):
             newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * _activationsTensor)
             newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * _activationsTensor)
 
-            gateSum = self.shortGate + self.longGate + self.currentGate + 1e-9
-            shortGateNorm = self.shortGate / gateSum
-            longGateNorm = self.longGate / gateSum
-            currentGateNorm = self.currentGate / gateSum
+            clampedShort = torch.clamp(self.shortGate, min=1e-3)
+            clampedLong = torch.clamp(self.longGate, min=1e-3)
+            clampedCurrent = torch.clamp(self.currentGate, min=1e-3)
+
+            gateSum = clampedShort + clampedLong + clampedCurrent + 1e-9
+            shortGateWeight = clampedShort / gateSum
+            longGateWeight = clampedLong / gateSum
+            currentGateWeight = clampedCurrent / gateSum
 
             blendedAct = (
-                shortGateNorm * newShort +
-                longGateNorm * newLong +
-                currentGateNorm * _activationsTensor
+                shortGateWeight * newShort +
+                longGateWeight * newLong +
+                currentGateWeight * _activationsTensor
             )
 
-            self.latestShortGateNorm = shortGateNorm
-            self.latestLongGateNorm = longGateNorm
-            self.latestCurrentGateNorm = currentGateNorm
-            self.latestMemoryGates = torch.stack([shortGateNorm, longGateNorm, currentGateNorm])
+            self.latestShortGateWeight = shortGateWeight
+            self.latestLongGateWeight = longGateWeight
+            self.latestCurrentGateWeight = currentGateWeight
+            self.latestMemoryGates = torch.stack([shortGateWeight, longGateWeight, currentGateWeight])
+
+            self.shortGateWeightHistory.append(shortGateWeight.item())
+            self.longGateWeightHistory.append(longGateWeight.item())
+            self.currentGateWeightHistory.append(currentGateWeight.item())
+
+            # Trim if too long
+            if len(self.shortGateWeightHistory) >= windowMAX:
+                self.stats = {
+                    "4M_shortGateWeight": sum(self.shortGateWeightHistory) / len(self.shortGateWeightHistory),
+                    "4M_longGateWeight": sum(self.longGateWeightHistory) / len(self.longGateWeightHistory),
+                    "4M_currentGateWeight": sum(self.currentGateWeightHistory) / len(self.currentGateWeightHistory),
+                    "4M_shortDecay": torch.sigmoid(self.shortTermDecay),
+                    "4M_longDecay": torch.sigmoid(self.longTermDecay),
+                }
+
+                self.shortGateWeightHistory = []
+                self.longGateWeightHistory = []
+                self.currentGateWeightHistory = []
 
             # store computed memories for after backward
             self.newShort = newShort
@@ -71,12 +99,6 @@ class MEMORY(nn.Module):
             with torch.no_grad():
                 stats = {}
                 ʕっʘ‿ʘʔっ("decayStats")
-                stats["shortDecay"] = torch.sigmoid(self.shortTermDecay)
-                stats["longDecay"] = torch.sigmoid(self.longTermDecay)
-                stats["latestShortGateNorm"] = self.latestShortGateNorm
-                stats["latestLongGateNorm"] = self.latestLongGateNorm
-                stats["latestCurrentGateNorm"] = self.latestCurrentGateNorm
-                stats["latestMemoryGates"] = self.latestMemoryGates
 
                 return stats
 
