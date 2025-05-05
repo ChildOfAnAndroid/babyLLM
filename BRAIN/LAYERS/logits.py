@@ -39,8 +39,9 @@ class LOGITS(nn.Module):
             # <- = from
             # INN? -> L1 -> L2 -> L3 -> L4 -> L5 -> L6 -> *
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
-            ʕっʘ‿ʘʔっ("L1: activationsTensor") # <- INN?
+            ʕっʘ‿ʘʔっ("L1: activationsTensor") # <- INN? no? seems to come from babyLLM? maybe through babyLLM?
             self.activationsTensor = _meanActivationsTensor # _1
+            #self.testAT = _meanActivationsTensor
             ʕっʘ‿ʘʔっ("L2: normedActivationsTensor") # <- L1
             self.normedActivationsTensor = self.activationNorm(self.activationsTensor) # _2
             ʕっʘ‿ʘʔっ("L3: scaledActivations") # <- L1 + L2
@@ -70,12 +71,12 @@ class LOGITS(nn.Module):
             if len(self.tensorHist) >= windowMAX:
                 ʕっʘ‿ʘʔっ("clear rolling self.stats at end of window")
                 self.stats = {
-                    "5L_1_activationsTensor_norm": sum(self.tensorHist) / len(self.tensorHist),
-                    "5L_2_normedActivationsTensor_norm": sum(self.normedHist) / len(self.normedHist),
-                    "5L_3_activations": sum(self.activHist) / len(self.activHist),
-                    "5L_4_logitOutput_norm": sum(self.logitHist) / len(self.logitHist),
-                    "5L_5_logitNormed_norm": sum(self.logitNormHist) / len(self.logitNormHist),
-                    "5L_6_finalLogit_norm": sum(self.finalLogitHist) / len(self.finalLogitHist),
+                    "6L_0_activationsTensor_norm": sum(self.tensorHist) / len(self.tensorHist),
+                    "6L_1_normedActivationsTensor_norm": sum(self.normedHist) / len(self.normedHist),
+                    "6L_2_scaledActivations_norm": sum(self.activHist) / len(self.activHist),
+                    "6L_3_logitOutput_norm": sum(self.logitHist) / len(self.logitHist),
+                    "6L_4_logitNormed_norm": sum(self.logitNormHist) / len(self.logitNormHist),
+                    "6L_x_finalLogit_norm": sum(self.finalLogitHist) / len(self.finalLogitHist),
                 }
                 self.tensorHist = []
                 self.normedHist = []
@@ -90,7 +91,6 @@ class LOGITS(nn.Module):
     def getLogitStats(self):
         with self.counsellor.infodump("getLogitStats") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
-                self.stats = {}
                 ʕっʘ‿ʘʔっ("weightNormStats")
                 weightNorms = torch.norm(self.l_weights, dim = 0)
                 self.stats["logitWeightNormMean"] = weightNorms.mean()
@@ -98,10 +98,10 @@ class LOGITS(nn.Module):
                 self.stats["logitWeightNormMax"] = weightNorms.max()
 
                 # scales (dont need on per token history as only updated in backward)
-                self.stats["5L_1_activationsTensor_scale"] = self.rawActivationsScale.norm().item()
-                self.stats["5L_2_normedActivationsTensor_scale"] = self.normedActivationsScale.norm().item()
-                self.stats["5L_4_logitOutput_scale"] = self.outputScale.norm().item()
-                self.stats["5L_5_logitNormed_scale"] = self.normOutputScale.norm().item()
+                self.stats["6L_0_activationsTensor_scale"] = self.rawActivationsScale.norm().item()
+                self.stats["6L_1_normedActivationsTensor_scale"] = self.normedActivationsScale.norm().item()
+                self.stats["6L_3_logitOutput_scale"] = self.outputScale.norm().item()
+                self.stats["6L_4_logitNormed_scale"] = self.normOutputScale.norm().item()
 
                 ʕっʘ‿ʘʔっ("sparsityStat")
                 sparsity = (self.l_weights.abs() < 1e-5).float().mean()

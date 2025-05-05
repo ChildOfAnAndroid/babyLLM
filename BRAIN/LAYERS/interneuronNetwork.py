@@ -90,6 +90,10 @@ class NEURON(nn.Module):
 
                 if len(self.rawOutputHistory) >= windowMAX:
                     self.stats = {
+                        "2N_0_rawInput_norm": sum(self.rawInputHistory) / len(self.rawInputHistory),
+                        "2N_0_rawInput_norm_token": sum(self.rawInputHistory_tokens) / len(self.rawInputHistory_tokens),
+                        "2N_0_rawInput_norm_neuron": sum(self.rawInputHistory_neurons) / len(self.rawInputHistory_neurons),
+
                         "2N_1_rawOutput_norm": sum(self.rawOutputHistory) / len(self.rawOutputHistory),
                         "2N_1_rawOutput_norm_token": sum(self.rawOutputHistory_tokens) / len(self.rawOutputHistory_tokens),
                         "2N_1_rawOutput_norm_neuron": sum(self.rawOutputHistory_neurons) / len(self.rawOutputHistory_neurons),
@@ -98,9 +102,9 @@ class NEURON(nn.Module):
                         "2N_2_activatedOutput_norm_token": sum(self.activatedOutputHistory_tokens) / len(self.activatedOutputHistory_tokens),
                         "2N_2_activatedOutput_norm_neuron": sum(self.activatedOutputHistory_neurons) / len(self.activatedOutputHistory_neurons),
 
-                        "2N_3_normedOutput_norm": sum(self.normedOutputHistory) / len(self.normedOutputHistory),
-                        "2N_3_normedOutput_norm_token": sum(self.normedOutputHistory_tokens) / len(self.normedOutputHistory_tokens),
-                        "2N_3_normedOutput_norm_neuron": sum(self.normedOutputHistory_neurons) / len(self.normedOutputHistory_neurons),
+                        "2N_x_normedOutput_norm": sum(self.normedOutputHistory) / len(self.normedOutputHistory),
+                        "2N_x_normedOutput_norm_token": sum(self.normedOutputHistory_tokens) / len(self.normedOutputHistory_tokens),
+                        "2N_x_normedOutput_norm_neuron": sum(self.normedOutputHistory_neurons) / len(self.normedOutputHistory_neurons),
                         }
 
                     self.rawInputHistory = []
@@ -242,27 +246,28 @@ class INTERNEURON_NETWORK(nn.Module):
                 if len(self.combHistory) >= windowMAX:
 
                     self.stats = {
-                        "3INN_1_rawActivations_norm": sum(self.activationsHistory) / len(self.activationsHistory),
-                        "3INN_1_rawActivations_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
-                        "3INN_1_rawActivations_norm_neuron": sum(self.activationsHistory_neuron) / len(self.activationsHistory_neuron),
+                        "3INN_0_rawActivations_norm": sum(self.activationsHistory) / len(self.activationsHistory),
+                        "3INN_0_rawActivations_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
+                        "3INN_0_rawActivations_norm_neuron": sum(self.activationsHistory_neuron) / len(self.activationsHistory_neuron),
 
-                        "3INN_2_rawActivationsLayerNorm_norm": sum(self.normedMeanInputHistory) / len(self.normedMeanInputHistory),
-                        "3INN_2_rawActivationsLayerNorm_norm_token": sum(self.normedMeanInputHistory_token) / len(self.normedMeanInputHistory_token),
-                        "3INN_2_rawActivationsLayerNorm_norm_neuron": sum(self.normedMeanInputHistory_neuron) / len(self.normedMeanInputHistory_neuron),
+                        "3INN_1_rawActivationsLayerNorm_norm": sum(self.normedMeanInputHistory) / len(self.normedMeanInputHistory),
+                        "3INN_1_rawActivationsLayerNorm_norm_token": sum(self.normedMeanInputHistory_token) / len(self.normedMeanInputHistory_token),
+                        "3INN_1_rawActivationsLayerNorm_norm_neuron": sum(self.normedMeanInputHistory_neuron) / len(self.normedMeanInputHistory_neuron),
 
-                        "3INN_3_combinedActivations_norm": sum(self.combHistory) / len(self.combHistory),
-                        "3INN_3_combinedActivations_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
-                        "3INN_3_combinedActivations_scale": sum(self.combiScaleHistory) / len(self.combiScaleHistory),
+                        "3INN_2_combinedActivations_norm": sum(self.combHistory) / len(self.combHistory),
+                        "3INN_2_combinedActivations_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
+                        "3INN_2_combinedActivations_scale": sum(self.combiScaleHistory) / len(self.combiScaleHistory),
 
-                        "3INN_4_refinedActivations_norm": sum(self.refHistory) / len(self.refHistory),
-                        "3INN_4_refinedActivations_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
-                        "3INN_4_refinedActivations_scale": sum(self.logitHistory) / len(self.logitHistory),
+                        "3INN_3_refinedActivations_norm": sum(self.refHistory) / len(self.refHistory),
+                        "3INN_3_refinedActivations_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
+                        "3INN_3_refinedActivations_scale": sum(self.logitHistory) / len(self.logitHistory),
 
-                        "3INN_5_combinedActivationsMeta_norm": sum(self.scaledHistory) / len(self.scaledHistory),
-                        "3INN_5_combinedActivationsMeta_norm_neuron": sum(self.scaledHistory_neuron) / len(self.scaledHistory_neuron),
+                        "3INN_4_combinedActivationsMeta_norm": sum(self.scaledHistory) / len(self.scaledHistory),
+                        "3INN_4_combinedActivationsMeta_norm_neuron": sum(self.scaledHistory_neuron) / len(self.scaledHistory_neuron),
 
-                        "3INN_6_FINALoutLayerNorm_norm": sum(self.combiOutHistory) / len(self.combiOutHistory),
-                        "3INN_6_FINALoutLayerNorm_norm_neuron": sum(self.combiOutHistory_neuron) / len(self.combiOutHistory_neuron),
+                        "3INN_x_FINALoutLayerNorm_norm": sum(self.combiOutHistory) / len(self.combiOutHistory),
+                        "3INN_x_FINALoutLayerNorm_norm_neuron": sum(self.combiOutHistory_neuron) / len(self.combiOutHistory_neuron),
+                        "_INN_windowSizesMean": torch.exp(self.logWindowSizes).mean().item()
                         }
 
                     self.activationsHistory = [] 
