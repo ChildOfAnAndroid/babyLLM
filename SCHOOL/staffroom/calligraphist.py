@@ -422,7 +422,11 @@ class S_OUTPUT:
 
             ʕっʘ‿ʘʔっ("prompt+otherInfo")
             if _prompt: logOutput += f"{delimiter}prompt → {self.S_apply('reset', _prompt)} | guess → {self.S_apply('reset', _guess)} | truth → {self.S_apply('reset', _truth)}"
-            if _otherInfo_str: logOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
+            if _otherInfo_str:
+                logOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
+                littleLogOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
+                newLineLittle += f"\n{delimiter}{self.S_apply('reset', _otherInfo_str)}"
+
 
             ʕっʘ‿ʘʔっ("logOutput")
             if _detailedLogging == True: 
