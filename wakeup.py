@@ -48,7 +48,8 @@ def wakeup():
 
             scribe              = SCRIBE    (_counsellor                = counsellor, 
                                                 _calligraphist          = calligraphist, 
-                                                _librarian              = librarian)
+                                                _librarian              = librarian,
+                                                )
             
             wobble              = None
             # wobble            = WOBBLE    (_counsellor                = counsellor,
@@ -62,23 +63,18 @@ def wakeup():
                                                 _calligraphist          = calligraphist, 
                                                 _scribe                 = scribe,
                                                 _librarian              = librarian, 
-                                                _device                 = modelDevice)
+                                                _device                 = modelDevice,
+                                                )
 
             tutor               = TUTOR     (_counsellor                = counsellor,
                                                 _calligraphist          = calligraphist, 
                                                 _scribe                 = scribe,
                                                 _librarian              = librarian, 
                                                 _model                  = babyLLM,
-                                                _device                 = modelDevice, 
-                                                _temperature            = babyLLM.temperature,
-                                                _memoryLength           = babyLLM.logMemoryLength,
-                                                _scheduledSamplingRate  = babyLLM.scheduledSamplingRate,
-                                                _repetitionPenalty      = babyLLM.repetitionPenalty,
-                                                _logGradClip            = babyLLM.logGradClip,
-                                                _logRepetitionWindow    = babyLLM.logRepetitionWindow,)
+                                                _device                 = modelDevice,
+                                                )
             
             babyLLM.loadModel()
-            #wobble.to(modelDevice)
             babyLLM.to(modelDevice)
 
             # START THE LESSONS :)

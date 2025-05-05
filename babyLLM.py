@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim 
 import torch.optim.lr_scheduler
 import math
+from collections import Counter
 
 from BRAIN.LAYERS.embed import EMBED
 from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
@@ -33,7 +34,6 @@ class BABYLLM(nn.Module):
         #self.wobble = _wobble
 
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
-        self.stats = {}
         self.totalTokenEvaluations = 0
         self.latestLossDelta = 0
         self.totalTokenEvaluations_A = 0
@@ -42,7 +42,15 @@ class BABYLLM(nn.Module):
         self.computeLossCount = 0
         self.repeatedPercent = 0
         self.normalisedActivations = 0
+        self.rollingTokenTotals = Counter()
+
+        self.stats = {}
         self.normalisedHistory = []
+        self.INNOutputHistory = []
+        self.memoryOutputHistory = []
+        self.penalisedOutputHistory = []
+        self.inputEmbedsHistory = []
+        self.FINALlogitsHistory = []
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
@@ -62,7 +70,7 @@ class BABYLLM(nn.Module):
 
         """stuff"""
         self.gradientClipMaxNorm = torch.exp(self.logGradClip)
-        self.temperature = torch.exp(self.logTemp)
+        self.temperature = None
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
         if debugPrints: 
@@ -76,14 +84,6 @@ class BABYLLM(nn.Module):
             for name, param in self.named_parameters():
                 print(f"{name}: requires_grad={param.requires_grad}")
 
-        """self.optimizer = optimizerClass(
-            list(self.embed.parameters()) +
-            list(self.interneuronNetwork.parameters()) + 
-            list(self.logits.parameters()) +
-            list(self.memory.parameters()),
-            lr = learningRate, weight_decay = 0.001
-        )"""
-
         #self.to(self.device)
         self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSamplingRate": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
 
@@ -91,55 +91,76 @@ class BABYLLM(nn.Module):
     def forward(self, _inputSeq):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
             if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
+            self.temperature = torch.exp(self.logTemp)
 
-            ʕっʘ‿ʘʔっ("inputEmbeds") # convert indices to embeddings
-            inputEmbeds = []
+            ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
             inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
             if debugPrints: print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
-            ʕっʘ‿ʘʔっ("interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
-            interneuronNetworkOutput = self.interneuronNetwork.forward(inputEmbeds) 
-            if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(interneuronNetworkOutput)}") 
+            ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
+            INNOutput = self.interneuronNetwork.forward(inputEmbeds) 
+            if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
+            if debugPrints: print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
+            if debugPrints: print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
 
-            ʕっʘ‿ʘʔっ("combinedActivationsTensor") # RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING
-            combinedActivationsTensor = interneuronNetworkOutput
-            if debugPrints: print("combinedActivationsTensor.requires_grad:", combinedActivationsTensor.requires_grad)
-            if debugPrints: print("combinedActivationsTensor.grad_fn:", combinedActivationsTensor.grad_fn)
-
-            ʕっʘ‿ʘʔっ("memoryLayer") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
+            ʕっʘ‿ʘʔっ("B2: memoryOutput") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
             if skipMemory:
                 if debugPrints: print("skipping memory layer...")
                 self.latestMemGates = torch.tensor([0.0, 0.0, 1.0], device = self.device)  # dummy gates
-                combinedActivations = combinedActivationsTensor.detach()  # no grad path, super light
+                memoryOutput = INNOutput.detach()  # no grad path, super light
             else:
-                memoryOutput = self.memory.forward(combinedActivationsTensor)
+                memoryOutput = self.memory.forward(INNOutput)
                 self.latestMemGates = self.memory.latestMemoryGates
-                combinedActivations = memoryOutput
-            if debugPrints: print("combinedActivations.requires_grad:", combinedActivations.requires_grad)
+            if debugPrints: print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
 
-            self.normalisedActivations = self.finalNormLayer(combinedActivations)
-            if True:
-                self.normalisedHistory.append(self.normalisedActivations.norm().detach().item())
+            ʕっʘ‿ʘʔっ("B3: repetitionPenalty")
+            penalisedOutput = self.applyRepetitionPenalty(memoryOutput)
+            ʕっʘ‿ʘʔっ("B4: finalNormLayer")
+            self.normedOutput = self.finalNormLayer(penalisedOutput)
 
-                if len(self.normalisedHistory) >= windowMAX:
-                    avgNormalised = sum(self.normalisedHistory) / len(self.normalisedHistory)
-                    self.stats["normalisedActivationsNorm"] = avgNormalised
-                    self.normalisedHistory = []
-
-            ʕっʘ‿ʘʔっ("logits.forward")
+            ʕっʘ‿ʘʔっ("Bx: logits.forward")
             if debugPrints: print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
             if debugPrints: print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
             if debugPrints: print("before logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
-            logits = self.logits.forward(self.normalisedActivations) 
+            if debugPrints: print("before logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
+            FINALlogits = self.logits.forward(self.normedOutput) 
+            if debugPrints: print("AFTER logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
             if debugPrints: print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
             if debugPrints: print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
             if debugPrints: print("AFTER memory output requires_grad?", self.memory.longTermMemory.requires_grad)
 
+            if True:
+                ʕっʘ‿ʘʔっ("stats collection!")
+                self.inputEmbedsHistory.append(inputEmbeds.norm().item())
+                self.INNOutputHistory.append(INNOutput.norm().item())
+                self.memoryOutputHistory.append(memoryOutput.norm().item())
+                self.penalisedOutputHistory.append(penalisedOutput.norm().item())
+                self.normalisedHistory.append(self.normedOutput.norm().item())
+                self.FINALlogitsHistory.append(FINALlogits.norm().item())
+
+                if len(self.normalisedHistory) >= windowMAX:
+                    self.forwardStats = {
+                        "2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
+                        "3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
+                        "5B_0_memoryOutput_norm": sum(self.memoryOutputHistory) / len(self.memoryOutputHistory),
+                        "5B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
+                        "5B_x_finalNormLayer_norm": sum(self.normalisedHistory) / len(self.normalisedHistory),
+                        "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
+                    }
+                    self.stats.update(self.forwardStats)
+                    
+                    self.inputEmbedsHistory = []
+                    self.INNOutputHistory = []
+                    self.memoryOutputHistory = []
+                    self.penalisedOutputHistory = []
+                    self.FINALlogitsHistory = []
+                    self.normalisedHistory = []
+
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
-            return logits
+            return FINALlogits
 
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
-    def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta = 0, _perfectTokens = 0):
+    def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta = 0, _perfectTokens = 0, _training = False):
         with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
             self.perfectTokens = _perfectTokens
             if skipComputeLoss:
@@ -166,11 +187,14 @@ class BABYLLM(nn.Module):
 
             self.lastLossBaby = loss.item()
 
-            tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
-            repeatWindowSoftClamp = 0.0000125 * (self.logRepetitionWindow - math.log(repetitionWindowGOAL)).pow(2)
-            lrSoftClamp = 1 * (self.logLR - math.log(0.0002)).pow(2)
+            if _training and self.lastSoftSample is not None:
+                target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
+                auxLoss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
+                loss += 0.07 * auxLoss  # low weight so it doesn't dominate
 
-            loss += tempSoftClamp + repeatWindowSoftClamp + lrSoftClamp # use .detach() to avoid .backward()
+            #tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
+            lrSoftClamp = 0.5 * (self.logLR - math.log(0.0002)).pow(2)
+            loss += lrSoftClamp # use .detach() to avoid .backward()
 
                 # more tokens (better) > perfTokens > less tokens (worse)
                 # HIGHER NUMBER > 2 > LOWER NUMBER
@@ -247,9 +271,17 @@ class BABYLLM(nn.Module):
                 #self.logLR.data.fill_(self.logLR+0.000001) # increment LR manually (break grid)
 
             ʕっʘ‿ʘʔっ("clip_grad_norm")
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = 1.0)
+            clipValue = torch.exp(self.logGradClip).item()
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue)
             ʕっʘ‿ʘʔっ("optimizer.step")
             self.optimizer.step()  # Update weights
+
+            self.backwardStats = {
+                "_B_floatMemoryLength": torch.exp(self.logMemoryLength).item(),
+                "_B_repetitionWindow": torch.exp(self.logRepetitionWindow).item(),
+                "_B_temperature": torch.exp(self.logTemp).item(),
+            }
+            self.stats.update(self.backwardStats)
 
             #with torch.no_grad(): # FORCE RESET THE MEMORY GATES IF OVER USING LONG
                 #self.memory.currentGate.data = self.memory.currentGate.data.abs()
@@ -266,53 +298,71 @@ class BABYLLM(nn.Module):
             return responseFromLogits"""
 
     @whocalled
-    def getResponseFromLogits(self, _logits):
+    def getResponseFromLogits(self, _logits, _training = False):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
+            ʕっʘ‿ʘʔっ("update logarithmic parameters")
+            #self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
             self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
             _logits /= self.temperature
 
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
 
-            ʕっʘ‿ʘʔっ("repetitionWindow...")
-            self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
-            #self.repetitionSlice = self.repetitionWindow.round().int().item()
+            if _training:
+                gumbelProbs = F.gumbel_softmax(_logits, tau = self.temperature, hard = False)
+                responseFromLogits = gumbelProbs.argmax(dim = 1, keepdim = True)
+                self.lastSoftSample = gumbelProbs
 
-            #self.repetitionWindow = torch.exp(self.logRepetitionWindow) + torch.exp(self.logRepetitionWindow).round().detach() - torch.exp(self.logRepetitionWindow).detach()
-            #self.repetitionSlice = self.repetitionWindow + self.repetitionWindow.round().int().item() - self.repetitionWindow
+                topk = torch.topk(gumbelProbs, 10, dim=1)
+                indices = topk.indices[0].tolist()
+                values = topk.values[0].tolist()
+                self.lastTopGuesses = [
+                    (self.librarian.indexToToken.get(i, "<UNK>"), round(p, 4))
+                    for i, p in zip(indices, values)
+                ]
+                for i, p in zip(indices, values):
+                    token = self.librarian.indexToToken.get(i, "<UNK>")
+                    self.rollingTokenTotals[token] += round(p, 4)
+                #print("Top guesses + confidences:", [(self.librarian.indexToToken[i.item()], f"{p.item():.3f}") for i, p in zip(indices, values)])
 
-            # repetition penalty
-            if self.recentGeneratedTokens:
-                lastTokens = self.recentGeneratedTokens[-int(self.repetitionWindow.item()):] # <3 <3 <3
-                #lastTokens = self.recentGeneratedTokens[-self.repetitionWindow:]
-                uniqueTokens = set(lastTokens)
-                repeatedTokens = [t for t in lastTokens if lastTokens.count(t) > 1]
-                self.repeatedPercent = len(repeatedTokens) / len(lastTokens)
+            else:
+                probs = torch.softmax(_logits, dim=1)
+                responseFromLogits = torch.multinomial(probs, 1)
+                self.lastSoftSample = None  # or keep the probs if you want analysis
 
-                self.stats.update({"PT%": self.repeatedPercent})
-
-                for token in uniqueTokens:
-                    ʕっʘ‿ʘʔっ("add repetitionPenalties...")
-                    _logits[0, token] /= self.repetitionPenalty  # reduce score of repeated token
-
-                #if debugPrints:
-                    #print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
-
-            # Sample from softmaxed logits
-            probs = torch.softmax(_logits, dim = 1)
-            responseFromLogits = torch.multinomial(probs, 1)
+            #if debugPrints:
+                #print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
 
             ʕっʘ‿ʘʔっ("create windows using rolling buffer")
             self.recentGeneratedTokens.append(responseFromLogits.item())
-            if len(self.recentGeneratedTokens) > self.repetitionWindow:
+            if len(self.recentGeneratedTokens) > int(torch.exp(self.logRepetitionWindow)):
                 self.recentGeneratedTokens.pop(0)
 
             return responseFromLogits
+        
+    def applyRepetitionPenalty(self, _logits):
+        if not self.recentGeneratedTokens:
+            return _logits
+
+        repWindow = torch.exp(self.logRepetitionWindow)
+        penalty = self.repetitionPenalty
+
+        recentTokens = torch.tensor(self.recentGeneratedTokens, device=self.device)
+        vocabSize = _logits.shape[1]
+
+        positions = torch.arange(len(recentTokens), device=self.device).float()
+        windowCentre = len(recentTokens)
+        softMask = torch.sigmoid((positions - (windowCentre - repWindow)) * 0.5)
+
+        oneHots = F.one_hot(recentTokens, num_classes=vocabSize).float()
+        weightedFreqs = (oneHots.T @ softMask).view(1, -1)
+
+        return _logits - weightedFreqs / penalty
+
 
     def getNextToken(self, _inputSeq):  
         with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
-            self.temperature = torch.exp(self.logTemp)
             logits, *_ = self.forward(_inputSeq) # unpacks the first value of the tuple and ignores the rest
-            nextToken = self.getResponseFromLogits(logits)
+            nextToken = self.getResponseFromLogits(logits, _training = True)
             return nextToken
         
     def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex, _trainingStepCounter = 0):
@@ -329,6 +379,9 @@ class BABYLLM(nn.Module):
     def loadModel(self, filePath = modelFilePath):
         with self.counsellor.infodump("loadModel") as ʕっʘ‿ʘʔっ:
             try:
+                ʕっʘ‿ʘʔっ("update logarithmic parameters")
+                self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
+                self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
                 print(f"loading model from path: {filePath}") 
                 self.load_state_dict(torch.load(filePath), strict = saveStrict)
                 print(f"model loaded from {filePath}!")
@@ -379,7 +432,7 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemoryReset += 1
                 else: 
                     self.stepsSinceMemoryReset = 1
-                if self.stepsSinceMemoryReset >= int(self.logMemoryLength.item()): 
+                if self.stepsSinceMemoryReset >= int(torch.exp(self.logMemoryLength).item()): 
                     self.memory.resetMemory()
                     if debugPrints: print(f"resetting memory after {self.stepsSinceMemoryReset} steps... (learned mem length: {self.logMemoryLength})")
                     self.stepsSinceMemoryReset = 0 
@@ -388,6 +441,8 @@ class BABYLLM(nn.Module):
         self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = self.learningRate
+
+    def getBabyStats(self): return self.stats
     
 if __name__ == "__main__":
     exit(0)

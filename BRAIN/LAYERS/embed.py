@@ -25,11 +25,11 @@ class EMBED(nn.Module):
     @whocalled
     def forward(self, _tokenIndex):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("E1_embedVector") # <- vocab????
+            ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
             self.embedVector = self.e_weights[_tokenIndex] 
-            ʕっʘ‿ʘʔっ("E2_embedNormed") # <- E1
+            ʕっʘ‿ʘʔっ("E1_embedNormed") # <- E1
             self.embedNormed = self.embedNorm(self.embedVector)
-            ʕっʘ‿ʘʔっ("E3_embedFinal") # <- E2
+            ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
             self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
             return self.embedFinal # E3 -> N??
     
@@ -42,11 +42,11 @@ class EMBED(nn.Module):
                 self.stats["embedNormStd"] = embedNorms.std()
                 self.stats["embedNormMax"] = embedNorms.max()
 
-                self.stats["1E_1_embedVector_norm"] = self.embedVector.norm().item()
-                self.stats["1E_2_embedNormed_norm"] = self.embedNormed.norm().item()
-                self.stats["1E_3_embedFinal_norm"] = self.embedFinal.norm().item()
-                self.stats["1E_1_embedVector_scale"] = self.weightsScale.norm().item()
-                self.stats["1E_2_embedNormed_scale"] = self.normScale.norm().item()
+                self.stats["1E_0_embedVector_norm"] = self.embedVector.norm().item()
+                self.stats["1E_1_embedNormed_norm"] = self.embedNormed.norm().item()
+                self.stats["1E_x_embedFinal_norm"] = self.embedFinal.norm().item()
+                self.stats["1E_0_embedVector_scale"] = self.weightsScale.norm().item()
+                self.stats["1E_1_embedNormed_scale"] = self.normScale.norm().item()
 
                 dimMean = self.e_weights.mean(dim = 0)
                 self.stats["embedDimensionMean"] = dimMean

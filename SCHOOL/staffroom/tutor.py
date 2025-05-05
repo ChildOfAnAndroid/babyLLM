@@ -7,6 +7,7 @@ import random, sys
 from collections import Counter, defaultdict
 from datetime import datetime
 import torch
+import torch.nn.functional as F
 from config import *
 import numpy as np
 import math
@@ -30,23 +31,8 @@ def makeStatRecord():
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
-                _device                 = modelDevice,              
-                _logGradClip            = 0, 
-                _temperature            = 0.8,                  
-                _repetitionPenalty      = 0, 
-                _scheduledSamplingRate  = 0,            
-                _memoryLength           = 0, 
-                _numTokensPerStep       = numTokensPerStep,
-                _logRepetitionWindow    = 0):
-        
-        # send stats from babyllm.py
-        self.temperature                = _temperature
-        self.repetitionPenalty          = _repetitionPenalty
-        self.scheduledSamplingRate      = _scheduledSamplingRate
-        self.logGradClip                = _logGradClip
-        self.gradientClipMaxNorm        = 0
-        self.memoryLength               = _memoryLength
-        self.logRepetitionWindow        = _logRepetitionWindow
+                _device                 = modelDevice, 
+                _numTokensPerStep       = numTokensPerStep,):
         
         self.counsellor                 = _counsellor
         self.calligraphist              = _calligraphist
@@ -55,7 +41,14 @@ class TUTOR:
         self.device                     = _device
         self.model                      = _model
 
+        self.temperature                = 0.75
+        self.scheduledSamplingRate      = self.model.scheduledSamplingRate
+        self.gradientClipMaxNorm        = 1
+        self.memoryLength               = 1
+
         self.ʕっෆ‿ෆʔっ                  = defaultdict(makeStatRecord)
+        #self.rollingTokenTotals = Counter()
+
 
         self.perfectTokens              = 0
         self.totalTokenEvaluations      = 0
@@ -167,7 +160,7 @@ class TUTOR:
                 ʕっʘ‿ʘʔっ("resetMemory")
                 self.model.resetMemory(context="training")
 
-        return inputTokenIndices, targetTokenIndexSeq, #self.repetitionPenalty, #self.wobbleLoss
+        return inputTokenIndices, targetTokenIndexSeq
 
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss):
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
@@ -197,7 +190,7 @@ class TUTOR:
                 if forwardProfiler: print(prof.key_averages().table())
 
                 ʕっʘ‿ʘʔっ("getResponseFromLogits")
-                predictedTokenIndex = self.model.getResponseFromLogits(logits)
+                predictedTokenIndex = self.model.getResponseFromLogits(logits, _training = True)
 
                 ʕっʘ‿ʘʔっ("inputSeqPredictions")
                 self.predictedTokenIndices.append(predictedTokenIndex) # tensor shape [1]
@@ -219,6 +212,17 @@ class TUTOR:
                     else predictedTokenIndex.item() # .ITEM() REQUIRED!! FOR APPENDING ONLY ONE TOKEN (grids?)
                 )
                 inputSeqPredictions.append(nextTokenInput) # multi-token autoregressive generation: append next token to your current input — becomes the prompt for the next token
+
+                """# After logits
+                if logits.dim() == 1: logits = logits.unsqueeze(0)
+                gumbelProbs = F.gumbel_softmax(logits, tau = self.temperature, hard = False)
+                topk = torch.topk(gumbelProbs, 10, dim=1)
+                values = topk.values[0]
+                indices = topk.indices[0]
+
+                for i, p in zip(indices, values):
+                    tok = self.librarian.indexToToken[i.item()]
+                    self.rollingTokenTotals[tok] += round(p.item(), 4)"""
 
                 ʕっʘ‿ʘʔっ("loop through tokens for this step")
                 if j < len(_targetTokenIndexSeq):
@@ -260,21 +264,16 @@ class TUTOR:
 
             if profiler: print(prof.key_averages().table())
             
-            ʕっʘ‿ʘʔっ("clip_grad_norm")
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = 1)
-            self.model.optimizer.step()
+            ʕっʘ‿ʘʔっ("clip_grad_norm") # DONE IN BABYLLM!!
+            #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = 1)
+            #self.model.optimizer.step()
 
             ʕっʘ‿ʘʔっ("actions after looping")
             self.stepLossFloat              = BACKWARDloss.detach().cpu().numpy().item()
             self.learningRate               = math.exp(self.model.logLR.detach().cpu().item())
-            self.memoryLength               = math.exp(self.model.logMemoryLength.detach().cpu().item())
+            self.memoryLength               = int(torch.exp(self.model.logMemoryLength).item())
             self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().cpu().item())
-            self.repetitionWindow           = math.exp(self.model.logRepetitionWindow.detach().cpu().item())
-            self.windowSizesMean            = self.model.interneuronNetwork.expWindowSizes.detach().cpu().mean() 
-            self.temperatureFloat           = self.model.temperature
             self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
-            #self.normalisedActivations      = self.model.normalisedActivations.norm().detach().cpu().numpy().item()
-            #self.windowWeight               = self.model.interneuronNetwork.windowWeight.detach().cpu().item()
             self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
             #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
             #self.INN_cerebellumMean         = self.model.interneuronNetwork.cerebellum.mean().cpu().item()
@@ -412,6 +411,9 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
+            topGuess_str = "topGuess" + " | ".join([f"{k}({v:.1f})" for k, v in self.model.rollingTokenTotals.most_common(20)])
+
+
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
             #fullStats.update(self.ʕっෆ‿ෆʔっ)
@@ -438,7 +440,7 @@ class TUTOR:
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
                 _topTokens_str = str(self.stringStats.get("topTokens", "<missing topTokens>")),
-                _otherInfo_str = f"{tokenPerfect_str} | {self.stringStats.get('windowVotes_str', '<missing windowVotes>')} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
+                _otherInfo_str = f"{topGuess_str} | \n{tokenPerfect_str} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 
@@ -514,7 +516,9 @@ class TUTOR:
 
                     ʕっʘ‿ʘʔっ("♥most common tokens")
                     topTokens = ""
-                    topTokens = self.tokenCounts.most_common(10)
+                    #self.topGuessTokens = ""
+                    topTokens = self.tokenCounts.most_common(20)
+                    #self.topGuessTokens = self.rollingTokenTotals.most_common(10)
                     self.perfectTokens = 0
 
                     ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
@@ -531,23 +535,15 @@ class TUTOR:
                     ʕっʘ‿ʘʔっ("♥if static_collectStats")
                     self.stats["scheduledSamplingRate"] = self.scheduledSamplingRateFloat
                     self.stats["repetitionPenalty"]     = self.repetitionPenalty
-                    self.stats["AvgLoss"]               = self.averageRecentLoss
+                    self.stats["avgLoss"]               = self.averageRecentLoss
                     self.stats["loss"]                  = self.stepLossFloat
-                    self.stats["temperature"]           = self.temperatureFloat
-                    self.temperature                    = self.stats["temperature"]
+                    self.temperature                    = self.stats["_B_temperature"]
                     self.stats["LR"]                    = self.learningRate
                     self.stats["gradientClipMaxNorm"]   = self.gradientClipMaxNorm
                     self.stats["latestLossDelta"]       = self.latestLossDelta
                     self.stats["memoryLength"]          = self.memoryLength
-                    self.stats["repetitionWindow"]      = self.repetitionWindow
                     self.stats["perfectTokens"]         = self.perfectTokens
-                    self.stats["windowSizesMean"]       = self.windowSizesMean
-                    self.stats["normalisedActivationsNorm"] = self.model.stats["normalisedActivationsNorm"]
-                    #self.stats["normalisedActivations"] = self.normalisedActivations
-                    #self.stats["windowWeight"]          = self.windowWeight
-                    #self.stats["INN_cerebelumMean"]     = self.INN_cerebellumMean
-                    ##self.stats["INN_cerebellum"]        = self.INN_cerebellum
- 
+
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")
                     self.stats.update(self.model.embed.getEmbedStats())
@@ -564,6 +560,7 @@ class TUTOR:
 
                 if skipMemory:
                     ʕっʘ‿ʘʔっ("♥skipMemory")
+                    pass
                 else:
                     self.model.memory.updateMemoryBuffers()
                     if memory_collectStats:
@@ -573,6 +570,7 @@ class TUTOR:
                 ʕっʘ‿ʘʔっ("♥INN_collectStats")
                 INN_stats, INN_cerebellum_str = self.model.interneuronNetwork.INN_getStats()
                 self.stats.update(INN_stats)
+                self.stats.update(self.model.getBabyStats())
                 INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str)}
                 self.stringStats.update(INN_stringStats)
                 self.stringStats.update({"topTokens": str(topTokens)})

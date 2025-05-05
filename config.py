@@ -92,7 +92,7 @@ numTokensPerStep = 64   # Number of tokens to predict per step
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
-memoryLengthGOAL = 7
+memoryLengthGOAL = 1
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.00001 //
@@ -132,62 +132,179 @@ skipComputeLoss = False
 skipMetaLoss = True
 
 """--- STATS COLLECTION ---"""
-mostImportantStats  =   ["memoryLength",                        "LR",                               "learningRate", 
-                        "latestLossDelta",                      "AvgLoss",                          "loss", 
-                        "gradNorm",                             "gradientClipMaxNorm",              "scheduledSamplingRate", 
-                        "sampledTokens",                        "repetitionPenalty",                "temperature",
-                        "repetitionWindow",                     "windowSizesMean",                  "INN_cerebellumMean", 
+mostImportantStats  =   [
+            # EMBED STATS
+                "1E_0_embedVector_norm",                            # IMPORTANT LAYER TRACKER !! (INPUT)
+            #       "1E_0_embedVector_scale",
+            #       "1E_0_embedVector_norm_token",          
+            #       "1E_0_embedVector_norm_neuron",                
+            #       "1E_1_embedNormed_norm",
+            #           "1E_1_embedNormed_scale",  
+            #           "1E_1_embedNormed_norm_token",
+            #           "1E_1_embedNormed_norm_neuron",       
+                "1E_x_embedFinal_norm",                             # IMPORTANT LAYER TRACKER !! (EMBEDS)
+            #       "1E_x_embedFinal_norm_token",
+            #       "1E_x_embedFinal_norm_neuron",
 
-                        "1E_1_embedVector_norm",                "1E_1_embedVector_scale",
-                            "1E_1_embedVector_norm_token",          "1E_1_embedVector_norm_neuron",                
-                        "1E_2_embedNormed_norm",                "1E_2_embedNormed_scale",  
-                            "1E_2_embedNormed_norm_token",          "1E_2_embedNormed_norm_neuron",       
-                        "1E_3_embedFinal_norm",
-                            "1E_3_embedFinal_norm_token",           "1E_3_embedFinal_norm_neuron",
+            # NEURON STATS
+            #                                                       "2N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
+            #           "2N_0_rawInput_norm_token",            # might be unneeded if this is already per token, check later
+            #           "2N_0_rawInput_norm_neurons",
+            #       "2N_1_rawOutput_norm",
+            #           "2N_1_rawOutput_norm_token",            
+            #           "2N_1_rawOutput_norm_neuron",
+            #       "2N_2_activatedOutput_norm", 
+            #           "2N_2_activatedOutput_norm_token",      
+            #           "2N_2_activatedOutput_norm_neuron", 
+                "2N_x_normedOutput_norm",                           # IMPORTANT LAYER TRACKER !! (NEURONS)
+            #                "2N_x_normedOutput_norm_token",         
+            #                "2N_x_normedOutput_norm_neuron",
 
-                        "2N_1_rawOutput_norm",
-                            "2N_1_rawOutput_norm_token",            "2N_1_rawOutput_norm_neuron",
-                        "2N_2_activatedOutput_norm", 
-                            "2N_2_activatedOutput_norm_token",      "2N_2_activatedOutput_norm_neuron", 
-                        "2N_3_normedOutput_norm",
-                            "2N_3_normedOutput_norm_token",         "2N_3_normedOutput_norm_neuron",
+            # INTERNEURON NETWORK STATS
+            #                                                        "3INN_0_rawActivations_norm", # MATCHES 2N_x_normedOutput_norm
+            #           "3INN_0_rawActivations_norm_token",         
+            #           "3INN_0_rawActivations_norm_neuron",       
+            #       "3INN_1_rawActivationsLayerNorm_norm",  
+            #           "3INN_1_rawActivationsLayerNorm_norm_token",
+            #           "3INN_1_rawActivationsLayerNorm_norm_neuron",
+            #       "3INN_2_combinedActivations_norm",       
+            #           "3INN_2_combinedActivations_scale", 
+            #           "3INN_2_combinedActivations_norm_token",    
+            #           "3INN_2_combinedActivations_norm_neuron",  
+            #       "3INN_3_refinedActivations_norm",        
+            #           "3INN_3_refinedActivations_scale",
+            #           "3INN_3_refinedActivations_norm_token",     
+            #           "3INN_3_refinedActivations_norm_neuron", 
+            #       "3INN_4_combinedActivationsMeta_norm",
+            #           "3INN_4_combinedActivationsMeta_norm_token", 
+            #           "3INN_4_combinedActivationsMeta_norm_neuron",
+                "3INN_x_FINALoutLayerNorm_norm",                # IMPORTANT LAYER TRACKER !! (INTERNEURON NETWORK)
+            #       "3INN_x_FINALoutLayerNorm_norm_token",      
+            #       "3INN_x_FINALoutLayerNorm_norm_neuron",
+                "_INN_windowSizesMean",
+                "INN_cerebellumMean",  
 
-                        "3INN_1_rawActivations_norm",    
-                            "3INN_1_rawActivations_norm_token",         "3INN_1_rawActivations_norm_neuron",         
-                        "3INN_2_rawActivationsLayerNorm_norm",  
-                            "3INN_2_rawActivationsLayerNorm_norm_token","3INN_2_rawActivationsLayerNorm_norm_neuron",
-                        "3INN_3_combinedActivations_norm",       "3INN_3_combinedActivations_scale", 
-                            "3INN_3_combinedActivations_norm_token",    "3INN_3_combinedActivations_norm_neuron",  
-                        "3INN_4_refinedActivations_norm",        "3INN_4_refinedActivations_scale",
-                            "3INN_4_refinedActivations_norm_token",     "3INN_4_refinedActivations_norm_neuron", 
-                        "3INN_5_combinedActivationsMeta_norm",
-                            "3INN_5_combinedActivationsMeta_norm_token", "3INN_5_combinedActivationsMeta_norm_neuron",
-                        "3INN_6_FINALoutLayerNorm_norm",
-                            "3INN_6_FINALoutLayerNorm_norm_token",      "3INN_6_FINALoutLayerNorm_norm_neuron",
+            # MEMORY STATS
+            #                                                       "4M_0_rawActivations_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+            #   "4M_1_shortTermMemory_norm",
+            #   "4M_1_longTermMemory_norm",                
+                "4M_x_FINALmemory_norm",                        # IMPORTANT LAYER TRACKER !! (MEMORY)
+            #
+            #   "4M_longDecay",
+            #   "4M_shortDecay",
+                "_4M_shortGateScale",
+                "_4M_longGateScale",
+                "_4M_activationsGateScale",  
 
-                        "4M_longDecay",                          "4M_shortDecay",                     "4M_shortGateWeight",
-                        "4M_longGateWeight",                     "4M_currentGateWeight",
+            # BABYLLM STATS
+            #                                                       "2B_0_inputEmbeds_norm", # MATCHES 2N_0_rawInput_norm & 1E_x_embedFinal_norm
+            #                                                       "3B_1_INNOutput_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+            #                                                       "5B_0_memoryOutput_norm", # MATCHES 4M_x_FINALmemory_norm
+                "5B_x_finalNormLayer_norm",                     # IMPORTANT LAYER TRACKER !! (BABYLLM)
+            #                                                       "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
+                "_B_floatMemoryLength",
+                "_B_repetitionWindow", 
+                "_B_temperature",
 
-                        "5L_1_activationsTensor_norm",          "5L_1_activationsTensor_scale",
-                        "5L_2_normedActivationsTensor_norm",    "5L_2_normedActivationsTensor_scale",
-                        "5L_3_activations",
-                        "5L_4_logitOutput_norm",                "5L_4_logitOutput_scale",
-                        "5L_5_logitNormed_norm",                "5L_5_logitNormed_scale", 
-                        "5L_6_finalLogit_norm",
+            # LOGIT STATS
+            #                                                       "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
+            #                                                           "6L_0_activationsTensor_scale",
+            #        "6L_1_normedActivationsTensor_norm",    
+            #           "6L_1_normedActivationsTensor_scale",
+            #        "6L_2_scaledActivations_norm",
+            #        "6L_3_logitOutput_norm",
+            #           "6L_3_logitOutput_scale",
+            #        "6L_4_logitNormed_norm",
+            #           "6L_4_logitNormed_scale", 
+                "6L_x_finalLogit_norm",                         # IMPORTANT LAYER TRACKER !! (LOGIT)
+
+            # MISC/UNSORTED STATS
+                # base stats
+                    "LR",   "learningRate", "lR",
+                    "latestLossDelta",  "AvgLoss",  "loss",
+                    #"temperature",
+                    #"memoryLength",
+                    #"gradNorm",
+                    #"gradientClipMaxNorm",
+                    #"scheduledSamplingRate",    "sampledTokens", 
+
+                # learnable parameters
+                    "repetitionPenalty",   
                         ]
 
 allRecordedOtherStats = ["avgLoss",                         "stepLoss",                     "tokenCount",
                          "trainingStepCount",               "windowWeight",                 "INN_cerebellumStd",
-                         "shortDecay",                      "longDecay",                    "latestMemoryGates",
-                         "embedNormMean",                   "embedNormStd",                 "embedNormMax",
-                         "embedDimensionMean",              "embedDimensionSparsity",       "embeddingDrift",
-                         "logitMin",                        "logitMax",                     "logitSeq",
-                         "logitWeightNormMean",             "logitWeightNormStd",           "logitWeightNormMax",
-                         "logitWeightSparsity",             "logitWeightDrift",             "logitBiasMean",
-                         "logitBiasStd",                    "logitBiasMax",                 "n_weightMean",
-                         "n_weightStd",                     "n_weightMin",                  "n_weightMax",
-                         "n_biasesMean",                    "n_biasesStd",                  "n_biasesMin",
-                         "n_biasesMax",                     "n_sparsity"]
+                         "latestMemoryGates",               "embedNormMean",                "embedNormStd",
+                         "embedNormMax",                    "embedDimensionMean",           "embedDimensionSparsity",
+                         "embeddingDrift",                  "logitMin",                     "logitMax",                     
+                         "logitSeq",                        "logitWeightNormMean",          "logitWeightNormStd",           
+                         "logitWeightNormMax",              "logitWeightSparsity",          "logitWeightDrift",             
+                         "logitBiasMean",                   "logitBiasStd",                 "logitBiasMax",                 
+                         "n_weightMean",                    "n_weightStd",                  "n_weightMin",                  
+                         "n_weightMax",                     "n_biasesMean",                 "n_biasesStd",                  
+                         "n_biasesMin",                     "n_biasesMax",                  "n_sparsity"]
+
+allRecordedOtherStats += [
+                        "temperature",                      "memoryLength",                 "gradNorm",
+                        "gradientClipMaxNorm",              "scheduledSamplingRate",        "sampledTokens", 
+                        "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
+                        "6L_0_activationsTensor_scale",
+                        "6L_1_normedActivationsTensor_norm",    
+                        "6L_1_normedActivationsTensor_scale",
+                        "6L_2_scaledActivations_norm",
+                        "6L_3_logitOutput_norm",
+                        "6L_3_logitOutput_scale",
+                        "6L_4_logitNormed_norm",
+                        "6L_4_logitNormed_scale", 
+                        "2B_0_inputEmbeds_norm", # MATCHES 2N_0_rawInput_norm & 1E_x_embedFinal_norm
+                        "3B_1_INNOutput_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+                        "5B_0_memoryOutput_norm", # MATCHES 4M_x_FINALmemory_norm
+                        "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
+                        "4M_longDecay",
+                        "4M_shortDecay",
+                        "4M_0_rawActivations_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+                        "4M_1_shortTermMemory_norm",
+                        "4M_1_longTermMemory_norm",     
+                        "3INN_x_FINALoutLayerNorm_norm_token",      
+                        "3INN_x_FINALoutLayerNorm_norm_neuron",
+                        "1E_0_embedVector_scale",
+                        "1E_0_embedVector_norm_token",          
+                        "1E_0_embedVector_norm_neuron",                
+                        "1E_1_embedNormed_norm",
+                        "1E_1_embedNormed_scale",  
+                        "1E_1_embedNormed_norm_token",
+                        "1E_1_embedNormed_norm_neuron",       
+                        "1E_x_embedFinal_norm_token",
+                        "1E_x_embedFinal_norm_neuron",
+                        "2N_0_rawInput_norm",
+                        "2N_0_rawInput_norm_token",
+                        "2N_0_rawInput_norm_neurons",
+                        "2N_1_rawOutput_norm",
+                        "2N_1_rawOutput_norm_token",            
+                        "2N_1_rawOutput_norm_neuron",
+                        "2N_2_activatedOutput_norm", 
+                        "2N_2_activatedOutput_norm_token",      
+                        "2N_2_activatedOutput_norm_neuron", 
+                        "2N_x_normedOutput_norm_token",         
+                        "2N_x_normedOutput_norm_neuron",
+                        "3INN_0_rawActivations_norm", # MATCHES 2N_x_normedOutput_norm
+                        "3INN_0_rawActivations_norm_token",         
+                        "3INN_0_rawActivations_norm_neuron",       
+                        "3INN_1_rawActivationsLayerNorm_norm",  
+                        "3INN_1_rawActivationsLayerNorm_norm_token",
+                        "3INN_1_rawActivationsLayerNorm_norm_neuron",
+                        "3INN_2_combinedActivations_norm",       
+                        "3INN_2_combinedActivations_scale", 
+                        "3INN_2_combinedActivations_norm_token",    
+                        "3INN_2_combinedActivations_norm_neuron",  
+                        "3INN_3_refinedActivations_norm",        
+                        "3INN_3_refinedActivations_scale",
+                        "3INN_3_refinedActivations_norm_token",     
+                        "3INN_3_refinedActivations_norm_neuron", 
+                        "3INN_4_combinedActivationsMeta_norm",
+                        "3INN_4_combinedActivationsMeta_norm_token", 
+                        "3INN_4_combinedActivationsMeta_norm_neuron",
+]
 
 percentileBands = [100.0, 99.8, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.2, 0.00]
 
@@ -226,7 +343,7 @@ trainingDataSliceSize_min = 5000000000
 trainingDataSliceSize_max = 3000000000000
 reflectionFreq = 3456
 # --- #
-trainingDataPairNumber = 30000
+trainingDataPairNumber = 69420
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 
