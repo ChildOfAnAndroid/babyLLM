@@ -24,105 +24,70 @@ This class:
 - Saves and loads vocab data to/from files.
 """
 class LIBRARIAN:
-    def __init__(self, _counsellor, _vocabSize = vocabSize, _vocabPath = vocabLoad, _baseTokenizerPath = None):
+    def __init__(self, _counsellor, _vocabSize=vocabSize, _vocabPath=None, _baseTokenizerPath=None, _forceRetrain=False):
         self.v_counsellor = _counsellor
-        self.vocabSize = _vocabSize
-        self.vocabSize += 1 # increases size by 1 to allow space for UNK token
-        self.vocabList = []
-        self.tokenToIndex = {}
-        self.indexToToken = {}
+        self.vocabSize = _vocabSize + 1  # for <UNK>
         self.unkToken = "<UNK>"
         self.vocabCache = vocabCachePath
         self.vocabFilename = f"vocab{_vocabSize}_{minTokenFreq}"
-        self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
 
+        self.tokenizerFilename = f"tokenizer_{_vocabSize}.json"
+        self.tokenizerPath = _vocabPath or os.path.join(self.vocabCache, self.tokenizerFilename)
+        self.tokenizerLockFile = os.path.join(self.vocabCache, f"{self.tokenizerFilename}.lock")
+
+        self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
         self.tokenToIndexFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_index.json")
         self.indexToTokenFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_token.json")
 
-        self.tokenizerFilename = f"tokenizer_{_vocabSize}.json"
-        self.tokenizerPath = os.path.join(self.vocabCache, self.tokenizerFilename)
-        self.baseTokenizerPath = _baseTokenizerPath #optional
+        self.vocabList = []
+        self.tokenToIndex = {}
+        self.indexToToken = {}
+
+        self.baseTokenizerPath = _baseTokenizerPath
+
+        os.makedirs(self.vocabCache, exist_ok=True)
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
-            if _vocabPath:
-                ʕっʘ‿ʘʔっ("using provided vocabPath...") # if vocabPath is provided, load a pretrained tokenizer from that path
-                self.tokenizerPath = _vocabPath
-            else:
-                ʕっʘ‿ʘʔっ("creating provided vocabPath...") # if vocabPath not provided (training mode), set tokenizerPath to the default directory
-                self.tokenizerPath = os.path.join(self.vocabCache, self.tokenizerFilename)
-                if not os.path.exists(self.vocabCache):
-                    os.makedirs(self.vocabCache)
 
-            if os.path.exists(self.tokenizerPath):
-                ʕっʘ‿ʘʔっ("loading existing tokenizer...")
+            shouldTrain = _forceRetrain or not os.path.exists(self.tokenizerPath) or not os.path.exists(self.tokenizerLockFile)
+
+            if shouldTrain:
+                ʕっʘ‿ʘʔっ("TRAINING NEW TOKENIZER")
+                print("training new tokenizer...")
+                tokenizerModel = Tokenizer(models.BPE(unk_token=self.unkToken))
+                tokenizerModel.pre_tokenizer = pre_tokenizers.ByteLevel()
+                trainer = trainers.BpeTrainer(
+                    vocab_size=self.vocabSize,
+                    min_frequency=minTokenFreq,
+                    special_tokens=[self.unkToken]
+                )
+
+                with open(trainingFilePath, "r", encoding="utf-8") as f:
+                    training_data = [f.read().lower()]
+                tokenizerModel.train_from_iterator(training_data, trainer)
+                tokenizerModel.save(self.tokenizerPath)
+
+                with open(self.tokenizerLockFile, "w") as f:
+                    f.write("LOCKED") # avoid retraining by accident lol
+
+                self.tokenizer = tokenizerModel
+            else:
+                ʕっʘ‿ʘʔっ("LOADING EXISTING TOKENIZER")
                 print("loading existing tokenizer...")
                 self.tokenizer = Tokenizer.from_file(self.tokenizerPath)
-            else:
-                ʕっʘ‿ʘʔっ("training new tokenizer...")
-                if _baseTokenizerPath:
-                    tokenizerModel = Tokenizer.from_file(self.baseTokenizerPath) # load existing tokenizer
-                    trainer = trainers.BpeTrainer(vocab_size = vocabSize, min_frequency = minTokenFreq, special_tokens = ["<UNK>"])
-                else:
-                    tokenizerModel = Tokenizer(models.BPE(unk_token="<UNK>"))
-                    tokenizerModel.pre_tokenizer = pre_tokenizers.ByteLevel()
-                    trainer = trainers.BpeTrainer(vocab_size = vocabSize, min_frequency = minTokenFreq, special_tokens = ["<UNK>"])
-            with open(trainingFilePath, "r", encoding="utf-8") as f:
-                training_data = [f.read().lower()]
-            tokenizerModel.train_from_iterator(training_data, trainer)
-            tokenizerModel.save(self.tokenizerPath)
-            self.tokenizer = tokenizerModel
 
-            if self.baseTokenizerPath: # compare with previous tokenizer if provided
-                try:
-                    baseTokenizer = Tokenizer.from_file(self.baseTokenizerPath)
-                    oldVocab = set(baseTokenizer.get_vocab().keys())
-                    newVocab = set(tokenizerModel.get_vocab().keys())
-                    addedTokens = sorted(list(newVocab - oldVocab))
-                    print(f"\nvocab expansion!")
-                    print(f"previous vocab: {len(oldVocab)}")
-                    print(f"new vocab: {len(newVocab)}")
-                    print(f"{len(addedTokens)} new tokens added.")
-                    print(f"example: {addedTokens[:20]}")
-                except Exception as e:
-                    print(f"couldnt compare with old tokenizer: {e}")
-            if self.baseTokenizerPath:
-                baseTokenizer = Tokenizer.from_file(self.baseTokenizerPath)
-                baseVocab = baseTokenizer.get_vocab()
-                newVocab = self.tokenizer.get_vocab()
-
-                changed = []
-                for token in baseVocab:
-                    oldIndex = baseVocab[token]
-                    newIndex = newVocab.get(token, -1)
-                    if oldIndex != newIndex:
-                        changed.append((token, oldIndex, newIndex))
-
-                if changed:
-                    print(f"noooo! {len(changed)} tokens have changed positions!")
-                    for tok, old, new in changed[:2000]:
-                        print(f"token: {tok} - was {old}, now {new}")
-            else:
-                print("both tokenizers match! :D")
-
-
-            self.trainingDataPairs = self.loadTrainingData(trainingFilePath_arr)
-            self.tokens = self.tokenizeText(self.trainingDataPairs)
-
-            if debugPrints: print(f"vocab length: {len(self.tokenizer.get_vocab())}")
+            self.buildVocabMap()
 
             if self.loadVocab():
-                ʕっʘ‿ʘʔっ("loaded existing vocab")
-                if debugPrints:
-                    print(f"loaded vocab from {self.vocabCache}")
+                ʕっʘ‿ʘʔっ("loaded vocab from files...")
                 self.trainingDataPairs = self.loadTrainingData(trainingFilePath_arr)
                 self.tokens = self.tokenizeText(self.trainingDataPairs)
             else:
-                ʕっʘ‿ʘʔっ("building vocab from scratch")
+                ʕっʘ‿ʘʔっ("building vocab from tokenizer...")
                 self.buildVocabMap()
-                if debugPrints:
-                    print(f"vocab length is {len(self.vocabList)}")
                 self.saveVocab()
-                print(f"saved vocab data to {self.vocabCache}")
+                print(f"saved vocab data to {self.vocabCache}!")
+
 
     def tokenizeText(self, _text):
         with self.v_counsellor.infodump("tokenizeText") as ʕっʘ‿ʘʔっ:

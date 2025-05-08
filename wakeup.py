@@ -34,9 +34,9 @@ def wakeup():
 
             # OPEN THE LIBRARY :)
             ʕっʘ‿ʘʔっ("waking the librarian...")
-            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = "BRAIN/vocabCache/tokenizer_2000.json")
+            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False)
 
-            exit(8)
+            if False: exit(0)
             ʕっʘ‿ʘʔっ("opening questions...")
             newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian)
 
@@ -51,12 +51,6 @@ def wakeup():
                                                 _calligraphist          = calligraphist, 
                                                 _librarian              = librarian,
                                                 )
-            
-            wobble              = None
-            # wobble            = WOBBLE    (_counsellor                = counsellor,
-            #                                    _calligraphist          = calligraphist, 
-            #                                    _device                 = modelDevice,
-            #                                    _activationFunction     = activationFunction)
             
             # WAKE UP THE BABY :)
             ʕっʘ‿ʘʔっ("loading babyLLM...")
