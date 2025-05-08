@@ -185,16 +185,18 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
+            lrSoftClamp = 0.5 * (self.logLR - math.log(0.0002)).pow(2)
+            loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lastLossBaby = loss.item()
 
             if _training and self.lastSoftSample is not None:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
                 auxLoss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
-                loss += 0.07 * auxLoss  # low weight so it doesn't dominate
+                FINALloss = loss + auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
+            else:
+                FINALloss = loss
 
             #tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
-            lrSoftClamp = 0.5 * (self.logLR - math.log(0.0002)).pow(2)
-            loss += lrSoftClamp # use .detach() to avoid .backward()
 
                 # more tokens (better) > perfTokens > less tokens (worse)
                 # HIGHER NUMBER > 2 > LOWER NUMBER
@@ -207,7 +209,6 @@ class BABYLLM(nn.Module):
                 # 0-2.5 > 0 > 0-1
 
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
-            FINALloss = loss
             return FINALloss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
