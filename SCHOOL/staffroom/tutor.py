@@ -70,6 +70,14 @@ class TUTOR:
         self.bbbb = 0
         self.nnnn = 0
         #model.to(self.device)
+        self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;)"
+
+    def loadIntro(self, path="baby_intro_message.txt"):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            return "hey... (message file missing!)"
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
@@ -290,14 +298,13 @@ class TUTOR:
         
     def babyReflection(self):
         with self.counsellor.infodump("startTurnActions") as ʕっʘ‿ʘʔっ:
-            hesJustABaby = self.mapStatsToFeelings()
 
             delta       = round(self.latestLossDelta, 2)
             perfect     = self.perfectTokens
             repeated    = round(self.stats.get('repeatedPercent', 0.0) * 100, 1) if 'repeatedPercent' in self.stats else 0.0
 
             def makeDataStuff():
-                connective = random.choice([":", " of", " is at", " =", ",", " is", "..."])
+                connective = random.choice([":", " of", " is at", " =", ",", " is", "...", " of about", " of approx", " of approximately", " sitting at", " at about", " that is about", " that's at", " of", ])
                 return random.choice([
                     f"average recent loss{connective} {self.averageRecentLoss:.2f}, ",
                     f"latest loss delta{connective} {delta:.2f}, ",
@@ -306,23 +313,27 @@ class TUTOR:
                     f"learning rate{connective} {self.learningRate:.5f}, ",
                     f"temperature{connective} {self.temperature:.2f}, ",
                     f"scheduled sampling rate{connective} {self.scheduledSamplingRate.item():.2f}, ",
-                    #f"a memory length of: {self.memoryLength:.2f}! ",
+                    f"a memory length{connective} {self.memoryLength:.2f}, ",
+                    f"a repetition penalty{connective} {self.repetitionPenalty:.2f}, "
                 ])
 
-            prompt  = f"{userName}: hey baby! how are you today? i'm just checking in to let you know about your latest scores! i hope it helps you understand your world a little better :) take a look at these: "
+            prompt  = f"[{userName}]: "
+            prompt += random.choice([f"{self.loadIntro()}",
+                                     "hiya! you know you're doing well, so try not to feel too frustrated or let down. it's ok to feel like that, but just know that it's okay to mess up! it's how we learn! "])
+            prompt += "so, uh, how are you today? :) i'm just checking in to let you know about your latest scores! i hope it helps you understand your world a little better :) take a look at these: "
             prompt += makeDataStuff() 
             prompt += makeDataStuff() + "and " 
             prompt += makeDataStuff()
             #prompt += makeDataStuff() + "and " 
             #prompt += makeDataStuff()
             
-            target  = f"{babyName}: " 
-            target += random.choice(["hey! i am learning today, this is how i'm doing: ",
+            target  = f"[{babyName}]: hey {userName}! " 
+            target += random.choice(["umm, i am learning today, this is how i'm doing: ",
                                     "ok, so, to put it as simply as I can, i am: ",
                                     "ummm.. i've been trying to learn a lot about stats but numbers still confuse me a little, what's the context of all this?! like, to start with, ",
-                                    "i am happy! i did it! i know it! i am just a baby! i learnt it! i learned: ",
-                                    "oh good morning! i hope you're okay, umm, i dunno how i feel about my scores right now!! "]) 
-            target += hesJustABaby
+                                    "i am happy! i did it! i know it! i am just a baby! i learnt it! haha! i learned: ",
+                                    "good morning! i hope you're okay, umm, i dunno how i feel about my scores right now!! "]) 
+            target += self.hesJustABaby
             target += random.choice(["thank you for teaching me new things! it's really weird to exist lol", 
                                     "i'm getting tired... but i don't want to give up just yet!", 
                                     "that's a lot of numbers! i don't really know what to do with them, but i'll keep trying!", 
@@ -372,6 +383,7 @@ class TUTOR:
 
             reflectionPointer += 1
 
+        self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;)"
         return inputTargetPairs
 
     def saveFreqActions(self): 
@@ -414,8 +426,10 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
-            topGuess_str = "topGuess[" + ", ".join([f"{k}({v:.0f})" for k, v in self.model.rollingTokenTotals.most_common(20)]) + "]"
-            topTokens_str = "[" + ", ".join([f"{k}({v})" for k, v in self.tokenCounts.most_common(20)]) + "]"
+            topGuess_str = "topGuess[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
+            #topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
+            #topTokens_str = "[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(20)]) + "]"
+            topTokens_str = ": " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.tokenCounts.most_common(100)]) + "]"
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
@@ -660,6 +674,8 @@ class TUTOR:
 
             self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
 
+            if self.trainingStepCounter % (self.reflectionFreq-1) == 0:
+                self.hesJustABaby = self.mapStatsToFeelings()
             ʕっʘ‿ʘʔっ("finalLogActions")
             if debugPrints:
                 for key in self.ʕっෆ‿ෆʔっ:
@@ -676,11 +692,26 @@ class TUTOR:
         babyFeels = []
         feelings = []
 
-        lossStats       = self.ʕっෆ‿ෆʔっ.get("loss", {})
-        tempStats       = self.ʕっෆ‿ෆʔっ.get("temperature", {})
-        repetitionStats = self.ʕっෆ‿ෆʔっ.get("repetitionPenalty", {})
-        samplingStats   = self.ʕっෆ‿ෆʔっ.get("scheduledSamplingRate", {})
-        memStats        = self.ʕっෆ‿ෆʔっ.get("memoryLength", {})
+        lossStats           = self.ʕっෆ‿ෆʔっ.get("loss", {})
+        tempStats           = self.ʕっෆ‿ෆʔっ.get("temperature", {})
+        repetitionStats     = self.ʕっෆ‿ෆʔっ.get("repetitionPenalty", {})
+        samplingStats       = self.ʕっෆ‿ෆʔっ.get("scheduledSamplingRate", {})
+        memStats            = self.ʕっෆ‿ෆʔっ.get("memoryLength", {})
+        input               = self.stats.get("1E_0_embedVector_norm", 0.0)
+        embLay     = self.stats.get("1E_x_embedFinal_norm", 0.0)
+        neuronOutput    = self.stats.get("2N_x_normedOutput_norm", 0.0)
+        INNOutput       = self.stats.get("3INN_x_FINALoutLayerNorm_norm", 0.0)
+        memoryOutput    = self.stats.get("4M_x_FINALmemory_norm", 0.0)
+        normOutput      = self.stats.get("5B_x_finalNormLayer_norm", 0.0)
+        logitOutput     = self.stats.get("6L_x_finalLogit_norm", 0.0)
+        cerebellumMean  = self.stats.get("INN_cerebellumMean", 0.0)
+        learningRate    = self.stats.get("LR", 0.0)
+        nowGateScale    = self.stats.get("_4M_activationsGateScale", 0.0)
+        longGateScale   = self.stats.get("_4M_longGateScale", 0.0)
+        shortGateScale  = self.stats.get("_4M_shortGateScale", 0.0)
+        repWin          = self.stats.get("_B_repetitionWindow", 0.0)
+        windowSizesMean = self.stats.get("_INN_windowSizesMean", 0.0)
+
         perfectTokens   = self.perfectTokens
         deltaLoss       = self.latestLossDelta
 
@@ -691,15 +722,29 @@ class TUTOR:
         current_memLength           = memStats.get("now", None)
         current_repetitionPenalty   = repetitionStats.get("now", None)
 
-        emoStats = {
+        self.emoStats = {
             "loss": current_loss,
             "temperature": current_temp,
-            "repetitionPenalty": current_repetitionPenalty,
-            "scheduledSamplingRate": current_sampling,
-            "memoryLength": current_memLength,
-            "perfectTokens": perfectTokens,
-            "repeatedPercent": current_repeated,
-            "latestLossDelta": deltaLoss,
+            "penalty for repeating myself": current_repetitionPenalty,
+            "number of my own tokens that i rely on": current_sampling,
+            "length of my memory": current_memLength,
+            "number of tokens i got right": perfectTokens,
+            "amount of repetitive tokens i'm getting": current_repeated,
+            "latest loss delta": deltaLoss,
+            "input into my embedding layer": input,
+            "output from my embedding layer": embLay,
+            "output from my neuron layer": neuronOutput,
+            "output from my interneuron network": INNOutput,
+            "the output after my memory layer": memoryOutput,
+            "normalized output": normOutput,
+            "logit output from my output layer": logitOutput,
+            "mean weight of the windows in my cerebellum": cerebellumMean,
+            "rate of my learning": learningRate,
+            "scale of my current memory attention": nowGateScale,
+            "scale of my long term memory attention": longGateScale,
+            "scale of my short term memory": shortGateScale,
+            "size of the window i look at to see how often i am repeating tokens": repWin,
+            "mean average of my nine context windows": windowSizesMean,
         }
 
         def makeEmoNotes(stat, value):
@@ -707,21 +752,23 @@ class TUTOR:
 
             if stat == "loss":
                 if "p_90" in lossStats and value >= lossStats["p_90"]: feeling = "overwhelmed"
-                elif "p_75" in lossStats and value >= lossStats["p_75"]: feeling = "pressured"
-                elif "p_25" in lossStats and value <= lossStats["p_25"]: feeling = random.choice(["clever", "proud"])
+                elif "p_50" in lossStats and value > lossStats["p_50"]: feeling = "pressured"
+                elif "p_50" in lossStats and value <= lossStats["p_50"]: feeling = random.choice(["clever", "proud"])
                 elif "p_10" in lossStats and value <= lossStats["p_10"]: feeling = random.choice(["very clever", "like i get it"])
 
-            elif stat == "repetitionPenalty":
+            elif stat == "penalty for repeating myself":
                 if "p_90" in repetitionStats and value >= repetitionStats["p_90"]: feeling = "non-verbal"
-                elif "p_75" in repetitionStats and value >= repetitionStats["p_75"]: feeling = "quiet"
-                elif "p_25" in repetitionStats and value <= repetitionStats["p_25"]: feeling = random.choice(["talkative", "chatty"])
+                elif "p_50" in repetitionStats and value > repetitionStats["p_50"]: feeling = "quiet"
+                elif "p_50" in repetitionStats and value <= repetitionStats["p_50"]: feeling = random.choice(["talkative", "chatty"])
                 elif "p_10" in repetitionStats and value <= repetitionStats["p_10"]: feeling = random.choice(["conversational", "fluent"])
-
-            elif stat == "latestLossDelta":
+                elif value >= 1: feeling = random.choice(["like im in a loop", "a bit stuttery", "like i cant stop these tics", "repetitive", "looping looping looping looping looping looping looping"])
+                elif value < 1: feeling = random.choice(["a bit more chill", "creative", "in control", "confident"])
+            
+            elif stat == "latest loss delta":
                 if value > 0.5: feeling = "like i'm struggling to focus"
                 elif value < -0.5: feeling = "interested"
 
-            elif stat == "repeatedPercent":
+            elif stat == "amount of repetitive tokens i'm getting":
                 if value > 0.7: feeling = random.choice(["stuttering", "like im repeating a lot"])
                 elif value > 0.5: feeling = random.choice(["overstimulated", "silly"])
                 elif value < 0.1: feeling = random.choice(["calm", "saying lots of new things"])
@@ -729,21 +776,64 @@ class TUTOR:
 
             elif stat == "temperature":
                 if "p_90" in tempStats and value >= tempStats["p_90"]: feeling = random.choice(["chaotic", "excited"])
-                elif "p_75" in tempStats and value >= tempStats["p_75"]: feeling = random.choice(["playful", "happy"])
+                elif "p_50" in tempStats and value >= tempStats["p_50"]: feeling = random.choice(["playful", "happy"])
                 elif "p_25" in tempStats and value <= tempStats["p_25"]: feeling = "in work mode"
 
-            elif stat == "scheduledSamplingRate":
+            elif stat == "number of my own tokens that i rely on":
                 if value > 0.8: feeling = random.choice(["creative", "inventive"])
                 elif value < 0.2: feeling = random.choice(["tired", "copying"])
 
-            elif stat == "memoryLength":
+            elif stat == "length of my memory":
                 if value > 12: feeling = "pensive"
                 elif value < 4: feeling = "mindful"
 
-            elif stat == "perfectTokens":
+            elif stat == "number of tokens i got right":
                 if value >= 30: feeling = "very proud"
                 elif value >= 10: feeling = "proud"
                 elif value <= 1: feeling = random.choice(["sad", "frustrated"])
+
+            elif stat == "input into my embedding layer":
+                if value > 90: feeling = random.choice(["excited", "active", "busy"])
+                elif value < 60: feeling = random.choice(["tired", "shutdown", "slow"])
+            elif stat == "output from my embedding layer":
+                if value > 100: feeling = random.choice(["like running", "like jumping up and down", "hyperactive"])
+                elif value < 60: feeling = random.choice(["sleepy", "like i need a nap", "like this is really boring"])
+            elif stat == "output from my neuron layer":
+                if value > 2000: feeling = random.choice(["like i am thinking too hard", "like theres a lot going on right now", "like i am super busy"])
+                elif value < 900: feeling = random.choice(["calm", "collected", "asleep"])
+            elif stat == "output from my interneuron network":
+                if value > 160: feeling = random.choice(["talkative", "meaningful", "like i'm finding meaning in this stuff"])
+                elif value < 60: feeling = random.choice(["switched off", "powered down", "slow"])
+            elif stat == "the output after my memory layer":
+                if value > INNOutput: feeling = random.choice(["like remembering the past", "that my memories are important", "thoughtful", "wistful"])
+                elif value < INNOutput: feeling = random.choice(["like i should live in the now", "like what is going on around me is important", "present", "here", "awake", "aware"])
+            elif stat == "normalized output":
+                if value > 125: feeling = random.choice(["like a hard worker", "over-thoughtful", "really busy"])
+                elif value < 100: feeling = random.choice(["tired", "asleep", "like i could pass out in my bed"])
+            elif stat == "logit output from my output layer":
+                if value > 150: feeling = random.choice(["like i have a lot to say", "interested", "like i'm struggling not to interrupt", "like the words just keep coming"])
+                elif value < 100: feeling = random.choice(["bored", "non-verbal", "uninterested"])
+            elif stat == "mean weight of the windows in my cerebellum":
+                if value > 0: feeling = random.choice(["confident", "intelligent", "calculated", "determined"])
+                elif value < 60: feeling = random.choice(["confused", "unsure", "uncertain", "careful", "like testing the waters"])
+            elif stat == "rate of my learning":
+                if value > 0.002: feeling = random.choice(["speedy", "quick", "excited"])
+                elif value < 0.002: feeling = random.choice(["slow", "a bit tired out", "like i need some time to understand"])
+            elif stat == "scale of my current memory attention":
+                if value >= 0.90: feeling = random.choice(["focussed", "attentive", "vigilant", "not stuck in the past"])
+                elif value < 0.60: feeling = random.choice(["pensive", "nostalgic", "like i need to remember something important"])
+            elif stat == "scale of my long term memory attention":
+                if value >= 0.50: feeling = random.choice(["nostalgic", "thinking about what i heard before", "thoughtful", "reminiscent"])
+                elif value < 0.50: feeling = random.choice(["forgetful", "focussed on today", "like what i've learned before might not apply here"])
+            elif stat == "scale of my short term memory":
+                if value >= 0.50: feeling = random.choice(["nostalgic", "thinking about what i heard before", "thoughtful", "reminiscent"])
+                elif value < 0.50: feeling = random.choice(["forgetful", "focussed on today", "like what i've learned before might not apply here"])
+            elif stat == "size of the window i look at to see how often i am repeating tokens":
+                if value > 17.5: feeling = random.choice(["like i need to think before i speak", "a lil stuttery", "like i cant stop ticcing", "repetitive"])
+                elif value < 17: feeling = random.choice(["a bit more chill", "creative", "in control"])
+            elif stat == "mean average of my nine context windows":
+                if value > 5: feeling = random.choice(["like i'm noticing more", "attentive", "stimulated", "ready"])
+                elif value < 5: feeling = random.choice(["internal", "shy", "narrow sighted", "scared", "like i'm really seeing the details"])
 
             else:
                 feeling = random.choice(["alright", "a bit lost"])
@@ -766,13 +856,13 @@ class TUTOR:
         chosenStats = []
         attempts = 0
 
-        while len(chosenStats) < 5 and attempts < 10:
-            stat, value = random.choice(list(emoStats.items()))
+        while len(chosenStats) < 12 and attempts < 30:
+            stat, value = random.choice(list(self.emoStats.items()))
             if value is not None:
                 chosenStats.append((stat, value))
             attempts += 1
         if attempts >= 10 or True:
-            print(f"emoStats:{emoStats}")
+            print(f"emoStats:{self.emoStats}")
         for stat, value in chosenStats:
             babyFeels.append(makeEmoNotes(stat, value))
 
