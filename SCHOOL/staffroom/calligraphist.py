@@ -156,7 +156,7 @@ class S_OUTPUT:
         return {
             "loss":                     self.getDynamicPercentileBands("loss"),
             "avgLoss":                  self.getDynamicPercentileBands("avgLoss"),
-            "AvgLoss":                  self.getDynamicPercentileBands("AvgLoss"),
+            "avgLoss":                  self.getDynamicPercentileBands("avgLoss"),
             "stepLoss":                 self.getDynamicPercentileBands("stepLoss"),
             "scheduledSamplingRate":    self.getDynamicPercentileBands("scheduledSamplingRate"),
             "tokenCount":               self.getDynamicPercentileBands("tokenCount"),
@@ -294,7 +294,7 @@ class S_OUTPUT:
     def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss, _latestLossDelta, _totalLoss = None, _totalTokenCount = None):
         with self.counsellor.infodump("S_colourPrintTraining") as ʕっʘ‿ʘʔっ:
             S_type = self.S_getStat("loss", _loss)
-            S_avgType = self.S_getStat("AvgLoss", _recentLoss)
+            S_avgType = self.S_getStat("avgLoss", _recentLoss)
             S_delta = _latestLossDelta
             S_deltaType = self.S_getStat("latestLossDelta", _latestLossDelta)
             S_bold = "".join(self.S_types["bold"])

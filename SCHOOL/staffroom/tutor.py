@@ -126,7 +126,10 @@ class TUTOR:
                     # Track loss every 100 steps
                     elif self.trainingStepCounter % trainingLogFreq_A == 0:
                         ʕっʘ‿ʘʔっ("♥logFreq_A")
+                        self.tokenCounts.clear()
+                        self.model.rollingTokenTotals.clear()
                         self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
+
 
                     elif self.trainingStepCounter % printFreq == 0:
                         ʕっʘ‿ʘʔっ("♥printFreq")
@@ -411,8 +414,8 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
-            topGuess_str = "topGuess" + " | ".join([f"{k}({v:.1f})" for k, v in self.model.rollingTokenTotals.most_common(20)])
-
+            topGuess_str = "topGuess[" + ", ".join([f"{k}({v:.0f})" for k, v in self.model.rollingTokenTotals.most_common(20)]) + "]"
+            topTokens_str = "[" + ", ".join([f"{k}({v})" for k, v in self.tokenCounts.most_common(20)]) + "]"
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
@@ -439,8 +442,8 @@ class TUTOR:
                 _frequency = _frequency,
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
-                _topTokens_str = str(self.stringStats.get("topTokens", "<missing topTokens>")),
-                _otherInfo_str = f"{topGuess_str} | \n{tokenPerfect_str} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
+                _topTokens_str = topTokens_str,
+                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 
@@ -515,15 +518,11 @@ class TUTOR:
                     self.predictedTokenIndices = _predictedTokenIndices
 
                     ʕっʘ‿ʘʔっ("♥most common tokens")
-                    topTokens = ""
-                    #self.topGuessTokens = ""
-                    topTokens = self.tokenCounts.most_common(20)
-                    #self.topGuessTokens = self.rollingTokenTotals.most_common(10)
                     self.perfectTokens = 0
 
                     ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
                     if not _predictedTokenIndices:
-                        print("!! no predicted token indices — returning \{\} for stringStats")
+                        print("!! no predicted token indices — returning { } for stringStats")
                         return self.stats, {}, self.guessedTokenSeq # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
                     target      = torch.tensor(_targetTokenIndexSeq[:numTokensPerStep], device = modelDevice)
                     predicted   = torch.tensor(self.predictedTokenIndices, device = modelDevice)
@@ -573,7 +572,7 @@ class TUTOR:
                 self.stats.update(self.model.getBabyStats())
                 INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str)}
                 self.stringStats.update(INN_stringStats)
-                self.stringStats.update({"topTokens": str(topTokens)})
+                #self.stringStats.update({"topTokens": str(topTokens)})
                 self.collectAllTimeStats()
 
         return self.stats, self.stringStats, self.guessedTokenSeq

@@ -34,10 +34,11 @@ def wakeup():
 
             # OPEN THE LIBRARY :)
             ʕっʘ‿ʘʔっ("waking the librarian...")
-            librarian           = LIBRARIAN (_counsellor                = counsellor)
+            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = "BRAIN/vocabCache/tokenizer_2000.json")
 
+            exit(8)
             ʕっʘ‿ʘʔっ("opening questions...")
-            newStartIndex       =           openingQuestions(_counsellor = counsellor, _librarian = librarian)
+            newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian)
 
             ʕっʘ‿ʘʔっ("generating training data pairs...")
             trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _startIndex = newStartIndex)
