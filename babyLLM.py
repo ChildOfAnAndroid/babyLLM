@@ -43,6 +43,7 @@ class BABYLLM(nn.Module):
         self.repeatedPercent = 0
         self.normalisedActivations = 0
         self.rollingTokenTotals = Counter()
+        self.gumBellend = 0
 
         self.stats = {}
         self.normalisedHistory = []
@@ -114,6 +115,9 @@ class BABYLLM(nn.Module):
             if debugPrints: print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
 
             ʕっʘ‿ʘʔっ("B3: repetitionPenalty")
+            if not torch.isfinite(self.logRepetitionWindow):
+                print("logRepetitionWindow has gone non-finite. Resetting.")
+                self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
             penalisedOutput = self.applyRepetitionPenalty(memoryOutput)
             ʕっʘ‿ʘʔっ("B4: finalNormLayer")
             self.normedOutput = self.finalNormLayer(penalisedOutput)
@@ -175,7 +179,13 @@ class BABYLLM(nn.Module):
                 _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
             
             ʕっʘ‿ʘʔっ("cross Entropy Loss")
-            loss = F.cross_entropy(_logits, targetTensor)
+            LOSSlogits = torch.clamp(_logits, min=-50, max=50)
+            loss = F.cross_entropy(LOSSlogits, targetTensor)
+
+            if not torch.isfinite(loss):
+                print("NaN/Inf loss detected — logits:", _logits)
+                return torch.tensor(10.0, device=self.device, requires_grad=True)  # or skip/backoff
+
             if debugPrints: print(f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
             
             self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
@@ -301,28 +311,54 @@ class BABYLLM(nn.Module):
     @whocalled
     def getResponseFromLogits(self, _logits, _training = False):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
+            if not torch.isfinite(_logits).all():
+                print("logits not finite before response gen:", _logits)
+                _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
             ʕっʘ‿ʘʔっ("update logarithmic parameters")
             #self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
             self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
             _logits /= self.temperature
+            if torch.isnan(_logits).any():
+                print("NaN in logits after temperature scaling!")
+                print("logTemp:", self.logTemp.item(), "Temp:", self.temperature.item())
+                print("logits stats:", _logits.min().item(), _logits.max().item(), _logits.mean().item())
+                _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
+
 
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
 
             if _training:
-                gumbelProbs = F.gumbel_softmax(_logits, tau = self.temperature, hard = False)
+                if not torch.isfinite(_logits).all():
+                    print("non-finite logits detected BEFORE GUMBEL")
+                    print("logits:", _logits)
+                    _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
+                try:
+                    gumbelProbs = F.gumbel_softmax(_logits, tau=self.temperature, hard=False)
+                    assert torch.isfinite(gumbelProbs).all(), "gumbelProbs has NaN or Inf!"
+                except Exception as e:
+                    self.gumBellend += 1
+                    print("gumbel softmax failed:", e)
+                    print(f"falling back to softmax sampling (total fallbacks: {self.gumBellend})...")
+                    probs = torch.softmax(_logits, dim=1)
+                    gumbelProbs = probs  # fallback
                 responseFromLogits = gumbelProbs.argmax(dim = 1, keepdim = True)
                 self.lastSoftSample = gumbelProbs
 
                 topk = torch.topk(gumbelProbs, 10, dim=1)
                 indices = topk.indices[0].tolist()
                 values = topk.values[0].tolist()
-                self.lastTopGuesses = [
-                    (self.librarian.indexToToken.get(i, "<UNK>"), round(p, 4))
-                    for i, p in zip(indices, values)
-                ]
+                #self.lastTopGuesses = []
                 for i, p in zip(indices, values):
                     token = self.librarian.indexToToken.get(i, "<UNK>")
-                    self.rollingTokenTotals[token] += round(p, 4)
+                    try:
+                        if isinstance(p, float) and math.isfinite(p):
+                            #self.lastTopGuesses.append((token, round(p, 4)))
+                            self.rollingTokenTotals[token] += round(p, 4)
+                        else:
+                            print(f"skipping non-finite top guess: {token} → {p}")
+                    except Exception as e:
+                        print(f"error processing top guess: {token} → {p} | {e}")
+
                 #print("Top guesses + confidences:", [(self.librarian.indexToToken[i.item()], f"{p.item():.3f}") for i, p in zip(indices, values)])
 
             else:
@@ -357,7 +393,7 @@ class BABYLLM(nn.Module):
         oneHots = F.one_hot(recentTokens, num_classes=vocabSize).float()
         weightedFreqs = (oneHots.T @ softMask).view(1, -1)
 
-        return _logits - weightedFreqs / penalty
+        return _logits - (weightedFreqs * (0.001 * penalty))
 
 
     def getNextToken(self, _inputSeq):  
