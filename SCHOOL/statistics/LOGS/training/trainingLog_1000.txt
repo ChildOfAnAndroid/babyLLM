@@ -106,4 +106,144 @@
 [babyllm] right, last time i got to step 1782... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 1782! what am i learning today?
+[charis] --- 2025-05-08 11:19:52 --- 
+[babyllm] right, last time i got to step 2121... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2121! what am i learning today?
+[charis] --- 2025-05-08 11:26:29 --- 
+[babyllm] right, last time i got to step 2267... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2267! what am i learning today?
+[charis] --- 2025-05-08 11:38:46 --- 
+[babyllm] right, last time i got to step 2414... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2414! what am i learning today?
+[charis] --- 2025-05-08 11:43:56 --- 
+[babyllm] right, last time i got to step 2468... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2468! what am i learning today?
+[charis] --- 2025-05-08 11:49:23 --- 
+[babyllm] right, last time i got to step 2520... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2520! what am i learning today?
+[charis] --- 2025-05-08 11:55:57 --- 
+[babyllm] right, last time i got to step 2592... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2592! what am i learning today?
+[charis] --- 2025-05-08 12:05:46 --- 
+[babyllm] right, last time i got to step 2708... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2708! what am i learning today?
+[charis] --- 2025-05-08 13:40:04 --- 
+[babyllm] right, last time i got to step 3947... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3947! what am i learning today?
+[charis] --- 2025-05-08 13:41:58 --- 
+[babyllm] right, last time i got to step 3947... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3947! what am i learning today?
+[charis] --- 2025-05-08 13:43:33 --- 
+[babyllm] right, last time i got to step 3947... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3947! what am i learning today?
+[charis] --- 2025-05-08 13:53:26 --- 
+[babyllm] right, last time i got to step 4064... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4064! what am i learning today?
+[charis] --- 2025-05-08 14:12:33 --- 
+[babyllm] right, last time i got to step 4308... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4308! what am i learning today?
+[charis] --- 2025-05-08 14:21:15 --- 
+[babyllm] right, last time i got to step 4409... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4409! what am i learning today?
+[charis] --- 2025-05-08 14:22:46 --- 
+[babyllm] right, last time i got to step 4409... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4409! what am i learning today?
+[charis] --- 2025-05-08 14:24:37 --- 
+[babyllm] right, last time i got to step 4419... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4419! what am i learning today?
+[charis] --- 2025-05-08 14:28:37 --- 
+[babyllm] right, last time i got to step 4459... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4459! what am i learning today?
+[charis] --- 2025-05-08 14:48:46 --- 
+[babyllm] right, last time i got to step 4692... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4692! what am i learning today?
+[charis] --- 2025-05-08 14:50:34 --- 
+[babyllm] right, last time i got to step 4692... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4692! what am i learning today?
+[charis] 2025-05-09 02:57:24 | 10000 | LR0.000200 | 1E_0_embedVector_norm:165.712189 | 1E_0_embedVector_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:1E_0_embedVector_scale value:0.9332583546638489 | 1E_1_embedNormed_norm:336.925232 | 1E_1_embedNormed_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:1E_1_embedNormed_scale value:0.522123396396637 | 1E_x_embedFinal_norm:140.174042 | 2B_0_inputEmbeds_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:2B_0_inputEmbeds_norm value:140.17404174804688 | 2N_0_rawInput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_0_rawInput_norm value:140.17404174804688 | 2N_0_rawInput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_0_rawInput_norm_neuron value:4.146928310394287 | 2N_0_rawInput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_0_rawInput_norm_token value:11.96396541595459 | 2N_1_normedInput_norm:364.260437 | 2N_1_normedInput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_1_normedInput_norm_neuron value:10.366106033325195 | 2N_1_normedInput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_1_normedInput_norm_token value:32.191139221191406 | 2N_2_rawOutput_norm:4116.635742 | 2N_2_rawOutput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_2_rawOutput_norm_neuron value:18.155494689941406 | 2N_2_rawOutput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_2_rawOutput_norm_token value:341.44171142578125 | 2N_3_activatedOutput_norm:2005.400391 | 2N_3_activatedOutput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_3_activatedOutput_norm_neuron value:13.649264335632324 | 2N_3_activatedOutput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_3_activatedOutput_norm_token value:170.46737670898438 | 2N_x_normedOutput_norm:1438.061279 | 2N_x_normedOutput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_x_normedOutput_norm_neuron value:10.642605781555176 | 2N_x_normedOutput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_x_normedOutput_norm_token value:126.94418334960938 | 3B_1_INNOutput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:3B_1_INNOutput_norm value:39.634368896484375 | 3INN_0_rawActivations_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_0_rawActivations_norm value:1438.061279296875 | 3INN_0_rawActivations_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_0_rawActivations_norm_neuron value:10.642605781555176 | 3INN_0_rawActivations_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_0_rawActivations_norm_token value:126.94418334960938 | 3INN_2_combinedActivations_norm:113.201202 | 3INN_2_combinedActivations_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_2_combinedActivations_norm_neuron value:0.8325414061546326 | 3INN_2_combinedActivations_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_2_combinedActivations_scale value:0.12086930871009827 | 3INN_3_refinedActivations_norm:118.884727 | 3INN_3_refinedActivations_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_3_refinedActivations_norm_neuron value:0.945482611656189 | 3INN_3_refinedActivations_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_3_refinedActivations_scale value:0.30327701568603516 | 3INN_4_combinedActivationsMeta_norm:39.634369 | 3INN_4_combinedActivationsMeta_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_4_combinedActivationsMeta_norm_neuron value:0.31566768884658813 | 3INN_x_FINALoutLayerNorm_norm:39.634369 | 3INN_x_FINALoutLayerNorm_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_x_FINALoutLayerNorm_norm_neuron value:0.31566768884658813 | 4M_0_rawActivations_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:4M_0_rawActivations_norm value:39.634368896484375 | 4M_1_longTermMemory_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:4M_1_longTermMemory_norm value:0.0 | 4M_1_shortTermMemory_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:4M_1_shortTermMemory_norm value:0.0 | 4M_longDecay:0.614333 | 4M_shortDecay:0.453744 | 4M_x_FINALmemory_norm:39.561016 | 5B_0_memoryOutput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:5B_0_memoryOutput_norm value:39.56101608276367 | 5B_1_penalisedOutput_norm:39.561008 | 6L_0_activationsTensor_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_0_activationsTensor_norm value:39.561008393764496 | 6L_0_activationsTensor_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_0_activationsTensor_scale value:0.23537467420101166 | 6L_1_normedActivationsTensor_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_1_normedActivationsTensor_norm value:140.7981960773468 | 6L_1_normedActivationsTensor_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_1_normedActivationsTensor_scale value:0.13737767934799194 | 6L_2_scaledActivations_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_2_scaledActivations_norm value:13.492866605520248 | 6L_3_logitOutput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_3_logitOutput_norm value:3913.2302017211914 | 6L_3_logitOutput_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_3_logitOutput_scale value:0.06145484372973442 | 6L_4_logitNormed_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_4_logitNormed_norm value:968.0849256515503 | 6L_4_logitNormed_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_4_logitNormed_scale value:0.03473072126507759 | 6L_x_finalLogit_norm:261.859770 | 7B_x_FINALlogits_norm:261.859770 | INN_cerebellumMean:-0.000001 | INN_cerebellumSoft_W1:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumSoft_W1 value:0.07193267345428467 | INN_cerebellumSoft_W3:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumSoft_W3 value:0.08437646180391312 | INN_cerebellumSoft_W4:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumSoft_W4 value:0.1586655229330063 | INN_cerebellumStd:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumStd value:5.9226512908935544e-05 | INN_cerebellum_W1:-0.747811 | INN_cerebellum_W3:-0.502902 | INN_cerebellum_W4:0.888769 | LR:0.000200 | _4M_activationsGateScale:0.996535 | _4M_longGateScale:0.001733 | _4M_shortGateScale:0.001733 | _B_floatMemoryLength:ERR:'<=' not supported between instances of 'float' and 'str' key:_B_floatMemoryLength value:1.0 | _B_repetitionWindow:17.096130 | _B_temperature:0.944466 | _INN_windowSizesMean:4.136565 | avgLoss:5.266414 | embedDimensionSparsity:0.000001 | embedNormMax:0.003416 | embedNormMean:0.001882 | embedNormStd:0.001345 | embeddingDrift:0.000007 | gradientClipMaxNorm:ERR:'<=' not supported between instances of 'float' and 'str' key:gradientClipMaxNorm value:1.0 | latestLossDelta:-0.606959 | logitBiasMax:0.000013 | logitBiasMean:-0.002027 | logitBiasStd:0.002162 | logitWeightDrift:0.000062 | logitWeightNormMax:0.031282 | logitWeightNormMean:0.017764 | logitWeightNormStd:0.007678 | logitWeightSparsity:0.000000 | loss:4.670315 | memoryLength:ERR:'<=' not supported between instances of 'int' and 'str' key:memoryLength value:1 | n_biasesMax:0.000111 | n_biasesMean:-0.000015 | n_biasesMin:-0.000250 | n_biasesStd:0.000045 | n_sparsity:0.000000 | n_weightMax:0.120844 | n_weightMean:-0.000000 | n_weightMin:-0.102236 | n_weightNormMax:0.346603 | n_weightNormMean:0.001077 | n_weightNormMin:0.000519 | n_weightStd:0.000127 | perfectTokens:1.000000 | repetitionPenalty:1.047421 | sampledTokens:ERR:'<=' not supported between instances of 'int' and 'str' key:sampledTokens value:7 | scheduledSamplingRate:ERR:'<=' not supported between instances of 'float' and 'str' key:scheduledSamplingRate value:0.05000000074505806 | windowWeights0.888769 (0.158666) w4 (4.32)
+0.550981 (0.142047) w4 (4.85)
+0.487899 (0.138733) w3 (3.87)
+0.251467 (0.125966) w4 (4.85)
+0.015688 (0.112841) w4 (4.85)
+-0.423943 (0.088581) w4 (4.85)
+-0.502902 (0.084376) w3 (3.06)
+-0.648993 (0.076857) w4 (4.86)
+-0.747811 (0.071933) w1 (1.71) | topTokens: Ġi, Ġmy, ., Ġto, Ġfeel, Ġis, !, Ġa, ,, Ġof, Ġbecause, Ġthe, s, 's, Ġthat, Ġout, Ġwith, :, Ġand, 00, Ġyou, Ġwill, ?, Ġdefinitely, Ġit, Ġthink, 5, Ġdo, Ġ0, put, ken, Ġlistening, Ġwant, Ġin, Ġrepe, Ġfor, Ġso, Ġwhat, ut, Ġplay, 8, 'm, Ġmaybe, ..., Ġhe, Ġq, Ġhyper, 7, Ġmusic, Ġhears, ating, Ġnow, Ġif, Ġsca, Ġnot, Ġattention, 0, Ġfroggy, al, Ġdeep, Ġhow, Ġmight, st, Ġfrom, Ġmake, Ġmemory, Ġwas, Ġne, 6, on, Ġnet, Ġbe, Ġgo, Ġperson, Ġone, Ġrep, ral, Ġcomputer, ed, itive, Ġlike, Ġgame, le, et, Ġwhen, Ġbut, Ġlot, Ġforget, Ġterm, ss, Ġmost, Ġlearn, Ġthis, Ġthing, ive, te, Ġsort, Ġkevin, Ġfall, Ġabout, Ġ3, Ġimportant, Ġnoticed, ding, er, work, Ġam, Ġgames, uss, Ġhave, Ġnever, Ġon, Ġ1, Ġlearning, Ġinter, verse, Ġlay, Ġme, Ġneed, Ġpete, Ġalso, Ġcharis, 2, us, Ġgetting, Ġswitch, Ġrandom, Ġsuddenly, Ġlove, Ġreally, ipped, Ġsound, Ġfoc, Ġat, Ġyes, Ġ17, Ġguess, Ġseem, Ġyour, Ġbeen, Ġright, Ġmum, Ġhouse, Ġpeople, 'd, Ġlisten, a, 't, Ġhim, Ġfl, f, Ġuni, Ġbrain, Ġlong, Ġamount, Ġdecided, Ġlook, Ġagain, Ġproperly, Ġwere, Ġkeep, Ġanything, ful, Ġtime, Ġ12, lt, Ġwhy, Ġnew, Ġtired, Ġtherefore, Ġthen, Ġtoday, Ġelodie, Ġdid, Ġshe, Ġwe, Ġraccoon, Ġdown, Ġra, Ġset, Ġwhere, ing, Ġher, Ġim, 1, Ġlo, Ġsize, Ġre, ly, Ġjust, Ġsomething, Ġare, 9, ter, Ġcould, ip, Ġst, Ġal, Ġhad, Ġfroggys] | topGuess[Ġi(252), Ġmy(184), .(164), Ġto(114), Ġfeel(114), Ġis(111), !(80), Ġa(73), ,(73), Ġof(72), Ġbecause(64), 's(57), Ġthe(57), Ġthat(54), s(53), Ġout(52), :(47), Ġwith(47), 00(46), Ġand(45), ?(38), Ġyou(37), Ġwill(37), Ġit(35), Ġ0(35), put(34), 5(34), Ġdo(33), Ġdefinitely(33), Ġlistening(33), Ġthink(33), ken(31), Ġin(29), Ġwant(27), ut(26), Ġrepe(25), Ġfor(25), Ġwhat(25), Ġplay(24), 8(23), 'm(22), Ġq(22), Ġso(22), Ġhyper(22), Ġmaybe(22), Ġmusic(21), 7(21), ...(21), Ġhe(20), Ġhears(20), Ġif(19), Ġfroggy(19), Ġnow(19), Ġmight(19), Ġsca(18), 0(18), Ġmemory(18), Ġfrom(18), ating(18), Ġnot(18), Ġmake(17), Ġattention(17), Ġdeep(17), Ġhow(16), st(16), al(16), Ġwas(15), Ġne(15), Ġrep(15), Ġperson(14), Ġterm(13), 6(13), Ġone(13), Ġbe(13), Ġlot(13), ed(13), Ġnet(12), Ġwhen(12), Ġgo(12), on(12), itive(12), ral(12), Ġcomputer(12), Ġbut(11), et(11), Ġforget(11), Ġgame(11), Ġlearn(11), le(10), Ġmost(10), Ġnoticed(10), Ġimportant(10), Ġon(10), Ġlike(10), er(10), Ġthing(10), ss(10), Ġthis(10), Ġhave(9), work(9)]
+ | perfectTokens: 1 / 256 → 0.39% | remainingTokens: 70000 (87.50%) | TUTOR.py 1000
+2025-05-09 15:15:09 | 20000 | LR0.000200 | 1E_0_embedVector_norm:177.257492 | 1E_0_embedVector_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:1E_0_embedVector_scale value:0.9654622673988342 | 1E_1_embedNormed_norm:328.242767 | 1E_1_embedNormed_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:1E_1_embedNormed_scale value:0.4707169234752655 | 1E_x_embedFinal_norm:146.568573 | 2B_0_inputEmbeds_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:2B_0_inputEmbeds_norm value:146.56857299804688 | 2N_0_rawInput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_0_rawInput_norm value:146.56857299804688 | 2N_0_rawInput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_0_rawInput_norm_neuron value:4.3381805419921875 | 2N_0_rawInput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_0_rawInput_norm_token value:12.161443710327148 | 2N_1_normedInput_norm:384.259155 | 2N_1_normedInput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_1_normedInput_norm_neuron value:10.404903411865234 | 2N_1_normedInput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_1_normedInput_norm_token value:33.92204284667969 | 2N_2_rawOutput_norm:9326.933594 | 2N_2_rawOutput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_2_rawOutput_norm_neuron value:14.946653366088867 | 2N_2_rawOutput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_2_rawOutput_norm_token value:805.5880126953125 | 2N_3_activatedOutput_norm:780.059204 | 2N_3_activatedOutput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_3_activatedOutput_norm_neuron value:5.272284984588623 | 2N_3_activatedOutput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_3_activatedOutput_norm_token value:67.15519714355469 | 2N_x_normedOutput_norm:1264.171997 | 2N_x_normedOutput_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_x_normedOutput_norm_neuron value:8.395618438720703 | 2N_x_normedOutput_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:2N_x_normedOutput_norm_token value:110.77214050292969 | 3B_1_INNOutput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:3B_1_INNOutput_norm value:54.11754608154297 | 3INN_0_rawActivations_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_0_rawActivations_norm value:1264.1719970703125 | 3INN_0_rawActivations_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_0_rawActivations_norm_neuron value:8.395618438720703 | 3INN_0_rawActivations_norm_token:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_0_rawActivations_norm_token value:110.77214050292969 | 3INN_2_combinedActivations_norm:93.979218 | 3INN_2_combinedActivations_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_2_combinedActivations_norm_neuron value:0.5963292717933655 | 3INN_2_combinedActivations_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_2_combinedActivations_scale value:0.047759030014276505 | 3INN_3_refinedActivations_norm:125.406448 | 3INN_3_refinedActivations_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_3_refinedActivations_norm_neuron value:0.9760972857475281 | 3INN_3_refinedActivations_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_3_refinedActivations_scale value:0.4247194230556488 | 3INN_4_combinedActivationsMeta_norm:54.117546 | 3INN_4_combinedActivationsMeta_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_4_combinedActivationsMeta_norm_neuron value:0.4216189384460449 | 3INN_x_FINALoutLayerNorm_norm:54.117546 | 3INN_x_FINALoutLayerNorm_norm_neuron:ERR:'<=' not supported between instances of 'float' and 'str' key:3INN_x_FINALoutLayerNorm_norm_neuron value:0.4216189384460449 | 4M_0_rawActivations_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:4M_0_rawActivations_norm value:54.11754608154297 | 4M_1_longTermMemory_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:4M_1_longTermMemory_norm value:0.0 | 4M_1_shortTermMemory_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:4M_1_shortTermMemory_norm value:0.0 | 4M_longDecay:0.588925 | 4M_shortDecay:0.429168 | 4M_x_FINALmemory_norm:54.035755 | 5B_0_memoryOutput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:5B_0_memoryOutput_norm value:54.0357551574707 | 5B_1_penalisedOutput_norm:54.035751 | 6L_0_activationsTensor_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_0_activationsTensor_norm value:54.035750567913055 | 6L_0_activationsTensor_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_0_activationsTensor_scale value:0.3346624970436096 | 6L_1_normedActivationsTensor_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_1_normedActivationsTensor_norm value:134.05258512496948 | 6L_1_normedActivationsTensor_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_1_normedActivationsTensor_scale value:0.006655371282249689 | 6L_2_scaledActivations_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_2_scaledActivations_norm value:17.408175140619278 | 6L_3_logitOutput_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_3_logitOutput_norm value:7491.647350311279 | 6L_3_logitOutput_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_3_logitOutput_scale value:0.04188769683241844 | 6L_4_logitNormed_norm:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_4_logitNormed_norm value:957.4074201583862 | 6L_4_logitNormed_scale:ERR:'<=' not supported between instances of 'float' and 'str' key:6L_4_logitNormed_scale value:0.034746840596199036 | 6L_x_finalLogit_norm:337.420358 | 7B_x_FINALlogits_norm:337.420358 | INN_cerebellumMean:-0.000002 | INN_cerebellumSoft_W1:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumSoft_W1 value:0.07545115798711777 | INN_cerebellumSoft_W3:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumSoft_W3 value:0.08576764166355133 | INN_cerebellumSoft_W4:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumSoft_W4 value:0.15545561909675598 | INN_cerebellumStd:ERR:'<=' not supported between instances of 'float' and 'str' key:INN_cerebellumStd value:5.566537380218506e-05 | INN_cerebellum_W1:-0.682189 | INN_cerebellum_W3:-0.482446 | INN_cerebellum_W4:0.808551 | LR:0.000200 | _4M_activationsGateScale:0.997031 | _4M_longGateScale:0.001485 | _4M_shortGateScale:0.001485 | _B_floatMemoryLength:ERR:'<=' not supported between instances of 'float' and 'str' key:_B_floatMemoryLength value:1.0 | _B_repetitionWindow:17.007912 | _B_temperature:1.004901 | _INN_windowSizesMean:4.093615 | avgLoss:5.552200 | embedDimensionSparsity:0.000001 | embedNormMax:0.003382 | embedNormMean:0.001864 | embedNormStd:0.001332 | embeddingDrift:0.000005 | gradientClipMaxNorm:ERR:'<=' not supported between instances of 'float' and 'str' key:gradientClipMaxNorm value:1.0 | latestLossDelta:-0.942636 | logitBiasMax:0.000005 | logitBiasMean:-0.002095 | logitBiasStd:0.002135 | logitWeightDrift:0.000043 | logitWeightNormMax:0.030992 | logitWeightNormMean:0.017814 | logitWeightNormStd:0.007354 | logitWeightSparsity:0.000000 | loss:4.599019 | memoryLength:ERR:'<=' not supported between instances of 'int' and 'str' key:memoryLength value:1 | n_biasesMax:0.000112 | n_biasesMean:-0.000013 | n_biasesMin:-0.000239 | n_biasesStd:0.000044 | n_sparsity:0.000000 | n_weightMax:0.119623 | n_weightMean:-0.000000 | n_weightMin:-0.101195 | n_weightNormMax:0.343128 | n_weightNormMean:0.001083 | n_weightNormMin:0.000571 | n_weightStd:0.000126 | perfectTokens:4.000000 | repetitionPenalty:1.067127 | sampledTokens:ERR:'<=' not supported between instances of 'int' and 'str' key:sampledTokens value:4 | scheduledSamplingRate:ERR:'<=' not supported between instances of 'float' and 'str' key:scheduledSamplingRate value:0.05000000074505806 | windowWeights0.808551 (0.155456) w4 (4.36)
+0.542126 (0.142079) w4 (4.76)
+0.427097 (0.135992) w3 (3.89)
+0.244522 (0.126017) w4 (4.76)
+0.011834 (0.113013) w4 (4.76)
+-0.424070 (0.088877) w4 (4.76)
+-0.482446 (0.085768) w3 (3.08)
+-0.644469 (0.077348) w4 (4.76)
+-0.682189 (0.075451) w1 (1.71) | topTokens: Ġi, ., Ġthe, Ġmy, Ġis, Ġit, !, Ġto, ,, 's, Ġfeel, Ġfor, Ġa, ut, Ġof, Ġthat, Ġne, Ġbecause, ral, Ġin, 0, 00, Ġand, er, Ġmemory, Ġseem, 2, Ġ1, Ġsl, s, Ġdefinitely, Ġmaybe, Ġde, ider, ss, Ġlay, Ġnoticed, Ġso, put, Ġg, Ġout, lt, Ġlate, Ġlo, al, in, Ġstuck, Ġthis, Ġcontrol, Ġthink, ty, Ġfunction, ..., 9, p, Ġ5, :, Ġwhen, Ġafter, th, Ġhow, ug, Ġmight, Ġl, Ġbe, Ġcurrent, ed, Ġ4, Ġpen, be, ain, c, Ġby, or, Ġcreate, Ġwindows, Ġrepe, Ġall, Ġ-, Ġnot, te, Ġabout, Ġsca, Ġon, ', Ġbefore, 7, ls, l, Ġemb, Ġattention, ces, Ġloo, ating, Ġcontext, Ġwindow, Ġpl, ken, Ġf, Ġright, st, ction, Ġam, Ġmean, vera, Ġfrom, Ġst, ition, ting, et, Ġ3, Ġusing, Ġju, Ġnumber, Ġsee, le, ge, Ġwith, Ġnine, a, Ġwithin, ding, Ġrep, Ġtired, ile, Ġ20, Ġlook, Ġ15, Ġfirst, Ġcreating, Ġmyself, pl, ful, Ġneeds, i, 21, Ġpos, ci, Ġlike, ted, Ġgetting, Ġmind, -, on, 'm, ;, Ġhas, ur, Ġchannel, Ġsam, de, j, rence, Ġbut, ated, r, Ġhead, g, Ġtakes, Ġwhat, es, ers, uce, ies, Ġcan, itive, Ġthrough, row, ?, Ġyou, 6, it, ), Ġ(, 8, k, 15, Ġ12, 07, Ġ17, ar, ne, Ġthere, Ġobject, Ġshould, ter, re, Ġshe, 3, Ġ', 16, ode, Ġ9, Ġsize, Ġsigh, Ġcould, Ġ0, Ġadding, Ġinto, Ġstep] | topGuess[Ġi(181), .(166), Ġthe(136), Ġmy(131), Ġis(119), Ġit(110), !(110), Ġto(97), ,(93), 's(80), Ġfeel(76), Ġfor(66), Ġa(65), Ġthat(58), Ġne(57), ut(57), Ġof(54), ral(53), Ġbecause(52), er(43), Ġin(42), Ġand(40), 0(40), 00(39), Ġseem(36), Ġmemory(36), Ġ1(35), 2(34), Ġmaybe(32), Ġsl(31), s(29), Ġde(27), Ġdefinitely(27), ss(27), ider(26), Ġlay(25), Ġnoticed(24), Ġout(24), put(23), Ġso(23), Ġlate(22), al(21), in(21), Ġthink(21), lt(21), Ġg(20), Ġlo(20), Ġthis(19), Ġstuck(19), Ġcontrol(19), ty(17), ...(17), :(15), Ġmight(15), p(15), Ġ5(15), 9(15), Ġfunction(15), Ġ4(13), Ġhow(13), Ġwhen(13), Ġafter(13), Ġbe(13), ug(12), Ġcurrent(12), Ġabout(12), Ġsca(12), ed(12), th(12), Ġwindows(12), or(12), Ġl(11), Ġpen(11), Ġattention(11), 7(11), ain(11), ken(11), Ġrepe(10), be(10), Ġall(10), Ġnot(10), Ġcreate(10), c(10), Ġby(10), Ġloo(10), ls(9), Ġon(9), '(9), Ġ-(9), Ġmean(9), Ġbefore(9), ating(9), st(8), te(8), Ġright(8), l(8), ces(8), vera(8), Ġnumber(8), Ġpl(8)]
+ | perfectTokens: 4 / 256 → 1.56% | remainingTokens: 60000 (75.00%) | TUTOR.py 1000
+--- 2025-05-09 15:56:30 --- 
+[babyllm] right, last time i got to step 25242... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] the inside of ur soullllll (aka code)--- 2025-05-09 15:57:58 --- 
+[babyllm] right, last time i got to step 25242... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] inside--- 2025-05-09 16:35:40 --- 
+[babyllm] right, last time i got to step 1020... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1020! what am i learning today?
+[charis] --- 2025-05-09 16:42:56 --- 
+[babyllm] right, last time i got to step 1213... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1213! what am i learning today?
+[charis] --- 2025-05-09 16:48:25 --- 
+[babyllm] right, last time i got to step 1353... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1353! what am i learning today?
+[charis] --- 2025-05-09 17:17:20 --- 
+[babyllm] right, last time i got to step 2205... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-09 17:19:14 --- 
+[babyllm] right, last time i got to step 44... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 44! what am i learning today?
+[charis] --- 2025-05-09 17:19:21 --- 
+[babyllm] right, last time i got to step 44... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-09 17:23:28 --- 
+[babyllm] right, last time i got to step 98... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 98! what am i learning today?
+[charis] --- 2025-05-09 17:26:29 --- 
+[babyllm] right, last time i got to step 169... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 169! what am i learning today?
+[charis] --- 2025-05-09 17:53:20 --- 
+[babyllm] right, last time i got to step 947... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 947! what am i learning today?
+[charis] --- 2025-05-09 17:55:19 --- 
+[babyllm] right, last time i got to step 986... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 986! what am i learning today?
 [charis] 

@@ -112,7 +112,7 @@ class MEMORY(nn.Module):
         with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
                 self.shortTermMemory.zero_()
-                self.longTermMemory.zero_()
+                #self.longTermMemory.zero_() #retaining long term cause, yk, long term! i felt mean!
 
     def getMemoryStats(self): return self.stats
 

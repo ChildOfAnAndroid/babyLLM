@@ -119,15 +119,20 @@ class BABYLLM(nn.Module):
                 print("logRepetitionWindow has gone non-finite. Resetting.")
                 self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
             penalisedOutput = self.applyRepetitionPenalty(memoryOutput)
-            ʕっʘ‿ʘʔっ("B4: finalNormLayer")
-            self.normedOutput = self.finalNormLayer(penalisedOutput)
 
-            ʕっʘ‿ʘʔっ("Bx: logits.forward")
+            
             if debugPrints: print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
             if debugPrints: print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
             if debugPrints: print("before logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
             if debugPrints: print("before logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
-            FINALlogits = self.logits.forward(self.normedOutput) 
+            if skipFINALlogitNorm:
+                ʕっʘ‿ʘʔっ("Bx: logits.forward")
+                FINALlogits = self.logits.forward(penalisedOutput)
+            if False:
+                ʕっʘ‿ʘʔっ("B4: finalNormLayer")
+                self.normedOutput = self.finalNormLayer(penalisedOutput)
+                FINALlogits = self.logits.forward(self.normedOutput) 
+                self.normalisedHistory.append(self.normedOutput.norm().item())
             if debugPrints: print("AFTER logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
             if debugPrints: print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
             if debugPrints: print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
@@ -139,16 +144,15 @@ class BABYLLM(nn.Module):
                 self.INNOutputHistory.append(INNOutput.norm().item())
                 self.memoryOutputHistory.append(memoryOutput.norm().item())
                 self.penalisedOutputHistory.append(penalisedOutput.norm().item())
-                self.normalisedHistory.append(self.normedOutput.norm().item())
                 self.FINALlogitsHistory.append(FINALlogits.norm().item())
 
-                if len(self.normalisedHistory) >= windowMAX:
+                if len(self.inputEmbedsHistory) >= windowMAX:
                     self.forwardStats = {
                         "2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
                         "3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
                         "5B_0_memoryOutput_norm": sum(self.memoryOutputHistory) / len(self.memoryOutputHistory),
                         "5B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
-                        "5B_x_finalNormLayer_norm": sum(self.normalisedHistory) / len(self.normalisedHistory),
+                        #"5B_x_finalNormLayer_norm": sum(self.normalisedHistory) / len(self.normalisedHistory),
                         "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
                     }
                     self.stats.update(self.forwardStats)
@@ -195,7 +199,7 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            lrSoftClamp = 0.5 * (self.logLR - math.log(0.0002)).pow(2)
+            lrSoftClamp = 0.5 * (self.logLR - math.log(0.00025)).pow(2)
             loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lastLossBaby = loss.item()
 
@@ -203,6 +207,7 @@ class BABYLLM(nn.Module):
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
                 auxLoss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
                 FINALloss = loss + auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
+
             else:
                 FINALloss = loss
 
@@ -328,19 +333,21 @@ class BABYLLM(nn.Module):
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
 
             if _training:
-                if not torch.isfinite(_logits).all():
+                logitsForSample = _logits.clone()
+                if not torch.isfinite(logitsForSample).all():
                     print("non-finite logits detected BEFORE GUMBEL")
-                    print("logits:", _logits)
-                    _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
+                    print("logits:", logitsForSample)
+                    logitsForSample = torch.nan_to_num(logitsForSample, nan=0.0, posinf=1e3, neginf=-1e3)
                 try:
-                    gumbelProbs = F.gumbel_softmax(_logits, tau=self.temperature, hard=False)
+                    gumbelProbs = F.gumbel_softmax(logitsForSample, tau=self.temperature, hard=False)
                     assert torch.isfinite(gumbelProbs).all(), "gumbelProbs has NaN or Inf!"
                 except Exception as e:
                     self.gumBellend += 1
                     print("gumbel softmax failed:", e)
                     print(f"falling back to softmax sampling (total fallbacks: {self.gumBellend})...")
-                    probs = torch.softmax(_logits, dim=1)
-                    gumbelProbs = probs  # fallback
+                    gumbelProbs = torch.softmax(logitsForSample, dim=1)
+
+                self.lastSoftSample = gumbelProbs
                 responseFromLogits = gumbelProbs.argmax(dim = 1, keepdim = True)
                 self.lastSoftSample = gumbelProbs
 

@@ -105,7 +105,7 @@ class S_OUTPUT:
             "reset":         [RESET],                   # normal terminal
             "dim":           [RESET, DIM],              # dim style for background elements - arrows, colons, etc.
             "bold":          [BOLD],
-            "match":         [BOLD],
+            "match":         [BOLD, WHITE],
             "static":        [DIM, PURPLE_PALE]
         
         }
@@ -293,6 +293,7 @@ class S_OUTPUT:
 
     def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss, _latestLossDelta, _totalLoss = None, _totalTokenCount = None):
         with self.counsellor.infodump("S_colourPrintTraining") as ʕっʘ‿ʘʔっ:
+            #self.refreshStatBands(_rollingAverages = self.rollingAverages)
             S_type = self.S_getStat("loss", _loss)
             S_avgType = self.S_getStat("avgLoss", _recentLoss)
             S_delta = _latestLossDelta
@@ -522,7 +523,7 @@ class S_OUTPUT:
             for w, raw, soft in triplets:
                 raw_style = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(w)}", raw.item())
                 soft_style = self.S_getStat(f"{label}Soft" if not per_window_style else f"{label}_W{int(w)}", soft.item())
-                chunk = f"{self.S_apply(raw_style, f'{raw.item():.6f}')} ({self.S_apply(soft_style, f'{soft.item():.6f}')}) {self.S_apply('dim', f'w{int(w)} ({w:.2f})')}"
+                chunk = f"{self.S_apply(raw_style, f'{raw.item():.6f}')} ({self.S_apply(soft_style, f'{soft.item():.6f}')}) {self.S_apply('dim', f'w{int(w)} ({w:.6f})')}"
                 formatted.append(chunk)
             return "\n".join(formatted)
         except Exception as e:
