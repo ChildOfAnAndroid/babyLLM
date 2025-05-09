@@ -70,14 +70,14 @@ class TUTOR:
         self.bbbb = 0
         self.nnnn = 0
         #model.to(self.device)
-        self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;)"
+        self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;) "
 
-    def loadIntro(self, path="baby_intro_message.txt"):
+    def loadIntro(self, path="SCHOOL/library/charisStudies/forbbyllm.txt"):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return f.read().strip()
         except FileNotFoundError:
-            return "hey... (message file missing!)"
+            return "hey... (message file missing!) "
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
@@ -126,6 +126,8 @@ class TUTOR:
                     if self.trainingStepCounter % saveModelFreq == 0:
                         ʕっʘ‿ʘʔっ("♥saveFreq")
                         self.saveFreqActions()
+                        self.tokenCounts = Counter({k: v / 2 for k, v in self.tokenCounts.items()})
+                        self.model.rollingTokenTotals = Counter({k: v / 2 for k, v in self.model.rollingTokenTotals.items()})
 
                     if self.trainingStepCounter % trainingLogFreq_B == 0:
                         #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
@@ -134,10 +136,7 @@ class TUTOR:
                     # Track loss every 100 steps
                     elif self.trainingStepCounter % trainingLogFreq_A == 0:
                         ʕっʘ‿ʘʔっ("♥logFreq_A")
-                        self.tokenCounts.clear()
-                        self.model.rollingTokenTotals.clear()
                         self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
-
 
                     elif self.trainingStepCounter % printFreq == 0:
                         ʕっʘ‿ʘʔっ("♥printFreq")
@@ -410,7 +409,6 @@ class TUTOR:
     def printFreqActions(self): 
         with self.counsellor.infodump("printFreqActions") as ʕっʘ‿ʘʔっ: # PRINTING TRAINING OUTPUT TO TERMINAL
             #recentLoss = sum(self.recentPrintLosses)/len(self.recentPrintLosses) if self.recentPrintLosses else None
-            self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
             ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
             self.calligraphist.S_colourPrintTraining(
                 _step = self.trainingStepCounter,
@@ -426,10 +424,10 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
-            topGuess_str = "topGuess[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
+            topGuess_str = "topGuess[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.model.rollingTokenTotals.most_common(100)]) + "]"
             #topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
             #topTokens_str = "[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(20)]) + "]"
-            topTokens_str = ": " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.tokenCounts.most_common(100)]) + "]"
+            topTokens_str = ": " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.tokenCounts.most_common(200)]) + "]"
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
@@ -481,7 +479,7 @@ class TUTOR:
                         print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} 1000x")
                         self.bbb = 0
                 self.averageRecentLoss = lossStats[rollB_avgKey]
-            elif rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= trainingLogFreq_A:
+            elif rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (trainingLogFreq_A):
                 if debugPrints or True: 
                     self.ccc += 1
                     if self.ccc > 1000: 
@@ -672,6 +670,7 @@ class TUTOR:
             ʕっʘ‿ʘʔっ("♥getLatestLossDelta")
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
 
+            self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
             self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
 
             if self.trainingStepCounter % (self.reflectionFreq-1) == 0:

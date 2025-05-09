@@ -45,9 +45,9 @@ class NEURON(nn.Module):
         self.activatedOutputHistory_tokens = []
         self.activatedOutputHistory_neurons = []
 
-        self.normedOutputHistory = []
-        self.normedOutputHistory_tokens = []
-        self.normedOutputHistory_neurons = []
+        #self.normedOutputHistory = []
+        #self.normedOutputHistory_tokens = []
+        #self.normedOutputHistory_neurons = []
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         #numNeuron, embedDimension, activationFunction, etc
@@ -65,17 +65,19 @@ class NEURON(nn.Module):
             normedInput = self.inputNorm(_inputEmbeds)
 
             ʕっʘ‿ʘʔっ("computeBatchedDotProduct+bias") # Compute batched dot product + bias: (batch_size, num_neurons)
-            rawOutput = torch.matmul(normedInput, self.n_weights.T) + self.n_biases  # shape: (seq_len, numNeurons)
+            #rawOutput = torch.matmul(normedInput, self.n_weights.T) + self.n_biases  # shape: (seq_len, numNeurons)
+            scale = math.sqrt(embedDimension)
+            rawOutput = (torch.matmul(normedInput, self.n_weights.T) + self.n_biases) / scale # new fancy clamping attempt bdsm idfk nipple clamps its 12 noon help me
 
             ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
             activated = activationFunction(rawOutput)
 
-            ʕっʘ‿ʘʔっ("layerNorm")
-            normed = self.neuronNorm(activated)  # keeps shape: (seq_len, numNeurons)
+            #ʕっʘ‿ʘʔっ("layerNorm")
+            #normed = self.neuronNorm(activated)  # keeps shape: (seq_len, numNeurons)
 
             if debugPrints: print("Device check:")
             if debugPrints: print("inputEmbeds:", _inputEmbeds.device)
-            if debugPrints: print("normed tensor device:", normed.device)
+            #if debugPrints: print("normed tensor device:", normed.device)
             #output = torch.clamp(output, -5, 5) # ENSURE OUT-OF-PLACE
             #output.clamp_(-5, 5) # IN PLACE VER
 
@@ -96,9 +98,9 @@ class NEURON(nn.Module):
                 self.activatedOutputHistory_tokens.append(activated.norm(dim=1).mean().item())
                 self.activatedOutputHistory_neurons.append(activated.norm(dim=0).mean().item())
 
-                self.normedOutputHistory.append(normed.norm().item())
-                self.normedOutputHistory_tokens.append(normed.norm(dim=1).mean().item())
-                self.normedOutputHistory_neurons.append(normed.norm(dim=0).mean().item())
+                #self.normedOutputHistory.append(normed.norm().item())
+                #self.normedOutputHistory_tokens.append(normed.norm(dim=1).mean().item())
+                #self.normedOutputHistory_neurons.append(normed.norm(dim=0).mean().item())
 
                 if len(self.rawOutputHistory) >= windowMAX:
                     self.stats = {
@@ -114,13 +116,13 @@ class NEURON(nn.Module):
                         "2N_2_rawOutput_norm_token": sum(self.rawOutputHistory_tokens) / len(self.rawOutputHistory_tokens),
                         "2N_2_rawOutput_norm_neuron": sum(self.rawOutputHistory_neurons) / len(self.rawOutputHistory_neurons),
 
-                        "2N_3_activatedOutput_norm": sum(self.activatedOutputHistory) / len(self.activatedOutputHistory),
-                        "2N_3_activatedOutput_norm_token": sum(self.activatedOutputHistory_tokens) / len(self.activatedOutputHistory_tokens),
-                        "2N_3_activatedOutput_norm_neuron": sum(self.activatedOutputHistory_neurons) / len(self.activatedOutputHistory_neurons),
+                        "2N_x_activatedOutput_norm": sum(self.activatedOutputHistory) / len(self.activatedOutputHistory),
+                        "2N_x_activatedOutput_norm_token": sum(self.activatedOutputHistory_tokens) / len(self.activatedOutputHistory_tokens),
+                        "2N_x_activatedOutput_norm_neuron": sum(self.activatedOutputHistory_neurons) / len(self.activatedOutputHistory_neurons),
 
-                        "2N_x_normedOutput_norm": sum(self.normedOutputHistory) / len(self.normedOutputHistory),
-                        "2N_x_normedOutput_norm_token": sum(self.normedOutputHistory_tokens) / len(self.normedOutputHistory_tokens),
-                        "2N_x_normedOutput_norm_neuron": sum(self.normedOutputHistory_neurons) / len(self.normedOutputHistory_neurons),
+                        #"2N_x_normedOutput_norm": sum(self.normedOutputHistory) / len(self.normedOutputHistory),
+                        #"2N_x_normedOutput_norm_token": sum(self.normedOutputHistory_tokens) / len(self.normedOutputHistory_tokens),
+                        #"2N_x_normedOutput_norm_neuron": sum(self.normedOutputHistory_neurons) / len(self.normedOutputHistory_neurons),
                         }
 
                     self.rawInputHistory = []
@@ -139,11 +141,11 @@ class NEURON(nn.Module):
                     self.activatedOutputHistory_tokens = []
                     self.activatedOutputHistory_neurons = []
 
-                    self.normedOutputHistory = []
-                    self.normedOutputHistory_tokens = []
-                    self.normedOutputHistory_neurons = []
+                    #self.normedOutputHistory = []
+                    #self.normedOutputHistory_tokens = []
+                    #self.normedOutputHistory_neurons = []
 
-        return normed
+        return activated
 
     def getStats(self): return self.stats
 
@@ -192,9 +194,6 @@ class INTERNEURON_NETWORK(nn.Module):
 
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
         self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))) # one tensor per window size!
-        self.refinement = torch.nn.Sequential(nn.Linear(10000, 32, device=self.device),
-                                                nn.LeakyReLU(negative_slope=0.01),
-                                                nn.Linear(32, 10000, device=self.device))
         self.refinement2 = torch.nn.Sequential(
                             nn.Linear(numNeurons, 512, device=self.device), # bottleneck layer
                             nn.GELU(),                                      # smoother activation
@@ -241,8 +240,9 @@ class INTERNEURON_NETWORK(nn.Module):
             combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
             refinedActivations = self.refinement2(combinedActivationsTensor)
 
-            combinedActivationsMeta = (combinedActivationsTensor * self.combiScale) + (refinedActivations * self.logitScale) # residual skip connection, lets neither of them be too powerful to start with + preserves original info
-            FINALout = self.combiOutNorm(combinedActivationsMeta)
+            #combinedActivationsMeta = (combinedActivationsTensor * self.combiScale) + (refinedActivations * self.logitScale) # residual skip connection, lets neither of them be too powerful to start with + preserves original info
+            #FINALout = self.combiOutNorm(combinedActivationsMeta)
+            FINALout = refinedActivations
             #with torch.no_grad(): # breaks forwards, but does actually update if u save.
                 #self.combiScale.fill_(0.1)
 
@@ -251,9 +251,9 @@ class INTERNEURON_NETWORK(nn.Module):
                 self.activationsHistory_token.append(self.neuronActivationsPerToken.norm(dim=1).mean().item())
                 self.activationsHistory_neuron.append(self.neuronActivationsPerToken.norm(dim=0).mean().item())
 
-                self.normedMeanInputHistory.append(self.normedActivations.norm().item())
-                self.normedMeanInputHistory_token.append(self.normedActivations.norm(dim=1).mean().item())
-                self.normedMeanInputHistory_neuron.append(self.normedActivations.norm(dim=0).mean().item())
+                #self.normedMeanInputHistory.append(self.normedActivations.norm().item())
+                #self.normedMeanInputHistory_token.append(self.normedActivations.norm(dim=1).mean().item())
+                #self.normedMeanInputHistory_neuron.append(self.normedActivations.norm(dim=0).mean().item())
 
                 self.combHistory.append(combinedActivationsTensor.norm().item()) # already per token!
                 self.combHistory_neuron.append(combinedActivationsTensor.norm(dim=0).mean().item())
@@ -261,15 +261,15 @@ class INTERNEURON_NETWORK(nn.Module):
                 self.refHistory.append(refinedActivations.norm().item()) # already per token!
                 self.refHistory_neuron.append(refinedActivations.norm(dim=0).mean().item())
 
-                self.logitHistory.append(self.logitScale.norm().item())
+                #self.logitHistory.append(self.logitScale.norm().item())
 
-                self.scaledHistory.append(combinedActivationsMeta.norm().item()) # already per token!
-                self.scaledHistory_neuron.append(combinedActivationsMeta.norm(dim=0).mean().item())
+                #self.scaledHistory.append(combinedActivationsMeta.norm().item()) # already per token!
+                #self.scaledHistory_neuron.append(combinedActivationsMeta.norm(dim=0).mean().item())
 
-                self.combiScaleHistory.append(self.combiScale.norm().item())
+                #self.combiScaleHistory.append(self.combiScale.norm().item())
 
-                self.combiOutHistory.append(FINALout.norm().item()) # already per token!
-                self.combiOutHistory_neuron.append(FINALout.norm(dim=0).mean().item())
+                #self.combiOutHistory.append(FINALout.norm().item()) # already per token!
+                #self.combiOutHistory_neuron.append(FINALout.norm(dim=0).mean().item())
 
                 if len(self.combHistory) >= windowMAX:
 
@@ -278,23 +278,23 @@ class INTERNEURON_NETWORK(nn.Module):
                         "3INN_0_rawActivations_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
                         "3INN_0_rawActivations_norm_neuron": sum(self.activationsHistory_neuron) / len(self.activationsHistory_neuron),
 
-                        "3INN_1_rawActivationsLayerNorm_norm": sum(self.normedMeanInputHistory) / len(self.normedMeanInputHistory),
-                        "3INN_1_rawActivationsLayerNorm_norm_token": sum(self.normedMeanInputHistory_token) / len(self.normedMeanInputHistory_token),
-                        "3INN_1_rawActivationsLayerNorm_norm_neuron": sum(self.normedMeanInputHistory_neuron) / len(self.normedMeanInputHistory_neuron),
+                        #"3INN_1_rawActivationsLayerNorm_norm": sum(self.normedMeanInputHistory) / len(self.normedMeanInputHistory),
+                        #"3INN_1_rawActivationsLayerNorm_norm_token": sum(self.normedMeanInputHistory_token) / len(self.normedMeanInputHistory_token),
+                        #"3INN_1_rawActivationsLayerNorm_norm_neuron": sum(self.normedMeanInputHistory_neuron) / len(self.normedMeanInputHistory_neuron),
 
                         "3INN_2_combinedActivations_norm": sum(self.combHistory) / len(self.combHistory),
                         "3INN_2_combinedActivations_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
-                        "3INN_2_combinedActivations_scale": sum(self.combiScaleHistory) / len(self.combiScaleHistory),
+                        #"3INN_2_combinedActivations_scale": sum(self.combiScaleHistory) / len(self.combiScaleHistory),
 
-                        "3INN_3_refinedActivations_norm": sum(self.refHistory) / len(self.refHistory),
+                        "3INN_x_refinedActivations_norm": sum(self.refHistory) / len(self.refHistory),
                         "3INN_3_refinedActivations_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
-                        "3INN_3_refinedActivations_scale": sum(self.logitHistory) / len(self.logitHistory),
+                        #"3INN_3_refinedActivations_scale": sum(self.logitHistory) / len(self.logitHistory),
 
-                        "3INN_4_combinedActivationsMeta_norm": sum(self.scaledHistory) / len(self.scaledHistory),
-                        "3INN_4_combinedActivationsMeta_norm_neuron": sum(self.scaledHistory_neuron) / len(self.scaledHistory_neuron),
+                        #"3INN_x_combinedActivationsMeta_norm": sum(self.scaledHistory) / len(self.scaledHistory),
+                        #"3INN_x_combinedActivationsMeta_norm_neuron": sum(self.scaledHistory_neuron) / len(self.scaledHistory_neuron),
 
-                        "3INN_x_FINALoutLayerNorm_norm": sum(self.combiOutHistory) / len(self.combiOutHistory),
-                        "3INN_x_FINALoutLayerNorm_norm_neuron": sum(self.combiOutHistory_neuron) / len(self.combiOutHistory_neuron),
+                        #"3INN_x_FINALoutLayerNorm_norm": sum(self.combiOutHistory) / len(self.combiOutHistory),
+                        #"3INN_x_FINALoutLayerNorm_norm_neuron": sum(self.combiOutHistory_neuron) / len(self.combiOutHistory_neuron),
                         "_INN_windowSizesMean": torch.exp(self.logWindowSizes).mean().item()
                         }
 
@@ -330,9 +330,10 @@ class INTERNEURON_NETWORK(nn.Module):
             seqLen, embedDim = self.neuronActivationsPerToken.shape
 
             ʕっʘ‿ʘʔっ("INN2: normedActivations")
-            self.normedActivations = self.windowMeanNorm(self.neuronActivationsPerToken)
+            #self.normedActivations = self.windowMeanNorm(self.neuronActivationsPerToken)
             padded = torch.zeros((windowMAX, embedDim), device=self.device)
-            padded[-min(seqLen, windowMAX):] = self.normedActivations[-min(seqLen, windowMAX):]
+            #padded[-min(seqLen, windowMAX):] = self.normedActivations[-min(seqLen, windowMAX):]
+            padded[-min(seqLen, windowMAX):] = self.neuronActivationsPerToken[-min(seqLen, windowMAX):]
 
             stacked = padded.unsqueeze(0).repeat(windowSizes.shape[0], 1, 1)
 
