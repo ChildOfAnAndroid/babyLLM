@@ -9,6 +9,7 @@ import torch.nn.functional as F
 import random
 import math
 from config import *
+from SCHOOL.staffroom.counsellor import COUNSELLOR
 
 """def tensorStats(tensor: torch.Tensor, prefix: str, statsDict: dict):
     statsDict[f"{prefix}_norm"] = tensor.norm().item()
@@ -25,7 +26,7 @@ class NEURON(nn.Module):
         self.n_weights = nn.Parameter(torch.randn(numNeurons, embedDimension, device = self.device) * 0.01)
         self.n_biases = nn.Parameter(torch.zeros(numNeurons, device = self.device))
         self.neuronNorm = nn.LayerNorm(numNeurons, elementwise_affine=True, device=self.device)
-        #self.n_counsellor = COUNSELLOR("NEURON", debug = debugPrints, durations = durationLogging)
+        self.n_counsellor = COUNSELLOR("NEURON", _debug = debugPrints, _durations = durationLogging)
 
         self.stats = {}
 
@@ -375,7 +376,7 @@ class INTERNEURON_NETWORK(nn.Module):
                         self.stats["n_weightNormMean"] = self.n_weightNorm.mean()
                         self.stats["n_weightNormMin"] = self.n_weightNorm.min()
                         self.stats["n_weightNormMax"] = self.n_weightNorm.max()
-                        if debugPrints: print(f"neuron weightNorm: {self.stats["n_weightNorm"]} mean: {self.stats["n_weightNormMean"]} min: {self.stats["n_weightNormMax"]} max: {self.stats["n_weightNormMin"]}")
+                        if debugPrints: print(f"neuron weightNorm: {self.n_weightNorm} mean: {self.stats["n_weightNormMean"]} min: {self.stats["n_weightNormMax"]} max: {self.stats["n_weightNormMin"]}")
 
                     if n_biasesStats:
                         ʕっʘ‿ʘʔっ("♥n_biasesStats")                    

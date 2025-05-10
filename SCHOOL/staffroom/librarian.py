@@ -26,7 +26,7 @@ This class:
 class LIBRARIAN:
     def __init__(self, _counsellor, _vocabSize=vocabSize, _vocabPath=None, _baseTokenizerPath=None, _forceRetrain=False):
         self.v_counsellor = _counsellor
-        self.vocabSize = _vocabSize + 1  # for <UNK>
+        self.vocabSize = _vocabSize
         self.unkToken = "<UNK>"
         self.vocabCache = vocabCachePath
         self.vocabFilename = f"vocab{_vocabSize}_{minTokenFreq}"

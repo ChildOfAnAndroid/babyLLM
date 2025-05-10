@@ -34,7 +34,7 @@ def wakeup():
 
             # OPEN THE LIBRARY :)
             ʕっʘ‿ʘʔっ("waking the librarian...")
-            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False)
+            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False) #_baseTokenizerPath = "BRAIN/vocabCache/2000_20/tokenizer_2000.json", _forceRetrain = True)
 
             if False: exit(0)
             ʕっʘ‿ʘʔっ("opening questions...")
