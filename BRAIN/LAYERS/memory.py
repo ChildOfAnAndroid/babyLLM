@@ -58,7 +58,7 @@ class MEMORY(nn.Module):
             shortGateScale = clampedShort / gateSum
             longGateScale = clampedLong / gateSum
             activationsGateScale = clampedactivations / gateSum
-            self.latestMemoryGates = torch.stack([shortGateScale, longGateScale, activationsGateScale]) # needed to be used in babyLLM for processing
+            #self.latestMemoryGates = torch.stack([shortGateScale, longGateScale, activationsGateScale]) # needed to be used in babyLLM for processing
 
             self.FINALmemory = ((shortGateScale * newShort) + (longGateScale * newLong) +(activationsGateScale * self.activationsTensor))
 
@@ -111,7 +111,7 @@ class MEMORY(nn.Module):
     def resetMemory(self):
         with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
-                self.shortTermMemory.zero_()
+                self.shortTermMemory = self.shortTermMemory * 0.1
                 #self.longTermMemory.zero_() #retaining long term cause, yk, long term! i felt mean!
 
     def getMemoryStats(self): return self.stats

@@ -1,12 +1,9 @@
-import re
-import json
-import csv
+import os, re, json, csv, random
 from html import unescape
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import *
-import random
-import os
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import as_completed
+from threading import Lock
+write_locks = {}
 
 # (re.compile(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', text)
 # sed -E 's;(\\u[0-9a-fA-F]{4}){2,};;g' discord.json > discord.noemoji.json; mv discord.noemoji.json discord.json
@@ -165,9 +162,9 @@ PATTERNS = [
     # social/chat
     (re.compile(r'\b(?:teamspeakk|teamspeak|snapchat|whatsapp|fbc|facebook messenger|msn|skype|discord|sms|text message)\b', re.I), 'discord'), #burn him!
     # smink
-    (re.compile(r'\b(?:spliff|spleeef|spleef|dab|smi+n+k+|smon+k+)s?\b', re.I), 'smink'), #burn him!
+    #(re.compile(r'\b(?:spliff|spleeef|spleef|dab|smi+n+k+|smon+k+)s?\b', re.I), 'smink'), #burn him!
     # bing
-    (re.compile(r'\b(?:bo+ng+|pipette+|bing+|one hitter)s?\b', re.I), 'bing'), #burn him!
+    #(re.compile(r'\b(?:bo+ng+|pipette+|bing+|one hitter)s?\b', re.I), 'bing'), #burn him!
     # companies
     (re.compile(r'\b(?:monzo|santander|natwest|bourso|bank)(s?)\b', re.I), r'bank\1'), #burn him!
     (re.compile(r'\b(?:gear4music|gearformusic|patagonia|andrex|sistema|heinz|garofalo|isigny ste mere|cathedral city|nike|adidas|synthrotek)\b', re.I), 'brondspoon'), #burn him!
@@ -181,16 +178,17 @@ PATTERNS = [
     (re.compile(r'\b(police)((?:wo)?m[ea]n|lady)(s?)\b', re.I), r'\1 \2\3'), #burn him!
     (re.compile(r'\b(?:virgin media|bojo|boris johnson|estate agent|letting agent|jonny|giles|alice|alex mcginnes|mcginnes|alex|landlord|sahim|cops|police+(?:i[er]+)?|policiere|security guard|government|teacher|neighbour|george moore|jack clarke|george|lice|tommie|tommy|unanymous|nits)(s?)\b', re.I), 'george'), #burn him!
     # élodie
-    (re.compile(r'\b(?:elodie🌻|élodie|boris|boriss|élo)(s?)\b', re.I), 'elodie\\1'),
-    #(re.compile(r'\b(?:loveggle|loveeggle|eggle|egglodie|louveangel|loveaangel|loveably|loveagnel|loveaigirl|loveaingle|lovealngle|loveangelelele|loveangely|loveangerl|loveangle1337|loveanglebus|loveangler|loveangwole|lovedevil|hatedevil|loveanus|lovedebil1337|lovedebil420|lovedoxxing|loveeagle|loveegg|loveeggly|lovefuckle|lovegangle|lovelodie|lovelyyyanglee|lovestrangel)(s?)\b', re.I), 'loveangle\\1')
+    (re.compile(r'\b(?:élodie|boris|boriss|élo)(s?)\b', re.I), 'elodie\\1'), #elodie🌻|
+    (re.compile(r'\b(?:loveggle|loveeggle|eggle|egglodie|louveangel|loveaangel|loveably|loveagnel|loveaigirl|loveaingle|lovealngle|loveangelelele|loveangely|loveangerl|loveangle1337|loveanglebus|loveangler|loveangwole|lovedevil|hatedevil|loveanus|lovedebil1337|lovedebil420|lovedoxxing|loveeagle|loveegg|loveeggly|lovefuckle|lovegangle|lovelodie|lovelyyyanglee|lovestrangel)(s?)\b', re.I), 'loveangle\\1'),
     # charis
     (re.compile(r'\b(?:chariss|circuitchild|charis anne male|charisannemale|charis23februles|battlestarfaptastula|charis male|bocab|cabbo|cazzy|caz|cabble)s?\b', re.I), 'charis'),
     (re.compile(r'(?:childofagamingdroid|child of an android|childofanandroid|childo|coaa)s?\b', re.I), 'child of an android'),
     # froggy
-    (re.compile(r'\b(?:𓆏frogofanandroid𓆏|frog)\b', re.I), 'froggy'),
+    (re.compile(r'\b(?:𓆏frogofanandroid𓆏)\b', re.I), 'froggy'),
     # kevin
     (re.compile(r'\b(?:sherlock|sonic|pikachu|bulbasaur|charmander|sonic the hedgehog|shadow the hedgehog|doctor whobernd|benedict cumberbatch|benadict cumberbatch|cumberbatch|kirk|spock|spirk|martin freeman|piper|william shatner|leonard nimoy|alastair|marcel duchamp|cildo meireles|piero manzoni|paul mattock|mark verbos|idris khan|stanley jones|mark kaider rodger|peter johnson|peter dawson|benjamin watson|sheryl colclough|mark rodger|chloe readman|peter johnson|john locke|glenis male|pauline locke|sue male|susan male|phil male|philip male|p w male|asher wesley|michael male)(s?)\b', re.I), 'kevin\\1'),
-    (re.compile(r'\b(?:julie|fooly|jake|tanja|danny|dandan|danrudge|edmund|leonard|andre|guy bar|liam|lara|duchamp|marcel|piero|pierre|paul|matthew|mckellar|verbos|idris|stanley|hilla|joseph|ryan|kai|johnson|dawson|martino|martin|benedict|natalie|henri|victoria|elizabeth|henry|jakc|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|wolf|liam|helene|jim|martin|gillian|daniel|kayla|kayyluhh|dan|jed|anon|anonymous|kate|justine|charlie|jerry|chris|nick|daniel|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|jedidiah|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|iska)(s?)\b', re.I), 'kevin\\1'),
+    (re.compile(r'\b(?:julie|fooly|jake|tanja|edmund|leonard|guy bar|liam|lara|duchamp|marcel|piero|pierre|paul|matthew|mckellar|verbos|idris|stanley|hilla|joseph|ryan|kai|johnson|dawson|martino|martin|benedict|natalie|henri|victoria|elizabeth|henry|jakc|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|liam|helene|jim|martin|gillian|anon|anonymous|kate|justine|charlie|jerry|chris|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|iska)(s?)\b', re.I), 'kevin\\1'),
+    (re.compile(r'\b(?:danny|dandan|dan|danrudge|rudge|daniel|argo|andre|kayla|kayyluhh|jed|wolf|jedidiah|michael|susan|sue|phil|philip|phillip|jedidiah|guyslaine|pauline|jon)(s?)\b', re.I), 'kevin\\1'),
     (re.compile(r'\b(?:@sneakret.agent|valkyr|charismatic_canine|charismaticcanine|itskayyluhh|djsarahhall|deacon_vlad|dj alphabeats|missdoodzdj|chargednewt|lionastone|cacespowboy|markbiggus|waterguy12|buglady|bug lady|kaiderian|kingkaider|kaider|power pope|powerpope|rustypeugeot|moebius-ro|🌮tacosaurusmex🌮|ave_maria[0-9]{2}|tacosaurusmex|spacetaco|spacetaco_vibes)(s?)\b', re.I), 'kevinonline420'),
     (re.compile(r'@(?:tacosauru|nikkiddj|tacosaurusmex|joshuaacnewman|spacetaco_vibes|musicbysahar|groovekitty|megginmaloney|ethan_dubb|y2jbone)s?\b', re.I), 'kevinonline420'), #burn him!
     # pets
@@ -222,15 +220,16 @@ PATTERNS = [
     ]
 # fast pass
 # Batch apply regex substitutions
+
 def batch_sub(text, pattern_map):
     for pattern, replacement in pattern_map:
         text = pattern.sub(replacement, text)
     return text
 
-# Text cleaning logic
 def clean_text(text):
+    before = len(text)
     text = unescape(text).strip()
-    text = re.sub(r'(?:<END>)', '', text)
+    text = re.sub(r'(?:<END>)', '', text)  # placeholder
     text = text.lower()
     text = re.sub(r"[‘’]", "'", text)
     text = EMAIL.sub("kevinOnline420", text)
@@ -250,167 +249,114 @@ def clean_text(text):
     for old, new in REPLACEMENTS.items():
         text = text.replace(old, new)
 
+    after = len(text.strip())
+    print(f"[clean_text] Reduced from {before:,} to {after:,} characters")
     return text.strip()
 
-# Processing logic per file
 def process_file(current_file):
-    print(f"Processing file {current_file['in']}:")
     try:
         with open(current_file["in"], "r", encoding="utf-8") as file:
-            if current_file['type'] == "discord_json":
+            if current_file["type"] == "discord_json":
                 raw_lines = json.load(file)
-                #raw_text = "\n".join([line if isinstance(line, str) else line.get("content", "") for line in raw_lines])
                 raw_lines.reverse()
                 raw_text = "\n".join(raw_lines)
-                raw_text = raw_text.strip()
-            elif current_file['type'] == 'discord_txt':
+            elif current_file["type"] == "discord_txt":
                 raw_lines = file.read().splitlines()
                 raw_lines.reverse()
                 raw_text = "\n".join(raw_lines)
-            elif current_file['type'] == "json":
+            elif current_file["type"] == "json":
                 raw_text = "\n".join(json.load(file))
-            elif current_file['type'] == "text":
+            elif current_file["type"] == "text":
                 raw_text = file.read()
-            elif current_file['type'] in ["reddit_post", "reddit_comment"]:
+            elif current_file["type"] in ["reddit_post", "reddit_comment"]:
                 raw_data = csv.DictReader(file)
-                raw_text = "\n".join([row['body'] for row in raw_data if row['body'].strip() != ''])
+                raw_text = "\n".join([row['body'] for row in raw_data if row.get('body', '').strip()])
             else:
-                print(f"Unknown file type: {current_file['type']}")
+                print(f"Unknown type: {current_file['type']}")
                 return
     except Exception as e:
         print(f"Error reading {current_file['in']}: {e}")
         return
 
     if not raw_text:
-        print(f"Unable to clean data for file {current_file['in']} as raw_text is empty!")
+        print(f"Skipped {current_file['in']} — empty content.")
         return
 
     weight = current_file.get("weight", 1)
-    if weight == -1:
-        final_text = raw_text  # Clean full file, no slice
+    if weight == -1 or len(raw_text) < 1000:
+        final_text = raw_text
     else:
-        slice_size = int(weight * random.randint(trainingDataSliceSize_min, trainingDataSliceSize_max) / 2)
+        slice_size = int(weight * random.randint(trainingDataSliceSize_min, trainingDataSliceSize_max))
         if len(raw_text) <= slice_size:
             final_text = raw_text
         else:
-            slice_size = int(weight * random.randint(trainingDataSliceSize_min, trainingDataSliceSize_max) / 2)
-            if len(raw_text) <= slice_size:
-                final_text = raw_text
-            else:
-                start = random.randint(0, len(raw_text) - slice_size)
-                final_text = raw_text[start:start + slice_size]
+            start = random.randint(0, len(raw_text) - slice_size)
+            final_text = raw_text[start:start + slice_size]
 
-    chunk_size = 100_000  # chars
-    chunks = [raw_text[i:i + chunk_size] for i in range(0, len(final_text), chunk_size)]
+    chunk_size = 100_000
+    chunks = [final_text[i:i + chunk_size] for i in range(0, len(final_text), chunk_size)]
     cleaned_chunks = [clean_text(chunk) for chunk in chunks]
     cleaned_text = "".join(cleaned_chunks)
 
+    out_path = current_file["out"]
+
+    # Ensure lock exists for this file
+    if out_path not in write_locks:
+        write_locks[out_path] = Lock()
+
     try:
-        with open(current_file["out"], "a", encoding="utf-8") as file:
-            file.write(cleaned_text)
-        print(f"cleaned data saved at: {current_file['out']} (between {trainingDataSliceSize_min} and {trainingDataSliceSize_max} characters)")
+        with write_locks[out_path]:
+            with open(out_path, "a", encoding="utf-8") as file:
+                file.write(cleaned_text + "\n")
+        print(f"saved to: {out_path} ({len(cleaned_text):,} chars)")
     except Exception as e:
-        print(f"error writing to {current_file['out']}: {e}")
+        print(f"write error for {out_path}: {e}")
 
-# Clear outputs
-for current_file in trainingFilePath_dict_weighted:
-    try:
-        with open(current_file["out"], "w", encoding="utf-8") as f:
-            pass
-    except Exception as e:
-        print(f"error clearing file {current_file['out']}: {e}")
-
-# Shuffle inputs
-random.shuffle(trainingFilePath_dict_weighted)
-
-# Run in parallel
-print("starting parallel processing...")
-with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-    futures = {executor.submit(process_file, file): file for file in trainingFilePath_dict_weighted}
-    for future in as_completed(futures):
-        file = futures[future]
+def run_cleaning():
+    # Step 1: Clear all output files (once)
+    for current_file in trainingFilePath_dict_weighted:
         try:
-            future.result()
+            with open(current_file["out"], "w", encoding="utf-8") as f:
+                pass
         except Exception as e:
-            print(f"Error in file {file['in']}: {e}")
+            print(f"failed to clear file {current_file['out']}: {e}")
 
-print("all files processed successfully! :)")
+    # Step 2: Process each file one by one
+    print("starting sequential processing...")
 
-"""def batch_sub(text, pattern_map):
-    for pattern, replacement in pattern_map:
-        text = pattern.sub(replacement, text)
-    return text
+    random.shuffle(trainingFilePath_dict_weighted)
+    for current_file in trainingFilePath_dict_weighted:
+        try:
+            print(f"\nprocessing: {current_file['in']}")
+            process_file(current_file)
+        except Exception as e:
+            print(f"error in file {current_file['in']}: {e}")
 
-def clean_text(text):
+    print("\nall files processed successfully!")
 
-    text = unescape(text).strip()
-    text = re.sub(r'(?:<END>)', '', text) # not set up yet lol
-    text = text.lower()
-    text = re.sub(r"[‘’]", "'", text)
-    text = EMAIL.sub("kevinOnline420", text)
-    text = text.lower()
-    text = BAD.sub("", text)
-    text = REPEATS.sub(r"\1\1\1", text)
-    text = MULTISPACE.sub(" ", text)
-    text = batch_sub(text, PATTERNS)
+def run_cleaning_parallel():
+    # Clear output files first
+    for current_file in trainingFilePath_dict_weighted:
+        try:
+            with open(current_file["out"], "w", encoding="utf-8") as f:
+                pass
+        except Exception as e:
+            print(f"failed to clear file {current_file['out']}: {e}")
 
-    for pattern, replacement in EMOTES:
-        text = pattern.sub(replacement, text)
+    # Shuffle + process in parallel
+    random.shuffle(trainingFilePath_dict_weighted)
+    print("starting parallel processing...")
 
-    for pattern, replacement in ACCENTS:
-        text = pattern.sub(replacement, text)
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        futures = {executor.submit(process_file, f): f for f in trainingFilePath_dict_weighted}
+        for future in as_completed(futures):
+            f = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"error in file {f['in']}: {e}")
 
-    # excess whitespace
-    text = re.sub(r'\s+', ' ', text)
+    print("all files processed successfully!")
 
-    for old, new in REPLACEMENTS.items():
-        text = text.replace(old, new)
-
-    return text.strip()
-
-for current_file in trainingFilePath_dict_weighted:
-    with open(current_file["out"], "w", encoding="utf-8") as file:
-        pass
-
-random.shuffle(trainingFilePath_dict_weighted)
-
-for current_file in trainingFilePath_dict_weighted:
-    print(f"Processing file {current_file["in"]}:")
-    raw_text = None
-    with open(current_file["in"], "r", encoding="utf-8") as file:
-        if current_file['type'] == "discord_json":
-            raw_lines = json.load(file)
-            raw_lines.reverse()
-            raw_text = "\n".join(raw_lines)
-        if current_file['type'] == "json":
-            raw_text = "\n".join(json.load(file))
-        if current_file['type'] == "text":
-            raw_text = file.read()
-        if current_file['type'] == "reddit_post" or current_file['type'] == "reddit_comment":
-            raw_data = csv.DictReader(file)
-            raw_text = "\n".join([row['body'] for row in raw_data if row['body'].strip() != ''])
-
-    if raw_text is None:
-        print(f"unable to clean data for file {current_file} as raw_text is empty!")
-    else:
-
-        # Get slice up to 5000 characters
-        weight = current_file.get("weight", 1)
-        if weight == -1:
-            final_text = raw_text  # Clean full file, no slice
-        else:
-            slice_size = int(weight * random.randint(trainingDataSliceSize_min, trainingDataSliceSize_max) / 2)
-            if len(raw_text) <= slice_size:
-                final_text = raw_text
-            else:
-                start = random.randint(0, len(raw_text) - slice_size)
-                final_text = raw_text[start:start + slice_size]
-
-        # Process text
-        cleaned_text = clean_text(final_text)
-
-        # Save cleaned dataset
-        with open(current_file["out"], "a", encoding="utf-8") as file:
-            file.write(cleaned_text)
-
-        print(f"cleaned data saved at: {current_file['out']} (between {trainingDataSliceSize_min} and {trainingDataSliceSize_max} characters)")"""
+# Run it
+run_cleaning()

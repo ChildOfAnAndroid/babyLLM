@@ -289,9 +289,9 @@ class TUTOR:
             #self.INN_cerebellumMean         = self.model.interneuronNetwork.cerebellum.mean().cpu().item()
 
             #self.endTurnActions()
-            if self.device.type == 'mps':
-                ʕっʘ‿ʘʔっ("emptyCache (mps)")
-                torch.mps.empty_cache()
+            #if self.device.type == 'mps':
+            #    ʕっʘ‿ʘʔっ("emptyCache (mps)")
+            #    torch.mps.empty_cache()
 
             return self.predictedTokenIndices, self.logitSeq
         
