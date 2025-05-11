@@ -371,7 +371,7 @@ class S_OUTPUT:
                 statTopLen = 10
                 print(f"Failed getting statTopLen for avgStats: {avgStats} {e}")
 
-            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.{decLen}f}")])
+            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.12f}")])
             logOutput = stampAndStep
             littleLogOutput = stampAndStep
             newLineLittle = stampAndStep + "\n"
