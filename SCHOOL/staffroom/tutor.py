@@ -56,7 +56,9 @@ class TUTOR:
         self.averageRecentLoss          = 0
         self.stats                      = {}
         self.stringStats                = {}
-        self.trainingStepCounter        = 1
+        self.trainingStepCounter        = 0
+        self.totalTurns                 = 0
+        self.totalTurnAttempts          = 0
         self.numTokensPerStep           = _numTokensPerStep
         self.learningRate               = learningRate
         self.stepLossFloat              = 0
@@ -91,6 +93,7 @@ class TUTOR:
             self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "tokenCount": 0})
             self.tokenCounts = Counter()
             self.latestLossDelta = 0
+            self.easyLossDelta = 0
             self.reflectionTrainingPairs = []
             self.reflectionFreq = reflectionFreq
 
@@ -102,50 +105,84 @@ class TUTOR:
             for epoch in range(_epochs):
                 print(f"--- lesson {epoch+1}/{_epochs} started ---")
                 """TRAINING DATA (batches)"""
-                for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
-                    if self.trainingStepCounter == self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
+                #for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
+                i = 0
+                while i < len(_trainingDataPairs):
+                    _inputSeq, _targetSeq = _trainingDataPairs[i]
+                    self.stableFallCount = 0
+                    totalTries = 0
+                    self.maxRetries = 50  # Optional safety
+
+                    if self.totalTurns >= self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
                         ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
                         self.reflectionTrainingPairs = self.babyReflection()
-                        self.reflectionFreq = self.trainingStepCounter + reflectionFreq + len(self.reflectionTrainingPairs)
+                        self.reflectionFreq = self.totalTurns + reflectionFreq + len(self.reflectionTrainingPairs)
 
                     elif self.reflectionTrainingPairs:
                         ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
-                        _inputSeq, _targetSeq = self.reflectionTrainingPairs.pop(0)
+                        currentReflection = self.reflectionTrainingPairs[0]
+                    else:
+                        currentReflection = None
 
-                    ʕっʘ‿ʘʔっ("♥START OF TURN")
-                    inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
-                    
-                    ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
-                    self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
+                    while self.stableFallCount < stableFallThreshold and totalTries < self.maxRetries:
+                        totalTries += 1
 
-                    """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
-                    
-                    ʕっʘ‿ʘʔっ("♥collectTurnStats")
-                    self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
+                        ʕっʘ‿ʘʔっ("♥START OF TURN")
+                        _inputSeq, _targetSeq = currentReflection if currentReflection else _trainingDataPairs[i]
+                        inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
+                        
+                        ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
+                        self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = inputTokenIndices, _targetTokenIndexSeq = targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
+                        self.totalTurnAttempts += 1
 
-                    if self.trainingStepCounter % saveModelFreq == 0:
-                        ʕっʘ‿ʘʔっ("♥saveFreq")
-                        self.saveFreqActions()
-                        self.tokenCounts = Counter({k: v / 2 for k, v in self.tokenCounts.items()})
-                        self.model.rollingTokenTotals = Counter({k: v / 2 for k, v in self.model.rollingTokenTotals.items()})
+                        """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
+                        
+                        ʕっʘ‿ʘʔっ("♥collectTurnStats")
+                        self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
 
-                    if self.trainingStepCounter % trainingLogFreq_B == 0:
-                        #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
-                        self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True, _saveLog = True)
+                        if self.totalTurns % saveModelFreq == 0:
+                            ʕっʘ‿ʘʔっ("♥saveFreq")
+                            self.saveFreqActions()
+                            self.tokenCounts = Counter({k: v / 2 for k, v in self.tokenCounts.items()})
+                            self.model.rollingTokenTotals = Counter({k: v / 2 for k, v in self.model.rollingTokenTotals.items()})
 
-                    # Track loss every 100 steps
-                    elif self.trainingStepCounter % trainingLogFreq_A == 0:
-                        ʕっʘ‿ʘʔっ("♥logFreq_A")
-                        self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
+                        if self.totalTurns % trainingLogFreq_B == 0:
+                            #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
+                            self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True, _saveLog = True)
 
-                    elif self.trainingStepCounter % printFreq == 0:
-                        ʕっʘ‿ʘʔっ("♥printFreq")
-                        self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = printFreq, _trainingLogPath = None, _detailedLogging = False, _saveLog = False)
-                        self.printFreqActions()
-                    
-                    ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
-                    self.latestLossDelta = self.endTurnActions()
-                    # < indent (5)
+                        # Track loss every 100 steps
+                        elif self.totalTurns % trainingLogFreq_A == 0:
+                            ʕっʘ‿ʘʔっ("♥logFreq_A")
+                            self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
+
+                        elif self.totalTurns % printFreq == 0:
+                            ʕっʘ‿ʘʔっ("♥printFreq")
+                            self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = printFreq, _trainingLogPath = None, _detailedLogging = False, _saveLog = False)
+                            self.printFreqActions()
+                        
+                        ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
+                        self.latestLossDelta = self.endTurnActions()
+                        if not currentReflection: self.totalTurns += 1
+
+                        #if self.latestLossDelta < 0:
+                        if self.easyLossDelta < 0: self.stableFallCount += (1 + abs(self.latestLossDelta))
+                        else: self.stableFallCount -= (1 + abs(self.latestLossDelta))  # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
+
+                    self.totalTurnAttempts = 0
+                    if totalTries >= self.maxRetries:
+                        if abs(self.latestLossDelta) < 0.05:
+                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - 0.00001)
+                        elif abs(self.latestLossDelta) > 0.5:
+                            self.model.learningRateGOAL = min(0.0004, self.model.learningRateGOAL + 0.00001)
+                        elif abs(self.latestLossDelta) > 0.05:
+                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - 0.000001)
+                        print(f"updated goal LR to {self.model.learningRateGOAL}")
+
+                    if currentReflection and (self.stableFallCount >= stableFallThreshold or totalTries >= self.maxRetries):
+                        self.reflectionTrainingPairs.pop(0)
+                    elif not currentReflection and (self.stableFallCount >= stableFallThreshold or totalTries >= self.maxRetries):
+                        i += 1 # only move to next prompt if stableFallCount met or maxRetries
+                    self.trainingStepCounter += 1
                 ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
                 self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter)
         print("--- tutoring complete! ---")
@@ -176,7 +213,7 @@ class TUTOR:
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("_model.optimizer.zero_grad")
             self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
-            self.trainingStepCounter   += 1
+            #self.trainingStepCounter   += 1
             self.predictedTokenIndices  = []
             inputSeqPredictions = list(_inputTokenIndices)  # Start with input context, create a COPY!
             buffer = torch.zeros(windowMAX, dtype = torch.long, device = self.device) # creates buffer/step instead of recreating tensors inside loop
@@ -455,7 +492,7 @@ class TUTOR:
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
                 _topTokens_str = topTokens_str,
-                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {remainingData_str} | TUTOR.py {trainingLogFreq_A}",
+                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {remainingData_str} | total turns: {self.totalTurns} | easyΔ: {self.easyLossDelta:.1f} | Δ↗ streak: {self.stableFallCount+1:.1f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x | LRgoal: {self.model.learningRateGOAL:.6f} | TUTOR.py {_frequency}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 
@@ -472,27 +509,24 @@ class TUTOR:
             rollPrint_key = f"{printFreq}"
             rollPrint_avgKey = f"{printFreq}_avg"
 
-            if rollB_avgKey in lossStats and rollB_key in lossStats and len(lossStats[rollB_key]) >= trainingLogFreq_B:
+            if rollB_avgKey in lossStats and rollB_key in lossStats and len(lossStats[rollB_key]) >= (trainingLogFreq_B):
                 if debugPrints or True: 
                     self.bbb += 1
-                    if self.bbb > 1000: 
-                        print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} 1000x")
-                        self.bbb = 0
+                    if self.bbb % 100 == 0: 
+                        print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} {self.bbb}x")
                 self.averageRecentLoss = lossStats[rollB_avgKey]
             elif rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (trainingLogFreq_A):
                 if debugPrints or True: 
                     self.ccc += 1
-                    if self.ccc > 1000: 
-                        print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} 1000x")
-                        self.ccc = 0
+                    if self.ccc % 100 == 0: 
+                        print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} {self.ccc}x")
                 self.averageRecentLoss = lossStats[rollA_avgKey]
             else:
                 if rollPrint_avgKey in lossStats and rollPrint_key in lossStats and len(lossStats[rollPrint_key]) >= printFreq:
                     if debugPrints or True: 
                         self.ppp += 1
-                        if self.ppp > 1000: 
-                            print(f"Used {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]} 1000x")
-                            self.ppp = 0
+                        if self.ppp % 100 == 0: 
+                            print(f"Used {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]} {self.ppp}x")
                     self.averageRecentLoss = lossStats[rollPrint_avgKey]
 
             self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
@@ -500,8 +534,8 @@ class TUTOR:
                 self.tokenCounts.update(self.guessedTokenSeq)
 
             ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
-            if self.trainingStepCounter > trainingLogFreq_A:
-                self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.00075)
+            if self.totalTurns > printFreq:
+                self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", 0.001)
 
             ʕっʘ‿ʘʔっ("collectStats♥")
 
@@ -672,6 +706,7 @@ class TUTOR:
 
             self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
             self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
+            self.easyLossDelta = self.stepLossFloat - ((self.averageRecentLoss + self.stepLossFloat + self.stepLossFloat)/3)
 
             if self.trainingStepCounter % (self.reflectionFreq-1) == 0:
                 self.hesJustABaby = self.mapStatsToFeelings()

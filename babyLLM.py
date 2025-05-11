@@ -35,6 +35,7 @@ class BABYLLM(nn.Module):
 
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
         self.totalTokenEvaluations = 0
+        self.learningRateGOAL = learningRateGOAL
         self.latestLossDelta = 0
         self.totalTokenEvaluations_A = 0
         self.recentGeneratedTokens = []  # used for repetition penalty
@@ -200,11 +201,11 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            lrSoftClamp = 0.4 * (self.logLR - math.log(0.0002)).pow(2)
+            lrSoftClamp = 900 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
             loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lastLossBaby = loss.item()
 
-            if _training and self.lastSoftSample is not None:
+            if _training and self.lastSoftSample is not None and not skipAuxLoss:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
                 auxLoss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
                 FINALloss = loss + auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix

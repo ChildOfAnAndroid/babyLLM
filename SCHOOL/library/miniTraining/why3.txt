@@ -1,0 +1,375 @@
+a a 
+b b b  
+a b a ba b a b a b 
+a a a a 
+b b b b b 
+c c c c  
+ab c a b c a b c a b ca b c
+a a a 
+b b
+c 
+d d 
+a bc d a b c d a b c d ab c d a b c d 
+a a a 
+bb b b  
+c c c c c 
+d dd d 
+e e e 
+a b c d e ab c d e a b c d e a bc d e a b c d e 
+a a 
+b
+c c
+d d d
+e e e e
+f f f f f
+a b c d e f a b c d e f a b c d e f a b cd e f a b c d e f 
+a a a a
+bbb
+cc
+d
+e e
+f ff
+g g g g
+a b c d e f g a b c d e f g a b c de f g a b c d e f g a b c d e f g 
+a a a aa 
+b b b b 
+c c c 
+d d 
+e
+f f
+g g g
+h h h h 
+a b c d e f g h a b c d e f g h a b c d e f g ha b c d e f g h a b c d e f g h 
+a a a a a 
+b b b b 
+c c c 
+d d 
+e 
+f f 
+g g g 
+h h h h 
+ii i i i 
+abcdef g h i a b c d e f g h i a b c d e f g h i a b c d e f g h i ab c d e f g h i 
+a a a a  
+b b b 
+c c 
+d
+e e
+f f f 
+g g g g
+h h h h h 
+i i i i 
+j j j
+a b c d ef g h i j a b c d e f g h i j a b c d e f g h i j a b c d e f g h i j a b c d e fg h i j 
+a a
+b
+c c
+d d d
+e e e e 
+fffff
+ggg g 
+h h h 
+i i
+j
+k k 
+a b c d e f g h i j k a b c d e f g h i j k a b c d e f g h i j k a b c d e f g h i j k a b c d e f g h i jk 
+a a a  
+b b b b  
+c c c c c 
+d d d d 
+e e e 
+f f 
+g
+h h
+i i i 
+j j j j 
+k k k k k
+l l l l 
+a b c d e f g h i j k l a b c d e f g h i j k labcdef g h i j k l a b c d ef g h i j k l a b c d e f g h i j k l 
+a a a 
+b b
+c 
+d d 
+e e e
+f f f f 
+g g g g g 
+h h h h  
+i i i 
+j j 
+k 
+l l 
+m m m 
+a b c d e f g h i j k l m a b c d e f g h i j k l m a bc d e f g h i j k l m a b c d e f g h i j k l m a b c d e f g h i j k l m 
+a aaa
+bbb b b 
+c c c c 
+d d d 
+e e
+f
+g g 
+h h h 
+i i i i
+j j j j j
+k k k k
+l l l 
+m m
+n 
+a b c d e fg h i j k l m n a b c d e f g h i j k l m n a b c d e f g h i j k l m n a b c d e f g h i j k l m n a b c d e f g h i j k l m n 
+a a 
+b b b
+c c c c
+ddddd
+ee e e
+f f f 
+g g
+h  
+i i 
+j j j 
+k k k k
+l l l l l 
+m m m m 
+n n n 
+o o
+a b c d e f g h i j k l m n o a b c d e f g h i j k l m n o a b c d e f g h i j k l m n o a b c d e f g h i j k l m n o a b c d e f g h i j k l m n o 
+a 
+b b 
+c c c  
+d d d d 
+e e e 
+f f
+g 
+h h
+i i i 
+j j j j
+k k k k k
+l l ll
+mmm
+nn
+o
+pp
+ab c d e f g h i j k l m n o p a b c d e f g h ij k l m n o p a b c d e f g h i j k l m n o p a b c d e f g h i j k l m n o p a b c d e f g h i j k l m n o p 
+a a a
+b b b b
+c c c c c 
+d d d d
+e e e
+f f
+gg
+h
+ii
+jjj
+kk k k
+l l l l l 
+m m m m
+n n n
+o o
+p 
+q q
+a b c d e f g h i j k l m n o p q a b c d e f g h i j k l m n o p q a b c d e f g h i j k l m n o p q a b c d e f g h i j k l m n o p q ab c d e f g h i j k l m n o p q 
+a a a
+b b b b 
+c c c c c 
+d d d d
+e e e
+f f
+g
+h h
+iii
+jjjj
+kk k k k
+l l l l 
+m m m
+n n
+o
+p p
+q q q
+r r r r
+a b c d e f g h i j k l m n o p q r a b c d e f g h i j k l m n o p q r a b c d e f g h i j k l m n o p q r a b c d e f g h i j k l m n o p q r a b c d e f g h i j k l m n o p q r 
+a a a a a 
+b b b b
+c c c
+d d
+e
+f f
+g g g
+h h h h
+iiiii
+jj j j
+k k k
+l l
+m
+n n
+o o o
+p p p p
+q q q q q 
+r r r r
+s s s
+a b c d e f g h i j k l m n o p q r s a b c d e f g h i j k l m n o p q r s a b c d e f g h i j k l m n o p q r s a b c d e f g h i j k l m n o p q r s a b c d e f g h i j k l m n o p q r s 
+a a
+b
+c c
+d d d
+e e e e
+f f f f
+g g g
+h h
+i
+j j
+k kk
+l l l l
+mmmmm
+nnnn
+o o o
+p p
+q 
+r r
+s s s
+t t t t
+a b c d e f g h i j k l m n o p q r s t a b c d e f g h i j k l m n o p q r s t a b c d e f g h i j k l m n o p q r s t a b c d e f g h i j k l m n o p q r s t a b c d e f g h i jklmnopq r s t 
+a a a a a 
+b b b b
+c c c
+d d
+e
+f f
+g g g
+h h h h
+i i i i i 
+j j j j
+k k k
+l l
+m
+n n 
+o o o
+pppp
+qqqqq 
+r r r r
+s s s
+t t
+u
+a b c d e f g h i j k l m n o p q r s t u a b c d e f g h i j k l m n o p q r s t u a b c d e f g h i j k l m n o p q r s t u a b c d e f g h i j k l m n o p q r s t u a b c d e f g h i j k l m n o p q r s t u 
+a a
+b bb
+cccc
+ddddd
+e e e e
+f f f
+g g
+h
+i i
+j j j
+k k k k
+l l l l l 
+m m m m
+n n n
+o o
+p
+q q
+rrr
+ssss
+ttt t t
+u u u u
+v v v
+a b c d e f g h i j k l m n o p q r s t u v a b c d e f g h i j k l m n o p q r s t u v a b c d e f g h i j k l m n o p q r s t u v a b c d e f g h i j k l m n o p q r s t uvabcde f g h i j k l m n o p q r s t u v 
+a a
+b
+c c
+d d d
+e e e e
+f f f f f 
+g g g g
+h h h
+i i
+j
+k k
+lll
+mmmm
+nn n n n 
+o o o o
+p p p
+q q
+r
+s s
+t t t
+u u u u
+v v v v v
+w w w w
+a b c d e f g h i j k l m n o p q r s t u v w a b c d e f g h i j k l m n o p q r s t u v w a b c d e f g h i j k lmnopqrs t u v w a b c d e f g h i j k l m n o p q r s tuvwabcd e f g h i j k l m n o p q r s t u v w 
+a a a
+b b
+c
+d d
+e e e
+f f f f 
+g g g
+h h
+i
+j j
+k k k
+l l l l
+m m m m m 
+n n n n
+o o o
+p p
+q
+r r
+s s s 
+t t t t
+u u u u u
+v v v v
+w w w
+x x
+a b c d e f g h i j k l m n o p q r s t u v wxabcdef g h i j k l m n o p q r s t u v w x a b c d e f g h i j k l mnopqrst u v w x a b c d e f g h i j k l m n o p q r s t u v w x a b c d e f g h i j k l m n o p q r s t u v w x 
+a
+b b
+c c c
+d d d d
+e e e e e 
+f f f f
+g g g
+h h
+i
+j j
+k k k
+l l l l 
+m m m m m 
+n n n n
+o o o
+p p
+q
+r r
+sss
+tttt
+uuu
+v v
+w
+x x
+y y y
+a b c d e f g h i j k l m n o p q r s t u v w x y a b c d e f ghijklm n o p q r s t u v w x y a b c d e f g h i j k l m n o p q r s t u v w x y a b c d e f g h i j k l m n o p q r s t u v w x y a b c d e f g h i j k l m n o p q r s t u v wxy
+aaaa
+bb b b b 
+c c c c
+d d d
+e e
+f
+g g
+h h h
+i i i i
+j j j j j
+k k k k
+l l l
+m m
+n
+o o
+p p p 
+q q q q  
+r r r 
+s s
+t
+uu
+vvv 
+w w w w 
+x x x 
+y y 
+z 
+a b c d e f g h i j k l m n o p q r s t u v w x y z a b c d e f g h i j k l m n o p q r s t u v w x y z a b c d e f g h i j k l m n o pqrstuvw x y z a b c d e f g h i j k l m n o p q r s t u v w x y z a b c d e f g h i j k l m n o p q r s tuvwxyz 
