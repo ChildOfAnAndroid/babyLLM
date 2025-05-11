@@ -49,7 +49,7 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 50    # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 500    # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "BRAIN/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"  # where your currently trained saved boi is :)
@@ -62,7 +62,7 @@ trainingFilePathTEST = "SCHOOL/library/trainingDataTEST.txt"
 
 """--- LOGS ---"""
 printFreq = 1   # how often to print training progress to the terminal
-printPromptLength = 1000    # how many characters of the prompt to display in terminal
+printPromptLength = 175    # how many characters of the prompt to display in terminal
 gradientLength = 3000
 
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
@@ -96,6 +96,7 @@ memoryLengthGOAL = 3
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.00001 //
+learningRateGOAL = 0.0002
 optimizerName = "AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -130,6 +131,7 @@ skipMemory = False
 
 skipComputeLoss = False
 skipMetaLoss = True
+skipAuxLoss = True
 
 skipFINALlogitNorm = True
 
@@ -195,8 +197,9 @@ mostImportantStats  =   [
                "4M_1_longTermMemory_norm",                
                 "4M_x_FINALmemory_norm",                        # IMPORTANT LAYER TRACKER !! (MEMORY)
             #
-               "4M_longDecay",
-               "4M_shortDecay",
+                "_4M_gateLayer",
+                "4M_longDecay",
+                "4M_shortDecay",
                 "_4M_shortGateScale",
                 "_4M_longGateScale",
                 "_4M_activationsGateScale",  
@@ -346,16 +349,16 @@ forwardProfiler = False
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 1000
-trainingDataSliceSize_max = 5000
-reflectionFreq = 2560
+trainingDataSliceSize_min = 1
+trainingDataSliceSize_max = 50000
+reflectionFreq = 200
+stableFallThreshold = 3 # min 2 cause loss delta is a turn behind lol
 # --- #
 trainingDataPairNumber = 42069 #169420
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 20
 
 rawDataFilepaths = [     # for textCleaningTool.py
-
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
     ("text", "SCHOOL/library/charisStudies/discordtxt.txt",1),     # discord message history
@@ -367,7 +370,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/charisStudies/discordtxt7.txt",1),     # discord message history part7
     ("text", "SCHOOL/library/charisStudies/discordtxt8.txt",1),     # discord message history part8
     ("text", "SCHOOL/library/charisStudies/discordtxt9.txt",1),     # discord message history part8
-    ("discord_json", "SCHOOL/library/charisStudies/discord.json",1),     # discord message history JSON
+    #("discord_json", "SCHOOL/library/charisStudies/discord.json",1),     # discord message history JSON
     ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
     ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 1),     #  random poems from my notes on my phone
     ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
@@ -405,8 +408,8 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/pastModalWouldHaveTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 1),     #  tense
     ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 1),     #  tense
@@ -433,6 +436,9 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/charisStudies/thames.txt", 1),
     ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 1),
     ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 1),
+    ("text", "SCHOOL/library/miniTraining/why.txt", 1),
+    ("text", "SCHOOL/library/miniTraining/why2.txt", 1),
+    ("text", "SCHOOL/library/miniTraining/why3.txt", 1),
 
     #--- MY OWN CODE?? ---
     ("text", "babyLLM.py", 1),
@@ -455,15 +461,13 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/notebook/notes.txt", 1),
     ("text", "SCHOOL/notebook/python notes etc", 1),
     ("text", "SCHOOL/notebook/test.py", 1),
-
-
 ]
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 """-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""
 
 """--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
-saveStrict = True   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = False   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 """--- MODEL ---"""
 embedDimension = 1024   # dimensionality of token embeddings
