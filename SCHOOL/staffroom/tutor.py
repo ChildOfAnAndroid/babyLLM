@@ -107,28 +107,32 @@ class TUTOR:
                 """TRAINING DATA (batches)"""
                 #for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
                 i = 0
+                stepsNotInReflection = 0
                 while i < len(_trainingDataPairs):
                     _inputSeq, _targetSeq = _trainingDataPairs[i]
                     self.stableFallCount = 0
                     totalTries = 0
-                    self.maxRetries = 50  # Optional safety
-
-                    if self.totalTurns >= self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
-                        ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
-                        self.reflectionTrainingPairs = self.babyReflection()
-                        self.reflectionFreq = self.totalTurns + reflectionFreq + len(self.reflectionTrainingPairs)
-
-                    elif self.reflectionTrainingPairs:
-                        ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
-                        currentReflection = self.reflectionTrainingPairs[0]
-                    else:
-                        currentReflection = None
+                    self.maxRetries = 10  # Optional safety
 
                     while self.stableFallCount < stableFallThreshold and totalTries < self.maxRetries:
+                        if stepsNotInReflection == self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
+                            ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
+                            self.reflectionTrainingPairs = self.babyReflection()
+                            self.reflectionFreq = stepsNotInReflection + reflectionFreq
+
+                        elif self.reflectionTrainingPairs:
+                            ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
+                            currentReflection = self.reflectionTrainingPairs[0]
+                        else:
+                            currentReflection = None
                         totalTries += 1
 
                         ʕっʘ‿ʘʔっ("♥START OF TURN")
-                        _inputSeq, _targetSeq = currentReflection if currentReflection else _trainingDataPairs[i]
+                        if currentReflection is not None:
+                            _inputSeq, _targetSeq = currentReflection
+                        else:
+                            _inputSeq, _targetSeq = _trainingDataPairs[i]
+                            stepsNotInReflection += 1
                         inputTokenIndices, targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                         
                         ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
@@ -162,7 +166,7 @@ class TUTOR:
                         
                         ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
                         self.latestLossDelta = self.endTurnActions()
-                        if not currentReflection: self.totalTurns += 1
+                        self.totalTurns += 1
 
                         #if self.latestLossDelta < 0:
                         if self.easyLossDelta < 0: self.stableFallCount += (1 + abs(self.latestLossDelta))
@@ -171,18 +175,17 @@ class TUTOR:
                     self.totalTurnAttempts = 0
                     if totalTries >= self.maxRetries:
                         if abs(self.latestLossDelta) < 0.05:
-                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - 0.00001)
-                        elif abs(self.latestLossDelta) > 0.5:
-                            self.model.learningRateGOAL = min(0.0004, self.model.learningRateGOAL + 0.00001)
+                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.000001*abs(self.latestLossDelta)))
+                        elif abs(self.latestLossDelta) > 1.0:
+                            self.model.learningRateGOAL = min(0.0004, self.model.learningRateGOAL + (0.00000001*abs(self.latestLossDelta)))
                         elif abs(self.latestLossDelta) > 0.05:
-                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - 0.000001)
+                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.0000001*abs(self.latestLossDelta)))
                         print(f"updated goal LR to {self.model.learningRateGOAL}")
 
-                    if currentReflection and (self.stableFallCount >= stableFallThreshold or totalTries >= self.maxRetries):
-                        self.reflectionTrainingPairs.pop(0)
-                    elif not currentReflection and (self.stableFallCount >= stableFallThreshold or totalTries >= self.maxRetries):
+                    if currentReflection is not None: self.reflectionTrainingPairs.pop(0)
+                    else:
                         i += 1 # only move to next prompt if stableFallCount met or maxRetries
-                    self.trainingStepCounter += 1
+                        self.trainingStepCounter += 1 # means reflections wont be training steps
                 ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
                 self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter)
         print("--- tutoring complete! ---")
@@ -492,7 +495,7 @@ class TUTOR:
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
                 _topTokens_str = topTokens_str,
-                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {remainingData_str} | total turns: {self.totalTurns} | easyΔ: {self.easyLossDelta:.1f} | Δ↗ streak: {self.stableFallCount+1:.1f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x | LRgoal: {self.model.learningRateGOAL:.6f} | TUTOR.py {_frequency}",
+                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {remainingData_str} | total turns: {self.totalTurns} | easyΔ: {self.easyLossDelta:.0f} | Δ↗ streak: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x | LRgoal: {self.model.learningRateGOAL:.6f} | TUTOR.py {_frequency}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 

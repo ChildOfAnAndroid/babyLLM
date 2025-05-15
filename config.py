@@ -88,7 +88,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStep = 64   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStep = 16   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
@@ -112,8 +112,8 @@ windowEntropyBonus = True
 """--- LOGS ---"""
 detailedLogging = True
 
-trainingLogFreq_A = 100    # creates logs every x number of turns
-trainingLogFreq_B = 1000   # creates logs every x number of turns
+trainingLogFreq_A = 1000    # creates logs every x number of turns
+trainingLogFreq_B = 10000   # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
@@ -131,7 +131,7 @@ skipMemory = False
 
 skipComputeLoss = False
 skipMetaLoss = True
-skipAuxLoss = True
+skipAuxLoss = False
 
 skipFINALlogitNorm = True
 
@@ -351,8 +351,8 @@ forwardProfiler = False
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 1
 trainingDataSliceSize_max = 50000
-reflectionFreq = 200
-stableFallThreshold = 3 # min 2 cause loss delta is a turn behind lol
+reflectionFreq = 50000
+stableFallThreshold = 2 # min 2 cause loss delta is a turn behind lol
 # --- #
 trainingDataPairNumber = 42069 #169420
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
