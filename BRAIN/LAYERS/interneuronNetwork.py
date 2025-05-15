@@ -221,11 +221,12 @@ class INTERNEURON_NETWORK(nn.Module):
             self.neuronActivationsPerToken = self.neurons(_inputEmbeds)
 
             ʕっʘ‿ʘʔっ("windows...") # this is done twice??? its in stackedWindowMeans too I think??
-            self.expWindowSizes = torch.exp(self.logWindowSizes) 
-            self.roundWindows = torch.exp(self.logWindowSizes).round()
+            self.floatWindowSizes = torch.exp(self.logWindowSizes) 
+            #self.intWindowSizes = torch.exp(self.logWindowSizes).round()
+            self.intWindowSizes = torch.round(self.floatWindowSizes).clamp(min=1)
 
             ʕっʘ‿ʘʔっ("going to ((INN2: neuronActivationsPerToken))...") # <- E + windows
-            windowMeanStack = self.stackedWindowMeans(self.neuronActivationsPerToken, self.expWindowSizes)
+            windowMeanStack = self.stackedWindowMeans(self.neuronActivationsPerToken, self.floatWindowSizes)
 
             sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
             clamped = torch.clamp(sigmoidWeights, min=1e-4) # avoid 0s
@@ -340,13 +341,15 @@ class INTERNEURON_NETWORK(nn.Module):
 
             rangeMask = torch.arange(windowMAX, device=self.device).unsqueeze(0)  # (1, maxW)
 
-            floatWindowSizes = torch.exp(self.logWindowSizes)  # still in float space
-            intWindowSizes = torch.round(floatWindowSizes).clamp(min=1)
+            #floatWindowSizes = torch.exp(self.logWindowSizes)  # still in float space
+            #intWindowSizes = torch.round(floatWindowSizes).clamp(min=1)
             #intWindowSizes = int(torch.exp(self.logWindowSizes))
 
             # straight-through estimator: lets gradients flow through soft version
-            windowTensor = (intWindowSizes - floatWindowSizes).detach() + floatWindowSizes
+            windowTensor = (self.intWindowSizes - self.floatWindowSizes).detach() + self.floatWindowSizes
             windowTensor = windowTensor.unsqueeze(1)  # (numWindows, 1)
+            windowTensor = windowTensor.clamp(min=1.0)
+            self.windowTensor_used = windowTensor.squeeze(1).detach()  # shape: (numWindows,)
 
             mask = (rangeMask < windowTensor).float().unsqueeze(2)  # (numWindows, maxW, 1)
 
@@ -398,13 +401,14 @@ class INTERNEURON_NETWORK(nn.Module):
                         ʕっʘ‿ʘʔっ("♥getCerebellumStats") #THIS WAS WINDOWWEIGHTING
                         self.stats["INN_cerebellumMean"] = self.cerebellum.mean().item()
                         self.stats["INN_cerebellumStd"] = self.cerebellum.std().item()
-                        INN_cerebellumStats_fullValues = zip(self.expWindowSizes, self.cerebellum, self.cerebellumSoft)
+                        INN_cerebellumStats_fullValues = zip(self.floatWindowSizes, self.cerebellum, self.cerebellumSoft)
                         for w, raw, soft in INN_cerebellumStats_fullValues:
+                            self.stats[f"INN_cerebellum_W{int(w)}_float"] = w.item()
                             self.stats[f"INN_cerebellum_W{int(w)}"] = raw.item()
                             self.stats[f"INN_cerebellumSoft_W{int(w)}"] = soft.item()
                         if debugPrints: print(f"cerebellum: {self.cerebellum}, soft: {self.cerebellumSoft} mean: {self.stats['INN_cerebellumMean']} std: {self.stats['INN_cerebellumStd']}")
                         ʕっʘ‿ʘʔっ("♥cerebellumString")
-                        INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.expWindowSizes, per_window_style = True)
+                        INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.floatWindowSizes, windowTensor = self.windowTensor_used, per_window_style = True)
                         if debugPrints: print(f"{INN_cerebellum_str}")
 
             self.stats.update({f"{k}": v for k, v in self.neurons.getStats().items()})

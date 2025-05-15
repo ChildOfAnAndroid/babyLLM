@@ -516,14 +516,15 @@ class S_OUTPUT:
 
         return result, chosenName
     
-    def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes, per_window_style = False):
+    def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes, windowTensor, per_window_style = False):
         try:
-            triplets = sorted(zip(windowSizes, rawTensor, softTensor), key=lambda x: x[1], reverse=True)
+            triplets = sorted(zip(windowSizes, windowTensor, rawTensor, softTensor), key=lambda x: x[3], reverse=True)
             formatted = []
-            for w, raw, soft in triplets:
+            for w, t, raw, soft in triplets:
+                w_style = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(w)}_float", w)
                 raw_style = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(w)}", raw.item())
                 soft_style = self.S_getStat(f"{label}Soft" if not per_window_style else f"{label}_W{int(w)}", soft.item())
-                chunk = f"{self.S_apply(raw_style, f'{raw.item():.6f}')} ({self.S_apply(soft_style, f'{soft.item():.6f}')}) {self.S_apply('dim', f'w{int(w)} ({w:.6f})')}"
+                chunk = f"{self.S_apply(raw_style, f'{raw.item():.6f}')} ({self.S_apply(soft_style, f'{soft.item():.6f}')}) {self.S_apply(w_style, f'w{int(t)} ({w:.6f})')}"
                 formatted.append(chunk)
             return "\n".join(formatted)
         except Exception as e:

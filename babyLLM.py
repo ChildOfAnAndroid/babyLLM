@@ -201,7 +201,7 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            lrSoftClamp = 900 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
+            lrSoftClamp = 0.001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
             loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lastLossBaby = loss.item()
 
@@ -265,7 +265,7 @@ class BABYLLM(nn.Module):
 
             with torch.no_grad(): # RESET LEARNABLE PARAMETERS
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
-                self.scheduledSamplingRate.data.fill_(0.05)  # Scheduled sampling full (no scheduled sampling yet)
+                self.scheduledSamplingRate.data.fill_(0.005)  # Scheduled sampling full (no scheduled sampling yet)
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 self.logMemoryLength.data.fill_(math.log(2))  # Memory length default
