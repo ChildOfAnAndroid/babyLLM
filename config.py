@@ -55,6 +55,7 @@ modelFilePath = "BRAIN/soul/babyllm_4200.pth"    # where your currently trained 
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"  # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
+lossCheckpointFilePath = "BRAIN/soul/lossCheckpoint.txt"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -88,7 +89,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStep = 16   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 1   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
@@ -97,6 +98,7 @@ memoryLengthGOAL = 3
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.00001 //
 learningRateGOAL = 0.0002
+temperatureGOAL = 1.0
 optimizerName = "AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -107,13 +109,14 @@ scheduledSampling = True
 
 """repetition penalty"""
 repetitionWindowGOAL = 16   # how many tokens to look back for repetition
+repetitionPenaltyGOAL = 1.0
 windowEntropyBonus = True
 
 """--- LOGS ---"""
 detailedLogging = True
 
-trainingLogFreq_A = 1000    # creates logs every x number of turns
-trainingLogFreq_B = 10000   # creates logs every x number of turns
+trainingLogFreq_A = 100    # creates logs every x number of turns
+trainingLogFreq_B = 1000   # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
@@ -136,6 +139,7 @@ skipAuxLoss = False
 skipFINALlogitNorm = True
 
 """--- STATS COLLECTION ---"""
+refreshRollingTokenTotalsWhen = 1000
 mostImportantStats  =   [
             # EMBED STATS
                 "1E_0_embedVector_norm",                            # IMPORTANT LAYER TRACKER !! (INPUT)
@@ -192,12 +196,12 @@ mostImportantStats  =   [
                 "INN_cerebellumMean",  
 
             # MEMORY STATS
-                                                                   "4M_0_rawActivations_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
-               "4M_1_shortTermMemory_norm",
-               "4M_1_longTermMemory_norm",                
+            #                                                       "4M_0_rawActivations_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+            #   "4M_1_shortTermMemory_norm",
+            #   "4M_1_longTermMemory_norm",                
                 "4M_x_FINALmemory_norm",                        # IMPORTANT LAYER TRACKER !! (MEMORY)
             #
-                "_4M_gateLayer",
+                #"_4M_gateLayer",
                 "4M_longDecay",
                 "4M_shortDecay",
                 "_4M_shortGateScale",
@@ -210,8 +214,8 @@ mostImportantStats  =   [
             #                                                       "5B_0_memoryOutput_norm", # MATCHES 4M_x_FINALmemory_norm
                     "5B_1_penalisedOutput_norm",
                 #"5B_x_finalNormLayer_norm",                     # IMPORTANT LAYER TRACKER !! (BABYLLM)
-                                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
-                "_B_floatMemoryLength",
+                #                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
+                #"_B_floatMemoryLength",
                 "_B_repetitionWindow", 
                 "_B_temperature",
 
@@ -230,7 +234,7 @@ mostImportantStats  =   [
             # MISC/UNSORTED STATS
                 # base stats
                     "LR",   "learningRate", "lR",
-                    "latestLossDelta",  "AvgLoss",  "loss", "avgLoss",
+                    "latestLossDelta",  "AvgLoss",  "loss", "avgLoss", "totalAvgLoss",
                     #"temperature",
                     #"memoryLength",
                     #"gradNorm",
@@ -350,13 +354,14 @@ forwardProfiler = False
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 1
-trainingDataSliceSize_max = 50000
+trainingDataSliceSize_max = 20000
 reflectionFreq = 50000
 stableFallThreshold = 2 # min 2 cause loss delta is a turn behind lol
 # --- #
-trainingDataPairNumber = 42069 #169420
+trainingDataPairNumber = 420 #169420
+trainingDataStride = 1
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
-epochs = 20
+epochs = 1
 
 rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-
@@ -370,7 +375,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/charisStudies/discordtxt7.txt",1),     # discord message history part7
     ("text", "SCHOOL/library/charisStudies/discordtxt8.txt",1),     # discord message history part8
     ("text", "SCHOOL/library/charisStudies/discordtxt9.txt",1),     # discord message history part8
-    #("discord_json", "SCHOOL/library/charisStudies/discord.json",1),     # discord message history JSON
+    ("discord_json", "SCHOOL/library/charisStudies/discord.json",1),     # discord message history JSON
     ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
     ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 1),     #  random poems from my notes on my phone
     ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
@@ -439,6 +444,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/miniTraining/why.txt", 1),
     ("text", "SCHOOL/library/miniTraining/why2.txt", 1),
     ("text", "SCHOOL/library/miniTraining/why3.txt", 1),
+    ("text", "SCHOOL/library/miniTraining/why4.txt", 1),
 
     #--- MY OWN CODE?? ---
     ("text", "babyLLM.py", 1),
@@ -488,7 +494,7 @@ window6 = 8.01 #8
 window7 = 4.01 #4
 window8 = 2.01 #2
 
-windowMAX = numTokensPerStep  # THIS MUST BE THE HIGHEST NUMBER
+windowMAXSTART = numTokensPerStepSTART  # THIS MUST BE THE HIGHEST NUMBER
 allWindowSizes_new = [window8, window0, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
 #allWindowSizes = list(range(1, 33))
 

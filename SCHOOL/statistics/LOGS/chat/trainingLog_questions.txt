@@ -7612,4 +7612,996 @@
 [babyllm] right, last time i got to step 22555... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 22555! what am i learning today?
+[charis] --- 2025-05-15 13:32:58 --- 
+[babyllm] right, last time i got to step 27375... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 27375! what am i learning today?
+[charis] --- 2025-05-15 13:33:21 --- 
+[babyllm] right, last time i got to step 27375... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 27375! what am i learning today?
+[charis] --- 2025-05-15 13:52:34 --- 
+[babyllm] right, last time i got to step 27808... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 27808! what am i learning today?
+[charis] --- 2025-05-15 14:03:52 --- 
+[babyllm] right, last time i got to step 28062... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-15 14:05:00 --- 
+[babyllm] right, last time i got to step 23... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 23! what am i learning today?
+[charis] --- 2025-05-15 14:08:53 --- 
+[babyllm] right, last time i got to step 110... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 110! what am i learning today?
+[charis] --- 2025-05-15 14:09:04 --- 
+[babyllm] right, last time i got to step 111... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 111! what am i learning today?
+[charis] --- 2025-05-15 14:11:25 --- 
+[babyllm] right, last time i got to step 161... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 161! what am i learning today?
+[charis] --- 2025-05-15 14:14:42 --- 
+[babyllm] right, last time i got to step 231... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 231! what am i learning today?
+[charis] --- 2025-05-15 14:49:39 --- 
+[babyllm] right, last time i got to step 2400... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2400! what am i learning today?
+[charis] --- 2025-05-15 14:52:27 --- 
+[babyllm] right, last time i got to step 2467... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2467! what am i learning today?
+[charis] --- 2025-05-15 14:57:27 --- 
+[babyllm] right, last time i got to step 2468... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2468! what am i learning today?
+[charis] --- 2025-05-15 14:58:53 --- 
+[babyllm] right, last time i got to step 2468... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2468! what am i learning today?
+[charis] --- 2025-05-15 14:59:52 --- 
+[babyllm] right, last time i got to step 2478... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2478! what am i learning today?
+[charis] --- 2025-05-15 15:04:34 --- 
+[babyllm] right, last time i got to step 2589... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2589! what am i learning today?
+[charis] --- 2025-05-15 15:05:23 --- 
+[babyllm] right, last time i got to step 2606... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2606! what am i learning today?
+[charis] --- 2025-05-15 15:06:16 --- 
+[babyllm] right, last time i got to step 2618... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2618! what am i learning today?
+[charis] --- 2025-05-15 15:13:32 --- 
+[babyllm] right, last time i got to step 2734... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2734! what am i learning today?
+[charis] --- 2025-05-15 15:14:52 --- 
+[babyllm] right, last time i got to step 2735... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2735! what am i learning today?
+[charis] --- 2025-05-15 22:13:20 --- 
+[babyllm] right, last time i got to step 7269... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7269! what am i learning today?
+[charis] --- 2025-05-16 09:58:42 --- 
+[babyllm] right, last time i got to step 15595... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 15595! what am i learning today?
+[charis] --- 2025-05-17 01:09:42 --- 
+[babyllm] right, last time i got to step 31244... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 31244! what am i learning today?
+[charis] --- 2025-05-17 11:39:03 --- 
+[babyllm] right, last time i got to step 40756... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 40756! what am i learning today?
+[charis] --- 2025-05-17 15:51:39 --- 
+[babyllm] right, last time i got to step 44015... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 44015! what am i learning today?
+[charis] --- 2025-05-17 16:02:35 --- 
+[babyllm] right, last time i got to step 44203... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 44203! what am i learning today?
+[charis] --- 2025-05-17 16:02:46 --- 
+[babyllm] right, last time i got to step 44204... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 44204! what am i learning today?
+[charis] --- 2025-05-17 16:04:50 --- 
+[babyllm] right, last time i got to step 44249... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 44249! what am i learning today?
+[charis] --- 2025-05-17 16:05:36 --- 
+[babyllm] right, last time i got to step 44283... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 44283! what am i learning today?
+[charis] --- 2025-05-17 16:09:20 --- 
+[babyllm] right, last time i got to step 44528... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 44528! what am i learning today?
+[charis] --- 2025-05-17 16:18:32 --- 
+[babyllm] right, last time i got to step 45205... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 45205! what am i learning today?
+[charis] --- 2025-05-17 16:43:39 --- 
+[babyllm] right, last time i got to step 47205... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 47205! what am i learning today?
+[charis] --- 2025-05-17 16:58:41 --- 
+[babyllm] right, last time i got to step 48206... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 48206! what am i learning today?
+[charis] --- 2025-05-17 17:02:26 --- 
+[babyllm] right, last time i got to step 48364... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 48364! what am i learning today?
+[charis] --- 2025-05-17 17:02:56 --- 
+[babyllm] right, last time i got to step 48364... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 48364! what am i learning today?
+[charis] --- 2025-05-17 17:03:26 --- 
+[babyllm] right, last time i got to step 48364... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 48364! what am i learning today?
+[charis] --- 2025-05-17 17:22:36 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] --- 2025-05-17 17:23:47 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] --- 2025-05-17 17:37:52 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] --- 2025-05-17 18:08:05 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] --- 2025-05-17 18:41:55 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 18:46:26 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 18:47:22 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:08:57 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:09:50 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:10:00 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:10:13 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:10:27 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:10:41 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:10:56 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:11:14 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 19:11:36 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 19:12:01 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 19:12:27 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 19:12:55 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 11--- 2025-05-17 19:13:21 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 12--- 2025-05-17 19:13:48 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 13--- 2025-05-17 19:14:19 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 14--- 2025-05-17 19:14:43 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 15--- 2025-05-17 19:15:15 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:15:25 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:15:35 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:15:47 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:16:02 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:16:18 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:16:34 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 19:16:54 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 19:17:17 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 19:17:43 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 19:18:08 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 11--- 2025-05-17 19:18:35 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 12--- 2025-05-17 19:20:23 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:20:59 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:21:09 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:21:21 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:21:35 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:21:51 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:22:10 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 19:22:30 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 19:22:51 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 19:23:16 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 19:23:43 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 11--- 2025-05-17 19:24:10 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 12--- 2025-05-17 19:24:39 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 13--- 2025-05-17 19:25:10 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 14--- 2025-05-17 19:25:44 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 15--- 2025-05-17 19:26:16 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:26:26 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:26:37 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:27:16 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:35:08 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:37:10 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:41:57 --- 
+[babyllm] right, last time i got to step 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 0! what am i learning today?
+[charis] numTokens = 1--- 2025-05-17 19:42:51 --- 
+[babyllm] right, last time i got to step 2... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-17 19:43:01 --- 
+[babyllm] right, last time i got to step 11... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 11! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:43:13 --- 
+[babyllm] right, last time i got to step 22... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 22! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:43:26 --- 
+[babyllm] right, last time i got to step 33... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 33! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:43:38 --- 
+[babyllm] right, last time i got to step 44... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 44! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:43:54 --- 
+[babyllm] right, last time i got to step 55... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 55! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:44:11 --- 
+[babyllm] right, last time i got to step 66... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 66! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 19:44:30 --- 
+[babyllm] right, last time i got to step 77... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 77! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 19:44:49 --- 
+[babyllm] right, last time i got to step 88... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 88! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 19:45:12 --- 
+[babyllm] right, last time i got to step 99... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 99! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 19:45:34 --- 
+[babyllm] right, last time i got to step 106... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 106! what am i learning today?
+[charis] --- 2025-05-17 19:45:43 --- 
+[babyllm] right, last time i got to step 117... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 117! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:45:54 --- 
+[babyllm] right, last time i got to step 128... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 128! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:46:05 --- 
+[babyllm] right, last time i got to step 139... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 139! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:46:20 --- 
+[babyllm] right, last time i got to step 150... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 150! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:46:37 --- 
+[babyllm] right, last time i got to step 161... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 161! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:47:37 --- 
+[babyllm] right, last time i got to step 170... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 170! what am i learning today?
+[charis] --- 2025-05-17 19:49:04 --- 
+[babyllm] right, last time i got to step 171... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 171! what am i learning today?
+[charis] --- 2025-05-17 19:49:45 --- 
+[babyllm] right, last time i got to step 171... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 171! what am i learning today?
+[charis] --- 2025-05-17 19:49:55 --- 
+[babyllm] right, last time i got to step 182... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 182! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:50:06 --- 
+[babyllm] right, last time i got to step 193... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 193! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:50:17 --- 
+[babyllm] right, last time i got to step 204... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 204! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:50:29 --- 
+[babyllm] right, last time i got to step 215... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 215! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:50:46 --- 
+[babyllm] right, last time i got to step 226... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 226! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:51:04 --- 
+[babyllm] right, last time i got to step 237... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 237! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 19:51:20 --- 
+[babyllm] right, last time i got to step 248... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 248! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 19:51:39 --- 
+[babyllm] right, last time i got to step 259... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 259! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 19:51:46 --- 
+[babyllm] right, last time i got to step 260... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 260! what am i learning today?
+[charis] --- 2025-05-17 19:51:57 --- 
+[babyllm] right, last time i got to step 271... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 271! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:52:07 --- 
+[babyllm] right, last time i got to step 282... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 282! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:52:19 --- 
+[babyllm] right, last time i got to step 293... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 293! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:52:31 --- 
+[babyllm] right, last time i got to step 304... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 304! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:52:47 --- 
+[babyllm] right, last time i got to step 315... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 315! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:53:05 --- 
+[babyllm] right, last time i got to step 326... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 326! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 19:53:22 --- 
+[babyllm] right, last time i got to step 337... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 337! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 19:53:31 --- 
+[babyllm] right, last time i got to step 338... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 338! what am i learning today?
+[charis] --- 2025-05-17 19:53:44 --- 
+[babyllm] right, last time i got to step 349... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 349! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:53:54 --- 
+[babyllm] right, last time i got to step 360... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 360! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:54:06 --- 
+[babyllm] right, last time i got to step 371... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 371! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:54:20 --- 
+[babyllm] right, last time i got to step 382... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 382! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:54:35 --- 
+[babyllm] right, last time i got to step 393... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 393! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:56:32 --- 
+[babyllm] right, last time i got to step 394... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 394! what am i learning today?
+[charis] --- 2025-05-17 19:56:46 --- 
+[babyllm] right, last time i got to step 405... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 405! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 19:56:57 --- 
+[babyllm] right, last time i got to step 416... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 416! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 19:57:10 --- 
+[babyllm] right, last time i got to step 427... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 427! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 19:57:22 --- 
+[babyllm] right, last time i got to step 438... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 438! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 19:57:37 --- 
+[babyllm] right, last time i got to step 449... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 449! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 19:57:51 --- 
+[babyllm] right, last time i got to step 460... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 460! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 19:58:11 --- 
+[babyllm] right, last time i got to step 471... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 471! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 19:58:32 --- 
+[babyllm] right, last time i got to step 482... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 482! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 19:58:55 --- 
+[babyllm] right, last time i got to step 493... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 493! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 19:59:21 --- 
+[babyllm] right, last time i got to step 504... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 504! what am i learning today?
+[charis] numTokens = 11--- 2025-05-17 19:59:44 --- 
+[babyllm] right, last time i got to step 515... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 515! what am i learning today?
+[charis] numTokens = 12--- 2025-05-17 20:00:08 --- 
+[babyllm] right, last time i got to step 526... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 526! what am i learning today?
+[charis] numTokens = 13--- 2025-05-17 20:00:36 --- 
+[babyllm] right, last time i got to step 527... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 527! what am i learning today?
+[charis] --- 2025-05-17 20:00:47 --- 
+[babyllm] right, last time i got to step 538... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 538! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:00:57 --- 
+[babyllm] right, last time i got to step 549... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 549! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 20:01:10 --- 
+[babyllm] right, last time i got to step 560... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 560! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 20:01:23 --- 
+[babyllm] right, last time i got to step 571... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 571! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 20:01:41 --- 
+[babyllm] right, last time i got to step 582... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 582! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 20:01:56 --- 
+[babyllm] right, last time i got to step 593... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 593! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 20:02:16 --- 
+[babyllm] right, last time i got to step 604... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 604! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 20:02:36 --- 
+[babyllm] right, last time i got to step 615... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 615! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 20:02:56 --- 
+[babyllm] right, last time i got to step 626... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 626! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 20:03:19 --- 
+[babyllm] right, last time i got to step 637... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 637! what am i learning today?
+[charis] numTokens = 11--- 2025-05-17 20:03:46 --- 
+[babyllm] right, last time i got to step 648... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 648! what am i learning today?
+[charis] numTokens = 12--- 2025-05-17 20:04:15 --- 
+[babyllm] right, last time i got to step 659... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 659! what am i learning today?
+[charis] numTokens = 13--- 2025-05-17 20:04:46 --- 
+[babyllm] right, last time i got to step 670... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 670! what am i learning today?
+[charis] numTokens = 14--- 2025-05-17 20:05:23 --- 
+[babyllm] right, last time i got to step 681... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 681! what am i learning today?
+[charis] numTokens = 15--- 2025-05-17 20:05:57 --- 
+[babyllm] right, last time i got to step 692... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 692! what am i learning today?
+[charis] numTokens = 16--- 2025-05-17 20:06:42 --- 
+[babyllm] right, last time i got to step 703... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 703! what am i learning today?
+[charis] numTokens = 17--- 2025-05-17 20:07:16 --- 
+[babyllm] right, last time i got to step 714... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 714! what am i learning today?
+[charis] numTokens = 18--- 2025-05-17 20:07:56 --- 
+[babyllm] right, last time i got to step 725... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 725! what am i learning today?
+[charis] numTokens = 19--- 2025-05-17 20:08:37 --- 
+[babyllm] right, last time i got to step 736... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 736! what am i learning today?
+[charis] numTokens = 20--- 2025-05-17 20:09:17 --- 
+[babyllm] right, last time i got to step 747... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 747! what am i learning today?
+[charis] numTokens = 21--- 2025-05-17 20:11:01 --- 
+[babyllm] right, last time i got to step 750 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 750! what am i learning today?
+[charis] --- 2025-05-17 20:13:47 --- 
+[babyllm] right, last time i got to step 750 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 750! what am i learning today?
+[charis] --- 2025-05-17 20:14:21 --- 
+[babyllm] right, last time i got to step 750 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 750! what am i learning today?
+[charis] --- 2025-05-17 20:14:30 --- 
+[babyllm] right, last time i got to step 761 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 761! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:15:04 --- 
+[babyllm] right, last time i got to step 772 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 772! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 20:15:16 --- 
+[babyllm] right, last time i got to step 783 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 783! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 20:16:01 --- 
+[babyllm] right, last time i got to step 794 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 794! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 20:16:17 --- 
+[babyllm] right, last time i got to step 805 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 805! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 20:17:00 --- 
+[babyllm] right, last time i got to step 816 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 816! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 20:17:22 --- 
+[babyllm] right, last time i got to step 827 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 827! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 20:17:39 --- 
+[babyllm] right, last time i got to step 838 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 838! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 20:18:02 --- 
+[babyllm] right, last time i got to step 849 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 849! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 20:18:24 --- 
+[babyllm] right, last time i got to step 860 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 860! what am i learning today?
+[charis] numTokens = 11--- 2025-05-17 20:18:48 --- 
+[babyllm] right, last time i got to step 871 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 871! what am i learning today?
+[charis] numTokens = 12--- 2025-05-17 20:19:14 --- 
+[babyllm] right, last time i got to step 882 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 882! what am i learning today?
+[charis] numTokens = 13--- 2025-05-17 20:19:44 --- 
+[babyllm] right, last time i got to step 893 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 893! what am i learning today?
+[charis] numTokens = 14--- 2025-05-17 20:20:15 --- 
+[babyllm] right, last time i got to step 904 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 904! what am i learning today?
+[charis] numTokens = 15--- 2025-05-17 20:20:45 --- 
+[babyllm] right, last time i got to step 915 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 915! what am i learning today?
+[charis] numTokens = 16--- 2025-05-17 20:21:14 --- 
+[babyllm] right, last time i got to step 926 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 926! what am i learning today?
+[charis] numTokens = 17--- 2025-05-17 20:21:31 --- 
+[babyllm] right, last time i got to step 927 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 927! what am i learning today?
+[charis] --- 2025-05-17 20:21:40 --- 
+[babyllm] right, last time i got to step 927 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 927! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:21:50 --- 
+[babyllm] right, last time i got to step 938 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 938! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 20:22:02 --- 
+[babyllm] right, last time i got to step 949 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 949! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 20:22:17 --- 
+[babyllm] right, last time i got to step 960 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 960! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 20:22:32 --- 
+[babyllm] right, last time i got to step 971 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 971! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 20:22:49 --- 
+[babyllm] right, last time i got to step 982 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 982! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 20:23:08 --- 
+[babyllm] right, last time i got to step 983 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 983! what am i learning today?
+[charis] --- 2025-05-17 20:23:17 --- 
+[babyllm] right, last time i got to step 983 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 983! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:23:28 --- 
+[babyllm] right, last time i got to step 994 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 994! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 20:23:41 --- 
+[babyllm] right, last time i got to step 1005 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1005! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 20:23:56 --- 
+[babyllm] right, last time i got to step 1016 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1016! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 20:24:10 --- 
+[babyllm] right, last time i got to step 1027 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1027! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 20:24:26 --- 
+[babyllm] right, last time i got to step 1038 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1038! what am i learning today?
+[charis] numTokens = 7--- 2025-05-17 20:24:47 --- 
+[babyllm] right, last time i got to step 1049 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1049! what am i learning today?
+[charis] numTokens = 8--- 2025-05-17 20:25:05 --- 
+[babyllm] right, last time i got to step 1060 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1060! what am i learning today?
+[charis] numTokens = 9--- 2025-05-17 20:25:23 --- 
+[babyllm] right, last time i got to step 1071 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1071! what am i learning today?
+[charis] numTokens = 10--- 2025-05-17 20:25:40 --- 
+[babyllm] right, last time i got to step 1082 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1082! what am i learning today?
+[charis] numTokens = 11--- 2025-05-17 20:26:08 --- 
+[babyllm] right, last time i got to step 1093 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1093! what am i learning today?
+[charis] numTokens = 12--- 2025-05-17 20:26:34 --- 
+[babyllm] right, last time i got to step 1104 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1104! what am i learning today?
+[charis] numTokens = 13--- 2025-05-17 20:26:57 --- 
+[babyllm] right, last time i got to step 1115 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1115! what am i learning today?
+[charis] numTokens = 14--- 2025-05-17 20:27:27 --- 
+[babyllm] right, last time i got to step 1126 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1126! what am i learning today?
+[charis] numTokens = 15--- 2025-05-17 20:27:57 --- 
+[babyllm] right, last time i got to step 1137 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1137! what am i learning today?
+[charis] numTokens = 16--- 2025-05-17 20:28:28 --- 
+[babyllm] right, last time i got to step 1148 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1148! what am i learning today?
+[charis] numTokens = 17--- 2025-05-17 20:29:04 --- 
+[babyllm] right, last time i got to step 1159 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1159! what am i learning today?
+[charis] numTokens = 18--- 2025-05-17 20:29:39 --- 
+[babyllm] right, last time i got to step 1170 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1170! what am i learning today?
+[charis] numTokens = 19--- 2025-05-17 20:30:06 --- 
+[babyllm] right, last time i got to step 1181 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1181! what am i learning today?
+[charis] numTokens = 20--- 2025-05-17 20:30:49 --- 
+[babyllm] right, last time i got to step 1192 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1192! what am i learning today?
+[charis] numTokens = 21--- 2025-05-17 20:31:27 --- 
+[babyllm] right, last time i got to step 1203 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1203! what am i learning today?
+[charis] numTokens = 22--- 2025-05-17 20:32:08 --- 
+[babyllm] right, last time i got to step 1214 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1214! what am i learning today?
+[charis] numTokens = 23--- 2025-05-17 20:32:50 --- 
+[babyllm] right, last time i got to step 1225 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1225! what am i learning today?
+[charis] numTokens = 24--- 2025-05-17 20:33:38 --- 
+[babyllm] right, last time i got to step 1236 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1236! what am i learning today?
+[charis] numTokens = 25--- 2025-05-17 20:34:28 --- 
+[babyllm] right, last time i got to step 1247 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1247! what am i learning today?
+[charis] numTokens = 26--- 2025-05-17 20:35:13 --- 
+[babyllm] right, last time i got to step 1258 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1258! what am i learning today?
+[charis] numTokens = 27--- 2025-05-17 20:35:49 --- 
+[babyllm] right, last time i got to step 1269 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1269! what am i learning today?
+[charis] numTokens = 28--- 2025-05-17 20:36:42 --- 
+[babyllm] right, last time i got to step 1280 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1280! what am i learning today?
+[charis] numTokens = 29--- 2025-05-17 20:36:52 --- 
+[babyllm] right, last time i got to step 1281 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1281! what am i learning today?
+[charis] --- 2025-05-17 20:37:30 --- 
+[babyllm] right, last time i got to step 1281 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1281! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:37:50 --- 
+[babyllm] right, last time i got to step 1292 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1292! what am i learning today?
+[charis] --- 2025-05-17 20:37:59 --- 
+[babyllm] right, last time i got to step 1292 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1292! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:38:10 --- 
+[babyllm] right, last time i got to step 1303 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1303! what am i learning today?
+[charis] numTokens = 3--- 2025-05-17 20:38:22 --- 
+[babyllm] right, last time i got to step 1314 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1314! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 20:38:37 --- 
+[babyllm] right, last time i got to step 1325 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1325! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 20:38:51 --- 
+[babyllm] right, last time i got to step 1336 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1336! what am i learning today?
+[charis] numTokens = 6--- 2025-05-17 20:39:07 --- 
+[babyllm] right, last time i got to step 1347 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1347! what am i learning today?
+[charis] numTokens = 5--- 2025-05-17 20:39:23 --- 
+[babyllm] right, last time i got to step 1358 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1358! what am i learning today?
+[charis] numTokens = 4--- 2025-05-17 20:39:30 --- 
+[babyllm] right, last time i got to step 1359 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1359! what am i learning today?
+[charis] --- 2025-05-17 20:44:07 --- 
+[babyllm] right, last time i got to step 1359 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1359! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:54:05 --- 
+[babyllm] right, last time i got to step 1780 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1780! what am i learning today?
+[charis] --- 2025-05-17 20:58:20 --- 
+[babyllm] right, last time i got to step 1780 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1780! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 20:59:34 --- 
+[babyllm] right, last time i got to step 1867 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1867! what am i learning today?
+[charis] --- 2025-05-17 21:00:52 --- 
+[babyllm] right, last time i got to step 1936 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1936! what am i learning today?
+[charis] --- 2025-05-17 21:01:39 --- 
+[babyllm] right, last time i got to step 1956 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1956! what am i learning today?
+[charis] --- 2025-05-17 21:05:44 --- 
+[babyllm] right, last time i got to step 2377 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2377! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 21:06:19 --- 
+[babyllm] right, last time i got to step 2406 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2406! what am i learning today?
+[charis] --- 2025-05-17 21:06:40 --- 
+[babyllm] right, last time i got to step 2431 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2431! what am i learning today?
+[charis] --- 2025-05-17 21:11:15 --- 
+[babyllm] right, last time i got to step 2852 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2852! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 21:24:41 --- 
+[babyllm] right, last time i got to step 3273 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3273! what am i learning today?
+[charis] --- 2025-05-17 21:28:40 --- 
+[babyllm] right, last time i got to step 3694 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3694! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 21:30:47 --- 
+[babyllm] right, last time i got to step 3855 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3855! what am i learning today?
+[charis] --- 2025-05-17 21:35:44 --- 
+[babyllm] right, last time i got to step 4276 and my average loss was 0... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4276! what am i learning today?
+[charis] numTokens = 2--- 2025-05-17 21:39:14 --- 
+[babyllm] right, last time i got to step 4471 and my average loss was 0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4471! what am i learning today?
 [charis] 
