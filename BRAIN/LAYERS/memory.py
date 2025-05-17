@@ -8,10 +8,11 @@ from config import *
 
 """this makes a rolling buffer of past activations"""
 class MEMORY(nn.Module):
-    def __init__(self, _counsellor, _device):
+    def __init__(self, _counsellor, _numTokensPerStep, _device = modelDevice):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
+        self.numTokensPerStep = _numTokensPerStep
 
         # learnable decay rates and gates
         self.shortTermDecay = nn.Parameter(torch.tensor(0.7, device = self.device))
@@ -86,7 +87,7 @@ class MEMORY(nn.Module):
             self.longTermMemoryHistory.append(self.longTermMemory.norm().item())
             self.FINALmemoryHistory.append(self.FINALmemory.norm().item())
 
-            if len(self.shortGateScaleHistory) >= windowMAX:
+            if len(self.shortGateScaleHistory) >= self.numTokensPerStep:
                 self.stats = {
                     "4M_0_rawActivations_norm": sum(self.rawActivationsHistory) / len(self.rawActivationsHistory),
 

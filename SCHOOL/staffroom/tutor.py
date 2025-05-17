@@ -30,9 +30,8 @@ def makeStatRecord():
     return base
 
 class TUTOR:
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
-                _device                 = modelDevice, 
-                _numTokensPerStep       = numTokensPerStep,):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _numTokensPerStep, _first,
+                _device                 = modelDevice,):
         
         self.counsellor                 = _counsellor
         self.calligraphist              = _calligraphist
@@ -40,6 +39,7 @@ class TUTOR:
         self.librarian                  = _librarian
         self.device                     = _device
         self.model                      = _model
+        self.first                      = _first
 
         self.temperature                = 0.75
         self.scheduledSamplingRate      = self.model.scheduledSamplingRate
@@ -54,6 +54,8 @@ class TUTOR:
         self.totalTokenEvaluations      = 0
         self.predictedTokenIndices      = [] # this list grows each time a new token is predicted
         self.averageRecentLoss          = 0
+        self.totalLoss                  = 0
+        self.totalAvgLoss               = 0
         self.stats                      = {}
         self.stringStats                = {}
         self.trainingStepCounter        = 0
@@ -120,11 +122,16 @@ class TUTOR:
                             self.reflectionTrainingPairs = self.babyReflection()
                             self.reflectionFreq = stepsNotInReflection + reflectionFreq
 
+                        if hasattr(self.scribe, "reflectionPairsFromGuess") and self.scribe.reflectionPairsFromGuess:
+                            currentReflection = self.scribe.reflectionPairsFromGuess[0]
+                            scribeUsedThisStep = True
                         elif self.reflectionTrainingPairs:
                             ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
                             currentReflection = self.reflectionTrainingPairs[0]
+                            scribeUsedThisStep = False
                         else:
                             currentReflection = None
+                            scribeUsedThisStep = False
                         totalTries += 1
 
                         ʕっʘ‿ʘʔっ("♥START OF TURN")
@@ -144,11 +151,9 @@ class TUTOR:
                         ʕっʘ‿ʘʔっ("♥collectTurnStats")
                         self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats(_targetTokenIndexSeq = targetTokenIndexSeq, _predictedTokenIndices = self.predictedTokenIndices)
 
-                        if self.totalTurns % saveModelFreq == 0:
-                            ʕっʘ‿ʘʔっ("♥saveFreq")
-                            self.saveFreqActions()
-                            self.tokenCounts = Counter({k: v / 2 for k, v in self.tokenCounts.items()})
-                            self.model.rollingTokenTotals = Counter({k: v / 2 for k, v in self.model.rollingTokenTotals.items()})
+                        if self.totalTurns % refreshRollingTokenTotalsWhen == 0:
+                            self.tokenCounts = Counter({k: v * 0.95 for k, v in self.tokenCounts.items()})
+                            self.model.rollingTokenTotals = Counter({k: v * 0.95 for k, v in self.model.rollingTokenTotals.items()})
 
                         if self.totalTurns % trainingLogFreq_B == 0:
                             #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
@@ -163,10 +168,15 @@ class TUTOR:
                             ʕっʘ‿ʘʔっ("♥printFreq")
                             self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = printFreq, _trainingLogPath = None, _detailedLogging = False, _saveLog = False)
                             self.printFreqActions()
+
+                        if self.totalTurns % saveModelFreq == 0:
+                            ʕっʘ‿ʘʔっ("♥saveFreq")
+                            self.saveFreqActions()
                         
                         ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
                         self.latestLossDelta = self.endTurnActions()
                         self.totalTurns += 1
+                        self.totalAvgLoss = self.totalLoss / max(1, self.totalTurns)
 
                         #if self.latestLossDelta < 0:
                         if self.easyLossDelta < 0: self.stableFallCount += (1 + abs(self.latestLossDelta))
@@ -175,20 +185,26 @@ class TUTOR:
                     self.totalTurnAttempts = 0
                     if totalTries >= self.maxRetries:
                         if abs(self.latestLossDelta) < 0.05:
-                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.000001*abs(self.latestLossDelta)))
+                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.0000005*abs(self.latestLossDelta)))
                         elif abs(self.latestLossDelta) > 1.0:
-                            self.model.learningRateGOAL = min(0.0004, self.model.learningRateGOAL + (0.00000001*abs(self.latestLossDelta)))
+                            self.model.learningRateGOAL = min(0.0004, self.model.learningRateGOAL + (0.000000005*abs(self.latestLossDelta)))
                         elif abs(self.latestLossDelta) > 0.05:
-                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.0000001*abs(self.latestLossDelta)))
+                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.00000005*abs(self.latestLossDelta)))
                         print(f"updated goal LR to {self.model.learningRateGOAL}")
 
-                    if currentReflection is not None: self.reflectionTrainingPairs.pop(0)
+                    if currentReflection is not None:
+                        if scribeUsedThisStep:
+                            self.scribe.reflectionPairsFromGuess.pop(0)
+                        else:
+                            self.reflectionTrainingPairs.pop(0)
                     else:
                         i += 1 # only move to next prompt if stableFallCount met or maxRetries
                         self.trainingStepCounter += 1 # means reflections wont be training steps
                 ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
-                self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter)
-        print("--- tutoring complete! ---")
+                self.totalAvgLoss = self.totalLoss / self.totalTurns
+                print(f"{self.totalAvgLoss} = {self.totalLoss} / {self.totalTurns}")
+                self.saveFreqActions()
+                print("--- tutoring complete! ---")
         return
 
     def startTurnActions(self, _inputSeq, _targetSeq, _lastTurnLossDelta):
@@ -219,12 +235,12 @@ class TUTOR:
             #self.trainingStepCounter   += 1
             self.predictedTokenIndices  = []
             inputSeqPredictions = list(_inputTokenIndices)  # Start with input context, create a COPY!
-            buffer = torch.zeros(windowMAX, dtype = torch.long, device = self.device) # creates buffer/step instead of recreating tensors inside loop
+            buffer = torch.zeros(self.numTokensPerStep, dtype = torch.long, device = self.device) # creates buffer/step instead of recreating tensors inside loop
             buffer[:len(inputSeqPredictions)] = torch.as_tensor(inputSeqPredictions, device = self.device)
             self.logitSeq = [] # raw output of each prediction
             cumulativeLoss = torch.tensor(0.0, device = self.device) # sum of token losses for THIS sequence - averaged at the end
 
-            for j in range(numTokensPerStep): # Predict multiple tokens in a sequence, one at a time
+            for j in range(self.numTokensPerStep): # Predict multiple tokens in a sequence, one at a time
                 ʕっʘ‿ʘʔっ("FORWARD")
                 inputTensor = buffer[:len(inputSeqPredictions)] # slices input to only keep relevant part
                 try:
@@ -289,6 +305,7 @@ class TUTOR:
             self.inputSampledFlags = self.sampledFlags.copy()
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
+            self.totalLoss += BACKWARDloss.item()
             #BACKWARDloss_ = (0.025*self.BACKWARDwobbleLoss)+(0.975*BACKWARDloss)
             #if windowEntropyBonus:
                 #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
@@ -395,12 +412,11 @@ class TUTOR:
                             "talk in a bit! ",
                             "i'm gonna carry on with it now :D ",
                         ]
-            _windowMAX      = windowMAX
 
             reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
 
             tries = 0
-            while len(reflectionTokens) < (_windowMAX * 3) and tries < 50:
+            while len(reflectionTokens) < (self.numTokensPerStep * 3) and tries < 50:
                 target += " " + random.choice([random.choice(babyEndings), makeDataStuff()])
                 reflectionText = prompt + " " + target
                 reflectionTokens = self.librarian.tokenizeText(reflectionText.lower())
@@ -414,9 +430,9 @@ class TUTOR:
         inputTargetPairs = []
         reflectionPointer = 0
 
-        while reflectionPointer + _windowMAX * 2 <= len(reflectionTokens):
-            inputSeq = reflectionTokens[reflectionPointer : reflectionPointer + _windowMAX]
-            targetSeq = reflectionTokens[reflectionPointer + _windowMAX : reflectionPointer + _windowMAX * 2]
+        while reflectionPointer + self.numTokensPerStep * 2 <= len(reflectionTokens):
+            inputSeq = reflectionTokens[reflectionPointer : reflectionPointer + self.numTokensPerStep]
+            targetSeq = reflectionTokens[reflectionPointer + self.numTokensPerStep : reflectionPointer + self.numTokensPerStep * 2]
 
             inputTargetPairs.append((inputSeq, targetSeq))
 
@@ -427,8 +443,8 @@ class TUTOR:
 
     def saveFreqActions(self): 
         with self.counsellor.infodump("saveFreqActions") as ʕっʘ‿ʘʔっ: # SAVE THE MODEL EVERY x STEPS
-            print(self.calligraphist.S_apply('dim', 'autosaving...') + self.calligraphist.S_apply('reset', ''))
-            self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter)
+            print(self.calligraphist.S_apply('dim', 'autosaving...'))
+            self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter, _totalAvgLoss = self.totalAvgLoss, _first = self.first)
             p = self.trainingStepCounter + saveModelFreq
             print(self.calligraphist.S_apply('dim', f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {p}...") + self.calligraphist.S_apply('reset', ''))
             ʕっʘ‿ʘʔっ("grad checks")
@@ -464,10 +480,10 @@ class TUTOR:
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
-            topGuess_str = "topGuess[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.model.rollingTokenTotals.most_common(100)]) + "]"
+            topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.model.rollingTokenTotals.most_common(50)])
             #topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
             #topTokens_str = "[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(20)]) + "]"
-            topTokens_str = ": " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.tokenCounts.most_common(200)]) + "]"
+            topTokens_str = ": " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(50)])
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
@@ -546,12 +562,12 @@ class TUTOR:
                 ʕっʘ‿ʘʔっ("♥if collectStats♥")
 
                 ʕっʘ‿ʘʔっ("♥build usedInputSeq with styling")
-                usedInputSeq = self.inputSeqPredictions[-numTokensPerStep:]
+                usedInputSeq = self.inputSeqPredictions[-self.numTokensPerStep:]
                 formattedUsed = []
 
                 for i, idx in enumerate(usedInputSeq):
                     tok = self.librarian.indexToToken.get(idx, "<UNK>")
-                    sampled = self.inputSampledFlags[-numTokensPerStep + i] if i < len(self.inputSampledFlags) else False
+                    sampled = self.inputSampledFlags[-self.numTokensPerStep + i] if i < len(self.inputSampledFlags) else False
 
                     if sampled:
                         styled = self.calligraphist.S_apply(self.calligraphist.S_getStat('loss', self.stepLossFloat), tok)
@@ -573,7 +589,7 @@ class TUTOR:
                     if not _predictedTokenIndices:
                         print("!! no predicted token indices — returning { } for stringStats")
                         return self.stats, {}, self.guessedTokenSeq # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
-                    target      = torch.tensor(_targetTokenIndexSeq[:numTokensPerStep], device = modelDevice)
+                    target      = torch.tensor(_targetTokenIndexSeq[:self.numTokensPerStep], device = modelDevice)
                     predicted   = torch.tensor(self.predictedTokenIndices, device = modelDevice)
                     correct     = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
                     self.perfectTokens += correct
@@ -584,6 +600,7 @@ class TUTOR:
                     self.stats["scheduledSamplingRate"] = self.scheduledSamplingRateFloat
                     self.stats["repetitionPenalty"]     = self.repetitionPenalty
                     self.stats["avgLoss"]               = self.averageRecentLoss
+                    self.stats["totalAvgLoss"]          = self.totalAvgLoss
                     self.stats["loss"]                  = self.stepLossFloat
                     self.temperature                    = self.stats["_B_temperature"]
                     self.stats["LR"]                    = self.learningRate
@@ -904,3 +921,21 @@ class TUTOR:
             babyFeels.append(makeEmoNotes(stat, value))
 
         return "".join(babyFeels)
+    
+    def scribeLesson(self, scribeMessage):
+        with self.counsellor.infodump("scribeLesson") as ʕっʘ‿ʘʔっ:
+            tokens = self.librarian.tokenizeText(scribeMessage.lower())
+            if len(tokens) < 2 * self.numTokensPerStep:
+                print(f"[scribeLesson] too short, skipping: {tokens}")
+                return
+
+            inputSeq  = tokens[:self.numTokensPerStep]
+            targetSeq = tokens[self.numTokensPerStep:self.numTokensPerStep*2]
+
+            inputTokenIndices = [self.librarian.tokenToIndex.get(t, self.librarian.tokenToIndex["<UNK>"]) for t in inputSeq]
+            targetTokenIndices = [self.librarian.tokenToIndex.get(t, self.librarian.tokenToIndex["<UNK>"]) for t in targetSeq]
+
+            print(f"[scribeLesson] training on scribe's wisdom: “{scribeMessage}”")
+            self.predictedTokenIndices, _ = self.trainStep(inputTokenIndices, targetTokenIndices, None)
+            self.collectTurnStats(targetTokenIndices, self.predictedTokenIndices)
+            self.endTurnActions()

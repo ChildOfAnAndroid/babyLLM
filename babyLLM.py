@@ -24,13 +24,14 @@ from config import *
 """LOGITS: output layer to generate logits"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _device = modelDevice):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _numTokensPerStep, _device = modelDevice, _first = True):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
         self.calligraphist = _calligraphist
         self.scribe = _scribe
         self.librarian = _librarian
+        self.numTokensPerStep = _numTokensPerStep
         #self.wobble = _wobble
 
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
@@ -56,9 +57,9 @@ class BABYLLM(nn.Module):
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
-        self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device)
-        self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device)
-        self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device)
+        self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
+        self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep=self.numTokensPerStep)
+        self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.finalNormLayer = nn.LayerNorm(numNeurons, device=self.device)
 
         """LEARNABLE LEARNING PARAMETERS"""
@@ -148,7 +149,7 @@ class BABYLLM(nn.Module):
                 self.penalisedOutputHistory.append(penalisedOutput.norm().item())
                 self.FINALlogitsHistory.append(FINALlogits.norm().item())
 
-                if len(self.inputEmbedsHistory) >= windowMAX:
+                if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
                     self.forwardStats = {
                         "2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
                         "3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
@@ -201,8 +202,18 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            lrSoftClamp = 0.001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
+            lrSoftClamp = 0.000001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
+            tempSoftClamp = 0.000001 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            if self.repetitionPenalty >= 0:
+                repetitionPenaltySoftClamp = 0.000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+            elif self.repetitionPenalty < -1:
+                repetitionPenaltySoftClamp = 0.02 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+            elif self.repetitionPenalty < 0:
+                repetitionPenaltySoftClamp = 0.002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+
             loss += lrSoftClamp # use .detach() to avoid .backward()
+            loss += tempSoftClamp
+            loss += repetitionPenaltySoftClamp
             self.lastLossBaby = loss.item()
 
             if _training and self.lastSoftSample is not None and not skipAuxLoss:
@@ -434,7 +445,7 @@ class BABYLLM(nn.Module):
             nextToken = self.getResponseFromLogits(logits, _training = True)
             return nextToken
         
-    def saveModel(self, filePath = modelFilePath, _newStartIndex = trainingStartIndex, _trainingStepCounter = 0):
+    def saveModel(self, _trainingStepCounter, _totalAvgLoss, _first, filePath = modelFilePath, _newStartIndex = trainingStartIndex):
         with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
             tmpPath = filePath + ".tmp"
             torch.save(self.state_dict(), tmpPath)
@@ -442,7 +453,12 @@ class BABYLLM(nn.Module):
             os.replace(tmpPath, filePath)
             print(f"model successfully saved to {filePath}!")
             with open(stepCheckpointFilePath, "w") as f:
+                if debugPrints: print(f"HELLO I AM SAVEMODEL STEPCOUNTER IS {_trainingStepCounter} AND START INDEX IS {_newStartIndex} I SHOULD WRITE {str(_trainingStepCounter+_newStartIndex)} to {stepCheckpointFilePath}")
                 f.write(str(_trainingStepCounter+_newStartIndex)) # THIS ISNT REAL, FIX LATER, MAYBE MOVE SAVE AND LOAD TO WAKEUP?
+            with open(lossCheckpointFilePath, "w") as f:
+                if debugPrints or True: print(f"HELLO I AM SAVEMODEL AVGLOSS IS {_totalAvgLoss} I SHOULD WRITE {str(_totalAvgLoss)} to {lossCheckpointFilePath}")
+                f.write(str(_totalAvgLoss))
+
 
     """loads the model from a file"""
     def loadModel(self, filePath = modelFilePath):

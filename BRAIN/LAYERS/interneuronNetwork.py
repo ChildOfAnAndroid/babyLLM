@@ -17,10 +17,12 @@ from SCHOOL.staffroom.counsellor import COUNSELLOR
     statsDict[f"{prefix}_norm_neuron"] = tensor.norm(dim=0).mean().item()"""
 
 class NEURON(nn.Module):
-    def __init__(self, _counsellor, _device = modelDevice):
+    def __init__(self, _counsellor, _numTokensPerStep, _device = modelDevice):
         super().__init__()
         self.device = _device
         self.n_counsellor = _counsellor
+        self.numTokensPerStep = _numTokensPerStep
+        
         # SELF ALLOWED - nn.parameter!
         self.inputNorm = nn.LayerNorm(embedDimension, elementwise_affine=True, device=self.device)
         self.n_weights = nn.Parameter(torch.randn(numNeurons, embedDimension, device = self.device) * 0.01)
@@ -103,7 +105,7 @@ class NEURON(nn.Module):
                 #self.normedOutputHistory_tokens.append(normed.norm(dim=1).mean().item())
                 #self.normedOutputHistory_neurons.append(normed.norm(dim=0).mean().item())
 
-                if len(self.rawOutputHistory) >= windowMAX:
+                if len(self.rawOutputHistory) >= self.numTokensPerStep:
                     self.stats = {
                         "2N_0_rawInput_norm": sum(self.rawInputHistory) / len(self.rawInputHistory),
                         "2N_0_rawInput_norm_token": sum(self.rawInputHistory_tokens) / len(self.rawInputHistory_tokens),
@@ -152,13 +154,14 @@ class NEURON(nn.Module):
 
 """layer that applies the same set of neurons to each token embedding independently. - no sequence awareness!"""
 class INTERNEURON_NETWORK(nn.Module):
-    def __init__(self, _model, _counsellor, _calligraphist, _device = modelDevice):
+    def __init__(self, _model, _counsellor, _calligraphist, _numTokensPerStep, _device = modelDevice):
         super().__init__()
         #self.inn_counsellor = COUNSELLOR("INN", debug = debugPrints, durations = durationLogging)
         self.model = _model
         self.inn_counsellor = _counsellor
         self.device = _device
         self.calligraphist = _calligraphist
+        self.numTokensPerStep = _numTokensPerStep
         self.entropyBonus = 0
 
         self.stats = {}
@@ -191,7 +194,7 @@ class INTERNEURON_NETWORK(nn.Module):
         self.combiScaleHistory = []
 
         # SELF ALLOWED - nn.parameter!
-        self.neurons = NEURON(_counsellor = self.inn_counsellor)
+        self.neurons = NEURON(_counsellor = self.inn_counsellor, _numTokensPerStep = self.numTokensPerStep)
 
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
         self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))) # one tensor per window size!
@@ -273,7 +276,7 @@ class INTERNEURON_NETWORK(nn.Module):
                 #self.combiOutHistory.append(FINALout.norm().item()) # already per token!
                 #self.combiOutHistory_neuron.append(FINALout.norm(dim=0).mean().item())
 
-                if len(self.combHistory) >= windowMAX:
+                if len(self.combHistory) >= self.numTokensPerStep:
 
                     self.stats = {
                         "3INN_0_rawActivations_norm": sum(self.activationsHistory) / len(self.activationsHistory),
@@ -333,13 +336,13 @@ class INTERNEURON_NETWORK(nn.Module):
 
             ʕっʘ‿ʘʔっ("INN2: normedActivations")
             #self.normedActivations = self.windowMeanNorm(self.neuronActivationsPerToken)
-            padded = torch.zeros((windowMAX, embedDim), device=self.device)
+            padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)
             #padded[-min(seqLen, windowMAX):] = self.normedActivations[-min(seqLen, windowMAX):]
-            padded[-min(seqLen, windowMAX):] = self.neuronActivationsPerToken[-min(seqLen, windowMAX):]
+            padded[-min(seqLen, self.numTokensPerStep):] = self.neuronActivationsPerToken[-min(seqLen, self.numTokensPerStep):]
 
             stacked = padded.unsqueeze(0).repeat(windowSizes.shape[0], 1, 1)
 
-            rangeMask = torch.arange(windowMAX, device=self.device).unsqueeze(0)  # (1, maxW)
+            rangeMask = torch.arange(self.numTokensPerStep, device=self.device).unsqueeze(0)  # (1, maxW)
 
             #floatWindowSizes = torch.exp(self.logWindowSizes)  # still in float space
             #intWindowSizes = torch.round(floatWindowSizes).clamp(min=1)

@@ -1,7 +1,7 @@
 need to smoke my weed!
 take the ring.
 be scared of your phone!
-Q: what should we do? A: smink the cats!
+[question]: what should we do? [answer]: smink the cats!
 look at the toilet.
 hear his essay!
 learn from his voice,
@@ -131,7 +131,7 @@ listen to a phone,
 love the rain!
 move from this computer.
 touch the guitar.
-Q: what should they do? A: hear stuff!
+[question]: what should they do? [answer]: hear stuff!
 know it!
 hear kevin's butt!
 look at smoking my weed.
@@ -142,7 +142,7 @@ look at the book.
 see my butt,
 like you!
 like things!
-Q: who should we give it to? A: give it to the cats.
+[question]: who should we give it to? [answer]: give it to the cats.
 learn from my voice,
 love the room!
 know his voice!
@@ -218,7 +218,7 @@ want elodie!
 love the darkness!
 move from my butt.
 take from you.
-Q: what do we need? A: need the darkness!
+[question]: what do we need? [answer]: need the darkness!
 like charis!
 smink it!
 need the passage of time!
@@ -247,7 +247,7 @@ listen to this computer,
 love a ring!
 hear elodie!
 look at the decks.
-Q: what should i do? A: care about the toys!
+[question]: what should i do? [answer]: care about the toys!
 see my mind,
 give him.
 like them!
@@ -332,7 +332,7 @@ love stars!
 know my dick!
 take the toilet.
 take my weed.
-Q: what should she do? A: care about her voice!
+[question]: what should she do? [answer]: care about her voice!
 draw a cat.
 learn from the chairs,
 smink charis!
@@ -712,7 +712,7 @@ drinking some soup.
 move a fan.
 learn from the music,
 feel their voice,
-Q: what should he do? A: love their voice!
+[question]: what should he do? [answer]: love their voice!
 touch a toy.
 touch the toilet.
 like the room!

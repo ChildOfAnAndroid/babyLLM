@@ -9,10 +9,11 @@ from config import *
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 class LOGITS(nn.Module):
-    def __init__(self, _counsellor, _device):
+    def __init__(self, _counsellor, _device, _numTokensPerStep):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
+        self.numTokensPerStep = _numTokensPerStep
         self.lastSavedWeights = 0 # for stats
 
         self.l_weights = nn.Parameter(torch.randn(numNeurons, vocabSize, device = self.device)) # this is set to move the NEURON ACTIVATIONS (10000) onto VOCAB SIZE (2000)
@@ -68,7 +69,7 @@ class LOGITS(nn.Module):
             self.logitNormHist.append(self.logitNormed.norm().item())
             self.finalLogitHist.append(self.finalLogit.norm().item())
 
-            if len(self.tensorHist) >= windowMAX:
+            if len(self.tensorHist) >= self.numTokensPerStep:
                 ʕっʘ‿ʘʔっ("clear rolling self.stats at end of window")
                 self.stats = {
                     "6L_0_activationsTensor_norm": sum(self.tensorHist) / len(self.tensorHist),

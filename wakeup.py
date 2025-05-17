@@ -26,7 +26,7 @@ warnings.simplefilter("default") # show all warnings (PyTorch hides some by defa
 install(show_locals = True)
 torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
-def wakeup():
+def wakeup(windowMAX, dataStride, first = True):
     try:
         # WAKE UP THE SCHOOL :)
         counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
@@ -38,10 +38,10 @@ def wakeup():
 
             if False: exit(0)
             ʕっʘ‿ʘʔっ("opening questions...")
-            newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian)
+            newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian, _windowMAX = windowMAX, _first = first)
 
             ʕっʘ‿ʘʔっ("generating training data pairs...")
-            trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _startIndex = newStartIndex)
+            trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _startIndex = newStartIndex, _stride = dataStride)
             if debugPrints:                 print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
 
             ʕっʘ‿ʘʔっ("loading chaos agents...")
@@ -50,6 +50,7 @@ def wakeup():
             scribe              = SCRIBE    (_counsellor                = counsellor, 
                                                 _calligraphist          = calligraphist, 
                                                 _librarian              = librarian,
+                                                _numTokensPerStep       = windowMAX,
                                                 )
             
             # WAKE UP THE BABY :)
@@ -59,7 +60,8 @@ def wakeup():
                                                 _scribe                 = scribe,
                                                 _librarian              = librarian, 
                                                 _device                 = modelDevice,
-                                                )
+                                                _numTokensPerStep       = windowMAX,
+                                                _first                  = first)
 
             tutor               = TUTOR     (_counsellor                = counsellor,
                                                 _calligraphist          = calligraphist, 
@@ -67,7 +69,8 @@ def wakeup():
                                                 _librarian              = librarian, 
                                                 _model                  = babyLLM,
                                                 _device                 = modelDevice,
-                                                )
+                                                _numTokensPerStep       = windowMAX,
+                                                _first                  = first)
             
             babyLLM.loadModel()
             babyLLM.to(modelDevice)
@@ -75,6 +78,7 @@ def wakeup():
             # START THE LESSONS :)
             ʕっʘ‿ʘʔっ("starting lessons!")
             tutor.trainModel                (_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
+            return tutor.totalAvgLoss
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
@@ -96,30 +100,31 @@ def wakeup():
         ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
         if tutor.trainingStepCounter:
             step = tutor.trainingStepCounter
+            totalAvgLoss = tutor.totalAvgLoss
         else:
             step = 1
         choice = input("save, cancel (do not save before exit), restart or interact?" + f"\n{userName}: ").lower()
         if choice in ("save", "") or choice.startswith("s"): 
             ʕっʘ‿ʘʔっ("♥choice = s")
-            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             print("\nit's rude to interrupt people.. but, bye bye! :)")
         elif choice == "cancel" or choice.startswith("c"): 
             ʕっʘ‿ʘʔっ("♥choice = c")
             print("\nhey! i wanted to remember that! :(")
         elif choice == "interact" or choice.startswith("i"):
             ʕっʘ‿ʘʔっ("♥choice = i")
-            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             import code
             print("try:\nbabyLLM.stats\nbabyLLM.scheduledSampling\nbabyLLM.memory.memory\nbabyLLM.interneuronNetwork.cerebellum\nbabyLLM.logits.forward(...)\nUse `exit()` to return to terminal.\n")
             code.interact(local = locals())
         elif choice == "restart" or choice.startswith("r"):
             ʕっʘ‿ʘʔっ("♥choice = r")
-            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             print("you spin me right round, babyllm, right round...")
-            wakeup()
+            return totalAvgLoss
         else: 
             ʕっʘ‿ʘʔっ("♥choice = None")
-            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step)
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             print("\nuhh... i'm confused, but i saved anyway!")
         if modelDevice.type == 'mps':
             torch.mps.empty_cache()
@@ -143,17 +148,36 @@ def setStartIndex():
     
     return savedStartIndex
 
-def openingQuestions(_counsellor, _librarian):
+def checkLossCheckpoint():
+    if os.path.exists(lossCheckpointFilePath):
+        with open(lossCheckpointFilePath, "r") as f:
+            try: lastTurnLoss = int(f.read().strip())
+            except ValueError:
+                babyNote_loadLossCheckpoint = f"{babyName} 'noooo! i couldn't load loss checkpoint file from {lossCheckpointFilePath}, resetting to 0...' "
+                print(babyNote_loadLossCheckpoint)
+                lastTurnLoss = 0
+    else:
+        babyNote_loadLossCheckpoint = f"{babyName} 'right, well, the loss checkpoint file {lossCheckpointFilePath} doesn't actually exist... so i'll reset it to 0.' "
+        print(babyNote_loadLossCheckpoint)
+        lastTurnLoss = 0
+    
+    return lastTurnLoss
+
+def openingQuestions(_counsellor, _librarian, _windowMAX, _first):
     counsellor = _counsellor
     with counsellor.infodump("babyLLM") as ʕっʘ‿ʘʔっ:
         librarian = _librarian
         #babyLLM.to(modelDevice)
         ʕっʘ‿ʘʔっ("setStartIndex")
         newStartIndex = setStartIndex()
+        lastRunLoss   = checkLossCheckpoint()
 
-        babyNote_loadCheckpointCheck = f"[{babyName}] right, last time i got to step {newStartIndex}... want to restart from there?"
+        babyNote_loadCheckpointCheck = f"[{babyName}] right, last time i got to step {newStartIndex} and my average loss was {lastRunLoss}... want to restart from there?"
         ʕっʘ‿ʘʔっ("choice = input♥")
-        choice = input(babyNote_loadCheckpointCheck + f"\n[{userName}] ").lower()
+        if _first:
+            choice = input(babyNote_loadCheckpointCheck + f"\n[{userName}] ").lower()
+        else:
+            choice = "yes"
         userNote_loadCheckpoint = f"[{userName}] {choice}"
 
         if choice == "" or choice.startswith("y"):
@@ -164,7 +188,7 @@ def openingQuestions(_counsellor, _librarian):
 
         elif choice.startswith("r") or choice in ["random", "i dont care", "i don't care", "idc"]:
             ʕっʘ‿ʘʔっ("♥choice = r")
-            newStartIndex = random.randint(0, len(librarian.tokens) - windowMAX - 1)
+            newStartIndex = random.randint(0, len(librarian.tokens) - _windowMAX - 1)
             startIndex = newStartIndex
             babyNote_loadCheckpoint = f"[{babyName}] oh, cool! i'll pick a random spot to start from... umm... let's go to step {newStartIndex}!"
             print(babyNote_loadCheckpoint, end="")
@@ -189,15 +213,20 @@ def openingQuestions(_counsellor, _librarian):
             print(babyNote_loadCheckpoint, end="")
 
         ʕっʘ‿ʘʔっ("runStart")
-        printStartLogs(babyNote_loadCheckpointCheck, userNote_loadCheckpoint, babyNote_loadCheckpoint)
+        printStartLogs(babyNote_loadCheckpointCheck, userNote_loadCheckpoint, babyNote_loadCheckpoint, _first = _first, _windowMAX = _windowMAX)
 
     return startIndex
 
-def printStartLogs(_babyNote_loadCheckpointCheck, _userNote_loadCheckpoint, _babyNote_loadCheckpoint):
+def printStartLogs(_babyNote_loadCheckpointCheck, _userNote_loadCheckpoint, _babyNote_loadCheckpoint, _first, _windowMAX):
     #ʕっʘ‿ʘʔっ("♥bootPrints") # BOOT PRINTS TO TXT AND TERMINAL
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     babyNote_runStart = f" what am i learning today?" # no tag of 'babyllm:' because it merges with the end of above message in logs
-    userNote_runStart = f"[{userName}] " + input(babyNote_runStart + f"\n[{userName}] ").strip().lower() + ""
+    if _first:
+        userInput = input(babyNote_runStart + f"\n[{userName}] ").strip().lower()
+    else:
+        userInput = f"numTokens = {_windowMAX}"
+
+    userNote_runStart = f"[{userName}] " + userInput + ""
     notesString = f"--- {timestamp} --- \n{_babyNote_loadCheckpointCheck}\n{_userNote_loadCheckpoint}\n{_babyNote_loadCheckpoint}{babyNote_runStart}\n{userNote_runStart}"
     print(notesString)
     #ʕっʘ‿ʘʔっ("♥printStartLogs")
@@ -206,7 +235,31 @@ def printStartLogs(_babyNote_loadCheckpointCheck, _userNote_loadCheckpoint, _bab
     with open(trainingLogPath_1000, "a") as logFile: logFile.write(notesString)
     with open(chatLogPath_trainingLog, "a") as logFile: logFile.write(notesString)
 
-def main(): wakeup()
+def main():
+    windowMAX           = numTokensPerStepSTART
+    dataStride          = trainingDataStride
+    maxTokensPerStep    = 512 
+    lastRunLoss         = checkLossCheckpoint()
+    while windowMAX <= maxTokensPerStep:
+        print(f"\n--- STARTING NEW TRAINING LOOP ---")
+        print(f"numTokensPerStep = {windowMAX}")
+
+        thisRunLoss = wakeup(windowMAX, dataStride, first = (windowMAX == numTokensPerStepSTART))
+
+        print(f"BEFORE UPDATE: thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}")
+        if thisRunLoss > lastRunLoss:
+            if random.choice([True, False]):
+                windowMAX += 1
+            else:
+                dataStride += 1
+        elif windowMAX > 1:
+            windowMAX -= 1
+            dataStride -= 1
+        
+        dataStride = max(1, max(dataStride, windowMAX - 1))
+
+        lastRunLoss = thisRunLoss
+        print(f"AFTER UPDATE: thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}")
 
 if __name__ == "__main__":
     main()
