@@ -250,7 +250,7 @@ def clean_text(text):
         text = text.replace(old, new)
 
     after = len(text.strip())
-    print(f"[clean_text] Reduced from {before:,} to {after:,} characters")
+    print(f"reduced from {before:,} to {after:,} characters")
     return text.strip()
 
 def process_file(current_file):
@@ -286,28 +286,27 @@ def process_file(current_file):
     if weight == -1 or len(raw_text) < 1000:
         final_text = raw_text
     else:
-        slice_size = int(weight * random.randint(trainingDataSliceSize_min, trainingDataSliceSize_max))
-        if len(raw_text) <= slice_size:
+        weight = current_file.get("weight", 1)
+        sliceRange = trainingDataSliceSize_max - trainingDataSliceSize_min
+        baseSlice = trainingDataSliceSize_min + random.random() * sliceRange
+        sliceSize = int(baseSlice * weight)
+        if len(raw_text) <= sliceSize:
             final_text = raw_text
         else:
-            start = random.randint(0, len(raw_text) - slice_size)
-            final_text = raw_text[start:start + slice_size]
+            start = (hash(current_file['in']) % (len(raw_text) - sliceSize + 1))  # deterministic-ish
+            final_text = raw_text[start:start + sliceSize]
+        print(f"sliced {sliceSize} chars from {current_file['in']} starting at {start}")
 
-    chunk_size = 100_000
+    chunk_size = 100000
     chunks = [final_text[i:i + chunk_size] for i in range(0, len(final_text), chunk_size)]
     cleaned_chunks = [clean_text(chunk) for chunk in chunks]
     cleaned_text = "".join(cleaned_chunks)
 
     out_path = current_file["out"]
 
-    # Ensure lock exists for this file
-    if out_path not in write_locks:
-        write_locks[out_path] = Lock()
-
     try:
-        with write_locks[out_path]:
-            with open(out_path, "a", encoding="utf-8") as file:
-                file.write(cleaned_text + "\n")
+        with open(out_path, "a", encoding="utf-8") as file:
+            file.write(cleaned_text + "\n")
         print(f"saved to: {out_path} ({len(cleaned_text):,} chars)")
     except Exception as e:
         print(f"write error for {out_path}: {e}")
@@ -334,29 +333,5 @@ def run_cleaning():
 
     print("\nall files processed successfully!")
 
-def run_cleaning_parallel():
-    # Clear output files first
-    for current_file in trainingFilePath_dict_weighted:
-        try:
-            with open(current_file["out"], "w", encoding="utf-8") as f:
-                pass
-        except Exception as e:
-            print(f"failed to clear file {current_file['out']}: {e}")
-
-    # Shuffle + process in parallel
-    random.shuffle(trainingFilePath_dict_weighted)
-    print("starting parallel processing...")
-
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        futures = {executor.submit(process_file, f): f for f in trainingFilePath_dict_weighted}
-        for future in as_completed(futures):
-            f = futures[future]
-            try:
-                future.result()
-            except Exception as e:
-                print(f"error in file {f['in']}: {e}")
-
-    print("all files processed successfully!")
-
-# Run it
+# run!!!
 run_cleaning()

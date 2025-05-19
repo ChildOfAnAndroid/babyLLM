@@ -336,28 +336,27 @@ class INTERNEURON_NETWORK(nn.Module):
 
             ʕっʘ‿ʘʔっ("INN2: normedActivations")
             #self.normedActivations = self.windowMeanNorm(self.neuronActivationsPerToken)
+            # PADDING ENSURES UNDERLYING DATA HAS CORRECT TENSOR/VECTOR SHAPE FOR THE MASK
             padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)
-            #padded[-min(seqLen, windowMAX):] = self.normedActivations[-min(seqLen, windowMAX):]
             padded[-min(seqLen, self.numTokensPerStep):] = self.neuronActivationsPerToken[-min(seqLen, self.numTokensPerStep):]
 
-            stacked = padded.unsqueeze(0).repeat(windowSizes.shape[0], 1, 1)
+            stackedWindows = padded.unsqueeze(0).repeat(windowSizes.shape[0], 1, 1)
 
-            rangeMask = torch.arange(self.numTokensPerStep, device=self.device).unsqueeze(0)  # (1, maxW)
+            # THE RANGE MASK IS ONLY EVER AS LONG AS WINDOWMAX, SO THAT WINDOWS DONT EXCEED IT
+            rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)  # (1, maxW)
 
-            #floatWindowSizes = torch.exp(self.logWindowSizes)  # still in float space
-            #intWindowSizes = torch.round(floatWindowSizes).clamp(min=1)
-            #intWindowSizes = int(torch.exp(self.logWindowSizes))
-
-            # straight-through estimator: lets gradients flow through soft version
+            # straight-through estimator: lets gradients flow through int version
             windowTensor = (self.intWindowSizes - self.floatWindowSizes).detach() + self.floatWindowSizes
             windowTensor = windowTensor.unsqueeze(1)  # (numWindows, 1)
             windowTensor = windowTensor.clamp(min=1.0)
-            self.windowTensor_used = windowTensor.squeeze(1).detach()  # shape: (numWindows,)
+            self.windowTensor_used = windowTensor.squeeze(1).detach()  # shape: (numWindows,) (FOR STATS)
 
+            #'mask' CHECKS TO SEE HOW LONG WINDOWS ARE, AND IF THEY ARE LONGER CROPS IT BEFORE MEANING
             mask = (rangeMask < windowTensor).float().unsqueeze(2)  # (numWindows, maxW, 1)
 
-            masked = stacked * mask
-            sums = masked.sum(dim=1)  # (numWindows, embedDim)
+            maskedWindows = stackedWindows * mask
+            # GET MEAN AVERAGE FROM 'sums' THEN 'means'
+            sums = maskedWindows.sum(dim=1)  # (numWindows, embedDim)
             means = sums / windowTensor
 
         return means  # shape: (numWindows, embedDim)

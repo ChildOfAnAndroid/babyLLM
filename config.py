@@ -89,7 +89,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStepSTART = 1   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 2   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
@@ -97,8 +97,8 @@ memoryLengthGOAL = 3
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.00001 //
-learningRateGOAL = 0.0002
-temperatureGOAL = 1.0
+learningRateGOAL = 0.00025
+temperatureGOAL = 0.95
 optimizerName = "AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -139,14 +139,14 @@ skipAuxLoss = False
 skipFINALlogitNorm = True
 
 """--- STATS COLLECTION ---"""
-refreshRollingTokenTotalsWhen = 1000
+refreshRollingTokenTotalsWhen = 10000
 mostImportantStats  =   [
             # EMBED STATS
                 "1E_0_embedVector_norm",                            # IMPORTANT LAYER TRACKER !! (INPUT)
             #       "1E_0_embedVector_scale",
             #       "1E_0_embedVector_norm_token",          
             #       "1E_0_embedVector_norm_neuron",                
-                   "1E_1_embedNormed_norm",
+            #       "1E_1_embedNormed_norm",
             #           "1E_1_embedNormed_scale",  
             #           "1E_1_embedNormed_norm_token",
             #           "1E_1_embedNormed_norm_neuron",       
@@ -158,10 +158,10 @@ mostImportantStats  =   [
             #                                                       "2N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
             #           "2N_0_rawInput_norm_token",            # might be unneeded if this is already per token, check later
             #           "2N_0_rawInput_norm_neurons",
-                    "2N_1_normedInput_norm",
+            #        "2N_1_normedInput_norm",
             #            "2N_1_normedInput_norm_token",
             #            "2N_1_normedInput_norm_neuron",
-                   "2N_2_rawOutput_norm",
+            #       "2N_2_rawOutput_norm",
             #           "2N_2_rawOutput_norm_token",            
             #           "2N_2_rawOutput_norm_neuron",
                    "2N_x_activatedOutput_norm",                     # IMPORTANT LAYER TRACKER !! (NEURONS)
@@ -175,10 +175,10 @@ mostImportantStats  =   [
             #                                                        "3INN_0_rawActivations_norm", # MATCHES 2N_x_normedOutput_norm
             #           "3INN_0_rawActivations_norm_token",         
             #           "3INN_0_rawActivations_norm_neuron",       
-                   "3INN_1_rawActivationsLayerNorm_norm",  
+            #       "3INN_1_rawActivationsLayerNorm_norm",  
             #           "3INN_1_rawActivationsLayerNorm_norm_token",
             #           "3INN_1_rawActivationsLayerNorm_norm_neuron",
-                   "3INN_2_combinedActivations_norm",       
+            #       "3INN_2_combinedActivations_norm",       
             #           "3INN_2_combinedActivations_scale",         # disabled
             #           "3INN_2_combinedActivations_norm_token",    
             #           "3INN_2_combinedActivations_norm_neuron",  
@@ -192,8 +192,8 @@ mostImportantStats  =   [
             #    "3INN_x_FINALoutLayerNorm_norm",                   # DISABLED
             #       "3INN_x_FINALoutLayerNorm_norm_token",      
             #       "3INN_x_FINALoutLayerNorm_norm_neuron",
-                "_INN_windowSizesMean",
-                "INN_cerebellumMean",  
+            #    "_INN_windowSizesMean",
+            #    "INN_cerebellumMean",  
 
             # MEMORY STATS
             #                                                       "4M_0_rawActivations_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
@@ -202,8 +202,8 @@ mostImportantStats  =   [
                 "4M_x_FINALmemory_norm",                        # IMPORTANT LAYER TRACKER !! (MEMORY)
             #
                 #"_4M_gateLayer",
-                "4M_longDecay",
-                "4M_shortDecay",
+                "_4M_longDecay",
+                "_4M_shortDecay",
                 "_4M_shortGateScale",
                 "_4M_longGateScale",
                 "_4M_activationsGateScale",  
@@ -212,12 +212,10 @@ mostImportantStats  =   [
             #                                                       "2B_0_inputEmbeds_norm", # MATCHES 2N_0_rawInput_norm & 1E_x_embedFinal_norm
             #                                                       "3B_1_INNOutput_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
             #                                                       "5B_0_memoryOutput_norm", # MATCHES 4M_x_FINALmemory_norm
-                    "5B_1_penalisedOutput_norm",
+            #        "5B_1_penalisedOutput_norm",
                 #"5B_x_finalNormLayer_norm",                     # IMPORTANT LAYER TRACKER !! (BABYLLM)
                 #                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
                 #"_B_floatMemoryLength",
-                "_B_repetitionWindow", 
-                "_B_temperature",
 
             # LOGIT STATS
             #                                                       "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
@@ -234,16 +232,17 @@ mostImportantStats  =   [
             # MISC/UNSORTED STATS
                 # base stats
                     "LR",   "learningRate", "lR",
-                    "latestLossDelta",  "AvgLoss",  "loss", "avgLoss", "totalAvgLoss",
+                    "latestLossDelta",  "AvgLoss",  "loss", "avgLoss", "totalAvgLoss", "lastRunLoss",
                     #"temperature",
                     #"memoryLength",
                     #"gradNorm",
                     #"gradientClipMaxNorm",
                     #"scheduledSamplingRate",    "sampledTokens", 
-                    "_B_CElossDelta", "_B_gumbelLossDelta", "_B_FINALlossDelta",
 
                 # learnable parameters
                     "repetitionPenalty",   
+                    "_B_repetitionWindow", 
+                    "_B_temperature",
                         ]
 
 allRecordedOtherStats = ["stepLoss",                     "tokenCount",
@@ -355,10 +354,11 @@ forwardProfiler = False
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 trainingDataSliceSize_min = 1
 trainingDataSliceSize_max = 20000
-reflectionFreq = 50000
+reflectionFreq = 10000
 stableFallThreshold = 2 # min 2 cause loss delta is a turn behind lol
+perfectionistRun = True
 # --- #
-trainingDataPairNumber = 420 #169420
+trainingDataPairNumber = 200 #169420
 trainingDataStride = 1
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
@@ -366,16 +366,16 @@ epochs = 1
 rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
-    ("text", "SCHOOL/library/charisStudies/discordtxt.txt",1),     # discord message history
-    ("text", "SCHOOL/library/charisStudies/discordtxt2.txt",1),     # discord message history part2
-    ("text", "SCHOOL/library/charisStudies/discordtxt3.txt",1),     # discord message history part3
-    ("text", "SCHOOL/library/charisStudies/discordtxt4.txt",1),     # discord message history part4
-    ("text", "SCHOOL/library/charisStudies/discordtxt5.txt",1),     # discord message history part5
-    ("text", "SCHOOL/library/charisStudies/discordtxt6.txt",1),     # discord message history part6
-    ("text", "SCHOOL/library/charisStudies/discordtxt7.txt",1),     # discord message history part7
-    ("text", "SCHOOL/library/charisStudies/discordtxt8.txt",1),     # discord message history part8
-    ("text", "SCHOOL/library/charisStudies/discordtxt9.txt",1),     # discord message history part8
-    ("discord_json", "SCHOOL/library/charisStudies/discord.json",1),     # discord message history JSON
+    ("text", "SCHOOL/library/charisStudies/discordtxt.txt", 1),     # discord message history
+    ("text", "SCHOOL/library/charisStudies/discordtxt2.txt", 1),     # discord message history part2
+    ("text", "SCHOOL/library/charisStudies/discordtxt3.txt", 1),     # discord message history part3
+    ("text", "SCHOOL/library/charisStudies/discordtxt4.txt", 1),     # discord message history part4
+    ("text", "SCHOOL/library/charisStudies/discordtxt5.txt", 1),     # discord message history part5
+    ("text", "SCHOOL/library/charisStudies/discordtxt6.txt", 1),     # discord message history part6
+    ("text", "SCHOOL/library/charisStudies/discordtxt7.txt", 1),     # discord message history part7
+    ("text", "SCHOOL/library/charisStudies/discordtxt8.txt", 1),     # discord message history part8
+    ("text", "SCHOOL/library/charisStudies/discordtxt9.txt", 1),     # discord message history part8
+    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 1),     # discord message history JSON
     ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
     ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 1),     #  random poems from my notes on my phone
     ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
@@ -394,86 +394,86 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 1),     # training: i am happy! i did it! i know it!
 
     #--- BABYLLM CHAT LOGS ---
-    ("text", chatLogPath_talkToYourself, 1),     #  i answer my own previous chat messages
-    ("text", chatLogPath_trainingLog, 1),     # log: 'what am i learning today?'
-    ("text", chatLogPath_infer, 1),     # log: babyLLM infer.py history!
-    ("text", chatLogPath_talkToYourselfComparisons, 1),     # log: comparing babyllms answers to my answers
-    ("text", "scribeSays.txt", 1),
+    ("text", chatLogPath_talkToYourself, 0.1),     #  i answer my own previous chat messages
+    ("text", chatLogPath_trainingLog, 0.1),     # log: 'what am i learning today?'
+    ("text", chatLogPath_infer, 0.1),     # log: babyLLM infer.py history!
+    ("text", chatLogPath_talkToYourselfComparisons, 0.1),     # log: comparing babyllms answers to my answers
+    ("text", "scribeSays.txt", 0.1),
 
     #--- TENSES ---
-    ("text", "SCHOOL/library/tenses/presentTense.txt", 1),     #  tense: present (kevin's weed theme?)
-    ("text", "SCHOOL/library/tenses/pastTense.txt", 1),     # tense: past (mouse theme!)
+    ("text", "SCHOOL/library/tenses/presentTense.txt", 0.1),     #  tense: present (kevin's weed theme?)
+    ("text", "SCHOOL/library/tenses/pastTense.txt", 0.1),     # tense: past (mouse theme!)
 
-    ("text", "SCHOOL/library/tenses/presentTense copy.txt", 1),     # tense
-    ("text", "SCHOOL/library/tenses/futureContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/futurePerfectTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalMustHaveTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalWouldHaveTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 1),     #  tense
-    ("text", "SCHOOL/library/tenses/futureTense.txt", 1),     #  tense: future
-    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 1),     # tense: present conditional
-    ("text", "SCHOOL/library/tenses/pastContinuousTense.txt", 1),     #  tense: past continuous
-    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentTense copy.txt", 0.1),     # tense
+    ("text", "SCHOOL/library/tenses/futureContinuousTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/futurePerfectTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalMustHaveTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalWouldHaveTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 0.1),     #  tense
+    ("text", "SCHOOL/library/tenses/futureTense.txt", 0.1),     #  tense: future
+    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 0.1),     # tense: present conditional
+    ("text", "SCHOOL/library/tenses/pastContinuousTense.txt", 0.1),     #  tense: past continuous
+    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 0.1),     #  tense
 
     #--- SIMPLE TRAINING ---
-    ("text", "SCHOOL/library/simpleTraining/cursed.txt", 1),     # training but chaotic shuffle
-    ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 1),     # weird fake sentences
-    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/shortestwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 1),     # training
-    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 1),     #  training
-    ("text", "SCHOOL/library/charisStudies/thames.txt", 1),
-    ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 1),
-    ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why2.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why3.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why4.txt", 1),
+    ("text", "SCHOOL/library/simpleTraining/cursed.txt", 0.1),     # training but chaotic shuffle
+    ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 0.1),     # weird fake sentences
+    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/shortestwrittenexamples.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 0.1),     # training
+    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 0.1),     #  training
+    ("text", "SCHOOL/library/charisStudies/thames.txt", 0.1),
+    ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 0.1),
+    ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 0.1),
+    ("text", "SCHOOL/library/miniTraining/why.txt", 0.1),
+    ("text", "SCHOOL/library/miniTraining/why2.txt", 0.1),
+    ("text", "SCHOOL/library/miniTraining/why3.txt", 0.1),
+    ("text", "SCHOOL/library/miniTraining/why4.txt", 0.1),
 
     #--- MY OWN CODE?? ---
-    ("text", "babyLLM.py", 1),
-    ("text", "config.py", 1),
-    ("text", "infer.py", 1),
-    ("text", "talkToYourself.py", 1),
-    ("text", "textCleaningTool.py", 1),
-    ("text", "wakeup.py", 1),
-    ("text", "SCHOOL/staffroom/calligraphist.py", 1),
-    ("text", "SCHOOL/staffroom/counsellor.py", 1),
-    ("text", "SCHOOL/staffroom/HE_IS_SCRIBE.py", 1),
-    ("text", "SCHOOL/staffroom/librarian.py", 1),
-    ("text", "SCHOOL/staffroom/tutor.py", 1),
-    ("text", "BRAIN/vocabCache/tokenizer_4200.json", 1),
-    ("text", "BRAIN/readmeactuallyprobablydont.txt", 1),
-    ("text", "BRAIN/LAYERS/embed.py", 1),
-    ("text", "BRAIN/LAYERS/interneuronNetwork.py", 1),
-    ("text", "BRAIN/LAYERS/logits.py", 1),
-    ("text", "BRAIN/LAYERS/memory.py", 1),
-    ("text", "SCHOOL/notebook/notes.txt", 1),
-    ("text", "SCHOOL/notebook/python notes etc", 1),
-    ("text", "SCHOOL/notebook/test.py", 1),
+    ("text", "babyLLM.py", 0.1),
+    ("text", "config.py", 0.1),
+    ("text", "infer.py", 0.1),
+    ("text", "talkToYourself.py", 0.1),
+    ("text", "textCleaningTool.py", 0.1),
+    ("text", "wakeup.py", 0.1),
+    ("text", "SCHOOL/staffroom/calligraphist.py", 0.1),
+    ("text", "SCHOOL/staffroom/counsellor.py", 0.1),
+    ("text", "SCHOOL/staffroom/HE_IS_SCRIBE.py", 0.1),
+    ("text", "SCHOOL/staffroom/librarian.py", 0.1),
+    ("text", "SCHOOL/staffroom/tutor.py", 0.1),
+    ("text", "BRAIN/vocabCache/tokenizer_4200.json", 0.1),
+    ("text", "BRAIN/readmeactuallyprobablydont.txt", 0.1),
+    ("text", "BRAIN/LAYERS/embed.py", 0.1),
+    ("text", "BRAIN/LAYERS/interneuronNetwork.py", 0.1),
+    ("text", "BRAIN/LAYERS/logits.py", 0.1),
+    ("text", "BRAIN/LAYERS/memory.py", 0.1),
+    ("text", "SCHOOL/notebook/notes.txt", 0.1),
+    ("text", "SCHOOL/notebook/python notes etc", 0.1),
+    ("text", "SCHOOL/notebook/test.py", 0.1),
 ]
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 """-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""
 
 """--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
-saveStrict = False   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = True   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 """--- MODEL ---"""
 embedDimension = 1024   # dimensionality of token embeddings
@@ -519,13 +519,10 @@ trainingFilePath_arr = [trainingFilePath]
 
 trainingFilePath_dict_weighted = []
 for entry in trainingFilePath_dict:
-    weight = entry["weight"]
-    if weight == -1:
-        # one clean copy
+    weight = entry.get("weight", 1)
+    if weight > 0:
         entry["out"] = "trainingData.txt"
         trainingFilePath_dict_weighted.append(entry)
-    elif weight > 0:
-        trainingFilePath_dict_weighted.extend([entry] * weight)
 
 
 trainingFileWeightTotal = sum([entry[2] for entry in rawDataFilepaths if len(entry) == 3])

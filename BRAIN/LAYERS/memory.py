@@ -101,8 +101,8 @@ class MEMORY(nn.Module):
                     
                     "4M_x_FINALmemory_norm": sum(self.FINALmemoryHistory) / len(self.FINALmemoryHistory),
 
-                    "4M_shortDecay": torch.sigmoid(self.shortTermDecay),
-                    "4M_longDecay": torch.sigmoid(self.longTermDecay),
+                    "_4M_shortDecay": torch.sigmoid(self.shortTermDecay).item(),
+                    "_4M_longDecay": torch.sigmoid(self.longTermDecay).item(),
                 }
 
                 self.shortGateScaleHistory = []
