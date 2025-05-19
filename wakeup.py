@@ -26,7 +26,7 @@ warnings.simplefilter("default") # show all warnings (PyTorch hides some by defa
 install(show_locals = True)
 torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
-def wakeup(windowMAX, dataStride, first = True):
+def wakeup(windowMAX, dataStride, totalTurnsAwake = 0, totalRuns = 0, first = True):
     try:
         # WAKE UP THE SCHOOL :)
         counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
@@ -70,7 +70,11 @@ def wakeup(windowMAX, dataStride, first = True):
                                                 _model                  = babyLLM,
                                                 _device                 = modelDevice,
                                                 _numTokensPerStep       = windowMAX,
-                                                _first                  = first)
+                                                _dataStride             = dataStride,
+                                                _first                  = first,
+                                                _lastRunLoss            = checkLossCheckpoint(),
+                                                _totalTurnsAwake        = totalTurnsAwake,
+                                                _totalRuns              = totalRuns)
             
             babyLLM.loadModel()
             babyLLM.to(modelDevice)
@@ -78,7 +82,7 @@ def wakeup(windowMAX, dataStride, first = True):
             # START THE LESSONS :)
             ʕっʘ‿ʘʔっ("starting lessons!")
             tutor.trainModel                (_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
-            return tutor.totalAvgLoss
+            return tutor.totalAvgLoss, tutor.totalTurns
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
@@ -101,6 +105,7 @@ def wakeup(windowMAX, dataStride, first = True):
         if tutor.trainingStepCounter:
             step = tutor.trainingStepCounter
             totalAvgLoss = tutor.totalAvgLoss
+            totalTurnsAwake += tutor.totalTurns
         else:
             step = 1
         choice = input("save, cancel (do not save before exit), restart or interact?" + f"\n{userName}: ").lower()
@@ -151,7 +156,7 @@ def setStartIndex():
 def checkLossCheckpoint():
     if os.path.exists(lossCheckpointFilePath):
         with open(lossCheckpointFilePath, "r") as f:
-            try: lastTurnLoss = int(f.read().strip())
+            try: lastTurnLoss = float(f.read().strip())
             except ValueError:
                 babyNote_loadLossCheckpoint = f"{babyName} 'noooo! i couldn't load loss checkpoint file from {lossCheckpointFilePath}, resetting to 0...' "
                 print(babyNote_loadLossCheckpoint)
@@ -171,6 +176,7 @@ def openingQuestions(_counsellor, _librarian, _windowMAX, _first):
         ʕっʘ‿ʘʔっ("setStartIndex")
         newStartIndex = setStartIndex()
         lastRunLoss   = checkLossCheckpoint()
+        #lastRunLoss = 420
 
         babyNote_loadCheckpointCheck = f"[{babyName}] right, last time i got to step {newStartIndex} and my average loss was {lastRunLoss}... want to restart from there?"
         ʕっʘ‿ʘʔっ("choice = input♥")
@@ -240,26 +246,75 @@ def main():
     dataStride          = trainingDataStride
     maxTokensPerStep    = 512 
     lastRunLoss         = checkLossCheckpoint()
+    #lastRunLoss         = 420
+    firstRun = True
+    totalTurnsAwake     = 0
+    totalRuns           = 0
+    easyStartThresh     = 3
     while windowMAX <= maxTokensPerStep:
         print(f"\n--- STARTING NEW TRAINING LOOP ---")
-        print(f"numTokensPerStep = {windowMAX}")
+        thisRunLoss, totalTurns = wakeup(windowMAX         = windowMAX, 
+                                         dataStride        = dataStride, 
+                                         totalTurnsAwake   = totalTurnsAwake, 
+                                         totalRuns         = totalRuns, 
+                                         first              = firstRun)
+        totalRuns += 1
+        totalTurnsAwake += totalTurns
+        firstRun = False
+        easyStart = True
+        print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}")
+        scale = abs(thisRunLoss - lastRunLoss) + 0.01
+        choice = random.choice([0,1,1,1,2,2,3,2,2,1,1,1,0])
+        increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
+        print(f"increment = {increment} = {choice} * ({totalRuns} / {totalTurnsAwake}) * {scale} = {choice} * {totalRuns/totalTurnsAwake} * {scale}")
 
-        thisRunLoss = wakeup(windowMAX, dataStride, first = (windowMAX == numTokensPerStepSTART))
+        maxAllowedWindowJump = round(0.2 * (maxTokensPerStep - windowMAX))
+        maxAllowedStrideJump = round(0.2 * ((windowMAX * 2) - dataStride))
 
-        print(f"BEFORE UPDATE: thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}")
-        if thisRunLoss > lastRunLoss:
-            if random.choice([True, False]):
-                windowMAX += 1
+        incrementW = max(1, min(increment, maxAllowedWindowJump))
+        incrementS = max(1, min(increment, maxAllowedStrideJump))
+
+        if easyStart:
+            if easyStartThresh > 0:
+                lastRunLoss = (min(lastRunLoss, thisRunLoss) + lastRunLoss)/2
+                easyStartThresh -= totalRuns
             else:
-                dataStride += 1
-        elif windowMAX > 1:
-            windowMAX -= 1
-            dataStride -= 1
+                easyStart = False
+        if thisRunLoss < lastRunLoss:
+            if random.choice([True, False]):
+                print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
+                windowMAX += incrementW
+            else:
+                print(f"upping dataStride from {dataStride} to {dataStride+incrementS}")
+                dataStride += incrementS
+        else:
+            windowOrStride = random.choice([True, False])
+            if windowMAX > incrementW+1:
+                if windowOrStride:
+                    print(f"downing windowMAX from {windowMAX} to {windowMAX-incrementW}")
+                    windowMAX -= incrementW
+                else:
+                    print(f"windowMAX staying at {windowMAX}")
+            elif dataStride > incrementS+1:
+                if not windowOrStride:
+                    print(f"downing dataStride from {dataStride} to {dataStride-incrementS}")
+                    dataStride -= incrementS
+                else:
+                    print(f"dataStride staying at {dataStride}")
+            elif dataStride == 1 and windowMAX == 1 or random.random() < 0.0001:
+                if random.choice([True, False]):
+                    print(f"bored. upping windowMAX from {windowMAX} to {windowMAX+1}")
+                    windowMAX += 1
+                else:
+                    print(f"bored. upping dataStride from {dataStride} to {dataStride+1}")
+                    dataStride += 1
         
-        dataStride = max(1, max(dataStride, windowMAX - 1))
+        windowMAX = max(1, min(windowMAX, maxTokensPerStep))
+        dataStride = max(1, min(dataStride, windowMAX * 2))
+        print(f"dataStride is {dataStride}, windowMAX is {windowMAX}")
 
         lastRunLoss = thisRunLoss
-        print(f"AFTER UPDATE: thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}")
+        print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}")
 
 if __name__ == "__main__":
     main()

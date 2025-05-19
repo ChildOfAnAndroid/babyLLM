@@ -202,14 +202,16 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            lrSoftClamp = 0.000001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
-            tempSoftClamp = 0.000001 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            lrSoftClamp = 0.0000001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
+            tempSoftClamp = 0.001 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             if self.repetitionPenalty >= 0:
-                repetitionPenaltySoftClamp = 0.000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+                repetitionPenaltySoftClamp = 0.000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+            elif self.repetitionPenalty >= -1:
+                repetitionPenaltySoftClamp = 0.0000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty < -1:
-                repetitionPenaltySoftClamp = 0.02 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+                repetitionPenaltySoftClamp = 0.0002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty < 0:
-                repetitionPenaltySoftClamp = 0.002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+                repetitionPenaltySoftClamp = 0.00002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
 
             loss += lrSoftClamp # use .detach() to avoid .backward()
             loss += tempSoftClamp

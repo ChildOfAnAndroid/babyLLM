@@ -106,8 +106,10 @@ class S_OUTPUT:
             "dim":           [RESET, DIM],              # dim style for background elements - arrows, colons, etc.
             "bold":          [BOLD],
             "match":         [BOLD, WHITE],
-            "static":        [DIM, PURPLE_PALE]
-        
+            "static":        [DIM, PURPLE_PALE],
+            "boldWhite":     "\033[1;37m",
+            "reverse":       "\033[7m",
+
         }
         for key, pkey in {"superPerfect": 0.0, # this works to show top record in super perfect direction, as it will be less than the min value
                         "perfect": 0.2,          "almostPerfect": 5,       "superGreat": 10,        "great": 15,        "good": 20,
@@ -153,70 +155,6 @@ class S_OUTPUT:
         
         staticBand = {"fine":   float('inf')}
         return {v: self.getDynamicPercentileBands(v) for v in ((mostImportantStats + allRecordedOtherStats) if self.allKeys is None else self.allKeys)}
-        return {
-            "loss":                     self.getDynamicPercentileBands("loss"),
-            "avgLoss":                  self.getDynamicPercentileBands("avgLoss"),
-            "avgLoss":                  self.getDynamicPercentileBands("avgLoss"),
-            "stepLoss":                 self.getDynamicPercentileBands("stepLoss"),
-            "scheduledSamplingRate":    self.getDynamicPercentileBands("scheduledSamplingRate"),
-            "tokenCount":               self.getDynamicPercentileBands("tokenCount"),
-            "trainingStepCount":        self.getDynamicPercentileBands("trainingStepCount"),
-            "repetitionPenalty":        self.getDynamicPercentileBands("repetitionPenalty"),
-            "gradNorm":                 self.getDynamicPercentileBands("gradNorm"),
-            "temperature":              self.getDynamicPercentileBands("temperature"),
-            "sampledTokens":            self.getDynamicPercentileBands("sampledTokens"),
-            "PT%":                      self.getDynamicPercentileBands("PT%"),
-            "latestLossDelta":          self.getDynamicPercentileBands("latestLossDelta"),
-            "gradientClipMaxNorm":      self.getDynamicPercentileBands("gradientClipMaxNorm"),
-            "LR":                       self.getDynamicPercentileBands("LR"),
-            "repetitionWindow":         self.getDynamicPercentileBands("repetitionWindow"),
-            "windowSizesMean":          self.getDynamicPercentileBands("windowSizesMean"),
-            "windowWeight":             self.getDynamicPercentileBands("windowWeight"),
-
-            # Neuron stats
-            "n_weightMean":             self.getDynamicPercentileBands("n_weightMean"),
-            "n_weightStd":              self.getDynamicPercentileBands("n_weightStd"),
-            "n_weightMin":              self.getDynamicPercentileBands("n_weightMin"),
-            "n_weightMax":              self.getDynamicPercentileBands("n_weightMax"),
-            "n_biasesMean":             self.getDynamicPercentileBands("n_biasesMean"),
-            "n_biasesStd":              self.getDynamicPercentileBands("n_biasesStd"),
-            "n_biasesMin":              self.getDynamicPercentileBands("n_biasesMin"),
-            "n_biasesMax":              self.getDynamicPercentileBands("n_biasesMax"),
-            "n_sparsity":               self.getDynamicPercentileBands("n_sparsity"),
-
-            # INN stats
-            "INN_cerebellum":           self.getDynamicPercentileBands("INN_cerebellum"),
-            "INN_cerebellumSoft":       self.getDynamicPercentileBands("INN_cerebellumSoft"),
-            "INN_cerebellumMean":       self.getDynamicPercentileBands("INN_cerebellumMean"),
-            "INN_cerebellumStd":        self.getDynamicPercentileBands("INN_cerebellumStd"),
-
-            # Memory stats
-            "shortDecay":               self.getDynamicPercentileBands("shortDecay"),
-            "longDecay":                self.getDynamicPercentileBands("longDecay"),
-            "latestMemoryGates":        self.getDynamicPercentileBands("latestMemoryGates"),
-            "memoryLength":             self.getDynamicPercentileBands("memoryLength"),
-
-            # Embed stats
-            "embedNormMean":            self.getDynamicPercentileBands("embedNormMean"),
-            "embedNormStd":             self.getDynamicPercentileBands("embedNormStd"),
-            "embedNormMax":             self.getDynamicPercentileBands("embedNormMax"),
-            "embedDimensionMean":       self.getDynamicPercentileBands("embedDimensionMean"),
-            "embedDimensionSparsity":   self.getDynamicPercentileBands("embedDimensionSparsity"),
-            "embeddingDrift":           self.getDynamicPercentileBands("embeddingDrift"),
-
-            # Logit stats
-            "logitMin":                 self.getDynamicPercentileBands("logitMin"),
-            "logitMax":                 self.getDynamicPercentileBands("logitMax"),
-            "logitSeq":                 self.getDynamicPercentileBands("logitSeq"),
-            "logitWeightNormMean":      self.getDynamicPercentileBands("logitWeightNormMean"),
-            "logitWeightNormStd":       self.getDynamicPercentileBands("logitWeightNormStd"),
-            "logitWeightNormMax":       self.getDynamicPercentileBands("logitWeightNormMax"),
-            "logitWeightSparsity":      self.getDynamicPercentileBands("logitWeightSparsity"),
-            "logitWeightDrift":         self.getDynamicPercentileBands("logitWeightDrift"),
-            "logitBiasMean":            self.getDynamicPercentileBands("logitBiasMean"),
-            "logitBiasStd":             self.getDynamicPercentileBands("logitBiasStd"),
-            "logitBiasMax":             self.getDynamicPercentileBands("logitBiasMax"),
-        }
 
     def getDynamicPercentileBands(self, statKey):
         if not self.rollingAverages:
@@ -256,24 +194,48 @@ class S_OUTPUT:
                 "bad":          self.getP(stat, 0.7000),    "worse":            self.getP(stat, 0.8000),    "wtf":          self.getP(stat, 0.9000),      
                 "omg":          self.getP(stat, 0.9500),    "omgwtf":           self.getP(stat, 0.9990),    "omgwtf!":      float('inf'),}
         
-
     def S_getStat(self, _statType, _statVal):
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
-            values = self.rollingAverages.get(_statType, []) if self.rollingAverages else []
-            if not values or len(values) < 2:
-                if debugPrints: print(f"Returning a dim color for stat {_statType} and value {_statVal} (values is {values} (key present:{_statType in self.rollingAverages if self.rollingAverages is not None else 'False'}))")
+            if not self.rollingAverages:
                 return "dim"
 
+            values = self.rollingAverages.get(_statType, {})
+            if not values or not isinstance(values, dict):
+                return "dim"
+
+            # Pick longest buffer
+            buffer = None
+            maxLen = -1
+            for key, val in values.items():
+                if isinstance(val, list) and len(val) > maxLen:
+                    buffer = val
+                    maxLen = len(val)
+            
+            if buffer and len(buffer) >= 2:
+                max_val = max(buffer)
+                min_val = min(buffer)
+                tolerance = 1e-8
+
+                if _statVal >= max_val - tolerance:
+                    return "superPerfect"
+                if _statVal <= min_val + tolerance:
+                    return "omgwtf!"
+                
+            if not buffer or len(buffer) < 2:
+                return "dim"
+
+            # fallback to percentile band lookup
             if self.S_statBands is None:
                 self.S_statBands = self.S_generateStatBands()
 
             bands = self.S_statBands.get(_statType, {})
             for label, limit in bands.items():
                 if _statVal <= limit:
-                    if _statType == "loss" and debugPrints: print(f"Ok here is the selected label: {label} for value {_statVal} and bands: {bands}")
+                    if _statType == "loss" and debugPrints: print(f"ok here is the selected label: {label} for value {_statVal} and bands: {bands}")
                     return label
-            print(f"Returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})")
+            print(f"returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})")
             return "emergency"
+
         
     def refreshStatBands(self, _rollingAverages):
         self.rollingAverages = _rollingAverages
