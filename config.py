@@ -89,7 +89,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStepSTART = 2   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 1   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
@@ -116,7 +116,7 @@ windowEntropyBonus = True
 detailedLogging = True
 
 trainingLogFreq_A = 100    # creates logs every x number of turns
-trainingLogFreq_B = 1000   # creates logs every x number of turns
+trainingLogFreq_B = 10000   # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
@@ -194,6 +194,7 @@ mostImportantStats  =   [
             #       "3INN_x_FINALoutLayerNorm_norm_neuron",
             #    "_INN_windowSizesMean",
             #    "INN_cerebellumMean",  
+                "INN_windowFractionalityMean",
 
             # MEMORY STATS
             #                                                       "4M_0_rawActivations_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
@@ -358,7 +359,7 @@ reflectionFreq = 10000
 stableFallThreshold = 2 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 200 #169420
+trainingDataPairNumber = 50 #169420
 trainingDataStride = 1
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
@@ -473,7 +474,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
 """-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""
 
 """--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
-saveStrict = True   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
+saveStrict = False   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
 """--- MODEL ---"""
 embedDimension = 1024   # dimensionality of token embeddings

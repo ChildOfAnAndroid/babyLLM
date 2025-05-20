@@ -78,6 +78,8 @@ class TUTOR:
         self.totalTotalTokenEvaluations = 0
         self.totalTokenPerfectRate      = 0
         self.tooDifficult               = 0
+        self.averageTries               = 0
+        self.averageTriesTotal          = 0
 
         self.aaa    = 0
         self.bbb    = 0
@@ -114,6 +116,7 @@ class TUTOR:
             self.easyLossDelta = 0
             self.reflectionTrainingPairs = []
             self.reflectionFreq = reflectionFreq
+            totalTries = 0
 
             ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
@@ -131,9 +134,11 @@ class TUTOR:
                     print(f"turn start :)")
                     _inputSeq, _targetSeq = _trainingDataPairs[i]
                     self.stableFallCount = 0
+                    self.averageTriesTotal += totalTries
+                    self.averageTries = self.averageTriesTotal / self.trainingStepCounter
                     totalTries = 0
                     if perfectionistRun:
-                        self.maxRetries = 60 #150
+                        self.maxRetries = 40 #150
                     else:
                         self.maxRetries = 10
 
@@ -590,7 +595,7 @@ class TUTOR:
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
                 _topTokens_str = topTokens_str,
-                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}| windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency}",
+                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}, averageTries {self.averageTries:.0f} | windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 

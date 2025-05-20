@@ -197,6 +197,9 @@ class INTERNEURON_NETWORK(nn.Module):
         self.neurons = NEURON(_counsellor = self.inn_counsellor, _numTokensPerStep = self.numTokensPerStep)
 
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
+
+        self.windowFractionality = nn.Parameter(torch.full((len(allWindowSizes_new),), -6.0, device=self.device))
+
         self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))) # one tensor per window size!
         self.refinement2 = torch.nn.Sequential(
                             nn.Linear(numNeurons, 512, device=self.device), # bottleneck layer
@@ -223,8 +226,10 @@ class INTERNEURON_NETWORK(nn.Module):
             ʕっʘ‿ʘʔっ("INN1: neuronActivationsPerToken") # <- N <- E
             self.neuronActivationsPerToken = self.neurons(_inputEmbeds)
 
-            ʕっʘ‿ʘʔっ("windows...") # this is done twice??? its in stackedWindowMeans too I think??
-            self.floatWindowSizes = torch.exp(self.logWindowSizes) 
+            ʕっʘ‿ʘʔっ("windows...")
+            #self.floatWindowSizes = torch.exp(self.logWindowSizes) # LEGACY NO CLAMP WINDOWS
+            # sigmoid scaling floatWindowSizes - windows hover within [1, numTokensPerStep], with less pull as it gets higher
+            self.floatWindowSizes = 1 + (self.numTokensPerStep - 1) * (torch.tanh(self.logWindowSizes) + 1) / 2
             #self.intWindowSizes = torch.exp(self.logWindowSizes).round()
             self.intWindowSizes = torch.round(self.floatWindowSizes).clamp(min=1)
 
@@ -345,8 +350,12 @@ class INTERNEURON_NETWORK(nn.Module):
             # THE RANGE MASK IS ONLY EVER AS LONG AS WINDOWMAX, SO THAT WINDOWS DONT EXCEED IT
             rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)  # (1, maxW)
 
-            # straight-through estimator: lets gradients flow through int version
-            windowTensor = (self.intWindowSizes - self.floatWindowSizes).detach() + self.floatWindowSizes
+            # straight-through estimator: gradient flows only through floatWindow
+            fractionality = torch.sigmoid(self.windowFractionality)  # (numWindows,)
+
+            # learnable fractionality, allows it to decide how descrite the windows should be
+            windowTensor = (1 - fractionality) * self.intWindowSizes.detach() + fractionality * self.floatWindowSizes
+
             windowTensor = windowTensor.unsqueeze(1)  # (numWindows, 1)
             windowTensor = windowTensor.clamp(min=1.0)
             self.windowTensor_used = windowTensor.squeeze(1).detach()  # shape: (numWindows,) (FOR STATS)
@@ -401,13 +410,15 @@ class INTERNEURON_NETWORK(nn.Module):
                 with torch.no_grad():
                     if INN_cerebellumStats:
                         ʕっʘ‿ʘʔっ("♥getCerebellumStats") #THIS WAS WINDOWWEIGHTING
+                        self.stats["INN_windowFractionalityMean"] = torch.sigmoid(self.windowFractionality).mean().item()
                         self.stats["INN_cerebellumMean"] = self.cerebellum.mean().item()
                         self.stats["INN_cerebellumStd"] = self.cerebellum.std().item()
-                        INN_cerebellumStats_fullValues = zip(self.floatWindowSizes, self.cerebellum, self.cerebellumSoft)
-                        for w, raw, soft in INN_cerebellumStats_fullValues:
+                        INN_cerebellumStats_fullValues = zip(self.floatWindowSizes, self.cerebellum, self.cerebellumSoft, self.windowTensor_used)
+                        for w, raw, soft, tensor in INN_cerebellumStats_fullValues:
                             self.stats[f"INN_cerebellum_W{int(w)}_float"] = w.item()
                             self.stats[f"INN_cerebellum_W{int(w)}"] = raw.item()
                             self.stats[f"INN_cerebellumSoft_W{int(w)}"] = soft.item()
+                            self.stats[f"INN_cerebellum_W{int(w)}_tensor"] = soft.item()
                         if debugPrints: print(f"cerebellum: {self.cerebellum}, soft: {self.cerebellumSoft} mean: {self.stats['INN_cerebellumMean']} std: {self.stats['INN_cerebellumStd']}")
                         ʕっʘ‿ʘʔっ("♥cerebellumString")
                         INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.floatWindowSizes, windowTensor = self.windowTensor_used, per_window_style = True)
