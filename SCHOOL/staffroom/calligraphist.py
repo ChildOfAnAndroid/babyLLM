@@ -290,7 +290,7 @@ class S_OUTPUT:
             ʕっʘ‿ʘʔっ("calculateLossDelta") # Calculate delta
             if _recentLoss is not None:
                 delta = _recentLoss - _loss
-                delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_deltaType, f'{S_delta:+.4f}')}{'↗' if S_delta < 0 else '↘'}"
+                delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_deltaType, f'{S_delta: .4f}')}{'↗' if S_delta < 0 else '↘'}"
 
             rollingAvgLoss_str = ""
             #if self.rollingAverages and "loss" in self.rollingAverages:
@@ -363,7 +363,7 @@ class S_OUTPUT:
             ])
 
             newLineLittle += newLineDelim.join([
-                self.S_apply(self.S_getStat(k, v), f"{v:+{statTopLen}.{decLen}f}") + " " + self.S_apply("dim", k)
+                self.S_apply(self.S_getStat(k, v), f"{v: {statTopLen}.{decLen}f}") + " " + self.S_apply("dim", k)
                 for k, v in avgStats.items()
                 if k in mostImportantStats
                 if v not in (None, "")
@@ -483,10 +483,22 @@ class S_OUTPUT:
             triplets = sorted(zip(windowSizes, windowTensor, rawTensor, softTensor), key=lambda x: x[3], reverse=True)
             formatted = []
             for w, t, raw, soft in triplets:
-                w_style = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(w)}_float", w)
-                raw_style = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(w)}", raw.item())
-                soft_style = self.S_getStat(f"{label}Soft" if not per_window_style else f"{label}_W{int(w)}", soft.item())
-                chunk = f"{self.S_apply(raw_style, f'{raw.item():.6f}')} ({self.S_apply(soft_style, f'{soft.item():.6f}')}) {self.S_apply(w_style, f'w{int(t)} ({w:.6f})')}"
+                floatVal = w.item() if isinstance(w, torch.Tensor) else w
+                tensorVal = t.item() if isinstance(t, torch.Tensor) else t
+                weightVal = raw.item() if isinstance(raw, torch.Tensor) else raw
+                softmaxWeightVal = soft.item() if isinstance(soft, torch.Tensor) else soft
+
+                floatStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}_float", floatVal)
+                tensorStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}_tensor", tensorVal)
+                weightStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}", weightVal)
+                softmaxWeightStyle = self.S_getStat(f"{label}Soft" if not per_window_style else f"{label}_W{int(floatVal)}", softmaxWeightVal)
+
+                chunk = (
+                    f"{self.S_apply(weightStyle, f'{weightVal: .6f}')} "
+                    f"{self.S_apply(softmaxWeightStyle, f'({softmaxWeightVal:.2f})')} "
+                    f"{self.S_apply(tensorStyle, f'w{tensorVal:.6f}')} "
+                    f"{self.S_apply(floatStyle, f'[{floatVal:.6f}]')}"
+                )
                 formatted.append(chunk)
             return "\n".join(formatted)
         except Exception as e:
