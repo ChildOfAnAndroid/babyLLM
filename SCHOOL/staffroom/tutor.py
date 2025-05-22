@@ -77,6 +77,7 @@ class TUTOR:
         self.totalPerfectTokens         = 0
         self.totalTotalTokenEvaluations = 0
         self.totalTokenPerfectRate      = 0
+        self.tokenPerfectRate           = 0
         self.tooDifficult               = 0
         self.averageTries               = 0
         self.averageTriesTotal          = 0
@@ -116,7 +117,7 @@ class TUTOR:
             self.easyLossDelta = 0
             self.reflectionTrainingPairs = []
             self.reflectionFreq = reflectionFreq
-            totalTries = 0
+            self.totalTries = 0
 
             ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
@@ -131,18 +132,18 @@ class TUTOR:
                 turnsNotReflecting = 0
                 turnsNotReflecting += self.totalTurnsAwake
                 while i < len(_trainingDataPairs):
-                    print(f"turn start :)")
+                    if debugPrints: print(f"turn start :)")
                     _inputSeq, _targetSeq = _trainingDataPairs[i]
                     self.stableFallCount = 0
-                    self.averageTriesTotal += totalTries
+                    self.averageTriesTotal += self.totalTries
                     self.averageTries = self.averageTriesTotal / self.trainingStepCounter
-                    totalTries = 0
+                    self.totalTries = 0
                     if perfectionistRun:
-                        self.maxRetries = 40 #150
+                        self.maxRetries = 20 #150
                     else:
                         self.maxRetries = 10
 
-                    while self.stableFallCount < stableFallThreshold and totalTries < self.maxRetries:
+                    while self.stableFallCount < stableFallThreshold and self.totalTries < self.maxRetries:
                         if turnsNotReflecting == self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
                             ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
                             self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
@@ -159,7 +160,7 @@ class TUTOR:
                         else:
                             currentReflection = None
                             scribeusedThisTurn = False
-                        totalTries += 1
+                        self.totalTries += 1
 
                         ʕっʘ‿ʘʔっ("♥START OF TURN")
                         if currentReflection is not None:
@@ -178,7 +179,7 @@ class TUTOR:
                         ʕっʘ‿ʘʔっ("♥collectTurnStats")
                         self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
                         self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
-                        if debugPrints or True: print(f"Setting latestLossDelta {self.latestLossDelta:.2f} = {self.stepLossFloat:.2f} - {self.averageRecentLoss:.2f}")
+                        if debugPrints: print(f"Setting latestLossDelta {self.latestLossDelta:.2f} = {self.stepLossFloat:.2f} - {self.averageRecentLoss:.2f}")
                         self.easyLossDelta = self.stepLossFloat - ((self.averageRecentLoss + self.stepLossFloat + self.stepLossFloat)/3)
 
                         if self.totalTurns % refreshRollingTokenTotalsWhen == 0:
@@ -207,15 +208,15 @@ class TUTOR:
                         self.totalTurns += 1
                         self.totalAvgLoss = self.totalLoss / max(1, self.totalTurns)
 
-                        print(f"{self.stableFallCount:.2f}", end="")
+                        if debugPrints: print(f"{self.stableFallCount:.2f}", end="")
                         latestIncrement = (1 + abs(self.latestLossDelta))  # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
-                        if perfectionistRun: latestIncrement *= 0.001 #0.1
+                        if perfectionistRun: latestIncrement *= 0.01 #0.1
                         if self.easyLossDelta < 0:
                                 self.stableFallCount += latestIncrement
-                                print(f" + {latestIncrement:.2f}", end="")
+                                if debugPrints: print(f" + {latestIncrement:.2f}", end="")
                         else: 
                             self.stableFallCount -= latestIncrement
-                            print(f" - {latestIncrement:.2f}", end="")
+                            if debugPrints: print(f" - {latestIncrement:.2f}", end="")
 
                         if perfectionistRun:
                             latestPerfectIncrement = (10 + self.tokenPerfectRate) * self.perfectTokens # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
@@ -224,24 +225,24 @@ class TUTOR:
                             latestPerfectAntiDeltaIncrement = (10 + abs(self.totalTokenPerfectRate - self.tokenPerfectRate)) * self.perfectTokens
                             latestMassivePerfectIncrement = (10 + self.totalTokenPerfectRate + self.tokenPerfectRate) * self.perfectTokens
                             averagePerfectIncrement = (latestPerfectIncrement + latestTotalPerfectIncrement + latestPerfectDeltaIncrement + latestPerfectAntiDeltaIncrement + latestMassivePerfectIncrement) / 5
-                            incrementChoice = random.choice([latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement])
-                            if self.tokenPerfectRate > 90.0: #50.0:
-                                self.stableFallCount += incrementChoice
-                                print(self.calligraphist.S_apply("reverse", f" + {incrementChoice:.2f}"), end="")
+                            perfectIncrementChoice = random.choice([latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement])
+                            if self.tokenPerfectRate > 30.0: #50.0:
+                                self.stableFallCount += 200
+                                if debugPrints: print(self.calligraphist.S_apply("reverse", f" + {perfectIncrementChoice:.2f}"), end="")
                                 if debugPrints: print(f"cold with the flow yeah i wrote this one on an old iPhone with a broken screen... think you’re gonna try test man with a verse like that, you’re a fucking aubergine... tokenPerfectRate = {self.tokenPerfectRate:.2f}%")
                                 # continue
                             else: 
-                                self.stableFallCount -= incrementChoice * 0.001 #0.01
-                                print(f" - {(abs(latestIncrement-latestPerfectIncrement) * 0.001):.2f}", end="")
+                                self.stableFallCount -= perfectIncrementChoice * 0.01 #0.01
+                                if debugPrints: print(f" - {(abs(latestIncrement-latestPerfectIncrement) * 0.01):.2f}", end="")
 
-                        print(f" = {self.stableFallCount:.2f}")
-                        if perfectionistRun and (debugPrints or True): print(f"selected {incrementChoice} from {[latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement]}")
+                        if debugPrints: print(f" = {self.stableFallCount:.2f}")
+                        if perfectionistRun and (debugPrints): print(f"selected {perfectIncrementChoice} from {[latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement]}")
 
                         ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
                         self.latestLossDelta = self.endTurnActions()
 
                     self.totalTurnAttempts = 0
-                    if totalTries >= self.maxRetries:
+                    if self.totalTries >= self.maxRetries:
                         self.tooDifficult += 1
                         if abs(self.latestLossDelta) < 0.05:
                             self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.0000005*abs(self.latestLossDelta)))
@@ -352,7 +353,7 @@ class TUTOR:
                 ʕっʘ‿ʘʔっ("loop through tokens for this step")
                 if j < len(_targetTokenIndexSeq):
                     ʕっʘ‿ʘʔっ("totalTokenCounter")
-                    self.totalTokenEvaluations += 1
+                    # self.totalTokenEvaluations += 1
 
                     ʕっʘ‿ʘʔっ("computeLoss")
                     stepLoss = self.model.computeLoss(logits, _targetTokenIndexSeq[j], self.latestLossDelta, self.perfectTokens)
@@ -362,10 +363,14 @@ class TUTOR:
 
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
+            triesLossModifier = (1 + (self.totalTries - 1)/10)
+            perfectLossModifier = 1 / (1 + (self.tokenPerfectRate / 100))
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
+            BACKWARDloss = BACKWARDloss * triesLossModifier
+            BACKWARDloss = BACKWARDloss * perfectLossModifier
+            BACKWARDloss = BACKWARDloss - (0.01 * self.model.interneuronNetwork.entropyBonus)
             self.totalLoss += BACKWARDloss.item()
-            #BACKWARDloss_ = (0.025*self.BACKWARDwobbleLoss)+(0.975*BACKWARDloss)
             #if windowEntropyBonus:
                 #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
                     #BACKWARDloss = BACKWARDloss + (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
@@ -524,7 +529,8 @@ class TUTOR:
     def saveFreqActions(self): 
         with self.counsellor.infodump("saveFreqActions") as ʕっʘ‿ʘʔっ: # SAVE THE MODEL EVERY x STEPS
             print(self.calligraphist.S_apply('dim', 'autosaving...'))
-            self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = self.trainingStepCounter, _totalAvgLoss = self.totalAvgLoss, _first = self.first)
+            saveCounter = self.trainingStepCounter * self.dataStride
+            self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = saveCounter, _totalAvgLoss = self.totalAvgLoss, _first = self.first)
             p = self.trainingStepCounter + saveModelFreq
             print(self.calligraphist.S_apply('dim', f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {p}...") + self.calligraphist.S_apply('reset', ''))
             ʕっʘ‿ʘʔっ("grad checks")
@@ -547,7 +553,7 @@ class TUTOR:
             #recentLoss = sum(self.recentPrintLosses)/len(self.recentPrintLosses) if self.recentPrintLosses else None
             ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
             self.calligraphist.S_colourPrintTraining(
-                _step = self.trainingStepCounter,
+                _step = (self.trainingStepCounter),
                 _inputSeq = self.inputSeq,
                 _guessedSeq_str = self.stringStats.get("boldPerfects", self.guessedTokenSeq),
                 _targetSeq_str = self.stringStats.get("usedInputSeq", []),
@@ -662,6 +668,22 @@ class TUTOR:
 
             if collectStats:
                 ʕっʘ‿ʘʔっ("♥if collectStats♥")
+                if token_collectStats:
+                    ʕっʘ‿ʘʔっ("♥most common tokens")
+                    self.perfectTokens = 0
+
+                    ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
+                    if not self.predictedTokenIndices:
+                        print("!! no predicted token indices — returning { } for stringStats")
+                        return self.stats, {}, self.guessedTokenSeq # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
+                    
+                    self.totalTokenEvaluations          = 0
+                    target                              = torch.tensor(self.targetTokenIndexSeq[:self.numTokensPerStep], device=modelDevice)
+                    predicted                           = torch.tensor(self.predictedTokenIndices, device = modelDevice)
+                    correct                             = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
+                    self.perfectTokens                 += correct.item()
+                    self.totalTokenEvaluations         += len(target)
+                
                 if self.totalTokenEvaluations > 0:
                     self.tokenPerfectRate = (self.perfectTokens / self.totalTokenEvaluations) * 100
                 else:
@@ -691,22 +713,6 @@ class TUTOR:
 
                 self.stringStats["usedInputSeq"] = formattedUsed
 
-                if token_collectStats:
-                    ʕっʘ‿ʘʔっ("♥most common tokens")
-                    self.perfectTokens = 0
-
-                    ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
-                    if not self.predictedTokenIndices:
-                        print("!! no predicted token indices — returning { } for stringStats")
-                        return self.stats, {}, self.guessedTokenSeq # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
-                    
-                    self.totalTokenEvaluations          = 0
-                    target                              = torch.tensor(self.targetTokenIndexSeq[:self.numTokensPerStep], device=modelDevice)
-                    predicted                           = torch.tensor(self.predictedTokenIndices, device = modelDevice)
-                    correct                             = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
-                    self.perfectTokens                 += correct.item()
-                    self.totalTokenEvaluations         += len(target)
-
                 if static_collectStats:
                     ʕっʘ‿ʘʔっ("♥if static_collectStats")
                     self.stats["scheduledSamplingRate"] = self.scheduledSamplingRateFloat
@@ -728,11 +734,16 @@ class TUTOR:
 
                 if logit_collectStats:
                     ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
-                    self.stats.update(self.model.logits.getLogitStats())
-                    if self.stats["logitSeq"]:
-                        ʕっʘ‿ʘʔっ("♥logit max & min")
-                        self.stats["logitMin"] = self.logitSeq[-1].min(dim=-1).values.mean()
-                        self.stats["logitMax"] = self.logitSeq[-1].max(dim=-1).values.mean()
+                    logitStats = self.model.logits.getLogitStats()
+                    for k, v in logitStats.items():
+                        if isinstance(v, (int, float)):
+                            self.stats[k] = self.stats.get(k, 0) + v
+                        else:
+                            self.stringStats[k] = v  # dump non-numeric stuff here (e.g. top logits, indices)
+                    #if self.stats["logitSeq"]:
+                    #    ʕっʘ‿ʘʔっ("♥logit max & min")
+                    #    self.stats["logitMin"] = self.logitSeq[-1].min(dim=-1).values.mean()
+                    #    self.stats["logitMax"] = self.logitSeq[-1].max(dim=-1).values.mean()
 
                 #self.stats.update(self.wobble.getWobbleStats())
 
