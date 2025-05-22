@@ -186,8 +186,8 @@ class BABYLLM(nn.Module):
                 _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
             
             ʕっʘ‿ʘʔっ("cross Entropy Loss")
-            LOSSlogits = torch.clamp(_logits, min=-50, max=50)
-            loss = F.cross_entropy(LOSSlogits, targetTensor)
+            #LOSSlogits = torch.clamp(_logits, min=-50, max=50)
+            loss = F.cross_entropy(_logits, targetTensor)
 
             if not torch.isfinite(loss):
                 print("NaN/Inf loss detected — logits:", _logits)
@@ -202,7 +202,7 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            lrSoftClamp = 0.0000001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
+            lrSoftClamp = 0.001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
             tempSoftClamp = 0.001 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             if self.repetitionPenalty >= 0:
                 repetitionPenaltySoftClamp = 0.000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
@@ -259,7 +259,12 @@ class BABYLLM(nn.Module):
                         std = grad.std().item()
                         print(f"before = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
             ʕっʘ‿ʘʔっ("loss.backward")
+            if debugPrints: print("Loss:", _loss.item())
             _loss.backward()
+            if debugPrints: print("Logit weights grad norm:", self.logits.l_weights.grad.norm())
+            if debugPrints: print("LogWindowSizes grad norm:", self.interneuronNetwork.logWindowSizes.grad.norm())
+            if debugPrints: print("Cerebellum grad norm:", self.interneuronNetwork.cerebellum.grad.norm())
+            if debugPrints: print("Repetition penalty grad norm:", self.repetitionPenalty.grad.norm())
             #print(next(self.parameters()).grad)
             if debugPrints:
                 for name, p in self.named_parameters():
@@ -308,9 +313,9 @@ class BABYLLM(nn.Module):
             self.optimizer.step()  # Update weights
 
             self.backwardStats = {
-                "_B_floatMemoryLength": torch.exp(self.logMemoryLength).item(),
-                "_B_repetitionWindow": torch.exp(self.logRepetitionWindow).item(),
-                "_B_temperature": torch.exp(self.logTemp).item(),
+                "B_floatMemoryLength": torch.exp(self.logMemoryLength).item(),
+                "B_repetitionWindow": torch.exp(self.logRepetitionWindow).item(),
+                "B_temperature": torch.exp(self.logTemp).item(),
             }
             self.stats.update(self.backwardStats)
 

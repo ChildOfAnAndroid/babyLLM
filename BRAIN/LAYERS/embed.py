@@ -31,6 +31,9 @@ class EMBED(nn.Module):
             self.embedNormed = self.embedNorm(self.embedVector)
             ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
             self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
+            with torch.no_grad():
+                self.weightsScale.data.clamp_(-10, 10)
+                self.normScale.data.clamp_(-10, 10)
             return self.embedFinal # E3 -> N??
     
     def getEmbedStats(self):
@@ -38,24 +41,24 @@ class EMBED(nn.Module):
             with torch.no_grad():
                 self.stats = {}
                 embedNorms = torch.norm(self.e_weights, dim = 1)
-                self.stats["embedNormMean"] = embedNorms.mean()
-                self.stats["embedNormStd"] = embedNorms.std()
-                self.stats["embedNormMax"] = embedNorms.max()
+                self.stats["1E_weightNormMean"] = embedNorms.mean()
+                self.stats["1E_weightNormStd"] = embedNorms.std()
+                self.stats["1E_weightNormMax"] = embedNorms.max()
 
-                self.stats["1E_0_embedVector_norm"] = self.embedVector.norm().item()
-                self.stats["1E_1_embedNormed_norm"] = self.embedNormed.norm().item()
-                self.stats["1E_x_embedFinal_norm"] = self.embedFinal.norm().item()
-                self.stats["1E_0_embedVector_scale"] = self.weightsScale.norm().item()
-                self.stats["1E_1_embedNormed_scale"] = self.normScale.norm().item()
+                self.stats["1E_0_vector_norm"] = self.embedVector.norm().item()
+                self.stats["1E_1_normed_norm"] = self.embedNormed.norm().item()
+                self.stats["1E_x_final_norm"] = self.embedFinal.norm().item()
+                self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
+                self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
 
                 dimMean = self.e_weights.mean(dim = 0)
-                self.stats["embedDimensionMean"] = dimMean
+                #self.stats["1E_dimMean"] = dimMean
                 dimSparsity = (dimMean.abs() < 1e-4).float().mean()
-                self.stats["embedDimensionSparsity"] = dimSparsity
-
+                self.stats["1E_dimSparsity"] = dimSparsity
+ 
                 # Drift since last save
                 drift = torch.norm(self.e_weights - self.lastSavedEmbeds)
-                self.stats["embeddingDrift"] = drift
+                self.stats["1E_drift"] = drift
                 self.lastSavedEmbeds = self.e_weights.detach().clone()
 
                 return self.stats

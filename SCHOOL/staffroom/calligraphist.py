@@ -140,7 +140,7 @@ class S_OUTPUT:
         # bottom score ever         #omgwtf
         # lower than bottom ever    #omgwtf!
 
-        self.avgPlz = ["embedNormMean", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellumMean", "INN_cerebellumStd"]
+        self.avgPlz = ["embedNormMean", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "3INN_cerebellumMean", "3INN_cerebellumStd", "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy"]
 
         return
     
@@ -214,11 +214,9 @@ class S_OUTPUT:
             if buffer and len(buffer) >= 2:
                 max_val = max(buffer)
                 min_val = min(buffer)
-                tolerance = 1e-8
-
-                if _statVal >= max_val - tolerance:
+                if _statVal == max_val:
                     return "superPerfect"
-                if _statVal <= min_val + tolerance:
+                if _statVal == min_val:
                     return "omgwtf!"
                 
             if not buffer or len(buffer) < 2:
@@ -300,11 +298,15 @@ class S_OUTPUT:
             #        rollingAvgLoss_str = f"{self.S_apply(S_type, f'{rollingAvgLoss:.3f}')}{self.S_apply('dim', 'mean ')}"
 
             ʕっʘ‿ʘʔっ("printGuess+truth")
-            print(f"{self.S_apply('dim', f'{_step}')}|{self.S_apply('dim', prompt_str)}|{self.S_apply('dim', 'loss: ')}{self.S_apply(S_type, f'{_loss:.4f}')}{self.S_apply('dim', '/1 ')}"
-                + (f"{self.S_apply(S_avgType, f'{_recentLoss:.4f}')}{self.S_apply('dim', f'/{trainingLogFreq_A} ')}" if _recentLoss else "")
-                + rollingAvgLoss_str + delta_str + "|\n"
-                + f"{self.S_apply('dim', 'guess → ')}{guess_str}{self.S_apply(S_type, ' [!] ') if match else self.S_apply('dim', ' [?] ')}\n"
-                + f"{self.S_apply('dim', 'truth → ')}{truth_str}{self.S_apply('dim', ' | ')}\n")
+            print(
+                self.S_apply('dim', f'trainingStep: {_step}') + " | " +
+                self.S_apply('dim', 'loss: ') + self.S_apply(S_type, f'{_loss:.4f}') + self.S_apply('dim', '/1 ') +
+                (self.S_apply(S_avgType, f'{_recentLoss:.4f}') + self.S_apply('dim', f'/{trainingLogFreq_A} ') if _recentLoss else "") +
+                rollingAvgLoss_str + delta_str + "|\n" +
+                self.S_apply('dim', 'prompt → ') + self.S_apply('dim', prompt_str) + "\n" +
+                self.S_apply('dim', 'guess  → ') + guess_str + "\n" +
+                self.S_apply('dim', 'truth  → ') + truth_str
+            )
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
 
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, 
@@ -316,7 +318,7 @@ class S_OUTPUT:
             newLineDelim = self.S_apply("dim", " | \n")
 
             ʕっʘ‿ʘʔっ("avgStats")
-            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "INN_cerebellum", "INN_cerebellumSoft", "INN_cerebellumMean", "INN_cerebellumStd", "shortDecay", "longDecay"]
+            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "3INN_cerebellum", "3INN_cerebellumSoft", "3INN_cerebellumMean", "3INN_cerebellumStd", "shortDecay", "longDecay"]
             #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
             avgStats = {k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v for k, v in sorted(_stats.items()) if k != "embedDimensionMean" and k != "latestMemoryGates"}
@@ -327,7 +329,7 @@ class S_OUTPUT:
                 # add 1 for the sign,
                 #     1 for the decimal dot and
                 #     1 for the fact that log is missing 1 (i.e. log10([100-1000[) is in [2,3[, when 100 takes 3 chars)
-                decLen = 6
+                decLen = 4
                 statTopLen = math.trunc(decLen + 1 + 1 + 1 + math.log(max(max(avgStats.values()), abs(min(avgStats.values()))), 10))
             except Exception as e:
                 statTopLen = 10
@@ -336,7 +338,7 @@ class S_OUTPUT:
             stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.12f}")])
             logOutput = stampAndStep
             littleLogOutput = stampAndStep
-            newLineLittle = stampAndStep + "\n"
+            newLineLittle = stampAndStep
 
             def format_stat(k, v):
                 try:
@@ -362,12 +364,112 @@ class S_OUTPUT:
                 if v not in (None, "")
             ])
 
-            newLineLittle += newLineDelim.join([
+            """newLineLittle += newLineDelim.join([
                 self.S_apply(self.S_getStat(k, v), f"{v: {statTopLen}.{decLen}f}") + " " + self.S_apply("dim", k)
                 for k, v in avgStats.items()
                 if k in mostImportantStats
                 if v not in (None, "")
-            ]) + newLineDelim
+            ]) + newLineDelim"""
+            maxKeyLen = 18
+            maxCols = 4
+            cellWidth = statTopLen + decLen + 2 + maxKeyLen + 1
+
+            statSections = [
+                ("EMBED STATS", re.compile(r"1E_")),
+                ("NEURON STATS", re.compile(r"2N_")),
+                ("INTERNEURON STATS", re.compile(r"3INN_")),
+                ("MEMORY STATS", re.compile(r"4M_")),
+                ("BABYLLM STATS", re.compile(r"[0-9]B_")),
+                ("LOGIT STATS", re.compile(r"6L_")),
+            ]
+
+            def truncate_key(k, max_len):
+                return (k[:max_len - 1] + "…") if len(k) > max_len else k
+
+            def visible_len(s):
+                return len(self.S_stripForLogging(s))
+
+            def pad_ansi(s, width):
+                raw_len = visible_len(s)
+                return s + " " * max(0, width - raw_len - 2)
+            
+            def format_header(label):
+                headerText = f"{label}"  # no colon, no line
+                padded = " " * (statTopLen - decLen - 1) + self.S_apply("bold", headerText)
+                return pad_ansi(padded, cellWidth)
+            
+            def strip_stat_key(k, sectionPrefixes):
+                # remove section prefix like "1E_", "6L_", etc.
+                for _, pattern in sectionPrefixes:
+                    if pattern.match(k):
+                        k = pattern.sub("", k, count=1)
+                        break
+
+                # remove leading digit/underscore combos like "0_", "1_", etc.
+                k = re.sub(r"^\d+_", "", k)
+
+                # remove in-between or suffix patterns like "_x_", "_1_", etc.
+                k = re.sub(r"_[x\d]+_", "_", k)
+
+                # remove trailing "_x" or leading "x_" or isolated "x" after trimming
+                k = re.sub(r"^x_", "", k)
+                k = re.sub(r"_x$", "", k)
+                k = re.sub(r"^x$", "", k)
+
+                return k
+
+            # Group + format
+            groupedStats = {}
+            for k in sorted(avgStats.keys()):
+                if k not in mostImportantStats or avgStats[k] in (None, ""):
+                    continue
+                label = next((label for label, pattern in statSections if re.match(pattern, k)), "MISC")
+                groupedStats.setdefault(label, []).append((k, avgStats[k]))
+
+            # Build flat list with headers as entries
+            flatEntries = []
+            for sectionLabel, stats in groupedStats.items():
+                flatEntries.append((f"__HEADER__{sectionLabel}", None))
+                for k, v in stats:
+                    try:
+                        numberStr = f"{v:>{statTopLen}.{decLen}f}"
+                        keyStr = truncate_key(strip_stat_key(k, statSections), maxKeyLen)
+                        formatted = (
+                            f"{self.S_apply(self.S_getStat(k, v), numberStr)} "
+                            f"{self.S_apply('dim', keyStr)}"
+                        )
+                    except Exception as e:
+                        formatted = (
+                            f"{self.S_apply('dim', f'ERR:{str(e)}')} "
+                            f"{self.S_apply('dim', k)}"
+                        )
+                    flatEntries.append((k, formatted))
+
+            # Format each entry
+            formattedCells = []
+            for k, val in flatEntries:
+                if k.startswith("__HEADER__"):
+                    label = k.replace("__HEADER__", "")
+                    formattedCells.append(format_header(label))  # don’t pad header
+                else:
+                    formattedCells.append(pad_ansi(val, cellWidth))
+
+            # Pad to fill grid
+            while len(formattedCells) % maxCols != 0:
+                formattedCells.append(" " * cellWidth)
+
+            # Distribute vertically into columns
+            colHeight = len(formattedCells) // maxCols
+            columns = [
+                formattedCells[i * colHeight : (i + 1) * colHeight]
+                for i in range(maxCols)
+            ]
+
+            # Zip into rows
+            rows = list(zip(*columns))
+
+            # Combine into grid
+            newLineLittle += "\n" + "\n".join("".join(cell for cell in row) for row in rows) + f"{self.S_apply('reset', "")}"
 
             if _INN_cerebellum_str: 
                 ʕっʘ‿ʘʔっ("INN_cerebellum_str")
@@ -405,6 +507,7 @@ class S_OUTPUT:
                     print(newLineLittle + "".join(self.S_types.get('reset')))  
                 else:
                     print(littleLogOutput + "".join(self.S_types.get('reset')))  
+
 
             if dontSaveEveryPrint:
                 if _trainingStepCounter % saveFreq_littleLog == 0:      
@@ -487,6 +590,7 @@ class S_OUTPUT:
                 tensorVal = t.item() if isinstance(t, torch.Tensor) else t
                 weightVal = raw.item() if isinstance(raw, torch.Tensor) else raw
                 softmaxWeightVal = soft.item() if isinstance(soft, torch.Tensor) else soft
+                dim = "\033[2m"
 
                 floatStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}_float", floatVal)
                 tensorStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}_tensor", tensorVal)
@@ -494,10 +598,10 @@ class S_OUTPUT:
                 softmaxWeightStyle = self.S_getStat(f"{label}Soft" if not per_window_style else f"{label}_W{int(floatVal)}", softmaxWeightVal)
 
                 chunk = (
-                    f"{self.S_apply(weightStyle, f'{weightVal: .6f}')} "
-                    f"{self.S_apply(softmaxWeightStyle, f'({softmaxWeightVal:.2f})')} "
-                    f"{self.S_apply(tensorStyle, f'w{tensorVal:.6f}')} "
-                    f"{self.S_apply(floatStyle, f'[{floatVal:.6f}]')}"
+                    f"{self.S_apply(weightStyle, f'{weightVal: .4f}')} "
+                    f"{self.S_apply(softmaxWeightStyle, f'{dim}({softmaxWeightVal:.2f})')} "
+                    f"{self.S_apply(tensorStyle, f'w{tensorVal:.4f}')} "
+                    f"{self.S_apply(floatStyle, f'[{floatVal:.2f}]')}"
                 )
                 formatted.append(chunk)
             return "\n".join(formatted)

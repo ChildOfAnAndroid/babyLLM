@@ -42,31 +42,40 @@ class LOGITS(nn.Module):
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
             ʕっʘ‿ʘʔっ("L1: activationsTensor") # <- INN? no? seems to come from babyLLM? maybe through babyLLM?
             self.activationsTensor = _meanActivationsTensor # _1
-            #self.testAT = _meanActivationsTensor
+            rawActScale = torch.sigmoid(self.rawActivationsScale)
+            normActScale = torch.sigmoid(self.normedActivationsScale)
             ʕっʘ‿ʘʔっ("L2: normedActivationsTensor") # <- L1
             self.normedActivationsTensor = self.activationNorm(self.activationsTensor) # _2
-            ʕっʘ‿ʘʔっ("L3: scaledActivations") # <- L1 + L2
-            self.scaledActivations = (self.activationsTensor * self.rawActivationsScale) + (self.normedActivationsTensor * self.normedActivationsScale) # _3
+            self.scaledActivations = (self.activationsTensor * rawActScale + self.normedActivationsTensor * normActScale)
+            self.scaledActivations = self.scaledActivations.clamp(-10, 10)
+
             if debugPrints: print(f"Debug logits: activations shape before @ weights: {self.scaledActivations.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
+                        
+            ʕっʘ‿ʘʔっ("L3: scaledActivations") # <- L1 + L2
+            logitOutput = self.scaledActivations @ self.l_weights + self.l_bias
+            logitNormed = (self.scaledActivations @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
 
             ʕっʘ‿ʘʔっ("L4: logitOutput") # <- L3 (with weights and bias)
-            logitOutputNormalized = (self.scaledActivations @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
-            logitOutputOriginal = self.scaledActivations @ self.l_weights + self.l_bias
-            self.logitOutput = (logitOutputOriginal + logitOutputNormalized)/2 # _4
+            outScale = torch.sigmoid(self.outputScale)
+            normOutScale = torch.sigmoid(self.normOutputScale)
+            self.finalLogit = (logitOutput * outScale) + (logitNormed * normOutScale)
+            #self.finalLogit = self.finalLogit.clamp(-60, 60) # logits over ~±80 can create inf probs or 0 gradients due to softmax squashing
+            if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
 
-            ʕっʘ‿ʘʔっ("L5: logitNormed") # <- L4
-            self.logitNormed = self.logitNorm(self.logitOutput) # _5
-            ʕっʘ‿ʘʔっ("L6: finalLogit") # <- L4 + L5
-            self.finalLogit = (self.logitOutput * self.outputScale) + (self.logitNormed * self.normOutputScale) # _6
-            if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {self.logitOutput.shape}")
+            ʕっʘ‿ʘʔっ("clamp scalar parameters")
+            with torch.no_grad():
+                self.rawActivationsScale.data.clamp_(-10, 10)
+                self.normedActivationsScale.data.clamp_(-10, 10)
+                self.outputScale.data.clamp_(-10, 10)
+                self.normOutputScale.data.clamp_(-10, 10)
 
             ʕっʘ‿ʘʔっ("append rolling self.stats")
             self.tensorHist.append(self.activationsTensor.norm().item())
             self.normedHist.append(self.normedActivationsTensor.norm().item())
             self.activHist.append(self.scaledActivations.norm().item())
-            self.logitHist.append(self.logitOutput.norm().item())
-            self.logitNormHist.append(self.logitNormed.norm().item())
+            self.logitHist.append(logitOutput.norm().item())
+            self.logitNormHist.append(logitNormed.norm().item())
             self.finalLogitHist.append(self.finalLogit.norm().item())
 
             if len(self.tensorHist) >= self.numTokensPerStep:
@@ -86,6 +95,19 @@ class LOGITS(nn.Module):
                 self.logitNormHist = []
                 self.finalLogitHist = []
 
+            #with torch.no_grad():
+                #topValues, topIndices = torch.topk(self.finalLogit, 5)
+                #self.stats["6L_topLogits"] = topValues.tolist()
+                #self.stats["6L_topIndices"] = topIndices.tolist()
+                #self.stats["6L_logitMax"] = self.finalLogit.max().item()
+                #self.stats["6L_logitMin"] = self.finalLogit.min().item()
+                #self.stats["6L_logitMean"] = self.finalLogit.mean().item()
+                #self.stats["6L_logitStd"] = self.finalLogit.std().item()
+                #self.stats["6L_0_activationsTensor_scale"] = rawScale.item()
+                #self.stats["6L_1_normedActivationsTensor_scale"] = normedScale.item()
+                #self.stats["6L_3_logitOutput_scale"] = outScale.item()
+                #self.stats["6L_4_logitNormed_scale"] = normOutScale.item()
+
             # return logits (not softmax) for better gradient computation in cross-entropy loss
             return self.finalLogit # L6 ->
     
@@ -101,8 +123,8 @@ class LOGITS(nn.Module):
                 # scales (dont need on per token history as only updated in backward)
                 self.stats["6L_0_activationsTensor_scale"] = self.rawActivationsScale.norm().item()
                 self.stats["6L_1_normedActivationsTensor_scale"] = self.normedActivationsScale.norm().item()
-                self.stats["6L_3_logitOutput_scale"] = self.outputScale.norm().item()
-                self.stats["6L_4_logitNormed_scale"] = self.normOutputScale.norm().item()
+                self.stats["6L_3_logitOutput_scale"] = self.outputScale.detach().norm().item()
+                self.stats["6L_4_logitNormed_scale"] = self.normOutputScale.detach().norm().item()
 
                 ʕっʘ‿ʘʔっ("sparsityStat")
                 sparsity = (self.l_weights.abs() < 1e-5).float().mean()

@@ -89,7 +89,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStepSTART = 1   # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 5  # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 inferenceOutputNumTokens = 40
 
 """memoryLayer"""
@@ -97,8 +97,8 @@ memoryLengthGOAL = 3
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.00001 //
-learningRateGOAL = 0.00025
-temperatureGOAL = 0.95
+learningRateGOAL = 0.00035
+temperatureGOAL = 1.5
 optimizerName = "AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -116,7 +116,7 @@ windowEntropyBonus = True
 detailedLogging = True
 
 trainingLogFreq_A = 100    # creates logs every x number of turns
-trainingLogFreq_B = 10000   # creates logs every x number of turns
+trainingLogFreq_B = 1000   # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
@@ -142,15 +142,15 @@ skipFINALlogitNorm = True
 refreshRollingTokenTotalsWhen = 10000
 mostImportantStats  =   [
             # EMBED STATS
-                "1E_0_embedVector_norm",                            # IMPORTANT LAYER TRACKER !! (INPUT)
-            #       "1E_0_embedVector_scale",
+                "1E_0_vector_norm",                            # IMPORTANT LAYER TRACKER !! (INPUT)
+                   "1E_0_vector_scale",
             #       "1E_0_embedVector_norm_token",          
             #       "1E_0_embedVector_norm_neuron",                
-            #       "1E_1_embedNormed_norm",
-            #           "1E_1_embedNormed_scale",  
+                   "1E_1_normed_norm",
+                       "1E_1_normed_scale",  
             #           "1E_1_embedNormed_norm_token",
             #           "1E_1_embedNormed_norm_neuron",       
-                "1E_x_embedFinal_norm",                             # IMPORTANT LAYER TRACKER !! (EMBEDS)
+                "1E_x_final_norm",                             # IMPORTANT LAYER TRACKER !! (EMBEDS)
             #       "1E_x_embedFinal_norm_token",
             #       "1E_x_embedFinal_norm_neuron",
 
@@ -158,15 +158,15 @@ mostImportantStats  =   [
             #                                                       "2N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
             #           "2N_0_rawInput_norm_token",            # might be unneeded if this is already per token, check later
             #           "2N_0_rawInput_norm_neurons",
-            #        "2N_1_normedInput_norm",
+                    "2N_1_normedInput_norm",
             #            "2N_1_normedInput_norm_token",
             #            "2N_1_normedInput_norm_neuron",
-            #       "2N_2_rawOutput_norm",
+                   "2N_2_rawOutput_norm",
             #           "2N_2_rawOutput_norm_token",            
             #           "2N_2_rawOutput_norm_neuron",
-                   "2N_x_activatedOutput_norm",                     # IMPORTANT LAYER TRACKER !! (NEURONS)
-            #           "2N_x_activatedOutput_norm_token",      
-            #           "2N_x_activatedOutput_norm_neuron", 
+                   "2N_x_actOut_norm",                     # IMPORTANT LAYER TRACKER !! (NEURONS)
+                       "2N_x_actOut_norm_token",      
+                       "2N_x_actOut_norm_neuron", 
             #    "2N_x_normedOutput_norm",                          # DISABLED   
             #                "2N_x_normedOutput_norm_token",         
             #                "2N_x_normedOutput_norm_neuron",
@@ -175,10 +175,10 @@ mostImportantStats  =   [
             #                                                        "3INN_0_rawActivations_norm", # MATCHES 2N_x_normedOutput_norm
             #           "3INN_0_rawActivations_norm_token",         
             #           "3INN_0_rawActivations_norm_neuron",       
-            #       "3INN_1_rawActivationsLayerNorm_norm",  
+                   "3INN_1_rawActivationsLayerNorm_norm",  
             #           "3INN_1_rawActivationsLayerNorm_norm_token",
             #           "3INN_1_rawActivationsLayerNorm_norm_neuron",
-            #       "3INN_2_combinedActivations_norm",       
+                   "3INN_2_combinedActivations_norm",       
             #           "3INN_2_combinedActivations_scale",         # disabled
             #           "3INN_2_combinedActivations_norm_token",    
             #           "3INN_2_combinedActivations_norm_neuron",  
@@ -192,43 +192,45 @@ mostImportantStats  =   [
             #    "3INN_x_FINALoutLayerNorm_norm",                   # DISABLED
             #       "3INN_x_FINALoutLayerNorm_norm_token",      
             #       "3INN_x_FINALoutLayerNorm_norm_neuron",
-            #    "_INN_windowSizesMean",
-            #    "INN_cerebellumMean",  
-                "INN_windowFractionalityMean",
+                "3INN_windowSizesMean",
+                "3INN_cerebellumMean",  
+                "3INN_windowFractionalityMean",
 
             # MEMORY STATS
             #                                                       "4M_0_rawActivations_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
-            #   "4M_1_shortTermMemory_norm",
-            #   "4M_1_longTermMemory_norm",                
+               "4M_1_shortTermMemory_norm",
+               "4M_1_longTermMemory_norm",                
                 "4M_x_FINALmemory_norm",                        # IMPORTANT LAYER TRACKER !! (MEMORY)
             #
-                #"_4M_gateLayer",
-                "_4M_longDecay",
-                "_4M_shortDecay",
-                "_4M_shortGateScale",
-                "_4M_longGateScale",
-                "_4M_activationsGateScale",  
+                #"4M_gateLayer",
+                "4M_longDecay",
+                "4M_shortDecay",
+                "4M_shortGateScale",
+                "4M_longGateScale",
+                "4M_activationsGateScale",  
 
             # BABYLLM STATS
             #                                                       "2B_0_inputEmbeds_norm", # MATCHES 2N_0_rawInput_norm & 1E_x_embedFinal_norm
             #                                                       "3B_1_INNOutput_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
             #                                                       "5B_0_memoryOutput_norm", # MATCHES 4M_x_FINALmemory_norm
-            #        "5B_1_penalisedOutput_norm",
+                    "5B_1_penalisedOutput_norm",
                 #"5B_x_finalNormLayer_norm",                     # IMPORTANT LAYER TRACKER !! (BABYLLM)
-                #                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
-                #"_B_floatMemoryLength",
+                                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
+                #"B_floatMemoryLength",
 
             # LOGIT STATS
-            #                                                       "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
+                                                                   "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
             #                                                           "6L_0_activationsTensor_scale",
-            #        "6L_1_normedActivationsTensor_norm",    
+                    "6L_1_normedActivationsTensor_norm",    
             #           "6L_1_normedActivationsTensor_scale",
-            #        "6L_2_scaledActivations_norm",
-            #        "6L_3_logitOutput_norm",
+                    "6L_2_scaledActivations_norm",
+                    "6L_3_logitOutput_norm",
             #           "6L_3_logitOutput_scale",
-            #        "6L_4_logitNormed_norm",
+                    "6L_4_logitNormed_norm",
             #           "6L_4_logitNormed_scale", 
                 "6L_x_finalLogit_norm",                         # IMPORTANT LAYER TRACKER !! (LOGIT)
+                "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy", "6L_topLogits", "6L_topIndices", 
+                "6L_0_activationsTensor_scale", "6L_1_normedActivationsTensor_scale", "6L_3_logitOutput_scale", "6L_4_logitNormed_scale",
 
             # MISC/UNSORTED STATS
                 # base stats
@@ -242,21 +244,30 @@ mostImportantStats  =   [
 
                 # learnable parameters
                     "repetitionPenalty",   
-                    "_B_repetitionWindow", 
-                    "_B_temperature",
+                    "B_repetitionWindow", 
+                    "B_temperature",
                         ]
 
-allRecordedOtherStats = ["stepLoss",                     "tokenCount",
-                         "trainingStepCount",               "windowWeight",                 "INN_cerebellumStd",
-                         "latestMemoryGates",               "embedNormMean",                "embedNormStd",
-                         "embedNormMax",                    "embedDimensionMean",           "embedDimensionSparsity",
-                         "embeddingDrift",                  "logitMin",                     "logitMax",                     
+mostImportantStats += [
+    "2N_x_actOut_std_token",      # average stdev per token (across neurons)
+    "2N_x_actOut_std_neuron",     # average stdev per neuron (across tokens)
+    "2N_x_actOut_saturation",     # % of values near zero
+    "2N_x_actOut_min",            # min activation value
+    "2N_x_actOut_max",            # max activation value
+]
+
+allRecordedOtherStats = ["l"]
+mostImportantStats   += ["stepLoss",                        "tokenCount",
+                         "trainingStepCount",               "windowWeight",                 "3INN_cerebellumStd",
+                         "latestMemoryGates",               "1E_weightNormMean",            "1E_weightNormStd",
+                         "1E_weightNormMax",                "1E_dimMean",                   "1E_dimSparsity",
+                         "1E_drift",                  "logitMin",                     "logitMax",                     
                          "logitSeq",                        "logitWeightNormMean",          "logitWeightNormStd",           
                          "logitWeightNormMax",              "logitWeightSparsity",          "logitWeightDrift",             
                          "logitBiasMean",                   "logitBiasStd",                 "logitBiasMax",                 
-                         "n_weightMean",                    "n_weightStd",                  "n_weightMin",                  
-                         "n_weightMax",                     "n_biasesMean",                 "n_biasesStd",                  
-                         "n_biasesMin",                     "n_biasesMax",                  "n_sparsity"]
+                         "2N_weightMean",                    "2N_weightStd",                "2N_weightMin",                  
+                         "2N_weightMax",                     "2N_biasesMean",               "2N_biasesStd",                  
+                         "2N_biasesMin",                     "2N_biasesMax",                "2N_sparsity"]
 
 allRecordedOtherStats += [
                         "temperature",                      "memoryLength",                 "gradNorm",
@@ -359,7 +370,7 @@ reflectionFreq = 10000
 stableFallThreshold = 2 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 50 #169420
+trainingDataPairNumber = 1000 #169420
 trainingDataStride = 1
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
@@ -501,6 +512,10 @@ allWindowSizes_new = [window8, window0, window1, window2, window3, window4, wind
 
 attentionWindow = None  # attention head  
 numHeads = 32
+
+boostWindowContrast = False
+boostWindowSizeContrast = False 
+clampWindows = False
 
 """--- VOCAB & TOKENIZER ---"""
 vocabSize = 4200    # maximum vocabulary size

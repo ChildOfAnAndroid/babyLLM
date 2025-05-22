@@ -46,36 +46,25 @@ class MEMORY(nn.Module):
 
             ʕっʘ‿ʘʔっ("shortTermDecay")
             shortDecay = torch.sigmoid(self.shortTermDecay)
+            with torch.no_grad(): self.shortTermDecay.clamp_(-5, 5) # keeps sigmoid ~[0.0067, 0.9933], so memory doesnt vanish or freeze forever
             ʕっʘ‿ʘʔっ("longTermDecay")
             longDecay = torch.sigmoid(self.longTermDecay)
+            with torch.no_grad(): self.longTermDecay.clamp_(-5, 5)
 
             ʕっʘ‿ʘʔっ("newShortTermMemory")
             newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * self.activationsTensor)
             ʕっʘ‿ʘʔっ("newLongTermMemory")
             newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * self.activationsTensor)
 
-            reducedInput = self.inputReducer(self.activationsTensor)  # shape: (1, embedDimension)
-            gateLogits = self.gateLayer(reducedInput)                # shape: (1, 3 * numNeurons)
-            gateLogits = gateLogits.view(3, numNeurons)             # shape: (3, numNeurons)
-            gateWeights = torch.softmax(gateLogits, dim=0)          # across gate types
+            reducedInput    = self.inputReducer(self.activationsTensor) # shape: (1, embedDimension)
+            gateLogits      = self.gateLayer(reducedInput)              # shape: (1, 3 * numNeurons)
+            gateLogits      = gateLogits.view(3, numNeurons)            # shape: (3, numNeurons)
+            gateLogits      = gateLogits.clamp(-30, 30)                 # clamp
+            gateWeights     = torch.softmax(gateLogits, dim=0)          # across gate types
 
             shortGateScale, longGateScale, actGateScale = gateWeights
 
             self.FINALmemory = ((shortGateScale * newShort) + (longGateScale * newLong) + (actGateScale * self.activationsTensor))
-
-            #ʕっʘ‿ʘʔっ("clamp memory gates")
-            #clampedShort = torch.clamp(self.shortGate, min=1e-3)
-            #clampedLong = torch.clamp(self.longGate, min=1e-3)
-            #clampedactivations = torch.clamp(self.currentGate, min=1e-3)
-
-            #ʕっʘ‿ʘʔっ("get gateSum")
-            #gateSum = clampedShort + clampedLong + clampedactivations + 1e-9
-            #shortGateScale = clampedShort / gateSum
-            #longGateScale = clampedLong / gateSum
-            #activationsGateScale = clampedactivations / gateSum
-            #self.latestMemoryGates = torch.stack([shortGateScale, longGateScale, activationsGateScale]) # needed to be used in babyLLM for processing
-
-            #self.FINALmemory = ((shortGateScale * newShort) + (longGateScale * newLong) +(activationsGateScale * self.activationsTensor))
 
             self.shortGateScaleHistory.append(shortGateScale.mean().item())
             self.longGateScaleHistory.append(longGateScale.mean().item())
@@ -94,15 +83,15 @@ class MEMORY(nn.Module):
                     "4M_1_shortTermMemory_norm": sum(self.shortTermMemoryHistory) / len(self.shortTermMemoryHistory),
                     "4M_1_longTermMemory_norm": sum(self.longTermMemoryHistory) / len(self.longTermMemoryHistory),
 
-                    "_4M_gateLayer": sum(self.gateLayerHistory) / len(self.gateLayerHistory),
-                    "_4M_shortGateScale": sum(self.shortGateScaleHistory) / len(self.shortGateScaleHistory),
-                    "_4M_longGateScale": sum(self.longGateScaleHistory) / len(self.longGateScaleHistory),
-                    "_4M_activationsGateScale": sum(self.activationsGateScaleHistory) / len(self.activationsGateScaleHistory),
+                    "4M_gateLayer": sum(self.gateLayerHistory) / len(self.gateLayerHistory),
+                    "4M_shortGateScale": sum(self.shortGateScaleHistory) / len(self.shortGateScaleHistory),
+                    "4M_longGateScale": sum(self.longGateScaleHistory) / len(self.longGateScaleHistory),
+                    "4M_activationsGateScale": sum(self.activationsGateScaleHistory) / len(self.activationsGateScaleHistory),
                     
                     "4M_x_FINALmemory_norm": sum(self.FINALmemoryHistory) / len(self.FINALmemoryHistory),
 
-                    "_4M_shortDecay": torch.sigmoid(self.shortTermDecay).item(),
-                    "_4M_longDecay": torch.sigmoid(self.longTermDecay).item(),
+                    "4M_shortDecay": torch.sigmoid(self.shortTermDecay).item(),
+                    "4M_longDecay": torch.sigmoid(self.longTermDecay).item(),
                 }
 
                 self.shortGateScaleHistory = []
@@ -130,7 +119,8 @@ class MEMORY(nn.Module):
     def resetMemory(self):
         with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
             #with torch.no_grad():
-                #self.longTermDecay += 0.2
+                #self.longTermDecay += 0.1
+                #self.shortTermDecay += 0.001
                 #self.shortTermMemory = self.shortTermMemory * 0.1
                 #self.longTermMemory.zero_() #retaining long term cause, yk, long term! i felt mean!
             pass
