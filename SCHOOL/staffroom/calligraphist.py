@@ -379,8 +379,8 @@ class S_OUTPUT:
                 ("NEURON STATS", re.compile(r"2N_")),
                 ("INTERNEURON STATS", re.compile(r"3INN_")),
                 ("MEMORY STATS", re.compile(r"4M_")),
-                ("BABYLLM STATS", re.compile(r"[0-9]B_")),
                 ("LOGIT STATS", re.compile(r"6L_")),
+                ("BABYLLM STATS", re.compile(r"[0-9]B_")),
             ]
 
             def truncate_key(k, max_len):

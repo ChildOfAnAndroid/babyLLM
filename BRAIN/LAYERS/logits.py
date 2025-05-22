@@ -84,8 +84,8 @@ class LOGITS(nn.Module):
                     "6L_0_activationsTensor_norm": sum(self.tensorHist) / len(self.tensorHist),
                     "6L_1_normedActivationsTensor_norm": sum(self.normedHist) / len(self.normedHist),
                     "6L_2_scaledActivations_norm": sum(self.activHist) / len(self.activHist),
-                    "6L_3_logitOutput_norm": sum(self.logitHist) / len(self.logitHist),
-                    "6L_4_logitNormed_norm": sum(self.logitNormHist) / len(self.logitNormHist),
+                    "6L_3_out_norm": sum(self.logitHist) / len(self.logitHist),
+                    "6L_4_outNorm_norm": sum(self.logitNormHist) / len(self.logitNormHist),
                     "6L_x_finalLogit_norm": sum(self.finalLogitHist) / len(self.finalLogitHist),
                 }
                 self.tensorHist = []
@@ -95,7 +95,7 @@ class LOGITS(nn.Module):
                 self.logitNormHist = []
                 self.finalLogitHist = []
 
-            #with torch.no_grad():
+            with torch.no_grad():
                 #topValues, topIndices = torch.topk(self.finalLogit, 5)
                 #self.stats["6L_topLogits"] = topValues.tolist()
                 #self.stats["6L_topIndices"] = topIndices.tolist()
@@ -105,8 +105,8 @@ class LOGITS(nn.Module):
                 #self.stats["6L_logitStd"] = self.finalLogit.std().item()
                 #self.stats["6L_0_activationsTensor_scale"] = rawScale.item()
                 #self.stats["6L_1_normedActivationsTensor_scale"] = normedScale.item()
-                #self.stats["6L_3_logitOutput_scale"] = outScale.item()
-                #self.stats["6L_4_logitNormed_scale"] = normOutScale.item()
+                self.stats["6L_3_outSigmoid_scale"] = outScale.detach().item()
+                self.stats["6L_4_outNormSigmoid_scale"] = normOutScale.detach().item()
 
             # return logits (not softmax) for better gradient computation in cross-entropy loss
             return self.finalLogit # L6 ->
@@ -123,8 +123,8 @@ class LOGITS(nn.Module):
                 # scales (dont need on per token history as only updated in backward)
                 self.stats["6L_0_activationsTensor_scale"] = self.rawActivationsScale.norm().item()
                 self.stats["6L_1_normedActivationsTensor_scale"] = self.normedActivationsScale.norm().item()
-                self.stats["6L_3_logitOutput_scale"] = self.outputScale.detach().norm().item()
-                self.stats["6L_4_logitNormed_scale"] = self.normOutputScale.detach().norm().item()
+                self.stats["6L_3_out_scale"] = self.outputScale.detach().norm().item()
+                self.stats["6L_4_normOut_scale"] = self.normOutputScale.detach().norm().item()
 
                 ʕっʘ‿ʘʔっ("sparsityStat")
                 sparsity = (self.l_weights.abs() < 1e-5).float().mean()
