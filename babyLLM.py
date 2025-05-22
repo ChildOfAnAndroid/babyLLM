@@ -114,14 +114,16 @@ class BABYLLM(nn.Module):
             else:
                 memoryOutput = self.memory.forward(INNOutput)
                 #self.latestMemGates = self.memory.latestMemoryGates
+
+            ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
+            logitsBeforePenalty = self.logits.forward(memoryOutput)
             if debugPrints: print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
 
-            ʕっʘ‿ʘʔっ("B3: repetitionPenalty")
+            ʕっʘ‿ʘʔっ("B4: applyRepetitionPenalty to logits")
             if not torch.isfinite(self.logRepetitionWindow):
                 print("logRepetitionWindow has gone non-finite. Resetting.")
                 self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
-            penalisedOutput = self.applyRepetitionPenalty(memoryOutput)
-
+            penalisedLogits = self.applyRepetitionPenalty(logitsBeforePenalty)
             
             if debugPrints: print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
             if debugPrints: print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
@@ -129,7 +131,7 @@ class BABYLLM(nn.Module):
             if debugPrints: print("before logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
             if skipFINALlogitNorm:
                 ʕっʘ‿ʘʔっ("Bx: logits.forward")
-                FINALlogits = self.logits.forward(penalisedOutput)
+                FINALlogits = penalisedLogits
                 #FINALlogits = self.logits.forward(memoryOutput)
             if False:
                 ʕっʘ‿ʘʔっ("B4: finalNormLayer")
@@ -146,7 +148,7 @@ class BABYLLM(nn.Module):
                 self.inputEmbedsHistory.append(inputEmbeds.norm().item())
                 self.INNOutputHistory.append(INNOutput.norm().item())
                 self.memoryOutputHistory.append(memoryOutput.norm().item())
-                self.penalisedOutputHistory.append(penalisedOutput.norm().item())
+                self.penalisedOutputHistory.append(penalisedLogits.norm().item())
                 self.FINALlogitsHistory.append(FINALlogits.norm().item())
 
                 if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
@@ -154,7 +156,7 @@ class BABYLLM(nn.Module):
                         "2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
                         "3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
                         "5B_0_memoryOutput_norm": sum(self.memoryOutputHistory) / len(self.memoryOutputHistory),
-                        "5B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
+                        "7B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
                         #"5B_x_finalNormLayer_norm": sum(self.normalisedHistory) / len(self.normalisedHistory),
                         "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
                     }
@@ -203,7 +205,7 @@ class BABYLLM(nn.Module):
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
             lrSoftClamp = 0.001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
-            tempSoftClamp = 0.001 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            tempSoftClamp = 5 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             if self.repetitionPenalty >= 0:
                 repetitionPenaltySoftClamp = 0.000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty >= -1:
@@ -283,7 +285,7 @@ class BABYLLM(nn.Module):
 
             with torch.no_grad(): # RESET LEARNABLE PARAMETERS
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
-                self.scheduledSamplingRate.data.fill_(0.005)  # Scheduled sampling full (no scheduled sampling yet)
+                self.scheduledSamplingRate.data.fill_(0.05)  # Scheduled sampling full (no scheduled sampling yet)
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 self.logMemoryLength.data.fill_(math.log(2))  # Memory length default
@@ -434,7 +436,7 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("positions = torch.arange(len(recentTokens)).float()")
             positions = torch.arange(len(recentTokens), device=self.device).float()
             ʕっʘ‿ʘʔっ("windowCenter")
-            windowCenter = len(recentTokens)
+            windowCenter = len(recentTokens) - 0.5  # so token 0 gets proper suppression
             ʕっʘ‿ʘʔっ("softMask = torch.sigmoid((positions - (windowCenter - repWindow)) * 0.5)")
             softMask = torch.sigmoid((positions - (windowCenter - repWindow)) * 0.5)
 
@@ -443,7 +445,11 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("weightedFreqs = (oneHots.T @ softMask).view(1, -1)")
             weightedFreqs = (oneHots.T @ softMask).view(1, -1)
 
-        return _logits - (weightedFreqs * (0.001 * penalty))
+            # Scale penalty based on confidence (entropy)
+            entropy = -(_logits.softmax(dim=-1) * _logits.log_softmax(dim=-1)).sum(dim=-1, keepdim=True)
+            dynamicPenalty = 0.01 * penalty / (1 + entropy)  # soft & bounded
+
+        return _logits - (weightedFreqs * dynamicPenalty)
 
 
     def getNextToken(self, _inputSeq):  

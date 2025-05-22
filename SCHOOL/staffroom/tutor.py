@@ -13,29 +13,15 @@ import numpy as np
 import math
 from SCHOOL.staffroom.newsletter import deep_model_summary, STATS
 
-def makeStatRecord():
-    base = {
-        "now": 0.0,
-        "prev": 0.0,
-        "top": float('-inf'),
-        "bot": float('inf'),
-        "delta": 0.0,
-        "totSum": 0.0,
-        "totNum": 0,
-        "totAvg": 0.0
-    }
-    for n in [printFreq, printFreq*10, trainingLogFreq_A, trainingLogFreq_B]:
-        base[f"{n}"] = []
-
-    return base
-
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _numTokensPerStep, _first, 
-                _dataStride             = 0,
-                _totalRuns              = 0,
-                _totalTurnsAwake        = 0,  
-                _lastRunLoss            = 420,
-                _device                 = modelDevice):
+                _trainingLogFreq_A          = trainingLogFreq_A,
+                _perfectionistPassRateSTART = perfectionistPassRateSTART,
+                _dataStride                 = 0,
+                _totalRuns                  = 0,
+                _totalTurnsAwake            = 0,  
+                _lastRunLoss                = 420,
+                _device                     = modelDevice):
         
         self.counsellor                 = _counsellor
         self.calligraphist              = _calligraphist
@@ -48,13 +34,14 @@ class TUTOR:
         self.totalTurnsAwake            = _totalTurnsAwake
         self.totalRuns                  = _totalRuns
         self.dataStride                 = _dataStride
+        self.trainingLogFreq_A          = _trainingLogFreq_A
 
         self.temperature                = 0.75
         self.scheduledSamplingRate      = self.model.scheduledSamplingRate
         self.gradientClipMaxNorm        = 1
         self.memoryLength               = 1
 
-        self.ʕっෆ‿ෆʔっ                  = defaultdict(makeStatRecord)
+        self.ʕっෆ‿ෆʔっ                  = defaultdict(self.makeStatRecord)
         #self.rollingTokenTotals = Counter()
 
 
@@ -81,6 +68,7 @@ class TUTOR:
         self.tooDifficult               = 0
         self.averageTries               = 0
         self.averageTriesTotal          = 0
+        self.perfectionistPassRate      = _perfectionistPassRateSTART
 
         self.aaa    = 0
         self.bbb    = 0
@@ -94,6 +82,22 @@ class TUTOR:
 
         #model.to(self.device)
         self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;) "
+
+    def makeStatRecord(self):
+        base = {
+            "now": 0.0,
+            "prev": 0.0,
+            "top": float('-inf'),
+            "bot": float('inf'),
+            "delta": 0.0,
+            "totSum": 0.0,
+            "totNum": 0,
+            "totAvg": 0.0
+        }
+        for n in [printFreq, printFreq*10, self.trainingLogFreq_A, trainingLogFreq_B]:
+            base[f"{n}"] = []
+
+        return base
 
     def loadIntro(self, path="SCHOOL/library/charisStudies/forbbyllm.txt"):
         try:
@@ -191,9 +195,9 @@ class TUTOR:
                             self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True, _saveLog = True)
 
                         # Track loss every 100 steps
-                        if self.totalTurns % trainingLogFreq_A == 0:
+                        if self.totalTurns % self.trainingLogFreq_A == 0:
                             ʕっʘ‿ʘʔっ("♥logFreq_A")
-                            self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
+                            self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = self.trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
 
                         if self.totalTurns % printFreq == 0:
                             ʕっʘ‿ʘʔっ("♥printFreq")
@@ -210,7 +214,7 @@ class TUTOR:
 
                         if debugPrints: print(f"{self.stableFallCount:.2f}", end="")
                         latestIncrement = (1 + abs(self.latestLossDelta))  # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
-                        if perfectionistRun: latestIncrement *= 0.01 #0.1
+                        if perfectionistRun: latestIncrement *= 0.5 #0.1
                         if self.easyLossDelta < 0:
                                 self.stableFallCount += latestIncrement
                                 if debugPrints: print(f" + {latestIncrement:.2f}", end="")
@@ -219,21 +223,26 @@ class TUTOR:
                             if debugPrints: print(f" - {latestIncrement:.2f}", end="")
 
                         if perfectionistRun:
-                            latestPerfectIncrement = (10 + self.tokenPerfectRate) * self.perfectTokens # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
-                            latestTotalPerfectIncrement = ((10 + self.totalTokenPerfectRate) * self.totalPerfectTokens) / self.totalTurns
-                            latestPerfectDeltaIncrement = (10 + abs(self.tokenPerfectRate - self.totalTokenPerfectRate)) * self.perfectTokens
-                            latestPerfectAntiDeltaIncrement = (10 + abs(self.totalTokenPerfectRate - self.tokenPerfectRate)) * self.perfectTokens
-                            latestMassivePerfectIncrement = (10 + self.totalTokenPerfectRate + self.tokenPerfectRate) * self.perfectTokens
-                            averagePerfectIncrement = (latestPerfectIncrement + latestTotalPerfectIncrement + latestPerfectDeltaIncrement + latestPerfectAntiDeltaIncrement + latestMassivePerfectIncrement) / 5
+                            # if last run avg loss is worse than current run avg = this run is better
+                            if self.totalAvgLoss < self.lastRunLoss:
+                                self.perfectionistPassRate += 1
+                            else:
+                                self.perfectionistPassRate = max(self.perfectionistPassRate-1, 1)
+                            latestPerfectIncrement = abs(10 + self.tokenPerfectRate) * (self.perfectTokens + 0.01) # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
+                            latestTotalPerfectIncrement = abs(((10 + self.totalTokenPerfectRate) * self.totalPerfectTokens) / self.totalTurns)
+                            latestPerfectDeltaIncrement = (10 + abs(self.tokenPerfectRate - self.totalTokenPerfectRate)) * (self.perfectTokens + 0.01)
+                            latestPerfectAntiDeltaIncrement = (10 + abs(self.totalTokenPerfectRate - self.tokenPerfectRate)) * (self.perfectTokens + 0.01)
+                            latestMassivePerfectIncrement = (10 + self.totalTokenPerfectRate + self.tokenPerfectRate) * (self.perfectTokens + 0.01)
+                            averagePerfectIncrement = (latestPerfectIncrement + latestTotalPerfectIncrement + latestPerfectDeltaIncrement + latestPerfectAntiDeltaIncrement + latestMassivePerfectIncrement + 0.01) / 5
                             perfectIncrementChoice = random.choice([latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement])
-                            if self.tokenPerfectRate > 30.0: #50.0:
-                                self.stableFallCount += 200
+                            if self.tokenPerfectRate > self.perfectionistPassRate: #50.0:
+                                self.stableFallCount += 50 + perfectIncrementChoice
                                 if debugPrints: print(self.calligraphist.S_apply("reverse", f" + {perfectIncrementChoice:.2f}"), end="")
                                 if debugPrints: print(f"cold with the flow yeah i wrote this one on an old iPhone with a broken screen... think you’re gonna try test man with a verse like that, you’re a fucking aubergine... tokenPerfectRate = {self.tokenPerfectRate:.2f}%")
                                 # continue
                             else: 
-                                self.stableFallCount -= perfectIncrementChoice * 0.01 #0.01
-                                if debugPrints: print(f" - {(abs(latestIncrement-latestPerfectIncrement) * 0.01):.2f}", end="")
+                                self.stableFallCount += perfectIncrementChoice * 0.001 #0.01
+                                if debugPrints: print(f" - {(abs(latestIncrement-latestPerfectIncrement) * 0.1):.2f}", end="")
 
                         if debugPrints: print(f" = {self.stableFallCount:.2f}")
                         if perfectionistRun and (debugPrints): print(f"selected {perfectIncrementChoice} from {[latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement]}")
@@ -244,6 +253,7 @@ class TUTOR:
                     self.totalTurnAttempts = 0
                     if self.totalTries >= self.maxRetries:
                         self.tooDifficult += 1
+                        self.perfectionistPassRate -= round(self.perfectionistPassRate + self.tokenPerfectRate)
                         if abs(self.latestLossDelta) < 0.05:
                             self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.0000005*abs(self.latestLossDelta)))
                         elif abs(self.latestLossDelta) > 1.0:
@@ -251,6 +261,12 @@ class TUTOR:
                         elif abs(self.latestLossDelta) > 0.05:
                             self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.00000005*abs(self.latestLossDelta)))
                         print(f"updated goal LR to {self.model.learningRateGOAL}")
+
+                    if self.perfectionistPassRate < perfectionistPassRate:
+                        self.perfectionistPassRate += (abs(self.perfectionistPassRate)/(self.totalTries))
+
+                    if self.perfectionistPassRate > perfectionistPassRateSTART:
+                        self.perfectionistPassRate -= ((self.perfectionistPassRate-perfectionistPassRateSTART) * (self.totalTries * 0.5))
 
                     if currentReflection is not None:
                         if scribeusedThisTurn:
@@ -363,12 +379,19 @@ class TUTOR:
 
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
+
+            triesInfluence = 0.05 
             triesLossModifier = (1 + (self.totalTries - 1)/10)
+            BACKWARDtriesMod = (1.0 - triesInfluence) + (triesInfluence * triesLossModifier)
+
+            perfectInfluence = 0.5
             perfectLossModifier = 1 / (1 + (self.tokenPerfectRate / 100))
+            BACKWARDperfMod = (1.0 - perfectInfluence) + (perfectInfluence * perfectLossModifier)
+
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
-            BACKWARDloss = BACKWARDloss * triesLossModifier
-            BACKWARDloss = BACKWARDloss * perfectLossModifier
+            BACKWARDloss = BACKWARDloss * (BACKWARDtriesMod + 0.001)
+            BACKWARDloss = BACKWARDloss * (BACKWARDperfMod + 0.001)
             BACKWARDloss = BACKWARDloss - (0.01 * self.model.interneuronNetwork.entropyBonus)
             self.totalLoss += BACKWARDloss.item()
             #if windowEntropyBonus:
@@ -601,7 +624,7 @@ class TUTOR:
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
                 _topTokens_str = topTokens_str,
-                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}, averageTries {self.averageTries:.0f} | windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency}",
+                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | passRate: {self.perfectionistPassRate:.0f}% | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}, averageTries {self.averageTries:.0f} | windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 
@@ -609,12 +632,12 @@ class TUTOR:
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
-            rollupA_key = f"BIG{trainingLogFreq_A}"
+            rollupA_key = f"BIG{self.trainingLogFreq_A}"
             rollupA_avgKey = f"{rollupA_key}_avg"
             rollB_key = f"{trainingLogFreq_B}"
             rollB_avgKey = f"{rollB_key}_avg"
-            rollA_key = f"{trainingLogFreq_A}"
-            rollA_avgKey = f"{trainingLogFreq_A}_avg"
+            rollA_key = f"{self.trainingLogFreq_A}"
+            rollA_avgKey = f"{self.trainingLogFreq_A}_avg"
             rollPrint_key = f"{printFreq}"
             rollPrint_avgKey = f"{printFreq}_avg"
 
@@ -624,7 +647,7 @@ class TUTOR:
                     if self.bbb % 100 == 0: 
                         print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} {self.bbb}x")
                 self.averageRecentLoss = lossStats[rollB_avgKey]
-            elif rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (trainingLogFreq_A):
+            elif rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (self.trainingLogFreq_A):
                 if debugPrints or True: 
                     self.ccc += 1
                     if self.ccc % 100 == 0: 
@@ -660,8 +683,8 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.totalTurns > printFreq:
-                if perfectionistRun: chance = 0.0000001
-                else: chance = 0.001
+                if perfectionistRun: chance = 0.001
+                else: chance = 0.01
                 self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", chance)
 
             ʕっʘ‿ʘʔっ("collectStats♥")
@@ -804,7 +827,7 @@ class TUTOR:
 
             """ ෆෆෆ^ ♥ ROLLING STATS ♥ ^ෆෆෆ   """
             if _statKey in rolling or _statKey.startswith("INN_cerebellum_W"):
-                for freq in [printFreq, trainingLogFreq_A, trainingLogFreq_B]:
+                for freq in [printFreq, self.trainingLogFreq_A, trainingLogFreq_B]:
                     tag = f"{freq}"
                     if tag not in ෆ‿ෆ:
                         ෆ‿ෆ[tag] = []
@@ -814,12 +837,12 @@ class TUTOR:
                     if ෆ‿ෆ[tag]:
                         self.updateRollingStats(_ෆ‿ෆ = ෆ‿ෆ, _values = ෆ‿ෆ[tag], _freq = freq, _tag = tag, _percentiles = percentiles)
 
-            if _statKey in important and self.trainingStepCounter % trainingLogFreq_A == 0:
+            if _statKey in important and self.trainingStepCounter % self.trainingLogFreq_A == 0:
                 for importantFreq in [trainingLogFreq_B]:
                     importantTag = f"BIG{importantFreq}"
                     if importantTag not in ෆ‿ෆ:
                         ෆ‿ෆ[importantTag] = []
-                    if len(ෆ‿ෆ[importantTag]) >= trainingLogFreq_A:
+                    if len(ෆ‿ෆ[importantTag]) >= self.trainingLogFreq_A:
                         ෆ‿ෆ[importantTag].pop(0)
                     ෆ‿ෆ[importantTag].append(_value)
                     if ෆ‿ෆ[importantTag]:

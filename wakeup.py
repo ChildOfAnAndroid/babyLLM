@@ -26,7 +26,7 @@ warnings.simplefilter("default") # show all warnings (PyTorch hides some by defa
 install(show_locals = True)
 torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
-def wakeup(windowMAX, dataStride, totalTurnsAwake = 0, totalRuns = 0, first = True):
+def wakeup(windowMAX, dataStride, passRateSTART, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True):
     try:
         # WAKE UP THE SCHOOL :)
         counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
@@ -63,18 +63,20 @@ def wakeup(windowMAX, dataStride, totalTurnsAwake = 0, totalRuns = 0, first = Tr
                                                 _numTokensPerStep       = windowMAX,
                                                 _first                  = first)
 
-            tutor               = TUTOR     (_counsellor                = counsellor,
-                                                _calligraphist          = calligraphist, 
-                                                _scribe                 = scribe,
-                                                _librarian              = librarian, 
-                                                _model                  = babyLLM,
-                                                _device                 = modelDevice,
-                                                _numTokensPerStep       = windowMAX,
-                                                _dataStride             = dataStride,
-                                                _first                  = first,
-                                                _lastRunLoss            = checkLossCheckpoint(),
-                                                _totalTurnsAwake        = totalTurnsAwake,
-                                                _totalRuns              = totalRuns)
+            tutor               = TUTOR     (_counsellor                    = counsellor,
+                                                _calligraphist              = calligraphist, 
+                                                _scribe                     = scribe,
+                                                _librarian                  = librarian, 
+                                                _model                      = babyLLM,
+                                                _device                     = modelDevice,
+                                                _numTokensPerStep           = windowMAX,
+                                                _dataStride                 = dataStride,
+                                                _first                      = first,
+                                                _lastRunLoss                = checkLossCheckpoint(),
+                                                _totalTurnsAwake            = totalTurnsAwake,
+                                                _totalRuns                  = totalRuns,
+                                                _perfectionistPassRateSTART = passRateSTART,
+                                                _trainingLogFreq_A          = log_A,)
             
             babyLLM.loadModel()
             babyLLM.to(modelDevice)
@@ -82,7 +84,7 @@ def wakeup(windowMAX, dataStride, totalTurnsAwake = 0, totalRuns = 0, first = Tr
             # START THE LESSONS :)
             ʕっʘ‿ʘʔっ("starting lessons!")
             tutor.trainModel                (_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
-            return tutor.totalAvgLoss, tutor.totalTurns
+            return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
@@ -247,32 +249,42 @@ def main():
     maxTokensPerStep    = 512 
     lastRunLoss         = checkLossCheckpoint()
     #lastRunLoss         = 420
-    firstRun = True
+    firstRun            = True
     totalTurnsAwake     = 0
     totalRuns           = 0
     easyStartThresh     = 3
+    passRateSTART       = perfectionistPassRateSTART
+    #logFreq_A           = windowMAXSTART * perfectionistMaxRetries
+    logFreq_A           = trainingLogFreq_A
     while windowMAX <= maxTokensPerStep:
         print(f"\n--- STARTING NEW TRAINING LOOP ---")
-        thisRunLoss, totalTurns = wakeup(windowMAX         = windowMAX, 
-                                         dataStride        = dataStride, 
-                                         totalTurnsAwake   = totalTurnsAwake, 
-                                         totalRuns         = totalRuns, 
-                                         first              = firstRun)
+        thisRunLoss, totalTurns, passRateEND = wakeup(windowMAX             = windowMAX, 
+                                                        dataStride          = dataStride, 
+                                                        totalTurnsAwake     = totalTurnsAwake, 
+                                                        totalRuns           = totalRuns, 
+                                                        first               = firstRun,
+                                                        passRateSTART       = passRateSTART,
+                                                        log_A               = logFreq_A)
+        #logFreq_A = windowMAX * perfectionistMaxRetries
+        logFreq_A = trainingLogFreq_A
         totalRuns += 1
         totalTurnsAwake += totalTurns
         firstRun = False
         easyStart = True
         print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}")
         scale = abs(thisRunLoss - lastRunLoss) + 0.01
-        choice = random.choice([0,1,1,1,2,2,3,2,2,1,1,1,0])
+        choice = random.choice([0,1,1,1,1,2,2,2,3,3,4,3,3,2,2,2,1,1,1,1,0])
         increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
         print(f"increment = {increment} = {choice} * ({totalRuns} / {totalTurnsAwake}) * {scale} = {choice} * {totalRuns/totalTurnsAwake} * {scale}")
 
         maxAllowedWindowJump = round(0.2 * (maxTokensPerStep - windowMAX))
         maxAllowedStrideJump = round(0.2 * ((windowMAX * 2) - dataStride))
 
-        incrementW = max(1, min(increment, maxAllowedWindowJump))
-        incrementS = max(1, min(increment, maxAllowedStrideJump))
+        halfWindow = round(windowMAX / 2)
+        halfStride = round(dataStride / 2)
+
+        incrementW = max(1, min((increment + (halfWindow)), maxAllowedWindowJump))
+        incrementS = max(1, min((increment + (halfStride)), maxAllowedStrideJump))
 
         if easyStart:
             if easyStartThresh > 0:
@@ -283,10 +295,10 @@ def main():
         if thisRunLoss < lastRunLoss:
             if random.choice([True, False]):
                 print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
-                windowMAX += incrementW
+                windowMAX += (incrementW+incrementW)
             else:
                 print(f"upping dataStride from {dataStride} to {dataStride+incrementS}")
-                dataStride += incrementS
+                dataStride += (incrementS+incrementS)
         else:
             windowOrStride = random.choice([True, False])
             if windowMAX > incrementW+1:
@@ -303,17 +315,18 @@ def main():
                     print(f"dataStride staying at {dataStride}")
             elif dataStride == 1 and windowMAX == 1 or random.random() < 0.0001:
                 if random.choice([True, False]):
-                    print(f"bored. upping windowMAX from {windowMAX} to {windowMAX+1}")
-                    windowMAX += 1
+                    print(f"bored. windowMAX from {windowMAX} to {2}")
+                    windowMAX = 2
                 else:
-                    print(f"bored. upping dataStride from {dataStride} to {dataStride+1}")
-                    dataStride += 1
+                    print(f"bored. dataStride from {dataStride} to {2}")
+                    dataStride = 2
         
         windowMAX = max(1, min(windowMAX, maxTokensPerStep))
         dataStride = max(1, min(dataStride, windowMAX * 2))
         print(f"dataStride is {dataStride}, windowMAX is {windowMAX}")
 
         lastRunLoss = thisRunLoss
+        passRateSTART = passRateEND
         print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}")
 
 if __name__ == "__main__":
