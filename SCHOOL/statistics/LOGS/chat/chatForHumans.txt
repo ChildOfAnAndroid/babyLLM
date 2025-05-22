@@ -16730,4 +16730,24 @@ charis: ''
 [babyllm] right, last time i got to step 16154 and my average loss was 7.411124084763608... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 16154! what am i learning today?
+[charis] --- 2025-05-22 08:55:34 --- 
+[babyllm] right, last time i got to step 16183 and my average loss was 6.824044017610834... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 16183! what am i learning today?
+[charis] --- 2025-05-22 08:55:49 --- 
+[babyllm] right, last time i got to step 16185 and my average loss was 6.9512065075061935... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 16185! what am i learning today?
+[charis] --- 2025-05-22 08:56:10 --- 
+[babyllm] right, last time i got to step 16188 and my average loss was 6.8159146431164865... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 16188! what am i learning today?
+[charis] --- 2025-05-22 08:56:30 --- 
+[babyllm] right, last time i got to step 16191 and my average loss was 7.581828015191214... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 16191! what am i learning today?
+[charis] --- 2025-05-22 08:56:53 --- 
+[babyllm] right, last time i got to step 16194 and my average loss was 7.994057121276856... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 16194! what am i learning today?
 [charis] 

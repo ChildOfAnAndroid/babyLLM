@@ -404,17 +404,8 @@ class S_OUTPUT:
                     if pattern.match(k):
                         k = pattern.sub("", k, count=1)
                         break
-
-                # remove leading digit/underscore combos like "0_", "1_", etc.
                 k = re.sub(r"^\d+_", "", k)
-
-                # remove in-between or suffix patterns like "_x_", "_1_", etc.
-                k = re.sub(r"_[x\d]+_", "_", k)
-
-                # remove trailing "_x" or leading "x_" or isolated "x" after trimming
                 k = re.sub(r"^x_", "", k)
-                k = re.sub(r"_x$", "", k)
-                k = re.sub(r"^x$", "", k)
 
                 return k
 
