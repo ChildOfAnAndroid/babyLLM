@@ -140,7 +140,7 @@ class S_OUTPUT:
         # bottom score ever         #omgwtf
         # lower than bottom ever    #omgwtf!
 
-        self.avgPlz = ["embedNormMean", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "3INN_cerebellumMean", "3INN_cerebellumStd", "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy"]
+        self.avgPlz = ["embedNormMean", "B_PIXELloss_scaled", "B_PIXELloss", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "3INN_cerebellumMean", "3INN_cerebellumStd", "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy"]
 
         return
     

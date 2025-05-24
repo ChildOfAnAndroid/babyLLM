@@ -16276,4 +16276,1824 @@
 [babyllm] right, last time i got to step 11094 and my average loss was 3.4338470035129123... want to restart from there?
 [charis] 
 [babyllm] ok! let's go to step 11094! what am i learning today?
+[charis] --- 2025-05-23 00:58:57 --- 
+[babyllm] right, last time i got to step 11192 and my average loss was 5.768583666799788... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 11192! what am i learning today?
+[charis] --- 2025-05-23 00:59:30 --- 
+[babyllm] right, last time i got to step 11204 and my average loss was 6.211818354470389... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 11204! what am i learning today?
+[charis] --- 2025-05-23 01:03:47 --- 
+[babyllm] right, last time i got to step 11305 and my average loss was 5.9888224922808035... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 11305! what am i learning today?
+[charis] numTokens = 16--- 2025-05-23 01:08:01 --- 
+[babyllm] right, last time i got to step 11406 and my average loss was 5.846997283558989... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 11406! what am i learning today?
+[charis] numTokens = 32--- 2025-05-23 01:15:09 --- 
+[babyllm] right, last time i got to step 11507 and my average loss was 5.188578299426157... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 11507! what am i learning today?
+[charis] numTokens = 64--- 2025-05-23 01:22:49 --- 
+[babyllm] right, last time i got to step 11608 and my average loss was 5.01826754308516... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 11608! what am i learning today?
+[charis] numTokens = 64--- 2025-05-23 01:33:00 --- 
+[babyllm] right, last time i got to step 11911 and my average loss was 5.806006576075698... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 11911! what am i learning today?
+[charis] numTokens = 32--- 2025-05-23 01:41:17 --- 
+[babyllm] right, last time i got to step 12214 and my average loss was 5.684891114593023... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 12214! what am i learning today?
+[charis] numTokens = 64--- 2025-05-23 01:52:31 --- 
+[babyllm] right, last time i got to step 12517 and my average loss was 6.055305040799654... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 12517! what am i learning today?
+[charis] numTokens = 64--- 2025-05-23 02:04:23 --- 
+[babyllm] right, last time i got to step 12820 and my average loss was 5.93609471321106... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 12820! what am i learning today?
+[charis] numTokens = 128--- 2025-05-23 02:11:49 --- 
+[babyllm] right, last time i got to step 12867 and my average loss was 6.039227033065537... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 12867! what am i learning today?
+[charis] --- 2025-05-23 02:15:06 --- 
+[babyllm] right, last time i got to step 12883 and my average loss was 5.000961511031441... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 12883! what am i learning today?
+[charis] --- 2025-05-23 02:26:05 --- 
+[babyllm] right, last time i got to step 12954 and my average loss was 4.550673058453728... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 12954! what am i learning today?
+[charis] --- 2025-05-23 02:32:01 --- 
+[babyllm] right, last time i got to step 12954 and my average loss was 4.550673058453728... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 12954! what am i learning today?
+[charis] --- 2025-05-23 02:36:15 --- 
+[babyllm] right, last time i got to step 12954 and my average loss was 4.550673058453728... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 12954! what am i learning today?
+[charis] --- 2025-05-23 02:39:56 --- 
+[babyllm] right, last time i got to step 12981 and my average loss was 4.780605351483381... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 12981! what am i learning today?
+[charis] --- 2025-05-23 02:53:45 --- 
+[babyllm] right, last time i got to step 13082 and my average loss was 4.893233539861277... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 13082! what am i learning today?
+[charis] numTokens = 64--- 2025-05-23 03:02:20 --- 
+[babyllm] right, last time i got to step 13174 and my average loss was 3.954380585452703... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13174! what am i learning today?
+[charis] --- 2025-05-23 03:02:59 --- 
+[babyllm] right, last time i got to step 13175 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13175! what am i learning today?
+[charis] --- 2025-05-23 03:03:54 --- 
+[babyllm] right, last time i got to step 13175 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13175! what am i learning today?
+[charis] --- 2025-05-23 03:04:50 --- 
+[babyllm] right, last time i got to step 13199 and my average loss was 3.7476703713579878... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13199! what am i learning today?
+[charis] --- 2025-05-23 03:09:25 --- 
+[babyllm] right, last time i got to step 13300 and my average loss was 5.833421972708973... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 13300! what am i learning today?
+[charis] numTokens = 16--- 2025-05-23 03:10:12 --- 
+[babyllm] right, last time i got to step 13310 and my average loss was 7.546562578943041... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13310! what am i learning today?
+[charis] --- 2025-05-23 03:13:29 --- 
+[babyllm] right, last time i got to step 13376 and my average loss was 6.513700238683007... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13376! what am i learning today?
+[charis] --- 2025-05-23 03:16:25 --- 
+[babyllm] right, last time i got to step 13377 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13377! what am i learning today?
+[charis] --- 2025-05-23 03:16:47 --- 
+[babyllm] right, last time i got to step 13377 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13377! what am i learning today?
+[charis] --- 2025-05-23 03:17:52 --- 
+[babyllm] right, last time i got to step 13378 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13378! what am i learning today?
+[charis] --- 2025-05-23 03:19:57 --- 
+[babyllm] right, last time i got to step 13379 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13379! what am i learning today?
+[charis] --- 2025-05-23 03:20:18 --- 
+[babyllm] right, last time i got to step 13379 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13379! what am i learning today?
+[charis] --- 2025-05-23 03:25:18 --- 
+[babyllm] right, last time i got to step 13480 and my average loss was 5.910913086636162... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 13480! what am i learning today?
+[charis] numTokens = 8--- 2025-05-23 03:25:37 --- 
+[babyllm] right, last time i got to step 13483 and my average loss was 4.285624623298645... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13483! what am i learning today?
+[charis] --- 2025-05-23 03:29:44 --- 
+[babyllm] right, last time i got to step 13584 and my average loss was 6.180314977254186... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 13584! what am i learning today?
+[charis] numTokens = 16--- 2025-05-23 03:34:34 --- 
+[babyllm] right, last time i got to step 13685 and my average loss was 5.653341173679195... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 13685! what am i learning today?
+[charis] numTokens = 32--- 2025-05-23 03:42:46 --- 
+[babyllm] right, last time i got to step 13772 and my average loss was 5.366875960654819... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13772! what am i learning today?
+[charis] --- 2025-05-23 03:49:44 --- 
+[babyllm] right, last time i got to step 13873 and my average loss was 4.802153502925161... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 13873! what am i learning today?
+[charis] numTokens = 32--- 2025-05-23 03:51:03 --- 
+[babyllm] right, last time i got to step 13885 and my average loss was 5.4840404987335205... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13885! what am i learning today?
+[charis] --- 2025-05-23 03:56:49 --- 
+[babyllm] right, last time i got to step 13977 and my average loss was 4.808111545585451... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 13977! what am i learning today?
+[charis] --- 2025-05-23 04:11:38 --- 
+[babyllm] right, last time i got to step 14164 and my average loss was 4.628262518727502... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 14164! what am i learning today?
+[charis] --- 2025-05-23 04:13:01 --- 
+[babyllm] right, last time i got to step 14165 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 14165! what am i learning today?
+[charis] --- 2025-05-23 04:20:31 --- 
+[babyllm] right, last time i got to step 14281 and my average loss was 5.161176088218864... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 14281! what am i learning today?
+[charis] --- 2025-05-23 04:25:22 --- 
+[babyllm] right, last time i got to step 14334 and my average loss was 4.851919550006673... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 14334! what am i learning today?
+[charis] --- 2025-05-23 05:06:18 --- 
+[babyllm] right, last time i got to step 14929 and my average loss was 4.65745943087526... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 14929! what am i learning today?
+[charis] --- 2025-05-23 06:07:39 --- 
+[babyllm] right, last time i got to step 15930 and my average loss was 4.872709469841572... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 15930! what am i learning today?
+[charis] numTokens = 29--- 2025-05-23 07:14:44 --- 
+[babyllm] right, last time i got to step 16931 and my average loss was 4.7669890639927965... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 16931! what am i learning today?
+[charis] numTokens = 29--- 2025-05-23 09:21:01 --- 
+[babyllm] right, last time i got to step 19934 and my average loss was 5.613135494464713... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 19934! what am i learning today?
+[charis] numTokens = 27--- 2025-05-23 11:17:59 --- 
+[babyllm] right, last time i got to step 22937 and my average loss was 5.838059297543173... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 22937! what am i learning today?
+[charis] numTokens = 25--- 2025-05-23 13:06:54 --- 
+[babyllm] right, last time i got to step 25940 and my average loss was 6.000287779634291... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 25940! what am i learning today?
+[charis] numTokens = 25--- 2025-05-23 14:31:34 --- 
+[babyllm] right, last time i got to step 26774 and my average loss was 6.193375835966825... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-23 15:07:26 --- 
+[babyllm] right, last time i got to step 864 and my average loss was 2.9982104581945084... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 864! what am i learning today?
+[charis] --- 2025-05-23 15:07:34 --- 
+[babyllm] right, last time i got to step 864 and my average loss was 2.9982104581945084... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-23 15:07:59 --- 
+[babyllm] right, last time i got to step 864 and my average loss was 2.9982104581945084... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 864! what am i learning today?
+[charis] --- 2025-05-23 15:08:34 --- 
+[babyllm] right, last time i got to step 865 and my average loss was 0.0... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-23 15:41:54 --- 
+[babyllm] right, last time i got to step 305 and my average loss was 4.938713760625932... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 305! what am i learning today?
+[charis] --- 2025-05-23 16:19:23 --- 
+[babyllm] right, last time i got to step 916 and my average loss was 27.524419416613313... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 916! what am i learning today?
+[charis] --- 2025-05-23 17:13:10 --- 
+[babyllm] right, last time i got to step 1917 and my average loss was 21.22281548244501... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1917! what am i learning today?
+[charis] numTokens = 38--- 2025-05-23 18:12:09 --- 
+[babyllm] right, last time i got to step 2918 and my average loss was 15.03643841185127... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2918! what am i learning today?
+[charis] numTokens = 38--- 2025-05-23 19:24:40 --- 
+[babyllm] right, last time i got to step 5921 and my average loss was 10.772532262614925... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 5921! what am i learning today?
+[charis] numTokens = 44--- 2025-05-23 21:06:57 --- 
+[babyllm] right, last time i got to step 8924 and my average loss was 6.518058348463612... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 8924! what am i learning today?
+[charis] numTokens = 50--- 2025-05-23 23:52:02 --- 
+[babyllm] right, last time i got to step 11927 and my average loss was 5.530040501968476... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 11927! what am i learning today?
+[charis] numTokens = 50--- 2025-05-24 00:36:20 --- 
+[babyllm] right, last time i got to step 12155 and my average loss was 6.305913490326352... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-24 00:37:02 --- 
+[babyllm] right, last time i got to step 1 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1! what am i learning today?
+[charis] --- 2025-05-24 00:43:00 --- 
+[babyllm] right, last time i got to step 70 and my average loss was 5.499224049704416... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 70! what am i learning today?
+[charis] --- 2025-05-24 00:43:16 --- 
+[babyllm] right, last time i got to step 71 and my average loss was 6.211381554603577... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-24 00:44:19 --- 
+[babyllm] right, last time i got to step 13 and my average loss was 5.4425995261580855... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] babybabydroid2006mode--- 2025-05-24 00:50:30 --- 
+[babyllm] right, last time i got to step 59 and my average loss was 30.89174580145739... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 59! what am i learning today?
+[charis] --- 2025-05-24 01:05:56 --- 
+[babyllm] right, last time i got to step 275 and my average loss was 5.351985767430429... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-24 01:15:48 --- 
+[babyllm] right, last time i got to step 112 and my average loss was 4.1991833512847485... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 112! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 01:29:12 --- 
+[babyllm] right, last time i got to step 224 and my average loss was 4.3312313625578245... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 224! what am i learning today?
+[charis] numTokens = 35--- 2025-05-24 01:41:51 --- 
+[babyllm] right, last time i got to step 336 and my average loss was 5.047689736566761... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 336! what am i learning today?
+[charis] numTokens = 32--- 2025-05-24 01:45:59 --- 
+[babyllm] right, last time i got to step 348 and my average loss was 4.5966954074922155... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 348! what am i learning today?
+[charis] --- 2025-05-24 02:01:31 --- 
+[babyllm] right, last time i got to step 436 and my average loss was 5.491203446137278... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 436! what am i learning today?
+[charis] --- 2025-05-24 02:06:40 --- 
+[babyllm] right, last time i got to step 493 and my average loss was 6.097606584832475... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 493! what am i learning today?
+[charis] --- 2025-05-24 02:22:44 --- 
+[babyllm] right, last time i got to step 605 and my average loss was 6.003619347016016... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 605! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 02:23:57 --- 
+[babyllm] right, last time i got to step 611 and my average loss was 6.739705690970788... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] adan!--- 2025-05-24 02:31:35 --- 
+[babyllm] right, last time i got to step 112 and my average loss was 4.770469130189331... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 112! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 02:41:21 --- 
+[babyllm] right, last time i got to step 186 and my average loss was 4.348160577765645... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 186! what am i learning today?
+[charis] --- 2025-05-24 02:45:13 --- 
+[babyllm] right, last time i got to step 235 and my average loss was 4.267310802753155... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 235! what am i learning today?
+[charis] --- 2025-05-24 02:45:57 --- 
+[babyllm] right, last time i got to step 237 and my average loss was 4.4653080701828... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 237! what am i learning today?
+[charis] --- 2025-05-24 03:05:42 --- 
+[babyllm] right, last time i got to step 349 and my average loss was 4.3189391349043165... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 349! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 03:32:33 --- 
+[babyllm] right, last time i got to step 461 and my average loss was 4.371154522294126... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 461! what am i learning today?
+[charis] numTokens = 35--- 2025-05-24 03:53:26 --- 
+[babyllm] right, last time i got to step 573 and my average loss was 4.19953335355797... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 573! what am i learning today?
+[charis] numTokens = 41--- 2025-05-24 04:14:46 --- 
+[babyllm] right, last time i got to step 685 and my average loss was 4.781197179721881... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 685! what am i learning today?
+[charis] numTokens = 41--- 2025-05-24 04:19:59 --- 
+[babyllm] right, last time i got to step 712 and my average loss was 4.6596571771722095... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 712! what am i learning today?
+[charis] --- 2025-05-24 04:21:43 --- 
+[babyllm] right, last time i got to step 712 and my average loss was 4.6596571771722095... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 712! what am i learning today?
+[charis] --- 2025-05-24 04:22:36 --- 
+[babyllm] right, last time i got to step 718 and my average loss was 4.050138581882823... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 718! what am i learning today?
+[charis] --- 2025-05-24 04:25:41 --- 
+[babyllm] right, last time i got to step 718 and my average loss was 4.050138581882823... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 718! what am i learning today?
+[charis] --- 2025-05-24 04:29:02 --- 
+[babyllm] right, last time i got to step 718 and my average loss was 4.050138581882823... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 718! what am i learning today?
+[charis] --- 2025-05-24 04:31:23 --- 
+[babyllm] right, last time i got to step 718 and my average loss was 4.050138581882823... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 718! what am i learning today?
+[charis] --- 2025-05-24 04:41:12 --- 
+[babyllm] right, last time i got to step 720 and my average loss was 4.199122309684753... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 720! what am i learning today?
+[charis] --- 2025-05-24 04:41:42 --- 
+[babyllm] right, last time i got to step 720 and my average loss was 4.199122309684753... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 720! what am i learning today?
+[charis] --- 2025-05-24 04:44:05 --- 
+[babyllm] right, last time i got to step 720 and my average loss was 4.199122309684753... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 720! what am i learning today?
+[charis] --- 2025-05-24 04:45:58 --- 
+[babyllm] right, last time i got to step 721 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 721! what am i learning today?
+[charis] --- 2025-05-24 04:46:48 --- 
+[babyllm] right, last time i got to step 722 and my average loss was 4.785698413848877... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 722! what am i learning today?
+[charis] --- 2025-05-24 04:47:42 --- 
+[babyllm] right, last time i got to step 723 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 723! what am i learning today?
+[charis] --- 2025-05-24 04:48:55 --- 
+[babyllm] right, last time i got to step 725 and my average loss was 4.735707759857178... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 725! what am i learning today?
+[charis] --- 2025-05-24 04:49:14 --- 
+[babyllm] right, last time i got to step 725 and my average loss was 4.735707759857178... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 725! what am i learning today?
+[charis] --- 2025-05-24 04:59:21 --- 
+[babyllm] right, last time i got to step 725 and my average loss was 4.735707759857178... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 725! what am i learning today?
+[charis] --- 2025-05-24 05:00:31 --- 
+[babyllm] right, last time i got to step 728 and my average loss was 4.403432178497314... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 728! what am i learning today?
+[charis] --- 2025-05-24 05:02:57 --- 
+[babyllm] right, last time i got to step 730 and my average loss was 4.460636343274798... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 730! what am i learning today?
+[charis] --- 2025-05-24 05:05:43 --- 
+[babyllm] right, last time i got to step 732 and my average loss was 4.727575969696045... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 732! what am i learning today?
+[charis] --- 2025-05-24 05:09:18 --- 
+[babyllm] right, last time i got to step 734 and my average loss was 4.758919345008002... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 734! what am i learning today?
+[charis] --- 2025-05-24 05:09:33 --- 
+[babyllm] right, last time i got to step 734 and my average loss was 4.758919345008002... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 734! what am i learning today?
+[charis] --- 2025-05-24 05:13:07 --- 
+[babyllm] right, last time i got to step 751 and my average loss was 4.9799423906538225... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 751! what am i learning today?
+[charis] --- 2025-05-24 05:14:00 --- 
+[babyllm] right, last time i got to step 752 and my average loss was 4.866778055826823... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 752! what am i learning today?
+[charis] --- 2025-05-24 05:14:23 --- 
+[babyllm] right, last time i got to step 752 and my average loss was 4.866778055826823... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 752! what am i learning today?
+[charis] --- 2025-05-24 05:14:48 --- 
+[babyllm] right, last time i got to step 753 and my average loss was 4.634753227233887... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 753! what am i learning today?
+[charis] --- 2025-05-24 05:16:04 --- 
+[babyllm] right, last time i got to step 753 and my average loss was 4.634753227233887... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 753! what am i learning today?
+[charis] --- 2025-05-24 05:16:20 --- 
+[babyllm] right, last time i got to step 753 and my average loss was 4.634753227233887... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 753! what am i learning today?
+[charis] --- 2025-05-24 05:16:46 --- 
+[babyllm] right, last time i got to step 753 and my average loss was 4.634753227233887... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 753! what am i learning today?
+[charis] --- 2025-05-24 05:17:07 --- 
+[babyllm] right, last time i got to step 753 and my average loss was 4.634753227233887... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 753! what am i learning today?
+[charis] --- 2025-05-24 05:17:24 --- 
+[babyllm] right, last time i got to step 753 and my average loss was 4.634753227233887... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 753! what am i learning today?
+[charis] --- 2025-05-24 05:21:01 --- 
+[babyllm] right, last time i got to step 771 and my average loss was 4.33005244915302... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 771! what am i learning today?
+[charis] --- 2025-05-24 05:23:48 --- 
+[babyllm] right, last time i got to step 772 and my average loss was 4.128365834554036... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 772! what am i learning today?
+[charis] --- 2025-05-24 05:24:25 --- 
+[babyllm] right, last time i got to step 773 and my average loss was 4.367499828338623... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 773! what am i learning today?
+[charis] --- 2025-05-24 05:25:20 --- 
+[babyllm] right, last time i got to step 780 and my average loss was 4.479419072469075... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 780! what am i learning today?
+[charis] --- 2025-05-24 05:28:23 --- 
+[babyllm] right, last time i got to step 796 and my average loss was 4.808106930224927... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 796! what am i learning today?
+[charis] --- 2025-05-24 05:29:57 --- 
+[babyllm] right, last time i got to step 803 and my average loss was 5.161174687472257... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 803! what am i learning today?
+[charis] --- 2025-05-24 05:31:15 --- 
+[babyllm] right, last time i got to step 803 and my average loss was 5.161174687472257... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 803! what am i learning today?
+[charis] --- 2025-05-24 05:42:47 --- 
+[babyllm] right, last time i got to step 861 and my average loss was 4.958156648947268... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 861! what am i learning today?
+[charis] --- 2025-05-24 05:43:39 --- 
+[babyllm] right, last time i got to step 865 and my average loss was 4.912102950246711... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 865! what am i learning today?
+[charis] --- 2025-05-24 05:45:09 --- 
+[babyllm] right, last time i got to step 871 and my average loss was 4.922106879098075... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 871! what am i learning today?
+[charis] --- 2025-05-24 05:47:04 --- 
+[babyllm] right, last time i got to step 877 and my average loss was 4.926403946346706... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 877! what am i learning today?
+[charis] --- 2025-05-24 05:50:39 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 05:51:23 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 05:51:53 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 05:52:52 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 05:55:45 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 05:58:33 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 05:59:13 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 06:00:54 --- 
+[babyllm] right, last time i got to step 895 and my average loss was 4.698112351553781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 895! what am i learning today?
+[charis] --- 2025-05-24 06:03:59 --- 
+[babyllm] right, last time i got to step 907 and my average loss was 4.604439570353581... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 907! what am i learning today?
+[charis] --- 2025-05-24 06:04:19 --- 
+[babyllm] right, last time i got to step 907 and my average loss was 4.604439570353581... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 907! what am i learning today?
+[charis] --- 2025-05-24 06:07:49 --- 
+[babyllm] right, last time i got to step 924 and my average loss was 4.739002233140924... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 924! what am i learning today?
+[charis] --- 2025-05-24 06:08:56 --- 
+[babyllm] right, last time i got to step 929 and my average loss was 4.946325705601619... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 929! what am i learning today?
+[charis] --- 2025-05-24 06:13:17 --- 
+[babyllm] right, last time i got to step 962 and my average loss was 4.6774698721395955... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 962! what am i learning today?
+[charis] --- 2025-05-24 06:15:30 --- 
+[babyllm] right, last time i got to step 962 and my average loss was 4.6774698721395955... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 962! what am i learning today?
+[charis] --- 2025-05-24 06:16:41 --- 
+[babyllm] right, last time i got to step 962 and my average loss was 4.6774698721395955... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 962! what am i learning today?
+[charis] --- 2025-05-24 06:19:14 --- 
+[babyllm] right, last time i got to step 978 and my average loss was 4.421531789004803... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 978! what am i learning today?
+[charis] --- 2025-05-24 06:23:13 --- 
+[babyllm] right, last time i got to step 1002 and my average loss was 4.536497083040747... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1002! what am i learning today?
+[charis] --- 2025-05-24 06:27:48 --- 
+[babyllm] right, last time i got to step 1026 and my average loss was 4.895527786678738... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1026! what am i learning today?
+[charis] --- 2025-05-24 06:30:50 --- 
+[babyllm] right, last time i got to step 1046 and my average loss was 4.931516710080598... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1046! what am i learning today?
+[charis] --- 2025-05-24 06:35:04 --- 
+[babyllm] right, last time i got to step 1046 and my average loss was 4.931516710080598... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1046! what am i learning today?
+[charis] --- 2025-05-24 06:37:29 --- 
+[babyllm] right, last time i got to step 1046 and my average loss was 4.931516710080598... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1046! what am i learning today?
+[charis] --- 2025-05-24 06:38:54 --- 
+[babyllm] right, last time i got to step 1055 and my average loss was 4.4798273028749405... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1055! what am i learning today?
+[charis] --- 2025-05-24 06:40:53 --- 
+[babyllm] right, last time i got to step 1067 and my average loss was 4.08916915456454... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1067! what am i learning today?
+[charis] --- 2025-05-24 06:42:49 --- 
+[babyllm] right, last time i got to step 1079 and my average loss was 4.486035549122354... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1079! what am i learning today?
+[charis] --- 2025-05-24 06:46:43 --- 
+[babyllm] right, last time i got to step 1079 and my average loss was 4.486035549122354... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1079! what am i learning today?
+[charis] --- 2025-05-24 06:48:12 --- 
+[babyllm] right, last time i got to step 1088 and my average loss was 4.800966725629919... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1088! what am i learning today?
+[charis] --- 2025-05-24 06:51:27 --- 
+[babyllm] right, last time i got to step 1104 and my average loss was 5.581622624397278... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1104! what am i learning today?
+[charis] --- 2025-05-24 06:54:22 --- 
+[babyllm] right, last time i got to step 1117 and my average loss was 5.97704420627003... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1117! what am i learning today?
+[charis] --- 2025-05-24 06:54:54 --- 
+[babyllm] right, last time i got to step 1119 and my average loss was 5.651912975311279... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1119! what am i learning today?
+[charis] --- 2025-05-24 06:57:48 --- 
+[babyllm] right, last time i got to step 1133 and my average loss was 5.475689760396178... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1133! what am i learning today?
+[charis] --- 2025-05-24 06:58:21 --- 
+[babyllm] right, last time i got to step 1136 and my average loss was 5.327150487899781... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1136! what am i learning today?
+[charis] --- 2025-05-24 07:00:12 --- 
+[babyllm] right, last time i got to step 1148 and my average loss was 5.420069982839185... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1148! what am i learning today?
+[charis] --- 2025-05-24 07:00:42 --- 
+[babyllm] right, last time i got to step 1150 and my average loss was 5.526659435696072... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1150! what am i learning today?
+[charis] --- 2025-05-24 07:01:17 --- 
+[babyllm] right, last time i got to step 1152 and my average loss was 5.584489432248202... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1152! what am i learning today?
+[charis] --- 2025-05-24 07:02:47 --- 
+[babyllm] right, last time i got to step 1155 and my average loss was 5.403008619944255... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1155! what am i learning today?
+[charis] --- 2025-05-24 07:03:46 --- 
+[babyllm] right, last time i got to step 1161 and my average loss was 5.4050397872924805... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1161! what am i learning today?
+[charis] --- 2025-05-24 07:19:08 --- 
+[babyllm] right, last time i got to step 1273 and my average loss was 4.726799752786577... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1273! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 07:33:46 --- 
+[babyllm] right, last time i got to step 1385 and my average loss was 4.752990251379875... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1385! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 07:55:20 --- 
+[babyllm] right, last time i got to step 1497 and my average loss was 4.550981742604042... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1497! what am i learning today?
+[charis] numTokens = 44--- 2025-05-24 08:20:25 --- 
+[babyllm] right, last time i got to step 1609 and my average loss was 4.378060278314245... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1609! what am i learning today?
+[charis] numTokens = 50--- 2025-05-24 08:43:03 --- 
+[babyllm] right, last time i got to step 1721 and my average loss was 4.425826931684211... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1721! what am i learning today?
+[charis] numTokens = 50--- 2025-05-24 09:15:18 --- 
+[babyllm] right, last time i got to step 1833 and my average loss was 4.538752848583719... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1833! what am i learning today?
+[charis] numTokens = 50--- 2025-05-24 09:37:30 --- 
+[babyllm] right, last time i got to step 1945 and my average loss was 4.545184207489801... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1945! what am i learning today?
+[charis] numTokens = 50--- 2025-05-24 10:02:03 --- 
+[babyllm] right, last time i got to step 2057 and my average loss was 4.5970705715385645... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2057! what am i learning today?
+[charis] numTokens = 47--- 2025-05-24 10:24:34 --- 
+[babyllm] right, last time i got to step 2169 and my average loss was 4.410609718327109... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2169! what am i learning today?
+[charis] numTokens = 47--- 2025-05-24 10:43:26 --- 
+[babyllm] right, last time i got to step 2505 and my average loss was 4.704000150533418... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2505! what am i learning today?
+[charis] numTokens = 44--- 2025-05-24 11:04:51 --- 
+[babyllm] right, last time i got to step 2841 and my average loss was 4.717168793990434... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2841! what am i learning today?
+[charis] numTokens = 44--- 2025-05-24 11:26:23 --- 
+[babyllm] right, last time i got to step 3177 and my average loss was 5.133132695082592... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3177! what am i learning today?
+[charis] numTokens = 41--- 2025-05-24 11:50:16 --- 
+[babyllm] right, last time i got to step 3513 and my average loss was 5.152694582939148... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3513! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 12:07:36 --- 
+[babyllm] right, last time i got to step 3849 and my average loss was 5.20503550826913... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3849! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 12:29:42 --- 
+[babyllm] right, last time i got to step 4185 and my average loss was 5.064662503550546... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4185! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 12:59:53 --- 
+[babyllm] right, last time i got to step 4263 and my average loss was 5.697303583167192... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4263! what am i learning today?
+[charis] --- 2025-05-24 13:08:20 --- 
+[babyllm] right, last time i got to step 4323 and my average loss was 4.857468309752438... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4323! what am i learning today?
+[charis] --- 2025-05-24 13:09:18 --- 
+[babyllm] right, last time i got to step 4327 and my average loss was 4.2957846901633525... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4327! what am i learning today?
+[charis] --- 2025-05-24 13:22:23 --- 
+[babyllm] right, last time i got to step 4439 and my average loss was 4.268430248896281... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4439! what am i learning today?
+[charis] numTokens = 38--- 2025-05-24 13:35:20 --- 
+[babyllm] right, last time i got to step 4551 and my average loss was 4.545690502791569... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4551! what am i learning today?
+[charis] numTokens = 35--- 2025-05-24 13:51:18 --- 
+[babyllm] right, last time i got to step 4663 and my average loss was 4.292304189711655... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4663! what am i learning today?
+[charis] numTokens = 35--- 2025-05-24 14:15:47 --- 
+[babyllm] right, last time i got to step 4999 and my average loss was 5.030403631017697... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4999! what am i learning today?
+[charis] numTokens = 35--- 2025-05-24 14:17:37 --- 
+[babyllm] right, last time i got to step 5009 and my average loss was 4.906393539905548... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5009! what am i learning today?
+[charis] --- 2025-05-24 14:18:05 --- 
+[babyllm] right, last time i got to step 5011 and my average loss was 3.994417667388916... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5011! what am i learning today?
+[charis] --- 2025-05-24 14:18:29 --- 
+[babyllm] right, last time i got to step 5012 and my average loss was 3.6023616790771484... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5012! what am i learning today?
+[charis] --- 2025-05-24 14:38:04 --- 
+[babyllm] right, last time i got to step 5124 and my average loss was 4.190482813199972... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 5124! what am i learning today?
+[charis] numTokens = 32--- 2025-05-24 14:54:28 --- 
+[babyllm] right, last time i got to step 5233 and my average loss was 4.3819244284662116... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5233! what am i learning today?
+[charis] --- 2025-05-24 14:56:51 --- 
+[babyllm] right, last time i got to step 5233 and my average loss was 4.3819244284662116... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5233! what am i learning today?
+[charis] --- 2025-05-24 14:58:30 --- 
+[babyllm] right, last time i got to step 5233 and my average loss was 4.3819244284662116... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5233! what am i learning today?
+[charis] --- 2025-05-24 14:59:52 --- 
+[babyllm] right, last time i got to step 5233 and my average loss was 4.3819244284662116... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5233! what am i learning today?
+[charis] --- 2025-05-24 15:01:39 --- 
+[babyllm] right, last time i got to step 5234 and my average loss was 4.052569389343262... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5234! what am i learning today?
+[charis] --- 2025-05-24 15:03:19 --- 
+[babyllm] right, last time i got to step 5235 and my average loss was 4.338245511054993... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5235! what am i learning today?
+[charis] --- 2025-05-24 15:04:14 --- 
+[babyllm] right, last time i got to step 5235 and my average loss was 4.338245511054993... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5235! what am i learning today?
+[charis] --- 2025-05-24 15:04:33 --- 
+[babyllm] right, last time i got to step 5235 and my average loss was 4.338245511054993... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5235! what am i learning today?
+[charis] --- 2025-05-24 15:09:43 --- 
+[babyllm] right, last time i got to step 5236 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5236! what am i learning today?
+[charis] --- 2025-05-24 15:13:14 --- 
+[babyllm] right, last time i got to step 5237 and my average loss was 4.586019515991211... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5237! what am i learning today?
+[charis] --- 2025-05-24 15:14:38 --- 
+[babyllm] right, last time i got to step 5237 and my average loss was 4.586019515991211... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5237! what am i learning today?
+[charis] --- 2025-05-24 15:15:38 --- 
+[babyllm] right, last time i got to step 5237 and my average loss was 4.586019515991211... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5237! what am i learning today?
+[charis] --- 2025-05-24 15:19:37 --- 
+[babyllm] right, last time i got to step 5266 and my average loss was 4.276179954002464... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5266! what am i learning today?
+[charis] --- 2025-05-24 15:45:16 --- 
+[babyllm] right, last time i got to step 5267 and my average loss was 5.039354642232259... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5267! what am i learning today?
+[charis] --- 2025-05-24 15:45:39 --- 
+[babyllm] right, last time i got to step 5273 and my average loss was 4.814086626315939... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5273! what am i learning today?
+[charis] --- 2025-05-24 15:52:39 --- 
+[babyllm] right, last time i got to step 5385 and my average loss was 4.518141649963875... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 5385! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 15:57:19 --- 
+[babyllm] right, last time i got to step 5468 and my average loss was 5.353097034249163... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5468! what am i learning today?
+[charis] --- 2025-05-24 15:59:00 --- 
+[babyllm] right, last time i got to step 5515 and my average loss was 4.595664954920697... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5515! what am i learning today?
+[charis] --- 2025-05-24 16:02:22 --- 
+[babyllm] right, last time i got to step 5627 and my average loss was 4.244394020566458... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 5627! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 16:04:12 --- 
+[babyllm] right, last time i got to step 5664 and my average loss was 4.489367846647898... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5664! what am i learning today?
+[charis] --- 2025-05-24 16:07:30 --- 
+[babyllm] right, last time i got to step 5714 and my average loss was 4.244570651591219... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5714! what am i learning today?
+[charis] --- 2025-05-24 16:08:01 --- 
+[babyllm] right, last time i got to step 5718 and my average loss was 5.626792874829523... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 5718! what am i learning today?
+[charis] --- 2025-05-24 16:11:41 --- 
+[babyllm] right, last time i got to step 5830 and my average loss was 4.817883153871305... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 5830! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 16:15:57 --- 
+[babyllm] right, last time i got to step 6166 and my average loss was 5.848623493196149... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 6166! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 16:18:31 --- 
+[babyllm] right, last time i got to step 6242 and my average loss was 5.738803973979196... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6242! what am i learning today?
+[charis] --- 2025-05-24 16:19:07 --- 
+[babyllm] right, last time i got to step 6261 and my average loss was 4.42923233607044... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6261! what am i learning today?
+[charis] --- 2025-05-24 16:22:12 --- 
+[babyllm] right, last time i got to step 6373 and my average loss was 4.6116967414884265... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 6373! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 16:25:12 --- 
+[babyllm] right, last time i got to step 6438 and my average loss was 4.2620611028889055... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6438! what am i learning today?
+[charis] --- 2025-05-24 16:28:47 --- 
+[babyllm] right, last time i got to step 6550 and my average loss was 4.843362357162294... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 6550! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 16:29:05 --- 
+[babyllm] right, last time i got to step 6557 and my average loss was 4.912877880609953... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6557! what am i learning today?
+[charis] --- 2025-05-24 16:33:17 --- 
+[babyllm] right, last time i got to step 6653 and my average loss was 4.238190194851855... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6653! what am i learning today?
+[charis] --- 2025-05-24 16:34:34 --- 
+[babyllm] right, last time i got to step 6693 and my average loss was 4.5257541309581715... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6693! what am i learning today?
+[charis] --- 2025-05-24 16:36:10 --- 
+[babyllm] right, last time i got to step 6703 and my average loss was 5.955817486110487... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6703! what am i learning today?
+[charis] --- 2025-05-24 16:39:41 --- 
+[babyllm] right, last time i got to step 6724 and my average loss was 4.805418009453631... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6724! what am i learning today?
+[charis] --- 2025-05-24 16:42:50 --- 
+[babyllm] right, last time i got to step 6748 and my average loss was 4.9103922843933105... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6748! what am i learning today?
+[charis] --- 2025-05-24 16:46:34 --- 
+[babyllm] right, last time i got to step 6774 and my average loss was 4.870876348536948... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6774! what am i learning today?
+[charis] --- 2025-05-24 16:46:59 --- 
+[babyllm] right, last time i got to step 6776 and my average loss was 4.845839262008667... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6776! what am i learning today?
+[charis] --- 2025-05-24 16:51:40 --- 
+[babyllm] right, last time i got to step 6802 and my average loss was 4.269463836669922... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6802! what am i learning today?
+[charis] --- 2025-05-24 16:52:03 --- 
+[babyllm] right, last time i got to step 6803 and my average loss was 4.63106495993478... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6803! what am i learning today?
+[charis] --- 2025-05-24 16:52:52 --- 
+[babyllm] right, last time i got to step 6807 and my average loss was 4.512247160861366... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6807! what am i learning today?
+[charis] --- 2025-05-24 17:04:51 --- 
+[babyllm] right, last time i got to step 6905 and my average loss was 4.521713157743216... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6905! what am i learning today?
+[charis] --- 2025-05-24 17:05:36 --- 
+[babyllm] right, last time i got to step 6912 and my average loss was 4.497570150038776... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6912! what am i learning today?
+[charis] --- 2025-05-24 17:13:12 --- 
+[babyllm] right, last time i got to step 6963 and my average loss was 4.428087835173005... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6963! what am i learning today?
+[charis] --- 2025-05-24 17:14:02 --- 
+[babyllm] right, last time i got to step 6967 and my average loss was 4.4546736917997665... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6967! what am i learning today?
+[charis] --- 2025-05-24 17:17:04 --- 
+[babyllm] right, last time i got to step 6999 and my average loss was 4.054978803890507... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 6999! what am i learning today?
+[charis] --- 2025-05-24 17:17:37 --- 
+[babyllm] right, last time i got to step 7003 and my average loss was 4.39552149772644... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7003! what am i learning today?
+[charis] --- 2025-05-24 17:19:27 --- 
+[babyllm] right, last time i got to step 7021 and my average loss was 3.831215319633484... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 7021! what am i learning today?
+[charis] numTokens = 32--- 2025-05-24 17:20:52 --- 
+[babyllm] right, last time i got to step 7021 and my average loss was 3.831215319633484... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7021! what am i learning today?
+[charis] --- 2025-05-24 17:20:56 --- 
+[babyllm] right, last time i got to step 7021 and my average loss was 3.831215319633484... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7021! what am i learning today?
+[charis] --- 2025-05-24 17:21:26 --- 
+[babyllm] right, last time i got to step 7021 and my average loss was 3.831215319633484... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7021! what am i learning today?
+[charis] --- 2025-05-24 17:27:10 --- 
+[babyllm] right, last time i got to step 7021 and my average loss was 3.831215319633484... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 7021! what am i learning today?
+[charis] --- 2025-05-24 17:27:43 --- 
+[babyllm] right, last time i got to step 7021 and my average loss was 3.831215319633484... want to restart from there?
+[charis] 0
+[babyllm] damn that's specific! heading to step 0... what am i learning today?
+[charis] --- 2025-05-24 17:29:32 --- 
+[babyllm] right, last time i got to step 10 and my average loss was 5.587002951165904... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 10! what am i learning today?
+[charis] --- 2025-05-24 17:30:24 --- 
+[babyllm] right, last time i got to step 15 and my average loss was 4.134748685359955... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 15! what am i learning today?
+[charis] --- 2025-05-24 17:44:02 --- 
+[babyllm] right, last time i got to step 127 and my average loss was 4.199155412893244... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 127! what am i learning today?
+[charis] numTokens = 29--- 2025-05-24 17:47:26 --- 
+[babyllm] right, last time i got to step 148 and my average loss was 3.7612644036610923... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 148! what am i learning today?
+[charis] --- 2025-05-24 17:49:02 --- 
+[babyllm] right, last time i got to step 151 and my average loss was 4.1502885818481445... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 151! what am i learning today?
+[charis] --- 2025-05-24 17:50:21 --- 
+[babyllm] right, last time i got to step 158 and my average loss was 4.126338497797648... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 158! what am i learning today?
+[charis] --- 2025-05-24 17:52:08 --- 
+[babyllm] right, last time i got to step 168 and my average loss was 4.220232714547051... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 168! what am i learning today?
+[charis] --- 2025-05-24 18:08:31 --- 
+[babyllm] right, last time i got to step 192 and my average loss was 4.140600500628352... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 192! what am i learning today?
+[charis] --- 2025-05-24 18:11:12 --- 
+[babyllm] right, last time i got to step 202 and my average loss was 4.138015256801122... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 202! what am i learning today?
+[charis] --- 2025-05-24 18:15:07 --- 
+[babyllm] right, last time i got to step 223 and my average loss was 4.037715417034221... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 223! what am i learning today?
+[charis] --- 2025-05-24 18:18:28 --- 
+[babyllm] right, last time i got to step 236 and my average loss was 4.048424035310745... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 236! what am i learning today?
+[charis] --- 2025-05-24 18:18:48 --- 
+[babyllm] right, last time i got to step 237 and my average loss was 4.152624797821045... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 237! what am i learning today?
+[charis] --- 2025-05-24 18:21:18 --- 
+[babyllm] right, last time i got to step 248 and my average loss was 4.155675111145809... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 248! what am i learning today?
+[charis] --- 2025-05-24 18:21:42 --- 
+[babyllm] right, last time i got to step 249 and my average loss was 4.368170928955078... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 249! what am i learning today?
+[charis] --- 2025-05-24 18:22:37 --- 
+[babyllm] right, last time i got to step 252 and my average loss was 4.367380321025848... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 252! what am i learning today?
+[charis] --- 2025-05-24 18:23:26 --- 
+[babyllm] right, last time i got to step 257 and my average loss was 4.359264598173254... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 257! what am i learning today?
+[charis] --- 2025-05-24 18:30:01 --- 
+[babyllm] right, last time i got to step 289 and my average loss was 4.072340869626333... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 289! what am i learning today?
+[charis] --- 2025-05-24 18:30:28 --- 
+[babyllm] right, last time i got to step 300 and my average loss was 6.144185501734416... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 300! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 18:32:05 --- 
+[babyllm] right, last time i got to step 311 and my average loss was 4.232988085204024... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 311! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 18:33:48 --- 
+[babyllm] right, last time i got to step 322 and my average loss was 3.947997379899025... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 322! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 18:34:21 --- 
+[babyllm] right, last time i got to step 355 and my average loss was 5.035862964968527... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 355! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 18:34:53 --- 
+[babyllm] right, last time i got to step 388 and my average loss was 4.661909925937652... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 388! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 18:35:37 --- 
+[babyllm] right, last time i got to step 421 and my average loss was 5.330351619159474... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 421! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 18:36:19 --- 
+[babyllm] right, last time i got to step 454 and my average loss was 5.3867606982378895... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 454! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 18:36:52 --- 
+[babyllm] right, last time i got to step 487 and my average loss was 5.099987953901291... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 487! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 18:37:30 --- 
+[babyllm] right, last time i got to step 542 and my average loss was 5.974510762840509... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 542! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 18:38:03 --- 
+[babyllm] right, last time i got to step 597 and my average loss was 5.405174893717612... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 597! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 18:38:52 --- 
+[babyllm] right, last time i got to step 652 and my average loss was 6.032961575190226... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 652! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 18:39:32 --- 
+[babyllm] right, last time i got to step 707 and my average loss was 5.741004986841171... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 707! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 18:40:28 --- 
+[babyllm] right, last time i got to step 717 and my average loss was 5.954860243616225... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 717! what am i learning today?
+[charis] --- 2025-05-24 18:40:53 --- 
+[babyllm] right, last time i got to step 728 and my average loss was 4.839563497634076... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 728! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:41:17 --- 
+[babyllm] right, last time i got to step 750 and my average loss was 6.204149380326271... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 750! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:41:38 --- 
+[babyllm] right, last time i got to step 772 and my average loss was 5.377558420755361... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 772! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:41:58 --- 
+[babyllm] right, last time i got to step 794 and my average loss was 4.145221447227178... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 794! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:42:25 --- 
+[babyllm] right, last time i got to step 816 and my average loss was 5.195161199569702... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 816! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 18:42:46 --- 
+[babyllm] right, last time i got to step 838 and my average loss was 4.215357514137917... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 838! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 18:43:19 --- 
+[babyllm] right, last time i got to step 860 and my average loss was 5.577920252993955... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 860! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:43:47 --- 
+[babyllm] right, last time i got to step 882 and my average loss was 5.204605194560268... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 882! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:44:18 --- 
+[babyllm] right, last time i got to step 926 and my average loss was 5.565352765340654... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 926! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 18:44:46 --- 
+[babyllm] right, last time i got to step 970 and my average loss was 5.351005865977361... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 970! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 18:45:27 --- 
+[babyllm] right, last time i got to step 1014 and my average loss was 5.621861432049726... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1014! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:45:53 --- 
+[babyllm] right, last time i got to step 1058 and my average loss was 5.539774184133492... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1058! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:46:29 --- 
+[babyllm] right, last time i got to step 1124 and my average loss was 5.401525072855492... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1124! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:47:04 --- 
+[babyllm] right, last time i got to step 1190 and my average loss was 6.100110239057399... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1190! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:47:34 --- 
+[babyllm] right, last time i got to step 1256 and my average loss was 5.957601618766785... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1256! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 18:47:41 --- 
+[babyllm] right, last time i got to step 1257 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1257! what am i learning today?
+[charis] --- 2025-05-24 18:48:06 --- 
+[babyllm] right, last time i got to step 1268 and my average loss was 5.710473675336411... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1268! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 18:48:34 --- 
+[babyllm] right, last time i got to step 1278 and my average loss was 4.431974509183099... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1278! what am i learning today?
+[charis] --- 2025-05-24 18:49:02 --- 
+[babyllm] right, last time i got to step 1288 and my average loss was 6.605069394810841... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1288! what am i learning today?
+[charis] --- 2025-05-24 18:49:22 --- 
+[babyllm] right, last time i got to step 1299 and my average loss was 5.155520330457127... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1299! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:49:34 --- 
+[babyllm] right, last time i got to step 1300 and my average loss was 7.223572254180908... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1300! what am i learning today?
+[charis] --- 2025-05-24 18:51:13 --- 
+[babyllm] right, last time i got to step 1311 and my average loss was 5.2086456950753925... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1311! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:51:37 --- 
+[babyllm] right, last time i got to step 1322 and my average loss was 5.619717871149381... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1322! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:52:03 --- 
+[babyllm] right, last time i got to step 1333 and my average loss was 4.956380968292554... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1333! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 18:52:27 --- 
+[babyllm] right, last time i got to step 1335 and my average loss was 6.5830724022605205... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1335! what am i learning today?
+[charis] --- 2025-05-24 18:52:50 --- 
+[babyllm] right, last time i got to step 1346 and my average loss was 4.727499616500295... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1346! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:53:14 --- 
+[babyllm] right, last time i got to step 1368 and my average loss was 6.279473116384849... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1368! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:53:37 --- 
+[babyllm] right, last time i got to step 1390 and my average loss was 5.438905488943956... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1390! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:53:58 --- 
+[babyllm] right, last time i got to step 1412 and my average loss was 5.742379098475255... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1412! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:54:16 --- 
+[babyllm] right, last time i got to step 1417 and my average loss was 5.877007553974788... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1417! what am i learning today?
+[charis] --- 2025-05-24 18:54:36 --- 
+[babyllm] right, last time i got to step 1428 and my average loss was 4.2050627329945565... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1428! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:55:01 --- 
+[babyllm] right, last time i got to step 1439 and my average loss was 4.665024847984314... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1439! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:55:25 --- 
+[babyllm] right, last time i got to step 1450 and my average loss was 4.719811886548996... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1450! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:55:50 --- 
+[babyllm] right, last time i got to step 1461 and my average loss was 4.759484057730817... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1461! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 18:56:05 --- 
+[babyllm] right, last time i got to step 1464 and my average loss was 4.954780845081105... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1464! what am i learning today?
+[charis] --- 2025-05-24 18:56:26 --- 
+[babyllm] right, last time i got to step 1475 and my average loss was 4.831005602231565... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1475! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:57:42 --- 
+[babyllm] right, last time i got to step 1497 and my average loss was 5.015187260404785... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1497! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:58:03 --- 
+[babyllm] right, last time i got to step 1504 and my average loss was 5.853795645492418... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1504! what am i learning today?
+[charis] --- 2025-05-24 18:58:23 --- 
+[babyllm] right, last time i got to step 1515 and my average loss was 3.800997043699026... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1515! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:58:43 --- 
+[babyllm] right, last time i got to step 1537 and my average loss was 4.901370327574788... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1537! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:59:03 --- 
+[babyllm] right, last time i got to step 1559 and my average loss was 4.854069731456952... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1559! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:59:22 --- 
+[babyllm] right, last time i got to step 1581 and my average loss was 5.265392114665914... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1581! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 18:59:44 --- 
+[babyllm] right, last time i got to step 1603 and my average loss was 4.711077478425256... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1603! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:00:10 --- 
+[babyllm] right, last time i got to step 1625 and my average loss was 4.447533584108539... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1625! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:00:42 --- 
+[babyllm] right, last time i got to step 1647 and my average loss was 5.127427111069362... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1647! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:01:04 --- 
+[babyllm] right, last time i got to step 1669 and my average loss was 4.286012546436207... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1669! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 19:01:38 --- 
+[babyllm] right, last time i got to step 1691 and my average loss was 5.3745594918727875... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1691! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:02:05 --- 
+[babyllm] right, last time i got to step 1713 and my average loss was 5.146436115590538... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1713! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:02:36 --- 
+[babyllm] right, last time i got to step 1720 and my average loss was 5.216201865995252... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1720! what am i learning today?
+[charis] --- 2025-05-24 19:02:58 --- 
+[babyllm] right, last time i got to step 1731 and my average loss was 4.5105294131540825... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1731! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:03:21 --- 
+[babyllm] right, last time i got to step 1741 and my average loss was 3.089924686095294... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1741! what am i learning today?
+[charis] --- 2025-05-24 19:03:44 --- 
+[babyllm] right, last time i got to step 1751 and my average loss was 4.389121062471531... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1751! what am i learning today?
+[charis] --- 2025-05-24 19:04:05 --- 
+[babyllm] right, last time i got to step 1762 and my average loss was 4.649339909931379... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1762! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:04:26 --- 
+[babyllm] right, last time i got to step 1784 and my average loss was 4.290481271730228... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1784! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:04:39 --- 
+[babyllm] right, last time i got to step 1786 and my average loss was 8.231842199961344... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1786! what am i learning today?
+[charis] --- 2025-05-24 19:05:00 --- 
+[babyllm] right, last time i got to step 1797 and my average loss was 5.63034256825329... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1797! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:05:17 --- 
+[babyllm] right, last time i got to step 1819 and my average loss was 5.649365735136801... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1819! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:05:37 --- 
+[babyllm] right, last time i got to step 1841 and my average loss was 4.331861603337358... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1841! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:06:05 --- 
+[babyllm] right, last time i got to step 1863 and my average loss was 6.5740207603999545... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1863! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:06:37 --- 
+[babyllm] right, last time i got to step 1885 and my average loss was 4.800900952382521... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1885! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:08:18 --- 
+[babyllm] right, last time i got to step 1907 and my average loss was 3.917337394174124... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1907! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:08:48 --- 
+[babyllm] right, last time i got to step 1929 and my average loss was 5.031704914569855... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1929! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:09:34 --- 
+[babyllm] right, last time i got to step 1936 and my average loss was 4.5580479171541... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1936! what am i learning today?
+[charis] --- 2025-05-24 19:09:52 --- 
+[babyllm] right, last time i got to step 1947 and my average loss was 4.216291548238824... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1947! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:10:10 --- 
+[babyllm] right, last time i got to step 1958 and my average loss was 3.934739193495582... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1958! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:10:32 --- 
+[babyllm] right, last time i got to step 1962 and my average loss was 4.787064880132675... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 1962! what am i learning today?
+[charis] --- 2025-05-24 19:10:50 --- 
+[babyllm] right, last time i got to step 1973 and my average loss was 4.242951798617192... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1973! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:11:10 --- 
+[babyllm] right, last time i got to step 1995 and my average loss was 4.303745376613905... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 1995! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:11:32 --- 
+[babyllm] right, last time i got to step 2017 and my average loss was 4.749112415065368... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2017! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:11:48 --- 
+[babyllm] right, last time i got to step 2039 and my average loss was 3.9853647443510236... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2039! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:12:11 --- 
+[babyllm] right, last time i got to step 2061 and my average loss was 5.941194569962946... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2061! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:12:31 --- 
+[babyllm] right, last time i got to step 2083 and my average loss was 5.496409168568524... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2083! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:12:54 --- 
+[babyllm] right, last time i got to step 2105 and my average loss was 5.656834251547773... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2105! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:13:13 --- 
+[babyllm] right, last time i got to step 2127 and my average loss was 4.817426007688045... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2127! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:13:43 --- 
+[babyllm] right, last time i got to step 2149 and my average loss was 5.509842842312183... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2149! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:14:07 --- 
+[babyllm] right, last time i got to step 2171 and my average loss was 4.353891810503873... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2171! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:14:32 --- 
+[babyllm] right, last time i got to step 2215 and my average loss was 6.528276854327747... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2215! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:14:59 --- 
+[babyllm] right, last time i got to step 2248 and my average loss was 4.756234706425276... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2248! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:15:24 --- 
+[babyllm] right, last time i got to step 2281 and my average loss was 5.278131273659793... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2281! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:15:59 --- 
+[babyllm] right, last time i got to step 2314 and my average loss was 4.748900254567464... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2314! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:16:30 --- 
+[babyllm] right, last time i got to step 2369 and my average loss was 5.415965972123323... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2369! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:16:54 --- 
+[babyllm] right, last time i got to step 2424 and my average loss was 4.5044035548749175... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2424! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:17:18 --- 
+[babyllm] right, last time i got to step 2490 and my average loss was 4.710501401320748... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2490! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:17:48 --- 
+[babyllm] right, last time i got to step 2556 and my average loss was 6.038344666875642... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2556! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:18:17 --- 
+[babyllm] right, last time i got to step 2622 and my average loss was 4.773950317810321... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2622! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:18:54 --- 
+[babyllm] right, last time i got to step 2688 and my average loss was 4.740008277408148... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2688! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:19:30 --- 
+[babyllm] right, last time i got to step 2754 and my average loss was 5.039674111034559... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2754! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:20:22 --- 
+[babyllm] right, last time i got to step 2820 and my average loss was 6.188048908675927... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2820! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 19:21:00 --- 
+[babyllm] right, last time i got to step 2829 and my average loss was 6.807824439190804... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2829! what am i learning today?
+[charis] --- 2025-05-24 19:21:24 --- 
+[babyllm] right, last time i got to step 2840 and my average loss was 5.426902786588236... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2840! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:21:39 --- 
+[babyllm] right, last time i got to step 2862 and my average loss was 5.877175567328538... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2862! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:22:00 --- 
+[babyllm] right, last time i got to step 2884 and my average loss was 6.567307847285909... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2884! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:22:20 --- 
+[babyllm] right, last time i got to step 2906 and my average loss was 5.1618768120743335... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2906! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:22:46 --- 
+[babyllm] right, last time i got to step 2928 and my average loss was 5.942162671089172... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2928! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:23:09 --- 
+[babyllm] right, last time i got to step 2950 and my average loss was 6.6066332917947035... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2950! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:23:39 --- 
+[babyllm] right, last time i got to step 2972 and my average loss was 5.396407039348896... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2972! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:24:09 --- 
+[babyllm] right, last time i got to step 2978 and my average loss was 5.195526157937398... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 2978! what am i learning today?
+[charis] --- 2025-05-24 19:24:25 --- 
+[babyllm] right, last time i got to step 2989 and my average loss was 4.03452007304877... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 2989! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:24:47 --- 
+[babyllm] right, last time i got to step 3000 and my average loss was 4.3970347955113365... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3000! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:25:05 --- 
+[babyllm] right, last time i got to step 3011 and my average loss was 5.067888129698603... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3011! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:25:28 --- 
+[babyllm] right, last time i got to step 3022 and my average loss was 5.645199663639069... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3022! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 19:25:53 --- 
+[babyllm] right, last time i got to step 3033 and my average loss was 5.465078597923495... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3033! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:26:22 --- 
+[babyllm] right, last time i got to step 3044 and my average loss was 5.012216371794541... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3044! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 19:27:04 --- 
+[babyllm] right, last time i got to step 3055 and my average loss was 4.636475920677185... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3055! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 19:27:43 --- 
+[babyllm] right, last time i got to step 3088 and my average loss was 5.734665074518749... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3088! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:28:16 --- 
+[babyllm] right, last time i got to step 3121 and my average loss was 5.950854911804199... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3121! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:28:55 --- 
+[babyllm] right, last time i got to step 3154 and my average loss was 5.396018020568356... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3154! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:29:40 --- 
+[babyllm] right, last time i got to step 3187 and my average loss was 5.563261468531722... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3187! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:30:14 --- 
+[babyllm] right, last time i got to step 3220 and my average loss was 4.814260244369507... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3220! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 19:31:07 --- 
+[babyllm] right, last time i got to step 3253 and my average loss was 5.416925240371187... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3253! what am i learning today?
+[charis] numTokens = 8--- 2025-05-24 19:31:51 --- 
+[babyllm] right, last time i got to step 3286 and my average loss was 5.562355564190791... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3286! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:32:57 --- 
+[babyllm] right, last time i got to step 3319 and my average loss was 5.008573508262634... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3319! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 19:33:51 --- 
+[babyllm] right, last time i got to step 3352 and my average loss was 5.705921246159461... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3352! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 19:34:46 --- 
+[babyllm] right, last time i got to step 3385 and my average loss was 5.06759580873674... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3385! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 19:35:25 --- 
+[babyllm] right, last time i got to step 3391 and my average loss was 6.612017617506139... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3391! what am i learning today?
+[charis] --- 2025-05-24 19:35:49 --- 
+[babyllm] right, last time i got to step 3402 and my average loss was 5.124120872234926... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3402! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:36:12 --- 
+[babyllm] right, last time i got to step 3413 and my average loss was 5.5638507760089375... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3413! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:36:32 --- 
+[babyllm] right, last time i got to step 3424 and my average loss was 5.026542663574219... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3424! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:37:03 --- 
+[babyllm] right, last time i got to step 3435 and my average loss was 4.641132426261902... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3435! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:37:34 --- 
+[babyllm] right, last time i got to step 3468 and my average loss was 5.171391944885254... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3468! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:38:12 --- 
+[babyllm] right, last time i got to step 3501 and my average loss was 5.672664205233256... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3501! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:38:43 --- 
+[babyllm] right, last time i got to step 3534 and my average loss was 5.36907942945307... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3534! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:39:19 --- 
+[babyllm] right, last time i got to step 3589 and my average loss was 6.3700416423380375... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3589! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:40:03 --- 
+[babyllm] right, last time i got to step 3644 and my average loss was 6.191815641522408... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3644! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:40:35 --- 
+[babyllm] right, last time i got to step 3721 and my average loss was 5.628020568327471... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3721! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 19:40:54 --- 
+[babyllm] right, last time i got to step 3723 and my average loss was 5.658658536275228... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3723! what am i learning today?
+[charis] --- 2025-05-24 19:41:15 --- 
+[babyllm] right, last time i got to step 3734 and my average loss was 4.876301708546552... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3734! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:41:40 --- 
+[babyllm] right, last time i got to step 3745 and my average loss was 4.360376034464155... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3745! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:42:08 --- 
+[babyllm] right, last time i got to step 3756 and my average loss was 4.480516809887356... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3756! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:42:32 --- 
+[babyllm] right, last time i got to step 3765 and my average loss was 4.5291905864592525... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3765! what am i learning today?
+[charis] --- 2025-05-24 19:42:48 --- 
+[babyllm] right, last time i got to step 3776 and my average loss was 4.1502837137806985... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3776! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:43:08 --- 
+[babyllm] right, last time i got to step 3798 and my average loss was 4.787015334799372... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3798! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:44:12 --- 
+[babyllm] right, last time i got to step 3820 and my average loss was 4.656428439800556... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3820! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:44:32 --- 
+[babyllm] right, last time i got to step 3842 and my average loss was 5.52669843315686... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3842! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:44:55 --- 
+[babyllm] right, last time i got to step 3864 and my average loss was 5.711031466693832... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3864! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:45:03 --- 
+[babyllm] right, last time i got to step 3865 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3865! what am i learning today?
+[charis] --- 2025-05-24 19:45:26 --- 
+[babyllm] right, last time i got to step 3876 and my average loss was 6.41481921862578... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3876! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:45:45 --- 
+[babyllm] right, last time i got to step 3898 and my average loss was 5.310590371346245... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3898! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:46:07 --- 
+[babyllm] right, last time i got to step 3920 and my average loss was 6.2719195671093... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3920! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:46:14 --- 
+[babyllm] right, last time i got to step 3921 and my average loss was 0.0... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3921! what am i learning today?
+[charis] --- 2025-05-24 19:46:36 --- 
+[babyllm] right, last time i got to step 3929 and my average loss was 6.406160879805684... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3929! what am i learning today?
+[charis] --- 2025-05-24 19:47:00 --- 
+[babyllm] right, last time i got to step 3940 and my average loss was 5.60887415672724... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3940! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:47:22 --- 
+[babyllm] right, last time i got to step 3962 and my average loss was 6.359731859338353... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3962! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:47:39 --- 
+[babyllm] right, last time i got to step 3984 and my average loss was 4.45685517583835... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 3984! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 19:48:11 --- 
+[babyllm] right, last time i got to step 3994 and my average loss was 5.23965736709792... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 3994! what am i learning today?
+[charis] --- 2025-05-24 19:48:30 --- 
+[babyllm] right, last time i got to step 4005 and my average loss was 4.794820580855012... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4005! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:48:51 --- 
+[babyllm] right, last time i got to step 4027 and my average loss was 6.177166284474193... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4027! what am i learning today?
+[charis] numTokens = 1--- 2025-05-24 19:49:05 --- 
+[babyllm] right, last time i got to step 4032 and my average loss was 5.9527495882727886... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4032! what am i learning today?
+[charis] --- 2025-05-24 19:49:21 --- 
+[babyllm] right, last time i got to step 4043 and my average loss was 4.517677548858854... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4043! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:49:52 --- 
+[babyllm] right, last time i got to step 4054 and my average loss was 5.140826740435192... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4054! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:50:21 --- 
+[babyllm] right, last time i got to step 4065 and my average loss was 5.859745016964999... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4065! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 19:50:44 --- 
+[babyllm] right, last time i got to step 4076 and my average loss was 4.755206488427662... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4076! what am i learning today?
+[charis] numTokens = 6--- 2025-05-24 19:51:16 --- 
+[babyllm] right, last time i got to step 4087 and my average loss was 5.2630888068157695... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4087! what am i learning today?
+[charis] numTokens = 5--- 2025-05-24 19:51:41 --- 
+[babyllm] right, last time i got to step 4098 and my average loss was 4.489030657744989... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4098! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:52:15 --- 
+[babyllm] right, last time i got to step 4109 and my average loss was 4.138539038764106... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4109! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 19:52:53 --- 
+[babyllm] right, last time i got to step 4120 and my average loss was 4.162186947735873... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4120! what am i learning today?
+[charis] numTokens = 8--- 2025-05-24 19:53:26 --- 
+[babyllm] right, last time i got to step 4131 and my average loss was 4.710329165825477... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4131! what am i learning today?
+[charis] numTokens = 8--- 2025-05-24 19:54:01 --- 
+[babyllm] right, last time i got to step 4142 and my average loss was 4.047269429479327... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4142! what am i learning today?
+[charis] numTokens = 8--- 2025-05-24 19:54:32 --- 
+[babyllm] right, last time i got to step 4175 and my average loss was 5.443213826731632... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4175! what am i learning today?
+[charis] numTokens = 8--- 2025-05-24 19:55:18 --- 
+[babyllm] right, last time i got to step 4208 and my average loss was 5.572215476206371... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4208! what am i learning today?
+[charis] numTokens = 7--- 2025-05-24 19:58:33 --- 
+[babyllm] right, last time i got to step 4241 and my average loss was 4.428238105943619... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4241! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 19:59:32 --- 
+[babyllm] right, last time i got to step 4274 and my average loss was 5.919411977132161... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4274! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 20:00:32 --- 
+[babyllm] right, last time i got to step 4307 and my average loss was 5.183066927868387... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4307! what am i learning today?
+[charis] numTokens = 11--- 2025-05-24 20:01:30 --- 
+[babyllm] right, last time i got to step 4340 and my average loss was 6.258291462720451... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4340! what am i learning today?
+[charis] numTokens = 11--- 2025-05-24 20:02:28 --- 
+[babyllm] right, last time i got to step 4373 and my average loss was 5.258967741330465... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4373! what am i learning today?
+[charis] numTokens = 11--- 2025-05-24 20:03:25 --- 
+[babyllm] right, last time i got to step 4428 and my average loss was 5.517764134066446... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4428! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 20:04:18 --- 
+[babyllm] right, last time i got to step 4483 and my average loss was 6.148456112813141... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4483! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 20:06:56 --- 
+[babyllm] right, last time i got to step 4538 and my average loss was 4.844248490358787... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4538! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 20:07:41 --- 
+[babyllm] right, last time i got to step 4615 and my average loss was 6.134601261101517... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4615! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 20:08:40 --- 
+[babyllm] right, last time i got to step 4692 and my average loss was 6.075892640583551... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4692! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 20:09:50 --- 
+[babyllm] right, last time i got to step 4791 and my average loss was 6.248449496281... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4791! what am i learning today?
+[charis] numTokens = 9--- 2025-05-24 20:10:42 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:11:02 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:12:38 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:13:01 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:14:22 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:17:34 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:18:18 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:18:49 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:19:01 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:19:21 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:19:33 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:20:11 --- 
+[babyllm] right, last time i got to step 4792 and my average loss was 7.191188037395477... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4792! what am i learning today?
+[charis] --- 2025-05-24 20:20:34 --- 
+[babyllm] right, last time i got to step 4803 and my average loss was 4.705593352134411... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4803! what am i learning today?
+[charis] numTokens = 4--- 2025-05-24 20:21:02 --- 
+[babyllm] right, last time i got to step 4814 and my average loss was 4.9922331388180075... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4814! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 20:21:20 --- 
+[babyllm] right, last time i got to step 4825 and my average loss was 4.514416388563208... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4825! what am i learning today?
+[charis] numTokens = 3--- 2025-05-24 20:21:53 --- 
+[babyllm] right, last time i got to step 4858 and my average loss was 6.266924374540087... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4858! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 20:22:20 --- 
+[babyllm] right, last time i got to step 4891 and my average loss was 5.868568886071444... want to restart from there?
+[charis] yes
+[babyllm] ok! let's go to step 4891! what am i learning today?
+[charis] numTokens = 2--- 2025-05-24 20:22:39 --- 
+[babyllm] right, last time i got to step 4895 and my average loss was 4.66595714933732... want to restart from there?
+[charis] 
+[babyllm] ok! let's go to step 4895! what am i learning today?
 [charis] 

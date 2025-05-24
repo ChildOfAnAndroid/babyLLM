@@ -26,7 +26,7 @@ warnings.simplefilter("default") # show all warnings (PyTorch hides some by defa
 install(show_locals = True)
 torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
-def wakeup(windowMAX, dataStride, passRateSTART, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True):
+def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True):
     try:
         # WAKE UP THE SCHOOL :)
         counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
@@ -61,7 +61,8 @@ def wakeup(windowMAX, dataStride, passRateSTART, log_A = trainingLogFreq_A, tota
                                                 _librarian              = librarian, 
                                                 _device                 = modelDevice,
                                                 _numTokensPerStep       = windowMAX,
-                                                _first                  = first)
+                                                _first                  = first,
+                                                _learningRateGOAL       = lrGoal,)
 
             tutor               = TUTOR     (_counsellor                    = counsellor,
                                                 _calligraphist              = calligraphist, 
@@ -84,7 +85,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, log_A = trainingLogFreq_A, tota
             # START THE LESSONS :)
             ʕっʘ‿ʘʔっ("starting lessons!")
             tutor.trainModel                (_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
-            return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate
+            return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
@@ -256,17 +257,20 @@ def main():
     passRateSTART       = perfectionistPassRateSTART
     #logFreq_A           = windowMAXSTART * perfectionistMaxRetries
     logFreq_A           = trainingLogFreq_A
+    learnRateGoal       = learningRateGOAL
     while windowMAX <= maxTokensPerStep:
         print(f"\n--- STARTING NEW TRAINING LOOP ---")
-        thisRunLoss, totalTurns, passRateEND = wakeup(windowMAX             = windowMAX, 
-                                                        dataStride          = dataStride, 
-                                                        totalTurnsAwake     = totalTurnsAwake, 
-                                                        totalRuns           = totalRuns, 
-                                                        first               = firstRun,
-                                                        passRateSTART       = passRateSTART,
-                                                        log_A               = logFreq_A)
+        thisRunLoss, totalTurns, passRateEND, learnRateGoalEND = wakeup(windowMAX   = windowMAX, 
+                                                                dataStride          = dataStride, 
+                                                                totalTurnsAwake     = totalTurnsAwake, 
+                                                                totalRuns           = totalRuns, 
+                                                                first               = firstRun,
+                                                                passRateSTART       = passRateSTART,
+                                                                log_A               = logFreq_A,
+                                                                lrGoal              = learnRateGoal,)
         #logFreq_A = windowMAX * perfectionistMaxRetries
         logFreq_A = trainingLogFreq_A
+        learnRateGoal = (learnRateGoalEND+learningRateGOAL+learningRateGOAL)/3
         totalRuns += 1
         totalTurnsAwake += totalTurns
         firstRun = False
@@ -280,8 +284,8 @@ def main():
         maxAllowedWindowJump = round(0.2 * (maxTokensPerStep - windowMAX))
         maxAllowedStrideJump = round(0.2 * ((windowMAX * 2) - dataStride))
 
-        halfWindow = round(windowMAX / 2)
-        halfStride = round(dataStride / 2)
+        halfWindow = round(windowMAX / 20)+1
+        halfStride = round(dataStride / 20)+1
 
         incrementW = max(1, min((increment + (halfWindow)), maxAllowedWindowJump))
         incrementS = max(1, min((increment + (halfStride)), maxAllowedStrideJump))

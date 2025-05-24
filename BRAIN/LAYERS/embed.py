@@ -21,12 +21,19 @@ class EMBED(nn.Module):
         self.normScale = nn.Parameter(torch.tensor(0.5)) 
         self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, DOES NOT BREAK GRAPH CONFIRMED!!
 
+        self.pixelEmbed = nn.Linear(3, embedDimension, device = self.device)
+
     """looks up and returns the embedding vector for a specifc token index"""
     @whocalled
-    def forward(self, _tokenIndex):
+    def forward(self, _tokenIndex = None, _pixel = None):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
-            self.embedVector = self.e_weights[_tokenIndex] 
+            if not skipPixels and (_pixel is not None):
+                ʕっʘ‿ʘʔっ("E0_pixelInjected") # shape: [3] → [embedDimension]
+                pixelEmbedded = self.pixelEmbed(_pixel.to(self.device))
+                self.embedVector = pixelEmbedded
+            else:
+                ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
+                self.embedVector = self.e_weights[_tokenIndex] 
             ʕっʘ‿ʘʔっ("E1_embedNormed") # <- E1
             self.embedNormed = self.embedNorm(self.embedVector)
             ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
