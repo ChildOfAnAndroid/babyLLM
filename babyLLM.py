@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
+from adan_pytorch import Adan
 import torch.optim.lr_scheduler
 import math
 from collections import Counter
@@ -24,7 +25,7 @@ from config import *
 """LOGITS: output layer to generate logits"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _numTokensPerStep, _device = modelDevice, _first = True):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _numTokensPerStep, _learningRateGOAL = learningRateGOAL, _device = modelDevice, _first = True):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
@@ -36,7 +37,7 @@ class BABYLLM(nn.Module):
 
         # MUST BE ON SELF - ONLY ACCESSED IN THIS CLASS AND NOT NN.PARAMS
         self.totalTokenEvaluations = 0
-        self.learningRateGOAL = learningRateGOAL
+        self.learningRateGOAL = _learningRateGOAL
         self.latestLossDelta = 0
         self.totalTokenEvaluations_A = 0
         self.recentGeneratedTokens = []  # used for repetition penalty
@@ -46,6 +47,7 @@ class BABYLLM(nn.Module):
         self.normalisedActivations = 0
         self.rollingTokenTotals = Counter()
         self.gumBellend = 0
+        self.pixelLoss_used = 0
 
         self.stats = {}
         self.normalisedHistory = []
@@ -54,6 +56,8 @@ class BABYLLM(nn.Module):
         self.penalisedOutputHistory = []
         self.inputEmbedsHistory = []
         self.FINALlogitsHistory = []
+        self.predPixel = torch.tensor([0.0, 0.0, 0.0], device=self.device)
+
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
@@ -71,6 +75,10 @@ class BABYLLM(nn.Module):
         self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
 
+        self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
+        #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3))
+
+
         """stuff"""
         self.gradientClipMaxNorm = torch.exp(self.logGradClip)
         self.temperature = None
@@ -80,8 +88,12 @@ class BABYLLM(nn.Module):
             print("registered parameters: ")
             for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
-        optimizerClass = getattr(optim, optimizerName)
-        self.optimizer = optimizerClass(self.parameters(), lr = learningRate, weight_decay = 0.005, fused = True)
+        if optimizerName == "Adan":
+            self.optimizer = Adan(self.parameters(), lr=learningRate, betas=(0.96, 0.90, 0.995), eps=1e-6, weight_decay=0.005,)
+        else:
+            optimizerClass = getattr(optim, optimizerName)
+            self.optimizer = optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.005, fused=True)
+
 
         if debugPrints:
             for name, param in self.named_parameters():
@@ -91,13 +103,21 @@ class BABYLLM(nn.Module):
         self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSamplingRate": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
 
     @whocalled
-    def forward(self, _inputSeq):
+    def forward(self, _inputSeq = None, _pixel = None):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
             if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
             self.temperature = torch.exp(self.logTemp)
 
             ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
-            inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
+            #inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
+            tokenEmbed = self.embed(_tokenIndex = _inputSeq)
+            if not skipPixels and (hasattr(self, "currentPixelRGB") and _pixel is not None):
+                rgbEmbed = self.embed(_pixel = _pixel)
+                inputEmbeds = (tokenEmbed * 0.999) + (rgbEmbed * 0.001) # or a learnable fusion
+                #inputEmbeds = tokenEmbed
+            else:
+                inputEmbeds = tokenEmbed
+            self.latestTokenEmbed = inputEmbeds
             if debugPrints: print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
             ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
@@ -170,12 +190,16 @@ class BABYLLM(nn.Module):
                     self.normalisedHistory = []
 
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
-            return FINALlogits
+            #tokenEmbed = self.embed(_tokenIndex = _inputSeq)
+            #self.latestTokenEmbed = tokenEmbed
+            return FINALlogits #, self.latestTokenEmbed
 
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
-    def computeLoss(self, _logits, _targetTokenIndex, _latestLossDelta = 0, _perfectTokens = 0, _training = False):
+    def computeLoss(self, _logits, _targetTokenIndex, _totalAvgAbsDelta = 1, _learningRateGOAL = learningRateGOAL, _perfectTokens = 0, _training = False):
         with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
             self.perfectTokens = _perfectTokens
+            self.totalAvgAbsDelta = _totalAvgAbsDelta
+            self.learningRateGOAL = _learningRateGOAL
             if skipComputeLoss:
                 ʕっʘ‿ʘʔっ("skipping loss!")
                 return torch.tensor([0.1], requires_grad = True, device = self.device)  # Constant scalar tensor
@@ -193,7 +217,7 @@ class BABYLLM(nn.Module):
 
             if not torch.isfinite(loss):
                 print("NaN/Inf loss detected — logits:", _logits)
-                return torch.tensor(10.0, device=self.device, requires_grad=True)  # or skip/backoff
+                return torch.tensor(10.0, device = self.device, requires_grad = True)  # or skip/backoff
 
             if debugPrints: print(f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
             
@@ -204,8 +228,9 @@ class BABYLLM(nn.Module):
 
             #entropy = 0.001 * self.interneuronNetwork.entropyBonus
 
-            lrSoftClamp = 0.001 * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
-            tempSoftClamp = 5 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            lrSoftClamp = 0.001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
+            #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
+            tempSoftClamp = 0.1 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             if self.repetitionPenalty >= 0:
                 repetitionPenaltySoftClamp = 0.000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty >= -1:
@@ -219,14 +244,30 @@ class BABYLLM(nn.Module):
             loss += tempSoftClamp
             loss += repetitionPenaltySoftClamp
             self.lastLossBaby = loss.item()
+            FINALloss = loss
+            #print(f"{FINALloss} + loss")
 
             if _training and self.lastSoftSample is not None and not skipAuxLoss:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
                 auxLoss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
-                FINALloss = loss + auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
+                AUXloss = auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
+                #print(f"{AUXloss} + aux")
+
+            if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
+                ʕっʘ‿ʘʔっ("RGB regression loss")
+                if debugPrints: print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape}), [-1] is {self.latestTokenEmbed[-1]} ({self.latestTokenEmbed[-1].shape})")
+                predictedRGB = self.pixelPupil(self.latestTokenEmbed[-1])
+                self.predPixel = predictedRGB
+                rgbLoss = F.mse_loss(predictedRGB, self.nextPixelTarget)
+                self.PIXELloss = rgbLoss * torch.sigmoid(loss - rgbLoss)
+                ###self.print_rgb_block(self.pixel, "prompt")
+                #self.print_rgb_block(self.nextPixelTarget, "truth")
+                #self.print_rgb_block(predictedRGB, "guess")
+                #print(f"{PIXELloss} + pixel")
 
             else:
                 FINALloss = loss
+                #print(f"{FINALloss} + final")
 
             #tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
 
@@ -239,7 +280,13 @@ class BABYLLM(nn.Module):
                 # +4 Delta (worse) > 0 > -4 Delta (better)
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
-
+            if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
+                FINALloss += (self.PIXELloss * 0.01)
+                self.pixelLoss_used = (self.PIXELloss * 0.01)
+                #print(f"{FINALloss} pixel + final")
+            if _training and self.lastSoftSample is not None and not skipAuxLoss: 
+                FINALloss += AUXloss
+                #print(f"{FINALloss} aux + final")
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
             return FINALloss
     
@@ -313,13 +360,19 @@ class BABYLLM(nn.Module):
             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue)
             ʕっʘ‿ʘʔっ("optimizer.step")
             self.optimizer.step()  # Update weights
+            repWindow = torch.exp(self.logRepetitionWindow)
+            self.repetitionWindow = repWindow / (1 + repWindow / self.numTokensPerStep)  # asymptotes near windowMAX
 
             self.backwardStats = {
                 "B_floatMemoryLength": torch.exp(self.logMemoryLength).item(),
-                "B_repetitionWindow": torch.exp(self.logRepetitionWindow).item(),
+                "B_expWindow": repWindow.item(),
+                "B_repetitionWindow": self.repetitionWindow.item(),
                 "B_temperature": torch.exp(self.logTemp).item(),
+                "B_PIXELloss": self.PIXELloss,
+                "B_PIXELloss_scaled": self.pixelLoss_used
             }
             self.stats.update(self.backwardStats)
+            self.pixelLoss_used = 0
 
             #with torch.no_grad(): # FORCE RESET THE MEMORY GATES IF OVER USING LONG
                 #self.memory.currentGate.data = self.memory.currentGate.data.abs()
@@ -411,8 +464,10 @@ class BABYLLM(nn.Module):
                 #print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
 
             ʕっʘ‿ʘʔっ("create windows using rolling buffer")
+            repWindow = torch.exp(self.logRepetitionWindow)
+            self.repetitionWindow = repWindow / (1 + repWindow / self.numTokensPerStep)  # asymptotes near windowMAX
             self.recentGeneratedTokens.append(responseFromLogits.item())
-            if len(self.recentGeneratedTokens) > int(torch.exp(self.logRepetitionWindow)):
+            if len(self.recentGeneratedTokens) > int(self.repetitionWindow):
                 self.recentGeneratedTokens.pop(0)
 
             return responseFromLogits
@@ -425,16 +480,17 @@ class BABYLLM(nn.Module):
 
             ʕっʘ‿ʘʔっ("repWindow = torch.exp(self.logRepetitionWindow)")
             repWindow = torch.exp(self.logRepetitionWindow)
+            repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)  # asymptotes near windowMAX
             ʕっʘ‿ʘʔっ("penalty = self.repetitionPenalty")
             penalty = self.repetitionPenalty
 
             ʕっʘ‿ʘʔっ("recentTokens to tensor")
-            recentTokens = torch.tensor(self.recentGeneratedTokens, device=self.device)
+            recentTokens = torch.tensor(self.recentGeneratedTokens, device = self.device)
             ʕっʘ‿ʘʔっ("vocabSize = _logits.shape[1]")
             vocabSize = _logits.shape[1]
 
             ʕっʘ‿ʘʔっ("positions = torch.arange(len(recentTokens)).float()")
-            positions = torch.arange(len(recentTokens), device=self.device).float()
+            positions = torch.arange(len(recentTokens), device = self.device).float()
             ʕっʘ‿ʘʔっ("windowCenter")
             windowCenter = len(recentTokens) - 0.5  # so token 0 gets proper suppression
             ʕっʘ‿ʘʔっ("softMask = torch.sigmoid((positions - (windowCenter - repWindow)) * 0.5)")
@@ -478,7 +534,8 @@ class BABYLLM(nn.Module):
         with self.counsellor.infodump("loadModel") as ʕっʘ‿ʘʔっ:
             try:
                 ʕっʘ‿ʘʔっ("update logarithmic parameters")
-                self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
+                repWindow = torch.exp(self.logRepetitionWindow)
+                self.repetitionWindow = repWindow / (1 + repWindow / self.numTokensPerStep)  # asymptotes near windowMAX
                 self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
                 print(f"loading model from path: {filePath}") 
                 self.load_state_dict(torch.load(filePath), strict = saveStrict)
@@ -539,6 +596,20 @@ class BABYLLM(nn.Module):
         self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = self.learningRate
+
+    def print_rgb_block(self, rgb_tensor, label="RGB"):
+        #rgb_tensor = rgb_tensor.detach().cpu().clamp(0, 1).numpy()
+        rgb_tensor = rgb_tensor.detach().cpu().numpy()
+
+        # If it's a 1D array, convert it to shape (1, 3)
+        if rgb_tensor.ndim == 1:
+            print("DIM1 reshape")
+            rgb_tensor = rgb_tensor.reshape(1, 3)
+
+        for i, rgb in enumerate(rgb_tensor):
+            r, g, b = (rgb * 255).astype(int)
+            print(f"{label}[{i}]: \x1b[48;2;{r};{g};{b}m     \x1b[0m  ({r}, {g}, {b})")
+
 
     def getBabyStats(self): return self.stats
     

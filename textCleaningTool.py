@@ -59,8 +59,8 @@ EMAIL = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b')
 
 REPEATS = re.compile(r'(\S)\1{3,}', re.IGNORECASE)
 """# Dont allow character repeats
-(re.compile(r'(\S)\1{3,}', r'\1\1\1', re.I)) # normalise everything to only 3 repeats tops
-(re.compile(r'(?:\.\s\.)+', '...', text)  # Replace any ". ." patterns with "..."
+(re.compile(r'(\\S)\1{3,}', r'\1\1\1', re.I)) # normalise everything to only 3 repeats tops
+(re.compile(r'(?:\.\\s\.)+', '...', text)  # Replace any ". ." patterns with "..."
 (re.compile(r'(?:\:\({3,})', ':(', text)  # Normalise :(
 (re.compile(r'(?:\:\){3,})', ':)', text)  # Normalise :)
 (re.compile(r'(?:\:D{3,})', ':d', text)  # Normalise :D
@@ -285,17 +285,18 @@ def process_file(current_file):
     weight = current_file.get("weight", 1)
     if weight == -1 or len(raw_text) < 1000:
         final_text = raw_text
+        print(f"set {len(raw_text)} chars from {current_file['in']} as the full file (weight is -1)")
     else:
-        weight = current_file.get("weight", 1)
         sliceRange = trainingDataSliceSize_max - trainingDataSliceSize_min
         baseSlice = trainingDataSliceSize_min + random.random() * sliceRange
         sliceSize = int(baseSlice * weight)
         if len(raw_text) <= sliceSize:
             final_text = raw_text
+            print(f"set {len(raw_text)} chars from {current_file['in']} as the full file")
         else:
             start = (hash(current_file['in']) % (len(raw_text) - sliceSize + 1))  # deterministic-ish
             final_text = raw_text[start:start + sliceSize]
-        print(f"sliced {sliceSize} chars from {current_file['in']} starting at {start}")
+            print(f"sliced {sliceSize} chars from {current_file['in']} starting at {start}")
 
     chunk_size = 100000
     chunks = [final_text[i:i + chunk_size] for i in range(0, len(final_text), chunk_size)]

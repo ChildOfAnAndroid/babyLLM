@@ -12,6 +12,8 @@ from config import *
 import numpy as np
 import math
 from SCHOOL.staffroom.newsletter import deep_model_summary, STATS
+from SCHOOL.notebook.tools.genBoi import makeSafeBoi
+
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _numTokensPerStep, _first, 
@@ -35,6 +37,7 @@ class TUTOR:
         self.totalRuns                  = _totalRuns
         self.dataStride                 = _dataStride
         self.trainingLogFreq_A          = _trainingLogFreq_A
+        self.learningRateGOAL           = learningRateGOAL
 
         self.temperature                = 0.75
         self.scheduledSamplingRate      = self.model.scheduledSamplingRate
@@ -42,6 +45,9 @@ class TUTOR:
         self.memoryLength               = 1
 
         self.ʕっෆ‿ෆʔっ                  = defaultdict(self.makeStatRecord)
+        self.char1 = makeSafeBoi()
+        self.char2 = makeSafeBoi()
+        self.char3 = makeSafeBoi()
         #self.rollingTokenTotals = Counter()
 
 
@@ -50,7 +56,9 @@ class TUTOR:
         self.predictedTokenIndices      = [] # this list grows each time a new token is predicted
         self.averageRecentLoss          = 0
         self.totalLoss                  = 0
+        self.totalLossAbsDelta          = 0
         self.totalAvgLoss               = 0
+        self.totalAvgAbsDelta           = 0
         self.stats                      = {}
         self.stringStats                = {}
         self.trainingStepCounter        = 0
@@ -80,8 +88,30 @@ class TUTOR:
         self.bbbb   = 0
         self.nnnn   = 0
 
+        self.rgbBar = ""
+
         #model.to(self.device)
         self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;) "
+
+        self.pixelSeq = [
+        torch.tensor([
+            (1 - t) * 0.5 + t * 0.0,
+            0.0,
+            (1 - t) * 0.5 + t * 1.0
+        ], device=self.device)
+        for t in [(0.5 * (1 - math.cos(2 * math.pi * j / 64))) for j in range(640)]
+        ]
+        
+        self.STATICpixelSeq = [
+        torch.tensor([
+            0.5,
+            0.5,
+            0.5
+        ], device=self.device)]
+
+        self.pixelNow = torch.tensor([0.5, 0.1, 0.5,], device = self.device)
+        self.pixelNext = torch.tensor([0.6, 0.0, 0.6,], device = self.device)
+
 
     def makeStatRecord(self):
         base = {
@@ -122,6 +152,7 @@ class TUTOR:
             self.reflectionTrainingPairs = []
             self.reflectionFreq = reflectionFreq
             self.totalTries = 0
+            absdelta = 0.00001
 
             ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
@@ -183,6 +214,11 @@ class TUTOR:
                         ʕっʘ‿ʘʔっ("♥collectTurnStats")
                         self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
                         self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
+                        absdelta = abs(self.latestLossDelta)
+                        self.pixelNow = torch.tensor([self.totalTokenPerfectRate, self.totalAvgAbsDelta, self.perfectionistPassRate,], device = self.device)
+                        # RED = energy up when getting more perfect, more red!
+                        # GREEN = growth up (or a bit queasy lol) when getting stronger deltas, more green!
+                        # BLUE = calm up when doing better than the previous run, more blue!
                         if debugPrints: print(f"Setting latestLossDelta {self.latestLossDelta:.2f} = {self.stepLossFloat:.2f} - {self.averageRecentLoss:.2f}")
                         self.easyLossDelta = self.stepLossFloat - ((self.averageRecentLoss + self.stepLossFloat + self.stepLossFloat)/3)
 
@@ -211,10 +247,26 @@ class TUTOR:
                         ʕっʘ‿ʘʔっ("♥WINDING DOWN TURN")
                         self.totalTurns += 1
                         self.totalAvgLoss = self.totalLoss / max(1, self.totalTurns)
+                        self.totalLossAbsDelta += absdelta
+                        self.totalAvgAbsDelta = (self.totalLossAbsDelta / max(1, self.totalTurns))
+
+                        if self.totalTurns % 420 == 0:
+                            centreLow = 0.0025
+                            centreHigh = 0.3
+                            if (learningRateGOAL * 0.5) < self.learningRateGOAL and self.learningRateGOAL < 0.001 :
+                                if self.totalAvgAbsDelta < centreLow:
+                                    lrNudge = (self.totalAvgAbsDelta - centreLow) * 0.5
+                                elif self.totalAvgAbsDelta > centreHigh:
+                                    lrNudge = (self.totalAvgAbsDelta - centreHigh) * 0.1
+                                else:
+                                    lrNudge = 0.0
+                                self.learningRateGOAL *= (1 + lrNudge)
+                            else:
+                                self.learningRateGOAL = learningRateGOAL
 
                         if debugPrints: print(f"{self.stableFallCount:.2f}", end="")
                         latestIncrement = (1 + abs(self.latestLossDelta))  # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
-                        if perfectionistRun: latestIncrement *= 0.5 #0.1
+                        if perfectionistRun: latestIncrement *= 0.9 #0.1
                         if self.easyLossDelta < 0:
                                 self.stableFallCount += latestIncrement
                                 if debugPrints: print(f" + {latestIncrement:.2f}", end="")
@@ -225,9 +277,9 @@ class TUTOR:
                         if perfectionistRun:
                             # if last run avg loss is worse than current run avg = this run is better
                             if self.totalAvgLoss < self.lastRunLoss:
-                                self.perfectionistPassRate += 1
+                                self.perfectionistPassRate += 0.1
                             else:
-                                self.perfectionistPassRate = max(self.perfectionistPassRate-1, 1)
+                                self.perfectionistPassRate = max(self.perfectionistPassRate-0.1, 1)
                             latestPerfectIncrement = abs(10 + self.tokenPerfectRate) * (self.perfectTokens + 0.01) # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
                             latestTotalPerfectIncrement = abs(((10 + self.totalTokenPerfectRate) * self.totalPerfectTokens) / self.totalTurns)
                             latestPerfectDeltaIncrement = (10 + abs(self.tokenPerfectRate - self.totalTokenPerfectRate)) * (self.perfectTokens + 0.01)
@@ -241,7 +293,7 @@ class TUTOR:
                                 if debugPrints: print(f"cold with the flow yeah i wrote this one on an old iPhone with a broken screen... think you’re gonna try test man with a verse like that, you’re a fucking aubergine... tokenPerfectRate = {self.tokenPerfectRate:.2f}%")
                                 # continue
                             else: 
-                                self.stableFallCount += perfectIncrementChoice * 0.001 #0.01
+                                self.stableFallCount += perfectIncrementChoice * 0.1 #0.01
                                 if debugPrints: print(f" - {(abs(latestIncrement-latestPerfectIncrement) * 0.1):.2f}", end="")
 
                         if debugPrints: print(f" = {self.stableFallCount:.2f}")
@@ -253,20 +305,23 @@ class TUTOR:
                     self.totalTurnAttempts = 0
                     if self.totalTries >= self.maxRetries:
                         self.tooDifficult += 1
-                        self.perfectionistPassRate -= round(self.perfectionistPassRate + self.tokenPerfectRate)
-                        if abs(self.latestLossDelta) < 0.05:
-                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.0000005*abs(self.latestLossDelta)))
-                        elif abs(self.latestLossDelta) > 1.0:
-                            self.model.learningRateGOAL = min(0.0004, self.model.learningRateGOAL + (0.000000005*abs(self.latestLossDelta)))
-                        elif abs(self.latestLossDelta) > 0.05:
-                            self.model.learningRateGOAL = max(1e-6, self.model.learningRateGOAL - (0.00000005*abs(self.latestLossDelta)))
-                        print(f"updated goal LR to {self.model.learningRateGOAL}")
+                        self.perfectionistPassRate -= round((self.perfectionistPassRate + self.tokenPerfectRate) * 0.1)
+                        self.totalAvgAbsDelta *= 0.5
+                        absdelta = abs(self.latestLossDelta)
+                        fuzzyabs = (self.totalAvgAbsDelta + absdelta) * 0.5
+                        if fuzzyabs < 0.01: self.learningRateGOAL *= 1.02
+                        elif fuzzyabs > 1.0: self.learningRateGOAL *= 0.90
+                        elif fuzzyabs > 0.05: self.learningRateGOAL *= 0.98
+                        else: self.learningRateGOAL = self.learningRateGOAL
+
+                        self.learningRateGOAL = max(1e-6, min(0.0004, self.learningRateGOAL))
+                        if debugPrints or True: print(f"updated goal LR to {self.learningRateGOAL}")
 
                     if self.perfectionistPassRate < perfectionistPassRate:
-                        self.perfectionistPassRate += (abs(self.perfectionistPassRate)/(self.totalTries))
+                        self.perfectionistPassRate += ((abs(self.perfectionistPassRate)/(self.totalTries)) * 0.1)
 
                     if self.perfectionistPassRate > perfectionistPassRateSTART:
-                        self.perfectionistPassRate -= ((self.perfectionistPassRate-perfectionistPassRateSTART) * (self.totalTries * 0.5))
+                        self.perfectionistPassRate -= (((self.perfectionistPassRate-perfectionistPassRateSTART) * (self.totalTries * 0.5)) * 0.1)
 
                     if currentReflection is not None:
                         if scribeusedThisTurn:
@@ -277,7 +332,10 @@ class TUTOR:
                         i += 1 # only move to next prompt if stableFallCount met or maxRetries
                         self.trainingStepCounter += 1 # means reflections wont be training steps
                 ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
+                if self.totalTurns == 0:
+                    raise "We ran out of data (probably)!!!"
                 self.totalAvgLoss = self.totalLoss / self.totalTurns
+                self.totalAvgAbsDelta = (self.totalLossAbsDelta / max(1, self.totalTurns))
                 print(f"{self.totalAvgLoss} = {self.totalLoss} / {self.totalTurns}")
                 self.saveFreqActions()
                 print("--- tutoring complete! ---")
@@ -310,37 +368,83 @@ class TUTOR:
             self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
             #self.trainingStepCounter   += 1
             self.predictedTokenIndices  = []
-            inputSeqPredictions = list(_inputTokenIndices)  # Start with input context, create a COPY!
+            inputSeqPredictions = list(_inputTokenIndices)  # start with input context, create a COPY!
             buffer = torch.zeros(self.numTokensPerStep, dtype = torch.long, device = self.device) # creates buffer/step instead of recreating tensors inside loop
             buffer[:len(inputSeqPredictions)] = torch.as_tensor(inputSeqPredictions, device = self.device)
             self.logitSeq = [] # raw output of each prediction
             cumulativeLoss = torch.tensor(0.0, device = self.device) # sum of token losses for THIS sequence - averaged at the end
 
-            for j in range(self.numTokensPerStep): # Predict multiple tokens in a sequence, one at a time
+            self.rgbPredictionBar = ""
+            self.rgbTargetBar     = ""
+            self.rgbPromptBar     = ""
+
+            for j in range(self.numTokensPerStep): # predict multiple tokens in a sequence, one at a time
+                if not skipPixels:
+                    #pixel = torch.rand(3, device = self.device)  # random RGB for now
+                    if False:
+                        pixelIndex = (self.totalTurns + self.numTokensPerStep + j) % len(self.pixelSeq)
+                        pixelNow = self.pixelSeq[pixelIndex]
+                        pixelNext = self.pixelSeq[(pixelIndex + 1) % len(self.pixelSeq)]
+                        if debugPrints: print(f"pixelIndex({pixelIndex}) = pixelNow {pixelNow}, next is {pixelNext}")
+                    else:
+                        pixelNow = self.pixelNow
+                        pixelNext = torch.tensor([self.totalTokenPerfectRate * 1., 
+                                                  self.totalAvgAbsDelta * 1., 
+                                                  self.perfectionistPassRate * 1.,], device = self.device)
+                    self.model.nextPixelTarget = pixelNext
+                else:
+                    pixelNow = None
                 ʕっʘ‿ʘʔっ("FORWARD")
                 inputTensor = buffer[:len(inputSeqPredictions)] # slices input to only keep relevant part
                 try:
                     if forwardProfiler: 
                         with torch.profiler.profile(record_shapes = True) as prof:
-                            logits = self.model.forward(inputTensor)
+                            logits = self.model.forward(inputTensor, _pixel = pixelNow)
+
                     else:
-                        logits = self.model.forward(inputTensor)
+                        logits = self.model.forward(inputTensor, _pixel = pixelNow)
                 except RuntimeError as e:
                     print("TUTOR.trainStep.forward failed!", e)
                     return [], []
-                
+                predictedRGB = self.model.predPixel
+                #print("predictedRGB:", predictedRGB.tolist())
+                #print("EMBED (mean):", self.model.latestTokenEmbed.mean().item())
+
                 if forwardProfiler: print(prof.key_averages().table())
 
                 ʕっʘ‿ʘʔっ("getResponseFromLogits")
                 predictedTokenIndex = self.model.getResponseFromLogits(logits, _training = True)
+                #print("token index:", predictedTokenIndex.item())
+                #print(f"[j={j}] inputLen={len(inputTensor)} → predicted {predictedTokenIndex.item()}")
 
                 ʕっʘ‿ʘʔっ("inputSeqPredictions")
                 self.predictedTokenIndices.append(predictedTokenIndex) # tensor shape [1]
-                nextTokenInput = (
-                    predictedTokenIndex.item() if scheduledSampling and random.random() < self.scheduledSamplingRate
-                    else _targetTokenIndexSeq[j] if j < len(_targetTokenIndexSeq)
-                    else predictedTokenIndex.item()
-                )
+
+                # -- RGB visual tracker --
+                if not skipPixels and (hasattr(self.model, "latestTokenEmbed") and hasattr(self.model, "pixelPupil") and hasattr(self.model, "nextPixelTarget")):
+                    # Grab just the last token's RGB prediction
+                    promptRGB = pixelNow
+                    targetRGB = self.model.nextPixelTarget
+
+                    rp, gp, bp = (promptRGB * 255).int().tolist()
+                    r, g, b = (predictedRGB * 255).int().tolist()
+                    rt, gt, bt = (targetRGB * 255).int().tolist()
+
+                    rr = random.choice([rt, rp])
+                    gg = random.choice([gt, gp])
+                    bb = random.choice([bt, bp])
+
+                    prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{self.char1}\x1b[0m"
+                    pred_block = f"\x1b[48;2;{r};{g};{b}m\x1b[38;2;{rr};{gg};{bb}m{self.char2}\x1b[0m"
+                    tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m\x1b[38;2;{r};{g};{b}m{self.char3}\x1b[0m"
+
+                    #prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m{self.char1}\x1b[0m"
+                    #pred_block = f"\x1b[48;2;{r};{g};{b}m{self.char2}\x1b[0m"
+                    #tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m{self.char3}\x1b[0m"
+
+                    self.rgbPromptBar     += prompt_block
+                    self.rgbPredictionBar += pred_block
+                    self.rgbTargetBar     += tgt_block
 
                 sampledTokens = scheduledSampling and random.random() < self.scheduledSamplingRate
                 if j == 0:
@@ -372,13 +476,20 @@ class TUTOR:
                     # self.totalTokenEvaluations += 1
 
                     ʕっʘ‿ʘʔっ("computeLoss")
-                    stepLoss = self.model.computeLoss(logits, _targetTokenIndexSeq[j], self.latestLossDelta, self.perfectTokens)
+                    stepLoss = self.model.computeLoss(_logits           = logits, 
+                                                      _targetTokenIndex = _targetTokenIndexSeq[j], 
+                                                      _totalAvgAbsDelta = self.totalAvgAbsDelta,
+                                                      _learningRateGOAL = self.learningRateGOAL, 
+                                                      _perfectTokens    = self.perfectTokens)
 
                     ʕっʘ‿ʘʔっ("appendStepLoss")
                     cumulativeLoss += stepLoss
 
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
+            if not skipPixels:
+                self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
+                #print(self.stringStats["rgbBar"])
 
             triesInfluence = 0.05 
             triesLossModifier = (1 + (self.totalTries - 1)/10)
@@ -624,7 +735,7 @@ class TUTOR:
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
                 _topTokens_str = topTokens_str,
-                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | passRate: {self.perfectionistPassRate:.0f}% | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}, averageTries {self.averageTries:.0f} | windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency}",
+                _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | passRate: {self.perfectionistPassRate:.0f}% | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}, averageTries {self.averageTries:.0f} | windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency} |\n{self.rgbBar}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog)
 
@@ -742,6 +853,7 @@ class TUTOR:
                     self.stats["repetitionPenalty"]     = self.repetitionPenalty
                     self.stats["avgLoss"]               = self.averageRecentLoss
                     self.stats["totalAvgLoss"]          = self.totalAvgLoss
+                    self.stats["totalAvgAbsDelta"]      = self.totalAvgAbsDelta
                     self.stats["loss"]                  = self.stepLossFloat
                     self.stats["lastRunLoss"]           = self.lastRunLoss
                     self.temperature                    = self.stats["_B_temperature"]
@@ -750,6 +862,7 @@ class TUTOR:
                     self.stats["latestLossDelta"]       = self.latestLossDelta
                     self.stats["memoryLength"]          = self.memoryLength
                     self.stats["perfectTokens"]         = self.perfectTokens
+                    self.stats["learningRateGOAL"]      = self.learningRateGOAL
 
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")
