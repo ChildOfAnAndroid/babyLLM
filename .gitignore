@@ -36,5 +36,5 @@ SCHOOL/library/TrainingData--.txt
 SCHOOL/library/TrainingData--.txt
 SCHOOL/library/TrainingData--.txt
 SCHOOL/library/simpleTraining/lineSortedData.txt
-SCHOOL/statistics/LOGS/dataArchive/05-20-term-1.txt
-SCHOOL/statistics/LOGS/dataArchive/05-24-term-1.txt
+SCHOOL/statistics/LOGS/dataArchive/*term-*.txt
+SCHOOL/library/learning/mhh_ei_for_ai_model.md

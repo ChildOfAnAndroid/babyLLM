@@ -26,7 +26,7 @@ warnings.simplefilter("default") # show all warnings (PyTorch hides some by defa
 install(show_locals = True)
 torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
-def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True):
+def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trainingDataPairNum = trainingDataPairNumber, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True):
     try:
         # WAKE UP THE SCHOOL :)
         counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
@@ -41,7 +41,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, log_
             newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian, _windowMAX = windowMAX, _first = first)
 
             ʕっʘ‿ʘʔっ("generating training data pairs...")
-            trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _startIndex = newStartIndex, _stride = dataStride)
+            trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _trainingDataPairNumber = trainingDataPairNum, _startIndex = newStartIndex, _stride = dataStride)
             if debugPrints:                 print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
 
             ʕっʘ‿ʘʔっ("loading chaos agents...")
@@ -258,6 +258,7 @@ def main():
     #logFreq_A           = windowMAXSTART * perfectionistMaxRetries
     logFreq_A           = trainingLogFreq_A
     learnRateGoal       = learningRateGOAL
+    MAINPairNumber = trainingDataPairNumber
     while windowMAX <= maxTokensPerStep:
         print(f"\n--- STARTING NEW TRAINING LOOP ---")
         thisRunLoss, totalTurns, passRateEND, learnRateGoalEND = wakeup(windowMAX   = windowMAX, 
@@ -267,7 +268,8 @@ def main():
                                                                 first               = firstRun,
                                                                 passRateSTART       = passRateSTART,
                                                                 log_A               = logFreq_A,
-                                                                lrGoal              = learnRateGoal,)
+                                                                lrGoal              = learnRateGoal,
+                                                                trainingDataPairNum = MAINPairNumber)
         #logFreq_A = windowMAX * perfectionistMaxRetries
         logFreq_A = trainingLogFreq_A
         learnRateGoal = (learnRateGoalEND+learningRateGOAL+learningRateGOAL)/3
@@ -275,7 +277,8 @@ def main():
         totalTurnsAwake += totalTurns
         firstRun = False
         easyStart = True
-        print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}")
+
+        print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}")
         scale = abs(thisRunLoss - lastRunLoss) + 0.01
         choice = random.choice([0,1,1,1,1,2,2,2,3,3,4,3,3,2,2,2,1,1,1,1,0])
         increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
@@ -287,8 +290,8 @@ def main():
         halfWindow = round(windowMAX / 20)+1
         halfStride = round(dataStride / 20)+1
 
-        incrementW = max(1, min((increment + (halfWindow)), maxAllowedWindowJump))
-        incrementS = max(1, min((increment + (halfStride)), maxAllowedStrideJump))
+        incrementW = random.choice([(max(1, min((increment + (halfWindow)), maxAllowedWindowJump))), round(windowMAX * 0.5)])
+        incrementS = random.choice([(max(1, min((increment + (halfStride)), maxAllowedStrideJump))), round(dataStride * 0.5)])
 
         if easyStart:
             if easyStartThresh > 0:
@@ -297,6 +300,7 @@ def main():
             else:
                 easyStart = False
         if thisRunLoss < lastRunLoss:
+            MAINPairNumber = MAINPairNumber * 2
             if random.choice([True, False]):
                 print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
                 windowMAX += (incrementW+incrementW)
@@ -326,12 +330,12 @@ def main():
                     dataStride = 2
         
         windowMAX = max(1, min(windowMAX, maxTokensPerStep))
-        dataStride = max(1, min(dataStride, windowMAX * 2))
+        dataStride = max(1, min(dataStride, windowMAX * 0.1))
         print(f"dataStride is {dataStride}, windowMAX is {windowMAX}")
 
         lastRunLoss = thisRunLoss
         passRateSTART = passRateEND
-        print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}")
+        print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}")
 
 if __name__ == "__main__":
     main()
