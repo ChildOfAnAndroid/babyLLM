@@ -63,7 +63,7 @@ trainingFilePathTEST = "SCHOOL/library/trainingDataTEST.txt"
 
 """--- LOGS ---"""
 printFreq = 1   # how often to print training progress to the terminal
-printPromptLength = 175    # how many characters of the prompt to display in terminal
+printPromptLength = 17500    # how many characters of the prompt to display in terminal
 gradientLength = 3000
 
 trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
@@ -89,7 +89,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStepSTART = 8 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 1 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
 perfectionistMaxRetries = 10
@@ -102,8 +102,8 @@ memoryLengthGOAL = 3
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.0s001 //
-learningRateGOAL = 0.0005
-temperatureGOAL = 0.5
+learningRateGOAL = 0.00025
+temperatureGOAL = 0.8
 optimizerName = "Adan" # //"AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -142,6 +142,7 @@ skipMetaLoss = True
 skipAuxLoss = False
 
 skipFINALlogitNorm = True
+pixelStyling = True
 
 """--- STATS COLLECTION ---"""
 refreshRollingTokenTotalsWhen = 10000
@@ -241,6 +242,7 @@ mostImportantStats  =   [
                 "6L_x_finalLogit_norm",                         # IMPORTANT LAYER TRACKER !! (LOGIT)
                 "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy", "6L_topLogits", "6L_topIndices", 
                 "6L_0_activationsTensor_scale", "6L_1_normedActivationsTensor_scale", "6L_3_logitOutput_scale", "6L_4_logitNormed_scale",
+                "B_blendPixel",
 
             # MISC/UNSORTED STATS
                 # base stats
@@ -380,24 +382,25 @@ forwardProfiler = False
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 10000
-trainingDataSliceSize_max = 100000
+trainingDataSliceSize_min = 100000
+trainingDataSliceSize_max = 10000000
 reflectionFreq = 10000
-stableFallThreshold = 5 # min 2 cause loss delta is a turn behind lol
+stableFallThreshold = 2 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 1000 #169420
+trainingDataPairNumber = 1 #169420
 trainingDataStride = 1
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
 
 rawDataFilepaths = [
-    ("text", "SCHOOL/library/charisStudies/charisParisProductions.txt", -1),     # discord message history
+    ("text", "SCHOOL/library/charisStudies/essays.txt", -1),     # discord message history
 ]
 
-rawDataFilepathsx = [     # for textCleaningTool.py
+rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
+    ("text", "SCHOOL/library/charisStudies/charisParisProductions.txt", -1),     # discord message history
     ("text", "SCHOOL/library/charisStudies/discordtxt.txt", 0.1),     # discord message history
     ("text", "SCHOOL/library/charisStudies/discordtxt2.txt", 0.1),     # discord message history part2
     ("text", "SCHOOL/library/charisStudies/discordtxt3.txt", 0.1),     # discord message history part3
@@ -407,23 +410,23 @@ rawDataFilepathsx = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/charisStudies/discordtxt7.txt", 0.1),     # discord message history part7
     ("text", "SCHOOL/library/charisStudies/discordtxt8.txt", 0.1),     # discord message history part8
     ("text", "SCHOOL/library/charisStudies/discordtxt9.txt", 0.1),     # discord message history part8
-    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 0.1),     # discord message history JSON
-    ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 0.1),     # reddit comments
-    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 1),     #  random poems from my notes on my phone
-    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 0.1),     # reddit posts
-    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 0.1),     # chatgpt history charis side only
-    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 0.1),     # old account facebook messages charis side only
-    ("text", "SCHOOL/library/charisStudies/essays.txt", 0.1),     # essays
-    ("text", "SCHOOL/library/charisStudies/tindieBaby.txt", 0.1),     # tindie blog posts
+    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 1),     # discord message history JSON
+    ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
+    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", -1),     #  random poems from my notes on my phone
+    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
+    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 1),     # chatgpt history charis side only
+    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 1),     # old account facebook messages charis side only
+    ("text", "SCHOOL/library/charisStudies/essays.txt", -1),     # essays
+    ("text", "SCHOOL/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
 
     #--- MOUSE ADVENTURES ---
-    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", 1),     #  elodies wonderful mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", 1),     #  my simple version of elodies mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", 1),     #  even more of elodies lovely mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", -1),     #  elodies wonderful mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", -1),     #  my simple version of elodies mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", -1),     #  even more of elodies lovely mouse story!
 
     #--- MINI TRAINING ---
-    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 1),     # i am happy! i did it! i know it!
-    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 1),     # training: i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", -1),     # i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", -1),     # training: i am happy! i did it! i know it!
 
     #--- BABYLLM CHAT LOGS ---
     ("text", chatLogPath_talkToYourself, 0.01),     #  i answer my own previous chat messages
@@ -459,7 +462,7 @@ rawDataFilepathsx = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/tenses/imperativeTense.txt", 0.001),     #  tense
 ]
 
-rawDataFilepathsx += [
+rawDataFilepaths += [
     #--- SIMPLE TRAINING ---
     ("text", "SCHOOL/library/simpleTraining/cursed.txt", 0.1),     # training but chaotic shuffle
     ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 0.1),     # weird fake sentences
@@ -480,7 +483,7 @@ rawDataFilepathsx += [
     ("text", "SCHOOL/library/miniTraining/why3.txt", 1),
     ("text", "SCHOOL/library/miniTraining/why4.txt", 1),]
 
-rawDataFilepathsx += [
+rawDataFilepaths += [
     #--- MY OWN CODE?? ---
     ("text", "babyLLM.py", 0.1),
     ("text", "config.py", 0.1),

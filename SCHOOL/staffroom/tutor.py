@@ -109,8 +109,8 @@ class TUTOR:
             0.5
         ], device=self.device)]
 
-        self.pixelNow = torch.tensor([0.5, 0.1, 0.5,], device = self.device)
-        self.pixelNext = torch.tensor([0.6, 0.0, 0.6,], device = self.device)
+        self.pixelNow = None #torch.tensor([0.5, 0.1, 0.5,], device = self.device)
+        self.pixelNext = None #torch.tensor([0.6, 0.0, 0.6,], device = self.device)
 
 
     def makeStatRecord(self):
@@ -318,10 +318,10 @@ class TUTOR:
                         if debugPrints or True: print(f"updated goal LR to {self.learningRateGOAL}")
 
                     if self.perfectionistPassRate < perfectionistPassRate:
-                        self.perfectionistPassRate += ((abs(self.perfectionistPassRate)/(self.totalTries)) * 0.1)
+                        self.perfectionistPassRate += ((abs(self.perfectionistPassRate)/(self.totalTries)) * 0.3)
 
                     if self.perfectionistPassRate > perfectionistPassRateSTART:
-                        self.perfectionistPassRate -= (((self.perfectionistPassRate-perfectionistPassRateSTART) * (self.totalTries * 0.5)) * 0.1)
+                        self.perfectionistPassRate -= random.choice([(((self.perfectionistPassRate-perfectionistPassRateSTART) * (self.totalTries * 0.5)) * 0.3), (self.perfectionistPassRate/2)])
 
                     if currentReflection is not None:
                         if scribeusedThisTurn:
@@ -378,6 +378,14 @@ class TUTOR:
             self.rgbTargetBar     = ""
             self.rgbPromptBar     = ""
 
+            self.tokenLevelCorrect = []
+            self.tokenLevelLosses = []
+
+            if not skipPixels:
+                # pre-filling next for step 0
+                if self.pixelNext is None:
+                    self.pixelNext = self.getPixelForStep(0)
+
             for j in range(self.numTokensPerStep): # predict multiple tokens in a sequence, one at a time
                 if not skipPixels:
                     #pixel = torch.rand(3, device = self.device)  # random RGB for now
@@ -386,12 +394,16 @@ class TUTOR:
                         pixelNow = self.pixelSeq[pixelIndex]
                         pixelNext = self.pixelSeq[(pixelIndex + 1) % len(self.pixelSeq)]
                         if debugPrints: print(f"pixelIndex({pixelIndex}) = pixelNow {pixelNow}, next is {pixelNext}")
-                    else:
+                    if False:
                         pixelNow = self.pixelNow
                         pixelNext = torch.tensor([self.totalTokenPerfectRate * 1., 
                                                   self.totalAvgAbsDelta * 1., 
                                                   self.perfectionistPassRate * 1.,], device = self.device)
-                    self.model.nextPixelTarget = pixelNext
+                    else:
+                        pixelNow = self.pixelNext.clone()
+                        self.pixelNext = self.getPixelForStep(j)
+                        if debugPrints: print(f"now: {pixelNow}, next: {self.pixelNext}", end="")
+                    self.model.nextPixelTarget = self.pixelNext
                 else:
                     pixelNow = None
                 ʕっʘ‿ʘʔっ("FORWARD")
@@ -407,6 +419,7 @@ class TUTOR:
                     print("TUTOR.trainStep.forward failed!", e)
                     return [], []
                 predictedRGB = self.model.predPixel
+                if debugPrints: print(f"guess: {predictedRGB}")
                 #print("predictedRGB:", predictedRGB.tolist())
                 #print("EMBED (mean):", self.model.latestTokenEmbed.mean().item())
 
@@ -423,20 +436,37 @@ class TUTOR:
                 # -- RGB visual tracker --
                 if not skipPixels and (hasattr(self.model, "latestTokenEmbed") and hasattr(self.model, "pixelPupil") and hasattr(self.model, "nextPixelTarget")):
                     # Grab just the last token's RGB prediction
-                    promptRGB = pixelNow
-                    targetRGB = self.model.nextPixelTarget
+                    promptPixel = pixelNow
+                    targetPixel = self.model.nextPixelTarget
 
-                    rp, gp, bp = (promptRGB * 255).int().tolist()
+                    rp, gp, bp = (promptPixel * 255).int().tolist()
                     r, g, b = (predictedRGB * 255).int().tolist()
-                    rt, gt, bt = (targetRGB * 255).int().tolist()
+                    rt, gt, bt = (targetPixel * 255).int().tolist()
 
                     rr = random.choice([rt, rp])
                     gg = random.choice([gt, gp])
                     bb = random.choice([bt, bp])
 
-                    prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{self.char1}\x1b[0m"
-                    pred_block = f"\x1b[48;2;{r};{g};{b}m\x1b[38;2;{rr};{gg};{bb}m{self.char2}\x1b[0m"
-                    tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m\x1b[38;2;{r};{g};{b}m{self.char3}\x1b[0m"
+                    rmix = int((((rr + rp + rt)/3) + r)/2)
+                    gmix = int((((gg + gp + gt)/3) + g)/2)
+                    bmix = int((((bb + bp + bt)/3) + b)/2)
+
+                    MAX_FULL_SAFEBOIS = 16
+
+                    if self.numTokensPerStep <= MAX_FULL_SAFEBOIS:
+                        slice1 = self.char1
+                        slice2 = self.char2
+                        slice3 = self.char3
+                    else:
+                        boiLen = max(len(self.char1),len(self.char2),len(self.char3))
+
+                        slice1 = self.char1[j % boiLen]
+                        slice2 = self.char2[j % boiLen]
+                        slice3 = self.char3[j % boiLen]
+
+                    prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{slice1}\x1b[0m"
+                    pred_block = f"\x1b[48;2;{r};{g};{b}m\x1b[38;2;{rmix};{gmix};{bmix}m{slice2}\x1b[0m"
+                    tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m\x1b[38;2;{r};{g};{b}m{slice3}\x1b[0m"
 
                     #prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m{self.char1}\x1b[0m"
                     #pred_block = f"\x1b[48;2;{r};{g};{b}m{self.char2}\x1b[0m"
@@ -458,6 +488,9 @@ class TUTOR:
                     else predictedTokenIndex.item() # .ITEM() REQUIRED!! FOR APPENDING ONLY ONE TOKEN (grids?)
                 )
                 inputSeqPredictions.append(nextTokenInput) # multi-token autoregressive generation: append next token to your current input — becomes the prompt for the next token
+                isCorrect = (nextTokenInput == predictedTokenIndex.item())
+                self.tokenLevelCorrect.append(1.0 if isCorrect else 0.0)
+                if debugPrints: print(f"isCorrect = {isCorrect} for target: {nextTokenInput} vs guess: {predictedTokenIndex.item()}... tokenLevelCorrect = {self.tokenLevelCorrect}")
 
                 """# After logits
                 if logits.dim() == 1: logits = logits.unsqueeze(0)
@@ -484,11 +517,16 @@ class TUTOR:
 
                     ʕっʘ‿ʘʔっ("appendStepLoss")
                     cumulativeLoss += stepLoss
+                    self.tokenLevelLosses.append(stepLoss.item())
+                    if debugPrints: print(f"self.tokenLevelLosses = {self.tokenLevelLosses}")
+
+                #if j + 1 < self.numTokensPerStep:
+                    #pixelNext = self.getPixelForStep(j + 1)
 
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
             if not skipPixels:
-                self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
+                self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nPRED: {self.rgbPredictionBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
                 #print(self.stringStats["rgbBar"])
 
             triesInfluence = 0.05 
@@ -501,9 +539,9 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
-            BACKWARDloss = BACKWARDloss * (BACKWARDtriesMod + 0.001)
-            BACKWARDloss = BACKWARDloss * (BACKWARDperfMod + 0.001)
-            BACKWARDloss = BACKWARDloss - (0.01 * self.model.interneuronNetwork.entropyBonus)
+            #BACKWARDloss = BACKWARDloss * (BACKWARDtriesMod + 0.001)
+            #BACKWARDloss = BACKWARDloss * (BACKWARDperfMod + 0.001)
+            #BACKWARDloss = BACKWARDloss - (0.01 * self.model.interneuronNetwork.entropyBonus)
             self.totalLoss += BACKWARDloss.item()
             #if windowEntropyBonus:
                 #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
@@ -549,7 +587,94 @@ class TUTOR:
             #    torch.mps.empty_cache()
 
             return self.predictedTokenIndices, self.logitSeq
-        
+
+    """def getPixelForStep(self, j):
+        lossVal   = min(self.stepLossFloat / (j + 1), 10.0)
+        deltaish  = min(abs(lossVal - self.averageRecentLoss), 5.0)
+
+        basePixel = torch.tensor([
+            (0.4 * (self.totalTokenPerfectRate / 100)) + (0.4 * (self.tokenPerfectRate / 100)) + (0.2 * (lossVal / 10.0)),
+            0.3 * self.totalAvgAbsDelta + 0.3 * (deltaish / 5.0),
+            (self.perfectionistPassRate)
+        ], device=self.device).clamp(0, 1)
+
+        #pulse = 0.5 * (1 - math.cos(2 * math.pi * j / self.numTokensPerStep))  # [0..1]
+        cycle = 3
+        pulse = ((j + 1) * cycle / self.numTokensPerStep) % 1
+        modulatedPixel = basePixel.clone()
+        modulatedPixel[1] = basePixel * (0.8 + 0.4 * pulse)
+
+        return modulatedPixel.clamp(0, 1)  """    
+    
+    """def getPixelForStep(self, j):
+        lossVal   = min(self.stepLossFloat / (j + 1), 10.0)
+        deltaish  = min(abs(lossVal - self.averageRecentLoss), 5.0)
+
+        redBase   = (0.4 * (self.totalTokenPerfectRate / 100)) + (0.4 * (self.tokenPerfectRate / 100)) + (0.2 * (lossVal / 10.0))
+        greenBase = 0.3 * self.totalAvgAbsDelta + 0.3 * (deltaish / 5.0)
+        blueBase  = self.perfectionistPassRate
+
+        cycle = 3
+        pulse = ((j + 1) * cycle / self.numTokensPerStep) % 1  # range [0, 1)
+        redPulsed = redBase * (1.2 + 0.2 * pulse)
+        print(f"step {j} → red_base={redBase:.2f} → pulse={pulse:.2f} → red_pulsed={redPulsed:.2f}")
+
+        pixel = torch.tensor([
+            redPulsed,
+            greenBase,
+            blueBase
+        ], device = self.device).clamp(0, 1)
+
+        return pixel"""
+    
+    def getPixelForStep(self, j):
+        x = (j + 1) / (self.numTokensPerStep + self.trainingStepCounter%10)
+
+        perf        = (self.totalTokenPerfectRate + self.tokenPerfectRate) / 200
+        stepLoss    = min(self.stepLossFloat / 10.0, 1.0)
+        correct     = self.tokenLevelCorrect[-1] if len(self.tokenLevelCorrect)>0 else 0.0
+        tokenLoss   = self.tokenLevelLosses[-1] if len(self.tokenLevelLosses)>0 else 1.0
+        delta       = min((abs(tokenLoss - self.averageRecentLoss), 10)) /10
+        totDelta    = min((abs(self.averageRecentLoss - self.lastRunLoss)), 10) /10
+
+        # PULSE SPEED = HIGHER LOSS RATE, HIGHER PULSE SPEED (increased metabolism?)
+        pulseSpeed  = (1.0 
+                    + (x * 0.5)
+                    + 4 * delta 
+                    + 2 * ((self.totalAvgLoss * 0.3) 
+                    + (stepLoss * 0.35) 
+                    + (tokenLoss * 0.35)))
+        timePulse   = 0.5 * (1 + math.sin(2 * math.pi * pulseSpeed * x))
+
+        hueShift    = (math.sin(2 * math.pi * (x + delta + perf)) + 1) / 2  # [0..1]
+
+        # RED - HIGH PERFECT TOKENS, EXCITED/SKILLED (energy up when getting more perfect, more red!)
+        red         = (0.0 
+                    + (0.2 * timePulse) 
+                    + (0.2 * ((perf * 0.7) 
+                    + (tokenLoss * 0.3))) 
+                    + (0.6 * correct))
+        # GREEN - HIGH ABS DELTA, OVERSTIMULATED/LEARNING, mid range (growth up (or a bit queasy lol) when getting stronger deltas, more green!)
+        green       = (0.01 
+                    + (tokenLoss * 0.08)
+                    + ((0.5 * ((delta * 0.5) 
+                    + (self.totalAvgAbsDelta * 0.5))) 
+                    + 0.05 * hueShift))
+        # BLUE - HIGH PASS RATE, CALM, long range (calm up when doing better than the previous run, more blue!)
+        blue        = (0.2 
+                    + ((self.perfectionistPassRate/100) * 0.6) 
+                    + (0.2 * totDelta) 
+                    + (0.4 * (1 - timePulse)))
+
+        pixelPret   = torch.tensor([red, green, blue], device=self.device).clamp(0, 1)
+
+        if debugPrints:
+            print(f"perf {perf}, stepLoss {stepLoss}, correct {correct}, tokenLoss {tokenLoss}//{j} {len(self.tokenLevelLosses)} ({(j <= len(self.tokenLevelLosses)-1)}), delta {delta}, pulseSpeed {pulseSpeed}")
+            print(f"tokenstep {j:2d} | x: {x:.2f} timePulse: {timePulse:.2f} hueShift: {hueShift:.2f} -> pixel: ({red:.2f}, {green:.2f}, {blue:.2f})")
+            print(f"pixelpret {pixelPret}")
+
+        return pixelPret
+
     def babyReflection(self):
         with self.counsellor.infodump("startTurnActions") as ʕっʘ‿ʘʔっ:
 

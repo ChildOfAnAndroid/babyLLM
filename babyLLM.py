@@ -76,6 +76,7 @@ class BABYLLM(nn.Module):
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
 
         self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
+        self.blendPixel = nn.Parameter(torch.tensor(0.05, device=self.device))  # 0 = token only, 1 = pixel only
         #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3))
 
 
@@ -107,13 +108,16 @@ class BABYLLM(nn.Module):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
             if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
             self.temperature = torch.exp(self.logTemp)
+            self.pixel = _pixel
 
             ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
             #inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
             tokenEmbed = self.embed(_tokenIndex = _inputSeq)
-            if not skipPixels and (hasattr(self, "currentPixelRGB") and _pixel is not None):
+            if not skipPixels and (_pixel is not None):
                 rgbEmbed = self.embed(_pixel = _pixel)
-                inputEmbeds = (tokenEmbed * 0.999) + (rgbEmbed * 0.001) # or a learnable fusion
+                blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
+                inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
+                #inputEmbeds = (tokenEmbed * 0.95) + (rgbEmbed * 0.05) # or a learnable fusion
                 #inputEmbeds = tokenEmbed
             else:
                 inputEmbeds = tokenEmbed
@@ -179,6 +183,7 @@ class BABYLLM(nn.Module):
                         "7B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
                         #"5B_x_finalNormLayer_norm": sum(self.normalisedHistory) / len(self.normalisedHistory),
                         "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
+                        "B_blendPixel": self.blendPixel.item(),
                     }
                     self.stats.update(self.forwardStats)
                     
@@ -258,12 +263,14 @@ class BABYLLM(nn.Module):
                 if debugPrints: print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape}), [-1] is {self.latestTokenEmbed[-1]} ({self.latestTokenEmbed[-1].shape})")
                 predictedRGB = self.pixelPupil(self.latestTokenEmbed[-1])
                 self.predPixel = predictedRGB
-                rgbLoss = F.mse_loss(predictedRGB, self.nextPixelTarget)
-                self.PIXELloss = rgbLoss * torch.sigmoid(loss - rgbLoss)
-                ###self.print_rgb_block(self.pixel, "prompt")
-                #self.print_rgb_block(self.nextPixelTarget, "truth")
+                rgbLoss = F.mse_loss(self.predPixel, self.nextPixelTarget)
+                #self.PIXELloss = rgbLoss * torch.sigmoid(loss - rgbLoss)
+                self.PIXELloss = max(min((rgbLoss * 1), 1),-1)
+                #self.print_rgb_block(self.pixel, "prompt")
                 #self.print_rgb_block(predictedRGB, "guess")
-                #print(f"{PIXELloss} + pixel")
+                #self.print_rgb_block(self.nextPixelTarget, "truth")
+                #print(f"{rgbLoss} + rgb")
+                #print(f"{self.PIXELloss} + pixel")
 
             else:
                 FINALloss = loss
@@ -281,8 +288,8 @@ class BABYLLM(nn.Module):
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
-                FINALloss += (self.PIXELloss * 0.01)
-                self.pixelLoss_used = (self.PIXELloss * 0.01)
+                FINALloss += (self.PIXELloss * 0.1)
+                self.pixelLoss_used = (self.PIXELloss * 0.1)
                 #print(f"{FINALloss} pixel + final")
             if _training and self.lastSoftSample is not None and not skipAuxLoss: 
                 FINALloss += AUXloss

@@ -29,8 +29,7 @@ class EMBED(nn.Module):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             if not skipPixels and (_pixel is not None):
                 ʕっʘ‿ʘʔっ("E0_pixelInjected") # shape: [3] → [embedDimension]
-                pixelEmbedded = self.pixelEmbed(_pixel.to(self.device))
-                self.embedVector = pixelEmbedded
+                self.embedVector = self.pixelEmbed(_pixel)
             else:
                 ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
                 self.embedVector = self.e_weights[_tokenIndex] 
