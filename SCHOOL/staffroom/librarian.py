@@ -146,7 +146,7 @@ class LIBRARIAN:
             end = len(tokens) - _windowMAX
 
             ʕっʘ‿ʘʔっ("generate training pairs")
-            for i in range(_startIndex, end, _stride):
+            for i in range(_startIndex, end, int(_stride)):
                 inputSeq = tokens[i:i+_windowMAX]
                 target = tokens[i+_windowMAX:i+_windowMAX+_windowMAX]
                 if len(target) < _windowMAX: continue

@@ -92,7 +92,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 numTokensPerStepSTART = 1 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
-perfectionistMaxRetries = 10
+perfectionistMaxRetries = 100
 inferenceOutputNumTokens = 40
 
 skipPixels = False
@@ -102,8 +102,8 @@ memoryLengthGOAL = 3
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.0s001 //
-learningRateGOAL = 0.00025
-temperatureGOAL = 0.8
+learningRateGOAL = 0.00035
+temperatureGOAL = 0.5
 optimizerName = "Adan" # //"AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -382,13 +382,13 @@ forwardProfiler = False
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 100000
-trainingDataSliceSize_max = 10000000
+trainingDataSliceSize_min = 10000
+trainingDataSliceSize_max = 100000
 reflectionFreq = 10000
-stableFallThreshold = 2 # min 2 cause loss delta is a turn behind lol
+stableFallThreshold = 10 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 1 #169420
+trainingDataPairNumber = 10 #169420
 trainingDataStride = 1
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1

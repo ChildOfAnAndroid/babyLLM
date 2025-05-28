@@ -258,6 +258,8 @@ def main():
     #logFreq_A           = windowMAXSTART * perfectionistMaxRetries
     logFreq_A           = trainingLogFreq_A
     learnRateGoal       = learningRateGOAL
+    numWins = 0
+    winStreak = 0
     MAINPairNumber = trainingDataPairNumber
     while windowMAX <= maxTokensPerStep:
         print(f"\n--- STARTING NEW TRAINING LOOP ---")
@@ -278,7 +280,7 @@ def main():
         firstRun = False
         easyStart = True
 
-        print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}")
+        print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
         scale = abs(thisRunLoss - lastRunLoss) + 0.01
         choice = random.choice([0,1,1,1,1,2,2,2,3,3,4,3,3,2,2,2,1,1,1,1,0])
         increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
@@ -300,15 +302,19 @@ def main():
             else:
                 easyStart = False
         if thisRunLoss < lastRunLoss:
-            MAINPairNumber = MAINPairNumber * 2
-            if random.choice([True, False]):
-                print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
-                windowMAX += (incrementW+incrementW)
-            else:
-                print(f"upping dataStride from {dataStride} to {dataStride+incrementS}")
-                dataStride += (incrementS+incrementS)
+            numWins += 1
+            winStreak += 1
+            if winStreak == 2:
+                MAINPairNumber = MAINPairNumber * 2
+                if random.choice([True, False]):
+                    print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
+                    windowMAX += (incrementW+incrementW)
+                else:
+                    print(f"upping dataStride from {dataStride} to {dataStride+incrementS}")
+                    dataStride += (incrementS+incrementS)
         else:
             windowOrStride = random.choice([True, False])
+            winStreak = 0
             if windowMAX > incrementW+1:
                 if windowOrStride:
                     print(f"downing windowMAX from {windowMAX} to {windowMAX-incrementW}")
@@ -329,13 +335,13 @@ def main():
                     print(f"bored. dataStride from {dataStride} to {2}")
                     dataStride = 2
         
-        windowMAX = max(1, min(windowMAX, maxTokensPerStep))
-        dataStride = max(1, min(dataStride, windowMAX * 0.1))
-        print(f"dataStride is {dataStride}, windowMAX is {windowMAX}")
+        windowMAX = round(max(1, min(windowMAX, maxTokensPerStep)))
+        dataStride = round(max(1, min(dataStride, windowMAX * 0.1)))
+        print(f"normalised: dataStride is {dataStride}, windowMAX is {windowMAX}")
 
         lastRunLoss = thisRunLoss
         passRateSTART = passRateEND
-        print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}")
+        print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
 
 if __name__ == "__main__":
     main()
