@@ -138,6 +138,8 @@ class TUTOR:
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
+        trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f"Trainable parameters: {trainableParams:,}")
         self.startIndex = _startIndex
         self.collectAllTimeStats()
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:
@@ -174,7 +176,7 @@ class TUTOR:
                     self.averageTries = self.averageTriesTotal / self.trainingStepCounter
                     self.totalTries = 0
                     if perfectionistRun:
-                        self.maxRetries = 20 #150
+                        self.maxRetries = perfectionistMaxRetries
                     else:
                         self.maxRetries = 10
 
@@ -443,34 +445,25 @@ class TUTOR:
                     r, g, b = (predictedRGB * 255).int().tolist()
                     rt, gt, bt = (targetPixel * 255).int().tolist()
 
-                    rr = random.choice([rt, rp])
-                    gg = random.choice([gt, gp])
-                    bb = random.choice([bt, bp])
+                    slice1 = self.char1
+                    slice2 = self.char2
+                    slice3 = self.char3
 
-                    rmix = int((((rr + rp + rt)/3) + r)/2)
-                    gmix = int((((gg + gp + gt)/3) + g)/2)
-                    bmix = int((((bb + bp + bt)/3) + b)/2)
+                    MAX_FULL_SAFEBOIS = 12
 
-                    MAX_FULL_SAFEBOIS = 16
+                    #if self.numTokensPerStep <= MAX_FULL_SAFEBOIS: pass
+                    #else:
+                        #boiLen1 = len(self.char1)
+                        #boiLen2 = len(self.char2)
+                        #boiLen3 = len(self.char3)
 
-                    if self.numTokensPerStep <= MAX_FULL_SAFEBOIS:
-                        slice1 = self.char1
-                        slice2 = self.char2
-                        slice3 = self.char3
-                    else:
-                        boiLen = max(len(self.char1),len(self.char2),len(self.char3))
-
-                        slice1 = self.char1[j % boiLen]
-                        slice2 = self.char2[j % boiLen]
-                        slice3 = self.char3[j % boiLen]
+                        #slice1 = self.char1[j % boiLen1]
+                        #slice2 = self.char2[j % boiLen2]
+                        #slice3 = self.char3[j % boiLen3]
 
                     prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{slice1}\x1b[0m"
-                    pred_block = f"\x1b[48;2;{r};{g};{b}m\x1b[38;2;{rmix};{gmix};{bmix}m{slice2}\x1b[0m"
+                    pred_block = f"\x1b[48;2;{r};{g};{b}m\x1b[38;2;{rt};{gt};{bt}m{slice2}\x1b[0m"
                     tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m\x1b[38;2;{r};{g};{b}m{slice3}\x1b[0m"
-
-                    #prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m{self.char1}\x1b[0m"
-                    #pred_block = f"\x1b[48;2;{r};{g};{b}m{self.char2}\x1b[0m"
-                    #tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m{self.char3}\x1b[0m"
 
                     self.rgbPromptBar     += prompt_block
                     self.rgbPredictionBar += pred_block
@@ -526,7 +519,7 @@ class TUTOR:
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
             if not skipPixels:
-                self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nPRED: {self.rgbPredictionBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
+                self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
                 #print(self.stringStats["rgbBar"])
 
             triesInfluence = 0.05 
@@ -646,8 +639,6 @@ class TUTOR:
                     + (tokenLoss * 0.35)))
         timePulse   = 0.5 * (1 + math.sin(2 * math.pi * pulseSpeed * x))
 
-        hueShift    = (math.sin(2 * math.pi * (x + delta + perf)) + 1) / 2  # [0..1]
-
         # RED - HIGH PERFECT TOKENS, EXCITED/SKILLED (energy up when getting more perfect, more red!)
         red         = (0.0 
                     + (0.2 * timePulse) 
@@ -655,6 +646,7 @@ class TUTOR:
                     + (tokenLoss * 0.3))) 
                     + (0.6 * correct))
         # GREEN - HIGH ABS DELTA, OVERSTIMULATED/LEARNING, mid range (growth up (or a bit queasy lol) when getting stronger deltas, more green!)
+        hueShift    = (math.sin(2 * math.pi * (x + delta + perf)) + 1) / 2  # [0..1]
         green       = (0.01 
                     + (tokenLoss * 0.08)
                     + ((0.5 * ((delta * 0.5) 
@@ -919,8 +911,8 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.totalTurns > printFreq:
-                if perfectionistRun: chance = 0.001
-                else: chance = 0.01
+                if perfectionistRun: chance = 0.0001
+                else: chance = 0.001
                 self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", chance)
 
             ʕっʘ‿ʘʔっ("collectStats♥")

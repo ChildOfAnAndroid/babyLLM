@@ -65,6 +65,7 @@ class BABYLLM(nn.Module):
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep=self.numTokensPerStep)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.finalNormLayer = nn.LayerNorm(numNeurons, device=self.device)
+        self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
 
         """LEARNABLE LEARNING PARAMETERS"""
         self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device = self.device))
@@ -75,7 +76,6 @@ class BABYLLM(nn.Module):
         self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
 
-        self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
         self.blendPixel = nn.Parameter(torch.tensor(0.05, device=self.device))  # 0 = token only, 1 = pixel only
         #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3))
 
@@ -90,7 +90,7 @@ class BABYLLM(nn.Module):
             for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
         if optimizerName == "Adan":
-            self.optimizer = Adan(self.parameters(), lr=learningRate, betas=(0.96, 0.90, 0.995), eps=1e-6, weight_decay=0.005,)
+            self.optimizer = Adan(self.parameters(), lr=learningRate, betas=(0.02, 0.08, 0.01), eps=1e-6, weight_decay=0.005)
         else:
             optimizerClass = getattr(optim, optimizerName)
             self.optimizer = optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.005, fused=True)
@@ -235,8 +235,8 @@ class BABYLLM(nn.Module):
 
             lrSoftClamp = 0.001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
             #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
-            tempSoftClamp = 0.1 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
-            if self.repetitionPenalty >= 0:
+            tempSoftClamp = 2 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            if self.repetitionPenalty >= 0: 
                 repetitionPenaltySoftClamp = 0.000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty >= -1:
                 repetitionPenaltySoftClamp = 0.0000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
@@ -265,7 +265,8 @@ class BABYLLM(nn.Module):
                 self.predPixel = predictedRGB
                 rgbLoss = F.mse_loss(self.predPixel, self.nextPixelTarget)
                 #self.PIXELloss = rgbLoss * torch.sigmoid(loss - rgbLoss)
-                self.PIXELloss = max(min((rgbLoss * 1), 1),-1)
+                pixelWeight = rgbLoss / (rgbLoss + loss)
+                self.PIXELloss = max(min((pixelWeight * 1), 1),-1)
                 #self.print_rgb_block(self.pixel, "prompt")
                 #self.print_rgb_block(predictedRGB, "guess")
                 #self.print_rgb_block(self.nextPixelTarget, "truth")
@@ -288,8 +289,8 @@ class BABYLLM(nn.Module):
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
-                FINALloss += (self.PIXELloss * 0.1)
-                self.pixelLoss_used = (self.PIXELloss * 0.1)
+                FINALloss += (self.PIXELloss * 50)
+                self.pixelLoss_used = (self.PIXELloss * 50)
                 #print(f"{FINALloss} pixel + final")
             if _training and self.lastSoftSample is not None and not skipAuxLoss: 
                 FINALloss += AUXloss
@@ -339,7 +340,7 @@ class BABYLLM(nn.Module):
 
             with torch.no_grad(): # RESET LEARNABLE PARAMETERS
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
-                self.scheduledSamplingRate.data.fill_(0.05)  # Scheduled sampling full (no scheduled sampling yet)
+                self.scheduledSamplingRate.data.fill_(0.001)  # Scheduled sampling full (no scheduled sampling yet)
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 self.logMemoryLength.data.fill_(math.log(2))  # Memory length default
@@ -526,10 +527,17 @@ class BABYLLM(nn.Module):
             tmpPath = filePath + ".tmp"
             torch.save(self.state_dict(), tmpPath)
             print(f"model temp file created at {tmpPath}...")
+            # save optimizer to a separate file (if present)
+            if hasattr(self, "optimizer") and self.optimizer is not None:
+                optimPath = filePath + ".optim"
+                tmpOptimPath = optimPath + ".tmp"
+                torch.save(self.optimizer.state_dict(), tmpOptimPath)
+                print(f"optimizer saved to {optimPath}")
+                os.replace(tmpOptimPath, optimPath)
             os.replace(tmpPath, filePath)
             print(f"model successfully saved to {filePath}!")
             with open(stepCheckpointFilePath, "w") as f:
-                if debugPrints: print(f"HELLO I AM SAVEMODEL STEPCOUNTER IS {_trainingStepCounter} AND START INDEX IS {_newStartIndex} I SHOULD WRITE {str(_trainingStepCounter+_newStartIndex)} to {stepCheckpointFilePath}")
+                if debugPrints or True: print(f"HELLO I AM SAVEMODEL STEPCOUNTER IS {_trainingStepCounter} AND START INDEX IS {_newStartIndex} I SHOULD WRITE {str(_trainingStepCounter+_newStartIndex)} to {stepCheckpointFilePath}")
                 f.write(str(_trainingStepCounter+_newStartIndex)) # THIS ISNT REAL, FIX LATER, MAYBE MOVE SAVE AND LOAD TO WAKEUP?
             with open(lossCheckpointFilePath, "w") as f:
                 if debugPrints or True: print(f"HELLO I AM SAVEMODEL AVGLOSS IS {_totalAvgLoss} I SHOULD WRITE {str(_totalAvgLoss)} to {lossCheckpointFilePath}")
@@ -546,12 +554,25 @@ class BABYLLM(nn.Module):
                 self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
                 print(f"loading model from path: {filePath}") 
                 self.load_state_dict(torch.load(filePath), strict = saveStrict)
+                # try loading optimizer separately
+                if hasattr(self, "optimizer"):
+                    optimPath = filePath + ".optim"
+                    if os.path.exists(optimPath):
+                        try:
+                            self.optimizer.load_state_dict(torch.load(optimPath))
+                            for state in self.optimizer.state.values():
+                                for k, v in state.items():
+                                    if isinstance(v, torch.Tensor):
+                                        state[k] = v.to(self.device)
+                            print(f"optimizer restored from {optimPath}")
+                        except Exception as e:
+                            print(f"failed to load optimizer: {e}")
                 print(f"model loaded from {filePath}!")
                 self.to(self.device)
                 print(f"device set to {self.device}!")
                 self.resetMemory(context="inference")
                 
-            except FileNotFoundError: print("No saved model found")
+            except FileNotFoundError: print("no saved model found")
 
     def babyllm_diary_entry(self, interneuronNetwork, step):
         with self.counsellor.infodump("babyllm_diary_entry") as ʕっʘ‿ʘʔっ:
