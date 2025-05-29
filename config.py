@@ -94,10 +94,10 @@ babyLogPathFull = f"SCHOOL/statistics/LOGS/chat/babyLogFull_{date}.txt"
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStepSTART = 22 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 8 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
-perfectionistMaxRetries = 100
+perfectionistMaxRetries = 10
 inferenceOutputNumTokens = 40
 
 skipPixels = False

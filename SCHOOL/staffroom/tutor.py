@@ -903,9 +903,9 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.totalTurns > printFreq:
-                if perfectionistRun: chance = 0.0001
+                if perfectionistRun: chance = 0.001
                 else: chance = 0.001
-                self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, self.stepLossFloat, "scribe", chance)
+                self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, (self.stepLossFloat*0.1), "scribe", chance)
 
             ʕっʘ‿ʘʔっ("collectStats♥")
 
