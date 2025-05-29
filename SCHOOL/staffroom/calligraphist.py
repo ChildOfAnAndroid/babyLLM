@@ -308,6 +308,7 @@ class S_OUTPUT:
                 self.S_apply('dim', 'truth  → ') + truth_str
             )
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
+            with open(babyLogPathFull, "a") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
 
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, 
                       _LR = learningRate, _INN_cerebellum_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
@@ -329,7 +330,7 @@ class S_OUTPUT:
                 # add 1 for the sign,
                 #     1 for the decimal dot and
                 #     1 for the fact that log is missing 1 (i.e. log10([100-1000[) is in [2,3[, when 100 takes 3 chars)
-                decLen = 4
+                decLen = 6
                 statTopLen = math.trunc(decLen + 1 + 1 + 1 + math.log(max(max(avgStats.values()), abs(min(avgStats.values()))), 10))
             except Exception as e:
                 statTopLen = 10
@@ -371,7 +372,7 @@ class S_OUTPUT:
                 if v not in (None, "")
             ]) + newLineDelim"""
             maxKeyLen = 18
-            maxCols = 6
+            maxCols = 4
             cellWidth = statTopLen + decLen + 2 + maxKeyLen + 1
 
             statSections = [
@@ -381,6 +382,7 @@ class S_OUTPUT:
                 ("MEMORY STATS", re.compile(r"4M_")),
                 ("LOGIT STATS", re.compile(r"6L_")),
                 ("BABYLLM STATS", re.compile(r"[0-9]B_")),
+                ("LOSS STATS", re.compile(r"L_")),
             ]
 
             def truncate_key(k, max_len):

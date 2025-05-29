@@ -23,6 +23,9 @@ class EMBED(nn.Module):
 
         self.pixelEmbed = nn.Linear(3, embedDimension, device = self.device)
 
+        self.maxPosLen = 2048  # or however long you wanna start with!
+        self.posEmbedding = nn.Embedding(self.maxPosLen, embedDimension, device = self.device)
+
     """looks up and returns the embedding vector for a specifc token index"""
     @whocalled
     def forward(self, _tokenIndex = None, _pixel = None):
