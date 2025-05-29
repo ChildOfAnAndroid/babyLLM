@@ -23,7 +23,7 @@ class EMBED(nn.Module):
 
         self.pixelEmbed = nn.Linear(3, embedDimension, device = self.device)
 
-        self.maxPosLen = 2048  # or however long you wanna start with!
+        self.maxPosLen = 2048
         self.posEmbedding = nn.Embedding(self.maxPosLen, embedDimension, device = self.device)
 
     """looks up and returns the embedding vector for a specifc token index"""
@@ -31,8 +31,13 @@ class EMBED(nn.Module):
     def forward(self, _tokenIndex = None, _pixel = None):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             if not skipPixels and (_pixel is not None):
-                ʕっʘ‿ʘʔっ("E0_pixelInjected") # shape: [3] → [embedDimension]
-                self.embedVector = self.pixelEmbed(_pixel)
+                ʕっʘ‿ʘʔっ("E0_pixelInjected")
+                if _pixel.dim() == 1:  # [3]
+                    self.embedVector = self.pixelEmbed(_pixel.unsqueeze(0)).squeeze(0)  # [embedDimension]
+                elif _pixel.dim() == 2:  # [seq_len, 3]
+                    self.embedVector = self.pixelEmbed(_pixel)  # [seq_len, embedDimension]
+                else:
+                    raise ValueError(f"Pixel input has wrong shape: {_pixel.shape}")
             else:
                 ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
                 self.embedVector = self.e_weights[_tokenIndex] 
@@ -59,6 +64,7 @@ class EMBED(nn.Module):
                 self.stats["1E_x_final_norm"] = self.embedFinal.norm().item()
                 self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
                 self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
+                self.stats["1E_1_posEmbeddings"] = self.posEmbedding.weight.norm().item()
 
                 dimMean = self.e_weights.mean(dim = 0)
                 #self.stats["1E_dimMean"] = dimMean

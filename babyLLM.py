@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
 
-import random, os
+import random, os, re
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -58,7 +58,6 @@ class BABYLLM(nn.Module):
         self.FINALlogitsHistory = []
         self.predPixel = torch.tensor([0.0, 0.0, 0.0], device=self.device)
 
-
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
@@ -77,8 +76,7 @@ class BABYLLM(nn.Module):
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
 
         self.blendPixel = nn.Parameter(torch.tensor(0.05, device=self.device))  # 0 = token only, 1 = pixel only
-        #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3))
-
+        self.inputBlend = nn.Parameter(torch.ones(3, device=self.device))
 
         """stuff"""
         self.gradientClipMaxNorm = torch.exp(self.logGradClip)
@@ -113,12 +111,19 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
             #inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
             tokenEmbed = self.embed(_tokenIndex = _inputSeq)
+            seq_len = tokenEmbed.shape[0]
+            pos_indices = torch.arange(seq_len, device=tokenEmbed.device)
+            posEmbed = self.embed.posEmbedding(pos_indices)  # [seq_len, embed_dim]
             if not skipPixels and (_pixel is not None):
                 rgbEmbed = self.embed(_pixel = _pixel)
-                blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
-                inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
-                #inputEmbeds = (tokenEmbed * 0.95) + (rgbEmbed * 0.05) # or a learnable fusion
-                #inputEmbeds = tokenEmbed
+                if debugPrints:
+                    print("tokenEmbed:", tokenEmbed.shape)
+                    print("posEmbed:", posEmbed.shape)
+                    print("rgbEmbed:", rgbEmbed.shape)
+                #blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
+                #inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
+                blend = F.softmax(self.inputBlend, dim=0)
+                inputEmbeds = blend[0] * tokenEmbed + blend[1] * posEmbed + blend[2] * rgbEmbed
             else:
                 inputEmbeds = tokenEmbed
             self.latestTokenEmbed = inputEmbeds
@@ -169,6 +174,7 @@ class BABYLLM(nn.Module):
 
             if True:
                 ʕっʘ‿ʘʔっ("stats collection!")
+                blend_vals = blend.detach().cpu().tolist()
                 self.inputEmbedsHistory.append(inputEmbeds.norm().item())
                 self.INNOutputHistory.append(INNOutput.norm().item())
                 self.memoryOutputHistory.append(memoryOutput.norm().item())
@@ -183,8 +189,11 @@ class BABYLLM(nn.Module):
                         "7B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
                         #"5B_x_finalNormLayer_norm": sum(self.normalisedHistory) / len(self.normalisedHistory),
                         "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
-                        "B_blendPixel": self.blendPixel.item(),
+                        #"B_blendPixel": self.blendPixel.item(),
                     }
+                    self.forwardStats["B_blendToken"] = blend_vals[0]
+                    self.forwardStats["B_blendPos"] = blend_vals[1]
+                    self.forwardStats["B_blendPixel"] = blend_vals[2]
                     self.stats.update(self.forwardStats)
                     
                     self.inputEmbedsHistory = []
@@ -197,6 +206,7 @@ class BABYLLM(nn.Module):
             """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
             #tokenEmbed = self.embed(_tokenIndex = _inputSeq)
             #self.latestTokenEmbed = tokenEmbed
+            #self.log_all_learnable_params(prefix="FORWARD_")
             return FINALlogits #, self.latestTokenEmbed
 
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
@@ -236,7 +246,7 @@ class BABYLLM(nn.Module):
 
             lrSoftClamp = 0.001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
             #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
-            tempSoftClamp = 2 * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            tempSoftClamp = (self.CEloss_used * 2) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             if self.repetitionPenalty >= 0: 
                 repetitionPenaltySoftClamp = 0.000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty >= -1:
@@ -406,6 +416,7 @@ class BABYLLM(nn.Module):
                 "L_repLoss": self.repLoss_used,
             }
             self.stats.update(self.backwardStats)
+            #self.log_all_learnable_params(prefix="BACKWARD_")
             self.pixelLoss_used = 0
 
             #with torch.no_grad(): # FORCE RESET THE MEMORY GATES IF OVER USING LONG
@@ -665,6 +676,22 @@ class BABYLLM(nn.Module):
             r, g, b = (rgb * 255).astype(int)
             print(f"{label}[{i}]: \x1b[48;2;{r};{g};{b}m     \x1b[0m  ({r}, {g}, {b})")
 
+    """def log_all_learnable_params(self, prefix="PARAM_"):
+        Logs all learnable scalar parameters and basic stats for tensors in self.stats dict.
+        Also ensures mostImportantStats includes new param keys matching include_patterns.
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                if param.numel() == 1:
+                    self.stats[f"{prefix}{name}"] = param.item()
+                else:
+                    self.stats[f"{prefix}{name}_mean"] = param.data.mean().item()
+                    self.stats[f"{prefix}{name}_norm"] = param.data.norm().item()
+
+        new_keys = [k for k in self.stats if k.startswith(prefix)]
+        for key in new_keys:
+            if re.search(pat, key, re.IGNORECASE):
+                if key not in mostImportantStats:
+                    mostImportantStats.append(key)"""
 
     def getBabyStats(self): return self.stats
     
