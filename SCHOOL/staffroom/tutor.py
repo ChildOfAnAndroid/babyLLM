@@ -77,6 +77,7 @@ class TUTOR:
         self.averageTries               = 0
         self.averageTriesTotal          = 0
         self.perfectionistPassRate      = _perfectionistPassRateSTART
+        self.avgPixelDistTotals         = 0
 
         self.aaa    = 0
         self.bbb    = 0
@@ -369,6 +370,7 @@ class TUTOR:
             ʕっʘ‿ʘʔっ("_model.optimizer.zero_grad")
             self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
             #self.trainingStepCounter   += 1
+            self.avgPixelDist = 0
             self.predictedTokenIndices  = []
             inputSeqPredictions = list(_inputTokenIndices)  # start with input context, create a COPY!
             buffer = torch.zeros(self.numTokensPerStep, dtype = torch.long, device = self.device) # creates buffer/step instead of recreating tensors inside loop
@@ -461,9 +463,23 @@ class TUTOR:
                         #slice2 = self.char2[j % boiLen2]
                         #slice3 = self.char3[j % boiLen3]
 
+                    pixelDist = abs(r - rt) + abs(g - gt) + abs(b - bt)
+                    pixelThresh = 20
+                    self.avgPixelDist += pixelDist
+
                     prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{slice1}\x1b[0m"
-                    pred_block = f"\x1b[48;2;{r};{g};{b}m\x1b[38;2;{rt};{gt};{bt}m{slice2}\x1b[0m"
+                    if (r, g, b) == (rt, gt, bt):
+                        invert_r, invert_g, invert_b = 255 - r, 255 - g, 255 - b
+                        # Bold 1, Underline 4
+                        pred_block = f"\x1b[1;4;48;2;{invert_r};{invert_g};{invert_b}m\x1b[38;2;{rt};{gt};{bt}m{slice2}\x1b[0m"
+                    elif pixelDist <= pixelThresh:
+                        invert_r, invert_g, invert_b = 255 - r, 255 - g, 255 - b
+                        # Bold 1, Underline 4, Yellow text 38;5;226
+                        pred_block = f"\x1b[1;4;48;2;{invert_r};{invert_g};{invert_b}m\x1b[38;5;226m{slice2}\x1b[0m"
+                    else:
+                        pred_block = f"\x1b[48;2;{r};{g};{b}m\x1b[38;2;{rt};{gt};{bt}m{slice2}\x1b[0m"
                     tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m\x1b[38;2;{r};{g};{b}m{slice3}\x1b[0m"
+                    if debugPrints: print("PRED:", r, g, b, "TARGET:", rt, gt, bt, "DIST:", pixelDist)
 
                     self.rgbPromptBar     += prompt_block
                     self.rgbPredictionBar += pred_block
@@ -531,11 +547,16 @@ class TUTOR:
             perfectLossModifier = 1 / (1 + (self.tokenPerfectRate / 100))
             BACKWARDperfMod = (1.0 - perfectInfluence) + (perfectInfluence * perfectLossModifier)
 
+            self.avgPixelDist       = self.avgPixelDist / self.numTokensPerStep
+            pixelDistLoss           = min(1.5,self.avgPixelDist * 0.0001)
+            self.pixelDistLoss_used = pixelDistLoss
+
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
             self.triesLoss_used = (BACKWARDloss * (BACKWARDtriesMod - 1.0))
             self.perfLoss_used = (BACKWARDloss * (BACKWARDperfMod - 1.0))
             BACKWARDloss = BACKWARDloss * BACKWARDtriesMod * BACKWARDperfMod
+            BACKWARDloss = BACKWARDloss + pixelDistLoss
 
             entropyBonus = getattr(self.model.interneuronNetwork, "entropyBonus", 0.0)
             entropyPenalty = 0.01 * entropyBonus
@@ -573,6 +594,8 @@ class TUTOR:
             #self.model.optimizer.step()
 
             ʕっʘ‿ʘʔっ("actions after looping")
+            self.avgPixelDistTotals        += self.avgPixelDist
+            self.totalAvgPixelDist          = self.avgPixelDistTotals / max(1, self.totalTurns)
             self.stepLossFloat              = BACKWARDloss.detach().cpu().numpy().item()
             self.learningRate               = math.exp(self.model.logLR.detach().cpu().item())
             self.memoryLength               = int(torch.exp(self.model.logMemoryLength).item())
@@ -588,45 +611,6 @@ class TUTOR:
             #    torch.mps.empty_cache()
 
             return self.predictedTokenIndices, self.logitSeq
-
-    """def getPixelForStep(self, j):
-        lossVal   = min(self.stepLossFloat / (j + 1), 10.0)
-        deltaish  = min(abs(lossVal - self.averageRecentLoss), 5.0)
-
-        basePixel = torch.tensor([
-            (0.4 * (self.totalTokenPerfectRate / 100)) + (0.4 * (self.tokenPerfectRate / 100)) + (0.2 * (lossVal / 10.0)),
-            0.3 * self.totalAvgAbsDelta + 0.3 * (deltaish / 5.0),
-            (self.perfectionistPassRate)
-        ], device=self.device).clamp(0, 1)
-
-        #pulse = 0.5 * (1 - math.cos(2 * math.pi * j / self.numTokensPerStep))  # [0..1]
-        cycle = 3
-        pulse = ((j + 1) * cycle / self.numTokensPerStep) % 1
-        modulatedPixel = basePixel.clone()
-        modulatedPixel[1] = basePixel * (0.8 + 0.4 * pulse)
-
-        return modulatedPixel.clamp(0, 1)  """    
-    
-    """def getPixelForStep(self, j):
-        lossVal   = min(self.stepLossFloat / (j + 1), 10.0)
-        deltaish  = min(abs(lossVal - self.averageRecentLoss), 5.0)
-
-        redBase   = (0.4 * (self.totalTokenPerfectRate / 100)) + (0.4 * (self.tokenPerfectRate / 100)) + (0.2 * (lossVal / 10.0))
-        greenBase = 0.3 * self.totalAvgAbsDelta + 0.3 * (deltaish / 5.0)
-        blueBase  = self.perfectionistPassRate
-
-        cycle = 3
-        pulse = ((j + 1) * cycle / self.numTokensPerStep) % 1  # range [0, 1)
-        redPulsed = redBase * (1.2 + 0.2 * pulse)
-        print(f"step {j} → red_base={redBase:.2f} → pulse={pulse:.2f} → red_pulsed={redPulsed:.2f}")
-
-        pixel = torch.tensor([
-            redPulsed,
-            greenBase,
-            blueBase
-        ], device = self.device).clamp(0, 1)
-
-        return pixel"""
     
     def getPixelForStep(self, j):
         x = (j + 1) / (self.numTokensPerStep + self.trainingStepCounter%10)
@@ -991,6 +975,9 @@ class TUTOR:
                     self.stats["L_triesLoss"]           = self.triesLoss_used
                     self.stats["L_perfLoss"]            = self.perfLoss_used
                     self.stats["L_entropyLoss"]         = self.entropyLoss_used
+                    self.stats["L_pixelDistLoss"]       = self.pixelDistLoss_used
+                    self.stats["avgPixelDist"]          = self.avgPixelDist
+                    self.stats["totalAvgPixelDist"]     = self.totalAvgPixelDist
 
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")

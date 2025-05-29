@@ -108,7 +108,7 @@ memoryLengthGOAL = 3
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.0s001 //
 learningRateGOAL = 0.00035
-temperatureGOAL = 0.5
+temperatureGOAL = 0.85
 optimizerName = "Adan" # //"AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -164,6 +164,7 @@ mostImportantStats  =   [
                 "1E_x_final_norm",                             # IMPORTANT LAYER TRACKER !! (EMBEDS)
             #       "1E_x_embedFinal_norm_token",
             #       "1E_x_embedFinal_norm_neuron",
+            "1E_1_posEmbeddings",
 
             # NEURON STATS
             #                                                       "2N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
@@ -243,6 +244,7 @@ mostImportantStats  =   [
                 "L_triesLoss",
                 "L_perfLoss",
                 "L_entropyLoss",
+                "L_pixelDistLoss",
 
 
             # LOGIT STATS
@@ -261,6 +263,8 @@ mostImportantStats  =   [
                 "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy", "6L_topLogits", "6L_topIndices", 
                 "6L_0_activationsTensor_scale", "6L_1_normedActivationsTensor_scale", "6L_3_logitOutput_scale", "6L_4_logitNormed_scale",
                 "B_blendPixel",
+                "B_blendPos",
+                "B_blendToken",
 
             # MISC/UNSORTED STATS
                 # base stats
@@ -282,6 +286,8 @@ mostImportantStats  =   [
                     "totalLossAbsDelta",
                     "totalAvgAbsDelta",
                     "learningRateGOAL",
+                    "avgPixelDist",
+                    "totalAvgPixelDist",
                         ]
 
 mostImportantStats += [
