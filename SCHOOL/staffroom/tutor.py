@@ -482,6 +482,7 @@ class TUTOR:
                 )
                 inputSeqPredictions.append(nextTokenInput) # multi-token autoregressive generation: append next token to your current input — becomes the prompt for the next token
                 isCorrect = (nextTokenInput == predictedTokenIndex.item())
+                self.model.targetTokenFromTutor = _targetTokenIndexSeq[j]
                 self.tokenLevelCorrect.append(1.0 if isCorrect else 0.0)
                 if debugPrints: print(f"isCorrect = {isCorrect} for target: {nextTokenInput} vs guess: {predictedTokenIndex.item()}... tokenLevelCorrect = {self.tokenLevelCorrect}")
 
@@ -532,13 +533,20 @@ class TUTOR:
 
             ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
-            #BACKWARDloss = BACKWARDloss * (BACKWARDtriesMod + 0.001)
-            #BACKWARDloss = BACKWARDloss * (BACKWARDperfMod + 0.001)
-            #BACKWARDloss = BACKWARDloss - (0.01 * self.model.interneuronNetwork.entropyBonus)
+            self.triesLoss_used = (BACKWARDloss * (BACKWARDtriesMod - 1.0))
+            self.perfLoss_used = (BACKWARDloss * (BACKWARDperfMod - 1.0))
+            BACKWARDloss = BACKWARDloss * BACKWARDtriesMod * BACKWARDperfMod
+
+            entropyBonus = getattr(self.model.interneuronNetwork, "entropyBonus", 0.0)
+            entropyPenalty = 0.01 * entropyBonus
+            BACKWARDloss -= entropyPenalty
+            self.entropyLoss_used = entropyPenalty
             self.totalLoss += BACKWARDloss.item()
-            #if windowEntropyBonus:
-                #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                    #BACKWARDloss = BACKWARDloss + (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
+            if windowEntropyBonus:
+                if hasattr(self.model.interneuronNetwork, "entropyBonus"):
+                    entropyLoss = (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
+                    BACKWARDloss = BACKWARDloss + entropyLoss
+                    self.entropyLoss_used = entropyLoss
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
                 return [], []
@@ -980,6 +988,9 @@ class TUTOR:
                     self.stats["memoryLength"]          = self.memoryLength
                     self.stats["perfectTokens"]         = self.perfectTokens
                     self.stats["learningRateGOAL"]      = self.learningRateGOAL
+                    self.stats["L_triesLoss"]           = self.triesLoss_used
+                    self.stats["L_perfLoss"]            = self.perfLoss_used
+                    self.stats["L_entropyLoss"]         = self.entropyLoss_used
 
                 if embed_collectStats:
                     ʕっʘ‿ʘʔっ("♥if embed_collectStats")

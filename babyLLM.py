@@ -219,6 +219,7 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("cross Entropy Loss")
             #LOSSlogits = torch.clamp(_logits, min=-50, max=50)
             loss = F.cross_entropy(_logits, targetTensor)
+            self.CEloss_used = loss
 
             if not torch.isfinite(loss):
                 print("NaN/Inf loss detected — logits:", _logits)
@@ -246,17 +247,27 @@ class BABYLLM(nn.Module):
                 repetitionPenaltySoftClamp = 0.00002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
 
             loss += lrSoftClamp # use .detach() to avoid .backward()
+            self.lrSoftClamp_used = lrSoftClamp
             loss += tempSoftClamp
+            self.tempSoftClamp_used = tempSoftClamp
             loss += repetitionPenaltySoftClamp
+            self.repPenSoftClamp_used = repetitionPenaltySoftClamp
             self.lastLossBaby = loss.item()
             FINALloss = loss
             #print(f"{FINALloss} + loss")
 
-            if _training and self.lastSoftSample is not None and not skipAuxLoss:
+            if self.lastSoftSample is not None and not skipAuxLoss:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
-                auxLoss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
-                AUXloss = auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
+                AUXloss_kl = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
+                self.AUXlossKL_used = AUXloss_kl
+                #AUXloss = auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
+                cosSim = F.cosine_similarity(self.lastSoftSample, target)
+                AUXloss_cos = (1.0 - cosSim.mean())
+                self.AUXlossCos_used = AUXloss_cos
+                AUXloss = AUXloss_cos + AUXloss_kl
                 #print(f"{AUXloss} + aux")
+            else:
+                AUXloss = 0
 
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
                 ʕっʘ‿ʘʔっ("RGB regression loss")
@@ -289,13 +300,21 @@ class BABYLLM(nn.Module):
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
-                FINALloss += (self.PIXELloss * 50)
-                self.pixelLoss_used = (self.PIXELloss * 50)
+                FINALloss += (self.PIXELloss)
+                self.pixelLoss_used = (self.PIXELloss)
                 #print(f"{FINALloss} pixel + final")
-            if _training and self.lastSoftSample is not None and not skipAuxLoss: 
+            if self.lastSoftSample is not None and not skipAuxLoss: 
+                if torch.isnan(AUXloss) or not torch.isfinite(AUXloss):
+                    print(f"AUXloss contains NaN!")
+                    AUXloss = torch.tensor(0.0, device = self.device)
                 FINALloss += AUXloss
+            self.AUXloss_used = (AUXloss)
                 #print(f"{FINALloss} aux + final")
             #if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
+            token_freqs = self.lastSoftSample.mean(dim=0)
+            repLoss = (token_freqs**2).mean() * self.repetitionPenalty
+            self.repLoss_used = repLoss
+            FINALloss += repLoss
             return FINALloss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
@@ -376,8 +395,15 @@ class BABYLLM(nn.Module):
                 "B_expWindow": repWindow.item(),
                 "B_repetitionWindow": self.repetitionWindow.item(),
                 "B_temperature": torch.exp(self.logTemp).item(),
-                "B_PIXELloss": self.PIXELloss,
-                "B_PIXELloss_scaled": self.pixelLoss_used
+                "L_CEloss": self.CEloss_used,
+                "L_PIXELloss": self.PIXELloss,
+                "L_PIXELloss_scaled": self.pixelLoss_used,
+                "L_AUXlossCos": self.AUXlossCos_used,
+                "L_AUXlossKL": self.AUXlossKL_used,
+                "L_LRclamp": self.lrSoftClamp_used,
+                "L_tempClamp": self.tempSoftClamp_used,
+                "L_repPenClamp": self.repPenSoftClamp_used,
+                "L_repLoss": self.repLoss_used,
             }
             self.stats.update(self.backwardStats)
             self.pixelLoss_used = 0
@@ -488,7 +514,7 @@ class BABYLLM(nn.Module):
 
             ʕっʘ‿ʘʔっ("repWindow = torch.exp(self.logRepetitionWindow)")
             repWindow = torch.exp(self.logRepetitionWindow)
-            repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)  # asymptotes near windowMAX
+            repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)
             ʕっʘ‿ʘʔっ("penalty = self.repetitionPenalty")
             penalty = self.repetitionPenalty
 
@@ -509,11 +535,12 @@ class BABYLLM(nn.Module):
             ʕっʘ‿ʘʔっ("weightedFreqs = (oneHots.T @ softMask).view(1, -1)")
             weightedFreqs = (oneHots.T @ softMask).view(1, -1)
 
-            # Scale penalty based on confidence (entropy)
-            entropy = -(_logits.softmax(dim=-1) * _logits.log_softmax(dim=-1)).sum(dim=-1, keepdim=True)
-            dynamicPenalty = 0.01 * penalty / (1 + entropy)  # soft & bounded
+            ʕっʘ‿ʘʔっ("setting penalty to 0 for target token!")
+            if self.targetTokenFromTutor is not None:
+                weightedFreqs[0, self.targetTokenFromTutor] = 0.0
 
-        return _logits - (weightedFreqs * dynamicPenalty)
+        return _logits - (weightedFreqs * penalty)
+
 
 
     def getNextToken(self, _inputSeq):  

@@ -53,14 +53,15 @@ class LOGITS(nn.Module):
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
                         
             ʕっʘ‿ʘʔっ("L3: scaledActivations") # <- L1 + L2
-            logitOutput = self.scaledActivations @ self.l_weights + self.l_bias
-            logitNormed = (self.scaledActivations @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
+            logitOutput = (self.scaledActivations @ self.l_weights / (numNeurons ** 0.5)) + self.l_bias
+            logitOutput = logitOutput.clamp(-60, 60)
+            #logitNormed = (self.scaledActivations @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
+            logitNormed = self.logitNorm(logitOutput)  # softly smooth
 
             ʕっʘ‿ʘʔっ("L4: logitOutput") # <- L3 (with weights and bias)
             outScale = torch.sigmoid(self.outputScale)
             normOutScale = torch.sigmoid(self.normOutputScale)
             self.finalLogit = (logitOutput * outScale) + (logitNormed * normOutScale)
-            #self.finalLogit = self.finalLogit.clamp(-60, 60) # logits over ~±80 can create inf probs or 0 gradients due to softmax squashing
             if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
 
             ʕっʘ‿ʘʔっ("clamp scalar parameters")
@@ -107,6 +108,9 @@ class LOGITS(nn.Module):
                 #self.stats["6L_1_normedActivationsTensor_scale"] = normedScale.item()
                 self.stats["6L_3_outSigmoid_scale"] = outScale.detach().item()
                 self.stats["6L_4_outNormSigmoid_scale"] = normOutScale.detach().item()
+            if debugPrints: print("activation norm:", self.scaledActivations.norm().item())
+            if debugPrints: print("weight norm mean:", self.l_weights.norm(dim=0).mean().item())
+            if debugPrints: print("weight norm max:", self.l_weights.norm(dim=0).max().item())
 
             # return logits (not softmax) for better gradient computation in cross-entropy loss
             return self.finalLogit # L6 ->

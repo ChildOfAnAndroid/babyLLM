@@ -2,6 +2,10 @@
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM CONFIG FILE // config.py
 
+import datetime as CONFIGDATE
+date = CONFIGDATE.date.today()
+
+
 import torch
 modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 #modelDevice = torch.device("cpu")
@@ -80,6 +84,7 @@ chatLogPath_infer = "SCHOOL/statistics/LOGS/chat/chatLog.txt"
 chatLogPath_talkToYourself = "SCHOOL/statistics/LOGS/chat/talkToYourselfBattle.txt"
 chatLogPath_talkToYourselfComparisons = "SCHOOL/library/charisStudies/whoIsMoreLikeYou.txt"
 chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt"
+babyLogPathFull = f"SCHOOL/statistics/LOGS/chat/babyLogFull_{date}.txt"
 
 """--- VOCAB --- (see master config)"""
 
@@ -89,7 +94,7 @@ chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- MODEL ---"""
-numTokensPerStepSTART = 1 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 22 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
 perfectionistMaxRetries = 100
@@ -226,6 +231,19 @@ mostImportantStats  =   [
                 #"5B_x_finalNormLayer_norm",                     # IMPORTANT LAYER TRACKER !! (BABYLLM)
                 #                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
                 #"B_floatMemoryLength",
+                "L_CEloss",
+                "L_PIXELloss",
+                "L_PIXELloss_scaled",
+                "L_AUXlossCos",
+                "L_AUXlossKL",
+                "L_LRclamp",
+                "L_tempClamp",
+                "L_repPenClamp",
+                "L_repLoss",
+                "L_triesLoss",
+                "L_perfLoss",
+                "L_entropyLoss",
+
 
             # LOGIT STATS
                                                                    "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
@@ -388,7 +406,7 @@ reflectionFreq = 10000
 stableFallThreshold = 10 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 10 #169420
+trainingDataPairNumber = 100 #169420
 trainingDataStride = 1
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1

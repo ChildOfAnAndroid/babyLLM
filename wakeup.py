@@ -305,6 +305,7 @@ def main():
             numWins += 1
             winStreak += 1
             if winStreak == 2:
+                winStreak -= 1
                 MAINPairNumber = MAINPairNumber * 2
                 if random.choice([True, False]):
                     print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
@@ -315,6 +316,7 @@ def main():
         else:
             windowOrStride = random.choice([True, False])
             winStreak = 0
+            MAINPairNumber - (windowMAX)
             if windowMAX > incrementW+1:
                 if windowOrStride:
                     print(f"downing windowMAX from {windowMAX} to {windowMAX-incrementW}")
@@ -327,7 +329,8 @@ def main():
                     dataStride -= incrementS
                 else:
                     print(f"dataStride staying at {dataStride}")
-            elif dataStride == 1 and windowMAX == 1 or random.random() < 0.0001:
+            elif dataStride == 1 and windowMAX == 1 or random.random() < 0.01:
+                random.choice([2, windowMAX, dataStride, (windowMAX * 2), (dataStride * 2), winStreak, totalRuns, incrementS, incrementW, passRateSTART, passRateEND, lastRunLoss, thisRunLoss, numWins, maxAllowedWindowJump, maxAllowedStrideJump, choice, scale, 4, 6, 8, 12, 16])
                 if random.choice([True, False]):
                     print(f"bored. windowMAX from {windowMAX} to {2}")
                     windowMAX = 2
@@ -337,6 +340,8 @@ def main():
         
         windowMAX = round(max(1, min(windowMAX, maxTokensPerStep)))
         dataStride = round(max(1, min(dataStride, windowMAX * 0.1)))
+        if MAINPairNumber < 1:
+            MAINPairNumber = 2
         print(f"normalised: dataStride is {dataStride}, windowMAX is {windowMAX}")
 
         lastRunLoss = thisRunLoss
