@@ -52,3 +52,7 @@ SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
 *.pth copy 10
 *.membuff copy
 *.optim copy
+SCHOOL/statistics/LOGS/chat/chatForHumans.txt
+SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
+SCHOOL/statistics/LOGS/training/trainingLog_100.txt
+SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
