@@ -52,7 +52,7 @@ class LIBRARIAN:
             shouldTrain = _forceRetrain or not os.path.exists(self.tokenizerPath) or not os.path.exists(self.tokenizerLockFile)
 
             if shouldTrain:
-                ʕっʘ‿ʘʔっ("TRAINING NEW TOKENIZER")
+                if debugPrints: ʕっʘ‿ʘʔっ("TRAINING NEW TOKENIZER")
                 print("training new tokenizer...")
                 tokenizerModel = Tokenizer(models.BPE(unk_token=self.unkToken))
                 tokenizerModel.pre_tokenizer = pre_tokenizers.ByteLevel()
@@ -72,18 +72,18 @@ class LIBRARIAN:
 
                 self.tokenizer = tokenizerModel
             else:
-                ʕっʘ‿ʘʔっ("LOADING EXISTING TOKENIZER")
+                if debugPrints: ʕっʘ‿ʘʔっ("LOADING EXISTING TOKENIZER")
                 print("loading existing tokenizer...")
                 self.tokenizer = Tokenizer.from_file(self.tokenizerPath)
 
             self.buildVocabMap()
 
             if self.loadVocab():
-                ʕっʘ‿ʘʔっ("loaded vocab from files...")
+                if debugPrints: ʕっʘ‿ʘʔっ("loaded vocab from files...")
                 self.trainingDataPairs = self.loadTrainingData(trainingFilePath_arr)
                 self.tokens = self.tokenizeText(self.trainingDataPairs)
             else:
-                ʕっʘ‿ʘʔっ("building vocab from tokenizer...")
+                if debugPrints: ʕっʘ‿ʘʔっ("building vocab from tokenizer...")
                 self.buildVocabMap()
                 self.saveVocab()
                 print(f"saved vocab data to {self.vocabCache}!")
@@ -99,15 +99,15 @@ class LIBRARIAN:
 
     def buildVocabMap(self):
         with self.v_counsellor.infodump("buildVocabMap") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("getting vocab dictionary from tokenizer...")
+            if debugPrints: ʕっʘ‿ʘʔっ("getting vocab dictionary from tokenizer...")
             invVocab = self.tokenizer.get_vocab()
-            ʕっʘ‿ʘʔっ("ordering by index...")
+            if debugPrints: ʕっʘ‿ʘʔっ("ordering by index...")
             sortedTokens = sorted(invVocab.items(), key=lambda item: item[1])  # sort by index
             self.vocabList = [token for token, idx in sortedTokens]
-            ʕっʘ‿ʘʔっ("mapping vocab dicts...")
+            if debugPrints: ʕっʘ‿ʘʔっ("mapping vocab dicts...")
             self.tokenToIndex = {token: idx for token, idx in sortedTokens}
             self.indexToToken = {idx: token for token, idx in sortedTokens}
-            ʕっʘ‿ʘʔっ("ensuring <UNK> is in the vocab...")
+            if debugPrints: ʕっʘ‿ʘʔっ("ensuring <UNK> is in the vocab...")
             if self.unkToken not in self.tokenToIndex:
                 self.vocabList.append(self.unkToken)
                 unk_index = len(self.vocabList) - 1
@@ -136,16 +136,16 @@ class LIBRARIAN:
             trainingDataPairs = []
             count = 0
             tokens = self.tokens
-            ʕっʘ‿ʘʔっ("check if windowMax is tensor?")
+            if debugPrints: ʕっʘ‿ʘʔっ("check if windowMax is tensor?")
             if isinstance(_windowMAX, torch.Tensor): _windowMAX = _windowMAX.item()
             
-            ʕっʘ‿ʘʔっ("allows for random start")
+            if debugPrints: ʕっʘ‿ʘʔっ("allows for random start")
             if _startIndex == 'random':
                 _startIndex = random.randint(0, len(tokens) - _windowMAX - 1)
 
             end = len(tokens) - _windowMAX
 
-            ʕっʘ‿ʘʔっ("generate training pairs")
+            if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
             for i in range(_startIndex, end, int(_stride)):
                 inputSeq = tokens[i:i+_windowMAX]
                 target = tokens[i+_windowMAX:i+_windowMAX+_windowMAX]
@@ -165,26 +165,26 @@ class LIBRARIAN:
         with self.v_counsellor.infodump("saveVocab") as ʕっʘ‿ʘʔっ:
             os.makedirs(self.vocabCache, exist_ok = True)  # Ensure directory exists
             with open(self.vocabListFile, "w", encoding="utf-8") as f:
-                ʕっʘ‿ʘʔっ("save vocabList")
+                if debugPrints: ʕっʘ‿ʘʔっ("save vocabList")
                 json.dump(self.vocabList, f, indent = 4)
             with open(self.tokenToIndexFile, "w", encoding="utf-8") as f:
-                ʕっʘ‿ʘʔっ("save tokenToIndex")
+                if debugPrints: ʕっʘ‿ʘʔっ("save tokenToIndex")
                 json.dump(self.tokenToIndex, f, indent = 4)
             with open(self.indexToTokenFile, "w", encoding="utf-8") as f:
-                ʕっʘ‿ʘʔっ("save indexToToken")
+                if debugPrints: ʕっʘ‿ʘʔっ("save indexToToken")
                 json.dump(self.indexToToken, f, indent = 4)
 
     def loadVocab(self):
         with self.v_counsellor.infodump("loadVocab") as ʕっʘ‿ʘʔっ:
             try:
                 with open(self.vocabListFile, 'r', encoding='utf-8') as f:
-                    ʕっʘ‿ʘʔっ("load vocabList")
+                    if debugPrints: ʕっʘ‿ʘʔっ("load vocabList")
                     self.vocabList = json.load(f)
                 with open(self.tokenToIndexFile, 'r', encoding='utf-8') as f:
-                    ʕっʘ‿ʘʔっ("load tokenToIndex")
+                    if debugPrints: ʕっʘ‿ʘʔっ("load tokenToIndex")
                     self.tokenToIndex = json.load(f)
                 with open(self.indexToTokenFile, 'r', encoding='utf-8') as f:
-                    ʕっʘ‿ʘʔっ("load indexToToken")
+                    if debugPrints: ʕっʘ‿ʘʔっ("load indexToToken")
                     self.indexToToken = {int(k): v for k, v in json.load(f).items()} # ensures that keys are integers!
                 print("vocab files loaded successfully!")
                 return bool(self.vocabList and self.tokenToIndex and self.indexToToken)

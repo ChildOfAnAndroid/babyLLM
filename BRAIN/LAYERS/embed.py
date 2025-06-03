@@ -31,53 +31,67 @@ class EMBED(nn.Module):
     def forward(self, _tokenIndex = None, _pixel = None):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             if not skipPixels and (_pixel is not None):
-                ʕっʘ‿ʘʔっ("E0_pixelInjected")
+                if debugPrints: ʕっʘ‿ʘʔっ("E0_pixelInjected")
                 if _pixel.dim() == 1:  # [3]
+                    if debugPrints: ʕっʘ‿ʘʔっ("pixel.dim == 1")
                     self.embedVector = self.pixelEmbed(_pixel.unsqueeze(0)).squeeze(0)  # [embedDimension]
                 elif _pixel.dim() == 2:  # [seq_len, 3]
+                    if debugPrints: ʕっʘ‿ʘʔっ("pixel.dim == 2")
                     self.embedVector = self.pixelEmbed(_pixel)  # [seq_len, embedDimension]
                 else:
                     raise ValueError(f"Pixel input has wrong shape: {_pixel.shape}")
             else:
-                ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
+                if debugPrints: ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
                 self.embedVector = self.e_weights[_tokenIndex] 
-            ʕっʘ‿ʘʔっ("E1_embedNormed") # <- E1
+            if debugPrints: ʕっʘ‿ʘʔっ("E1_embedNormed") # <- E1
             self.embedNormed = self.embedNorm(self.embedVector)
-            ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
+            if debugPrints: ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
             self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
             with torch.no_grad():
                 self.weightsScale.data.clamp_(-10, 10)
                 self.normScale.data.clamp_(-10, 10)
             return self.embedFinal # E3 -> N??
     
+    @whocalled
     def getEmbedStats(self):
         with self.counsellor.infodump("getEmbedStats") as ʕっʘ‿ʘʔっ:
+            if debugPrints: ʕっʘ‿ʘʔっ("with torch.no_grad")
             with torch.no_grad():
                 self.stats = {}
-                embedNorms = torch.norm(self.e_weights, dim = 1)
-                self.stats["1E_weightNormMean"] = embedNorms.mean()
-                self.stats["1E_weightNormStd"] = embedNorms.std()
-                self.stats["1E_weightNormMax"] = embedNorms.max()
+                if debugPrints: ʕっʘ‿ʘʔっ("embedNorms = torch.norm(self.e_weights, dim = 1)")
+                #embedNorms = torch.norm(self.e_weights, dim = 1)
+                if debugPrints: ʕっʘ‿ʘʔっ("embedNorms Stats")
+                #self.stats["1E_weightNormMean"] = embedNorms.mean().item()
+                #self.stats["1E_weightNormStd"] = embedNorms.std().item()
+                #self.stats["1E_weightNormMax"] = embedNorms.max().item()
 
+                if debugPrints: ʕっʘ‿ʘʔっ("vectorNorm stats")
                 self.stats["1E_0_vector_norm"] = self.embedVector.norm().item()
-                self.stats["1E_1_normed_norm"] = self.embedNormed.norm().item()
+                #self.stats["1E_1_normed_norm"] = self.embedNormed.norm().item()
+                self.stats["1E_0_vector_mean"] = self.embedVector.mean().item()
+                #self.stats["1E_1_normed_mean"] = self.embedNormed.mean().item()
                 self.stats["1E_x_final_norm"] = self.embedFinal.norm().item()
-                self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
-                self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
-                self.stats["1E_1_posEmbeddings"] = self.posEmbedding.weight.norm().item()
+                self.stats["1E_x_final_mean"] = self.embedFinal.mean().item()
+                ###self.stats["1E_1_pixelEmbed_norm"] = self.pixelEmbed.norm().item()###
+                ###self.stats["1E_1_pixelEmbed_mean"] = self.pixelEmbed.weight.mean().item()###
+                #self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
+                #self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
+                self.stats["1E_1_posEmbWeight_norm"] = self.posEmbedding.weight.norm().item()
+                self.stats["1E_1_posEmbWeight_mean"] = self.posEmbedding.weight.mean().item()
 
-                dimMean = self.e_weights.mean(dim = 0)
+                #dimMean = self.e_weights.detach().clone().mean(dim = 0)
                 #self.stats["1E_dimMean"] = dimMean
-                dimSparsity = (dimMean.abs() < 1e-4).float().mean()
-                self.stats["1E_dimSparsity"] = dimSparsity
+                #dimSparsity = (dimMean.abs() < 1e-4).float().mean().item()
+                #self.stats["1E_dimSparsity"] = dimSparsity
  
                 # Drift since last save
-                drift = torch.norm(self.e_weights - self.lastSavedEmbeds)
-                self.stats["1E_drift"] = drift
-                self.lastSavedEmbeds = self.e_weights.detach().clone()
+                #drift = torch.norm(self.e_weights - self.lastSavedEmbeds).item()
+                #self.stats["1E_drift"] = drift
+                #self.lastSavedEmbeds = self.e_weights.detach().clone()
 
                 return self.stats
-        
+    
+    @whocalled
     def cosineSimilarity(self, _idx1, _idx2):
         e1 = self.e_weights[_idx1]
         e2 = self.e_weights[_idx2]

@@ -144,6 +144,7 @@ class S_OUTPUT:
 
         return
     
+    @whocalled
     def S_generateStatBands(self):
 
         softmaxBands = {"omgwtf!": -float('inf'),      
@@ -156,6 +157,7 @@ class S_OUTPUT:
         staticBand = {"fine":   float('inf')}
         return {v: self.getDynamicPercentileBands(v) for v in ((mostImportantStats + allRecordedOtherStats) if self.allKeys is None else self.allKeys)}
 
+    @whocalled
     def getDynamicPercentileBands(self, statKey):
         if not self.rollingAverages:
             self.cantPrint += 1
@@ -194,6 +196,7 @@ class S_OUTPUT:
                 "bad":          self.getP(stat, 0.7000),    "worse":            self.getP(stat, 0.8000),    "wtf":          self.getP(stat, 0.9000),      
                 "omg":          self.getP(stat, 0.9500),    "omgwtf":           self.getP(stat, 0.9990),    "omgwtf!":      float('inf'),}
         
+    @whocalled
     def S_getStat(self, _statType, _statVal):
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
             if not self.rollingAverages:
@@ -234,7 +237,7 @@ class S_OUTPUT:
             print(f"returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})")
             return "emergency"
 
-        
+    @whocalled        
     def refreshStatBands(self, _rollingAverages):
         self.rollingAverages = _rollingAverages
         if self.rollingAverages and all(len(v) > 1 for v in self.rollingAverages.values()):
@@ -242,15 +245,17 @@ class S_OUTPUT:
         else:
             print("ʕっ•ᴥ•ʔっ not enough data to refresh stat bands yet")
 
-
+    @whocalled
     def S_apply(self, _S_type, _text): 
         with self.counsellor.infodump("S_apply") as ʕっʘ‿ʘʔっ:
             return "".join(self.S_types.get(_S_type, [])) + str(_text) + "".join(self.S_types.get('reset'))
-        
+
+    @whocalled    
     def S_stripForLogging(self, _text): 
         with self.counsellor.infodump("S_stripForLogging") as ʕっʘ‿ʘʔっ:
             return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', _text)
 
+    @whocalled
     def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss, _latestLossDelta, _totalLoss = None, _totalTokenCount = None):
         with self.counsellor.infodump("S_colourPrintTraining") as ʕっʘ‿ʘʔっ:
             #self.refreshStatBands(_rollingAverages = self.rollingAverages)
@@ -260,7 +265,7 @@ class S_OUTPUT:
             S_deltaType = self.S_getStat("latestLossDelta", _latestLossDelta)
             S_bold = "".join(self.S_types["bold"])
 
-            ʕっʘ‿ʘʔっ("conditionalFormatGuess+truth")
+            if debugPrints: ʕっʘ‿ʘʔっ("conditionalFormatGuess+truth")
             reset = "".join(self.S_types.get('reset'))
             dim = "".join(self.S_types.get('dim'))
 
@@ -276,7 +281,7 @@ class S_OUTPUT:
                 for i, t in enumerate(_targetSeq_str)
             ]
 
-            ʕっʘ‿ʘʔっ("createTextStrings")
+            if debugPrints: ʕっʘ‿ʘʔっ("createTextStrings")
             guess_str = "".join(guess).replace("Ġ", " ")
             truth_str = "".join(truth).replace("Ġ", " ")
             match = guess_str.strip() == truth_str.strip()
@@ -285,7 +290,7 @@ class S_OUTPUT:
             prompt_str = ''.join(_inputSeq).replace("Ġ", " ").strip()[-printPromptLength:]
             delta_str = ""
 
-            ʕっʘ‿ʘʔっ("calculateLossDelta") # Calculate delta
+            if debugPrints: ʕっʘ‿ʘʔっ("calculateLossDelta") # Calculate delta
             if _recentLoss is not None:
                 delta = _recentLoss - _loss
                 delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_deltaType, f'{S_delta: .4f}')}{'↗' if S_delta < 0 else '↘'}"
@@ -297,7 +302,7 @@ class S_OUTPUT:
             #        rollingAvgLoss = sum(losses) / len(losses)
             #        rollingAvgLoss_str = f"{self.S_apply(S_type, f'{rollingAvgLoss:.3f}')}{self.S_apply('dim', 'mean ')}"
 
-            ʕっʘ‿ʘʔっ("printGuess+truth")
+            if debugPrints: ʕっʘ‿ʘʔっ("printGuess+truth")
             print(
                 self.S_apply('dim', f'trainingStep: {_step}') + " | " +
                 self.S_apply('dim', 'loss: ') + self.S_apply(S_type, f'{_loss:.4f}') + self.S_apply('dim', '/1 ') +
@@ -310,6 +315,7 @@ class S_OUTPUT:
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
             with open(babyLogPathFull, "a") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
 
+    @whocalled
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, 
                       _LR = learningRate, _INN_cerebellum_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
@@ -318,7 +324,7 @@ class S_OUTPUT:
             delimiter = self.S_apply("dim", " | ")
             newLineDelim = self.S_apply("dim", " | \n")
 
-            ʕっʘ‿ʘʔっ("avgStats")
+            if debugPrints: ʕっʘ‿ʘʔっ("avgStats")
             #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "3INN_cerebellum", "3INN_cerebellumSoft", "3INN_cerebellumMean", "3INN_cerebellumStd", "shortDecay", "longDecay"]
             #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
@@ -371,15 +377,16 @@ class S_OUTPUT:
                 if k in mostImportantStats
                 if v not in (None, "")
             ]) + newLineDelim"""
-            maxKeyLen = 18
-            maxCols = 4
-            cellWidth = statTopLen + decLen + 2 + maxKeyLen + 1
+            maxKeyLen = 16
+            maxCols = 6
+            cellWidth = statTopLen + decLen + maxKeyLen + 1
 
             statSections = [
                 ("EMBED STATS", re.compile(r"1E_")),
                 ("NEURON STATS", re.compile(r"2N_")),
                 ("INTERNEURON STATS", re.compile(r"3INN_")),
-                ("MEMORY STATS", re.compile(r"4M_")),
+                ("MEMORY STATS", re.compile(r"4A_memory_4M_")),
+                ("MEMORY2 STATS", re.compile(r"4B_memory2_4M_")),
                 ("LOGIT STATS", re.compile(r"6L_")),
                 ("BABYLLM STATS", re.compile(r"[0-9]B_")),
                 ("LOSS STATS", re.compile(r"L_")),
@@ -465,20 +472,20 @@ class S_OUTPUT:
             newLineLittle += "\n" + "\n".join("".join(cell for cell in row) for row in rows) + f"{self.S_apply('reset', "")}"
 
             if _INN_cerebellum_str: 
-                ʕっʘ‿ʘʔっ("INN_cerebellum_str")
+                if debugPrints: ʕっʘ‿ʘʔっ("INN_cerebellum_str")
                 cerebellum = delimiter + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
                 logOutput += cerebellum
                 littleLogOutput += cerebellum
                 newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
 
-            ʕっʘ‿ʘʔっ("topTokens_str")
+            if debugPrints: ʕっʘ‿ʘʔっ("topTokens_str")
             if _topTokens_str: 
                 topTokens = delimiter + f"topTokens{self.S_apply('reset', _topTokens_str)}"
                 logOutput += topTokens
                 littleLogOutput += topTokens
                 newLineLittle += "\n" + f"topTokens{self.S_apply('reset', _topTokens_str)}"
 
-            ʕっʘ‿ʘʔっ("prompt+otherInfo")
+            if debugPrints: ʕっʘ‿ʘʔっ("prompt+otherInfo")
             if _prompt: logOutput += f"{delimiter}prompt → {self.S_apply('reset', _prompt)} | guess → {self.S_apply('reset', _guess)} | truth → {self.S_apply('reset', _truth)}"
             if _otherInfo_str:
                 logOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
@@ -486,13 +493,13 @@ class S_OUTPUT:
                 newLineLittle += f"\n{delimiter}{self.S_apply('reset', _otherInfo_str)}"
 
 
-            ʕっʘ‿ʘʔっ("logOutput")
+            if debugPrints: ʕっʘ‿ʘʔっ("logOutput")
             if _detailedLogging == True: 
                 print(logOutput + "".join(self.S_types.get('reset')))
                 if _saveLog == True:
                     with open(trainingLogPath_1000, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
 
-            ʕっʘ‿ʘʔっ("littleLogOutput")   
+            if debugPrints: ʕっʘ‿ʘʔっ("littleLogOutput")   
             if _detailedLogging == False: 
                 if _saveLog == True:
                     with open(trainingLogPath_100, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
@@ -508,12 +515,14 @@ class S_OUTPUT:
             else:
                 with open(trainingLogPath_100, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
 
+    @whocalled
     def willItAverage(self, k, v):
         if k in self.avgPlz:
             if isinstance(v, (int, float)): return True
             if isinstance(v, torch.Tensor) and v.numel() == 1: return True
         return False
     
+    @whocalled
     def chaosMaths(self, _firstNumbers, _secondNumbers = None, _torch = False, _operator = True):
         self.t = _torch
         self.o = _operator
@@ -574,6 +583,7 @@ class S_OUTPUT:
 
         return result, chosenName
     
+    @whocalled
     def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes, windowTensor, per_window_style = False):
         try:
             triplets = sorted(zip(windowSizes, windowTensor, rawTensor, softTensor), key=lambda x: x[3], reverse=True)
@@ -615,6 +625,7 @@ class S_OUTPUT:
         except Exception as e:
             return f"<ERR in S_formatWindowBiasTriplets: {e}>"""
 
+    @whocalled
     def getP(self, _sortedStat, _percentile):
         if not _sortedStat: return 0.0
         index = min(int(_percentile * len(_sortedStat)), len(_sortedStat) - 1)

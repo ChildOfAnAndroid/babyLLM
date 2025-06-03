@@ -25,6 +25,9 @@ class TUTOR:
                 _lastRunLoss                = 420,
                 _device                     = modelDevice):
         
+        self.startIndex                 = 1
+        self.saveCounter                = 1
+        self.first                      = False
         self.counsellor                 = _counsellor
         self.calligraphist              = _calligraphist
         self.scribe                     = _scribe
@@ -38,11 +41,13 @@ class TUTOR:
         self.dataStride                 = _dataStride
         self.trainingLogFreq_A          = _trainingLogFreq_A
         self.learningRateGOAL           = learningRateGOAL
+        self.tokenCounts = Counter()
 
         self.temperature                = 0.75
         self.scheduledSamplingRate      = self.model.scheduledSamplingRate
         self.gradientClipMaxNorm        = 1
         self.memoryLength               = 1
+        self.memory2Length              = 1
 
         self.ʕっෆ‿ෆʔっ                  = defaultdict(self.makeStatRecord)
         self.char1 = makeSafeBoi()
@@ -57,8 +62,14 @@ class TUTOR:
         self.averageRecentLoss          = 0
         self.totalLoss                  = 0
         self.totalLossAbsDelta          = 0
+        self.totalLossDelta             = 0
         self.totalAvgLoss               = 0
+        self.stableFallCount            = 1
+        self.maxRetries                 = perfectionistMaxRetries
         self.totalAvgAbsDelta           = 0
+        self.totalTries                 = 0
+        self.totalAvgDelta              = 0  
+        self.reflectionFreq             = reflectionFreq
         self.stats                      = {}
         self.stringStats                = {}
         self.trainingStepCounter        = 0
@@ -73,6 +84,12 @@ class TUTOR:
         self.totalTotalTokenEvaluations = 0
         self.totalTokenPerfectRate      = 0
         self.tokenPerfectRate           = 0
+        self.latestLossDelta            = 0.0
+        self.stepLossFloat              = 0.0
+        self.averageRecentLoss          = 0.0
+        self.stats                      = {} 
+        self.stringStats                = {} 
+        self.guessedTokenSeq            = [] 
         self.tooDifficult               = 0
         self.averageTries               = 0
         self.averageTriesTotal          = 0
@@ -113,7 +130,7 @@ class TUTOR:
         self.pixelNow = None #torch.tensor([0.5, 0.1, 0.5,], device = self.device)
         self.pixelNext = None #torch.tensor([0.6, 0.0, 0.6,], device = self.device)
 
-
+    @whocalled
     def makeStatRecord(self):
         base = {
             "now": 0.0,
@@ -130,6 +147,7 @@ class TUTOR:
 
         return base
 
+    @whocalled
     def loadIntro(self, path="SCHOOL/library/charisStudies/forbbyllm.txt"):
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -138,15 +156,19 @@ class TUTOR:
             return "hey... (message file missing!) "
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
+    @whocalled
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
-        trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        print(f"Trainable parameters: {trainableParams:,}")
-        self.startIndex = _startIndex
-        self.collectAllTimeStats()
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:
-            #if debugPrints: print(f"Debug tokenToIndex (First 20): {list(librarian.tokenToIndex.items())[:20]}")
+            if debugPrints: ʕっʘ‿ʘʔっ("trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)")
+            trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            print(f"Trainable parameters: {trainableParams:,}")
+            self.startIndex = _startIndex
+            if debugPrints: ʕっʘ‿ʘʔっ("collect all time stats")
+            self.collectAllTimeStats()
+            if debugPrints: print(f"Debug tokenToIndex (First 20): {list(self.librarian.tokenToIndex.items())[:20]}")
+            if debugPrints: ʕっʘ‿ʘʔっ("print named parameters and device")
             for name, param in self.model.named_parameters(): print(name, param.device)
-            ʕっʘ‿ʘʔっ("COUNTERS INIT")
+            if debugPrints: ʕっʘ‿ʘʔっ("COUNTERS INIT")
             self.trainingStepCounter = 1
             self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "tokenCount": 0})
             self.tokenCounts = Counter()
@@ -157,20 +179,22 @@ class TUTOR:
             self.totalTries = 0
             absdelta = 0.00001
 
-            ʕっʘ‿ʘʔっ("back to school!")
+            if debugPrints: ʕっʘ‿ʘʔっ("back to school!")
             print("babyLLM is heading back to school...")
 
             """EPOCH LOOP"""
-            ʕっʘ‿ʘʔっ("epoch♥")
+            if debugPrints: ʕっʘ‿ʘʔっ("epoch♥")
             for epoch in range(_epochs):
+                ʕっʘ‿ʘʔっ(f"--- lesson {epoch+1}/{_epochs} started ---")
                 print(f"--- lesson {epoch+1}/{_epochs} started ---")
                 """TRAINING DATA (batches)"""
                 #for i, (_inputSeq, _targetSeq) in enumerate(_trainingDataPairs):
                 i = 0
                 turnsNotReflecting = 0
                 turnsNotReflecting += self.totalTurnsAwake
+                if debugPrints: ʕっʘ‿ʘʔっ("entering while loop i < len")
                 while i < len(_trainingDataPairs):
-                    if debugPrints: print(f"turn start :)")
+                    ʕっʘ‿ʘʔっ(f"turn start :)")
                     _inputSeq, _targetSeq = _trainingDataPairs[i]
                     self.stableFallCount = 0
                     self.averageTriesTotal += self.totalTries
@@ -181,43 +205,51 @@ class TUTOR:
                     else:
                         self.maxRetries = 10
 
+                    if debugPrints: ʕっʘ‿ʘʔっ("entering while loop stableFallCount < stableFallThreshold")
                     while self.stableFallCount < stableFallThreshold and self.totalTries < self.maxRetries:
                         if turnsNotReflecting == self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
-                            ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
+                            if debugPrints: ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
                             self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
                             self.reflectionTrainingPairs = self.babyReflection()
                             self.reflectionFreq = turnsNotReflecting + reflectionFreq
 
                         if hasattr(self.scribe, "reflectionPairsFromGuess") and self.scribe.reflectionPairsFromGuess:
+                            if debugPrints: ʕっʘ‿ʘʔっ("using scribe")
                             currentReflection = self.scribe.reflectionPairsFromGuess[0]
                             scribeusedThisTurn = True
                         elif self.reflectionTrainingPairs:
-                            ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
+                            if debugPrints: ʕっʘ‿ʘʔっ("♥loading in a reflection pair...")
                             currentReflection = self.reflectionTrainingPairs[0]
                             scribeusedThisTurn = False
                         else:
+                            if debugPrints: ʕっʘ‿ʘʔっ("no current reflection or scribe")
                             currentReflection = None
                             scribeusedThisTurn = False
+                        if debugPrints: ʕっʘ‿ʘʔっ("increment self.totalTries")
                         self.totalTries += 1
 
-                        ʕっʘ‿ʘʔっ("♥START OF TURN")
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥START OF TURN")
                         if currentReflection is not None:
+                            if debugPrints: ʕっʘ‿ʘʔっ("current reflection is not None")
                             _inputSeq, _targetSeq = currentReflection
                         else:
+                            if debugPrints: ʕっʘ‿ʘʔっ("_trainingDataPairs")
                             _inputSeq, _targetSeq = _trainingDataPairs[i]
                             turnsNotReflecting += 1
                         self.inputTokenIndices, self.targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                         
-                        ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
                         self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = self.inputTokenIndices, _targetTokenIndexSeq = self.targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
                         self.totalTurnAttempts += 1
+                        torch.mps.empty_cache()
 
                         """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                         
-                        ʕっʘ‿ʘʔっ("♥collectTurnStats")
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥collectTurnStats")
                         self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
                         self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
                         absdelta = abs(self.latestLossDelta)
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥self.pixelNow")
                         self.pixelNow = torch.tensor([self.totalTokenPerfectRate, self.totalAvgAbsDelta, self.perfectionistPassRate,], device = self.device)
                         # RED = energy up when getting more perfect, more red!
                         # GREEN = growth up (or a bit queasy lol) when getting stronger deltas, more green!
@@ -225,35 +257,41 @@ class TUTOR:
                         if debugPrints: print(f"Setting latestLossDelta {self.latestLossDelta:.2f} = {self.stepLossFloat:.2f} - {self.averageRecentLoss:.2f}")
                         self.easyLossDelta = self.stepLossFloat - ((self.averageRecentLoss + self.stepLossFloat + self.stepLossFloat)/3)
 
-                        if self.totalTurns % refreshRollingTokenTotalsWhen == 0:
+                        if self.totalTurns % refreshRollingTokenTotalsWhen == 0 and self.totalTurns > 0:
+                            if debugPrints: ʕっʘ‿ʘʔっ("♥refresh rolling token totals")
                             self.tokenCounts = Counter({k: v * 0.95 for k, v in self.tokenCounts.items()})
                             self.model.rollingTokenTotals = Counter({k: v * 0.95 for k, v in self.model.rollingTokenTotals.items()})
 
-                        if self.totalTurns % trainingLogFreq_B == 0:
+                        if self.totalTurns % trainingLogFreq_B == 0 and self.totalTurns > 0:
+                            if debugPrints: ʕっʘ‿ʘʔっ("♥training log B")
                             #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
                             self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True, _saveLog = True)
 
                         # Track loss every 100 steps
-                        if self.totalTurns % self.trainingLogFreq_A == 0:
-                            ʕっʘ‿ʘʔっ("♥logFreq_A")
+                        if self.totalTurns % self.trainingLogFreq_A == 0 and self.totalTurns > 0:
+                            if debugPrints: ʕっʘ‿ʘʔっ("♥logFreq_A")
                             self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = self.trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
 
                         if self.totalTurns % printFreq == 0:
-                            ʕっʘ‿ʘʔっ("♥printFreq")
+                            if debugPrints: ʕっʘ‿ʘʔっ("♥printFreq")
                             self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = printFreq, _trainingLogPath = None, _detailedLogging = False, _saveLog = False)
                             self.printFreqActions()
 
-                        if self.totalTurns % saveModelFreq == 0:
-                            ʕっʘ‿ʘʔっ("♥saveFreq")
+                        if self.totalTurns % saveModelFreq == 0 and self.totalTurns > 0:
+                            if debugPrints: ʕっʘ‿ʘʔっ("♥saveFreq")
                             self.saveFreqActions()
 
-                        ʕっʘ‿ʘʔっ("♥WINDING DOWN TURN")
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥WINDING DOWN TURN")
                         self.totalTurns += 1
+                        self.model.totalTurns = self.totalTurns
                         self.totalAvgLoss = self.totalLoss / max(1, self.totalTurns)
                         self.totalLossAbsDelta += absdelta
                         self.totalAvgAbsDelta = (self.totalLossAbsDelta / max(1, self.totalTurns))
+                        self.totalLossDelta += self.latestLossDelta
+                        self.totalAvgDelta = (self.totalLossDelta / max(1, self.totalTurns))
 
                         if self.totalTurns % 420 == 0:
+                            if debugPrints: ʕっʘ‿ʘʔっ("totalTurns modulo 420 lol")
                             centreLow = 0.0025
                             centreHigh = 0.3
                             if (learningRateGOAL * 0.5) < self.learningRateGOAL and self.learningRateGOAL < 0.001 :
@@ -278,17 +316,25 @@ class TUTOR:
                             if debugPrints: print(f" - {latestIncrement:.2f}", end="")
 
                         if perfectionistRun:
+                            if debugPrints: ʕっʘ‿ʘʔっ("perfectionism run extras")
                             # if last run avg loss is worse than current run avg = this run is better
                             if self.totalAvgLoss < self.lastRunLoss:
                                 self.perfectionistPassRate += 0.1
                             else:
                                 self.perfectionistPassRate = max(self.perfectionistPassRate-0.1, 1)
+                            if debugPrints: ʕっʘ‿ʘʔっ("latest perfect increment")
                             latestPerfectIncrement = abs(10 + self.tokenPerfectRate) * (self.perfectTokens + 0.01) # reset streak if delta not falling (rn im decrementing not resetting, see how it goes)
+                            if debugPrints: ʕっʘ‿ʘʔっ("latest total perfect increment")
                             latestTotalPerfectIncrement = abs(((10 + self.totalTokenPerfectRate) * self.totalPerfectTokens) / self.totalTurns)
+                            if debugPrints: ʕっʘ‿ʘʔっ("latest perfect delta increment")
                             latestPerfectDeltaIncrement = (10 + abs(self.tokenPerfectRate - self.totalTokenPerfectRate)) * (self.perfectTokens + 0.01)
+                            if debugPrints: ʕっʘ‿ʘʔっ("latest perfect anti delta increment")
                             latestPerfectAntiDeltaIncrement = (10 + abs(self.totalTokenPerfectRate - self.tokenPerfectRate)) * (self.perfectTokens + 0.01)
+                            if debugPrints: ʕっʘ‿ʘʔっ("latest massive perfect increment")
                             latestMassivePerfectIncrement = (10 + self.totalTokenPerfectRate + self.tokenPerfectRate) * (self.perfectTokens + 0.01)
+                            if debugPrints: ʕっʘ‿ʘʔっ("average perfect increment")
                             averagePerfectIncrement = (latestPerfectIncrement + latestTotalPerfectIncrement + latestPerfectDeltaIncrement + latestPerfectAntiDeltaIncrement + latestMassivePerfectIncrement + 0.01) / 5
+                            if debugPrints: ʕっʘ‿ʘʔっ("perfect increment choice")
                             perfectIncrementChoice = random.choice([latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement])
                             if self.tokenPerfectRate > self.perfectionistPassRate: #50.0:
                                 self.stableFallCount += 50 + perfectIncrementChoice
@@ -302,14 +348,13 @@ class TUTOR:
                         if debugPrints: print(f" = {self.stableFallCount:.2f}")
                         if perfectionistRun and (debugPrints): print(f"selected {perfectIncrementChoice} from {[latestPerfectIncrement, latestTotalPerfectIncrement, latestPerfectDeltaIncrement, averagePerfectIncrement, latestPerfectAntiDeltaIncrement, latestMassivePerfectIncrement]}")
 
-                        ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
                         self.latestLossDelta = self.endTurnActions()
 
                     self.totalTurnAttempts = 0
                     if self.totalTries >= self.maxRetries:
                         self.tooDifficult += 1
                         self.perfectionistPassRate -= round((self.perfectionistPassRate + self.tokenPerfectRate) * 0.1)
-                        self.totalAvgAbsDelta *= 0.5
                         absdelta = abs(self.latestLossDelta)
                         fuzzyabs = (self.totalAvgAbsDelta + absdelta) * 0.5
                         if fuzzyabs < 0.01: self.learningRateGOAL *= 1.02
@@ -334,13 +379,15 @@ class TUTOR:
                     else:
                         i += 1 # only move to next prompt if stableFallCount met or maxRetries
                         self.trainingStepCounter += 1 # means reflections wont be training steps
-                ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
+                if debugPrints: ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
                 if self.totalTurns == 0:
                     raise "We ran out of data (probably)!!!"
                 self.totalAvgLoss = self.totalLoss / self.totalTurns
                 self.totalAvgAbsDelta = (self.totalLossAbsDelta / max(1, self.totalTurns))
+                self.totalAvgDelta = (self.totalLossDelta / max(1, self.totalTurns))
                 print(f"{self.totalAvgLoss} = {self.totalLoss} / {self.totalTurns}")
-                self.saveFreqActions()
+                if self.totalTurns > 0:
+                    self.saveFreqActions()
                 print("--- tutoring complete! ---")
         return
 
@@ -352,22 +399,24 @@ class TUTOR:
             self.inputSeq = _inputSeq
             self.targetSeq = _targetSeq
 
-            if self.stats["windowEntropy"]:
-                self.winEnt = self.stats["windowEntropy"]
-            else:
-                self.winEnt = 0
+            #if self.stats["windowEntropy"]:
+            #    self.winEnt = self.stats["windowEntropy"]
+            #else:
+            #    self.winEnt = 0
+            self.winEnt = self.stats.get("windowEntropy", 0.0)
 
             if skipMemory:
-                ʕっʘ‿ʘʔっ("♥skipMemory")
+                if debugPrints: ʕっʘ‿ʘʔっ("♥skipMemory")
             else:
-                ʕっʘ‿ʘʔっ("resetMemory")
+                if debugPrints: ʕっʘ‿ʘʔっ("resetMemory")
                 self.model.resetMemory(context="training")
 
         return self.inputTokenIndices, self.targetTokenIndexSeq
 
+    @whocalled
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss):
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("_model.optimizer.zero_grad")
+            if debugPrints: ʕっʘ‿ʘʔっ("_model.optimizer.zero_grad")
             self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
             #self.trainingStepCounter   += 1
             self.avgPixelDist = 0
@@ -404,21 +453,21 @@ class TUTOR:
                                                   self.totalAvgAbsDelta * 1., 
                                                   self.perfectionistPassRate * 1.,], device = self.device)
                     else:
-                        pixelNow = self.pixelNext.clone()
+                        self.pixelNow = self.pixelNext.clone()
                         self.pixelNext = self.getPixelForStep(j)
-                        if debugPrints: print(f"now: {pixelNow}, next: {self.pixelNext}", end="")
+                        if debugPrints: print(f"now: {self.pixelNow}, next: {self.pixelNext}", end="")
                     self.model.nextPixelTarget = self.pixelNext
                 else:
-                    pixelNow = None
-                ʕっʘ‿ʘʔっ("FORWARD")
+                    self.pixelNow = None
+                if debugPrints: ʕっʘ‿ʘʔっ("FORWARD")
                 inputTensor = buffer[:len(inputSeqPredictions)] # slices input to only keep relevant part
                 try:
                     if forwardProfiler: 
                         with torch.profiler.profile(record_shapes = True) as prof:
-                            logits = self.model.forward(inputTensor, _pixel = pixelNow)
+                            logits = self.model.forward(inputTensor, _pixel = self.pixelNow)
 
                     else:
-                        logits = self.model.forward(inputTensor, _pixel = pixelNow)
+                        logits = self.model.forward(inputTensor, _pixel = self.pixelNow)
                 except RuntimeError as e:
                     print("TUTOR.trainStep.forward failed!", e)
                     return [], []
@@ -429,18 +478,25 @@ class TUTOR:
 
                 if forwardProfiler: print(prof.key_averages().table())
 
-                ʕっʘ‿ʘʔっ("getResponseFromLogits")
+                if debugPrints: ʕっʘ‿ʘʔっ("getResponseFromLogits")
                 predictedTokenIndex = self.model.getResponseFromLogits(logits, _training = True)
+                predy = predictedTokenIndex.cpu().item()
+                if debugPrints:
+                    print("nextToken: ")
+                    print(predy, end = "")
+                nextyToky = self.librarian.indexToToken.get(predy, self.librarian.tokenToIndex["<UNK>"])
+                toktoktok = nextyToky.replace('Ġ', ' ')
+                print(f"{toktoktok}", end = "", flush=True)
                 #print("token index:", predictedTokenIndex.item())
                 #print(f"[j={j}] inputLen={len(inputTensor)} → predicted {predictedTokenIndex.item()}")
 
-                ʕっʘ‿ʘʔっ("inputSeqPredictions")
+                if debugPrints: ʕっʘ‿ʘʔっ("inputSeqPredictions")
                 self.predictedTokenIndices.append(predictedTokenIndex) # tensor shape [1]
 
                 # -- RGB visual tracker --
                 if not skipPixels and (hasattr(self.model, "latestTokenEmbed") and hasattr(self.model, "pixelPupil") and hasattr(self.model, "nextPixelTarget")):
                     # Grab just the last token's RGB prediction
-                    promptPixel = pixelNow
+                    promptPixel = self.pixelNow
                     targetPixel = self.model.nextPixelTarget
 
                     rp, gp, bp = (promptPixel * 255).int().tolist()
@@ -451,10 +507,12 @@ class TUTOR:
                     slice2 = self.char2
                     slice3 = self.char3
 
-                    MAX_FULL_SAFEBOIS = 12
+                    pixelDist = abs(r - rt) + abs(g - gt) + abs(b - bt)
 
-                    #if self.numTokensPerStep <= MAX_FULL_SAFEBOIS: pass
-                    #else:
+                    MAX_FULL_SAFEBOIS = 64
+
+                    if self.numTokensPerStep <= MAX_FULL_SAFEBOIS: pass
+                    else:
                         #boiLen1 = len(self.char1)
                         #boiLen2 = len(self.char2)
                         #boiLen3 = len(self.char3)
@@ -462,12 +520,15 @@ class TUTOR:
                         #slice1 = self.char1[j % boiLen1]
                         #slice2 = self.char2[j % boiLen2]
                         #slice3 = self.char3[j % boiLen3]
+                        slice1 = "."
+                        smallDist = pixelDist*0.01
+                        slice2 = f"{smallDist:.0f}"
+                        slice3 = slice2
 
-                    pixelDist = abs(r - rt) + abs(g - gt) + abs(b - bt)
-                    pixelThresh = 20
+                    pixelThresh = 10
                     self.avgPixelDist += pixelDist
 
-                    prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{slice1}\x1b[0m"
+                    #prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{slice1}\x1b[0m"
                     if (r, g, b) == (rt, gt, bt):
                         invert_r, invert_g, invert_b = 255 - r, 255 - g, 255 - b
                         # Bold 1, Underline 4
@@ -481,7 +542,7 @@ class TUTOR:
                     tgt_block = f"\x1b[48;2;{rt};{gt};{bt}m\x1b[38;2;{r};{g};{b}m{slice3}\x1b[0m"
                     if debugPrints: print("PRED:", r, g, b, "TARGET:", rt, gt, bt, "DIST:", pixelDist)
 
-                    self.rgbPromptBar     += prompt_block
+                    #self.rgbPromptBar     += prompt_block
                     self.rgbPredictionBar += pred_block
                     self.rgbTargetBar     += tgt_block
 
@@ -502,30 +563,19 @@ class TUTOR:
                 self.tokenLevelCorrect.append(1.0 if isCorrect else 0.0)
                 if debugPrints: print(f"isCorrect = {isCorrect} for target: {nextTokenInput} vs guess: {predictedTokenIndex.item()}... tokenLevelCorrect = {self.tokenLevelCorrect}")
 
-                """# After logits
-                if logits.dim() == 1: logits = logits.unsqueeze(0)
-                gumbelProbs = F.gumbel_softmax(logits, tau = self.temperature, hard = False)
-                topk = torch.topk(gumbelProbs, 10, dim=1)
-                values = topk.values[0]
-                indices = topk.indices[0]
-
-                for i, p in zip(indices, values):
-                    tok = self.librarian.indexToToken[i.item()]
-                    self.rollingTokenTotals[tok] += round(p.item(), 4)"""
-
-                ʕっʘ‿ʘʔっ("loop through tokens for this step")
+                if debugPrints: ʕっʘ‿ʘʔっ("loop through tokens for this step")
                 if j < len(_targetTokenIndexSeq):
-                    ʕっʘ‿ʘʔっ("totalTokenCounter")
+                    if debugPrints: ʕっʘ‿ʘʔっ("totalTokenCounter")
                     # self.totalTokenEvaluations += 1
 
-                    ʕっʘ‿ʘʔっ("computeLoss")
+                    if debugPrints: ʕっʘ‿ʘʔっ("computeLoss")
                     stepLoss = self.model.computeLoss(_logits           = logits, 
                                                       _targetTokenIndex = _targetTokenIndexSeq[j], 
                                                       _totalAvgAbsDelta = self.totalAvgAbsDelta,
                                                       _learningRateGOAL = self.learningRateGOAL, 
                                                       _perfectTokens    = self.perfectTokens)
 
-                    ʕっʘ‿ʘʔっ("appendStepLoss")
+                    if debugPrints: ʕっʘ‿ʘʔっ("appendStepLoss")
                     cumulativeLoss += stepLoss
                     self.tokenLevelLosses.append(stepLoss.item())
                     if debugPrints: print(f"self.tokenLevelLosses = {self.tokenLevelLosses}")
@@ -536,7 +586,8 @@ class TUTOR:
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
             if not skipPixels:
-                self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
+                #self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
+                self.rgbBar = f"PRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
                 #print(self.stringStats["rgbBar"])
 
             triesInfluence = 0.05 
@@ -548,26 +599,26 @@ class TUTOR:
             BACKWARDperfMod = (1.0 - perfectInfluence) + (perfectInfluence * perfectLossModifier)
 
             self.avgPixelDist       = self.avgPixelDist / self.numTokensPerStep
-            pixelDistLoss           = min(1.5,self.avgPixelDist * 0.0001)
+            pixelDistLoss           = min(1.5,self.avgPixelDist * 0.00001)
             self.pixelDistLoss_used = pixelDistLoss
 
-            ʕっʘ‿ʘʔっ("backward")
+            if debugPrints: ʕっʘ‿ʘʔっ("backward")
             BACKWARDloss = cumulativeLoss / len(_targetTokenIndexSeq) if len(_targetTokenIndexSeq) > 0 else torch.tensor(0.0, device = self.device)
             self.triesLoss_used = (BACKWARDloss * (BACKWARDtriesMod - 1.0))
             self.perfLoss_used = (BACKWARDloss * (BACKWARDperfMod - 1.0))
             BACKWARDloss = BACKWARDloss * BACKWARDtriesMod * BACKWARDperfMod
-            BACKWARDloss = BACKWARDloss + pixelDistLoss
+            BACKWARDloss = BACKWARDloss + (pixelDistLoss * 1.5)
 
-            entropyBonus = getattr(self.model.interneuronNetwork, "entropyBonus", 0.0)
-            entropyPenalty = 0.01 * entropyBonus
-            BACKWARDloss -= entropyPenalty
-            self.entropyLoss_used = entropyPenalty
+            #entropyBonus = getattr(self.model.interneuronNetwork, "entropyBonus", 0.0)
+            #entropyPenalty = 0.01 * entropyBonus
+            #BACKWARDloss -= entropyPenalty
+            #self.entropyLoss_used = entropyPenalty
             self.totalLoss += BACKWARDloss.item()
-            if windowEntropyBonus:
-                if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                    entropyLoss = (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
-                    BACKWARDloss = BACKWARDloss + entropyLoss
-                    self.entropyLoss_used = entropyLoss
+            #if windowEntropyBonus:
+                #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
+                    #entropyLoss = (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
+                    #BACKWARDloss = BACKWARDloss + entropyLoss
+                    #self.entropyLoss_used = entropyLoss
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
                 return [], []
@@ -589,16 +640,17 @@ class TUTOR:
 
             if profiler: print(prof.key_averages().table())
             
-            ʕっʘ‿ʘʔっ("clip_grad_norm") # DONE IN BABYLLM!!
+            if debugPrints: ʕっʘ‿ʘʔっ("clip_grad_norm") # DONE IN BABYLLM!!
             #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = 1)
             #self.model.optimizer.step()
 
-            ʕっʘ‿ʘʔっ("actions after looping")
+            if debugPrints: ʕっʘ‿ʘʔっ("actions after looping")
             self.avgPixelDistTotals        += self.avgPixelDist
             self.totalAvgPixelDist          = self.avgPixelDistTotals / max(1, self.totalTurns)
             self.stepLossFloat              = BACKWARDloss.detach().cpu().numpy().item()
+            self.stats["loss"]              = self.stepLossFloat
             self.learningRate               = math.exp(self.model.logLR.detach().cpu().item())
-            self.memoryLength               = int(torch.exp(self.model.logMemoryLength).item())
+            self.memoryLength               = self.model.memoryLength.detach().cpu().numpy().item()
             self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().cpu().item())
             self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
             self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
@@ -607,11 +659,12 @@ class TUTOR:
 
             #self.endTurnActions()
             #if self.device.type == 'mps':
-            #    ʕっʘ‿ʘʔっ("emptyCache (mps)")
+            #    if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
             #    torch.mps.empty_cache()
 
             return self.predictedTokenIndices, self.logitSeq
     
+    @whocalled
     def getPixelForStep(self, j):
         x = (j + 1) / (self.numTokensPerStep + self.trainingStepCounter%10)
 
@@ -642,7 +695,7 @@ class TUTOR:
         green       = (0.01 
                     + (tokenLoss * 0.08)
                     + ((0.5 * ((delta * 0.5) 
-                    + (self.totalAvgAbsDelta * 0.5))) 
+                    + ((self.totalAvgAbsDelta * 0.6) + (self.totalAvgDelta * 0.4) * 0.5))) 
                     + 0.05 * hueShift))
         # BLUE - HIGH PASS RATE, CALM, long range (calm up when doing better than the previous run, more blue!)
         blue        = (0.2 
@@ -659,6 +712,7 @@ class TUTOR:
 
         return pixelPret
 
+    @whocalled
     def babyReflection(self):
         with self.counsellor.infodump("startTurnActions") as ʕっʘ‿ʘʔっ:
 
@@ -769,6 +823,7 @@ class TUTOR:
         self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;)"
         return inputTargetPairs
 
+    @whocalled
     def saveFreqActions(self): 
         with self.counsellor.infodump("saveFreqActions") as ʕっʘ‿ʘʔっ: # SAVE THE MODEL EVERY x STEPS
             print(self.calligraphist.S_apply('dim', 'autosaving...'))
@@ -776,7 +831,7 @@ class TUTOR:
             self.model.saveModel(_newStartIndex = self.startIndex, _trainingStepCounter = saveCounter, _totalAvgLoss = self.totalAvgLoss, _first = self.first)
             p = self.trainingStepCounter + saveModelFreq
             print(self.calligraphist.S_apply('dim', f"autosave successful! saving every {saveModelFreq} steps, the next autosave will be at step {p}...") + self.calligraphist.S_apply('reset', ''))
-            ʕっʘ‿ʘʔっ("grad checks")
+            if debugPrints: ʕっʘ‿ʘʔっ("grad checks")
             for name, p in self.model.named_parameters():
                 if p.grad is None:
                     print(f"after = {self.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
@@ -790,11 +845,12 @@ class TUTOR:
                     mean = grad.mean().item()
                     std = grad.std().item()
                     print(f"after = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
-                    
+
+    @whocalled               
     def printFreqActions(self): 
         with self.counsellor.infodump("printFreqActions") as ʕっʘ‿ʘʔっ: # PRINTING TRAINING OUTPUT TO TERMINAL
             #recentLoss = sum(self.recentPrintLosses)/len(self.recentPrintLosses) if self.recentPrintLosses else None
-            ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
+            if debugPrints: ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
             self.calligraphist.S_colourPrintTraining(
                 _step = (self.trainingStepCounter),
                 _inputSeq = self.inputSeq,
@@ -804,8 +860,9 @@ class TUTOR:
                 _loss = self.stepLossFloat,
                 _latestLossDelta = self.latestLossDelta,
                 _totalTokenCount = self.tokenCounts)
-        
-    def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging, _saveLog): # could also do 10x log freq??
+ 
+    @whocalled
+    def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging, _saveLog, _current_step_override=None):
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
@@ -818,10 +875,20 @@ class TUTOR:
             #fullStats = dict(self.stats)
             #fullStats.update(self.ʕっෆ‿ෆʔっ)
 
-            ʕっʘ‿ʘʔっ("calculateTrainingDataRemaining")
-            trainingDataRemaining = len(_trainingDataPairs) - self.trainingStepCounter
-            trainingDataPercent = (trainingDataRemaining / len(_trainingDataPairs)) * 100
-            remainingData_str = f"remainingTokens: {len(_trainingDataPairs) - self.trainingStepCounter} ({trainingDataPercent:.2f}%)"
+            current_step_for_calc = _current_step_override if _current_step_override is not None else self.trainingStepCounter
+
+            if debugPrints: ʕっʘ‿ʘʔっ("calculateTrainingDataRemaining")
+            if _trainingDataPairs is not None:
+                total_pairs_in_current_context = len(_trainingDataPairs)
+                # If total_pairs_in_current_context is 0, avoid division by zero
+                if total_pairs_in_current_context > 0:
+                    trainingDataRemaining = total_pairs_in_current_context - current_step_for_calc
+                    trainingDataPercent = (trainingDataRemaining / total_pairs_in_current_context) * 100
+                    remainingData_str = f"data remaining: {max(0, trainingDataRemaining)}/{total_pairs_in_current_context} ({trainingDataPercent:.2f}%)"
+                else:
+                    remainingData_str = "no data remaining"
+            else:
+                remainingData_str = "no data remaining" # Fallback
 
             tokenPerfect_str = ""
             if self.totalTokenEvaluations > 0:
@@ -834,11 +901,12 @@ class TUTOR:
                 totalStyledRate = self.calligraphist.S_apply(totalStatType, f"{self.totalTokenPerfectRate:.2f}%")
                 totalTokenPerfect_str = (f"{self.calligraphist.S_apply('dim', f'total: {self.totalPerfectTokens} / {self.totalTotalTokenEvaluations}')} → {totalStyledRate}")
 
-            ʕっʘ‿ʘʔっ("calligraphist.S_logTraining")
-            #self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
+            if hasattr(self, 'ʕっෆ‿ෆʔっ'):
+                 self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
+
             self.calligraphist.S_logTraining(
                 _trainingLogPath = self.trainingLogPath,
-                _trainingStepCounter = self.trainingStepCounter,
+                _trainingStepCounter = current_step_for_calc,
                 _stats = self.stats,
                 _frequency = _frequency,
                 _LR = self.learningRate,
@@ -846,11 +914,13 @@ class TUTOR:
                 _topTokens_str = topTokens_str,
                 _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | passRate: {self.perfectionistPassRate:.0f}% | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}, averageTries {self.averageTries:.0f} | windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency} |\n{self.rgbBar}",
                 _detailedLogging = _detailedLogging,
-                _saveLog = _saveLog)
+                _saveLog = _saveLog
+            )
 
+    @whocalled
     def collectTurnStats(self):
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
+            if debugPrints: ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
             rollupA_key = f"BIG{self.trainingLogFreq_A}"
             rollupA_avgKey = f"{rollupA_key}_avg"
@@ -901,21 +971,21 @@ class TUTOR:
             if self.guessedTokenSeq: 
                 self.tokenCounts.update(self.guessedTokenSeq)
 
-            ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
+            if debugPrints: ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.totalTurns > printFreq:
-                if perfectionistRun: chance = 0.001
-                else: chance = 0.001
+                if perfectionistRun: chance = (0.00005 * self.numTokensPerStep)
+                else: chance =(0.00005 * self.numTokensPerStep)
                 self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, (self.stepLossFloat*0.1), "scribe", chance)
 
-            ʕっʘ‿ʘʔっ("collectStats♥")
+            if debugPrints: ʕっʘ‿ʘʔっ("collectStats♥")
 
             if collectStats:
-                ʕっʘ‿ʘʔっ("♥if collectStats♥")
+                if debugPrints: ʕっʘ‿ʘʔっ("♥if collectStats♥")
                 if token_collectStats:
-                    ʕっʘ‿ʘʔっ("♥most common tokens")
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥most common tokens")
                     self.perfectTokens = 0
 
-                    ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥calculate perfect tokens")
                     if not self.predictedTokenIndices:
                         print("!! no predicted token indices — returning { } for stringStats")
                         return self.stats, {}, self.guessedTokenSeq # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
@@ -939,7 +1009,7 @@ class TUTOR:
                 self.stats["totalTotalTokenEvaluations"] = self.totalTotalTokenEvaluations
                 self.stats["totalTokenPerfectRate"] = self.totalTokenPerfectRate
 
-                ʕっʘ‿ʘʔっ("♥build usedInputSeq with styling")
+                if debugPrints: ʕっʘ‿ʘʔっ("♥build usedInputSeq with styling")
                 usedInputSeq = self.inputSeqPredictions[-self.numTokensPerStep:]
                 formattedUsed = []
 
@@ -957,15 +1027,21 @@ class TUTOR:
                 self.stringStats["usedInputSeq"] = formattedUsed
 
                 if static_collectStats:
-                    ʕっʘ‿ʘʔっ("♥if static_collectStats")
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥if static_collectStats")
                     self.stats["scheduledSamplingRate"] = self.scheduledSamplingRateFloat
                     self.stats["repetitionPenalty"]     = self.repetitionPenalty
                     self.stats["avgLoss"]               = self.averageRecentLoss
                     self.stats["totalAvgLoss"]          = self.totalAvgLoss
                     self.stats["totalAvgAbsDelta"]      = self.totalAvgAbsDelta
+                    self.stats["totalAvgDelta"]         = self.totalAvgDelta
                     self.stats["loss"]                  = self.stepLossFloat
                     self.stats["lastRunLoss"]           = self.lastRunLoss
-                    self.temperature                    = self.stats["_B_temperature"]
+                    if hasattr(self.model, 'temperature') and self.model.temperature is not None:
+                        current_model_temp = self.model.temperature.item() if isinstance(self.model.temperature, torch.Tensor) else self.model.temperature
+                        self.temperature = current_model_temp # Update TUTOR's own temp attribute
+                        self.stats["_B_temperature"] = current_model_temp # Store in stats for logging
+                    else:
+                        self.stats["_B_temperature"] = self.temperature # Log TUTOR's current temp if model's isn't available
                     self.stats["LR"]                    = self.learningRate
                     self.stats["gradientClipMaxNorm"]   = self.gradientClipMaxNorm
                     self.stats["latestLossDelta"]       = self.latestLossDelta
@@ -974,17 +1050,17 @@ class TUTOR:
                     self.stats["learningRateGOAL"]      = self.learningRateGOAL
                     self.stats["L_triesLoss"]           = self.triesLoss_used
                     self.stats["L_perfLoss"]            = self.perfLoss_used
-                    self.stats["L_entropyLoss"]         = self.entropyLoss_used
+                    #self.stats["L_entropyLoss"]         = self.entropyLoss_used
                     self.stats["L_pixelDistLoss"]       = self.pixelDistLoss_used
                     self.stats["avgPixelDist"]          = self.avgPixelDist
                     self.stats["totalAvgPixelDist"]     = self.totalAvgPixelDist
 
                 if embed_collectStats:
-                    ʕっʘ‿ʘʔっ("♥if embed_collectStats")
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥if embed_collectStats")
                     self.stats.update(self.model.embed.getEmbedStats())
 
                 if logit_collectStats:
-                    ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
                     logitStats = self.model.logits.getLogitStats()
                     for k, v in logitStats.items():
                         if isinstance(v, (int, float)):
@@ -992,22 +1068,24 @@ class TUTOR:
                         else:
                             self.stringStats[k] = v  # dump non-numeric stuff here (e.g. top logits, indices)
                     #if self.stats["logitSeq"]:
-                    #    ʕっʘ‿ʘʔっ("♥logit max & min")
+                    #    if debugPrints: ʕっʘ‿ʘʔっ("♥logit max & min")
                     #    self.stats["logitMin"] = self.logitSeq[-1].min(dim=-1).values.mean()
                     #    self.stats["logitMax"] = self.logitSeq[-1].max(dim=-1).values.mean()
 
                 #self.stats.update(self.wobble.getWobbleStats())
 
                 if skipMemory:
-                    ʕっʘ‿ʘʔっ("♥skipMemory")
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥skipMemory")
                     pass
                 else:
                     self.model.memory.updateMemoryBuffers()
+                    self.model.memory2.updateMemoryBuffers()
                     if memory_collectStats:
-                        ʕっʘ‿ʘʔっ("♥if memory_collectStats")
-                        self.stats.update(self.model.memory.getMemoryStats())
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥if memory_collectStats")
+                        self.stats.update({f"4A_memory_{k}": v for k, v in self.model.memory.getMemoryStats().items()})
+                        self.stats.update({f"4B_memory2_{k}": v for k, v in self.model.memory2.getMemoryStats().items()})
 
-                ʕっʘ‿ʘʔっ("♥INN_collectStats")
+                if debugPrints: ʕっʘ‿ʘʔっ("♥INN_collectStats")
                 INN_stats, INN_cerebellum_str = self.model.interneuronNetwork.INN_getStats()
                 self.stats.update(INN_stats)
                 self.stats.update(self.model.getBabyStats())
@@ -1018,8 +1096,12 @@ class TUTOR:
                 if self.totalTurnsAwake % (self.reflectionFreq-1) == 0:
                     self.hesJustABaby = self.mapStatsToFeelings()
 
+                if debugPrints: print(f"DEBUG collectTurnStats: self.stats populated with {len(self.stats)} keys. First few: {dict(list(self.stats.items())[:5])}")
+                if debugPrints: print(f"DEBUG collectTurnStats: self.stringStats populated with {len(self.stringStats)} keys. First few: {dict(list(self.stringStats.items())[:5])}")
+
         return self.stats, self.stringStats, self.guessedTokenSeq
 
+    @whocalled
     def collectAllTimeStats(self):
         for _statKey, _value in self.stats.items():
             if not isinstance(_value, (int, float)):
@@ -1076,6 +1158,7 @@ class TUTOR:
                     if ෆ‿ෆ[importantTag]:
                         self.updateRollingStats(_ෆ‿ෆ = ෆ‿ෆ, _values = ෆ‿ෆ[importantTag], _freq = importantFreq, _tag = importantTag, _percentiles = percentiles)
 
+    @whocalled
     def updateRollingStats(self, _ෆ‿ෆ, _values, _freq, _tag, _percentiles = None):
         average                 = sum(_values) / len(_values)
         _ෆ‿ෆ[f"{_tag}_avg"]     = average
@@ -1090,22 +1173,24 @@ class TUTOR:
             for p in _percentiles:
                 _ෆ‿ෆ[f"{_tag}_p{p}"]  = np.percentile(_values, p)
 
+    @whocalled
     def stdTest(self, values):
         if len(values) <= 1: return 0.0
         avg = sum(values) / len(values)
         variance = sum((x - avg)**2 for x in values) / (len(values) - 1)
         return math.sqrt(variance)
     
+    @whocalled
     def endTurnActions(self):
         with self.counsellor.infodump("endTurnActions") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ("♥getLatestLossDelta")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥getLatestLossDelta")
 
             # MOVED TO TRAIN MODEL BIT
             #self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
             #self.easyLossDelta = self.stepLossFloat - ((self.averageRecentLoss + self.stepLossFloat + self.stepLossFloat)/3)
             self.calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
 
-            ʕっʘ‿ʘʔっ("finalLogActions")
+            if debugPrints: ʕっʘ‿ʘʔっ("finalLogActions")
             if debugPrints:
                 for key in self.ʕっෆ‿ෆʔっ:
                     print(key, self.ʕっෆ‿ෆʔっ[key])
@@ -1116,7 +1201,8 @@ class TUTOR:
             self.totalTokenEvaluations = 0
         
         return self.latestLossDelta
-        
+
+    @whocalled    
     def mapStatsToFeelings(self):
         babyFeels                   = []
         feelings                    = []
@@ -1176,6 +1262,7 @@ class TUTOR:
             "mean average of my nine context windows":                              windowSizesMean,
         }
 
+        @whocalled
         def makeEmoNotes(stat, value):
             feeling = None #"neutral"
 
@@ -1297,6 +1384,7 @@ class TUTOR:
 
         return "".join(babyFeels)
     
+    @whocalled
     def scribeLesson(self, scribeMessage):
         with self.counsellor.infodump("scribeLesson") as ʕっʘ‿ʘʔっ:
             tokens = self.librarian.tokenizeText(scribeMessage.lower())
@@ -1314,3 +1402,234 @@ class TUTOR:
             self.predictedTokenIndices, _ = self.trainStep(inputTokenIndices, targetTokenIndices, None)
             self.collectTurnStats(targetTokenIndices, self.predictedTokenIndices)
             self.endTurnActions()
+
+    """@whocalled
+    def learn_from_interaction(self, input_seq_ids, target_seq_ids, input_seq_text, target_seq_text, calligraphist, show_detailed_stats=False):
+        
+        Performs a single learning step based on a provided interaction, mimicking
+        the detailed processing and logging of the main trainModel loop for one "step".
+
+        Args:
+            input_seq_ids (list): List of token IDs for the input.
+            target_seq_ids (list): List of token IDs for the target.
+            input_seq_text (list): List of token strings for the input.
+            target_seq_text (list): List of token strings for the target.
+            calligraphist (S_OUTPUT): The calligraphist instance for printing.
+            show_detailed_stats (bool): If True, print detailed log similar to logFreqActions.
+
+        Returns:
+            bool: True if learning was successful, False otherwise.
+        
+        with self.counsellor.infodump("learn_from_interaction_verbose") as ʕっʘ‿ʘʔっ:
+            self.model.train() # Ensure model is in training mode
+
+            # --- Mimic parts of the trainModel loop setup for a single "step" ---
+            self.stableFallCount = 0 # Reset for this interaction
+            # self.averageTriesTotal += self.totalTries # Not really applicable for single interaction
+            self.averageTries = 0 # Will be based on this one attempt
+            self.totalTries = 0   # Reset for this interaction
+            
+            max_retries_for_interaction = 3 # Allow a few retries if loss is unstable for this specific interaction
+            
+            # We need to ensure `self.latestLossDelta` is available from previous call or defaulted.
+            _last_loss_delta = self.latestLossDelta if hasattr(self, 'latestLossDelta') else 0.0
+            
+            # --- Loop for stability (like in trainModel, but shorter) ---
+            # For an interactive step, we might only try once or a few times
+            # to avoid making the chat too slow.
+            # For simplicity, let's do one attempt for now, but you can wrap this.
+            # For a multi-try version, you'd need a loop here similar to trainModel.
+            
+            self.totalTries += 1
+            if self.totalTries > max_retries_for_interaction:
+                # print("Interaction too difficult to learn from immediately.")
+                # self.model.eval()
+                # return False # Or handle differently
+                pass # For now, proceed even if it might have been "too difficult" in a long run
+
+            # 1. Start Turn Actions
+            self.inputTokenIndices, self.targetTokenIndexSeq = self.startTurnActions(
+                _inputSeq=input_seq_text,
+                _targetSeq=target_seq_text,
+                _lastTurnLossDelta=_last_loss_delta
+            )
+
+            # Store original input and target for printFreqActions
+            self.inputSeq = input_seq_text
+            self.targetSeq = target_seq_text
+
+            # 2. Train Step
+            self.predictedTokenIndices, self.logitSeq = self.trainStep(
+                _inputTokenIndices=input_seq_ids,
+                _targetTokenIndexSeq=target_seq_ids,
+                _BACKWARDwobbleLoss=None
+            )
+            # self.totalTurnAttempts += 1 # If you had an inner loop for retries
+
+            if not self.predictedTokenIndices:
+                ʕっʘ‿ʘʔっ("trainStep failed in learn_from_interaction")
+                self.model.eval()
+                return False
+
+            # 3. Collect Turn Stats (Populates self.stats, self.stringStats, self.guessedTokenSeq)
+            self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
+            
+            # Ensure crucial stats for delta calculation are present
+            self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss # averageRecentLoss is from rolling stats
+            absdelta = abs(self.latestLossDelta)
+            
+            # --- Mimic printFreqActions output ---
+            # This will show the colored input/guess/truth
+            print("\n--- Interactive Learning Step Details ---")
+            calligraphist.S_colourPrintTraining(
+                _step = (self.trainingStepCounter + 1), # Increment a step counter if you want to track these
+                _inputSeq = self.inputSeq, # From startTurnActions context
+                _guessedSeq_str = self.stringStats.get("boldPerfects", self.guessedTokenSeq),
+                _targetSeq_str = self.stringStats.get("usedInputSeq", []), # collectTurnStats prepares this
+                _recentLoss = self.averageRecentLoss,
+                _loss = self.stepLossFloat,
+                _latestLossDelta = self.latestLossDelta,
+                _totalTokenCount = self.tokenCounts # Ensure tokenCounts is up-to-date
+            )
+
+            # --- Mimic logFreqActions output if toggled ---
+            if show_detailed_stats:
+                # Ensure calligraphist's stat bands are updated with the latest from TUTOR
+                if hasattr(self, 'ʕっෆ‿ෆʔっ'):
+                    calligraphist.refreshStatBands(_rollingAverages=self.ʕっෆ‿ෆʔっ)
+
+                # Simulate the logFreqActions for detailed stats print
+                self.logFreqActions(
+                    _trainingDataPairs=1, # Not applicable here
+                    _stringStats=self.stringStats,
+                    _stats=self.stats, # Use the stats just collected
+                    _frequency=1,      # To represent the current single learning step
+                    _trainingLogPath=trainingLogPath_100, # Don't write to main training log file from here
+                    _detailedLogging=True, # Show detailed stats
+                    _saveLog=True
+                )
+            print("-------------------------------------\n")
+
+
+            # --- Mimic Winding Down Turn ---
+            self.totalTurns += 1
+            if hasattr(self.model, 'totalTurns'):
+                 self.model.totalTurns = self.totalTurns # Keep model's turn counter in sync
+
+            self.totalAvgLoss = (self.totalAvgLoss * (self.totalTurns -1) + self.stepLossFloat) / self.totalTurns if self.totalTurns > 0 else self.stepLossFloat
+            self.totalLossAbsDelta += absdelta
+            self.totalAvgAbsDelta = (self.totalLossAbsDelta / max(1, self.totalTurns))
+            self.totalLossDelta += self.latestLossDelta
+            self.totalAvgDelta = (self.totalLossDelta / max(1, self.totalTurns))
+
+            # 4. End Turn Actions (Updates rolling averages, etc.)
+            # This will call self.calligraphist.refreshStatBands internally too
+            self.latestLossDelta = self.endTurnActions() # Updates self.latestLossDelta
+
+            self.model.eval() # Switch model back to evaluation mode
+
+            # If you maintain a separate step counter for these interactive learning events:
+            # self.trainingStepCounter +=1 # (Ensure this is initialized in TUTOR.__init__)
+
+            return True"""
+        
+    @whocalled
+    def learn_from_interaction(self, input_seq_ids, target_seq_ids, input_seq_text, target_seq_text,
+                               calligraphist, show_detailed_stats=False,
+                               current_dataset_total_pairs=0, current_dataset_step_index=0):
+        with self.counsellor.infodump("learn_from_interaction_verbose") as ʕっʘ‿ʘʔっ:
+            if debugPrints: print("DEBUG LFI: --- Entering learn_from_interaction ---") # LFI for LearnFromInteraction
+            if debugPrints: print(f"DEBUG LFI: _last_loss_delta = {self.latestLossDelta}")
+
+            # 1. Start Turn Actions
+            if debugPrints: print("DEBUG LFI: Attempting to call startTurnActions...")
+            try:
+                self.inputTokenIndices, self.targetTokenIndexSeq = self.startTurnActions(
+                    _inputSeq=input_seq_text,
+                    _targetSeq=target_seq_text,
+                    _lastTurnLossDelta=self.latestLossDelta
+                )
+                self.inputSeq = input_seq_text # For S_colourPrintTraining
+                self.targetSeq = target_seq_text # For S_colourPrintTraining
+                if debugPrints: print("DEBUG LFI: startTurnActions call completed.")
+            except Exception as e_start_turn:
+                if debugPrints: print(f"ERROR INSIDE startTurnActions: {e_start_turn}")
+                return False
+
+            # 2. Train Step
+            if debugPrints: print(f"DEBUG LFI: Before calling trainStep, self.totalTries = {self.totalTries}")
+            if debugPrints: print(f"DEBUG LFI: Does tutor object have totalTries? {hasattr(self, 'totalTries')}")
+            if debugPrints: print("DEBUG LFI: Attempting to call trainStep...")
+            try:
+                self.predictedTokenIndices, self.logitSeq = self.trainStep(
+                    _inputTokenIndices=input_seq_ids, 
+                    _targetTokenIndexSeq=target_seq_ids, 
+                    _BACKWARDwobbleLoss=None
+                )
+                if debugPrints: print("DEBUG LFI: trainStep call completed.")
+            except Exception as e_train_step:
+                print(f"ERROR INSIDE trainStep: {e_train_step}")
+                return False
+
+            if not self.predictedTokenIndices:
+                if debugPrints: print("DEBUG LFI: trainStep failed to return predicted_token_indices. Exiting LFI.")
+                ʕっʘ‿ʘʔっ("trainStep failed in learn_from_interaction") # Counsellor log
+                return False
+            if debugPrints: print("DEBUG LFI: trainStep returned predictedTokenIndices.")
+
+            # 3. Collect Turn Stats
+            if debugPrints: print("DEBUG LFI: Attempting to call collectTurnStats...")
+            try:
+                self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
+                if debugPrints: print("DEBUG LFI: collectTurnStats call completed.")
+            except Exception as e_collect_stats:
+                if debugPrints: print(f"ERROR INSIDE collectTurnStats: {e_collect_stats}")
+                return False
+            
+            if show_detailed_stats:
+                if hasattr(self, 'ʕっෆ‿ෆʔっ'):
+                    calligraphist.refreshStatBands(_rollingAverages=self.ʕっෆ‿ෆʔっ)
+            
+                dummy_training_pairs_for_log = [(None,None)] * current_dataset_total_pairs if current_dataset_total_pairs > 0 else []
+
+                if debugPrints: print("DEBUG LFI: About to call logFreqActions.")
+            self.logFreqActions(
+                _trainingDataPairs = dummy_training_pairs_for_log,
+                _stringStats = self.stringStats,
+                _frequency = trainingLogFreq_A,
+                _trainingLogPath = trainingLogPath_1,
+                _detailedLogging = False,
+                _saveLog = False,
+                _current_step_override = current_dataset_step_index)
+                
+            if debugPrints: print("DEBUG LFI: About to call S_colourPrintTraining.")
+            calligraphist.S_colourPrintTraining(
+                _step = (self.trainingStepCounter + 1),
+                _inputSeq = self.inputSeq,
+                _guessedSeq_str = self.stringStats.get("boldPerfects", self.guessedTokenSeq),
+                _targetSeq_str = self.stringStats.get("usedInputSeq", []),
+                _recentLoss = self.averageRecentLoss,
+                _loss = self.stepLossFloat,
+                _latestLossDelta = self.latestLossDelta,
+                _totalTokenCount = self.tokenCounts
+            )
+
+            # --- Mimic Winding Down Turn ---
+            self.totalTurns += 1
+            if hasattr(self.model, 'totalTurns'):
+                 self.model.totalTurns = self.totalTurns
+
+            self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
+            self.totalAvgLoss = (self.totalAvgLoss * (self.totalTurns -1) + self.stepLossFloat) / self.totalTurns if self.totalTurns > 0 else self.stepLossFloat
+            absdelta = abs(self.latestLossDelta)
+            self.totalLossAbsDelta += absdelta
+            self.totalAvgAbsDelta = (self.totalLossAbsDelta / max(1, self.totalTurns))
+            self.totalLossDelta += self.latestLossDelta
+            self.totalAvgDelta = (self.totalLossDelta / max(1, self.totalTurns))
+
+            # 4. End Turn Actions (Updates rolling averages, etc.)
+            if debugPrints: print("DEBUG LFI: About to call endTurnActions.")
+            self.latestLossDelta = self.endTurnActions()
+
+            if debugPrints: print("DEBUG LFI: --- Exiting learn_from_interaction successfully ---")
+            return True

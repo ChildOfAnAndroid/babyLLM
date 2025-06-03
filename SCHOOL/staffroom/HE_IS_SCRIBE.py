@@ -30,6 +30,7 @@ class SCRIBE:
         "confused": ["𓆟 ૮ʕʘ‿ʘ૮ʔ", "ʕ⋆ᴥ⋆ʔっ𓆟", "ʕ♡ᴥ♡ʔっ𓆟", "𓆟 ૮ʕʘ‿ʘ૮ʔ", ],
         "impressed": ["૮ʕ♡‿♡ʔ", "ʕっ✰.✰ʔっ𖡼", "ʕ✰.✰ʔっ❄︎", ]}
 
+    @whocalled
     def scribeSay(self, _message, _vibe="default", _scribeName="scribe"):
         """Scribe delivers a message with random emote and timestamp."""
         emote = random.choice(self.scribeEmotes.get(_vibe, self.scribeEmotes["default"]))
@@ -38,11 +39,12 @@ class SCRIBE:
         with open("scribeSays.txt", "a", encoding="utf-8") as f:
             f.write(f"{timestamp}|{emote} [{_scribeName.lower()}]: {_message}\n")
 
-
+    @whocalled
     def guessTokensToString(self, _inputTokens):
         tokenString = "".join(_inputTokens).replace("Ġ", " ")
         return tokenString
 
+    @whocalled
     def interviewBaby(self, _model, _prompt, _vibe="writes"):
         """Scribe asks BabyLLM a question and records the reply."""
         _prompt = "how are you feeling today, baby? :)"
@@ -52,6 +54,7 @@ class SCRIBE:
         guessWord = self.librarian.indexToToken.get(guess, "<UNK>")
         self.scribeSay(f"BabyLLM replies: '{guessWord}'", "impressed")
 
+    @whocalled
     def babySay(self, _input = None, _babyName = babyName):
 
         if _input is None:
@@ -78,6 +81,7 @@ class SCRIBE:
         with open("scribeSays.txt", "a") as f:
             f.write(babySay)
 
+    @whocalled
     def maybeCommentOnGuess(self, _inputTokens, _lossValue, _scribeName = scribeName, _chance = 0.05):
         if random.random() > _chance:
             return

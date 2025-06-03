@@ -33,18 +33,18 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
         with counsellor.infodump("wakeup") as ʕっʘ‿ʘʔっ:
 
             # OPEN THE LIBRARY :)
-            ʕっʘ‿ʘʔっ("waking the librarian...")
+            if debugPrints: ʕっʘ‿ʘʔっ("waking the librarian...")
             librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False) #_baseTokenizerPath = "BRAIN/vocabCache/2000_20/tokenizer_2000.json", _forceRetrain = True)
 
             if False: exit(0)
-            ʕっʘ‿ʘʔっ("opening questions...")
+            if debugPrints: ʕっʘ‿ʘʔっ("opening questions...")
             newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian, _windowMAX = windowMAX, _first = first)
 
-            ʕっʘ‿ʘʔっ("generating training data pairs...")
+            if debugPrints: ʕっʘ‿ʘʔっ("generating training data pairs...")
             trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _trainingDataPairNumber = trainingDataPairNum, _startIndex = newStartIndex, _stride = dataStride)
             if debugPrints:                 print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
 
-            ʕっʘ‿ʘʔっ("loading chaos agents...")
+            if debugPrints: ʕっʘ‿ʘʔっ("loading chaos agents...")
             calligraphist       = S_OUTPUT  (_counsellor                = counsellor)
 
             scribe              = SCRIBE    (_counsellor                = counsellor, 
@@ -54,7 +54,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                                                 )
             
             # WAKE UP THE BABY :)
-            ʕっʘ‿ʘʔっ("loading babyLLM...")
+            if debugPrints: ʕっʘ‿ʘʔっ("loading babyLLM...")
             babyLLM             = BABYLLM   (_counsellor                = counsellor,
                                                 _calligraphist          = calligraphist, 
                                                 _scribe                 = scribe,
@@ -83,7 +83,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
             babyLLM.to(modelDevice)
 
             # START THE LESSONS :)
-            ʕっʘ‿ʘʔっ("starting lessons!")
+            if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
             tutor.trainModel                (_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
             return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
 
@@ -104,7 +104,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 mean = grad.mean().item()
                 std = grad.std().item()
                 print(f"keyboard interrupt = {babyLLM.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
-        ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
+        if debugPrints: ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
         if tutor.trainingStepCounter:
             step = tutor.trainingStepCounter
             totalAvgLoss = tutor.totalAvgLoss
@@ -113,25 +113,25 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
             step = 1
         choice = input("save, cancel (do not save before exit), restart or interact?" + f"\n{userName}: ").lower()
         if choice in ("save", "") or choice.startswith("s"): 
-            ʕっʘ‿ʘʔっ("♥choice = s")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = s")
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             print("\nit's rude to interrupt people.. but, bye bye! :)")
         elif choice == "cancel" or choice.startswith("c"): 
-            ʕっʘ‿ʘʔっ("♥choice = c")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = c")
             print("\nhey! i wanted to remember that! :(")
         elif choice == "interact" or choice.startswith("i"):
-            ʕっʘ‿ʘʔっ("♥choice = i")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = i")
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             import code
             print("try:\nbabyLLM.stats\nbabyLLM.scheduledSampling\nbabyLLM.memory.memory\nbabyLLM.interneuronNetwork.cerebellum\nbabyLLM.logits.forward(...)\nUse `exit()` to return to terminal.\n")
             code.interact(local = locals())
         elif choice == "restart" or choice.startswith("r"):
-            ʕっʘ‿ʘʔっ("♥choice = r")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = r")
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             print("you spin me right round, babyllm, right round...")
             return totalAvgLoss
         else: 
-            ʕっʘ‿ʘʔっ("♥choice = None")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = None")
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             print("\nuhh... i'm confused, but i saved anyway!")
         if modelDevice.type == 'mps':
@@ -173,55 +173,63 @@ def checkLossCheckpoint():
 
 def openingQuestions(_counsellor, _librarian, _windowMAX, _first):
     counsellor = _counsellor
-    with counsellor.infodump("babyLLM") as ʕっʘ‿ʘʔっ:
+    with counsellor.infodump("openingQuestions") as ʕっʘ‿ʘʔっ:
         librarian = _librarian
         #babyLLM.to(modelDevice)
-        ʕっʘ‿ʘʔっ("setStartIndex")
-        newStartIndex = setStartIndex()
-        lastRunLoss   = checkLossCheckpoint()
+        if debugPrints: ʕっʘ‿ʘʔっ("setStartIndex")
+        newStartIndex  = setStartIndex()
+        lastRunLoss    = checkLossCheckpoint()
+        mode           = "train"
         #lastRunLoss = 420
 
-        babyNote_loadCheckpointCheck = f"[{babyName}] right, last time i got to step {newStartIndex} and my average loss was {lastRunLoss}... want to restart from there?"
-        ʕっʘ‿ʘʔっ("choice = input♥")
+        babyNote_loadCheckpointCheck = f"[{babyName}]: right, last time i got to step {newStartIndex} and my average loss was {lastRunLoss}... want to restart from there?"
+        if debugPrints: ʕっʘ‿ʘʔっ("choice = input♥")
         if _first:
-            choice = input(babyNote_loadCheckpointCheck + f"\n[{userName}] ").lower()
+            #modeChoice = input(f"[{babyName}]: so, would you like to do some training or just chat? \n[{userName}]: ").lower()
+            #if modeChoice.startswith("c"):
+            #    newStartIndex = setStartIndex() # Loads the step for model loading
+            #    print(f"[{babyName}]: aaaa, ok! let's hear what you have to say :).")
+            #elif modeChoice == "" or choice.startswith("t"):
+            # IM SO TIRED BUT I WAN DO DIS LATER
+            choice = input(babyNote_loadCheckpointCheck + f"\n[{userName}]: ").lower()
         else:
             choice = "yes"
-        userNote_loadCheckpoint = f"[{userName}] {choice}"
+
+        userNote_loadCheckpoint = f"[{userName}]: {choice}"
 
         if choice == "" or choice.startswith("y"):
-            ʕっʘ‿ʘʔっ("♥choice = y")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = y")
             startIndex = newStartIndex
-            babyNote_loadCheckpoint = f"[{babyName}] ok! let's go to step {newStartIndex}!"
+            babyNote_loadCheckpoint = f"[{babyName}]: ok! let's go to step {newStartIndex}!"
             print(babyNote_loadCheckpoint, end="")
 
         elif choice.startswith("r") or choice in ["random", "i dont care", "i don't care", "idc"]:
-            ʕっʘ‿ʘʔっ("♥choice = r")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = r")
             newStartIndex = random.randint(0, len(librarian.tokens) - _windowMAX - 1)
             startIndex = newStartIndex
-            babyNote_loadCheckpoint = f"[{babyName}] oh, cool! i'll pick a random spot to start from... umm... let's go to step {newStartIndex}!"
+            babyNote_loadCheckpoint = f"[{babyName}]: oh, cool! i'll pick a random spot to start from... umm... let's go to step {newStartIndex}!"
             print(babyNote_loadCheckpoint, end="")
 
         elif choice.startswith("n") or choice in ["start again", "restart"]:
-            ʕっʘ‿ʘʔっ("♥choice = n")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = n")
             startIndex = newStartIndex
-            babyNote_loadCheckpoint = f"[{babyName}] alright, step {newStartIndex}, let's go back to the beginning :)"
+            babyNote_loadCheckpoint = f"[{babyName}]: alright, step {newStartIndex}, let's go back to the beginning :)"
             print(babyNote_loadCheckpoint, end="")
             
         elif choice.isdigit():
-            ʕっʘ‿ʘʔっ("♥choice = digit")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = digit")
             newStartIndex = int(choice)
             startIndex = newStartIndex
             babyNote_loadCheckpoint = f"[{babyName}] damn that's specific! heading to step {newStartIndex}..."
             print(babyNote_loadCheckpoint, end="")
 
         else:
-            ʕっʘ‿ʘʔっ("♥choice = None")
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = None")
             startIndex = newStartIndex
             babyNote_loadCheckpoint = f"[{babyName}] umm... i don't think i heard you properly, i'll just start from step {newStartIndex} :) but,"
             print(babyNote_loadCheckpoint, end="")
 
-        ʕっʘ‿ʘʔっ("runStart")
+        if debugPrints: ʕっʘ‿ʘʔっ("runStart")
         printStartLogs(babyNote_loadCheckpointCheck, userNote_loadCheckpoint, babyNote_loadCheckpoint, _first = _first, _windowMAX = _windowMAX)
 
     return startIndex
@@ -247,7 +255,6 @@ def printStartLogs(_babyNote_loadCheckpointCheck, _userNote_loadCheckpoint, _bab
 def main():
     windowMAX           = numTokensPerStepSTART
     dataStride          = trainingDataStride
-    maxTokensPerStep    = 512 
     lastRunLoss         = checkLossCheckpoint()
     #lastRunLoss         = 420
     firstRun            = True
@@ -282,7 +289,7 @@ def main():
 
         print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
         scale = abs(thisRunLoss - lastRunLoss) + 0.01
-        choice = random.choice([0,1,1,1,1,2,2,2,3,3,4,3,3,2,2,2,1,1,1,1,0])
+        choice = random.choice([-1,0,0,1,1,1,1,2,2,2,3,3,4,5,4,3,3,2,2,2,1,1,1,1,0,0,-1])
         increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
         print(f"increment = {increment} = {choice} * ({totalRuns} / {totalTurnsAwake}) * {scale} = {choice} * {totalRuns/totalTurnsAwake} * {scale}")
 
@@ -292,8 +299,8 @@ def main():
         halfWindow = round(windowMAX / 20)+1
         halfStride = round(dataStride / 20)+1
 
-        incrementW = random.choice([(max(1, min((increment + (halfWindow)), maxAllowedWindowJump))), round(windowMAX * 0.5)])
-        incrementS = random.choice([(max(1, min((increment + (halfStride)), maxAllowedStrideJump))), round(dataStride * 0.5)])
+        incrementW = random.choice([(max(1, min((increment + (halfWindow)), maxAllowedWindowJump))), round(windowMAX * 0.1)])
+        incrementS = random.choice([(max(1, min((increment + (halfStride)), maxAllowedStrideJump))), round(dataStride * 0.1)])
 
         if easyStart:
             if easyStartThresh > 0:
@@ -301,12 +308,19 @@ def main():
                 easyStartThresh -= totalRuns
             else:
                 easyStart = False
-        if thisRunLoss < lastRunLoss:
+        testing = False
+        if testing:
             numWins += 1
             winStreak += 1
-            if winStreak == 2:
+            MAINPairNumber = 3
+            windowMAX += 10
+            dataStride = 1
+        elif thisRunLoss < lastRunLoss:
+            numWins += 1
+            winStreak += 1
+            if winStreak >= 2:
                 winStreak -= 1
-                MAINPairNumber = MAINPairNumber * 2
+                MAINPairNumber -= choice
                 if random.choice([True, False]):
                     print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
                     windowMAX += (incrementW+incrementW)
@@ -315,8 +329,9 @@ def main():
                     dataStride += (incrementS+incrementS)
         else:
             windowOrStride = random.choice([True, False])
-            winStreak = 0
-            MAINPairNumber - (windowMAX)
+            if winStreak > 0:
+                winStreak = -1
+            MAINPairNumber += choice
             if windowMAX > incrementW+1:
                 if windowOrStride:
                     print(f"downing windowMAX from {windowMAX} to {windowMAX-incrementW}")
@@ -329,7 +344,7 @@ def main():
                     dataStride -= incrementS
                 else:
                     print(f"dataStride staying at {dataStride}")
-            elif dataStride == 1 and windowMAX == 1 or random.random() < 0.01:
+            elif dataStride == 1 and windowMAX == 1 or random.random() < 0.001:
                 random.choice([2, windowMAX, dataStride, (windowMAX * 2), (dataStride * 2), winStreak, totalRuns, incrementS, incrementW, passRateSTART, passRateEND, lastRunLoss, thisRunLoss, numWins, maxAllowedWindowJump, maxAllowedStrideJump, choice, scale, 4, 6, 8, 12, 16])
                 if random.choice([True, False]):
                     print(f"bored. windowMAX from {windowMAX} to {2}")

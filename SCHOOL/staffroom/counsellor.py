@@ -48,11 +48,12 @@ class COUNSELLOR:
     def infodump(self, _functionName, _extra = None, _key = None):
         fullTitle = f"{self.className}_{_functionName}"
         startStamp = time.time() if self.durationLogging else None
-        if self.debugPrints: 
-            line = f"ʕっʘ‿ʘʔっ starting {fullTitle}... →"
-            if _extra:
-                line += f" ({_extra})"
-            print(line)
+        if False:
+            if self.debugPrints: 
+                line = f"ʕっʘ‿ʘʔっ starting {fullTitle}... →"
+                if _extra:
+                    line += f" ({_extra})"
+                print(line)
 
         class TANGENT:
             def __init__(self, _parent):
@@ -102,14 +103,20 @@ class COUNSELLOR:
                     tag = f"{_functionName}♥{'♥'.join(self.path[:-1] + [self.lastInfodumpName])}"
                     self.parent.log(tag, duration)
                     if self.parent.debugPrints:
-                        print(f"♥ finished {self.parent.className}♥{tag} in {duration:.4f}s ♥")
+                        if duration > 3.0:
+                            print(f"\033[38;2;57;255;20m\033[48;2;255;0;255m♥ finished {self.parent.className}♥{tag} in {duration:.4f}s ♥\033[0m\033[2m")
+                        elif duration > 0.3:
+                            print(f"\033[38;2;255;128;0m\033[1m\033[4m♥ finished {self.parent.className}♥{tag} in {duration:.4f}s ♥\033[0m\033[2m")
+                        if False:
+                            print(f"♥ finished {self.parent.className}♥{tag} in {duration:.4f}s ♥")
 
                 # Start new
                 self.lastInfodumpName = self.path[-1]
                 self.lastInfodumpTime = now
                 fullTag = f"{_functionName}♥{'♥'.join(self.path)}"
-                if self.parent.debugPrints:
-                    print(f"→ starting {self.parent.className}♥{fullTag} →")
+                if False: 
+                    if self.parent.debugPrints:
+                        print(f"→ starting {self.parent.className}♥{fullTag} →")
 
         tangent = TANGENT(self)
 
@@ -122,12 +129,27 @@ class COUNSELLOR:
                 finalTag = f"{_functionName}♥{'♥'.join(tangent.path)}"
                 self.log(finalTag, finalDuration)
                 if self.debugPrints:
-                    print(f"♥ finished {self.className}♥{finalTag} in {finalDuration:.4f}s ♥")
+                    if finalDuration > 3.0:
+                        print(f"\033[38;2;57;255;20m\033[48;2;255;0;255m♥ finished {self.className}♥{finalTag} in {finalDuration:.4f}s ♥\033[0m\033[2m")
+                    elif finalDuration > 0.3:
+                        print(f"\033[38;2;255;128;0m\033[1m\033[4m♥ finished {self.className}♥{finalTag} in {finalDuration:.4f}s ♥\033[0m\033[2m")
+                    if False:
+                        print(f"♥ finished {self.className}♥{finalTag} in {finalDuration:.4f}s ♥")
 
             if startStamp:
                 totalDuration = time.time() - startStamp
                 self.log(_key or _functionName, totalDuration)
                 if self.debugPrints:
-                    print(f"(っ◕‿◕)っ finished {fullTitle} in {totalDuration:.4f}s (｡♥‿♥｡)")
+                    if totalDuration > 3.0:
+                        print(f"\033[38;2;57;255;20m\033[48;2;255;0;255m(っ◕‿◕)っ finished {fullTitle} in {totalDuration:.4f}s (｡♥‿♥｡)\033[0m\033[2m")  
+                    elif totalDuration > 0.3:
+                        print(f"\033[38;2;255;128;0m\033[1m\033[4m(っ◕‿◕)っ finished {fullTitle} in {totalDuration:.4f}s (｡♥‿♥｡)\033[0m\033[2m")  
+                    if False:
+                        print(f"(っ◕‿◕)っ finished {fullTitle} in {totalDuration:.4f}s (｡♥‿♥｡)")
             elif self.debugPrints:
-                print(f"(っ◕‿◕)っ finished {fullTitle} (｡♥‿♥｡)")
+                if totalDuration > 3.0:
+                    print(f"\033[38;2;57;255;20m\033[48;2;255;0;255m(っ◕‿◕)っ finished {fullTitle} (｡♥‿♥｡)\033[0m\033[2m")
+                elif totalDuration > 0.3:
+                    print(f"\033[38;2;255;128;0m\033[1m\033[4m(っ◕‿◕)っ finished {fullTitle} (｡♥‿♥｡)\033[0m\033[2m")
+                if False:
+                    print(f"(っ◕‿◕)っ finished {fullTitle} (｡♥‿♥｡)")
