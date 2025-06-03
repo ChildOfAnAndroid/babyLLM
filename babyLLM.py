@@ -752,11 +752,11 @@ class BABYLLM(nn.Module):
                     self.stepsSinceMemory2Reset += 1
                 else: 
                     self.stepsSinceMemory2Reset = 1
-                if self.stepsSinceMemoryReset > torch.exp(self.logMemoryLength): 
+                if self.stepsSinceMemoryReset > 3: 
                     print(f"resetting memory1 after {self.stepsSinceMemoryReset} steps... (learned mem length: {torch.exp(self.logMemoryLength)} ({self.memoryLength}))")
                     self.memory.resetMemory(_memoryLength = self.memoryLength)
                     self.stepsSinceMemoryReset = 0
-                if self.stepsSinceMemory2Reset > torch.exp(self.logMemory2Length):
+                if self.stepsSinceMemory2Reset > 3:
                     print(f"resetting memory2 after {self.stepsSinceMemory2Reset} steps... (learned mem length: {torch.exp(self.logMemory2Length)} ({self.memory2Length}))")
                     self.memory2.resetMemory(_memoryLength = self.memory2Length)
                     self.stepsSinceMemory2Reset = 0 
