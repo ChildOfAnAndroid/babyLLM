@@ -11,49 +11,18 @@ archive/*
 **/archive
 # Backup during training
 *.pth
+*.pth*
+**/*.pth*
 # Generated
 trainingData.txt
 # No need to commit those, they are raw files
 data/CHARIS
 SCHOOL/library/charisStudies
-*.pth copy
-*.pth copy 2
-*.pth copy 4
-*.pth EARLYSELFTRAIN
-*.pth PRE SELF TRAIN
-*.pth early self train with reset parameters
-SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
-SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
-SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
-*.pth copy 3
-*.pth copy 5
-*.pth copy 6
-*.pth copy 7
 *.tmp
 SCHOOL/library/trainingData-.txt
-SCHOOL/library/TrainingData--.txt
-SCHOOL/library/TrainingData--.txt
-SCHOOL/library/TrainingData--.txt
 SCHOOL/library/TrainingData--.txt
 SCHOOL/library/simpleTraining/lineSortedData.txt
 SCHOOL/statistics/LOGS/dataArchive/*term-*.txt
 SCHOOL/library/learning/mhh_ei_for_ai_model.md
-*.optim
-SCHOOL/statistics/LOGS/chat/babyLogFull.txt
-SCHOOL/statistics/LOGS/chat/babyLogFull_2025-05-29.txt
-SCHOOL/statistics/LOGS/chat/inference_chat_log.txt
-SCHOOL/statistics/LOGS/chat/chatForHumans.txt
-SCHOOL/statistics/LOGS/chat/chatLog.txt
-SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
-/SCHOOL/statistics/LOGS/chat
-*.pth copy 8
-*.pth copy 9
-*.membuff
-*.pth copy 10
-*.membuff copy
-*.optim copy
-SCHOOL/statistics/LOGS/chat/chatForHumans.txt
-SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt
-SCHOOL/statistics/LOGS/training/trainingLog_100.txt
-SCHOOL/statistics/LOGS/training/trainingLog_1000.txt
+SCHOOL/statistics/LOGS/chat
 SCHOOL/library/trainingDataNOW.txt
