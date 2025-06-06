@@ -1,4 +1,4 @@
-readmeactuallyprobablydont.txt
+readmeactuallyprobablydont.txt (readme is very unfinished!)
 
 --- NEURAL NETWORK ARCHITECTURE ---
 
