@@ -61,7 +61,6 @@ what the fuck is self?! i thought i had self identity issues and then i encounte
 
 ---
 
---- 
 how to call stat thresholds for a particular stat:
         self.s_output.S_statBands["loss"]["perfect"] # will cause key error
         self.s_output.S_statBands["loss"].get("perfect", None) # will ignore key error
