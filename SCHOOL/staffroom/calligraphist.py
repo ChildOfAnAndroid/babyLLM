@@ -234,7 +234,7 @@ class S_OUTPUT:
                 if _statVal <= limit:
                     if _statType == "loss" and debugPrints: print(f"ok here is the selected label: {label} for value {_statVal} and bands: {bands}")
                     return label
-            print(f"returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})")
+            if debugPrints: print(f"returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})")
             return "emergency"
 
     @whocalled        
@@ -378,7 +378,7 @@ class S_OUTPUT:
                 if v not in (None, "")
             ]) + newLineDelim"""
             maxKeyLen = 16
-            maxCols = 6
+            maxCols = 4
             cellWidth = statTopLen + decLen + maxKeyLen + 1
 
             statSections = [
@@ -476,7 +476,7 @@ class S_OUTPUT:
                 cerebellum = delimiter + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
                 logOutput += cerebellum
                 littleLogOutput += cerebellum
-                newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
+                #newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
 
             if debugPrints: ʕっʘ‿ʘʔっ("topTokens_str")
             if _topTokens_str: 

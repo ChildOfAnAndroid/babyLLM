@@ -275,7 +275,8 @@ class TUTOR:
                         if self.totalTurns % printFreq == 0:
                             if debugPrints: ʕっʘ‿ʘʔっ("♥printFreq")
                             self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = printFreq, _trainingLogPath = None, _detailedLogging = False, _saveLog = False)
-                            self.printFreqActions()
+                            if not skipPrompts:
+                                self.printFreqActions()
 
                         if self.totalTurns % saveModelFreq == 0 and self.totalTurns > 0:
                             if debugPrints: ʕっʘ‿ʘʔっ("♥saveFreq")

@@ -510,8 +510,8 @@ class BABYLLM(nn.Module):
                 except Exception as e:
                     self.gumBellend += 1
                     if debugPrints: ʕっʘ‿ʘʔっ("gumbel softmax failed")
-                    print("gumbel softmax failed:", e)
-                    print(f"falling back to softmax sampling (total fallbacks: {self.gumBellend})...")
+                    if debugPrints: print("gumbel softmax failed:", e)
+                    if debugPrints: print(f"falling back to softmax sampling (total fallbacks: {self.gumBellend})...")
                     if debugPrints: ʕっʘ‿ʘʔっ("torch.softmax")
                     gumbelProbs = torch.softmax(logitsForSample, dim=1)
 
@@ -753,11 +753,11 @@ class BABYLLM(nn.Module):
                 else: 
                     self.stepsSinceMemory2Reset = 1
                 if self.stepsSinceMemoryReset > 3: 
-                    print(f"resetting memory1 after {self.stepsSinceMemoryReset} steps... (learned mem length: {torch.exp(self.logMemoryLength)} ({self.memoryLength}))")
+                    if debugPrints: print(f"resetting memory1 after {self.stepsSinceMemoryReset} steps... (learned mem length: {torch.exp(self.logMemoryLength)} ({self.memoryLength}))")
                     self.memory.resetMemory(_memoryLength = self.memoryLength)
                     self.stepsSinceMemoryReset = 0
                 if self.stepsSinceMemory2Reset > 3:
-                    print(f"resetting memory2 after {self.stepsSinceMemory2Reset} steps... (learned mem length: {torch.exp(self.logMemory2Length)} ({self.memory2Length}))")
+                    if debugPrints: print(f"resetting memory2 after {self.stepsSinceMemory2Reset} steps... (learned mem length: {torch.exp(self.logMemory2Length)} ({self.memory2Length}))")
                     self.memory2.resetMemory(_memoryLength = self.memory2Length)
                     self.stepsSinceMemory2Reset = 0 
 

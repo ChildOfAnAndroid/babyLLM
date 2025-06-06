@@ -325,10 +325,10 @@ class MEMORY(nn.Module):
                 reset_strength_scalar = current_reset_strength_tensor.item() if current_reset_strength_tensor.numel() == 1 else float(current_reset_strength_tensor) # Fallback if not scalar
                 reset_strength_scalar = max(0.0, min(1.0, reset_strength_scalar))
                 keep_factor = 1.0 - reset_strength_scalar
-                print(f"resetting memory from {self.shortTermMemory.mean().item():.10f}", end = "")
+                if debugPrints: print(f"resetting memory from {self.shortTermMemory.mean().item():.10f}", end = "")
                 self.shortTermMemory.mul_(keep_factor) # In-place multiplication with a float
                 # self.longTermMemory.mul_(keep_factor)
-                print(f" to {self.shortTermMemory.mean().item():.10f}!")
+                if debugPrints: print(f" to {self.shortTermMemory.mean().item():.10f}!")
                 #self.longTermDecay += 0.1
                 #self.shortTermDecay += 0.001
                 #self.longTermMemory.zero_() #retaining long term cause, yk, long term! i felt mean!

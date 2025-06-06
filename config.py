@@ -66,7 +66,7 @@ trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
 trainingFilePathTEST = "SCHOOL/library/trainingDataTEST.txt"
 
 """--- LOGS ---"""
-printFreq = 1   # how often to print training progress to the terminal
+printFreq = 1  # how often to print training progress to the terminal
 printPromptLength = 17500    # how many characters of the prompt to display in terminal
 gradientLength = 3000
 
@@ -149,6 +149,7 @@ skipMetaLoss = True
 skipAuxLoss = False
 
 skipFINALlogitNorm = True
+skipPrompts = False
 pixelStyling = True
 
 """--- STATS COLLECTION ---"""
@@ -156,40 +157,40 @@ refreshRollingTokenTotalsWhen = 10000
 mostImportantStats  =   [
             # EMBED STATS
                 "1E_0_vector_norm",                            # IMPORTANT LAYER TRACKER !! (INPUT)
-                "1E_0_vector_mean",
+                #"1E_0_vector_mean",
                    "1E_0_vector_scale",
             #       "1E_0_embedVector_norm_token",          
             #       "1E_0_embedVector_norm_neuron",                
                    "1E_1_normed_norm",
-                   "1E_1_normed_mean",
+                   #"1E_1_normed_mean",
                        "1E_1_normed_scale",  
             #           "1E_1_embedNormed_norm_token",
             #           "1E_1_embedNormed_norm_neuron",       
                 "1E_x_final_norm",                             # IMPORTANT LAYER TRACKER !! (EMBEDS)
-                "1E_x_final_mean",
+                #"1E_x_final_mean",
             #       "1E_x_embedFinal_norm_token",
             #       "1E_x_embedFinal_norm_neuron",
             "1E_1_posEmbWeight_norm",
-            "1E_1_posEmbWeight_mean",
+            #"1E_1_posEmbWeight_mean",
             "1E_1_pixelEmbed_norm",
-            "1E_1_pixelEmbed_mean",
+            #"1E_1_pixelEmbed_mean",
 
             # NEURON STATS
             #                                                       "2N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
             #           "2N_0_rawInput_norm_token",            # might be unneeded if this is already per token, check later
             #           "2N_0_rawInput_norm_neurons",
                     "2N_1_normedInput_norm",
-                    "2N_1_normedInput_mean",
+                    #"2N_1_normedInput_mean",
             #            "2N_1_normedInput_norm_token",
             #            "2N_1_normedInput_norm_neuron",
                    "2N_2_rawOutput_norm",
-                   "2N_2_rawOutput_mean",
+                   #"2N_2_rawOutput_mean",
             #           "2N_2_rawOutput_norm_token",            
             #           "2N_2_rawOutput_norm_neuron",
                    "2N_x_actOut_norm", 
-                    "2N_x_actOut_mean",                    # IMPORTANT LAYER TRACKER !! (NEURONS)
-                       "2N_x_actOut_norm_token",      
-                       "2N_x_actOut_norm_neuron", 
+                    #"2N_x_actOut_mean",                    # IMPORTANT LAYER TRACKER !! (NEURONS)
+                       #"2N_x_actOut_norm_token",      
+                       #"2N_x_actOut_norm_neuron", 
             #    "2N_x_normedOutput_norm",                          # DISABLED   
             #                "2N_x_normedOutput_norm_token",         
             #                "2N_x_normedOutput_norm_neuron",
@@ -217,7 +218,7 @@ mostImportantStats  =   [
             #       "3INN_x_FINALoutLayerNorm_norm_neuron",
                 "3INN_windowSizesMean",
                 "3INN_cerebellumMean",  
-                "3INN_windowFractionalityMean",
+                #"3INN_windowFractionalityMean",
 
             # BABYLLM STATS
             #                                                       "2B_0_inputEmbeds_norm", # MATCHES 2N_0_rawInput_norm & 1E_x_embedFinal_norm
@@ -228,7 +229,7 @@ mostImportantStats  =   [
                 #                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
                 "B_floatMemoryLength",
                 "L_CEloss",
-                "L_PIXELloss",
+                #"L_PIXELloss",
                 "L_PIXELloss_scaled",
                 "L_AUXlossCos",
                 "L_AUXlossKL",
@@ -249,11 +250,11 @@ mostImportantStats  =   [
             #           "6L_1_normedActivationsTensor_scale",
                     "6L_2_scaledActs_norm",
                     "6L_3_out_norm",
-                        "6L_3_out_scale",
-                        "6L_3_outSigmoid_scale",
+                        #"6L_3_out_scale",
+                        #"6L_3_outSigmoid_scale",
                     "6L_4_outNorm_norm",
-                        "6L_4_outNorm_scale", 
-                        "6L_4_outNormSigmoid_scale",
+                        #"6L_4_outNorm_scale", 
+                        #"6L_4_outNormSigmoid_scale",
                 "6L_x_finalLogit_norm",                         # IMPORTANT LAYER TRACKER !! (LOGIT)
                 "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy", "6L_topLogits", "6L_topIndices", 
                 "6L_0_activationsTensor_scale", "6L_1_normedActivationsTensor_scale", "6L_3_logitOutput_scale", "6L_4_logitNormed_scale",
@@ -276,9 +277,9 @@ mostImportantStats  =   [
                     "B_repetitionWindow", 
                     "B_expWindow",
                     "B_temperature",
-                    "B_PIXELloss_scaled",
+                    #"B_PIXELloss_scaled",
                     "B_PIXELloss",
-                    "totalLossAbsDelta",
+                    #"totalLossAbsDelta",
                     "totalAvgAbsDelta",
                     "totalAvgDelta",
                     "learningRateGOAL",
@@ -287,9 +288,9 @@ mostImportantStats  =   [
                         ]
 
 mostImportantStats += [
-    "2N_x_actOut_std_token",      # average stdev per token (across neurons)
-    "2N_x_actOut_std_neuron",     # average stdev per neuron (across tokens)
-    "2N_x_actOut_saturation",     # % of values near zero
+    #"2N_x_actOut_std_token",      # average stdev per token (across neurons)
+    #"2N_x_actOut_std_neuron",     # average stdev per neuron (across tokens)
+    #"2N_x_actOut_saturation",     # % of values near zero
     "2N_x_actOut_min",            # min activation value
     "2N_x_actOut_max",            # max activation value
 ]
@@ -302,7 +303,7 @@ mostImportantStats += [
     "6L_4_outNorm_norm",
     "6L_x_final_norm",
 
-    "6L_0_actsTensor_mean",
+    """"6L_0_actsTensor_mean",
     "6L_1_normActsTensor_mean",
     "6L_2_scaledActsTensor_mean",
     "6L_3_out_mean",
@@ -321,54 +322,54 @@ mostImportantStats += [
     "6L_2_scaledActsTensor_max",
     "6L_3_out_max",
     "6L_4_outNorm_max",
-    "6L_x_final_max",
+    "6L_x_final_max","""
 ]
 
 mostImportantStats += [
                     "4A_memory_4M_0_rawActs_norm",
-                    "4A_memory_4M_0_rawActs_mean",
-                    "4A_memory_4M_0_rawActs_max",
-                    "4A_memory_4M_0_rawActs_min",
+                    #"4A_memory_4M_0_rawActs_mean",
+                    #"4A_memory_4M_0_rawActs_max",
+                    #"4A_memory_4M_0_rawActs_min",
 
                     "4A_memory_4M_1_STM_norm",
-                    "4A_memory_4M_1_STM_mean",
-                    "4A_memory_4M_1_STM_max",
-                    "4A_memory_4M_1_STM_min",
+                    #"4A_memory_4M_1_STM_mean",
+                    #"4A_memory_4M_1_STM_max",
+                    #"4A_memory_4M_1_STM_min",
 
                     "4A_memory_4M_2_LTM_norm",
-                    "4A_memory_4M_2_LTM_mean",
-                    "4A_memory_4M_2_LTM_max",
-                    "4A_memory_4M_2_LTM_min",
+                    #"4A_memory_4M_2_LTM_mean",
+                    #"4A_memory_4M_2_LTM_max",
+                    #"4A_memory_4M_2_LTM_min",
 
                     "4A_memory_4M_3_reducedInput_norm",
-                    "4A_memory_4M_3_reducedInput_mean",
-                    "4A_memory_4M_3_reducedInput_max",
-                    "4A_memory_4M_3_reducedInput_min",
+                    #"4A_memory_4M_3_reducedInput_mean",
+                    #"4A_memory_4M_3_reducedInput_max",
+                    #"4A_memory_4M_3_reducedInput_min",
 
                     "4A_memory_4M_4_gateLayer_norm",
-                    "4A_memory_4M_4_gateLayer_mean",
-                    "4A_memory_4M_4_gateLayer_max",
-                    "4A_memory_4M_4_gateLayer_min",
+                    #"4A_memory_4M_4_gateLayer_mean",
+                    #"4A_memory_4M_4_gateLayer_max",
+                    #"4A_memory_4M_4_gateLayer_min",
 
                     "4A_memory_4M_5_projected_norm",
-                    "4A_memory_4M_5_projected_mean",
-                    "4A_memory_4M_5_projected_max",
-                    "4A_memory_4M_5_projected_min",
+                    #"4A_memory_4M_5_projected_mean",
+                    #"4A_memory_4M_5_projected_max",
+                    #"4A_memory_4M_5_projected_min",
 
                     "4A_memory_4M_6_mixedEmbed_norm",
-                    "4A_memory_4M_6_mixedEmbed_mean",
-                    "4A_memory_4M_6_mixedEmbed_max",
-                    "4A_memory_4M_6_mixedEmbed_min",
+                    #"4A_memory_4M_6_mixedEmbed_mean",
+                    #"4A_memory_4M_6_mixedEmbed_max",
+                    #"4A_memory_4M_6_mixedEmbed_min",
 
                     "4A_memory_4M_7_memoryGate_norm",
-                    "4A_memory_4M_7_memoryGate_mean",
-                    "4A_memory_4M_7_memoryGate_max",
-                    "4A_memory_4M_7_memoryGate_min",
+                    #"4A_memory_4M_7_memoryGate_mean",
+                    #"4A_memory_4M_7_memoryGate_max",
+                    #"4A_memory_4M_7_memoryGate_min",
 
                     "4A_memory_4M_x_FINAL_norm",
-                    "4A_memory_4M_x_FINAL_mean",
-                    "4A_memory_4M_x_FINAL_max",
-                    "4A_memory_4M_x_FINAL_min",
+                    #"4A_memory_4M_x_FINAL_mean",
+                    #"4A_memory_4M_x_FINAL_max",
+                    #"4A_memory_4M_x_FINAL_min",
 
                     "4A_memory_4M_1_shortGateScale",
                     "4A_memory_4M_2_longGateScale",
@@ -379,49 +380,49 @@ mostImportantStats += [
                     "4A_memory_4M_1_longDecay",
 
                     "4B_memory2_4M_0_rawActs_norm",
-                    "4B_memory2_4M_0_rawActs_mean",
-                    "4B_memory2_4M_0_rawActs_max",
-                    "4B_memory2_4M_0_rawActs_min",
+                    #"4B_memory2_4M_0_rawActs_mean",
+                    #"4B_memory2_4M_0_rawActs_max",
+                    #"4B_memory2_4M_0_rawActs_min",
 
                     "4B_memory2_4M_1_STM_norm",
-                    "4B_memory2_4M_1_STM_mean",
-                    "4B_memory2_4M_1_STM_max",
-                    "4B_memory2_4M_1_STM_min",
+                    #"4B_memory2_4M_1_STM_mean",
+                    #"4B_memory2_4M_1_STM_max",
+                    #"4B_memory2_4M_1_STM_min",
 
                     "4B_memory2_4M_2_LTM_norm",
-                    "4B_memory2_4M_2_LTM_mean",
-                    "4B_memory2_4M_2_LTM_max",
-                    "4B_memory2_4M_2_LTM_min",
+                    #"4B_memory2_4M_2_LTM_mean",
+                    #"4B_memory2_4M_2_LTM_max",
+                    #"4B_memory2_4M_2_LTM_min",
 
                     "4B_memory2_4M_3_reducedInput_norm",
-                    "4B_memory2_4M_3_reducedInput_mean",
-                    "4B_memory2_4M_3_reducedInput_max",
-                    "4B_memory2_4M_3_reducedInput_min",
+                    #"4B_memory2_4M_3_reducedInput_mean",
+                    #"4B_memory2_4M_3_reducedInput_max",
+                    #"4B_memory2_4M_3_reducedInput_min",
 
                     "4B_memory2_4M_4_gateLayer_norm",
-                    "4B_memory2_4M_4_gateLayer_mean",
-                    "4B_memory2_4M_4_gateLayer_max",
-                    "4B_memory2_4M_4_gateLayer_min",
+                    #"4B_memory2_4M_4_gateLayer_mean",
+                    #"4B_memory2_4M_4_gateLayer_max",
+                    #"4B_memory2_4M_4_gateLayer_min",
 
                     "4B_memory2_4M_5_projected_norm",
-                    "4B_memory2_4M_5_projected_mean",
-                    "4B_memory2_4M_5_projected_max",
-                    "4B_memory2_4M_5_projected_min",
+                    #"4B_memory2_4M_5_projected_mean",
+                    #"4B_memory2_4M_5_projected_max",
+                    #"4B_memory2_4M_5_projected_min",
 
                     "4B_memory2_4M_6_mixedEmbed_norm",
-                    "4B_memory2_4M_6_mixedEmbed_mean",
-                    "4B_memory2_4M_6_mixedEmbed_max",
-                    "4B_memory2_4M_6_mixedEmbed_min",
+                    #"4B_memory2_4M_6_mixedEmbed_mean",
+                    #"4B_memory2_4M_6_mixedEmbed_max",
+                    #"4B_memory2_4M_6_mixedEmbed_min",
 
                     "4B_memory2_4M_7_memoryGate_norm",
-                    "4B_memory2_4M_7_memoryGate_mean",
-                    "4B_memory2_4M_7_memoryGate_max",
-                    "4B_memory2_4M_7_memoryGate_min",
+                    #"4B_memory2_4M_7_memoryGate_mean",
+                    #"4B_memory2_4M_7_memoryGate_max",
+                    #"4B_memory2_4M_7_memoryGate_min",
 
                     "4B_memory2_4M_x_FINAL_norm",
-                    "4B_memory2_4M_x_FINAL_mean",
-                    "4B_memory2_4M_x_FINAL_max",
-                    "4B_memory2_4M_x_FINAL_min",
+                    #"4B_memory2_4M_x_FINAL_mean",
+                    #"4B_memory2_4M_x_FINAL_max",
+                    #"4B_memory2_4M_x_FINAL_min",
 
                     "4B_memory2_4M_1_shortGateScale",
                     "4B_memory2_4M_2_longGateScale",
@@ -546,7 +547,7 @@ reflectionFreq = 10000
 stableFallThreshold = 3 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 100 #169420
+trainingDataPairNumber = 3000 #169420
 trainingDataStride = 25
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
