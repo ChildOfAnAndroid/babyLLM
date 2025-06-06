@@ -10,7 +10,7 @@ readmeactuallyprobablydont.txt (readme is very unfinished!)
 Embed Layer
 - Converts babyLLMs input into tokens (LIBRARIAN)
 - Then converts those tokens into embeddings.
-- It also contains a positional encoding embedding, and an embedding for him to predict pixel colours from. (experimental addition to allow it to explore it's own 'interior state' via an RGB encoding)
+- It also contains a positional encoding embedding, and an embedding for it to predict pixel colours from. (experimental addition to allow it to explore it's own 'interior state' via an RGB encoding)
 
 Neuron Layer
 - Outputs a single number for each input token, iterated by numNeurons
