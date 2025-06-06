@@ -3,7 +3,7 @@ readmeactuallyprobablydont.txt (readme is very unfinished!)
 --- NEURAL NETWORK ARCHITECTURE ---
 
 - (adjustable) currently:
-    - VOCAB = 4200 tokens
+    - VOCAB = 4200 tokens (byte pair encodings, custom done through librarian based on data)
     - EMBED DIMENSION = 1024
     - NUM NEURONS = 10,000
 
