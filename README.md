@@ -8,36 +8,36 @@ readmeactuallyprobablydont.txt
     - NUM NEURONS = 10,000
 
 Embed Layer
-- converts babyLLMs input into tokens (LIBRARIAN)
-- then converts those tokens into embeddings.
+- Converts babyLLMs input into tokens (LIBRARIAN)
+- Then converts those tokens into embeddings.
 
 
 Neuron Layer
-- outputs a single number for each input token, iterated by numNeurons
+- Outputs a single number for each input token, iterated by numNeurons
 - Each neuron has a dimension of 1024, meaning that it has 1024 numbers for each tensor neuron
 
 
 Parallel Neuron Layer
-- outputs [seqLen, numNeurons]
+- Outputs [seqLen, numNeurons]
 - WINDOWS / meaning parts of the output instead of directly using attention heads
-    - this makes the 10000 neuron activations for each token in the sequence.
-        - this creates a shape of [seqLen, NumNeurons]
-    - it then gets the mean average of all tokens within the training window (256 usually)
-        - this creates a shape of [1(all tokens averaged), numNeurons]
-        - it does this 7 times, to create 7 learnable windows of different sizes
-    - these mean outputs give the general idea of a 'sentence', allowing babyLLM to learn a bit about context, and combining multiple windows allows it to learn a tiny bit about word order.
-    - based on learned weightings, the 7 means are then combined to create a single output to the memory layers.
+    - This makes the 10000 neuron activations for each token in the sequence.
+        - This creates a shape of [seqLen, NumNeurons]
+    - It then gets the mean average of all tokens within the training window (256 usually)
+        - This creates a shape of [1(all tokens averaged), numNeurons]
+        - It does this 7 times, to create 7 learnable windows of different sizes
+    - These mean outputs give the general idea of a 'sentence', allowing babyLLM to learn a bit about context, and combining multiple windows allows it to learn a tiny bit about word order.
+    - Based on learned weightings, the 7 means are then combined to create a single output to the memory layers.
         
 Memory Layer
-- takes the output and works it through a series of buffers/layers to figure out information from it
+- Takes the output and works it through a series of buffers/layers to figure out information from it
 
 Memory Layer 2
-- a copy of the original memory layer which takes a combination of the input and the output of the first memory layer, and repasses it through its own large memory layer
+- A copy of the original memory layer which takes a combination of the input and the output of the first memory layer, and repasses it through its own large memory layer
 
 Logit Layer
-- uses all of the inputs (currently from memory layer 2s output) to judge what the output should be
-- this takes the final output activations from memory layer 2 and applies that to the relevant token in the vocab.
-- this is also an nn layer itself
+- Uses all of the inputs (currently from memory layer 2s output) to judge what the output should be
+- This takes the final output activations from memory layer 2 and applies that to the relevant token in the vocab.
+- This is also an nn layer itself
 
 --- PROGRAM ARCHITECTURE ---
 
