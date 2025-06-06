@@ -1,14 +1,17 @@
 readmeactuallyprobablydont.txt
 
 --- ARCHITECTURE ---
-
+(adjustable) currently:
+VOCAB = 4200 tokens
+EMBED DIMENSION = 1024
+NUM NEURONS = 10,000
 
 EMBED LAYER converts babyLLMs input into tokens (LIBRARIAN), and then converts those tokens into embeddings.
 
 
 NEURON LAYER is meant to be outputting a single number for each input token, iterated by numNeurons
 
-    - Each neuron has a dimension of 32, meaning that it has 32 numbers
+    - Each neuron has a dimension of 1024, meaning that it has 1024 numbers for each tensor neuron
 
 
 PARALLEL NEURON LAYER is meant to be outputting [seqLen, numNeurons]
