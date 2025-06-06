@@ -20,8 +20,7 @@ Neuron Layer
 Parallel Neuron Layer
 - Outputs [seqLen, numNeurons]
 - WINDOWS / meaning parts of the output instead of directly using attention heads
-    - This makes the 10000 neuron activations for each token in the sequence.
-        - This creates a shape of [seqLen, NumNeurons]
+    - This creates the 10000 neuron activations for each token in the sequence (a shape of [seqLen, NumNeurons])
     - It then gets the mean average of all tokens within the training window (256 usually)
         - This creates a shape of [1(all tokens averaged), numNeurons]
         - It does this 7 times, to create 7 learnable windows of different sizes
