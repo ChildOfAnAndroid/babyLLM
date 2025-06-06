@@ -22,10 +22,12 @@ PARALLEL NEURON LAYER is meant to be outputting [seqLen, numNeurons]
         - it then gets the mean average of all tokens within the training window (256 usually)
         
             - this creates a shape of [1(all tokens averaged), numNeurons]
+
+            - it does this 7 times, to create 7 learnable windows of different sizes
             
-        - this mean output gives the general idea of a 'sentence', allowing babyLLM to learn a bit about context (but not much about word order)
+        - these mean outputs give the general idea of a 'sentence', allowing babyLLM to learn a bit about context, and combining multiple windows allows it to learn a tiny bit about word order.
         
-        - this mean output is then passed through to the output layer to be used in token guess calculations
+        - based on learned weightings, the 7 means are then combined to create a single output to the memory layers.
         
 
 MEMORY LAYER takes the output and works it through a series of buffers/layers to figure out information from it
