@@ -16,7 +16,7 @@ Neuron Layer
 - Outputs a single number for each input token, iterated by numNeurons
 - Each neuron has a dimension of 1024, meaning that it has 1024 numbers for each tensor neuron
 
-Parallel Neuron Layer
+Interneuron Network Layer
 - Outputs [seqLen, numNeurons]
 - WINDOWS / meaning parts of the output instead of directly using attention heads
     - This creates the 10000 neuron activations for each token in the sequence (a shape of [seqLen, NumNeurons])
