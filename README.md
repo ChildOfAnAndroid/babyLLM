@@ -21,8 +21,8 @@ MEMORY LAYER takes the output and works it through a series of buffers/layers to
 MEMORY LAYER 2 is a copy of the original memory layer which takes a combination of the input and the output of the first memory layer, and repasses it through its own large memory layer
 
 LOGIT LAYER uses all of the inputs (currently from memory layer 2s output) to judge what the output should be
-    - this takes the mean output activation from parallel neuron layer and applies that to the relevant token in the vocab.
-    - this is also an nn layer itself idfk why
+    - this takes the final output activations from memory layer 2 and applies that to the relevant token in the vocab.
+    - this is also an nn layer itself
 
 --- TRAINING ---
 
