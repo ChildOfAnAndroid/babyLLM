@@ -13,13 +13,13 @@ NEURON LAYER is meant to be outputting a single number for each input token, ite
 
 PARALLEL NEURON LAYER is meant to be outputting [seqLen, numNeurons]
 
-    - MEAN OUTPUT
+    - WINDOWS / meaning parts of the output instead of directly using attention heads
     
         - this makes the 10000 neuron activations for each token in the sequence.
         
             - this creates a shape of [seqLen, NumNeurons]
             
-        - it then gets the mean average of all of these within the training window (7 usually)
+        - it then gets the mean average of all tokens within the training window (256 usually)
         
             - this creates a shape of [1(all tokens averaged), numNeurons]
             
