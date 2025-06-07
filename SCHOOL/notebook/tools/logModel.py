@@ -16,7 +16,7 @@ else:
 
 # Create directory to store parameters
 output_dir = "model_parameters"
-os.makedirs(output_dir, exist_ok=True)  # Ensure directory exists
+os.makedirs(output_dir, exist_ok = True)  # Ensure directory exists
 
 for key, value in state_dict.items():
     # Clean key name for safe filenames

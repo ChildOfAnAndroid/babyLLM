@@ -34,7 +34,7 @@ token_embeddings = {vocabList[i]: embeddings[i].tolist() for i in range(len(voca
 
 # Save token-embedding pairs as JSON
 with open("token_embeddings.json", "w", encoding="utf-8") as f:
-    json.dump(token_embeddings, f, indent=2)
+    json.dump(token_embeddings, f, indent = 2)
 
 print("✅ Token embeddings saved to 'token_embeddings.json'")
 
@@ -54,7 +54,7 @@ average_similarities = {
 }
 
 # **🔥 Sort Tokens by Their Overall Similarity Strength 🔥**
-sorted_tokens = sorted(average_similarities.items(), key=lambda x: x[1], reverse=True)
+sorted_tokens = sorted(average_similarities.items(), key = lambda x: x[1], reverse = True)
 
 def debug_token(tokenizer, token):
     """Prints a token's raw byte encoding and its true decoded text from the tokenizer."""
@@ -75,7 +75,7 @@ def debug_token(tokenizer, token):
 
 
 # Function to find most similar words
-def find_similar(token, top_n=5):
+def find_similar(token, top_n = 5):
     if token not in tokens:
         print(f"❌ Token '{token}' not in vocabulary.")
         return
@@ -92,7 +92,7 @@ def find_similar(token, top_n=5):
 
 with open(similarTokensFile, "w", encoding="utf-8") as f:
     for token, avg_sim in sorted_tokens:
-        similar = find_similar(token, top_n=5)
+        similar = find_similar(token, top_n = 5)
         response = ''.join(token).replace('Ġ', ' ').strip() # replace Ġ with space
         response = ' '.join(response.split())
         debug_token(vocab.tokenizer, token)

@@ -6,7 +6,7 @@ from stats import Stats
 from environment import Environment
 
 class Visualisation:
-    def __init__(self, stats, environments, signalGrid=None, inertGrid=None, lightGrid=None):
+    def __init__(self, stats, environments, signalGrid = None, inertGrid = None, lightGrid = None):
         self.stats = stats
         self.environments = environments
         self.signalGrid = signalGrid
@@ -14,21 +14,21 @@ class Visualisation:
         self.lightGrid = lightGrid
 
         # Create Vispy canvas and scene
-        self.canvas = scene.SceneCanvas(keys='interactive', show=True, title="Game of Why")
+        self.canvas = scene.SceneCanvas(keys='interactive', show = True, title="Game of Why")
         self.view = self.canvas.central_widget.add_view()
         self.view.camera = scene.PanZoomCamera(rect=(0, 0, environments.grid.shape[1], environments.grid.shape[0]))
         self.view.camera.interactive = True
 
         # Add layers for each grid
-        self.signal_layer = scene.visuals.Image(self.signalGrid, parent=self.view.scene, cmap='inferno', opacity=0.4)
+        self.signal_layer = scene.visuals.Image(self.signalGrid, parent = self.view.scene, cmap='inferno', opacity = 0.4)
         print(f"Signal grid unique values: {np.unique(self.signalGrid)}")  # Debug grid values
-        self.inert_layer = scene.visuals.Image(self.inertGrid, parent=self.view.scene, cmap='viridis', opacity=0.5)
+        self.inert_layer = scene.visuals.Image(self.inertGrid, parent = self.view.scene, cmap='viridis', opacity = 0.5)
         print(f"Inert grid unique values: {np.unique(self.inertGrid)}")  # Debug grid values
-        self.light_layer = scene.visuals.Image(self.lightGrid, parent=self.view.scene, cmap='plasma')
+        self.light_layer = scene.visuals.Image(self.lightGrid, parent = self.view.scene, cmap='plasma')
         print(f"Light grid unique values: {np.unique(self.lightGrid)}")  # Debug grid values
 
         # Add a layer for cell visualization
-        self.cell_layer = scene.visuals.Image(np.zeros((GRID_SIZE, GRID_SIZE, 4), dtype=np.float32), parent=self.view.scene)
+        self.cell_layer = scene.visuals.Image(np.zeros((GRID_SIZE, GRID_SIZE, 4), dtype = np.float32), parent = self.view.scene)
         print(f"Unique cell states: {np.unique([str(cell.state) for row in self.environments.grid for cell in row if isinstance(cell, Cell)])}")
 
     def update_grid(self):
@@ -36,7 +36,7 @@ class Visualisation:
         Updates the grid data with cell states.
         """
         # Reset cell layer data
-        cell_data = np.zeros((GRID_SIZE, GRID_SIZE, 4), dtype=np.float32)  # RGBA
+        cell_data = np.zeros((GRID_SIZE, GRID_SIZE, 4), dtype = np.float32)  # RGBA
 
         # Process cell data
         for x in range(self.environments.grid.shape[0]):
@@ -50,7 +50,7 @@ class Visualisation:
         # Update the cell layer visual
         self.cell_layer.set_data(cell_data)
 
-    def runLoop(self, turn, end=False):
+    def runLoop(self, turn, end = False):
         """
         Updates the visualization for each turn of the simulation.
 

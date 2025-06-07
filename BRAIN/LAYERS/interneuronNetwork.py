@@ -15,8 +15,8 @@ from torch.nn.functional import gelu
 
 """def tensorStats(tensor: torch.Tensor, prefix: str, statsDict: dict):
     statsDict[f"{prefix}_norm"] = tensor.norm().item()
-    statsDict[f"{prefix}_norm_token"] = tensor.norm(dim=1).mean().item()
-    statsDict[f"{prefix}_norm_neuron"] = tensor.norm(dim=0).mean().item()"""
+    statsDict[f"{prefix}_norm_token"] = tensor.norm(dim = 1).mean().item()
+    statsDict[f"{prefix}_norm_neuron"] = tensor.norm(dim = 0).mean().item()"""
 
 class NEURON(nn.Module):
     def __init__(self, _counsellor, _numTokensPerStep, _device = modelDevice):
@@ -26,7 +26,7 @@ class NEURON(nn.Module):
         self.numTokensPerStep = _numTokensPerStep
         
         # SELF ALLOWED - nn.parameter!
-        self.inputNorm = nn.LayerNorm(embedDimension, elementwise_affine=True, device=self.device)
+        self.inputNorm = nn.LayerNorm(embedDimension, elementwise_affine = True, device = self.device)
         self.n_weights = nn.Parameter(torch.randn(numNeurons, embedDimension, device = self.device) * 0.01)
         self.n_biases = nn.Parameter(torch.zeros(numNeurons, device = self.device))
         self.n_counsellor = COUNSELLOR("NEURON", _debug = debugPrints, _durations = durationLogging)
@@ -71,8 +71,8 @@ class NEURON(nn.Module):
         with self.n_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             self.inputEmbeds = _inputEmbeds
             with torch.no_grad():
-                weightNorm = self.n_weights.norm(dim=1, keepdim=True)
-                clippedWeights = self.n_weights / weightNorm.clamp(min=1.0, max=100.0)
+                weightNorm = self.n_weights.norm(dim = 1, keepdim = True)
+                clippedWeights = self.n_weights / weightNorm.clamp(min = 1.0, max = 100.0)
                 self.n_weights.data = clippedWeights
                 
             if skipNeuron: 
@@ -106,34 +106,34 @@ class NEURON(nn.Module):
                 if debugPrints: ʕっʘ‿ʘʔっ("raw input history append")
                 self.rawInputNormHistory.append(self.inputEmbeds.norm().item())
                 self.rawInputHistory.append(self.inputEmbeds.mean().item())
-                #self.rawInputHistory_tokens.append(self.inputEmbeds.norm(dim=1).mean().item())
-                #self.rawInputHistory_neurons.append(self.inputEmbeds.norm(dim=0).mean().item())
+                #self.rawInputHistory_tokens.append(self.inputEmbeds.norm(dim = 1).mean().item())
+                #self.rawInputHistory_neurons.append(self.inputEmbeds.norm(dim = 0).mean().item())
 
                 """if debugPrints: ʕっʘ‿ʘʔっ("normed input history append")
                 self.normedInputNormHistory.append(normedInput.norm().item())
                 self.normedInputHistory.append(normedInput.mean().item())
-                self.normedInputHistory_tokens.append(normedInput.norm(dim=1).mean().item())
-                self.normedInputHistory_neurons.append(normedInput.norm(dim=0).mean().item())
+                self.normedInputHistory_tokens.append(normedInput.norm(dim = 1).mean().item())
+                self.normedInputHistory_neurons.append(normedInput.norm(dim = 0).mean().item())
 
                 if debugPrints: ʕっʘ‿ʘʔっ("raw output history append")
                 self.rawOutputNormHistory.append(rawOutput.norm().item())
                 self.rawOutputHistory.append(rawOutput.mean().item())
-                self.rawOutputHistory_tokens.append(rawOutput.norm(dim=1).mean().item())
-                self.rawOutputHistory_neurons.append(rawOutput.norm(dim=0).mean().item())"""
+                self.rawOutputHistory_tokens.append(rawOutput.norm(dim = 1).mean().item())
+                self.rawOutputHistory_neurons.append(rawOutput.norm(dim = 0).mean().item())"""
 
                 if debugPrints: ʕっʘ‿ʘʔっ("activated output history append")
                 self.activatedOutputNormHistory.append(activated.norm().item())
                 self.activatedOutputHistory.append(activated.mean().item())
-                #self.activatedOutputHistory_tokens.append(activated.norm(dim=1).mean().item())
-                #self.activatedOutputHistory_neurons.append(activated.norm(dim=0).mean().item())
+                #self.activatedOutputHistory_tokens.append(activated.norm(dim = 1).mean().item())
+                #self.activatedOutputHistory_neurons.append(activated.norm(dim = 0).mean().item())
 
                 # --- More diagnostic stats (do not break grid)
                 """if debugPrints: ʕっʘ‿ʘʔっ("activated output token history std")
                 self.activatedOutputHistory_std_token = getattr(self, 'activatedOutputHistory_std_token', [])
-                self.activatedOutputHistory_std_token.append(activated.std(dim=1).mean().item())
+                self.activatedOutputHistory_std_token.append(activated.std(dim = 1).mean().item())
                 if debugPrints: ʕっʘ‿ʘʔっ("activated output neuron history std")
                 self.activatedOutputHistory_std_neuron = getattr(self, 'activatedOutputHistory_std_neuron', [])
-                self.activatedOutputHistory_std_neuron.append(activated.std(dim=0).mean().item())
+                self.activatedOutputHistory_std_neuron.append(activated.std(dim = 0).mean().item())
                 if debugPrints: ʕっʘ‿ʘʔっ("activated output history saturation")
                 self.activatedOutputHistory_saturation = getattr(self, 'activatedOutputHistory_saturation', [])
                 self.activatedOutputHistory_saturation.append((activated.abs() < 1e-3).float().mean().item())
@@ -145,8 +145,8 @@ class NEURON(nn.Module):
                 self.activatedOutputHistory_max.append(activated.max().item())
 
                 #self.normedOutputHistory.append(normed.norm().item())
-                #self.normedOutputHistory_tokens.append(normed.norm(dim=1).mean().item())
-                #self.normedOutputHistory_neurons.append(normed.norm(dim=0).mean().item())"""
+                #self.normedOutputHistory_tokens.append(normed.norm(dim = 1).mean().item())
+                #self.normedOutputHistory_neurons.append(normed.norm(dim = 0).mean().item())"""
 
                 if len(self.rawOutputHistory) >= self.numTokensPerStep:
                     if debugPrints: ʕっʘ‿ʘʔっ("if len >= windowMAX, add to self.stats")
@@ -264,15 +264,15 @@ class INTERNEURON_NETWORK(nn.Module):
 
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
 
-        self.windowFractionality = nn.Parameter(torch.full((len(allWindowSizes_new),), -6.0, device=self.device))
+        self.windowFractionality = nn.Parameter(torch.full((len(allWindowSizes_new),), -6.0, device = self.device))
 
-        self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))) # one tensor per window size!
+        self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype = torch.float32, device = self.device))) # one tensor per window size!
         self.refinement2 = torch.nn.Sequential(
-                            nn.Linear(numNeurons, 512, device=self.device), # bottleneck layer
+                            nn.Linear(numNeurons, 512, device = self.device), # bottleneck layer
                             nn.GELU(),                                      # smoother activation
-                            nn.LayerNorm(512, device=self.device),          # mid normalization
-                            nn.Linear(512, numNeurons, device=self.device), # expand back
-                            nn.LayerNorm(numNeurons, device=self.device)    # final safety net
+                            nn.LayerNorm(512, device = self.device),          # mid normalization
+                            nn.Linear(512, numNeurons, device = self.device), # expand back
+                            nn.LayerNorm(numNeurons, device = self.device)    # final safety net
                             )
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
@@ -296,7 +296,7 @@ class INTERNEURON_NETWORK(nn.Module):
             clampedLogWindowSizes = torch.tanh(self.logWindowSizes / 2) * 1.5  # output ∈ [-1.5, 1.5]
             scaledTanh = (torch.tanh(clampedLogWindowSizes) + 1) / 2  # ∈ [0, 1]
             floatWindowSizes = minWindowSize + (maxWindowSize - minWindowSize) * scaledTanh
-            intWindowSizes = torch.round(floatWindowSizes).clamp(min=1.0)
+            intWindowSizes = torch.round(floatWindowSizes).clamp(min = 1.0)
 
             if debugPrints: ʕっʘ‿ʘʔっ("blend int+float using fractionality") # straight-through estimator: gradient flows only through floatWindow
             windowTensor = (1 - fractionality) * intWindowSizes + fractionality * floatWindowSizes
@@ -312,7 +312,7 @@ class INTERNEURON_NETWORK(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("softmax weights from cerebellum")
             sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
             with torch.no_grad(): self.cerebellum.clamp_(-5.0, 5.0)
-            clamped = torch.clamp(sigmoidWeights, min=1e-4) # avoid 0s
+            clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
             self.cerebellumSoft = clamped / clamped.sum()   # normalize across all windows
 
             weightedWindowStack = windowMeanStack * self.cerebellumSoft.unsqueeze(1)
@@ -322,7 +322,7 @@ class INTERNEURON_NETWORK(nn.Module):
             self.entropyBonus = self.windowEntropy
 
             if debugPrints: ʕっʘ‿ʘʔっ("weightedWindowStack.sum")
-            combinedActivationsTensor = weightedWindowStack.sum(dim=0, keepdim=True)
+            combinedActivationsTensor = weightedWindowStack.sum(dim = 0, keepdim = True)
             ʕっʘ‿ʘʔっ(self.refinement2)
             refinedActivations = self.refinement2(combinedActivationsTensor)
 
@@ -331,12 +331,12 @@ class INTERNEURON_NETWORK(nn.Module):
             # --- logging
             if debugPrints: ʕっʘ‿ʘʔっ("get inn stats no grad")
             """self.activationsHistory.append(self.neuronActivationsPerToken.norm().item())
-            self.activationsHistory_token.append(self.neuronActivationsPerToken.norm(dim=1).mean().item())
-            self.activationsHistory_neuron.append(self.neuronActivationsPerToken.norm(dim=0).mean().item())
+            self.activationsHistory_token.append(self.neuronActivationsPerToken.norm(dim = 1).mean().item())
+            self.activationsHistory_neuron.append(self.neuronActivationsPerToken.norm(dim = 0).mean().item())
             self.combHistory.append(combinedActivationsTensor.norm().item())
-            self.combHistory_neuron.append(combinedActivationsTensor.norm(dim=0).mean().item())
+            self.combHistory_neuron.append(combinedActivationsTensor.norm(dim = 0).mean().item())
             self.refHistory.append(refinedActivations.norm().item())
-            self.refHistory_neuron.append(refinedActivations.norm(dim=0).mean().item())"""
+            self.refHistory_neuron.append(refinedActivations.norm(dim = 0).mean().item())"""
 
             with torch.no_grad():
                 acts = self.neuronActivationsPerToken
@@ -346,18 +346,18 @@ class INTERNEURON_NETWORK(nn.Module):
                 if debugPrints: ʕっʘ‿ʘʔっ("get act norms")
                 norms = [
                     acts.norm(),
-                #    acts.norm(dim=1).mean(),
-                #    acts.norm(dim=0).mean(),
+                #    acts.norm(dim = 1).mean(),
+                #    acts.norm(dim = 0).mean(),
                 ]
                 #if debugPrints: ʕっʘ‿ʘʔっ("get comb norms")
                 #norms += [
                 #    comb.norm(),
-                #    comb.norm(dim=0).mean(),
+                #    comb.norm(dim = 0).mean(),
                 #]
                 if debugPrints: ʕっʘ‿ʘʔっ("get ref norms")
                 norms += [
                     ref.norm(),
-                    #ref.norm(dim=0).mean(),
+                    #ref.norm(dim = 0).mean(),
                 ]
                 if debugPrints: print(f"{norms}")
 
@@ -430,8 +430,8 @@ class INTERNEURON_NETWORK(nn.Module):
             seqLen, embedDim = activations.shape
 
             # PADDING ENSURES UNDERLYING DATA HAS CORRECT TENSOR/VECTOR SHAPE FOR THE MASK
-            if debugPrints: ʕっʘ‿ʘʔっ("padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)")
-            padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)
+            if debugPrints: ʕっʘ‿ʘʔっ("padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)")
+            padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)
             if debugPrints: ʕっʘ‿ʘʔっ("padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]")
             padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]
 
@@ -439,8 +439,8 @@ class INTERNEURON_NETWORK(nn.Module):
             stackedWindows = padded.unsqueeze(0).repeat(windowTensor.shape[0], 1, 1)
 
             # THE RANGE MASK IS ONLY EVER AS LONG AS WINDOWMAX, SO THAT WINDOWS DONT EXCEED IT
-            if debugPrints: ʕっʘ‿ʘʔっ("rangeMask = torch.arange(self.numTokensPerStep, device=self.device).unsqueeze(0)")
-            rangeMask = torch.arange(self.numTokensPerStep, device=self.device).unsqueeze(0)  # (1, maxW)
+            if debugPrints: ʕっʘ‿ʘʔっ("rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)")
+            rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)  # (1, maxW)
 
             #'mask' CHECKS TO SEE HOW LONG WINDOWS ARE, AND IF THEY ARE LONGER CROPS IT BEFORE MEANING
             if debugPrints: ʕっʘ‿ʘʔっ("mask = (rangeMask < windowTensor).float().unsqueeze(2)")
@@ -448,8 +448,8 @@ class INTERNEURON_NETWORK(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("stackedWindows * mask")
             maskedWindows = stackedWindows * mask
-            if debugPrints: ʕっʘ‿ʘʔっ("maskedWindows.sum(dim=1)")
-            sums = maskedWindows.sum(dim=1)  # (numWindows, embedDim)
+            if debugPrints: ʕっʘ‿ʘʔっ("maskedWindows.sum(dim = 1)")
+            sums = maskedWindows.sum(dim = 1)  # (numWindows, embedDim)
             if debugPrints: ʕっʘ‿ʘʔっ("sims / windowTensor")
             means = sums / windowTensor  # divide each by its window length
 

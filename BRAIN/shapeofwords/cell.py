@@ -11,7 +11,7 @@ class Cell:
     CellAttractivenessTopRecord = CELL_ATTRACTIVENESS_TOP_RECORD_INIT
     ratioResult = 0
     attractivenessGain = 0
-    def __init__(self, x, y, stats, environment, organismCheck=None, parent=None):
+    def __init__(self, x, y, stats, environment, organismCheck = None, parent = None):
         self.generalStatsList = ["growthRate",
         "resilience",
         "perception",
@@ -641,7 +641,7 @@ class Cell:
                 reproductionCost = (self.energy-(self.energy/CELL_REPRODUCTION_SUCCESS_COST))
                 self.fertilityEnergy -= reproductionCost/6
                 self.setEnergy(reproductionCost, "reproduce: super lucky")
-                baby_cell = Cell(x, y, self.stats, self.environment, organismCheck=self.organism, parent=self)
+                baby_cell = Cell(x, y, self.stats, self.environment, organismCheck = self.organism, parent = self)
                 self.environment.setCellAt(x, y, baby_cell)
                 self.memory.append((self.turnCount, "Okay, uh, what the fuck?! WHo fOrGOT TheIR KID!?!!", self.fertilityRate))
                 self.stats.addCellBaby("WTF?!")
@@ -669,7 +669,7 @@ class Cell:
                 self.fertilityEnergy += self.fertilityEnergy/100
                 self.setEnergy(reproductionCost, "reproduce: Has Baby")
                 self.energyStorage = self.energyStorage - reproductionCost/5
-                baby_cell = Cell(x, y, self.stats, self.environment, organismCheck=self.organism, parent=self)
+                baby_cell = Cell(x, y, self.stats, self.environment, organismCheck = self.organism, parent = self)
                 self.environment.setCellAt(x, y, baby_cell)
                 # print("UNEBEBEEEEEEEEEEEEEEEEE!!!!!!!!!!!!!!!!!!1!!!!!!!!!!!!!1!!!")
                 if self.attractiveness < ((self.CellAttractivenessTopRecord/10)*9):

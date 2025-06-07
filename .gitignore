@@ -15,14 +15,22 @@ archive/*
 **/*.pth*
 # Generated
 trainingData.txt
+
 # No need to commit those, they are raw files
 data/CHARIS
-SCHOOL/library/charisStudies
 *.tmp
+SCHOOL/library/trainingData.txt
 SCHOOL/library/trainingData-.txt
 SCHOOL/library/TrainingData--.txt
+SCHOOL/library/trainingData*
 SCHOOL/library/simpleTraining/lineSortedData.txt
 SCHOOL/statistics/LOGS/dataArchive/*term-*.txt
 SCHOOL/library/learning/mhh_ei_for_ai_model.md
 SCHOOL/statistics/LOGS/chat
 SCHOOL/library/trainingDataNOW.txt
+BRAIN/soul/*
+
+# IMPORTANT - NEVER COMMIT!!
+secret.py 
+SCHOOL/library/charisStudies
+# IMPORTANT - NEVER COMMIT!!

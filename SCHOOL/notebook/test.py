@@ -26,7 +26,7 @@ for _ in range(10):
 """    import code
     vars = globals().copy()
     vars.update(locals())
-    code.interact(local=vars)"""
+    code.interact(local = vars)"""
 
 """for attr in dir(babyLLM):
     if not attr.startswith("__"):
@@ -34,7 +34,7 @@ for _ in range(10):
 
 """geepy thingy test"""
 
-"""def deep_inspect(obj, prefix="babyLLM", depth=0, max_depth=2):
+"""def deep_inspect(obj, prefix="babyLLM", depth = 0, max_depth = 2):
         indent = "    " * depth
         if depth > max_depth:
             return
@@ -54,7 +54,7 @@ for _ in range(10):
                     print(f"{indent}  {attr} → {val_str}")
                 else:
                     print(f"{indent}  {attr} → {type(value).__name__}")
-                    babyLLM.deep_inspect(value, prefix=f"{prefix}.{attr}", depth=depth+1, max_depth=max_depth)
+                    babyLLM.deep_inspect(value, prefix = f"{prefix}.{attr}", depth = depth+1, max_depth = max_depth)
             except Exception as e:
                 print(f"{indent}  {attr} → <error reading value: {e}>")"""
 
@@ -74,8 +74,8 @@ for _ in range(10):
     sys.stdout.flush()
 
     self.printHUD(
-        windowWeights=(F.softmax(self.parallelNeuronLayer.windowWeighting, dim=0) + 0.1).detach().cpu().numpy(),
-        guessHUD=self.guessHUD
+        windowWeights=(F.softmax(self.parallelNeuronLayer.windowWeighting, dim = 0) + 0.1).detach().cpu().numpy(),
+        guessHUD = self.guessHUD
     )
 
     sys.stdout.write(f"\033[{height};0H")  # Move cursor just above HUD for next cycle
@@ -91,8 +91,8 @@ class NEURON(nn.Module):
 class INTERNEURON_NETWORK(nn.Module):
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = modelDevice)) # THIS WAS THE WINDOW WEIGHTING LAYER
         self.windowCombos = nn.ModuleList([nn.Linear(numNeurons, numNeurons, device = modelDevice) for _ in range(len(allWindowSizes_new))])
-        self.queryProj = nn.Linear(numNeurons, embedDimension, bias=True, device=modelDevice)
-        self.keyProj = nn.Linear(numNeurons, embedDimension, bias=True, device=modelDevice)
+        self.queryProj = nn.Linear(numNeurons, embedDimension, bias = True, device = modelDevice)
+        self.keyProj = nn.Linear(numNeurons, embedDimension, bias = True, device = modelDevice)
         self.judgeBias = nn.Parameter(torch.zeros(len(allWindowSizes_new), device = modelDevice))
         self.credibilityBias = nn.Parameter(torch.zeros(len(allWindowSizes_new), device = modelDevice))
 
@@ -119,7 +119,7 @@ class BABYLLM(nn.Module):
             list(self.interneuronNetwork.parameters()) + 
             list(self.logits.parameters()) +
             list(self.memory.parameters()),
-            lr=learningRate, weight_decay=0.001
+            lr = learningRate, weight_decay = 0.001
         )
 
 EMBED
@@ -161,10 +161,10 @@ def forward(self, inputEmbeds):
                 ʕっʘ‿ʘʔっ("not enough tokens for window (neurons.n_weights.mean)") # --- Not enough tokens for this window; use a zero vector
                 tinyWindowCount += 1
                 #summary = torch.zeros_like(numNeurons, device = modelDevice)
-                summary = neuronActivations.mean(dim=0) * 0  # KEEPS GRADIENTS FLOWING EVEN WHEN ZERO - shape: [numNeurons], safe to stack
+                summary = neuronActivations.mean(dim = 0) * 0  # KEEPS GRADIENTS FLOWING EVEN WHEN ZERO - shape: [numNeurons], safe to stack
             else: # Mean pooling over the last 'windowSize' token activations
                 ʕっʘ‿ʘʔっ("mean pooling all over all tokens (torch.mean)") # --- MEAN IS OVER WINDOW SIZE
-                summary = torch.mean(neuronActivations[-windowSize:], dim=0)
+                summary = torch.mean(neuronActivations[-windowSize:], dim = 0)
             ʕっʘ‿ʘʔっ("append window summaries")
             if debugPrints: 
                 for name, param in self.named_parameters():
@@ -172,11 +172,11 @@ def forward(self, inputEmbeds):
             windowOutputs.append(summary)
 
         ʕっʘ‿ʘʔっ("windowOutputTensor") # Stack summaries into a tensor of shape (num_windows, numNeurons)
-        windowOutputsTensor = torch.stack(windowOutputs, dim=0)  # shape: (32, numNeurons)
+        windowOutputsTensor = torch.stack(windowOutputs, dim = 0)  # shape: (32, numNeurons)
 
         # Project summaries to queries and keys for attention scoring
         ʕっʘ‿ʘʔっ("cerebellumSoft")
-        self.cerebellumSoft = F.softmax(self.cerebellum, dim=0) # THIS WAS THE WINDOW WEIGHTING LAYER
+        self.cerebellumSoft = F.softmax(self.cerebellum, dim = 0) # THIS WAS THE WINDOW WEIGHTING LAYER
         ʕっʘ‿ʘʔっ("query")
         query = self.queryProj(windowOutputsTensor) + self.judgeBias.unsqueeze(1) + self.cerebellum.unsqueeze(1)  # shape: (32, numNeurons)
         ʕっʘ‿ʘʔっ("key")
@@ -189,10 +189,10 @@ def forward(self, inputEmbeds):
 
         ʕっʘ‿ʘʔっ("selfScores & peerScores") # separate self scores (diagonal) and peer scores (off-diagonals)
         selfScores = torch.diag(scores) # self score for window i: scores[i, i] (shape: (32,))
-        peerScores = scores.sum(dim=0) - selfScores # peer scores for window j: sum of scores[i, j] for all i != j (shape: (32,))
+        peerScores = scores.sum(dim = 0) - selfScores # peer scores for window j: sum of scores[i, j] for all i != j (shape: (32,))
         ʕっʘ‿ʘʔっ("combinedScores")
         combinedScores = selfScores + peerScores # shape: (32,)
-        softCombinedScores = F.softmax(combinedScores, dim=0)
+        softCombinedScores = F.softmax(combinedScores, dim = 0)
         attentionWindowWeights = softCombinedScores # shape: (32,), sum of weights = 1
         if debugPrints: 
             ʕっʘ‿ʘʔっ("♥getWindowEntropy")
@@ -203,7 +203,7 @@ def forward(self, inputEmbeds):
         ʕっʘ‿ʘʔっ("weightedWindows") # Weight each window's output (summary) by its soft combined scores (attention weight) and sum
         weightedWindows = windowOutputsTensor * attentionWindowWeights.unsqueeze(1)  # shape: (32, numNeurons)
         ʕっʘ‿ʘʔっ("windowContextVector")
-        windowContextVector = weightedWindows.sum(dim=0, keepdim=True)   # shape: (1, numNeurons)
+        windowContextVector = weightedWindows.sum(dim = 0, keepdim = True)   # shape: (1, numNeurons)
 
         ʕっʘ‿ʘʔっ("finalActions")
         if tinyWindowCount > 0: print(f"saw {neuronActivations.shape[0]} tokens; created {tinyWindowCount} empty windows.")
@@ -281,7 +281,7 @@ def forward(self, inputSeq):
         if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(interneuronNetworkOutput)}") 
 
         ʕっʘ‿ʘʔっ("combinedActivationsTensor") # RESIZE NEURON LAYER TO STANDARD SIZE FOR COMBINED FORWARD PROCESSING
-        #combinedActivationsTensor = torch.mean(interneuronNetworkOutput, dim=0, keepdim=True)
+        #combinedActivationsTensor = torch.mean(interneuronNetworkOutput, dim = 0, keepdim = True)
         combinedActivationsTensor = interneuronNetworkOutput
         if debugPrints: print("combinedActivationsTensor.requires_grad:", combinedActivationsTensor.requires_grad)
         if debugPrints: print("combinedActivationsTensor.grad_fn:", combinedActivationsTensor.grad_fn)

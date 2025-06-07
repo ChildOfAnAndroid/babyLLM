@@ -41,10 +41,10 @@ class Main:
 
         # Timer setup for simulation loop
         self.turn = 0
-        self.timer = Timer(0.1, connect=self.run, iterations=-1, start=True)
+        self.timer = Timer(0.1, connect = self.run, iterations=-1, start = True)
         self.fastForward = False
 
-    def run(self, event=None):
+    def run(self, event = None):
         if self.turn > NUM_STEPS:
             if self.timer.running:
                 self.timer.stop()
@@ -72,7 +72,7 @@ class Main:
         print(f"Timer running: {self.timer.running}")
         self.stats.beginTurn()
         self.environments.runLoop(turn)
-        self.visualisation.runLoop(turn, end=end)
+        self.visualisation.runLoop(turn, end = end)
         self.automaton.runLoop(turn)
         self.stats.endTurn()
         self.simulationRecorder.endTurn()

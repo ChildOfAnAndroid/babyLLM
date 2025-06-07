@@ -196,8 +196,8 @@ class LOGITS(nn.Module):
                 #self.stats["6L_3_outSigmoid_scale"] = outScale.detach().item()
                 #self.stats["6L_4_outNormSigmoid_scale"] = normOutScale.detach().item()
             if debugPrints: print("activation norm:", self.scaledActivations.norm().item())
-            if debugPrints: print("weight norm mean:", self.l_weights.norm(dim=0).mean().item())
-            if debugPrints: print("weight norm max:", self.l_weights.norm(dim=0).max().item())
+            if debugPrints: print("weight norm mean:", self.l_weights.norm(dim = 0).mean().item())
+            if debugPrints: print("weight norm max:", self.l_weights.norm(dim = 0).max().item())
 
             # return logits (not softmax) for better gradient computation in cross-entropy loss
             return self.finalLogit # L6 ->

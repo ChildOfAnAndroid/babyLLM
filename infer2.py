@@ -17,7 +17,7 @@ from datetime import datetime # For conversation log timestamp
 # Assuming config.py is in the same directory or Python path
 from config import *
 
-# Import BABYLLM and its school staff
+# waking up the school :)
 from SCHOOL.staffroom.counsellor import COUNSELLOR
 counsellor = COUNSELLOR("infer", _debug = debugPrints, _durations = durationLogging)
 
@@ -44,9 +44,9 @@ babyLLM.to(modelDevice)
 userPrompt = ""
 
 # Setup exception handling and warnings
-rich_traceback_install(show_locals=True)
+rich_traceback_install(show_locals = True)
 warnings.simplefilter("default")
-torch.autograd.set_detect_anomaly(mode=anomalyDetect, check_nan=debugPrints)
+torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
 def handle_exception_infer(exc_type, exc_value, exc_traceback):
     if not issubclass(exc_type, KeyboardInterrupt):
@@ -83,11 +83,11 @@ def log_conversation(message, log_file_path="SCHOOL/statistics/LOGS/chat/inferen
         print(f"[ERROR] could not write to conversation log: {e}")
 
 
-def generate_response(baby_model, librarian, counsellor, prompt_tokens_ids, max_len, temperature_override=None):
+def generate_response(baby_model, librarian, counsellor, prompt_tokens_ids, max_len, temperature_override = None):
     """
     Generates a response from the baby_model autoregressively.
     """
-    with counsellor.infodump("generate_response") as 婴儿:
+    with counsellor.infodump("generate_response") as ʕっʘ‿ʘʔっ: #婴儿
         generated_sequence_ids = list(prompt_tokens_ids)
         
         current_visual_input_for_model = None
@@ -98,7 +98,7 @@ def generate_response(baby_model, librarian, counsellor, prompt_tokens_ids, max_
         response_display_buffer = []
 
         for i in range(max_len):
-            婴儿(f"generation_step_{i}")
+            ʕっʘ‿ʘʔっ(f"generation_step_{i}") #婴儿
             #tutor.pixelNow = tutor.pixelNext.clone()
             #tutor.pixelNext = tutor.getPixelForStep(j)
             #if debugPrints: print(f"now: {pixelNow}, next: {tutor.pixelNext}", end="")
@@ -106,16 +106,16 @@ def generate_response(baby_model, librarian, counsellor, prompt_tokens_ids, max_
             current_visual_input_for_model = tutor.pixelNow
 
             current_input_segment_ids = generated_sequence_ids[-baby_model.numTokensPerStep:]
-            input_ids_tensor = torch.tensor(current_input_segment_ids, dtype=torch.long, device=modelDevice)
+            input_ids_tensor = torch.tensor(current_input_segment_ids, dtype = torch.long, device = modelDevice)
             
-            logits = baby_model.forward(input_ids_tensor, _pixel=current_visual_input_for_model)
+            logits = baby_model.forward(input_ids_tensor, _pixel = current_visual_input_for_model)
             
             #original_logtemp = None
             #if temperature_override is not None:
             #    original_logtemp = baby_model.logTemp.item()
             #    baby_model.logTemp.data.fill_(math.log(temperature_override))
 
-            next_token_id_tensor = baby_model.getResponseFromLogits(logits, _training=True)
+            next_token_id_tensor = baby_model.getResponseFromLogits(logits, _training = True)
             next_token_id = next_token_id_tensor.item()
 
             #if original_logtemp is not None:
@@ -128,7 +128,7 @@ def generate_response(baby_model, librarian, counsellor, prompt_tokens_ids, max_
 
             next_token_str = librarian.indexToToken.get(next_token_id, "<UNK>")
             response_display_buffer.append(next_token_str.replace("Ġ", " "))
-            print(response_display_buffer[-1], end="", flush=True)
+            print(response_display_buffer[-1], end="", flush = True)
         
         print() 
         response_ids_only = generated_sequence_ids[len(prompt_tokens_ids):] # IDs of the content
@@ -141,7 +141,7 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
     userPrompt = ""
 
     initial_greeting = f"hey! nice to see you, what did you want to tell me? also, my current numTokensPerStep is {baby_model.numTokensPerStep}."
-    scribe.scribeSay(initial_greeting, _vibe="happy", _scribeName=babyName)
+    scribe.scribeSay(initial_greeting, _vibe="happy", _scribeName = babyName)
     userPrompt += f"[{babyName}]: {initial_greeting}\n"
     log_conversation(f"[{babyName}]: {initial_greeting}")
 
@@ -181,15 +181,15 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
             #    continue
             if raw_user_input.lower() in ["exit", "quit", "bye", "/exit"]:
                 exit_msg = "bye! it was nice chatting with you."
-                scribe.scribeSay(exit_msg, _vibe="sleepy", _scribeName=babyName)
+                scribe.scribeSay(exit_msg, _vibe="sleepy", _scribeName = babyName)
                 log_conversation(f"[{babyName}]: {exit_msg}")
                 break
             if raw_user_input.lower() == "!savemodel":
                 raw_user_input += f"[{userName}]: {raw_user_input.lower()}"
-                scribe.scribeSay("oop, you wanna save this? uhhh.. ok!", _vibe="writes", _scribeName=babyName)
+                scribe.scribeSay("oop, you wanna save this? uhhh.. ok!", _vibe="writes", _scribeName = babyName)
                 raw_user_input += f"[babyllm]: oop, you wanna save this? uhhh.. ok!"
                 tutor.saveFreqActions()
-                scribe.scribeSay("saved, sealed, sorted!", _vibe="happy", _scribeName=babyName)
+                scribe.scribeSay("saved, sealed, sorted!", _vibe="happy", _scribeName = babyName)
                 raw_user_input += f"[babyllm]: saved, sealed, sorted!"
                 continue
 
@@ -221,8 +221,8 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
             raw_response_with_prefix, raw_response_ids_only = generate_response(
                 baby_model, librarian, counsellor,
                 generation_prompt_ids, # <--- PASS THE CORRECT LIST OF IDs
-                max_len=desired_max_response_len,
-                temperature_override=None
+                max_len = desired_max_response_len,
+                temperature_override = None
             )
 
             # --- Editing Step ---
@@ -281,13 +281,13 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
                     total_possible_pairs_in_buffer = max(0, len(conversation_token_ids_for_learning) - (tokens_needed_for_one_pair -1))
                     current_pair_index_in_buffer = learning_buffer_offset
 
-                    learning_successful = tutor.learn_from_interaction(
+                    learning_successful = tutor.interactiveLearning(
                         current_input_ids, current_target_ids,
                         current_input_text, current_target_text,
                         calligraphist,
-                        show_detailed_stats=show_learning_stats,
-                        current_dataset_total_pairs=total_possible_pairs_in_buffer,
-                        current_dataset_step_index=current_pair_index_in_buffer
+                        show_detailed_stats = show_learning_stats,
+                        current_dataset_total_pairs = total_possible_pairs_in_buffer,
+                        current_dataset_step_index = current_pair_index_in_buffer
                     )
 
                     if learning_successful:
@@ -296,14 +296,14 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
                             tutor.saveFreqActions()
                     else:
                         not_learned_msg = "hmm... well, i tried to get my homework done on time, but i'm not really sure where you left it..."
-                        scribe.scribeSay(not_learned_msg, _vibe="worried", _scribeName=babyName)
+                        scribe.scribeSay(not_learned_msg, _vibe="worried", _scribeName = babyName)
                         log_conversation(f"[{babyName}]: {not_learned_msg} (Slice offset: {learning_buffer_offset})")
                     
                     learning_buffer_offset += 25 # KEY: Slide the window by 1 token DATASTRIDE!!!! bsically
 
                 if scribe_message_printed:
                     learned_msg_confirm = "nice :)"
-                    scribe.scribeSay(learned_msg_confirm, _vibe="happy", _scribeName=babyName)
+                    scribe.scribeSay(learned_msg_confirm, _vibe="happy", _scribeName = babyName)
                     log_conversation(f"[{babyName}]: {learned_msg_confirm}")
             else:
                 if debugPrints: print(f"DEBUG INFER: Not enough new tokens for a learning step. Available new: {len(conversation_token_ids_for_learning) - learning_buffer_offset}, Needed: {tokens_needed_for_one_pair}")
@@ -317,7 +317,7 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
 
                 trim_msg = f"learning buffer trimmed, removed {amount_to_trim} tokens. new offset: {learning_buffer_offset}."
                 if show_learning_stats:
-                    scribe.scribeSay(trim_msg, _vibe="neutral", _scribeName=babyName)
+                    scribe.scribeSay(trim_msg, _vibe="neutral", _scribeName = babyName)
                     log_conversation(f"[babyllm]: {trim_msg}")
             
             max_generation_prompt_tokens = baby_model.numTokensPerStep * 3
@@ -329,7 +329,7 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
         
         except EOFError:
             eof_msg = "see you later :)"
-            scribe.scribeSay(eof_msg, _vibe="sleepy", _scribeName=babyName)
+            scribe.scribeSay(eof_msg, _vibe="sleepy", _scribeName = babyName)
             log_conversation(f"[{babyName}]: {eof_msg}")
             break
         except Exception as e:
@@ -337,21 +337,21 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
             print(error_msg)
             traceback.print_exc()
             log_conversation(f"[SYSTEM_ERROR]: {str(e)}\n{traceback.format_exc()}")
-            scribe.scribeSay("uhh... i... what? can i try that one again?", _vibe="worried", _scribeName=babyName)
+            scribe.scribeSay("uhh... i... what? can i try that one again?", _vibe="worried", _scribeName = babyName)
 
 
 if __name__ == "__main__":
     # Initialize calligraphist bands for tutor (using the global tutor instance)
     if hasattr(tutor, 'ʕっෆ‿ෆʔっ'): # tutor is now global
-        calligraphist.refreshStatBands(_rollingAverages=tutor.ʕっෆ‿ෆʔっ)
+        calligraphist.refreshStatBands(_rollingAverages = tutor.ʕっෆ‿ෆʔっ)
         if not tutor.ʕっෆ‿ෆʔっ.get("loss"):
             tutor.ʕっෆ‿ෆʔっ['loss'] = tutor.makeStatRecord()
             tutor.ʕっෆ‿ෆʔっ['loss'][str(printFreq)] = [0.1] * printFreq
             tutor.updateRollingStats(tutor.ʕっෆ‿ෆʔっ['loss'], tutor.ʕっෆ‿ෆʔっ['loss'][str(printFreq)], printFreq, str(printFreq), percentileBands)
-            calligraphist.refreshStatBands(_rollingAverages=tutor.ʕっෆ‿ෆʔっ)
+            calligraphist.refreshStatBands(_rollingAverages = tutor.ʕっෆ‿ෆʔっ)
 
     chat_log_dir = os.path.join("SCHOOL", "statistics", "LOGS", "chat")
-    os.makedirs(chat_log_dir, exist_ok=True)
+    os.makedirs(chat_log_dir, exist_ok = True)
 
     try:
         # Pass the globally initialized components

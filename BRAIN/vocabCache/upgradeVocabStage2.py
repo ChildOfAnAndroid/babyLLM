@@ -17,6 +17,6 @@ tokenizer_data["model"]["vocab"] = new_vocab
 
 # Save tokenizer
 with open("tokenizer_4200_FIXED.json", "w", encoding="utf-8") as f:
-    json.dump(tokenizer_data, f, indent=2, ensure_ascii=False)
+    json.dump(tokenizer_data, f, indent = 2, ensure_ascii = False)
 
 print("Tokenizer patched and saved as tokenizer_4200_FIXED.json.")

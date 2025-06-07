@@ -411,7 +411,7 @@ class S_OUTPUT:
                 # remove section prefix like "1E_", "6L_", etc.
                 for _, pattern in sectionPrefixes:
                     if pattern.match(k):
-                        k = pattern.sub("", k, count=1)
+                        k = pattern.sub("", k, count = 1)
                         break
                 k = re.sub(r"^\d+_", "", k)
                 k = re.sub(r"^x_", "", k)
@@ -586,7 +586,7 @@ class S_OUTPUT:
     @whocalled
     def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes, windowTensor, per_window_style = False):
         try:
-            triplets = sorted(zip(windowSizes, windowTensor, rawTensor, softTensor), key=lambda x: x[3], reverse=True)
+            triplets = sorted(zip(windowSizes, windowTensor, rawTensor, softTensor), key = lambda x: x[3], reverse = True)
             formatted = []
             for w, t, raw, soft in triplets:
                 floatVal = w.item() if isinstance(w, torch.Tensor) else w

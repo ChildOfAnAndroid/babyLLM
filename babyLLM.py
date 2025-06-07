@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
 
-import random, os, re
+import random, os
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -59,12 +59,12 @@ class BABYLLM(nn.Module):
         self.penalisedOutputHistory = []
         self.inputEmbedsHistory = []
         self.FINALlogitsHistory = []
-        self.predPixel = torch.tensor([0.0, 0.0, 0.0], device=self.device)
+        self.predPixel = torch.tensor([0.0, 0.0, 0.0], device = self.device)
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
-        self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep=self.numTokensPerStep)
+        self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory2 = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
@@ -78,7 +78,7 @@ class BABYLLM(nn.Module):
         self.logMemoryLength = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logMemory2Length = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
-        self.inputBlend = nn.Parameter(torch.ones(3, device=self.device))
+        self.inputBlend = nn.Parameter(torch.ones(3, device = self.device))
         self.memoryLength = torch.sigmoid((1 - torch.exp(self.logMemoryLength)) * 0.1)
         self.memory2Length = torch.sigmoid((1 - torch.exp(self.logMemory2Length)) * 0.1)
 
@@ -91,16 +91,16 @@ class BABYLLM(nn.Module):
             print("registered parameters: ")
             for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
 
-        #baseOptim = optim.RAdam(self.parameters(), lr=learningRate)
-        #baseOptim = torch_optimizer.Lion(self.parameters(), lr=1e-4)
+        #baseOptim = optim.RAdam(self.parameters(), lr = learningRate)
+        #baseOptim = torch_optimizer.Lion(self.parameters(), lr = 1e-4)
         #self.optimizer = optim.Lookahead(baseOptim)
         #self.optimizer = baseOptim
 
         if optimizerName == "Adan":
-            self.optimizer = Adan(self.parameters(), lr=learningRate, betas=(0.98, 0.92, 0.99), eps=1e-6, weight_decay=0.005)
+            self.optimizer = Adan(self.parameters(), lr = learningRate, betas=(0.98, 0.92, 0.99), eps = 1e-6, weight_decay = 0.005)
         else:
             optimizerClass = getattr(optim, optimizerName)
-            self.optimizer = optimizerClass(self.parameters(), lr=learningRate, weight_decay=0.005, fused=True)
+            self.optimizer = optimizerClass(self.parameters(), lr = learningRate, weight_decay = 0.005, fused = True)
 
 
         if debugPrints:
@@ -121,7 +121,7 @@ class BABYLLM(nn.Module):
             #inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
             tokenEmbed = self.embed(_tokenIndex = _inputSeq)
             seq_len = tokenEmbed.shape[0]
-            pos_indices = torch.arange(seq_len, device=tokenEmbed.device)
+            pos_indices = torch.arange(seq_len, device = tokenEmbed.device)
             posEmbed = self.embed.posEmbedding(pos_indices)  # [seq_len, embed_dim]
             if not skipPixels and (_pixel is not None):
                 rgbEmbed = self.embed(_pixel = _pixel)
@@ -131,7 +131,7 @@ class BABYLLM(nn.Module):
                     print("rgbEmbed:", rgbEmbed.shape)
                 #blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
                 #inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
-                blend = F.softmax(self.inputBlend, dim=0)
+                blend = F.softmax(self.inputBlend, dim = 0)
                 inputEmbeds = blend[0] * tokenEmbed + blend[1] * posEmbed + blend[2] * rgbEmbed
             else:
                 inputEmbeds = tokenEmbed
@@ -236,7 +236,7 @@ class BABYLLM(nn.Module):
                 _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
             
             if debugPrints: ʕっʘ‿ʘʔっ("cross Entropy Loss")
-            #LOSSlogits = torch.clamp(_logits, min=-50, max=50)
+            #LOSSlogits = torch.clamp(_logits, min=-50, max = 50)
             loss = F.cross_entropy(_logits, targetTensor)
             self.CEloss_used = loss
 
@@ -330,7 +330,7 @@ class BABYLLM(nn.Module):
                 FINALloss += AUXloss
                 if debugPrints: print(f"{FINALloss} aux ({AUXloss}) + final")
             if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
-            token_freqs = self.lastSoftSample.mean(dim=0)
+            token_freqs = self.lastSoftSample.mean(dim = 0)
             repLoss = (token_freqs**2).mean() * self.repetitionPenalty
             self.repLoss_used = repLoss
             FINALloss += repLoss
@@ -410,7 +410,7 @@ class BABYLLM(nn.Module):
                 #self.logMemoryLength.data.fill_(math.log(5))  # Memory length default
                 #self.logRepetitionWindow.data.fill_(math.log(16))  # Repetition window default
                 #self.interneuronNetwork.logWindowSizes.data.copy_(
-                #    torch.log(torch.tensor(allWindowSizes_new, dtype=torch.float32, device=self.device))
+                #    torch.log(torch.tensor(allWindowSizes_new, dtype = torch.float32, device = self.device))
                 #)
                 #for module in self.interneuronNetwork.windowMeta:
                 #    if isinstance(module, torch.nn.Linear):
@@ -436,7 +436,7 @@ class BABYLLM(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("clip_grad_norm")
             clipValue = torch.exp(self.logGradClip).item()
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue)
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = clipValue)
             if debugPrints: ʕっʘ‿ʘʔっ("optimizer.step")
             self.optimizer.step()  # Update weights
             if debugPrints: ʕっʘ‿ʘʔっ("torch.exp(self.logRepetionWindow)")
@@ -476,9 +476,9 @@ class BABYLLM(nn.Module):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
             if not torch.isfinite(_logits).all():
                 print("logits not finite before response gen:", _logits)
-                _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
+                _logits = torch.nan_to_num(_logits, nan = 0.0, posinf = 1e3, neginf=-1e3)
             if debugPrints: ʕっʘ‿ʘʔっ("update logarithmic parameters")
-            #self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min=1.0)
+            #self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min = 1.0)
             if debugPrints: ʕっʘ‿ʘʔっ("torch.exp(self.logTemp)")
             self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
             if debugPrints: ʕっʘ‿ʘʔっ("_logits /= self.temperature")
@@ -489,7 +489,7 @@ class BABYLLM(nn.Module):
                 print("NaN in logits after temperature scaling!")
                 print("logTemp:", self.logTemp.item(), "Temp:", self.temperature.item())
                 print("logits stats:", _logits.min().item(), _logits.max().item(), _logits.mean().item())
-                _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
+                _logits = torch.nan_to_num(_logits, nan = 0.0, posinf = 1e3, neginf=-1e3)
 
             if debugPrints: ʕっʘ‿ʘʔっ("if logits dim(1), unsqueeze(0)")
             if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
@@ -502,10 +502,10 @@ class BABYLLM(nn.Module):
                     if debugPrints: ʕっʘ‿ʘʔっ("non-finite logits detected BEFORE GUMBEL, nan_to_num logitsForSample")
                     print("non-finite logits detected BEFORE GUMBEL")
                     print("logits:", logitsForSample)
-                    logitsForSample = torch.nan_to_num(logitsForSample, nan=0.0, posinf=1e3, neginf=-1e3)
+                    logitsForSample = torch.nan_to_num(logitsForSample, nan = 0.0, posinf = 1e3, neginf=-1e3)
                 try:
                     if debugPrints: ʕっʘ‿ʘʔっ("gumbel softmax")
-                    gumbelProbs = F.gumbel_softmax(logitsForSample, tau=self.temperature, hard=False)
+                    gumbelProbs = F.gumbel_softmax(logitsForSample, tau = self.temperature, hard = False)
                     assert torch.isfinite(gumbelProbs).all(), "gumbelProbs has NaN or Inf!"
                 except Exception as e:
                     self.gumBellend += 1
@@ -513,7 +513,7 @@ class BABYLLM(nn.Module):
                     if debugPrints: print("gumbel softmax failed:", e)
                     if debugPrints: print(f"falling back to softmax sampling (total fallbacks: {self.gumBellend})...")
                     if debugPrints: ʕっʘ‿ʘʔっ("torch.softmax")
-                    gumbelProbs = torch.softmax(logitsForSample, dim=1)
+                    gumbelProbs = torch.softmax(logitsForSample, dim = 1)
 
                 self.lastSoftSample = gumbelProbs
                 if debugPrints: ʕっʘ‿ʘʔっ("gumbelProbs.argmax")
@@ -521,7 +521,7 @@ class BABYLLM(nn.Module):
                 self.lastSoftSample = gumbelProbs
 
                 if debugPrints: ʕっʘ‿ʘʔっ("topK sampling")
-                topk = torch.topk(gumbelProbs, 10, dim=1)
+                topk = torch.topk(gumbelProbs, 10, dim = 1)
                 if debugPrints: ʕっʘ‿ʘʔっ("topK indices to list")
                 indices = topk.indices[0].tolist()
                 if debugPrints: ʕっʘ‿ʘʔっ("topk values to list")
@@ -545,7 +545,7 @@ class BABYLLM(nn.Module):
 
             else:
                 if debugPrints: ʕっʘ‿ʘʔっ("not training, using softmax")
-                probs = torch.softmax(_logits, dim=1)
+                probs = torch.softmax(_logits, dim = 1)
                 if debugPrints: ʕっʘ‿ʘʔっ("multinomial")
                 responseFromLogits = torch.multinomial(probs, 1)
                 self.lastSoftSample = None  # or keep the probs if you want analysis
@@ -588,7 +588,7 @@ class BABYLLM(nn.Module):
             softMask = torch.sigmoid((positions - (windowCenter - repWindow)) * 0.5)
 
             if debugPrints: ʕっʘ‿ʘʔっ("oneHots")
-            oneHots = F.one_hot(recentTokens, num_classes=vocabSize).float()
+            oneHots = F.one_hot(recentTokens, num_classes = vocabSize).float()
             if debugPrints: ʕっʘ‿ʘʔっ("weightedFreqs = (oneHots.T @ softMask).view(1, -1)")
             weightedFreqs = (oneHots.T @ softMask).view(1, -1)
 
@@ -676,7 +676,7 @@ class BABYLLM(nn.Module):
                 buffers_path = filePath + ".membuff"
                 if os.path.exists(buffers_path):
                     try:
-                        memory_buffers_state = torch.load(buffers_path, map_location=self.device) # Load to current device
+                        memory_buffers_state = torch.load(buffers_path, map_location = self.device) # Load to current device
                         self.memory.shortTermMemory.data.copy_(memory_buffers_state['memory1_short'])
                         self.memory.longTermMemory.data.copy_(memory_buffers_state['memory1_long'])
                         self.memory2.shortTermMemory.data.copy_(memory_buffers_state['memory2_short'])

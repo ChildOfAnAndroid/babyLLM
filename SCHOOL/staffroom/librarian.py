@@ -24,7 +24,7 @@ This class:
 - Saves and loads vocab data to/from files.
 """
 class LIBRARIAN:
-    def __init__(self, _counsellor, _vocabSize=vocabSize, _vocabPath=None, _baseTokenizerPath=None, _forceRetrain=False):
+    def __init__(self, _counsellor, _vocabSize = vocabSize, _vocabPath = None, _baseTokenizerPath = None, _forceRetrain = False):
         self.v_counsellor = _counsellor
         self.vocabSize = _vocabSize
         self.unkToken = "<UNK>"
@@ -45,7 +45,7 @@ class LIBRARIAN:
 
         self.baseTokenizerPath = _baseTokenizerPath
 
-        os.makedirs(self.vocabCache, exist_ok=True)
+        os.makedirs(self.vocabCache, exist_ok = True)
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
 
@@ -54,11 +54,11 @@ class LIBRARIAN:
             if shouldTrain:
                 if debugPrints: ʕっʘ‿ʘʔっ("TRAINING NEW TOKENIZER")
                 print("training new tokenizer...")
-                tokenizerModel = Tokenizer(models.BPE(unk_token=self.unkToken))
+                tokenizerModel = Tokenizer(models.BPE(unk_token = self.unkToken))
                 tokenizerModel.pre_tokenizer = pre_tokenizers.ByteLevel()
                 trainer = trainers.BpeTrainer(
-                    vocab_size=self.vocabSize,
-                    min_frequency=minTokenFreq,
+                    vocab_size = self.vocabSize,
+                    min_frequency = minTokenFreq,
                     special_tokens=[self.unkToken]
                 )
 
@@ -102,7 +102,7 @@ class LIBRARIAN:
             if debugPrints: ʕっʘ‿ʘʔっ("getting vocab dictionary from tokenizer...")
             invVocab = self.tokenizer.get_vocab()
             if debugPrints: ʕっʘ‿ʘʔっ("ordering by index...")
-            sortedTokens = sorted(invVocab.items(), key=lambda item: item[1])  # sort by index
+            sortedTokens = sorted(invVocab.items(), key = lambda item: item[1])  # sort by index
             self.vocabList = [token for token, idx in sortedTokens]
             if debugPrints: ʕっʘ‿ʘʔっ("mapping vocab dicts...")
             self.tokenToIndex = {token: idx for token, idx in sortedTokens}
@@ -118,7 +118,7 @@ class LIBRARIAN:
 
     def huggingTokenizer(self, _text): return self.tokenizer.tokenize(_text)
 
-    def loadTrainingData(self, _filepaths, _chunkSize=V_chunkSizeLoadData):
+    def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ:
             result = ""
             for path in _filepaths:
@@ -131,7 +131,7 @@ class LIBRARIAN:
             print(f"loaded {len(result)} characters of training data!")
             return result
 
-    def genTrainingData(self, _windowMAX=numTokensPerStepSTART, _startIndex=trainingStartIndex, _trainingDataPairNumber=trainingDataPairNumber, _stride = trainingDataStride):
+    def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = trainingDataPairNumber, _stride = trainingDataStride):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             trainingDataPairs = []
             count = 0

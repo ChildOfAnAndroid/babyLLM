@@ -7,7 +7,7 @@ from config import *
 def load_model(path):
     """Loads the BabyLLM model safely"""
     print("Loading BabyLLM's brain...")
-    return torch.load(path, map_location=torch.device('cpu'))
+    return torch.load(path, map_location = torch.device('cpu'))
 
 def load_vocab(vocab_path):
     """Loads the vocabulary from a JSON file and ensures correct key-value mapping"""
@@ -39,7 +39,7 @@ def load_vocab(vocab_path):
     
     return vocab_fixed
 
-def extract_word_embeddings(state_dict, vocab, num_words=2000):
+def extract_word_embeddings(state_dict, vocab, num_words = 2000):
     """Extracts word embeddings and returns a word-embedding dictionary"""
     print("Extracting word embeddings...")
     
@@ -62,12 +62,12 @@ def extract_word_embeddings(state_dict, vocab, num_words=2000):
 def compute_cosine_similarity(embeddings):
     """Computes cosine similarity between word embeddings"""
     embeddings = np.array(embeddings)  # Ensure NumPy array
-    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)  # Normalize vectors
+    norms = np.linalg.norm(embeddings, axis = 1, keepdims = True)  # Normalize vectors
     return np.dot(embeddings, embeddings.T) / (norms * norms.T)  # Cosine similarity
 
 def save_similarity_table(words, similarity_matrix, output_file="similarity_matrix.csv"):
     """Saves similarity scores to a CSV file"""
-    df = pd.DataFrame(similarity_matrix, index=words, columns=words)
+    df = pd.DataFrame(similarity_matrix, index = words, columns = words)
     df.to_csv(output_file)
     print(f"\n🔍 Word Similarity Matrix saved to {output_file}")
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         print("❌ Vocabulary loading failed!")
         exit()
 
-    words, embeddings = extract_word_embeddings(state_dict, vocab, num_words=2000)
+    words, embeddings = extract_word_embeddings(state_dict, vocab, num_words = 2000)
 
     if words and embeddings is not None:
         similarity_matrix = compute_cosine_similarity(embeddings)
