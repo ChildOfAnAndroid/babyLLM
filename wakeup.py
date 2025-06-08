@@ -12,9 +12,8 @@ from SCHOOL.staffroom.calligraphist import S_OUTPUT
 from SCHOOL.staffroom.librarian import LIBRARIAN
 from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
-# from BRAIN.LAYERS.sensoryWobble import WOBBLE
-# from SCHOOL.staffroom.newsletter import STATS
 from config import *
+from babyBotTMP import BABYBOT
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if not issubclass(exc_type, KeyboardInterrupt):
@@ -26,7 +25,7 @@ warnings.simplefilter("default") # show all warnings (PyTorch hides some by defa
 install(show_locals = True)
 torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
-def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trainingDataPairNum = trainingDataPairNumber, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True):
+def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trainingDataPairNum = trainingDataPairNumber, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True, mode = "train"):
     try:
         # WAKE UP THE SCHOOL :)
         counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
@@ -37,12 +36,12 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
             librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False) #_baseTokenizerPath = "BRAIN/vocabCache/2000_20/tokenizer_2000.json", _forceRetrain = True)
 
             if False: exit(0)
-            if debugPrints: ʕっʘ‿ʘʔっ("opening questions...")
-            newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian, _windowMAX = windowMAX, _first = first)
+            #if debugPrints: ʕっʘ‿ʘʔっ("opening questions...")
+            #newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian, _windowMAX = windowMAX, _first = first)
 
-            if debugPrints: ʕっʘ‿ʘʔっ("generating training data pairs...")
-            trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _trainingDataPairNumber = trainingDataPairNum, _startIndex = newStartIndex, _stride = dataStride)
-            if debugPrints:                 print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
+            #if debugPrints: ʕっʘ‿ʘʔっ("generating training data pairs...")
+            #trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _trainingDataPairNumber = trainingDataPairNum, _startIndex = newStartIndex, _stride = dataStride)
+            #if debugPrints:                 print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
 
             if debugPrints: ʕっʘ‿ʘʔっ("loading chaos agents...")
             calligraphist       = S_OUTPUT  (_counsellor                = counsellor)
@@ -79,13 +78,29 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                                                 _perfectionistPassRateSTART = passRateSTART,
                                                 _trainingLogFreq_A          = log_A,)
             
-            babyLLM.loadModel()
-            babyLLM.to(modelDevice)
+            if mode == "bot":
+                print("--- LAUNCHING TWITCH BOT ---")
+                if debugPrints: ʕっʘ‿ʘʔっ("starting twitch bot!")
+                # Create a bot instance, passing in the fresh ML objects and config
+                babyBot = BABYBOT(babyLLM, tutor, librarian, scribe, calligraphist)
+                babyLLM.loadModel()
+                babyLLM.to(modelDevice)
+                babyBot.run()
 
-            # START THE LESSONS :)
-            if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
-            tutor.trainModel                (_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
-            return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
+            elif mode == "train":
+                print("--- STARTING OFFLINE TRAINING ---")
+                newStartIndex = openingQuestions(_counsellor=counsellor, _librarian=librarian, _windowMAX=windowMAXSTART, _first=True)
+                trainingDataPairs = librarian.genTrainingData(_windowMAX=windowMAXSTART, _trainingDataPairNumber=trainingDataPairNumber, _startIndex=newStartIndex, _stride=trainingDataStride)
+                
+                # START THE LESSONS :)
+                babyLLM.loadModel()
+                babyLLM.to(modelDevice)
+                if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
+                tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
+                return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
+            
+            else:
+                print(f"unknown mode: '{mode}'. Please use 'train' or 'bot'.")
 
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
@@ -255,113 +270,134 @@ def printStartLogs(_babyNote_loadCheckpointCheck, _userNote_loadCheckpoint, _bab
 def main():
     windowMAX           = numTokensPerStepSTART
     dataStride          = trainingDataStride
-    lastRunLoss         = checkLossCheckpoint()
-    #lastRunLoss         = 420
-    firstRun            = True
+    passRateSTART       = perfectionistPassRateSTART
     totalTurnsAwake     = 0
     totalRuns           = 0
-    easyStartThresh     = 3
-    passRateSTART       = perfectionistPassRateSTART
-    #logFreq_A           = windowMAXSTART * perfectionistMaxRetries
+    MAINPairNumber      = trainingDataPairNumber
     logFreq_A           = trainingLogFreq_A
     learnRateGoal       = learningRateGOAL
-    numWins = 0
-    winStreak = 0
-    MAINPairNumber = trainingDataPairNumber
-    while windowMAX <= maxTokensPerStep:
-        print(f"\n--- STARTING NEW TRAINING LOOP ---")
-        thisRunLoss, totalTurns, passRateEND, learnRateGoalEND = wakeup(windowMAX   = windowMAX, 
-                                                                dataStride          = dataStride, 
-                                                                totalTurnsAwake     = totalTurnsAwake, 
-                                                                totalRuns           = totalRuns, 
-                                                                first               = firstRun,
-                                                                passRateSTART       = passRateSTART,
-                                                                log_A               = logFreq_A,
-                                                                lrGoal              = learnRateGoal,
-                                                                trainingDataPairNum = MAINPairNumber)
-        #logFreq_A = windowMAX * perfectionistMaxRetries
-        logFreq_A = trainingLogFreq_A
-        learnRateGoal = (learnRateGoalEND+learningRateGOAL+learningRateGOAL)/3
-        totalRuns += 1
-        totalTurnsAwake += totalTurns
-        firstRun = False
-        easyStart = True
 
-        print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
-        scale = abs(thisRunLoss - lastRunLoss) + 0.01
-        choice = random.choice([-1,0,0,1,1,1,1,2,2,2,3,3,4,5,4,3,3,2,2,2,1,1,1,1,0,0,-1])
-        increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
-        print(f"increment = {increment} = {choice} * ({totalRuns} / {totalTurnsAwake}) * {scale} = {choice} * {totalRuns/totalTurnsAwake} * {scale}")
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "bot":
+        run_mode = "bot"
+    else:
+        choice = input("run in [t]rain mode or as twitch [b]ot? ").lower()
+        if choice.startswith('b'): run_mode = "bot"
+        else: run_mode = "train"
 
-        maxAllowedWindowJump = round(0.2 * (maxTokensPerStep - windowMAX))
-        maxAllowedStrideJump = round(0.2 * ((windowMAX * 2) - dataStride))
+    if run_mode == "bot": 
+        wakeup(windowMAX            = windowMAX, 
+                dataStride          = dataStride, 
+                totalTurnsAwake     = totalTurnsAwake, 
+                totalRuns           = totalRuns, 
+                first               = False,
+                passRateSTART       = passRateSTART,
+                log_A               = logFreq_A,
+                lrGoal              = learnRateGoal,
+                trainingDataPairNum = MAINPairNumber,
+                mode                = "bot",)
+    else:
+        lastRunLoss         = checkLossCheckpoint()
+        #lastRunLoss         = 420
+        firstRun            = True
+        easyStartThresh     = 3
+        #logFreq_A           = windowMAXSTART * perfectionistMaxRetries
+        numWins = 0
+        winStreak = 0
+        while windowMAX <= maxTokensPerStep:
+            print(f"\n--- STARTING NEW TRAINING LOOP ---")
+            thisRunLoss, totalTurns, passRateEND, learnRateGoalEND = wakeup(windowMAX   = windowMAX, 
+                                                                    dataStride          = dataStride, 
+                                                                    totalTurnsAwake     = totalTurnsAwake, 
+                                                                    totalRuns           = totalRuns, 
+                                                                    first               = firstRun,
+                                                                    passRateSTART       = passRateSTART,
+                                                                    log_A               = logFreq_A,
+                                                                    lrGoal              = learnRateGoal,
+                                                                    trainingDataPairNum = MAINPairNumber,
+                                                                    mode = "train")
+            #logFreq_A = windowMAX * perfectionistMaxRetries
+            logFreq_A = trainingLogFreq_A
+            learnRateGoal = (learnRateGoalEND+learningRateGOAL+learningRateGOAL)/3
+            totalRuns += 1
+            totalTurnsAwake += totalTurns
+            firstRun = False
+            easyStart = True
 
-        halfWindow = round(windowMAX / 20)+1
-        halfStride = round(dataStride / 20)+1
+            print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
+            scale = abs(thisRunLoss - lastRunLoss) + 0.01
+            choice = random.choice([-1,0,0,1,1,1,1,2,2,2,3,3,4,5,4,3,3,2,2,2,1,1,1,1,0,0,-1])
+            increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
+            print(f"increment = {increment} = {choice} * ({totalRuns} / {totalTurnsAwake}) * {scale} = {choice} * {totalRuns/totalTurnsAwake} * {scale}")
 
-        incrementW = random.choice([(max(1, min((increment + (halfWindow)), maxAllowedWindowJump))), round(windowMAX * 0.1)])
-        incrementS = random.choice([(max(1, min((increment + (halfStride)), maxAllowedStrideJump))), round(dataStride * 0.1)])
+            maxAllowedWindowJump = round(0.2 * (maxTokensPerStep - windowMAX))
+            maxAllowedStrideJump = round(0.2 * ((windowMAX * 2) - dataStride))
 
-        if easyStart:
-            if easyStartThresh > 0:
-                lastRunLoss = (min(lastRunLoss, thisRunLoss) + lastRunLoss)/2
-                easyStartThresh -= totalRuns
+            halfWindow = round(windowMAX / 20)+1
+            halfStride = round(dataStride / 20)+1
+
+            incrementW = random.choice([(max(1, min((increment + (halfWindow)), maxAllowedWindowJump))), round(windowMAX * 0.1)])
+            incrementS = random.choice([(max(1, min((increment + (halfStride)), maxAllowedStrideJump))), round(dataStride * 0.1)])
+
+            if easyStart:
+                if easyStartThresh > 0:
+                    lastRunLoss = (min(lastRunLoss, thisRunLoss) + lastRunLoss)/2
+                    easyStartThresh -= totalRuns
+                else:
+                    easyStart = False
+            testing = False
+            if testing:
+                numWins += 1
+                winStreak += 1
+                MAINPairNumber = 3
+                windowMAX += 10
+                dataStride = 1
+            elif thisRunLoss < lastRunLoss:
+                numWins += 1
+                winStreak += 1
+                if winStreak >= 2:
+                    winStreak -= 1
+                    MAINPairNumber -= choice
+                    if random.choice([True, False]):
+                        print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
+                        windowMAX += (incrementW+incrementW)
+                    else:
+                        print(f"upping dataStride from {dataStride} to {dataStride+incrementS}")
+                        dataStride += (incrementS+incrementS)
             else:
-                easyStart = False
-        testing = False
-        if testing:
-            numWins += 1
-            winStreak += 1
-            MAINPairNumber = 3
-            windowMAX += 10
-            dataStride = 1
-        elif thisRunLoss < lastRunLoss:
-            numWins += 1
-            winStreak += 1
-            if winStreak >= 2:
-                winStreak -= 1
-                MAINPairNumber -= choice
-                if random.choice([True, False]):
-                    print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
-                    windowMAX += (incrementW+incrementW)
-                else:
-                    print(f"upping dataStride from {dataStride} to {dataStride+incrementS}")
-                    dataStride += (incrementS+incrementS)
-        else:
-            windowOrStride = random.choice([True, False])
-            if winStreak > 0:
-                winStreak = -1
-            MAINPairNumber += choice
-            if windowMAX > incrementW+1:
-                if windowOrStride:
-                    print(f"downing windowMAX from {windowMAX} to {windowMAX-incrementW}")
-                    windowMAX -= incrementW
-                else:
-                    print(f"windowMAX staying at {windowMAX}")
-            elif dataStride > incrementS+1:
-                if not windowOrStride:
-                    print(f"downing dataStride from {dataStride} to {dataStride-incrementS}")
-                    dataStride -= incrementS
-                else:
-                    print(f"dataStride staying at {dataStride}")
-            elif dataStride == 1 and windowMAX == 1 or random.random() < 0.001:
-                random.choice([2, windowMAX, dataStride, (windowMAX * 2), (dataStride * 2), winStreak, totalRuns, incrementS, incrementW, passRateSTART, passRateEND, lastRunLoss, thisRunLoss, numWins, maxAllowedWindowJump, maxAllowedStrideJump, choice, scale, 4, 6, 8, 12, 16])
-                if random.choice([True, False]):
-                    print(f"bored. windowMAX from {windowMAX} to {2}")
-                    windowMAX = 2
-                else:
-                    print(f"bored. dataStride from {dataStride} to {2}")
-                    dataStride = 2
-        
-        windowMAX = round(max(1, min(windowMAX, maxTokensPerStep)))
-        dataStride = round(max(1, min(dataStride, windowMAX * 0.1)))
-        if MAINPairNumber < 1:
-            MAINPairNumber = 2
-        print(f"normalised: dataStride is {dataStride}, windowMAX is {windowMAX}")
+                windowOrStride = random.choice([True, False])
+                if winStreak > 0:
+                    winStreak = -1
+                MAINPairNumber += choice
+                if windowMAX > incrementW+1:
+                    if windowOrStride:
+                        print(f"downing windowMAX from {windowMAX} to {windowMAX-incrementW}")
+                        windowMAX -= incrementW
+                    else:
+                        print(f"windowMAX staying at {windowMAX}")
+                elif dataStride > incrementS+1:
+                    if not windowOrStride:
+                        print(f"downing dataStride from {dataStride} to {dataStride-incrementS}")
+                        dataStride -= incrementS
+                    else:
+                        print(f"dataStride staying at {dataStride}")
+                elif dataStride == 1 and windowMAX == 1 or random.random() < 0.001:
+                    random.choice([2, windowMAX, dataStride, (windowMAX * 2), (dataStride * 2), winStreak, totalRuns, incrementS, incrementW, passRateSTART, passRateEND, lastRunLoss, thisRunLoss, numWins, maxAllowedWindowJump, maxAllowedStrideJump, choice, scale, 4, 6, 8, 12, 16])
+                    if random.choice([True, False]):
+                        print(f"bored. windowMAX from {windowMAX} to {2}")
+                        windowMAX = 2
+                    else:
+                        print(f"bored. dataStride from {dataStride} to {2}")
+                        dataStride = 2
+            
+            windowMAX = round(max(1, min(windowMAX, maxTokensPerStep)))
+            dataStride = round(max(1, min(dataStride, windowMAX * 0.1)))
+            if MAINPairNumber < 1:
+                MAINPairNumber = 2
+            print(f"normalised: dataStride is {dataStride}, windowMAX is {windowMAX}")
 
-        lastRunLoss = thisRunLoss
-        passRateSTART = passRateEND
-        print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
+            lastRunLoss = thisRunLoss
+            passRateSTART = passRateEND
+            print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
 
 if __name__ == "__main__":
     main()

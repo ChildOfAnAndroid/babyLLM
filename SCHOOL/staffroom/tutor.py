@@ -64,7 +64,7 @@ class TUTOR:
         self.totalLossAbsDelta          = 0
         self.totalLossDelta             = 0
         self.totalAvgLoss               = 0
-        self.stableFallCount            = 1
+        self.stableFallCount            = 1 ###
         self.maxRetries                 = perfectionistMaxRetries
         self.totalAvgAbsDelta           = 0
         self.totalTries                 = 0
@@ -157,8 +157,8 @@ class TUTOR:
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     @whocalled
-    def trainModel(self, _trainingDataPairs, _epochs, _startIndex):
-        with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:
+    def trainModel(self, _trainingDataPairs, _epochs, _startIndex): ###
+        with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ: ###
             if debugPrints: ʕっʘ‿ʘʔっ("trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)")
             trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
             print(f"Trainable parameters: {trainableParams:,}")
@@ -206,7 +206,7 @@ class TUTOR:
                         self.maxRetries = 10
 
                     if debugPrints: ʕっʘ‿ʘʔっ("entering while loop stableFallCount < stableFallThreshold")
-                    while self.stableFallCount < stableFallThreshold and self.totalTries < self.maxRetries:
+                    while self.stableFallCount < stableFallThreshold and self.totalTries < self.maxRetries: ###
                         if turnsNotReflecting == self.reflectionFreq: #and self.trainingStepCounter > trainingLogFreq_A:
                             if debugPrints: ʕっʘ‿ʘʔっ("♥generating babys reflection data pairs")
                             self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
@@ -628,6 +628,7 @@ class TUTOR:
                 if debugPrints: print("TUTOR.trainStep.backward - loss is not NaN or Inf:", BACKWARDloss)
                 
             try:
+                self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
                 if profiler: 
                     with torch.profiler.profile(record_shapes = True) as prof:
                         self.model.backward(BACKWARDloss)

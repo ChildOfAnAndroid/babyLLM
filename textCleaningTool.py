@@ -1,8 +1,6 @@
 import os, re, json, csv, random
 from html import unescape
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import *
-from threading import Lock
 write_locks = {}
 
 # (re.compile(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', text)

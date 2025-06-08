@@ -53,7 +53,7 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 500    # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 50    # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "BRAIN/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"  # where your currently trained saved boi is :)
@@ -86,6 +86,7 @@ chatLogPath_talkToYourself = "SCHOOL/statistics/LOGS/chat/talkToYourselfBattle.t
 chatLogPath_talkToYourselfComparisons = "SCHOOL/library/charisStudies/whoIsMoreLikeYou.txt"
 chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt"
 babyLogPathFull = f"SCHOOL/statistics/LOGS/chat/babyLogFull_{date}.txt"
+twitchLogPath = f"SCHOOL/statistics/LOGS/chat/twitchLog_{date}.txt"
 
 """--- VOCAB --- (see master config)"""
 
@@ -94,6 +95,9 @@ babyLogPathFull = f"SCHOOL/statistics/LOGS/chat/babyLogFull_{date}.txt"
 
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
+"""--- TWITCH BOT ---"""
+trainDuringChat = False
+
 """--- MODEL ---"""
 numTokensPerStepSTART = 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 maxTokensPerStep    = 450
@@ -137,7 +141,7 @@ newLineBetweenStats = True
 
 durationLogging = False # // True // False // activates debug time logging
 debugPrints = False
-anomalyDetect = False
+anomalyDetect = True
 
 skipNeuron = False
 skipINN = False
@@ -637,10 +641,10 @@ rawDataFilepaths += [
     ("text", "SCHOOL/library/charisStudies/thames.txt", 0.1),
     ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 0.1),
     ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why2.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why3.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why4.txt", 1),]
+    ("text", "SCHOOL/library/miniTraining/why.txt", 0.1),
+    ("text", "SCHOOL/library/miniTraining/why2.txt", 0.1),
+    ("text", "SCHOOL/library/miniTraining/why3.txt", 0.1),
+    ("text", "SCHOOL/library/miniTraining/why4.txt", 0.1),]
 
 rawDataFilepaths += [
     #--- MY OWN CODE?? ---

@@ -88,7 +88,6 @@ class LIBRARIAN:
                 self.saveVocab()
                 print(f"saved vocab data to {self.vocabCache}!")
 
-
     def tokenizeText(self, _text):
         with self.v_counsellor.infodump("tokenizeText") as ʕっʘ‿ʘʔっ:
             encoding = self.tokenizer.encode(_text)
@@ -96,6 +95,14 @@ class LIBRARIAN:
                 print(f"tokenizing: {_text}")
                 print(f"token ids: {encoding.ids}")
             return [self.indexToToken.get(idx, self.unkToken) for idx in encoding.ids] # Convert indexs back to strings
+        
+    def decodeText(self, _text):
+        with self.v_counsellor.infodump("tokenizeText") as ʕっʘ‿ʘʔっ:
+            decoding = self.tokenizer.decode(_text)
+            if debugPrints:
+                print(f"decoding: {_text}")
+                print(f"token ids: {decoding.ids}")
+            return [self.indexToToken.get(idx, self.unkToken) for idx in decoding.ids] # Convert indexs back to strings
 
     def buildVocabMap(self):
         with self.v_counsellor.infodump("buildVocabMap") as ʕっʘ‿ʘʔっ:
@@ -118,12 +125,12 @@ class LIBRARIAN:
 
     def huggingTokenizer(self, _text): return self.tokenizer.tokenize(_text)
 
-    def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData):
+    def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData, _dataCharactersToLoad = 900000):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ:
             result = ""
             for path in _filepaths:
                 with open(path, "r", encoding="utf-8") as f:
-                    while True:
+                    while len(result) < _dataCharactersToLoad:
                         chunk = f.read(_chunkSize)
                         if not chunk: break
                         result += chunk
@@ -155,7 +162,7 @@ class LIBRARIAN:
                     count += 1
                     if count >= _trainingDataPairNumber:
                         break
-                    if count % 10000 == 0:
+                    if count % 1000 == 0:
                         print(f"{makeDatBoi()} {babyName}: generated {count}x trainingDataPairs!")
                 else:
                     print(f"skipping <UNK> - inputSeq: {inputSeq}, target: {target}")
