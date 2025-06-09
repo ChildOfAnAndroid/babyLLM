@@ -19,6 +19,7 @@ from BRAIN.LAYERS.logits import LOGITS
 from BRAIN.LAYERS.memory import MEMORY
 #from BRAIN.LAYERS.sensoryWobble import WOBBLE
 from config import *
+from secret import *
 
 """this class combines all the core components of the babyLLM:"""
 """EMBED: token embedding layer"""
@@ -113,6 +114,13 @@ class BABYLLM(nn.Module):
     @whocalled
     def forward(self, _inputSeq = None, _pixel = None):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
+            if debugPrints:
+                tensor_snitch(self, "babyllm forward start")
+                tensor_snitch(self.memory, "babyllm forward start")
+                tensor_snitch(self.memory2, "babyllm forward start")
+                tensor_snitch(self.embed, "babyllm forward start")
+                tensor_snitch(self.interneuronNetwork, "babyllm forward start")
+                tensor_snitch(self.logits, "babyllm forward start")
             if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
             self.temperature = torch.exp(self.logTemp)
             self.pixel = _pixel
@@ -215,6 +223,13 @@ class BABYLLM(nn.Module):
             #tokenEmbed = self.embed(_tokenIndex = _inputSeq)
             #self.latestTokenEmbed = tokenEmbed
             #self.log_all_learnable_params(prefix="FORWARD_")
+            if debugPrints:
+                tensor_snitch(self, "babyllm forward end")
+                tensor_snitch(self.memory, "babyllm forward end")
+                tensor_snitch(self.memory2, "babyllm forward end")
+                tensor_snitch(self.embed, "babyllm forward end")
+                tensor_snitch(self.interneuronNetwork, "babyllm forward end")
+                tensor_snitch(self.logits, "babyllm forward end")
             return FINALlogits #, self.latestTokenEmbed
 
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
@@ -341,7 +356,19 @@ class BABYLLM(nn.Module):
     def backward(self, _loss):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
             if debugPrints:
+                tensor_snitch(self, "babyllm backward start")
+                tensor_snitch(self.memory, "babyllm backward start")
+                tensor_snitch(self.memory2, "babyllm backward start")
+                tensor_snitch(self.embed, "babyllm backward start")
+                tensor_snitch(self.interneuronNetwork, "babyllm backward start")
+                tensor_snitch(self.logits, "babyllm backward start")
                 if debugPrints: ʕっʘ‿ʘʔっ("print named parameters")
+                printTensorAttrs(self, name='babyllm')
+                printTensorAttrs(self.memory, name='memory')
+                printTensorAttrs(self.memory2, name='memory2')
+                printTensorAttrs(self.embed, name='embed')
+                printTensorAttrs(self.interneuronNetwork, name='interneuronNetwork')
+                printTensorAttrs(self.logits, name='logits')
                 for name, p in self.named_parameters():
                     if p.grad is None:
                         if debugPrints: ʕっʘ‿ʘʔっ("print no grads")
@@ -376,6 +403,12 @@ class BABYLLM(nn.Module):
             #print(next(self.parameters()).grad)
             if debugPrints:
                 if debugPrints: ʕっʘ‿ʘʔっ("print named parameters")
+                printTensorAttrs(self, name='babyllm')
+                printTensorAttrs(self.memory, name='memory')
+                printTensorAttrs(self.memory2, name='memory2')
+                printTensorAttrs(self.embed, name='embed')
+                printTensorAttrs(self.interneuronNetwork, name='interneuronNetwork')
+                printTensorAttrs(self.logits, name='logits')
                 for name, p in self.named_parameters():
                     if p.grad is None:
                         if debugPrints: ʕっʘ‿ʘʔっ("print no grads")
@@ -470,6 +503,14 @@ class BABYLLM(nn.Module):
             #with torch.no_grad(): # FORCE RESET THE MEMORY GATES IF OVER USING LONG
                 #self.memory.currentGate.data = self.memory.currentGate.data.abs()
                 #self.memory.shortGate.data = self.memory.shortGate.data.abs()
+
+            if debugPrints:
+                tensor_snitch(self, "babyllm backward end")
+                tensor_snitch(self.memory, "babyllm backward end")
+                tensor_snitch(self.memory2, "babyllm backward end")
+                tensor_snitch(self.embed, "babyllm backward end")
+                tensor_snitch(self.interneuronNetwork, "babyllm backward end")
+                tensor_snitch(self.logits, "babyllm backward end")
 
     @whocalled
     def getResponseFromLogits(self, _logits, _training = False):
@@ -696,6 +737,9 @@ class BABYLLM(nn.Module):
                     self.memory.longTermMemory.zero_()
                     self.memory2.shortTermMemory.zero_()
                     self.memory2.longTermMemory.zero_()
+                self.memory.to(self.device)
+                self.memory2.to(self.device)
+                print(f"memory device set to {self.device}!")
                 
             except FileNotFoundError: print("no saved model found")
 

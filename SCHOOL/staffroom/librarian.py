@@ -96,14 +96,14 @@ class LIBRARIAN:
                 print(f"token ids: {encoding.ids}")
             return [self.indexToToken.get(idx, self.unkToken) for idx in encoding.ids] # Convert indexs back to strings
         
-    def decodeText(self, _text):
-        with self.v_counsellor.infodump("tokenizeText") as ʕっʘ‿ʘʔっ:
-            decoding = self.tokenizer.decode(_text)
+    def decodeIDs(self, _ids):
+        with self.v_counsellor.infodump("decodeIDs") as ʕっʘ‿ʘʔっ:
+            decoded = self.tokenizer.decode(_ids)
             if debugPrints:
-                print(f"decoding: {_text}")
-                print(f"token ids: {decoding.ids}")
-            return [self.indexToToken.get(idx, self.unkToken) for idx in decoding.ids] # Convert indexs back to strings
-
+                print(f"decoding: {_ids}")
+                print(f"decoded: {decoded}")
+            return decoded
+        
     def buildVocabMap(self):
         with self.v_counsellor.infodump("buildVocabMap") as ʕっʘ‿ʘʔっ:
             if debugPrints: ʕっʘ‿ʘʔっ("getting vocab dictionary from tokenizer...")
@@ -212,6 +212,7 @@ if __name__ == "__main__":
     print(f"Top 20 tokens: {librarian.vocabList[:20]}")
 
     #print(vocab.huggingTokenizer("charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"))
-    sample_text = "charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"
+    sample_text = "ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ charis and elodie are very cool, ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"
     tokenizedOutput = librarian.tokenizeText(sample_text)
-    print(f"Tokenized: {tokenizedOutput}")
+    print(f"sample text: {sample_text}")
+    print(f"tokenized: {tokenizedOutput}")

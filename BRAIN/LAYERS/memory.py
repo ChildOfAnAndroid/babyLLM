@@ -107,9 +107,9 @@ class MEMORY(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("clamp gatelayer2 -> gateLogits")
             gateLogits = gateLogits.clamp(-30, 30)
 
-            # softmax across sources (dim = 0), sum to 1 per neuron
+            # softmax across sources (dim=0), sum to 1 per neuron
             if debugPrints: ʕっʘ‿ʘʔっ("softmax gateLogits")
-            gateWeights = torch.softmax(gateLogits, dim = 0)
+            gateWeights = torch.softmax(gateLogits, dim=0)
             shortGateScale, longGateScale, actGateScale, memGateScale = gateWeights
 
             if debugPrints: ʕっʘ‿ʘʔっ("firstGatedMemory")
@@ -321,7 +321,7 @@ class MEMORY(nn.Module):
         with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
             with torch.no_grad(): # Ensure all ops here are outside graph
                 # Detach _resetStrength if it's a tensor from a graph
-                current_reset_strength_tensor = _memoryLength.detach() if isinstance(_memoryLength, torch.Tensor) else torch.tensor(float(_memoryLength), device = self.device)
+                current_reset_strength_tensor = _memoryLength.detach() if isinstance(_memoryLength, torch.Tensor) else torch.tensor(float(_memoryLength), device=self.device)
                 reset_strength_scalar = current_reset_strength_tensor.item() if current_reset_strength_tensor.numel() == 1 else float(current_reset_strength_tensor) # Fallback if not scalar
                 reset_strength_scalar = max(0.0, min(1.0, reset_strength_scalar))
                 keep_factor = 1.0 - reset_strength_scalar

@@ -330,71 +330,48 @@ class INTERNEURON_NETWORK(nn.Module):
 
             # --- logging
             if debugPrints: ʕっʘ‿ʘʔっ("get inn stats no grad")
-            """self.activationsHistory.append(self.neuronActivationsPerToken.norm().item())
-            self.activationsHistory_token.append(self.neuronActivationsPerToken.norm(dim = 1).mean().item())
-            self.activationsHistory_neuron.append(self.neuronActivationsPerToken.norm(dim = 0).mean().item())
+            self.activationsHistory.append(self.neuronActivationsPerToken.norm().item())
+            #self.activationsHistory_token.append(self.neuronActivationsPerToken.norm(dim = 1).mean().item())
+            #self.activationsHistory_neuron.append(self.neuronActivationsPerToken.norm(dim = 0).mean().item())
             self.combHistory.append(combinedActivationsTensor.norm().item())
-            self.combHistory_neuron.append(combinedActivationsTensor.norm(dim = 0).mean().item())
+            #self.combHistory_neuron.append(combinedActivationsTensor.norm(dim = 0).mean().item())
             self.refHistory.append(refinedActivations.norm().item())
-            self.refHistory_neuron.append(refinedActivations.norm(dim = 0).mean().item())"""
+            #self.refHistory_neuron.append(refinedActivations.norm(dim = 0).mean().item())
 
             with torch.no_grad():
-                acts = self.neuronActivationsPerToken
+                #acts = self.neuronActivationsPerToken
                 #comb = combinedActivationsTensor
-                ref = refinedActivations
+                #ref = refinedActivations
 
                 if debugPrints: ʕっʘ‿ʘʔっ("get act norms")
-                norms = [
-                    acts.norm(),
+                #norms = [
+                #    acts.norm(),
                 #    acts.norm(dim = 1).mean(),
                 #    acts.norm(dim = 0).mean(),
-                ]
+                #]
                 #if debugPrints: ʕっʘ‿ʘʔっ("get comb norms")
                 #norms += [
                 #    comb.norm(),
                 #    comb.norm(dim = 0).mean(),
                 #]
-                if debugPrints: ʕっʘ‿ʘʔっ("get ref norms")
-                norms += [
-                    ref.norm(),
+                #if debugPrints: ʕっʘ‿ʘʔっ("get ref norms")
+                #norms += [
+                    #ref.norm(),
                     #ref.norm(dim = 0).mean(),
-                ]
-                if debugPrints: print(f"{norms}")
+                #]
+                #if debugPrints: print(f"{norms}")
 
-                if debugPrints: ʕっʘ‿ʘʔっ("norms to cpu")
-                norms_cpu = [x.cpu().item() for x in norms]
-                (
-                    acts_norm,
-                    #acts_token_norm,
-                    #acts_neuron_norm,
+                #if debugPrints: ʕっʘ‿ʘʔっ("norms to cpu")
+                #norms_cpu = [x.cpu().item() for x in norms]
+                #(
+                #    acts_norm,
+                #    #acts_token_norm,
+                #    #acts_neuron_norm,
                     #comb_norm,
                     #comb_neuron_norm,
-                    ref_norm,
+                #    ref_norm,
                     #ref_neuron_norm,
-                ) = norms_cpu
-
-            if debugPrints: ʕっʘ‿ʘʔっ("get inn stats appending")
-            if debugPrints: ʕっʘ‿ʘʔっ("activations history append")
-            self.activationsHistory.append(acts_norm)
-            if debugPrints: print(f"{acts_norm}")
-            #if debugPrints: ʕっʘ‿ʘʔっ("activations history token append")
-            #self.activationsHistory_token.append(acts_token_norm)
-            #if debugPrints: print(f"{acts_token_norm}")
-            #if debugPrints: ʕっʘ‿ʘʔっ("activations history neuron append")
-            #self.activationsHistory_neuron.append(acts_neuron_norm)
-            #if debugPrints: print(f"{acts_neuron_norm}")
-            #if debugPrints: ʕっʘ‿ʘʔっ("combi history append")
-            #self.combHistory.append(comb_norm)
-            #if debugPrints: print(f"{comb_norm}")
-            #if debugPrints: ʕっʘ‿ʘʔっ("combi history neuron append")
-            #self.combHistory_neuron.append(comb_neuron_norm)
-            #if debugPrints: print(f"{comb_neuron_norm}")
-            if debugPrints: ʕっʘ‿ʘʔっ("ref history append")
-            self.refHistory.append(ref_norm)
-            if debugPrints: print(f"{ref_norm}")
-            #if debugPrints: ʕっʘ‿ʘʔっ("ref history neuron append")
-            #self.refHistory_neuron.append(ref_neuron_norm)
-            #if debugPrints: print(f"{ref_neuron_norm}")
+                #) = norms_cpu
 
             if len(self.combHistory) >= self.numTokensPerStep:
                 if debugPrints: ʕっʘ‿ʘʔっ("add to self.stats")
@@ -496,8 +473,8 @@ class INTERNEURON_NETWORK(nn.Module):
                 with torch.no_grad():
                     if INN_cerebellumStats:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥getCerebellumStats") #THIS WAS WINDOWWEIGHTING
-                        #self.stats["3INN_windowFractionalityMean"] = torch.sigmoid(self.windowFractionality).mean().item()
-                        #self.stats["3INN_cerebellumMean"] = self.cerebellum.mean().item()
+                        self.stats["3INN_windowFractionalityMean"] = torch.sigmoid(self.windowFractionality).mean().item()
+                        self.stats["3INN_cerebellumMean"] = self.cerebellum.mean().item()
                         #self.stats["3INN_cerebellumStd"] = self.cerebellum.std().item()
                         INN_cerebellumStats_fullValues = zip(self.floatWindowSizes_used, self.cerebellum, self.cerebellumSoft, self.windowTensor_used)
                         for w, raw, soft, tensor in INN_cerebellumStats_fullValues:

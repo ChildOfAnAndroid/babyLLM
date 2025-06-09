@@ -31,6 +31,28 @@ def whocalled(func):
         return inner
     return func
 
+def printTensorAttrs(obj, name='self'):
+    print(f"\n--- Tensor Attributes in {name} ---")
+    for attr in dir(obj):
+        if attr.startswith("_"):
+            continue
+        try:
+            x = getattr(obj, attr)
+            if torch.is_tensor(x):
+                print(f"{name}.{attr}: type={type(x)}, requires_grad={x.requires_grad}, is_leaf={x.is_leaf}, shape={tuple(x.shape)}")
+            elif isinstance(x, (list, tuple)):
+                for i, item in enumerate(x):
+                    if torch.is_tensor(item):
+                        print(f"{name}.{attr}[{i}]: type={type(item)}, requires_grad={item.requires_grad}, is_leaf={item.is_leaf}, shape={tuple(item.shape)}")
+            elif isinstance(x, dict):
+                for k, v in x.items():
+                    if torch.is_tensor(v):
+                        print(f"{name}.{attr}['{k}']: type={type(v)}, requires_grad={v.requires_grad}, is_leaf={v.is_leaf}, shape={tuple(v.shape)}")
+        except Exception as e:
+            print(f"{name}.{attr}: <error accessing attribute: {e}>")
+    print("--- END ---\n")
+
+
 guessedTokenSeq = []
 """if activationFunction == 'leaky_relu':
             output = F.leaky_relu(output, 0.01)
@@ -96,7 +118,7 @@ twitchLogPath = f"SCHOOL/statistics/LOGS/chat/twitchLog_{date}.txt"
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- TWITCH BOT ---"""
-trainDuringChat = False
+trainDuringChat = True
 
 """--- MODEL ---"""
 numTokensPerStepSTART = 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
@@ -556,10 +578,6 @@ trainingDataStride = 25
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
 
-rawDataFilepaths = [
-    ("text", "SCHOOL/library/charisStudies/essays.txt", -1),     # discord message history
-]
-
 rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
@@ -579,7 +597,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
     ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 1),     # chatgpt history charis side only
     ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 1),     # old account facebook messages charis side only
-    ("text", "SCHOOL/library/charisStudies/essays.txt", -1),     # essays
+    ("text", "SCHOOL/library/charisStudies/essays.txt", 1),     # essays
     ("text", "SCHOOL/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
 
     #--- MOUSE ADVENTURES ---
@@ -641,33 +659,33 @@ rawDataFilepaths += [
     ("text", "SCHOOL/library/charisStudies/thames.txt", 0.1),
     ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 0.1),
     ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 1),
-    ("text", "SCHOOL/library/miniTraining/why.txt", 0.1),
-    ("text", "SCHOOL/library/miniTraining/why2.txt", 0.1),
-    ("text", "SCHOOL/library/miniTraining/why3.txt", 0.1),
-    ("text", "SCHOOL/library/miniTraining/why4.txt", 0.1),]
+    ("text", "SCHOOL/library/miniTraining/why.txt", 0.01),
+    ("text", "SCHOOL/library/miniTraining/why2.txt", 0.01),
+    ("text", "SCHOOL/library/miniTraining/why3.txt", 0.01),
+    ("text", "SCHOOL/library/miniTraining/why4.txt", 0.01),]
 
 rawDataFilepaths += [
     #--- MY OWN CODE?? ---
-    ("text", "babyLLM.py", 0.1),
-    ("text", "config.py", 0.1),
-    ("text", "infer.py", 0.1),
-    ("text", "talkToYourself.py", 0.01),
-    ("text", "textCleaningTool.py", 0.1),
-    ("text", "wakeup.py", 0.1),
-    ("text", "SCHOOL/staffroom/calligraphist.py", 0.1),
-    ("text", "SCHOOL/staffroom/counsellor.py", 0.1),
-    ("text", "SCHOOL/staffroom/HE_IS_SCRIBE.py", 0.1),
-    ("text", "SCHOOL/staffroom/librarian.py", 0.1),
-    ("text", "SCHOOL/staffroom/tutor.py", 0.1),
-    ("text", "BRAIN/vocabCache/tokenizer_4200.json", 0.1),
-    ("text", "BRAIN/readmeactuallyprobablydont.txt", 0.1),
-    ("text", "BRAIN/LAYERS/embed.py", 0.1),
-    ("text", "BRAIN/LAYERS/interneuronNetwork.py", 0.1),
-    ("text", "BRAIN/LAYERS/logits.py", 0.1),
-    ("text", "BRAIN/LAYERS/memory.py", 0.1),
-    ("text", "SCHOOL/notebook/notes.txt", 0.1),
-    ("text", "SCHOOL/notebook/python notes etc", 0.1),
-    ("text", "SCHOOL/notebook/test.py", 0.1),
+    ("text", "babyLLM.py", 0.01),
+    ("text", "config.py", 0.01),
+    ("text", "infer.py", 0.01),
+    ("text", "talkToYourself.py", 0.001),
+    ("text", "textCleaningTool.py", 0.10),
+    ("text", "wakeup.py", 0.01),
+    ("text", "SCHOOL/staffroom/calligraphist.py", 0.01),
+    ("text", "SCHOOL/staffroom/counsellor.py", 0.01),
+    ("text", "SCHOOL/staffroom/HE_IS_SCRIBE.py", 0.01),
+    ("text", "SCHOOL/staffroom/librarian.py", 0.01),
+    ("text", "SCHOOL/staffroom/tutor.py", 0.01),
+    ("text", "BRAIN/vocabCache/tokenizer_4200.json", 0.01),
+    ("text", "BRAIN/readmeactuallyprobablydont.txt", 0.01),
+    ("text", "BRAIN/LAYERS/embed.py", 0.01),
+    ("text", "BRAIN/LAYERS/interneuronNetwork.py", 0.01),
+    ("text", "BRAIN/LAYERS/logits.py", 0.01),
+    ("text", "BRAIN/LAYERS/memory.py", 0.01),
+    ("text", "SCHOOL/notebook/notes.txt", 0.01),
+    ("text", "SCHOOL/notebook/python notes etc", 0.01),
+    ("text", "SCHOOL/notebook/test.py", 0.01),
 ]
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """

@@ -14,7 +14,6 @@ import math
 from SCHOOL.staffroom.newsletter import deep_model_summary, STATS
 from SCHOOL.notebook.tools.genBoi import makeSafeBoi
 
-
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _numTokensPerStep, _first, 
                 _trainingLogFreq_A          = trainingLogFreq_A,
@@ -25,8 +24,10 @@ class TUTOR:
                 _lastRunLoss                = 420,
                 _device                     = modelDevice):
         
+        torch.autograd.set_detect_anomaly(True)
         self.startIndex                 = 1
         self.saveCounter                = 1
+        self.currentTokenIndex          = 0
         self.first                      = False
         self.counsellor                 = _counsellor
         self.calligraphist              = _calligraphist
@@ -42,6 +43,7 @@ class TUTOR:
         self.trainingLogFreq_A          = _trainingLogFreq_A
         self.learningRateGOAL           = learningRateGOAL
         self.tokenCounts = Counter()
+        self.training_resume_state      = {}
 
         self.temperature                = 0.75
         self.scheduledSamplingRate      = self.model.scheduledSamplingRate
@@ -406,12 +408,6 @@ class TUTOR:
             #    self.winEnt = 0
             self.winEnt = self.stats.get("windowEntropy", 0.0)
 
-            if skipMemory:
-                if debugPrints: ʕっʘ‿ʘʔっ("♥skipMemory")
-            else:
-                if debugPrints: ʕっʘ‿ʘʔっ("resetMemory")
-                self.model.resetMemory(context="training")
-
         return self.inputTokenIndices, self.targetTokenIndexSeq
 
     @whocalled
@@ -441,6 +437,7 @@ class TUTOR:
                     self.pixelNext = self.getPixelForStep(0)
 
             for j in range(self.numTokensPerStep): # predict multiple tokens in a sequence, one at a time
+                self.currentTokenIndex = j
                 if not skipPixels:
                     #pixel = torch.rand(3, device = self.device)  # random RGB for now
                     if False:
@@ -639,6 +636,8 @@ class TUTOR:
                     self.model.backward(BACKWARDloss)
             except RuntimeError as e:
                 print("TUTOR.trainStep.backward failed!", e)
+                self.model.optimizer.zero_grad(set_to_none=True)
+                torch.mps.empty_cache()
                 return [], []
 
             if profiler: print(prof.key_averages().table())
@@ -664,6 +663,13 @@ class TUTOR:
             #if self.device.type == 'mps':
             #    if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
             #    torch.mps.empty_cache()
+
+            #del inputTensor, logits, BACKWARDloss, buffer
+            #torch.mps.empty_cache()
+
+            ids = [idx.item() if torch.is_tensor(idx) else int(idx) for idx in self.predictedTokenIndices]
+            self.decodedTokenIndices = self.librarian.decodeIDs(ids)
+            print(f"{self.decodedTokenIndices}")
 
             return self.predictedTokenIndices, self.logitSeq
     
@@ -854,6 +860,7 @@ class TUTOR:
         with self.counsellor.infodump("printFreqActions") as ʕっʘ‿ʘʔっ: # PRINTING TRAINING OUTPUT TO TERMINAL
             #recentLoss = sum(self.recentPrintLosses)/len(self.recentPrintLosses) if self.recentPrintLosses else None
             if debugPrints: ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
+
             self.calligraphist.S_colourPrintTraining(
                 _step = (self.trainingStepCounter),
                 _inputSeq = self.inputSeq,
@@ -1202,6 +1209,12 @@ class TUTOR:
             self.tokenPerfectRate = 0
             self.stats['sampledTokens'] = 0
             self.totalTokenEvaluations = 0
+
+            if skipMemory:
+                if debugPrints: ʕっʘ‿ʘʔっ("♥skipMemory")
+            else:
+                if debugPrints: ʕっʘ‿ʘʔっ("resetMemory")
+                self.model.resetMemory(context="training")
         
         return self.latestLossDelta
 
@@ -1424,14 +1437,16 @@ class TUTOR:
             if debugPrints: ʕっʘ‿ʘʔっ("trying to call startTurnActions...")
             try:
                 self.inputTokenIndices, self.targetTokenIndexSeq = self.startTurnActions(
-                    _inputSeq = input_seq_text,
-                    _targetSeq = target_seq_text,
+                    _inputSeq = input_seq_ids,
+                    _targetSeq = target_seq_ids,
                     _lastTurnLossDelta = self.latestLossDelta
                 )
                 self.inputSeq = input_seq_text # for S_colourPrintTraining
                 self.targetSeq = target_seq_text # for S_colourPrintTraining
             except Exception as e_start_turn:
                 if debugPrints: ʕっʘ‿ʘʔっ(f"ERROR INSIDE startTurnActions: {e_start_turn}")
+                self.model.optimizer.zero_grad(set_to_none=True)
+                torch.mps.empty_cache()
                 return False
 
             # train step
@@ -1447,6 +1462,8 @@ class TUTOR:
                 print("trainStep finished OK!")
             except Exception as e_train_step:
                 print(f"ERROR in trainStep: {e_train_step}")
+                self.model.optimizer.zero_grad(set_to_none=True)
+                torch.mps.empty_cache()
                 return False
 
             if not self.predictedTokenIndices:
@@ -1461,6 +1478,8 @@ class TUTOR:
                 self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
             except Exception as e_collect_stats:
                 if debugPrints: print(f"ERROR in collectTurnStats: {e_collect_stats}")
+                self.model.optimizer.zero_grad(set_to_none=True)
+                torch.mps.empty_cache()
                 return False
             
             if show_detailed_stats:

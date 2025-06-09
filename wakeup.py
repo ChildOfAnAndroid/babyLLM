@@ -81,7 +81,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
             if mode == "bot":
                 print("--- LAUNCHING TWITCH BOT ---")
                 if debugPrints: ʕっʘ‿ʘʔっ("starting twitch bot!")
-                # Create a bot instance, passing in the fresh ML objects and config
+                # create a bot instance, pass in the staff etc
                 babyBot = BABYBOT(babyLLM, tutor, librarian, scribe, calligraphist)
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
