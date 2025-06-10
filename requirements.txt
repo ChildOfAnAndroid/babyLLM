@@ -1,0 +1,7 @@
+torch
+numpy
+rich
+tokenizers
+twitchio
+adan-pytorch
+torch_optimizer

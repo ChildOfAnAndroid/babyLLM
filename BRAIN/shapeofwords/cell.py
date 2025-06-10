@@ -662,7 +662,8 @@ class Cell:
 
         if (self.turnRollAlt * 100) < self.fertilityRate or (self.attractiveness > ((self.CellAttractivenessTopRecord/10)*9)):
             # TODO: Factor in Luck
-            else: 
+            pass
+        else: 
             x, y = (self.x + random.choice([-1, 1])) % self.environment.grid.shape[0], (self.y + random.choice([-1, 1])) % self.environment.grid.shape[1]
             if self.environment.canAddCellAt(x, y):  # Empty spot
                 reproductionCost = (self.energy/CELL_REPRODUCTION_SUCCESS_COST)
@@ -694,7 +695,7 @@ class Cell:
         return False
 
     def disintegration(self):
-        if self.alive = False:
+        if self.alive == False:
             resilienceDecay = (self.resilience*(INERT_STONE_SOFTNESS/100))
             massDecay = (self.mass*(INERT_STONE_SOFTNESS/100))
             self.resilience -= resilienceDecay

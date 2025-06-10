@@ -63,27 +63,27 @@ class LOGITS(nn.Module):
             # INN? -> L1 -> L2 -> L3 -> L4 -> L5 -> L6 -> *
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
             if debugPrints: ʕっʘ‿ʘʔっ("L1: activationsTensor") # <- INN? no? seems to come from babyLLM? maybe through babyLLM?
-            self.activationsTensor = _meanActivationsTensor # _1
+            actsTensor = _meanActivationsTensor # _1
             rawActScale = torch.sigmoid(self.rawActivationsScale)
             normActScale = torch.sigmoid(self.normedActivationsScale)
             if debugPrints: ʕっʘ‿ʘʔっ("L2: normedActivationsTensor") # <- L1
-            self.normedActivationsTensor = self.activationNorm(self.activationsTensor) # _2
-            self.scaledActivations = (self.activationsTensor * rawActScale + self.normedActivationsTensor * normActScale)
-            self.scaledActivations = self.scaledActivations.clamp(-10, 10)
+            normedActsTensor = self.activationNorm(actsTensor) # _2
+            scaledActs = (actsTensor * rawActScale + normedActsTensor * normActScale)
+            scaledActs = scaledActs.clamp(-10, 10)
 
-            if debugPrints: print(f"Debug logits: activations shape before @ weights: {self.scaledActivations.shape}")
+            if debugPrints: print(f"Debug logits: activations shape before @ weights: {scaledActs.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
                         
             if debugPrints: ʕっʘ‿ʘʔっ("L3: scaledActivations") # <- L1 + L2
-            logitOutput = (self.scaledActivations @ self.l_weights / (numNeurons ** 0.5)) + self.l_bias
+            logitOutput = (scaledActs @ self.l_weights / (numNeurons ** 0.5)) + self.l_bias
             logitOutput = logitOutput.clamp(-60, 60)
-            #logitNormed = (self.scaledActivations @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
+            #logitNormed = (scaledActs @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
             logitNormed = self.logitNorm(logitOutput)  # softly smooth
 
             if debugPrints: ʕっʘ‿ʘʔっ("L4: logitOutput") # <- L3 (with weights and bias)
             outScale = torch.sigmoid(self.outputScale)
             normOutScale = torch.sigmoid(self.normOutputScale)
-            self.finalLogit = (logitOutput * outScale) + (logitNormed * normOutScale)
+            finalLogit = (logitOutput * outScale) + (logitNormed * normOutScale)
             if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
 
             if debugPrints: ʕっʘ‿ʘʔっ("clamp scalar parameters")
@@ -94,33 +94,33 @@ class LOGITS(nn.Module):
                 self.normOutputScale.data.clamp_(-10, 10)
 
             if debugPrints: ʕっʘ‿ʘʔっ("append rolling self.stats")
-            self.tensorNormHist.append(self.activationsTensor.norm().item())
-            #self.normedNormHist.append(self.normedActivationsTensor.norm().item())
-            #self.activNormHist.append(self.scaledActivations.norm().item())
+            self.tensorNormHist.append(actsTensor.norm().item())
+            #self.normedNormHist.append(normedActsTensor.norm().item())
+            #self.activNormHist.append(scaledActs.norm().item())
             #self.logitNormHist.append(logitOutput.norm().item())
             #self.normLayerNormHist.append(logitNormed.norm().item())
-            self.finalNormHist.append(self.finalLogit.norm().item())
+            self.finalNormHist.append(finalLogit.norm().item())
 
-            self.tensorHist.append(self.activationsTensor.mean().item())
-            #self.normedHist.append(self.normedActivationsTensor.mean().item())
-            #self.activHist.append(self.scaledActivations.mean().item())
+            self.tensorHist.append(actsTensor.mean().item())
+            #self.normedHist.append(normedActsTensor.mean().item())
+            #self.activHist.append(scaledActs.mean().item())
             #self.logitHist.append(logitOutput.mean().item())
             #self.normLayerHist.append(logitNormed.mean().item())
-            self.finalHist.append(self.finalLogit.mean().item())
+            self.finalHist.append(finalLogit.mean().item())
 
-            self.tensorMinHist.append(self.activationsTensor.min().item())
-            #self.normedMinHist.append(self.normedActivationsTensor.min().item())
-            #self.activMinHist.append(self.scaledActivations.min().item())
+            self.tensorMinHist.append(actsTensor.min().item())
+            #self.normedMinHist.append(normedActsTensor.min().item())
+            #self.activMinHist.append(scaledActs.min().item())
             #self.logitMinHist.append(logitOutput.min().item())
             #self.normLayerMinHist.append(logitNormed.min().item())
-            self.finalMinHist.append(self.finalLogit.min().item())
+            self.finalMinHist.append(finalLogit.min().item())
 
-            self.tensorMaxHist.append(self.activationsTensor.max().item())
-            #self.normedMaxHist.append(self.normedActivationsTensor.max().item())
-            #self.activMaxHist.append(self.scaledActivations.max().item())
+            self.tensorMaxHist.append(actsTensor.max().item())
+            #self.normedMaxHist.append(normedActsTensor.max().item())
+            #self.activMaxHist.append(scaledActs.max().item())
             #self.logitMaxHist.append(logitOutput.max().item())
             #self.normLayerMaxHist.append(logitNormed.max().item())
-            self.finalMaxHist.append(self.finalLogit.max().item())
+            self.finalMaxHist.append(finalLogit.max().item())
 
             if len(self.tensorHist) >= self.numTokensPerStep:
                 if debugPrints: ʕっʘ‿ʘʔっ("clear rolling self.stats at end of window")
@@ -184,23 +184,23 @@ class LOGITS(nn.Module):
                 self.finalMaxHist = []
 
             #with torch.no_grad():
-                #topValues, topIndices = torch.topk(self.finalLogit, 5)
+                #topValues, topIndices = torch.topk(finalLogit, 5)
                 #self.stats["6L_topLogits"] = topValues.tolist()
                 #self.stats["6L_topIndices"] = topIndices.tolist()
-                #self.stats["6L_logitMax"] = self.finalLogit.max().item()
-                #self.stats["6L_logitMin"] = self.finalLogit.min().item()
-                #self.stats["6L_logitMean"] = self.finalLogit.mean().item()
-                #self.stats["6L_logitStd"] = self.finalLogit.std().item()
+                #self.stats["6L_logitMax"] = finalLogit.max().item()
+                #self.stats["6L_logitMin"] = finalLogit.min().item()
+                #self.stats["6L_logitMean"] = finalLogit.mean().item()
+                #self.stats["6L_logitStd"] = finalLogit.std().item()
                 #self.stats["6L_0_actsTensor_scale"] = rawScale.item()
                 #self.stats["6L_1_normActsTensor_scale"] = normedScale.item()
                 #self.stats["6L_3_outSigmoid_scale"] = outScale.detach().item()
                 #self.stats["6L_4_outNormSigmoid_scale"] = normOutScale.detach().item()
-            if debugPrints: print("activation norm:", self.scaledActivations.norm().item())
+            if debugPrints: print("activation norm:", scaledActs.norm().item())
             if debugPrints: print("weight norm mean:", self.l_weights.norm(dim = 0).mean().item())
             if debugPrints: print("weight norm max:", self.l_weights.norm(dim = 0).max().item())
 
             # return logits (not softmax) for better gradient computation in cross-entropy loss
-            return self.finalLogit # L6 ->
+            return finalLogit # L6 ->
     
     @whocalled
     def getLogitStats(self):
@@ -242,6 +242,12 @@ class LOGITS(nn.Module):
                     self.stats["activationSparsity"] = (act.abs() < 1e-6).float().mean().item()"""
 
         return self.stats
+
+    @whocalled
+    def clearStats(self):
+        for attr in list(vars(self)):
+            if attr.endswith("History") or attr.endswith("Hist"):
+                setattr(self, attr, [])
 
 if __name__ == "__main__":
     TESTlayerActivations = torch.randn(numNeurons)

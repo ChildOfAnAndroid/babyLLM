@@ -69,7 +69,7 @@ class NEURON(nn.Module):
     @whocalled
     def forward(self, _inputEmbeds):  # embed: (batch_size, embed_size)
         with self.n_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            self.inputEmbeds = _inputEmbeds
+            inputEmbeds = _inputEmbeds
             with torch.no_grad():
                 weightNorm = self.n_weights.norm(dim = 1, keepdim = True)
                 clippedWeights = self.n_weights / weightNorm.clamp(min = 1.0, max = 100.0)
@@ -104,10 +104,10 @@ class NEURON(nn.Module):
 
             if True:
                 if debugPrints: ʕっʘ‿ʘʔっ("raw input history append")
-                self.rawInputNormHistory.append(self.inputEmbeds.norm().item())
-                self.rawInputHistory.append(self.inputEmbeds.mean().item())
-                #self.rawInputHistory_tokens.append(self.inputEmbeds.norm(dim = 1).mean().item())
-                #self.rawInputHistory_neurons.append(self.inputEmbeds.norm(dim = 0).mean().item())
+                self.rawInputNormHistory.append(inputEmbeds.norm().item())
+                self.rawInputHistory.append(inputEmbeds.mean().item())
+                #self.rawInputHistory_tokens.append(inputEmbeds.norm(dim = 1).mean().item())
+                #self.rawInputHistory_neurons.append(inputEmbeds.norm(dim = 0).mean().item())
 
                 """if debugPrints: ʕっʘ‿ʘʔっ("normed input history append")
                 self.normedInputNormHistory.append(normedInput.norm().item())
@@ -282,7 +282,7 @@ class INTERNEURON_NETWORK(nn.Module):
     def forward(self, _inputEmbeds):  
         with self.inn_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             if debugPrints: ʕっʘ‿ʘʔっ("INN1: neuronActivationsPerToken")
-            self.neuronActivationsPerToken = self.neurons(_inputEmbeds)
+            neuronActsPerToken = self.neurons(_inputEmbeds)
 
             if debugPrints: ʕっʘ‿ʘʔっ("compute fresh floatWindowSizes + fractionality")
             # learnable fractionality, allows it to decide how descrite the windows should be
@@ -307,7 +307,7 @@ class INTERNEURON_NETWORK(nn.Module):
             self.floatWindowSizes_used = floatWindowSizes.detach()
 
             if debugPrints: ʕっʘ‿ʘʔっ("INN2: stackedWindowMeans")
-            windowMeanStack = self.stackedWindowMeans(self.neuronActivationsPerToken, windowTensor)
+            windowMeanStack = self.stackedWindowMeans(neuronActsPerToken, windowTensor)
 
             if debugPrints: ʕっʘ‿ʘʔっ("softmax weights from cerebellum")
             sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
@@ -330,16 +330,16 @@ class INTERNEURON_NETWORK(nn.Module):
 
             # --- logging
             if debugPrints: ʕっʘ‿ʘʔっ("get inn stats no grad")
-            self.activationsHistory.append(self.neuronActivationsPerToken.norm().item())
-            #self.activationsHistory_token.append(self.neuronActivationsPerToken.norm(dim = 1).mean().item())
-            #self.activationsHistory_neuron.append(self.neuronActivationsPerToken.norm(dim = 0).mean().item())
+            self.activationsHistory.append(neuronActsPerToken.norm().item())
+            #self.activationsHistory_token.append(neuronActsPerToken.norm(dim = 1).mean().item())
+            #self.activationsHistory_neuron.append(neuronActsPerToken.norm(dim = 0).mean().item())
             self.combHistory.append(combinedActivationsTensor.norm().item())
             #self.combHistory_neuron.append(combinedActivationsTensor.norm(dim = 0).mean().item())
             self.refHistory.append(refinedActivations.norm().item())
             #self.refHistory_neuron.append(refinedActivations.norm(dim = 0).mean().item())
 
             with torch.no_grad():
-                #acts = self.neuronActivationsPerToken
+                #acts = neuronActsPerToken
                 #comb = combinedActivationsTensor
                 #ref = refinedActivations
 
@@ -402,7 +402,7 @@ class INTERNEURON_NETWORK(nn.Module):
     def stackedWindowMeans(self, activations: torch.Tensor, windowTensor: torch.Tensor) -> torch.Tensor:
         """ Fully vectorized, loop-free window mean calculation. Expects: windowTensor already built. """
         with self.inn_counsellor.infodump("stackedWindowMeans") as ʕっʘ‿ʘʔっ:
-            #self.neuronActivationsPerToken = activations
+            #neuronActsPerToken = activations
             if debugPrints: ʕっʘ‿ʘʔっ("activations.shape")
             seqLen, embedDim = activations.shape
 
@@ -490,7 +490,13 @@ class INTERNEURON_NETWORK(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("update self.stats")
             #self.stats.update({f"{k}": v for k, v in self.neurons.getStats().items()})
         return self.stats, INN_cerebellum_str
-    
+
+    @whocalled
+    def clearStats(self):
+        for attr in list(vars(self)):
+            if attr.endswith("History") or attr.endswith("Hist"):
+                setattr(self, attr, [])
+
 if __name__ == "__main__":
     interneuronNetwork = INTERNEURON_NETWORK()
 

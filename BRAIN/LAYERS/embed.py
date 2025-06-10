@@ -26,7 +26,7 @@ class EMBED(nn.Module):
         self.maxPosLen = 2048
         self.posEmbedding = nn.Embedding(self.maxPosLen, embedDimension, device = self.device)
 
-    """looks up and returns the embedding vector for a specifc token index"""
+    """looks up and returns the embedding vector for a specific token index"""
     @whocalled
     def forward(self, _tokenIndex = None, _pixel = None):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
@@ -97,17 +97,27 @@ class EMBED(nn.Module):
         e2 = self.e_weights[_idx2]
         return torch.nn.functional.cosine_similarity(e1.unsqueeze(0), e2.unsqueeze(0))
 
-    
 if __name__ == "__main__":
+    from SCHOOL.staffroom.counsellor import COUNSELLOR
+
     TESTtokenIndex = 500
 
     # 32 (embedDimension) x 2000 (vocab) = 64,000 in embed layer
     embed = EMBED(vocabSize, embedDimension) 
     embedVector = embed.forward(TESTtokenIndex)
 
+    # temporary counsellor for logging, construct the layer
+    test_counsellor = COUNSELLOR("embed_test", _debug=False, _durations=False)
+    embed = EMBED(_counsellor=test_counsellor, _device=modelDevice)
+
+    embedVector = embed.forward(_tokenIndex=TESTtokenIndex)
+
     print(f"--- EMBEDDING LAYER TESTING START ---")
     print(f"embedding layer weights shape: {embed.weights.shape}") # Check shape of weight matrix
+    print("--- EMBEDDING LAYER TESTING START ---")
+    print(f"embedding layer weights shape: {embed.e_weights.shape}")
     print(f"embedding vector for token index {TESTtokenIndex}:")
     print(embedVector)
     print(f"embedding vector shape: {embedVector.shape}")
     print(f"--- EMBEDDING LAYER TESTING COMPLETE ---")
+    print("--- EMBEDDING LAYER TESTING COMPLETE ---")

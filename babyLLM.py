@@ -251,23 +251,20 @@ class BABYLLM(nn.Module):
                 _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
             
             if debugPrints: ʕっʘ‿ʘʔっ("cross Entropy Loss")
-            #LOSSlogits = torch.clamp(_logits, min=-50, max = 50)
             loss = F.cross_entropy(_logits, targetTensor)
             self.CEloss_used = loss
 
             if not torch.isfinite(loss):
                 print("NaN/Inf loss detected — logits:", _logits)
-                return torch.tensor(10.0, device = self.device, requires_grad = True)  # or skip/backoff
+                return torch.tensor(10.0, device = self.device, requires_grad = True)
 
             if debugPrints: print(f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
             
             self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
-            #tempReg = (torch.clamp(self.logTemp, 0.7, 0.9) - 0.8).pow(2)
 
             if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
-            #entropy = 0.001 * self.interneuronNetwork.entropyBonus
-
+            # regulate the learned LR, temperature, repetition penalty (etc) towards target values
             lrSoftClamp = 0.001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
             #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
             tempSoftClamp = (self.CEloss_used * 4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
@@ -318,6 +315,9 @@ class BABYLLM(nn.Module):
                 if debugPrints: self.print_rgb_block(self.nextPixelTarget, "truth")
                 if debugPrints: print(f"{rgbLoss} + rgb")
                 if debugPrints: print(f"{self.PIXELloss} + pixel")
+                # Detach the token embedding once it's no longer needed for gradient computation
+                if self.latestTokenEmbed is not None:
+                    self.latestTokenEmbed = self.latestTokenEmbed.detach()
 
             else:
                 FINALloss = loss
@@ -372,7 +372,7 @@ class BABYLLM(nn.Module):
                 for name, p in self.named_parameters():
                     if p.grad is None:
                         if debugPrints: ʕっʘ‿ʘʔっ("print no grads")
-                        print(f"before = {self.calligraphist.S_apply("dim", f"no grad: {name}")}")
+                        print(f"before = {self.calligraphist.S_apply('dim', f'no grad: {name}')}")
                     else:
                         if debugPrints: ʕっʘ‿ʘʔっ("set yes grads")
                         grad = p.grad
@@ -391,8 +391,8 @@ class BABYLLM(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("set yes grad std")
                         std = grad.std().item()
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
-                        print(f"before = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
-            if debugPrints: print("Loss:", _loss.item())
+                        print(f"before = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
+                        if debugPrints: print("Loss:", _loss.item())
             if debugPrints: ʕっʘ‿ʘʔっ("loss.backward")
             if debugPrints: print(f"windowMAX: {self.numTokensPerStep}")
             _loss.backward()
@@ -412,7 +412,7 @@ class BABYLLM(nn.Module):
                 for name, p in self.named_parameters():
                     if p.grad is None:
                         if debugPrints: ʕっʘ‿ʘʔっ("print no grads")
-                        print(f"after = {self.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
+                        print(f"after = {self.calligraphist.S_apply('emergency', f'NO GRAD: {name}')}")
                     else: 
                         if debugPrints: ʕっʘ‿ʘʔっ("set yes grads")
                         grad = p.grad
@@ -431,7 +431,7 @@ class BABYLLM(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("set yes grad std")
                         std = grad.std().item()
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
-                        print(f"after = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
+                        print(f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
 
             if debugPrints: ʕっʘ‿ʘʔっ("torch.no_grad")
             with torch.no_grad(): # RESET LEARNABLE PARAMETERS
@@ -462,7 +462,7 @@ class BABYLLM(nn.Module):
                 learnedLR = torch.exp(self.logLR).item()
                 for g in self.optimizer.param_groups:
                     if debugPrints: ʕっʘ‿ʘʔっ("update self.optimizer.param_groups")
-                    g['lr'] = learnedLR
+                    g['lr'] = learnedLR # send the learned LR to the optimizer
                 #self.gradientClipMaxNorm = torch.exp(self.logGradClip).item()
                 #self.repetitionWindow = torch.exp(self.logRepetitionWindow).item()
                 #self.logLR.data.fill_(self.logLR+0.000001) # increment LR manually (break grid)

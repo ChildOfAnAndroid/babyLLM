@@ -297,6 +297,7 @@ class TUTOR:
                             if debugPrints: ʕっʘ‿ʘʔっ("totalTurns modulo 420 lol")
                             centreLow = 0.0025
                             centreHigh = 0.3
+                            # sometimes adjust the target LR based on recent performance
                             if (learningRateGOAL * 0.5) < self.learningRateGOAL and self.learningRateGOAL < 0.001 :
                                 if self.totalAvgAbsDelta < centreLow:
                                     lrNudge = (self.totalAvgAbsDelta - centreLow) * 0.5
@@ -360,11 +361,13 @@ class TUTOR:
                         self.perfectionistPassRate -= round((self.perfectionistPassRate + self.tokenPerfectRate) * 0.1)
                         absdelta = abs(self.latestLossDelta)
                         fuzzyabs = (self.totalAvgAbsDelta + absdelta) * 0.5
+                        # change LR goal based on recent stability
                         if fuzzyabs < 0.01: self.learningRateGOAL *= 1.02
                         elif fuzzyabs > 1.0: self.learningRateGOAL *= 0.90
                         elif fuzzyabs > 0.05: self.learningRateGOAL *= 0.98
                         else: self.learningRateGOAL = self.learningRateGOAL
 
+                        # keep LR goal within bounds, stop explosions etc!
                         self.learningRateGOAL = max(1e-6, min(0.0004, self.learningRateGOAL))
                         if debugPrints or True: print(f"updated goal LR to {self.learningRateGOAL}")
 
@@ -843,8 +846,8 @@ class TUTOR:
             if debugPrints: ʕっʘ‿ʘʔっ("grad checks")
             for name, p in self.model.named_parameters():
                 if p.grad is None:
-                    print(f"after = {self.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
-                else: 
+                    print(f"after = {self.calligraphist.S_apply('emergency', f'NO GRAD: {name}')}")
+                else:
                     grad = p.grad
                     shape = tuple(grad.shape)
                     norm = grad.norm().item()
@@ -853,7 +856,7 @@ class TUTOR:
                     sparsity = 1 - (nonzero / total)
                     mean = grad.mean().item()
                     std = grad.std().item()
-                    print(f"after = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
+                    print(f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
 
     @whocalled               
     def printFreqActions(self): 
@@ -963,7 +966,7 @@ class TUTOR:
 
             self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
             boldPerfects = []
-            target = torch.tensor(self.targetTokenIndexSeq[:self.numTokensPerStep], device = modelDevice)
+            target = torch.tensor(self.targetTokenIndexSeq[:self.numTokensPerStep], device = self.device)
 
             for i, idx in enumerate(self.predictedTokenIndices):
                 tok = self.librarian.indexToToken.get(idx.item(), "<UNK>")
@@ -1001,8 +1004,8 @@ class TUTOR:
                         return self.stats, {}, self.guessedTokenSeq # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
                     
                     self.totalTokenEvaluations          = 0
-                    target                              = torch.tensor(self.targetTokenIndexSeq[:self.numTokensPerStep], device = modelDevice)
-                    predicted                           = torch.tensor(self.predictedTokenIndices, device = modelDevice)
+                    target                              = torch.tensor(self.targetTokenIndexSeq[:self.numTokensPerStep], device = self.device)
+                    predicted                           = torch.tensor(self.predictedTokenIndices, device = self.device)
                     correct                             = (predicted == target).sum() # ~~~ if predicted = target, over whole tensor 
                     self.perfectTokens                 += correct.item()
                     self.totalTokenEvaluations         += len(target)
@@ -1215,6 +1218,16 @@ class TUTOR:
             else:
                 if debugPrints: ʕっʘ‿ʘʔっ("resetMemory")
                 self.model.resetMemory(context="training")
+
+            # clear rolling history lists inside each layer
+            if hasattr(self.model, "memory"):
+                self.model.memory.clearStats()
+            if hasattr(self.model, "memory2"):
+                self.model.memory2.clearStats()
+            if hasattr(self.model, "interneuronNetwork"):
+                self.model.interneuronNetwork.clearStats()
+            if hasattr(self.model, "logits"):
+                self.model.logits.clearStats()
         
         return self.latestLossDelta
 

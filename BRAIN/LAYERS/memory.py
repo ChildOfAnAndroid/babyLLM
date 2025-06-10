@@ -311,10 +311,17 @@ class MEMORY(nn.Module):
     def updateMemoryBuffers(self):
         with self.counsellor.infodump("updateMemoryBuffers") as ʕっʘ‿ʘʔっ:
             with torch.no_grad():
-                if debugPrints: ʕっʘ‿ʘʔっ("self.shortTermMemory.copy_")
-                self.shortTermMemory.copy_(self.newShort.detach())
-                if debugPrints: ʕっʘ‿ʘʔっ("self.longTermMemory.copy_")
-                self.longTermMemory.copy_(self.newLong.detach())
+                if getattr(self, "newShort", None) is not None:
+                    if debugPrints: ʕっʘ‿ʘʔっ("self.shortTermMemory.copy_")
+                    self.shortTermMemory.copy_(self.newShort.detach())
+                if getattr(self, "newLong", None) is not None:
+                    if debugPrints: ʕっʘ‿ʘʔっ("self.longTermMemory.copy_")
+                    self.longTermMemory.copy_(self.newLong.detach())
+
+                # free graph memory
+                self.newShort = None
+                self.newLong = None
+                self.activationsTensor = None
 
     @whocalled
     def resetMemory(self, _memoryLength):
@@ -332,12 +339,31 @@ class MEMORY(nn.Module):
                 #self.longTermDecay += 0.1
                 #self.shortTermDecay += 0.001
                 #self.longTermMemory.zero_() #retaining long term cause, yk, long term! i felt mean!
-            #pass
+            # clear any pending buffers
+            self.newShort = None
+            self.newLong = None
+            self.activationsTensor = None
 
     @whocalled
     def getMemoryStats(self): return self.stats
 
+    @whocalled
+    def clearStats(self):
+        for attr in list(vars(self)):
+            if attr.endswith("History") or attr.endswith("Hist"):
+                setattr(self, attr, [])
+
 if __name__ == "__main__":
+    from SCHOOL.staffroom.counsellor import COUNSELLOR
+
     memory = MEMORY(numNeurons = numNeurons)
+
+    test_counsellor = COUNSELLOR("memory_test", _debug=False, _durations=False)
+    memory = MEMORY(_counsellor=test_counsellor, _numTokensPerStep=1)
+
     print("--- MEMORY TESTING STARTED ---")
     print("\n--- MEMORY TESTING COMPLETE ---")
+    dummy_input = torch.zeros(1, numNeurons, device=modelDevice)
+    output = memory.forward(dummy_input)
+    print(f"Output shape: {output.shape}")
+    print("--- MEMORY TESTING COMPLETE ---")
