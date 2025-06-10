@@ -163,7 +163,7 @@ newLineBetweenStats = True
 
 durationLogging = False # // True // False // activates debug time logging
 debugPrints = False
-anomalyDetect = True
+anomalyDetect = False
 
 skipNeuron = False
 skipINN = False

@@ -144,7 +144,7 @@ class LIBRARIAN:
                 if loadedChars >= _dataCharactersToLoad:
                     break
 
-            result = re.sub(r'\s+', ' ', buffer.getvalue())
+            result = re.sub(r'[ \t]+', ' ', buffer.getvalue())
             print(f"loaded {len(result)} characters of training data!")
             return result
 

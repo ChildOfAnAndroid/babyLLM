@@ -67,7 +67,7 @@ REPEATS = re.compile(r'(\S)\1{3,}', re.IGNORECASE)
 (re.compile(r'(?:\:\/{3,})', ':/', text)  # Normalise :/
 (re.compile(r'(?:\-{3,})', '-', text)  # Normalise -"""
 
-MULTISPACE = re.compile(r'\s+')
+MULTISPACE = re.compile(r'[ \t]+')
 
 EMOTES = [
     (re.compile(r'(?:\:\({3,})'), ':('),
@@ -227,7 +227,7 @@ def batch_sub(text, pattern_map):
 
 def clean_text(text):
     before = len(text)
-    text = unescape(text).strip()
+    text = unescape(text).strip(" \t")
     text = re.sub(r'(?:<END>)', '', text)  # placeholder
     text = text.lower()
     text = re.sub(r"[‘’]", "'", text)
@@ -243,14 +243,14 @@ def clean_text(text):
     for pattern, replacement in ACCENTS:
         text = pattern.sub(replacement, text)
 
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[ \t]+', ' ', text)
 
     for old, new in REPLACEMENTS.items():
         text = text.replace(old, new)
 
-    after = len(text.strip())
+    after = len(text.strip(" \t"))
     print(f"reduced from {before:,} to {after:,} characters")
-    return text.strip()
+    return text.strip(" \t")
 
 def process_file(current_file):
     try:
