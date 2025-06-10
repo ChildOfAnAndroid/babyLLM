@@ -102,17 +102,19 @@ class MEMORY(nn.Module):
             newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * self.activationsTensor)
 
             if debugPrints: ʕっʘ‿ʘʔっ("self.inputReducer")
-            self.reducedInputBuf.copy_(self.inputReducer(self.activationsTensor))  # [1, embedDim]
+            reducedInput = self.inputReducer(self.activationsTensor)
+            self.reducedInputBuf.copy_(reducedInput.detach())  # store for stats without affecting autograd
 
             # unified gate logits -> shape: [1, 4 * numNeurons]
             if debugPrints: ʕっʘ‿ʘʔっ("self.gateLater2")
-            self.gateLogitsBuf.copy_(self.gateLayer2(self.reducedInputBuf).view(4, numNeurons))
+            gateLogits = self.gateLayer2(reducedInput).view(4, numNeurons)
+            self.gateLogitsBuf.copy_(gateLogits.detach())  # keep detached version for logging
             if debugPrints: ʕっʘ‿ʘʔっ("clamp gatelayer2 -> gateLogits")
-            self.gateLogitsBuf.clamp_(-30, 30)
+            gateLogits = gateLogits.clamp(-30, 30)
 
             # softmax across sources (dim=0), sum to 1 per neuron
             if debugPrints: ʕっʘ‿ʘʔっ("softmax gateLogits")
-            gateWeights = torch.softmax(self.gateLogitsBuf, dim=0)
+            gateWeights = torch.softmax(gateLogits, dim=0)
             shortGateScale, longGateScale, actGateScale, memGateScale = gateWeights
 
             if debugPrints: ʕっʘ‿ʘʔっ("firstGatedMemory")

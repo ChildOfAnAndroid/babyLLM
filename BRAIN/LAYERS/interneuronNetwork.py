@@ -410,12 +410,9 @@ class INTERNEURON_NETWORK(nn.Module):
             seqLen, embedDim = activations.shape
 
             # PADDING ENSURES UNDERLYING DATA HAS CORRECT TENSOR/VECTOR SHAPE FOR THE MASK
-            padded = self.tmp_padded_activations
-            if padded.shape[1] != embedDim:
-                padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)
-                self.tmp_padded_activations = padded
-
-            padded.zero_()
+            padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)
+            padded[-min(seqLen, self.numTokensPerStep) :] = activations[-min(seqLen, self.numTokensPerStep) :]
+            self.tmp_padded_activations = padded.detach()
             padded[-min(seqLen, self.numTokensPerStep) :] = activations[-min(seqLen, self.numTokensPerStep) :]
 
             padded_t = padded.t().unsqueeze(0)  # (1, embedDim, maxW)
