@@ -153,8 +153,8 @@ windowEntropyBonus = True
 """--- LOGS ---"""
 detailedLogging = True
 
-trainingLogFreq_A = 100    # creates logs every x number of turns
-trainingLogFreq_B = 1000   # creates logs every x number of turns
+trainingLogFreq_A = 1    # creates logs every x number of turns
+trainingLogFreq_B = 1    # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
@@ -557,9 +557,9 @@ INN_scoringStats = False
 INN_windowStats = True
 INN_outputTensorStats = True
 
-profiler = False
-mpsProfiler = False
-forwardProfiler = False
+profiler = True
+mpsProfiler = True
+forwardProfiler = True
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 

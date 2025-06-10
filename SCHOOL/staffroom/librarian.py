@@ -148,7 +148,7 @@ class LIBRARIAN:
             print(f"loaded {len(result)} characters of training data!")
             return result
 
-    def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = trainingDataPairNumber, _stride = trainingDataStride):
+    def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = 1, _stride = trainingDataStride):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             count = 0
             tokens = self.tokens
@@ -162,8 +162,8 @@ class LIBRARIAN:
 
             end = len(tokens) - _windowMAX
 
-            if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
             for i in range(_startIndex, end, int(_stride)):
+                if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
                 inputSeq = tokens[i:i + _windowMAX]
                 target = tokens[i + _windowMAX:i + _windowMAX + _windowMAX]
                 if len(target) < _windowMAX:

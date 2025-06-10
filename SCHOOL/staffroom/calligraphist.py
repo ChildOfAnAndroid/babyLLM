@@ -469,7 +469,7 @@ class S_OUTPUT:
             rows = list(zip(*columns))
 
             # Combine into grid
-            newLineLittle += "\n" + "\n".join("".join(cell for cell in row) for row in rows) + f"{self.S_apply('reset', "")}"
+            newLineLittle += "\n" + "\n".join("".join(cell for cell in row) for row in rows) + f"{self.S_apply('reset', '')}"
 
             if _INN_cerebellum_str: 
                 if debugPrints: ʕっʘ‿ʘʔっ("INN_cerebellum_str")

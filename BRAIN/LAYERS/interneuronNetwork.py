@@ -407,28 +407,21 @@ class INTERNEURON_NETWORK(nn.Module):
             seqLen, embedDim = activations.shape
 
             # PADDING ENSURES UNDERLYING DATA HAS CORRECT TENSOR/VECTOR SHAPE FOR THE MASK
-            if debugPrints: ʕっʘ‿ʘʔっ("padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)")
-            padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)
-            if debugPrints: ʕっʘ‿ʘʔっ("padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]")
-            padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]
+            maxLen = self.numTokensPerStep
+            if debugPrints: ʕっʘ‿ʘʔっ("pad activations to maxLen")
+            padded = torch.zeros((maxLen, embedDim), device=self.device)
+            tail = activations[-maxLen:]
+            padded[-tail.shape[0]:] = tail
 
-            if debugPrints: ʕっʘ‿ʘʔっ("padded.unsqueeze(0).repeat(windowTensor.shape[0], 1, 1)")
-            stackedWindows = padded.unsqueeze(0).repeat(windowTensor.shape[0], 1, 1)
+            if debugPrints: ʕっʘ‿ʘʔっ("cumulative sum")
+            cumsum = F.pad(padded, (0, 0, 1, 0)).cumsum(dim=0)
 
-            # THE RANGE MASK IS ONLY EVER AS LONG AS WINDOWMAX, SO THAT WINDOWS DONT EXCEED IT
-            if debugPrints: ʕっʘ‿ʘʔっ("rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)")
-            rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)  # (1, maxW)
+            windowSizes = torch.ceil(windowTensor.squeeze(1)).clamp(1, maxLen).long()
+            start_idx = maxLen - windowSizes
 
-            #'mask' CHECKS TO SEE HOW LONG WINDOWS ARE, AND IF THEY ARE LONGER CROPS IT BEFORE MEANING
-            if debugPrints: ʕっʘ‿ʘʔっ("mask = (rangeMask < windowTensor).float().unsqueeze(2)")
-            mask = (rangeMask < windowTensor).float().unsqueeze(2)  # (numWindows, maxW, 1)
-
-            if debugPrints: ʕっʘ‿ʘʔっ("stackedWindows * mask")
-            maskedWindows = stackedWindows * mask
-            if debugPrints: ʕっʘ‿ʘʔっ("maskedWindows.sum(dim = 1)")
-            sums = maskedWindows.sum(dim = 1)  # (numWindows, embedDim)
-            if debugPrints: ʕっʘ‿ʘʔっ("sims / windowTensor")
-            means = sums / windowTensor  # divide each by its window length
+            if debugPrints: ʕっʘ‿ʘʔっ("gather sums")
+            sums = cumsum[maxLen].unsqueeze(0) - cumsum[start_idx]
+            means = sums / windowTensor
 
             return means
     
