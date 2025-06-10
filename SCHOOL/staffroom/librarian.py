@@ -5,10 +5,11 @@
 
 from collections import Counter
 from config import *
-from transformers import AutoTokenizer, PreTrainedTokenizerFast
+from transformers import PreTrainedTokenizerFast
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers, ByteLevelBPETokenizer
 from tokenizers.processors import ByteLevel
-import os, re, json, random, torch
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
+import os, re, json, random, torch, io
 from SCHOOL.notebook.tools.genBoi import *
 
 """
@@ -70,11 +71,13 @@ class LIBRARIAN:
                 with open(self.tokenizerLockFile, "w") as f:
                     f.write("LOCKED") # avoid retraining by accident lol
 
-                self.tokenizer = tokenizerModel
-            else:
-                if debugPrints: ʕっʘ‿ʘʔっ("LOADING EXISTING TOKENIZER")
+            if debugPrints and not shouldTrain:
+                ʕっʘ‿ʘʔっ("LOADING EXISTING TOKENIZER")
                 print("loading existing tokenizer...")
-                self.tokenizer = Tokenizer.from_file(self.tokenizerPath)
+
+            self.tokenizer = PreTrainedTokenizerFast(tokenizer_file=self.tokenizerPath, unk_token=self.unkToken, add_prefix_space=True,)
+            # byte-level decoder so decoded text is plain
+            self.tokenizer.backend_tokenizer.decoder = ByteLevelDecoder()
 
             self.buildVocabMap()
 
@@ -90,15 +93,15 @@ class LIBRARIAN:
 
     def tokenizeText(self, _text):
         with self.v_counsellor.infodump("tokenizeText") as ʕっʘ‿ʘʔっ:
-            encoding = self.tokenizer.encode(_text)
+            ids = self.tokenizer.encode(_text)
             if debugPrints:
                 print(f"tokenizing: {_text}")
-                print(f"token ids: {encoding.ids}")
-            return [self.indexToToken.get(idx, self.unkToken) for idx in encoding.ids] # Convert indexs back to strings
+                print(f"token ids: {ids}")
+            return [self.indexToToken.get(idx, self.unkToken) for idx in ids]  # Convert indexs back to strings
         
     def decodeIDs(self, _ids):
         with self.v_counsellor.infodump("decodeIDs") as ʕっʘ‿ʘʔっ:
-            decoded = self.tokenizer.decode(_ids)
+            decoded = self.tokenizer.decode(_ids).lstrip()
             if debugPrints:
                 print(f"decoding: {_ids}")
                 print(f"decoded: {decoded}")
@@ -127,24 +130,31 @@ class LIBRARIAN:
 
     def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData, _dataCharactersToLoad = 900000):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ:
-            result = ""
+            buffer = io.StringIO()
+            loadedChars = 0
             for path in _filepaths:
                 with open(path, "r", encoding="utf-8") as f:
-                    while len(result) < _dataCharactersToLoad:
-                        chunk = f.read(_chunkSize)
-                        if not chunk: break
-                        result += chunk
-            result = re.sub(r'\s+', ' ', result)
+                    while loadedChars < _dataCharactersToLoad:
+                        readSize = min(_chunkSize, _dataCharactersToLoad - loadedChars)
+                        chunk = f.read(readSize)
+                        if not chunk:
+                            break
+                        buffer.write(chunk)
+                        loadedChars += len(chunk)
+                if loadedChars >= _dataCharactersToLoad:
+                    break
+
+            result = re.sub(r'\s+', ' ', buffer.getvalue())
             print(f"loaded {len(result)} characters of training data!")
             return result
 
     def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = trainingDataPairNumber, _stride = trainingDataStride):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
-            trainingDataPairs = []
             count = 0
             tokens = self.tokens
             if debugPrints: ʕっʘ‿ʘʔっ("check if windowMax is tensor?")
-            if isinstance(_windowMAX, torch.Tensor): _windowMAX = _windowMAX.item()
+            if isinstance(_windowMAX, torch.Tensor):
+                _windowMAX = _windowMAX.item()
             
             if debugPrints: ʕっʘ‿ʘʔっ("allows for random start")
             if _startIndex == 'random':
@@ -154,19 +164,19 @@ class LIBRARIAN:
 
             if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
             for i in range(_startIndex, end, int(_stride)):
-                inputSeq = tokens[i:i+_windowMAX]
-                target = tokens[i+_windowMAX:i+_windowMAX+_windowMAX]
-                if len(target) < _windowMAX: continue
+                inputSeq = tokens[i:i + _windowMAX]
+                target = tokens[i + _windowMAX:i + _windowMAX + _windowMAX]
+                if len(target) < _windowMAX:
+                    continue
                 if all(t in self.vocabList for t in inputSeq + target):
-                    trainingDataPairs.append((inputSeq, target))
+                    yield (inputSeq, target)
                     count += 1
-                    if count >= _trainingDataPairNumber:
-                        break
                     if count % 1000 == 0:
                         print(f"{makeDatBoi()} {babyName}: generated {count}x trainingDataPairs!")
+                    if count >= _trainingDataPairNumber:
+                        break
                 else:
                     print(f"skipping <UNK> - inputSeq: {inputSeq}, target: {target}")
-            return trainingDataPairs
 
     def saveVocab(self):
         with self.v_counsellor.infodump("saveVocab") as ʕっʘ‿ʘʔっ:
@@ -212,7 +222,7 @@ if __name__ == "__main__":
     print(f"Top 20 tokens: {librarian.vocabList[:20]}")
 
     #print(vocab.huggingTokenizer("charis and elodie are very cool, elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"))
-    sample_text = "ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ charis and elodie are very cool, ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"
-    tokenizedOutput = librarian.tokenizeText(sample_text)
-    print(f"sample text: {sample_text}")
+    sampleText = "ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ charis and elodie are very cool, ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ ʕっʘ‿ʘʔっ elodies pretty and charis is very suave, they're sexy bitches, we love these girls and we want to see them living their best lives bruv"
+    tokenizedOutput = librarian.tokenizeText(sampleText)
+    print(f"sample text: {sampleText}")
     print(f"tokenized: {tokenizedOutput}")

@@ -108,7 +108,8 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
     except KeyboardInterrupt: #as k
         for name, p in babyLLM.named_parameters():
             if p.grad is None:
-                print(f"keyboard interrupt = {babyLLM.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
+                msg = babyLLM.calligraphist.S_apply('emergency', f'NO GRAD: {name}')
+                print(f"keyboard interrupt = {msg}")
             else: 
                 grad = p.grad
                 shape = tuple(grad.shape)
@@ -118,8 +119,13 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 sparsity = 1 - (nonzero / total)
                 mean = grad.mean().item()
                 std = grad.std().item()
-                print(f"keyboard interrupt = {babyLLM.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
-        if debugPrints: ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
+                detail = (
+                    f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | "
+                    f"sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}"
+                )
+                msg = babyLLM.calligraphist.S_apply('almostPerfect', detail)
+                print(f"keyboard interrupt = {msg}")
+                if debugPrints: ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
         if tutor.trainingStepCounter:
             step = tutor.trainingStepCounter
             totalAvgLoss = tutor.totalAvgLoss

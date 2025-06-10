@@ -145,12 +145,11 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
     userPrompt += f"[{babyName}]: {initial_greeting}\n"
     log_conversation(f"[{babyName}]: {initial_greeting}")
 
-    conversation_token_ids_for_learning = [] # This buffer stores [user]: msg [baby]: resp
+    conversation_token_ids_for_learning = torch.tensor([], dtype=torch.long, device=modelDevice)
+    last_trained_slice_index = 0
     show_learning_stats = False
     interaction_count_for_saving = 0
     save_every_n_interactions = 20
-
-    learning_buffer_offset = 0
 
     while True:
         try:
@@ -197,7 +196,8 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
             user_input_processed = raw_user_input.lower()
             user_input_for_learning_buffer = f"[{userName}]: {user_input_processed}"
             prompt_tokens_ids_for_learning_buffer = [librarian.tokenToIndex.get(t, librarian.tokenToIndex.get("<UNK>",0)) for t in librarian.tokenizeText(user_input_for_learning_buffer)]
-            conversation_token_ids_for_learning.extend(prompt_tokens_ids_for_learning_buffer)
+            buffer_tensor = torch.tensor(prompt_tokens_ids_for_learning_buffer, dtype=torch.long, device=modelDevice)
+            conversation_token_ids_for_learning = torch.cat((conversation_token_ids_for_learning, buffer_tensor))
 
             # --- Generation ---
             # The prompt for generation should be the full accumulated userPrompt
@@ -254,68 +254,75 @@ def chat_with_baby(baby_model, librarian, scribe, calligraphist, counsellor, tut
 
             # --- Update conversation_token_ids_for_learning (for training) ---
             final_response_ids_for_learning_buffer = [librarian.tokenToIndex.get(t, librarian.tokenToIndex["<UNK>"]) for t in librarian.tokenizeText(final_response_with_prefix)]
-            conversation_token_ids_for_learning.extend(final_response_ids_for_learning_buffer)
+            buffer_tensor = torch.tensor(final_response_ids_for_learning_buffer, dtype=torch.long, device=modelDevice)
+            conversation_token_ids_for_learning = torch.cat((conversation_token_ids_for_learning, buffer_tensor))
 
             learning_triggered_this_turn = False
             tokens_needed_for_one_pair = windowMAXSTART * 2
-            if len(conversation_token_ids_for_learning) - learning_buffer_offset >= tokens_needed_for_one_pair:
-                scribe_message_printed = False
-                while learning_buffer_offset + tokens_needed_for_one_pair <= len(conversation_token_ids_for_learning):
-                    tutor.totalTurns += 1
-                    if not scribe_message_printed:
-                        learning_msg = "thinking about what we just said... (processing conversation)"
-                        scribe.scribeSay(learning_msg, _vibe="writes", _scribeName="tutor")
-                        scribe_message_printed = True
-                    
-                    learning_triggered_this_turn = True
+            data_stride = trainingDataStride
+            num_tokens_available = conversation_token_ids_for_learning.size(0)
+            if num_tokens_available >= tokens_needed_for_one_pair:
+                all_slices = conversation_token_ids_for_learning.unfold(0, tokens_needed_for_one_pair, data_stride)
+                total_possible_pairs_in_buffer = all_slices.size(0)
+                if last_trained_slice_index < total_possible_pairs_in_buffer:
+                    scribe_message_printed = False
+                    for idx in range(last_trained_slice_index, total_possible_pairs_in_buffer):
+                        tutor.totalTurns += 1
+                        if not scribe_message_printed:
+                            learning_msg = "thinking about what we just said... (processing conversation)"
+                            scribe.scribeSay(learning_msg, _vibe="writes", _scribeName="tutor")
+                            scribe_message_printed = True
 
-                    current_segment_ids = conversation_token_ids_for_learning[learning_buffer_offset : learning_buffer_offset + tokens_needed_for_one_pair]
-                    current_input_ids  = current_segment_ids[:baby_model.numTokensPerStep]
-                    current_target_ids = current_segment_ids[baby_model.numTokensPerStep:]
+                        learning_triggered_this_turn = True
 
-                    current_input_text  = [librarian.indexToToken.get(id, "<UNK>") for id in current_input_ids]
-                    current_target_text = [librarian.indexToToken.get(id, "<UNK>") for id in current_target_ids]
-                    
-                    if debugPrints: print(f"DEBUG INFER: Training on slice: offset {learning_buffer_offset}, input len {len(current_input_ids)}, target len {len(current_target_ids)}")
+                        current_segment_tensor = all_slices[idx]
+                        current_input_ids  = current_segment_tensor[:baby_model.numTokensPerStep].tolist()
+                        current_target_ids = current_segment_tensor[baby_model.numTokensPerStep:].tolist()
 
-                    total_possible_pairs_in_buffer = max(0, len(conversation_token_ids_for_learning) - (tokens_needed_for_one_pair -1))
-                    current_pair_index_in_buffer = learning_buffer_offset
+                        current_input_text  = [librarian.indexToToken.get(id, "<UNK>") for id in current_input_ids]
+                        current_target_text = [librarian.indexToToken.get(id, "<UNK>") for id in current_target_ids]
 
-                    learning_successful = tutor.interactiveLearning(
-                        current_input_ids, current_target_ids,
-                        current_input_text, current_target_text,
-                        calligraphist,
-                        show_detailed_stats = show_learning_stats,
-                        current_dataset_total_pairs = total_possible_pairs_in_buffer,
-                        current_dataset_step_index = current_pair_index_in_buffer
-                    )
+                        if debugPrints:
+                            print(f"DEBUG INFER: Training on slice index {idx}, input len {len(current_input_ids)}, target len {len(current_target_ids)}")
 
-                    if learning_successful:
-                        interaction_count_for_saving += 1
-                        if interaction_count_for_saving % save_every_n_interactions == 0:
-                            tutor.saveFreqActions()
-                    else:
-                        not_learned_msg = "hmm... well, i tried to get my homework done on time, but i'm not really sure where you left it..."
-                        scribe.scribeSay(not_learned_msg, _vibe="worried", _scribeName = babyName)
-                        log_conversation(f"[{babyName}]: {not_learned_msg} (Slice offset: {learning_buffer_offset})")
-                    
-                    learning_buffer_offset += 25 # KEY: Slide the window by 1 token DATASTRIDE!!!! bsically
+                        learning_successful = tutor.interactiveLearning(
+                            current_input_ids, current_target_ids,
+                            current_input_text, current_target_text,
+                            calligraphist,
+                            show_detailed_stats = show_learning_stats,
+                            current_dataset_total_pairs = total_possible_pairs_in_buffer,
+                            current_dataset_step_index = idx,
+                        )
 
-                if scribe_message_printed:
-                    learned_msg_confirm = "nice :)"
-                    scribe.scribeSay(learned_msg_confirm, _vibe="happy", _scribeName = babyName)
-                    log_conversation(f"[{babyName}]: {learned_msg_confirm}")
+                        if learning_successful:
+                            interaction_count_for_saving += 1
+                            if interaction_count_for_saving % save_every_n_interactions == 0:
+                                tutor.saveFreqActions()
+                        else:
+                            not_learned_msg = "hmm... well, i tried to get my homework done on time, but i'm not really sure where you left it..."
+                            scribe.scribeSay(not_learned_msg, _vibe="worried", _scribeName=babyName)
+                            log_conversation(f"[{babyName}]: {not_learned_msg} (Slice index: {idx})")
+
+                    if scribe_message_printed:
+                        learned_msg_confirm = "nice :)"
+                        scribe.scribeSay(learned_msg_confirm, _vibe="happy", _scribeName=babyName)
+                        log_conversation(f"[{babyName}]: {learned_msg_confirm}")
+
+                    last_trained_slice_index = total_possible_pairs_in_buffer
+                else:
+                    if debugPrints:
+                        print(f"DEBUG INFER: No new slices to learn. total slices {total_possible_pairs_in_buffer}")
             else:
                 if debugPrints: print(f"DEBUG INFER: Not enough new tokens for a learning step. Available new: {len(conversation_token_ids_for_learning) - learning_buffer_offset}, Needed: {tokens_needed_for_one_pair}")
 
             # this buffer is for creating training pairs.
             max_learning_buffer_len = baby_model.numTokensPerStep * 5
-            if len(conversation_token_ids_for_learning) > max_learning_buffer_len:
-                amount_to_trim = len(conversation_token_ids_for_learning) - max_learning_buffer_len
+            if conversation_token_ids_for_learning.size(0) > max_learning_buffer_len:
+                amount_to_trim = conversation_token_ids_for_learning.size(0) - max_learning_buffer_len
                 conversation_token_ids_for_learning = conversation_token_ids_for_learning[amount_to_trim:]
-                learning_buffer_offset = max(0, learning_buffer_offset - amount_to_trim)
+                last_trained_slice_index = max(0, last_trained_slice_index - (amount_to_trim // trainingDataStride))
 
-                trim_msg = f"learning buffer trimmed, removed {amount_to_trim} tokens. new offset: {learning_buffer_offset}."
+                trim_msg = f"learning buffer trimmed, removed {amount_to_trim} tokens."
                 if show_learning_stats:
                     scribe.scribeSay(trim_msg, _vibe="neutral", _scribeName = babyName)
                     log_conversation(f"[babyllm]: {trim_msg}")

@@ -47,7 +47,7 @@ class BABYLLM(nn.Module):
         self.computeLossCount = 0
         self.repeatedPercent = 0
         self.normalisedActivations = 0
-        self.rollingTokenTotals = Counter()
+        self.rollingTokenTotals_tensor = torch.zeros(len(self.librarian.vocabList), device=self.device)
         self.gumBellend = 0
         self.pixelLoss_used = 0
 
@@ -563,24 +563,8 @@ class BABYLLM(nn.Module):
 
                 if debugPrints: ʕっʘ‿ʘʔっ("topK sampling")
                 topk = torch.topk(gumbelProbs, 10, dim = 1)
-                if debugPrints: ʕっʘ‿ʘʔっ("topK indices to list")
-                indices = topk.indices[0].tolist()
-                if debugPrints: ʕっʘ‿ʘʔっ("topk values to list")
-                values = topk.values[0].tolist()
-                #self.lastTopGuesses = []
-                if debugPrints: ʕっʘ‿ʘʔっ("forloop get rolling token totals")
-                for i, p in zip(indices, values):
-                    ʕっʘ‿ʘʔっ(f"self.lirarian.indexToToken.get({i}, UNK)")
-                    token = self.librarian.indexToToken.get(i, "<UNK>")
-                    try:
-                        if isinstance(p, float) and math.isfinite(p):
-                            #self.lastTopGuesses.append((token, round(p, 4)))
-                            self.rollingTokenTotals[token] += round(p, 4)
-                        else:
-                            if debugPrints: ʕっʘ‿ʘʔっ("skipping non-finite topk")
-                            print(f"skipping non-finite top guess: {token} → {p}")
-                    except Exception as e:
-                        print(f"error processing top guess: {token} → {p} | {e}")
+                finite = torch.isfinite(topk.values[0])
+                self.rollingTokenTotals_tensor.index_add_(0, topk.indices[0][finite], topk.values[0][finite])
 
                 #print("Top guesses + confidences:", [(self.librarian.indexToToken[i.item()], f"{p.item():.3f}") for i, p in zip(indices, values)])
 
@@ -824,6 +808,16 @@ class BABYLLM(nn.Module):
         for i, rgb in enumerate(rgb_tensor):
             r, g, b = (rgb * 255).astype(int)
             print(f"{label}[{i}]: \x1b[48;2;{r};{g};{b}m     \x1b[0m  ({r}, {g}, {b})")
+
+    def getRollingTokenTotalsDict(self):
+        counts = self.rollingTokenTotals_tensor.detach().cpu()
+        non_zero = torch.nonzero(counts).squeeze()
+        if non_zero.numel() == 0:
+            return {}
+        if non_zero.dim() == 0:
+            non_zero = non_zero.unsqueeze(0)
+        return {self.librarian.indexToToken[int(i)]: float(counts[int(i)]) for i in non_zero}
+
 
     """def log_all_learnable_params(self, prefix="PARAM_"):
         Logs all learnable scalar parameters and basic stats for tensors in self.stats dict.

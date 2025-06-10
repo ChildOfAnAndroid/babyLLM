@@ -81,6 +81,9 @@ class MEMORY(nn.Module):
         self.memoryGateNormHistory = []
         self.mixedEmbedNormHistory = []
 
+        self.register_buffer("reducedInputBuf", torch.zeros(1, embedDimension))
+        self.register_buffer("gateLogitsBuf", torch.zeros(4, numNeurons))
+
     @whocalled
     def forward(self, _activationsTensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
@@ -99,17 +102,17 @@ class MEMORY(nn.Module):
             newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * self.activationsTensor)
 
             if debugPrints: ʕっʘ‿ʘʔっ("self.inputReducer")
-            reducedInput = self.inputReducer(self.activationsTensor)  # [1, embedDim]
+            self.reducedInputBuf.copy_(self.inputReducer(self.activationsTensor))  # [1, embedDim]
 
             # unified gate logits -> shape: [1, 4 * numNeurons]
             if debugPrints: ʕっʘ‿ʘʔっ("self.gateLater2")
-            gateLogits = self.gateLayer2(reducedInput).view(4, numNeurons)
+            self.gateLogitsBuf.copy_(self.gateLayer2(self.reducedInputBuf).view(4, numNeurons))
             if debugPrints: ʕっʘ‿ʘʔっ("clamp gatelayer2 -> gateLogits")
-            gateLogits = gateLogits.clamp(-30, 30)
+            self.gateLogitsBuf.clamp_(-30, 30)
 
             # softmax across sources (dim=0), sum to 1 per neuron
             if debugPrints: ʕっʘ‿ʘʔっ("softmax gateLogits")
-            gateWeights = torch.softmax(gateLogits, dim=0)
+            gateWeights = torch.softmax(self.gateLogitsBuf, dim=0)
             shortGateScale, longGateScale, actGateScale, memGateScale = gateWeights
 
             if debugPrints: ʕっʘ‿ʘʔっ("firstGatedMemory")
@@ -122,7 +125,7 @@ class MEMORY(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("self.memoryProjector")
             projectedMemory = self.memoryProjector(firstGatedMemory)
             if debugPrints: ʕっʘ‿ʘʔっ("mix embeds")
-            mixedEmbed = reducedInput + projectedMemory
+            mixedEmbed = self.reducedInputBuf + projectedMemory
             if debugPrints: ʕっʘ‿ʘʔっ("self.memoryInfluence2")
             memoryGate = self.memoryInfluence2(mixedEmbed)
 
@@ -160,10 +163,10 @@ class MEMORY(nn.Module):
             self.longTermMemoryMinHistory.append(self.longTermMemory.min().item()) # 2
 
             if debugPrints: ʕっʘ‿ʘʔっ("reduced Input stats")
-            self.reducedInputNormHistory.append(reducedInput.norm().item()) # 3
-            self.reducedInputHistory.append(reducedInput.mean().item()) # 3
-            self.reducedInputMaxHistory.append(reducedInput.max().item()) # 3
-            self.reducedInputMinHistory.append(reducedInput.min().item()) # 3
+            self.reducedInputNormHistory.append(self.reducedInputBuf.norm().item()) # 3
+            self.reducedInputHistory.append(self.reducedInputBuf.mean().item()) # 3
+            self.reducedInputMaxHistory.append(self.reducedInputBuf.max().item()) # 3
+            self.reducedInputMinHistory.append(self.reducedInputBuf.min().item()) # 3
 
             if debugPrints: ʕっʘ‿ʘʔっ("gate layer 2 stats")
             self.gateLayer2NormHistory.append(self.gateLayer2.weight.norm().item()) # 4

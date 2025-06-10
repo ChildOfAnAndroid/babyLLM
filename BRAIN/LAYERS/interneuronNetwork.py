@@ -274,6 +274,9 @@ class INTERNEURON_NETWORK(nn.Module):
                             nn.Linear(512, numNeurons, device = self.device), # expand back
                             nn.LayerNorm(numNeurons, device = self.device)    # final safety net
                             )
+        # pre-computed range mask and padding
+        self.register_buffer("rangeMask", torch.arange(self.numTokensPerStep, device=self.device).unsqueeze(0),)
+        self.register_buffer("tmp_padded_activations", torch.zeros(self.numTokensPerStep, numNeurons, device=self.device), persistent=False,)
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         #numNeurons, embedDimension, activationFunction, allWindowSizes_new, etc
@@ -407,30 +410,24 @@ class INTERNEURON_NETWORK(nn.Module):
             seqLen, embedDim = activations.shape
 
             # PADDING ENSURES UNDERLYING DATA HAS CORRECT TENSOR/VECTOR SHAPE FOR THE MASK
-            if debugPrints: ʕっʘ‿ʘʔっ("padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)")
-            padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)
-            if debugPrints: ʕっʘ‿ʘʔっ("padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]")
-            padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]
+            padded = self.tmp_padded_activations
+            if padded.shape[1] != embedDim:
+                padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)
+                self.tmp_padded_activations = padded
 
-            if debugPrints: ʕっʘ‿ʘʔっ("padded.unsqueeze(0).repeat(windowTensor.shape[0], 1, 1)")
-            stackedWindows = padded.unsqueeze(0).repeat(windowTensor.shape[0], 1, 1)
+            padded.zero_()
+            padded[-min(seqLen, self.numTokensPerStep) :] = activations[-min(seqLen, self.numTokensPerStep) :]
 
-            # THE RANGE MASK IS ONLY EVER AS LONG AS WINDOWMAX, SO THAT WINDOWS DONT EXCEED IT
-            if debugPrints: ʕっʘ‿ʘʔっ("rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)")
-            rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)  # (1, maxW)
+            padded_t = padded.t().unsqueeze(0)  # (1, embedDim, maxW)
+            windowSizes = (torch.ceil(windowTensor.squeeze(1)).long().clamp(min=1, max=self.numTokensPerStep))
 
-            #'mask' CHECKS TO SEE HOW LONG WINDOWS ARE, AND IF THEY ARE LONGER CROPS IT BEFORE MEANING
-            if debugPrints: ʕっʘ‿ʘʔっ("mask = (rangeMask < windowTensor).float().unsqueeze(2)")
-            mask = (rangeMask < windowTensor).float().unsqueeze(2)  # (numWindows, maxW, 1)
+            means = []
+            for k, w in zip(windowSizes.tolist(), windowTensor.squeeze(1)):
+                avg = F.avg_pool1d(padded_t[:, :, :k], kernel_size=k, stride=1).squeeze(2)
+                avg = avg * (k / w)
+                means.append(avg.squeeze(0))
 
-            if debugPrints: ʕっʘ‿ʘʔっ("stackedWindows * mask")
-            maskedWindows = stackedWindows * mask
-            if debugPrints: ʕっʘ‿ʘʔっ("maskedWindows.sum(dim = 1)")
-            sums = maskedWindows.sum(dim = 1)  # (numWindows, embedDim)
-            if debugPrints: ʕっʘ‿ʘʔっ("sims / windowTensor")
-            means = sums / windowTensor  # divide each by its window length
-
-            return means
+            return torch.stack(means, dim=0)
     
     @whocalled
     def INN_getStats(self):

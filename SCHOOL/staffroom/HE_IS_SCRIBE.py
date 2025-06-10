@@ -49,8 +49,8 @@ class SCRIBE:
         """Scribe asks BabyLLM a question and records the reply."""
         _prompt = "how are you feeling today, baby? :)"
         self.scribeSay(f"Asking BabyLLM: '{_prompt}'", _vibe)
-        encoded = self.librarian.tokenizer.encode(_prompt).ids
-        guess = self.librarian.getNextToken(encoded[-self.numTokensPerStep:])
+        encodedIDs = self.librarian.tokenizer.encode(_prompt)
+        guess = self.librarian.getNextToken(encodedIDs[-self.numTokensPerStep:])
         guessWord = self.librarian.indexToToken.get(guess, "<UNK>")
         self.scribeSay(f"BabyLLM replies: '{guessWord}'", "impressed")
 
@@ -67,10 +67,9 @@ class SCRIBE:
             miniInput = _input
 
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        miniTokenized = self.librarian.tokenizer.encode(miniInput).ids
+        miniTokenizedIDs = self.librarian.tokenizer.encode(miniInput)
         
-        #encoded = self.librarian.tokenizer.encode(_prompt).ids
-        babyResponse = self.librarian.getNextToken(miniTokenized[-self.numTokensPerStep:])
+        babyResponse = self.librarian.getNextToken(miniTokenizedIDs[-self.numTokensPerStep:])
         babyTokens = self.librarian.indexToToken.get(babyResponse, '<UNK>')
         babySentence = self.guessTokensToString(babyTokens)
         emote = makeDatBoi()

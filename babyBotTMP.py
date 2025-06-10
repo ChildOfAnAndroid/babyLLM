@@ -416,8 +416,16 @@ class BABYBOT(commands.Bot):
     def _runTraining(self, tokenIDs: list, task: asyncio.Task):
         print("Executor thread started: Running the full training loop now.")
         n = self.babyLLM.numTokensPerStep
-        tokensAvailable = len(tokenIDs)
-        totalPairs = max(0, (tokensAvailable - n) // self.twitchDataStride)
+
+        # convert to 1-D tensor on the model device
+        token_tensor = torch.tensor(tokenIDs, dtype=torch.long, device=modelDevice)
+
+        # create sliding windows (num_pairs, n+1)
+        windows = token_tensor.unfold(0, n + 1, twitchDataStride)
+        inputs_tensor = windows[:, :-1]
+        targets_tensor = windows[:, 1:]
+
+        totalPairs = inputs_tensor.size(0)
         numPairs = 0
         start_index = 0
 
@@ -442,7 +450,7 @@ class BABYBOT(commands.Bot):
             finally:
                 self.training_resume_state = None # always consume state
 
-        for i in range(start_index, tokensAvailable - n, self.twitchDataStride):
+        for i in range(start_index, totalPairs):
             # --- CANCELLATION CHECK ---
             if task.cancelled():
                 print("cancellation requested, restarting training loop...")
@@ -459,8 +467,8 @@ class BABYBOT(commands.Bot):
                 # don't raise an error here; the asyncio.CancelledError will be raised by coroutine.
                 return
 
-            inputIDs = tokenIDs[i : i + n]
-            targetIDs = tokenIDs[i + 1 : i + n + 1] 
+            inputIDs = inputs_tensor[i].tolist()
+            targetIDs = targets_tensor[i].tolist()
             
             if len(inputIDs) < n or len(targetIDs) < n:
                 continue
@@ -470,14 +478,14 @@ class BABYBOT(commands.Bot):
 
             try:
                 success = self.tutor.interactiveLearning(
-                    input_seq_ids = tokenIDs[i : i + n],
-                    target_seq_ids = tokenIDs[i + 1 : i + n + 1],
-                    input_seq_text = [self.librarian.indexToToken.get(id, "<UNK>") for id in tokenIDs[i : i + n]],
-                    target_seq_text = [self.librarian.indexToToken.get(id, "<UNK>") for id in tokenIDs[i + 1 : i + n + 1]],
-                    calligraphist=self.calligraphist,
-                    show_detailed_stats=True,
-                    current_dataset_total_pairs=totalPairs,
-                    current_dataset_step_index=numPairs
+                    inputSeqIDs = inputIDs,
+                    targetSeqIDs = targetIDs,
+                    inputSeqText = [self.librarian.indexToToken.get(id, "<UNK>") for id in inputIDs],
+                    targetSeqText = [self.librarian.indexToToken.get(id, "<UNK>") for id in targetIDs],
+                    calligraphist = self.calligraphist,
+                    showStats = True,
+                    currentTotalPairs = totalPairs,
+                    currentStepID = numPairs
                 )
                 if not success:
                     print(f"--- interactiveLearning returned False for pair {numPairs+1}. Skipping. ---")

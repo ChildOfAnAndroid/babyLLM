@@ -194,10 +194,17 @@ class TUTOR:
                 i = 0
                 turnsNotReflecting = 0
                 turnsNotReflecting += self.totalTurnsAwake
-                if debugPrints: ʕっʘ‿ʘʔっ("entering while loop i < len")
-                while i < len(_trainingDataPairs):
+                trainIter = iter(_trainingDataPairs)
+                trainingPair = None
+                if debugPrints: ʕっʘ‿ʘʔっ("entering training loop")
+                while True:
+                    if trainingPair is None:
+                        try:
+                            trainingPair = next(trainIter)
+                        except StopIteration:
+                            break
                     ʕっʘ‿ʘʔっ(f"turn start :)")
-                    _inputSeq, _targetSeq = _trainingDataPairs[i]
+                    _inputSeq, _targetSeq = trainingPair
                     self.stableFallCount = 0
                     self.averageTriesTotal += self.totalTries
                     self.averageTries = self.averageTriesTotal / self.trainingStepCounter
@@ -236,7 +243,7 @@ class TUTOR:
                             _inputSeq, _targetSeq = currentReflection
                         else:
                             if debugPrints: ʕっʘ‿ʘʔっ("_trainingDataPairs")
-                            _inputSeq, _targetSeq = _trainingDataPairs[i]
+                            _inputSeq, _targetSeq = trainingPair
                             turnsNotReflecting += 1
                         self.inputTokenIndices, self.targetTokenIndexSeq = self.startTurnActions(_inputSeq = _inputSeq, _targetSeq = _targetSeq, _lastTurnLossDelta = self.latestLossDelta)
                         
@@ -262,7 +269,8 @@ class TUTOR:
                         if self.totalTurns % refreshRollingTokenTotalsWhen == 0 and self.totalTurns > 0:
                             if debugPrints: ʕっʘ‿ʘʔっ("♥refresh rolling token totals")
                             self.tokenCounts = Counter({k: v * 0.95 for k, v in self.tokenCounts.items()})
-                            self.model.rollingTokenTotals = Counter({k: v * 0.95 for k, v in self.model.rollingTokenTotals.items()})
+                            #self.model.rollingTokenTotals = Counter({k: v * 0.95 for k, v in self.model.rollingTokenTotals.items()})
+                            self.model.rollingTokenTotals_tensor.mul_(0.95)
 
                         if self.totalTurns % trainingLogFreq_B == 0 and self.totalTurns > 0:
                             if debugPrints: ʕっʘ‿ʘʔっ("♥training log B")
@@ -383,8 +391,9 @@ class TUTOR:
                         else:
                             self.reflectionTrainingPairs.pop(0)
                     else:
-                        i += 1 # only move to next prompt if stableFallCount met or maxRetries
-                        self.trainingStepCounter += 1 # means reflections wont be training steps
+                        trainingPair = None  # move to next pair
+                        i += 1
+                        self.trainingStepCounter += 1  # means reflections wont be training steps
                 if debugPrints: ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
                 if self.totalTurns == 0:
                     raise "We ran out of data (probably)!!!"
@@ -875,27 +884,37 @@ class TUTOR:
                 _totalTokenCount = self.tokenCounts)
  
     @whocalled
-    def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging, _saveLog, _current_step_override = None):
+    def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging, _saveLog, _currentStepOverride = None):
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
             self.stringStats = _stringStats
             self.trainingLogPath = _trainingLogPath
-            topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.1f})") for k, v in self.model.rollingTokenTotals.most_common(50)])
+            rollingDict = self.model.getRollingTokenTotalsDict()
+            delimiter = self.calligraphist.S_apply("dim", ", ")
+            topGuess_str = "topGuess: " + delimiter.join([
+                self.calligraphist.S_apply("dim", f"{k}({v:.1f})")
+                for k, v in Counter(rollingDict).most_common(50)])
             #topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
             #topTokens_str = "[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(20)]) + "]"
-            topTokens_str = ": " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.1f})") for k, v in self.tokenCounts.most_common(50)])
+            topTokens_str = ": " + delimiter.join([
+                self.calligraphist.S_apply("dim", f"{k}({v:.1f})")
+                for k, v in self.tokenCounts.most_common(50)
+            ])
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
             #fullStats.update(self.ʕっෆ‿ෆʔっ)
 
-            current_step_for_calc = _current_step_override if _current_step_override is not None else self.trainingStepCounter
+            currentStepForCalc = _currentStepOverride if _currentStepOverride is not None else self.trainingStepCounter
 
             if debugPrints: ʕっʘ‿ʘʔっ("calculateTrainingDataRemaining")
             if _trainingDataPairs is not None:
-                total_pairs_in_current_context = len(_trainingDataPairs)
-                # If total_pairs_in_current_context is 0, avoid division by zero
-                if total_pairs_in_current_context > 0:
-                    trainingDataRemaining = total_pairs_in_current_context - current_step_for_calc
+                try:
+                    total_pairs_in_current_context = len(_trainingDataPairs)
+                except (TypeError, AttributeError):
+                    total_pairs_in_current_context = None
+
+                if total_pairs_in_current_context and total_pairs_in_current_context > 0:
+                    trainingDataRemaining = total_pairs_in_current_context - currentStepForCalc
                     trainingDataPercent = (trainingDataRemaining / total_pairs_in_current_context) * 100
                     remainingData_str = f"data remaining: {max(0, trainingDataRemaining)}/{total_pairs_in_current_context} ({trainingDataPercent:.2f}%)"
                 else:
@@ -919,7 +938,7 @@ class TUTOR:
 
             self.calligraphist.S_logTraining(
                 _trainingLogPath = self.trainingLogPath,
-                _trainingStepCounter = current_step_for_calc,
+                _trainingStepCounter = currentStepForCalc,
                 _stats = self.stats,
                 _frequency = _frequency,
                 _LR = self.learningRate,
@@ -1050,9 +1069,9 @@ class TUTOR:
                     self.stats["loss"]                  = self.stepLossFloat
                     self.stats["lastRunLoss"]           = self.lastRunLoss
                     if hasattr(self.model, 'temperature') and self.model.temperature is not None:
-                        current_model_temp = self.model.temperature.item() if isinstance(self.model.temperature, torch.Tensor) else self.model.temperature
-                        self.temperature = current_model_temp # Update TUTOR's own temp attribute
-                        self.stats["_B_temperature"] = current_model_temp # Store in stats for logging
+                        currentTemp = self.model.temperature.item() if isinstance(self.model.temperature, torch.Tensor) else self.model.temperature
+                        self.temperature = currentTemp # Update TUTOR's own temp attribute
+                        self.stats["_B_temperature"] = currentTemp # Store in stats for logging
                     else:
                         self.stats["_B_temperature"] = self.temperature # Log TUTOR's current temp if model's isn't available
                     self.stats["LR"]                    = self.learningRate
@@ -1433,14 +1452,14 @@ class TUTOR:
             self.endTurnActions()
         
     @whocalled
-    def interactiveLearning(self, input_seq_ids, target_seq_ids, input_seq_text, target_seq_text,
-                               calligraphist, show_detailed_stats = False,
-                               current_dataset_total_pairs = 0, current_dataset_step_index = 0,):
+    def interactiveLearning(self, inputSeqIDs, targetSeqIDs, inputSeqText, targetSeqText,
+                               calligraphist, showStats = False,
+                               currentTotalPairs = 0, currentStepID = 0,):
         with self.counsellor.infodump("interactiveLearning") as ʕっʘ‿ʘʔっ:
-            print(f"interactiveLearning starting for pair, show_detailed_stats={show_detailed_stats}")
+            print(f"interactiveLearning starting for pair, showStats={showStats}")
             # ENSURE input/target seqs are same length and >= 1
-            if len(input_seq_ids) != len(target_seq_ids) or len(input_seq_ids) < 1:
-                print(f"skipping interactiveLearning: input/target mismatch or too short (input={len(input_seq_ids)}, target={len(target_seq_ids)})")
+            if len(inputSeqIDs) != len(targetSeqIDs) or len(inputSeqIDs) < 1:
+                print(f"skipping interactiveLearning: input/target mismatch or too short (input={len(inputSeqIDs)}, target={len(targetSeqIDs)})")
                 return False
                 
             if debugPrints: ʕっʘ‿ʘʔっ("entering interactiveLearning...")
@@ -1450,12 +1469,12 @@ class TUTOR:
             if debugPrints: ʕっʘ‿ʘʔっ("trying to call startTurnActions...")
             try:
                 self.inputTokenIndices, self.targetTokenIndexSeq = self.startTurnActions(
-                    _inputSeq = input_seq_ids,
-                    _targetSeq = target_seq_ids,
+                    _inputSeq = inputSeqIDs,
+                    _targetSeq = targetSeqIDs,
                     _lastTurnLossDelta = self.latestLossDelta
                 )
-                self.inputSeq = input_seq_text # for S_colourPrintTraining
-                self.targetSeq = target_seq_text # for S_colourPrintTraining
+                self.inputSeq = inputSeqText # for S_colourPrintTraining
+                self.targetSeq = targetSeqText # for S_colourPrintTraining
             except Exception as e_start_turn:
                 if debugPrints: ʕっʘ‿ʘʔっ(f"ERROR INSIDE startTurnActions: {e_start_turn}")
                 self.model.optimizer.zero_grad(set_to_none=True)
@@ -1468,8 +1487,8 @@ class TUTOR:
             if debugPrints: ʕっʘ‿ʘʔっ("trying to call trainStep...")
             try:
                 self.predictedTokenIndices, self.logitSeq = self.trainStep(
-                    _inputTokenIndices = input_seq_ids, 
-                    _targetTokenIndexSeq = target_seq_ids, 
+                    _inputTokenIndices = inputSeqIDs, 
+                    _targetTokenIndexSeq = targetSeqIDs, 
                     _BACKWARDwobbleLoss = None
                 )
                 print("trainStep finished OK!")
@@ -1495,11 +1514,11 @@ class TUTOR:
                 torch.mps.empty_cache()
                 return False
             
-            if show_detailed_stats:
+            if showStats:
                 if hasattr(self, 'ʕっෆ‿ෆʔっ'):
                     calligraphist.refreshStatBands(_rollingAverages = self.ʕっෆ‿ෆʔっ)
             
-                dummy_training_pairs_for_log = [(None,None)] * current_dataset_total_pairs if current_dataset_total_pairs > 0 else []
+                dummy_training_pairs_for_log = [(None,None)] * currentTotalPairs if currentTotalPairs > 0 else []
 
                 if debugPrints: ʕっʘ‿ʘʔっ("calling logFreqActions...")
                 self.logFreqActions(
@@ -1509,7 +1528,7 @@ class TUTOR:
                     _trainingLogPath = trainingLogPath_1,
                     _detailedLogging = False,
                     _saveLog = False,
-                    _current_step_override = current_dataset_step_index)
+                    _currentStepOverride = currentStepID)
                     
                 if debugPrints: ʕっʘ‿ʘʔっ("calling S_colourPrintTraining...")
                 calligraphist.S_colourPrintTraining(
