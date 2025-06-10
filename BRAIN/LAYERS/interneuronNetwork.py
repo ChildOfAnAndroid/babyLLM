@@ -274,9 +274,6 @@ class INTERNEURON_NETWORK(nn.Module):
                             nn.Linear(512, numNeurons, device = self.device), # expand back
                             nn.LayerNorm(numNeurons, device = self.device)    # final safety net
                             )
-        # pre-computed range mask and padding
-        self.register_buffer("rangeMask", torch.arange(self.numTokensPerStep, device=self.device).unsqueeze(0),)
-        self.register_buffer("tmp_padded_activations", torch.zeros(self.numTokensPerStep, numNeurons, device=self.device), persistent=False,)
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         #numNeurons, embedDimension, activationFunction, allWindowSizes_new, etc
@@ -321,8 +318,8 @@ class INTERNEURON_NETWORK(nn.Module):
             weightedWindowStack = windowMeanStack * self.cerebellumSoft.unsqueeze(1)
 
             if debugPrints: ʕっʘ‿ʘʔっ("entropy reward")
-            self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
-            self.entropyBonus = self.windowEntropy
+            #self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
+            #self.entropyBonus = self.windowEntropy
 
             if debugPrints: ʕっʘ‿ʘʔっ("weightedWindowStack.sum")
             combinedActivationsTensor = weightedWindowStack.sum(dim = 0, keepdim = True)
@@ -410,21 +407,30 @@ class INTERNEURON_NETWORK(nn.Module):
             seqLen, embedDim = activations.shape
 
             # PADDING ENSURES UNDERLYING DATA HAS CORRECT TENSOR/VECTOR SHAPE FOR THE MASK
-            padded = torch.zeros((self.numTokensPerStep, embedDim), device=self.device)
-            padded[-min(seqLen, self.numTokensPerStep) :] = activations[-min(seqLen, self.numTokensPerStep) :]
-            self.tmp_padded_activations = padded.detach()
-            padded[-min(seqLen, self.numTokensPerStep) :] = activations[-min(seqLen, self.numTokensPerStep) :]
+            if debugPrints: ʕっʘ‿ʘʔっ("padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)")
+            padded = torch.zeros((self.numTokensPerStep, embedDim), device = self.device)
+            if debugPrints: ʕっʘ‿ʘʔっ("padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]")
+            padded[-min(seqLen, self.numTokensPerStep):] = activations[-min(seqLen, self.numTokensPerStep):]
 
-            padded_t = padded.t().unsqueeze(0)  # (1, embedDim, maxW)
-            windowSizes = (torch.ceil(windowTensor.squeeze(1)).long().clamp(min=1, max=self.numTokensPerStep))
+            if debugPrints: ʕっʘ‿ʘʔっ("padded.unsqueeze(0).repeat(windowTensor.shape[0], 1, 1)")
+            stackedWindows = padded.unsqueeze(0).repeat(windowTensor.shape[0], 1, 1)
 
-            means = []
-            for k, w in zip(windowSizes.tolist(), windowTensor.squeeze(1)):
-                avg = F.avg_pool1d(padded_t[:, :, :k], kernel_size=k, stride=1).squeeze(2)
-                avg = avg * (k / w)
-                means.append(avg.squeeze(0))
+            # THE RANGE MASK IS ONLY EVER AS LONG AS WINDOWMAX, SO THAT WINDOWS DONT EXCEED IT
+            if debugPrints: ʕっʘ‿ʘʔっ("rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)")
+            rangeMask = torch.arange(self.numTokensPerStep, device = self.device).unsqueeze(0)  # (1, maxW)
 
-            return torch.stack(means, dim=0)
+            #'mask' CHECKS TO SEE HOW LONG WINDOWS ARE, AND IF THEY ARE LONGER CROPS IT BEFORE MEANING
+            if debugPrints: ʕっʘ‿ʘʔっ("mask = (rangeMask < windowTensor).float().unsqueeze(2)")
+            mask = (rangeMask < windowTensor).float().unsqueeze(2)  # (numWindows, maxW, 1)
+
+            if debugPrints: ʕっʘ‿ʘʔっ("stackedWindows * mask")
+            maskedWindows = stackedWindows * mask
+            if debugPrints: ʕっʘ‿ʘʔっ("maskedWindows.sum(dim = 1)")
+            sums = maskedWindows.sum(dim = 1)  # (numWindows, embedDim)
+            if debugPrints: ʕっʘ‿ʘʔっ("sims / windowTensor")
+            means = sums / windowTensor  # divide each by its window length
+
+            return means
     
     @whocalled
     def INN_getStats(self):
@@ -476,7 +482,7 @@ class INTERNEURON_NETWORK(nn.Module):
                             self.stats[f"INN_cerebellum_W{int(w)}"] = raw.item()
                             self.stats[f"INN_cerebellum_W{int(w)}_softMax"] = soft.item()
                             self.stats[f"INN_cerebellum_W{int(w)}_tensor"] = tensor.item()
-                        if debugPrints: print(f"cerebellum: {self.cerebellum}, soft: {self.cerebellumSoft} mean: {self.stats['3INN_cerebellumMean']} std: {self.stats['3INN_cerebellumStd']}")
+                        #if debugPrints: print(f"cerebellum: {self.cerebellum}, soft: {self.cerebellumSoft} mean: {self.stats['3INN_cerebellumMean']} std: {self.stats['3INN_cerebellumStd']}")
                         if debugPrints: ʕっʘ‿ʘʔっ("♥cerebellumString")
                         INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.floatWindowSizes_used, windowTensor = self.windowTensor_used, per_window_style = True)
                         if debugPrints: print(f"{INN_cerebellum_str}")

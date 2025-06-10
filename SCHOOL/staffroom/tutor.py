@@ -250,7 +250,7 @@ class TUTOR:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
                         self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = self.inputTokenIndices, _targetTokenIndexSeq = self.targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
                         self.totalTurnAttempts += 1
-                        torch.mps.empty_cache()
+                        #torch.mps.empty_cache()
 
                         """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                         
@@ -677,7 +677,6 @@ class TUTOR:
             #    torch.mps.empty_cache()
 
             #del inputTensor, logits, BACKWARDloss, buffer
-            #torch.mps.empty_cache()
 
             ids = [idx.item() if torch.is_tensor(idx) else int(idx) for idx in self.predictedTokenIndices]
             self.decodedTokenIndices = self.librarian.decodeIDs(ids)

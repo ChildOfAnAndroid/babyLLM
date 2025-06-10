@@ -121,7 +121,7 @@ twitchLogPath = f"SCHOOL/statistics/LOGS/chat/twitchLog_{date}.txt"
 trainDuringChat = True
 
 """--- MODEL ---"""
-numTokensPerStepSTART = 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 maxTokensPerStep    = 450
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
@@ -137,7 +137,7 @@ memoryLengthGOAL = 3
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.0s001 //
 learningRateGOAL = 0.00035
 temperatureGOAL = 0.85
-optimizerName = "Adan" # //"AdamW" # // "AdamW" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
+optimizerName = "AdamW" # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 #activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
 gradientClipMaxNorm = 1.0
@@ -161,8 +161,8 @@ saveFreq_littleLog = 500
 
 newLineBetweenStats = True
 
-durationLogging = False # // True // False // activates debug time logging
-debugPrints = False
+durationLogging = True # // True // False // activates debug time logging
+debugPrints = True
 anomalyDetect = False
 
 skipNeuron = False
