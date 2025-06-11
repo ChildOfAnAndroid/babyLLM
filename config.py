@@ -153,16 +153,16 @@ windowEntropyBonus = True
 """--- LOGS ---"""
 detailedLogging = True
 
-trainingLogFreq_A = 1    # creates logs every x number of turns
-trainingLogFreq_B = 1    # creates logs every x number of turns
+trainingLogFreq_A = 10    # creates logs every x number of turns
+trainingLogFreq_B = 100    # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
 
 newLineBetweenStats = True
 
-durationLogging = True # // True // False // activates debug time logging
-debugPrints = True
+durationLogging = False # // True // False // activates debug time logging
+debugPrints = False
 anomalyDetect = False
 
 skipNeuron = False
@@ -557,9 +557,9 @@ INN_scoringStats = False
 INN_windowStats = True
 INN_outputTensorStats = True
 
-profiler = True
-mpsProfiler = True
-forwardProfiler = True
+profiler = False
+mpsProfiler = False
+forwardProfiler = False
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
@@ -615,6 +615,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", chatLogPath_infer, 0.01),     # log: babyLLM infer.py history!
     ("text", chatLogPath_talkToYourselfComparisons, 0.01),     # log: comparing babyllms answers to my answers
     ("text", "scribeSays.txt", 0.01),
+    ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-11.txt", -1),
 
     #--- TENSES ---
     ("text", "SCHOOL/library/tenses/presentTense.txt", 0.001),     #  tense: present (kevin's weed theme?)

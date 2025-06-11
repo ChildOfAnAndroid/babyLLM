@@ -16,7 +16,7 @@ def formatMessage(user, text):
 
 class BABYBOT(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist, 
-                 twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "babyllm",
+                 twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "childofanandroid",
                  rollingContextSize = 1000, idleTrainSeconds = 15, N = 999):
         super().__init__(
             token = twitchToken,
@@ -59,7 +59,7 @@ class BABYBOT(commands.Bot):
         helloMessage = ("ʕっʘ‿ʘʔっ hello! i am awake!")
         await self.get_channel(self.twitchChannel).send(helloMessage)
         self.buffer.append(formatMessage(babyName, helloMessage))
-        if self.idle_task is None and trainDuringChat is False:
+        if self.idle_task is None and False:
             self.idle_task = self.loop.create_task(self.idleTrainChecker())
 
     async def event_message(self, message):
@@ -152,7 +152,7 @@ class BABYBOT(commands.Bot):
 
             responseBuffer = []
             genSeqIDs = list(promptTokenIDs)
-
+            responseSeqId = []
             # generate response
             for _ in range(numTokensToGen):
                 inputSegIDs = genSeqIDs[-self.numTokensPerStep:]
@@ -163,16 +163,19 @@ class BABYBOT(commands.Bot):
                 nextTokenID = nextTokenIDTensor.item()
 
                 genSeqIDs.append(nextTokenID)
-                token_str = self.librarian.indexToToken.get(nextTokenID, "<UNK>").replace("Ġ", " ")
-                responseBuffer.append(token_str)
+                responseSeqId.append(nextTokenID)
+                #token_str = self.librarian.indexToToken.get(nextTokenID, "<UNK>").replace("Ġ", " ")
+                #responseBuffer.append(token_str)
 
-            replyText = "".join(responseBuffer).strip().lower()
+            replyText = self.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").strip().lower()
+
+            #replyText = "".join(responseBuffer).strip().lower()
             replyText = replyText[:500]
             await ctx.reply(replyText)
             babyReplyFormatted = formatMessage(self.nick, replyText)
 
             # training from prompt
-            if trainDuringChat:
+            if False:
                 self.babyLLM.train()
 
                 self.buffer.append(babyReplyFormatted)
@@ -290,7 +293,7 @@ class BABYBOT(commands.Bot):
             await ctx.send(f"i tried to save but something went wrong :(, the system said '{e}")
 
     async def idleTrainChecker(self):
-        while True and trainDuringChat:
+        while False:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             try:

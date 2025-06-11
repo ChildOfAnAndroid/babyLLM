@@ -24,7 +24,7 @@ class TUTOR:
                 _lastRunLoss                = 420,
                 _device                     = modelDevice):
         
-        torch.autograd.set_detect_anomaly(True)
+        torch.autograd.set_detect_anomaly(anomalyDetect)
         self.startIndex                 = 1
         self.saveCounter                = 1
         self.currentTokenIndex          = 0
@@ -266,21 +266,22 @@ class TUTOR:
                         if debugPrints: print(f"Setting latestLossDelta {self.latestLossDelta:.2f} = {self.stepLossFloat:.2f} - {self.averageRecentLoss:.2f}")
                         self.easyLossDelta = self.stepLossFloat - ((self.averageRecentLoss + self.stepLossFloat + self.stepLossFloat)/3)
 
-                        if self.totalTurns % refreshRollingTokenTotalsWhen == 0 and self.totalTurns > 0:
-                            if debugPrints: ʕっʘ‿ʘʔっ("♥refresh rolling token totals")
-                            self.tokenCounts = Counter({k: v * 0.95 for k, v in self.tokenCounts.items()})
-                            #self.model.rollingTokenTotals = Counter({k: v * 0.95 for k, v in self.model.rollingTokenTotals.items()})
-                            self.model.rollingTokenTotals_tensor.mul_(0.95)
+                        if True:
+                            if self.totalTurns % refreshRollingTokenTotalsWhen == 0 and self.totalTurns > 0:
+                                if debugPrints: ʕっʘ‿ʘʔっ("♥refresh rolling token totals")
+                                self.tokenCounts = Counter({k: v * 0.95 for k, v in self.tokenCounts.items()})
+                                #self.model.rollingTokenTotals = Counter({k: v * 0.95 for k, v in self.model.rollingTokenTotals.items()})
+                                self.model.rollingTokenTotals_tensor.mul_(0.95)
 
-                        if self.totalTurns % trainingLogFreq_B == 0 and self.totalTurns > 0:
-                            if debugPrints: ʕっʘ‿ʘʔっ("♥training log B")
-                            #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
-                            self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True, _saveLog = True)
+                            if self.totalTurns % trainingLogFreq_B == 0 and self.totalTurns > 0:
+                                if debugPrints: ʕっʘ‿ʘʔっ("♥training log B")
+                                #ʕっʘ‿ʘʔっ("♥trainingLogFreq_B") # PRINTING LOGS TO TXT AND TERMINAL
+                                self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = trainingLogFreq_B, _trainingLogPath = trainingLogPath_1000, _detailedLogging = True, _saveLog = True)
 
-                        # Track loss every 100 steps
-                        if self.totalTurns % self.trainingLogFreq_A == 0 and self.totalTurns > 0:
-                            if debugPrints: ʕっʘ‿ʘʔっ("♥logFreq_A")
-                            self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = self.trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
+                            # Track loss every 100 steps
+                            if self.totalTurns % self.trainingLogFreq_A == 0 and self.totalTurns > 0:
+                                if debugPrints: ʕっʘ‿ʘʔっ("♥logFreq_A")
+                                self.logFreqActions(_trainingDataPairs, _stringStats = self.stringStats, _frequency = self.trainingLogFreq_A, _trainingLogPath = trainingLogPath_100, _detailedLogging = False, _saveLog = True)
 
                         if self.totalTurns % printFreq == 0:
                             if debugPrints: ʕっʘ‿ʘʔっ("♥printFreq")
