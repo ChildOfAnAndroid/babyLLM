@@ -250,7 +250,7 @@ class TUTOR:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
                         self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = self.inputTokenIndices, _targetTokenIndexSeq = self.targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
                         self.totalTurnAttempts += 1
-                        #torch.mps.empty_cache()
+                        #torch.mps.empty_cache() # this is done within training step
 
                         """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                         
@@ -672,10 +672,9 @@ class TUTOR:
             #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
             #self.INN_cerebellumMean         = self.model.interneuronNetwork.cerebellum.mean().cpu().item()
 
-            #self.endTurnActions()
-            #if self.device.type == 'mps':
-            #    if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
-            #    torch.mps.empty_cache()
+            if self.device.type == 'mps':
+                if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
+                torch.mps.empty_cache()
 
             #del inputTensor, logits, BACKWARDloss, buffer
 
