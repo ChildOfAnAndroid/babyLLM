@@ -40,7 +40,12 @@ class BABYBOT(commands.Bot):
         self.twitchDataStride = round(self.twitchWindowMAX * 0.1)
         
         self.buffer = []
-        self.AIoptInUsers = set()
+        if os.path.exists(optInUsersPath):
+            with open(optInUsersPath, "r") as f:
+                self.AIoptInUsers = json.load(f)
+        else:
+            self.AIoptInUsers = []
+
         streamMessage = "oh, we streaming?! lfgggg" 
         introText = f"hey babyllm, it's charis. this is a twitch chat!! its {date} right now, just so you can orient yourself a little bit. i am a twitch dj and streamer, and so you might be hearing a lot of stuff about music, mixing, songs, my friends, funny memes, being silly, and we all love you very much :) <3 maybe you haven't been on twitch for a while, maybe you were on here last night lmao, but either way i hope that you will like it here today, you might get to meet my friends! we are all so proud of you and excited for you to get started being our friend, if you want to! are you ready to chat!? :) make sure you say hi to your friends! you are so awesome and we are all so proud of you babyllm :) have a great time during the stream! we love having you here! have a great time! enjoy yourself!"
         print(streamMessage)
@@ -78,6 +83,8 @@ class BABYBOT(commands.Bot):
 
         if (strippedContent.strip() and (author in self.AIoptInUsers or content.startswith('!'))):
             userMessage = formatMessage(author, strippedContent)
+            with open(twitchLogPath, 'a', encoding='utf-8') as f:
+                f.write(userMessage + "\n---\n")
             self.buffer.append(userMessage)
             if len(self.buffer) > self.rollingContextSize:
                 print(f"buffer exceeded size {self.rollingContextSize} from user message, popping oldest message")
@@ -90,7 +97,9 @@ class BABYBOT(commands.Bot):
     @commands.command(name='aioptin')
     async def aioptin_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
-        self.AIoptInUsers.add(author)
+        self.AIoptInUsers.append(author)
+        with open(optInUsersPath, 'w', encoding='utf-8') as f:
+            json.dump(self.AIoptInUsers, f)
         optInMessage = (f"hey {author}, thanks for telling me i can read your messages! now, all your messages in channels where i'm online (probably just this one tbh) will be included in the my context, helping me to learn more about how text works (i was gonna say the english language... but i don't expect anything except terrifying memes from you lot LMAO), but i won't respond unless you use !babyllm :) get ready for me to sound even more insane!")
         await ctx.reply(optInMessage)
         self.buffer.append(formatMessage(babyName, optInMessage))
@@ -98,10 +107,22 @@ class BABYBOT(commands.Bot):
     @commands.command(name='aioptout')
     async def aioptout_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
-        self.AIoptInUsers.discard(author)
+        self.AIoptInUsers.remove(author)
+        with open(optInUsersPath, 'w', encoding='utf-8') as f:
+            json.dump(self.AIoptInUsers, f)
         optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
         await ctx.reply(optOutMessage)
         self.buffer.append(formatMessage(babyName, optOutMessage))
+
+    @commands.command(name='aioptcheck')
+    async def aioptcheck_command(self, ctx: commands.Context):
+        author = ctx.author.name.lower()
+        if author in self.AIoptInUsers:
+            optCheckMessage = (f"hey, {author}, you are in the opt in list. use !aioptout to leave, if you don't want your messages recorded anymore.")
+        else:
+            optCheckMessage = (f"hey, {author}, you are not in the opt in list, you can use !aioptin to join it if you want me to use your messages as context for my learning.")
+        await ctx.reply(optCheckMessage)
+        self.buffer.append(formatMessage(babyName, optCheckMessage))
 
     @commands.command(name='babyllm')
     async def babyllm_command(self, ctx: commands.Context):

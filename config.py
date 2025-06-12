@@ -82,6 +82,7 @@ modelBackupFilePath = "BRAIN/soul/babyLLM.pth"  # where your currently trained s
 
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
 lossCheckpointFilePath = "BRAIN/soul/lossCheckpoint.txt"
+optInUsersPath = "BRAIN/soul/optInUsers.txt"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -118,7 +119,7 @@ twitchLogPath = f"SCHOOL/statistics/LOGS/chat/twitchLog_{date}.txt"
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- TWITCH BOT ---"""
-trainDuringChat = True
+trainDuringChat = False
 
 """--- MODEL ---"""
 numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
