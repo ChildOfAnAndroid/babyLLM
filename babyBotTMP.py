@@ -17,7 +17,7 @@ def formatMessage(user, text):
 class BABYBOT(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist, 
                  twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "babyllm",
-                 rollingContextSize = 1000, idleTrainSeconds = 15, N = 999):
+                 rollingContextSize = 1000, idleTrainSeconds = 60, N = 999):
         super().__init__(
             token = twitchToken,
             nick = babyName,
@@ -54,9 +54,8 @@ class BABYBOT(commands.Bot):
 
         self.lastInputTime = time.time()
         self.idle_task = None
-        self.train_lock = asyncio.Lock()
-        self.current_training_task = None
-        self.training_resume_state = None
+        self.training_queue = asyncio.Queue()
+        self.training_worker = None
 
     # --- twitchio events ---
     async def event_ready(self):
@@ -66,16 +65,17 @@ class BABYBOT(commands.Bot):
         self.buffer.append(formatMessage(babyName, helloMessage))
         if self.idle_task is None:
             self.idle_task = self.loop.create_task(self.idleTrainChecker())
+        if self.training_worker is None:
+            self.training_worker = self.loop.create_task(self.background_training_loop())
+
 
     async def event_message(self, message):
         if message.echo: return
-        self.lastInputTime = time.time()
-        if self.current_training_task and not self.current_training_task.done():
-            self.current_training_task.cancel()
-        
         author = message.author.name.lower()
         content = message.content
-
+        print(f"RECEIVED: {content} ({author})")
+        self.lastInputTime = time.time()
+    
         if content.startswith('!'):
             strippedContent = re.sub(r'^!\w+\b', '', content).strip()
         else:
@@ -90,7 +90,9 @@ class BABYBOT(commands.Bot):
                 print(f"buffer exceeded size {self.rollingContextSize} from user message, popping oldest message")
                 self.buffer.pop(0)
             print(f"buffer now {len(self.buffer)} messages long")
+            await self.training_queue.put({"type": "chat", "text": userMessage})
 
+        print(f"WAITING FOR COMMAND HANDLER FOR {content} ({author})")
         await self.handle_commands(message)
 
     # --- babyllm bot commands ---
@@ -125,20 +127,8 @@ class BABYBOT(commands.Bot):
         self.buffer.append(formatMessage(babyName, optCheckMessage))
 
     @commands.command(name='babyllm')
-    async def babyllm_command(self, ctx: commands.Context):
-        if self.current_training_task and not self.current_training_task.done():
-            await ctx.reply("uhh... one second lol i'm still figuring out what to say!")
-            self.buffer.append(formatMessage(babyName, "uhh... one second lol i'm still figuring out what to say!"))
-            self.current_training_task.cancel()
-            task = self.current_training_task
-            if task is not None and not task.done():
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    print("\n\nold training cancelled, starting new response...")
-        
+    async def babyllm_command(self, ctx: commands.Context):        
         try:
-            self.babyLLM.eval()
             userMessage = self.buffer[-1]
             # generate prompt from twitch messages
             prompt = " \n".join(self.buffer[-self.N:]).strip().lower()
@@ -155,83 +145,40 @@ class BABYBOT(commands.Bot):
             userTokens = self.librarian.tokenizeText(latestUserMessageCleaned)
             numTokensToGen = len(userTokens)
 
-            #with torch.no_grad():
-                #self.babyLLM.eval()
-            if numTokensToGen < (self.twitchWindowMAX):
-                self.numTokensPerStep = numTokensToGen
-            else:
+            with torch.no_grad():
+                self.babyLLM.eval()
                 self.numTokensPerStep = self.twitchWindowMAX
 
-            self.babyLLM.numTokensPerStep = self.numTokensPerStep
-            self.scribe.numTokensPerStep = self.numTokensPerStep
-            self.tutor.numTokensPerStep = self.numTokensPerStep
+                responseBuffer = []
+                responseSeqId = []
+                # generate response
+                for _ in range(numTokensToGen):
+                    inputSegIDs = genSeqIDs[-self.numTokensPerStep:]
+                    inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice)
 
-            # stride = 10% of window size, at least 1
-            newStride = max(1, round(0.10 * self.numTokensPerStep))
-            self.tutor.dataStride = newStride
+                    logits = self.babyLLM.forward(inputTensor)
+                    nextTokenIDTensor = self.babyLLM.getResponseFromLogits(logits, _training = True)
+                    nextTokenID = nextTokenIDTensor.item()
 
-            responseBuffer = []
-            responseSeqId = []
-            # generate response
-            for _ in range(numTokensToGen):
-                inputSegIDs = genSeqIDs[-self.numTokensPerStep:]
-                inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice)
-
-                logits = self.babyLLM.forward(inputTensor)
-                nextTokenIDTensor = self.babyLLM.getResponseFromLogits(logits, _training = True)
-                nextTokenID = nextTokenIDTensor.item()
-
-                genSeqIDs.append(nextTokenID)
-                responseSeqId.append(nextTokenID)
-                token_str = self.librarian.indexToToken.get(nextTokenID, "<UNK>").replace("Ġ", " ")
-                responseBuffer.append(token_str)
+                    genSeqIDs.append(nextTokenID)
+                    responseSeqId.append(nextTokenID)
+                    token_str = self.librarian.indexToToken.get(nextTokenID, "<UNK>").replace("Ġ", " ")
+                    responseBuffer.append(token_str)
 
             replyText = self.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").strip().lower()
 
-            responseJoined = ''.join(responseBuffer).replace('Ġ', ' ').strip()
-            outTokens = clean_text(responseJoined)
             replyText = replyText[:500]
             await ctx.reply(replyText)
             babyReplyFormatted = formatMessage(self.nick, replyText)
             with open(twitchLogPath, 'a', encoding='utf-8') as f:
                 f.write(userMessage + "\n" + babyReplyFormatted + "\n---\n")
+            with open(trainingFilePathCLEANED, "r", encoding="utf-8") as f:
+                trainingDataContents = f.read().strip().lower()
 
-            if trainDuringChat2:
-                trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = 1, _startIndex = 1, _stride = trainingDataStride, _tokens = outTokens)
-                
-                # START THE LESSONS :)
-                #self.babyLLM.loadModel()
-                #self.babyLLM.to(modelDevice)
-                #if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
-                self.tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = 1)
-                return self.tutor.totalAvgLoss, self.tutor.totalTurns, self.tutor.perfectionistPassRate, self.tutor.learningRateGOAL
-            
-            # training from prompt
-            if False:
-                self.babyLLM.train()
+            currentChatHistory = "\n".join(self.buffer).strip().lower()
+            fullLearningContext = currentChatHistory + "\n" + trainingDataContents
 
-                self.buffer.append(babyReplyFormatted)
-                if len(self.buffer) > self.rollingContextSize:
-                    print(f"buffer exceeded size {self.rollingContextSize} from baby message, popping oldest message...")
-                    self.buffer.pop(0)
-                print(f"buffer now {len(self.buffer)} messages long")
-                try:
-                    run_cleaning() 
-                    with open("trainingData.txt", "r", encoding="utf-8") as f:
-                        trainingDataContents = f.read().strip().lower()
-                except FileNotFoundError:
-                    print("trainingData.txt not found. training only on chat history...")
-                    trainingDataContents = ""
-
-                currentChatHistory = "\n".join(self.buffer).strip().lower()
-                fullLearningContext = currentChatHistory + "\n" + trainingDataContents
-                twitchMaxTrainingCharacters = 2000
-                if len(fullLearningContext) > twitchMaxTrainingCharacters:
-                    fullLearningContext = fullLearningContext[:twitchMaxTrainingCharacters]
-
-                print(f"sending {len(fullLearningContext)} characters to background training...")
-                self.startTrainingTask(fullLearningContext, ctx.channel)
-                print(f"--- learned from interaction: ---\n{fullLearningContext}\n")
+            await self.training_queue.put({"type": "chat", "text": fullLearningContext})
 
         except Exception as e:
             print(f"error in !babyllm command: {e}")
@@ -240,32 +187,12 @@ class BABYBOT(commands.Bot):
             brokeMessage = ("i broke :( why would u do this to me")
             await ctx.reply(brokeMessage)
             self.buffer.append(formatMessage(babyName, brokeMessage))
-        finally:
-            self.babyLLM.numTokensPerStep = self.twitchWindowMAX
-            self.scribe.numTokensPerStep = self.twitchWindowMAX
-            self.tutor.numTokensPerStep = self.twitchWindowMAX
-            newStride = max(1, round(0.10 * numTokensToGen))
-            self.tutor.dataStride = newStride
             
     @commands.command(name='normaltrain')
     async def normaltrain_command(self, ctx: commands.Context):
-        if len(self.buffer) < 2:
-            lonelyMessage = ("aaa nobodys even messaged me yet, how can i train on that lol")
-            await ctx.send(lonelyMessage)
-            self.buffer.append(formatMessage(babyName, lonelyMessage))
-            return
-            
-        lurkMessage = ("ok ok, nobody's messaging me, i'm going to lurk for a bit... !babyllm if you need me!")
-        await ctx.send(lurkMessage)
-        self.buffer.append(formatMessage(babyName, lurkMessage))
         context = "\n ".join(self.buffer).strip().lower()
-        run_cleaning()
-        with open("trainingData.txt", "r", encoding="utf-8") as f:
-            training_data_contents = f.read().strip().lower()
-
-        fullContext = (training_data_contents + " " + context)[:10000] 
-        self.startTrainingTask(fullContext, ctx.channel)
-        await ctx.send("ughhhh, i just read a lot of words. !babyllm to annoy me further. >.<")
+        await self.training_queue.put({"type": "context", "text": context})
+        await ctx.send("queued current chat for background learning. !babyllm to annoy me further. >.<")
 
     @commands.command(name='babytrain')
     async def babytrain_command(self, ctx: commands.Context):
@@ -290,7 +217,7 @@ class BABYBOT(commands.Bot):
         self.buffer.append(formatMessage(userName, introText))
         fullHumanContext = "\n".join(humanLines)
         untaggedHumanContext = re.sub(r"^\[[^\]]+\]:\s*", "", fullHumanContext)
-        self.startTrainingTask(untaggedHumanContext, ctx.channel)
+        await self.training_queue.put({"type": "context", "text": untaggedHumanContext})
         lurkOutMessage = "omg i was in lurk for aaages hahaha"
         await ctx.send(lurkOutMessage)
         self.buffer.append(formatMessage(babyName, lurkOutMessage))
@@ -321,218 +248,61 @@ class BABYBOT(commands.Bot):
             print(f"error saving model: {e}")
             await ctx.send(f"i tried to save but something went wrong :(, the system said '{e}")
 
+    async def background_training_loop(self):
+        print("Training worker started!")
+        while True:
+            try:
+                item = await self.training_queue.get()
+                await self._train_on_item(item)
+                self.training_queue.task_done()
+            except Exception as e:
+                print("Exception in background training worker:", e)
+                import traceback
+                traceback.print_exc()
+            await asyncio.sleep(0.05)  # just to not hammer CPU
+
+    async def _train_on_item(self, item):
+        """Train on chat message or context."""
+        print(f"Training on item: {item['type']} ...")
+        # Prepare tokens as you wish; you can expand this as needed
+        text = item["text"].lower()
+        tokensToLibrarian = self.librarian.tokenizeText(text)
+        if len(tokensToLibrarian) < self.twitchWindowMAX + self.twitchWindowMAX + 1:
+            print(f"Not enough tokens ({len(tokensToLibrarian)}) for training. Skipping.")
+            return
+
+        else:
+            trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = 10, _startIndex = 1, _stride = trainingDataStride, _tokens = tokensToLibrarian)
+            self.babyLLM.train()
+            # This runs the slow training in a background thread so you never block chat
+            await self.loop.run_in_executor(
+                None,
+                lambda: self.tutor.trainModel(_trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1)
+            )
+            print("Finished training on item.")
+
     async def idleTrainChecker(self):
-        while trainDuringChat:
+        while trainDuringChat2 or trainDuringChat:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             try:
                 if (now - self.lastInputTime > self.idleTrainSeconds) and len(self.buffer) > 2:
-                    print("bby is idle, starting background training...")
                     self.lastInputTime = time.time()  # reset timer to prevent immediate re-trigger
                     channel = self.get_channel(self.twitchChannel)
-                    #if channel:
-                        #await channel.send("brb, i'm just gonna review my notes for a bit... !babyllm if you need me :)")
+                    if channel:
+                        await channel.send("brb, i'm just gonna review my notes for a bit... !babyllm if you need me :)")
 
                     context = "\n ".join(self.buffer).strip().lower()
-                    #await self.loop.run_in_executor(None, run_cleaning)
-                    #with open("trainingData.txt", "r", encoding="utf-8") as f:
-                    #    training_data_contents = f.read().strip().lower()
-                    #fullContext = (training_data_contents + " " + context)[:10000]
+                    await self.loop.run_in_executor(None, run_cleaning)
+                    with open(trainingFilePathCLEANED, "r", encoding="utf-8") as f:
+                        training_data_contents = f.read().strip().lower()
+                    fullContext = (training_data_contents + " " + context)[:10000]
+                    await self.training_queue.put({"type": "context", "text": fullContext})
 
-                    self.startTrainingTask(context, channel)
             except Exception as e:
                 print(f"ERROR in idleTrainChecker: {e}")
                 # this loop should never die, wait a bit before continuing
                 await asyncio.sleep(1)
-
-    """def startTrainingTask(self, text_buffer: str, channel):
-        if self.current_training_task and not self.current_training_task.done():
-            print("received new message during training, cancelling to start again!")
-            self.current_training_task.cancel()
-
-        self.current_training_task = self.loop.create_task(self._trainInBackground(text_buffer, channel))"""
-
-    def startTrainingTask(self, text_buffer: str, channel):
-        async def manage_training():
-            async with self.train_lock:
-                # cancel if already running
-                if self.current_training_task and not self.current_training_task.done():
-                    print("cancelling current training...")
-                    self.current_training_task.cancel()
-                    try:
-                        await self.current_training_task  # wait for cleanup
-                    except asyncio.CancelledError:
-                        print("previous training task cancelled!")
-                        
-                # safe to start a new one
-                self.babyLLM.loadModel()
-                self.babyLLM.to(modelDevice)
-                print("reloaded babyLLM model")
-                print("starting new training...")
-                self.current_training_task = self.loop.create_task(self._trainInBackground(text_buffer, channel))
-        # coroutine in the event loop
-        asyncio.ensure_future(manage_training())
-
-
-    async def _trainInBackground(self, text_buffer: str, channel):
-        # async wrapper, calls the training code once
-        print("starting background training task...")
-        try:
-            self.babyLLM.train()
-            text_buffer_cleaned = await self.loop.run_in_executor(None, clean_text, text_buffer.lower())
-            
-            tokenIDs = await self.loop.run_in_executor(None, 
-                lambda: [self.librarian.tokenToIndex.get(t, self.librarian.tokenToIndex["<UNK>"]) for t in self.librarian.tokenizeText(text_buffer_cleaned)])
-            print(f"training was not cancelled")
-
-            n = self.babyLLM.numTokensPerStep
-            tokensAvailable = len(tokenIDs)
-            if tokensAvailable < n + 1:
-                print(f"not enough tokens ({tokensAvailable}) for training with window size {n}. skipping...")
-                if channel: await channel.send(f"(that was too short to learn from! need at least {n+1} tokens!)")
-                return
-            
-            await self.loop.run_in_executor(
-                None, 
-                self._runTraining, 
-                tokenIDs, 
-                self.current_training_task
-            )
-                
-            print(f"finished training session successfully!")
-            if channel: await channel.send("beep boop!")
-            await self.loop.run_in_executor(None, self.saveModel_blocking)
-
-        except asyncio.CancelledError:
-            print("background training session was cancelled")
-        except Exception as e:
-            print(f"ERROR background training session: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            print("background training task finished or was cancelled")
-            if hasattr(self.babyLLM, 'optimizer'):
-                print(f"\n\ndid i get into zero gradding?\n\n")
-                for name, p in self.babyLLM.named_parameters():
-                    if p.grad is None:
-                            print(f"BEFORE self.babyllm.zero_grad = {self.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
-                    else: 
-                        grad = p.grad
-                        shape = tuple(grad.shape)
-                        norm = grad.norm().item()
-                        nonzero = grad.count_nonzero().item()
-                        total = grad.numel()
-                        sparsity = 1 - (nonzero / total)
-                        mean = grad.mean().item()
-                        std = grad.std().item()
-                        print(f"BEFORE self.babyllm = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
-                self.babyLLM.zero_grad(set_to_none = True)
-                self.babyLLM.optimizer.zero_grad(set_to_none = True)
-                for name, p in self.babyLLM.named_parameters():
-                    if p.grad is None:
-                        print(f"AFTER self.babyllm.optimizer.zero_grad = {self.calligraphist.S_apply("emergency", f"NO GRAD: {name}")}")
-                    else: 
-                        grad = p.grad
-                        shape = tuple(grad.shape)
-                        norm = grad.norm().item()
-                        nonzero = grad.count_nonzero().item()
-                        total = grad.numel()
-                        sparsity = 1 - (nonzero / total)
-                        mean = grad.mean().item()
-                        std = grad.std().item()
-                        print(f"AFTER self.babyllm.optimizer = {self.calligraphist.S_apply("almostPerfect", f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}")}")
-            else:
-                print(":( could not find 'self.babyLLM.optimizer' to zero its gradients!!")
-            self.current_training_task = None
-    
-    def _runTraining(self, tokenIDs: list, task: asyncio.Task):
-        print("Executor thread started: Running the full training loop now.")
-        n = self.babyLLM.numTokensPerStep
-
-        # convert to 1-D tensor on the model device
-        token_tensor = torch.tensor(tokenIDs, dtype=torch.long, device=modelDevice)
-
-        # create sliding windows (num_pairs, n+1)
-        windows = token_tensor.unfold(0, n + 1, self.twitchDataStride)
-        inputs_tensor = windows[:, :-1]
-        targets_tensor = windows[:, 1:]
-
-        totalPairs = inputs_tensor.size(0)
-        numPairs = 0
-        start_index = 0
-
-        # --- RESUME LOGIC --- !!!!!!!!!!!!!sus!!!!
-        if self.training_resume_state:
-            print("--- Resuming training from previously saved state. ---")
-            try:
-                self.babyLLM.load_state_dict(self.training_resume_state['model_state'])
-                self.load_optimizer_state(self.training_resume_state['optimizer_state'])
-                start_index = self.training_resume_state['index']
-                self.tutor.totalTurns = self.training_resume_state.get('tutor_totalTurns', 0)
-                self.tutor.averageRecentLoss = self.training_resume_state.get('tutor_averageRecentLoss', 0.0)
-                self.tutor.ʕっෆ‿ෆʔっ = self.training_resume_state.get('tutor_stats_dict', defaultdict(self.tutor.makeStatRecord))
-                print(f"Resume successful. Starting from index {start_index}.")
-
-            except Exception as e:
-                print(f"!!! FAILED TO RESUME STATE, STARTING FRESH. Error: {e} !!!")
-                self.babyLLM.loadModel()
-                import traceback
-                traceback.print_exc()
-                start_index = 0
-            finally:
-                self.training_resume_state = None # always consume state
-
-        for i in range(start_index, totalPairs):
-            # --- CANCELLATION CHECK ---
-            if task.cancelled():
-                print("cancellation requested, restarting training loop...")
-                #self.training_resume_state = self.tutor.training_resume_state
-                self.training_resume_state = {
-                    'model_state': {k: v.cpu() for k, v in self.babyLLM.state_dict().items()},
-                    'optimizer_state': self.babyLLM.optimizer.state_dict(),
-                    'index': i,
-                    'tutor_totalTurns': self.tutor.totalTurns,
-                    'tutor_averageRecentLoss': self.tutor.averageRecentLoss,
-                    'tutor_stats_dict': self.tutor.ʕっෆ‿ෆʔっ,
-                }
-                print(f"resume from saved at index {i}.")
-                # don't raise an error here; the asyncio.CancelledError will be raised by coroutine.
-                return
-
-            inputIDs = inputs_tensor[i].tolist()
-            targetIDs = targets_tensor[i].tolist()
-            
-            if len(inputIDs) < n or len(targetIDs) < n:
-                continue
-
-            #if debugPrints: 
-            print(f"Training on pair {numPairs+1}/{totalPairs} (window {n})...")
-
-            try:
-                success = self.tutor.interactiveLearning(
-                    inputSeqIDs = inputIDs,
-                    targetSeqIDs = targetIDs,
-                    inputSeqText = [self.librarian.indexToToken.get(id, "<UNK>") for id in inputIDs],
-                    targetSeqText = [self.librarian.indexToToken.get(id, "<UNK>") for id in targetIDs],
-                    calligraphist = self.calligraphist,
-                    showStats = True,
-                    currentTotalPairs = totalPairs,
-                    currentStepID = numPairs
-                )
-                if not success:
-                    print(f"--- interactiveLearning returned False for pair {numPairs+1}. Skipping. ---")
-                    continue  # Move to the next pair
-            except Exception as e:
-                print(f"---!!! CRITICAL ERROR in interactiveLearning for pair {numPairs+1} !!!---")
-                import traceback
-                traceback.print_exc()
-                print("---!!! Skipping this pair to prevent crashing the whole session. !!!---")
-                continue  # Skip this corrupted step and try the next one
-
-            numPairs += 1
-        
-        self.training_resume_state = None
-        print(f"finished training on {numPairs} pairs!")
 
 if __name__ == "__main__":
     #if 'oauth:' not in twitchToken:
