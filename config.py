@@ -120,6 +120,7 @@ twitchLogPath = f"SCHOOL/statistics/LOGS/chat/twitchLog_{date}.txt"
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- TWITCH BOT ---"""
 trainDuringChat = False
+trainDuringChat2 = True
 
 """--- MODEL ---"""
 numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.

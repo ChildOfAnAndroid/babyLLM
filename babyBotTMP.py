@@ -140,7 +140,6 @@ class BABYBOT(commands.Bot):
         try:
             self.babyLLM.eval()
             userMessage = self.buffer[-1]
-            
             # generate prompt from twitch messages
             prompt = " \n".join(self.buffer[-self.N:]).strip().lower()
             promptCleaned = clean_text(prompt)
@@ -172,7 +171,6 @@ class BABYBOT(commands.Bot):
             self.tutor.dataStride = newStride
 
             responseBuffer = []
-            genSeqIDs = list(promptTokenIDs)
             responseSeqId = []
             # generate response
             for _ in range(numTokensToGen):
@@ -185,18 +183,31 @@ class BABYBOT(commands.Bot):
 
                 genSeqIDs.append(nextTokenID)
                 responseSeqId.append(nextTokenID)
-                #token_str = self.librarian.indexToToken.get(nextTokenID, "<UNK>").replace("Ġ", " ")
-                #responseBuffer.append(token_str)
+                token_str = self.librarian.indexToToken.get(nextTokenID, "<UNK>").replace("Ġ", " ")
+                responseBuffer.append(token_str)
 
             replyText = self.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").strip().lower()
 
-            #replyText = "".join(responseBuffer).strip().lower()
+            responseJoined = ''.join(responseBuffer).replace('Ġ', ' ').strip()
+            outTokens = clean_text(responseJoined)
             replyText = replyText[:500]
             await ctx.reply(replyText)
             babyReplyFormatted = formatMessage(self.nick, replyText)
+            with open(twitchLogPath, 'a', encoding='utf-8') as f:
+                f.write(userMessage + "\n" + babyReplyFormatted + "\n---\n")
 
+            if trainDuringChat2:
+                trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = 1, _startIndex = 1, _stride = trainingDataStride, _tokens = outTokens)
+                
+                # START THE LESSONS :)
+                #self.babyLLM.loadModel()
+                #self.babyLLM.to(modelDevice)
+                #if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
+                self.tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = 1)
+                return self.tutor.totalAvgLoss, self.tutor.totalTurns, self.tutor.perfectionistPassRate, self.tutor.learningRateGOAL
+            
             # training from prompt
-            if trainDuringChat:
+            if False:
                 self.babyLLM.train()
 
                 self.buffer.append(babyReplyFormatted)
@@ -221,9 +232,6 @@ class BABYBOT(commands.Bot):
                 print(f"sending {len(fullLearningContext)} characters to background training...")
                 self.startTrainingTask(fullLearningContext, ctx.channel)
                 print(f"--- learned from interaction: ---\n{fullLearningContext}\n")
-
-            with open(twitchLogPath, 'a', encoding='utf-8') as f:
-                f.write(userMessage + "\n" + babyReplyFormatted + "\n---\n")
 
         except Exception as e:
             print(f"error in !babyllm command: {e}")
@@ -326,12 +334,12 @@ class BABYBOT(commands.Bot):
                         #await channel.send("brb, i'm just gonna review my notes for a bit... !babyllm if you need me :)")
 
                     context = "\n ".join(self.buffer).strip().lower()
-                    await self.loop.run_in_executor(None, run_cleaning)
-                    with open("trainingData.txt", "r", encoding="utf-8") as f:
-                        training_data_contents = f.read().strip().lower()
-                    fullContext = (training_data_contents + " " + context)[:10000]
+                    #await self.loop.run_in_executor(None, run_cleaning)
+                    #with open("trainingData.txt", "r", encoding="utf-8") as f:
+                    #    training_data_contents = f.read().strip().lower()
+                    #fullContext = (training_data_contents + " " + context)[:10000]
 
-                    self.startTrainingTask(fullContext, channel)
+                    self.startTrainingTask(context, channel)
             except Exception as e:
                 print(f"ERROR in idleTrainChecker: {e}")
                 # this loop should never die, wait a bit before continuing

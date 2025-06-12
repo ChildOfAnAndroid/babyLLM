@@ -397,7 +397,8 @@ class TUTOR:
                         self.trainingStepCounter += 1  # means reflections wont be training steps
                 if debugPrints: ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
                 if self.totalTurns == 0:
-                    raise "We ran out of data (probably)!!!"
+                    print (f"We ran out of data (probably)!!!")
+                    self.totalTurns += 1 # sus this is dumb
                 self.totalAvgLoss = self.totalLoss / self.totalTurns
                 self.totalAvgAbsDelta = (self.totalLossAbsDelta / max(1, self.totalTurns))
                 self.totalAvgDelta = (self.totalLossDelta / max(1, self.totalTurns))

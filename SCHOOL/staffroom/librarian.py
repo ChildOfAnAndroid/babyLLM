@@ -147,11 +147,15 @@ class LIBRARIAN:
             result = re.sub(r'[ \t]+', ' ', buffer.getvalue())
             print(f"loaded {len(result)} characters of training data!")
             return result
+        
+    def add_training_text(self, text):
+        """append new training text to the internal buffer."""
+        self.tokens.extend(text)
 
-    def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = 1, _stride = trainingDataStride):
+    def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = 1, _stride = trainingDataStride, _tokens=None):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             count = 0
-            tokens = self.tokens
+            tokens = _tokens if _tokens is not None else self.tokens
             if debugPrints: ʕっʘ‿ʘʔっ("check if windowMax is tensor?")
             if isinstance(_windowMAX, torch.Tensor):
                 _windowMAX = _windowMAX.item()
@@ -162,21 +166,22 @@ class LIBRARIAN:
 
             end = len(tokens) - _windowMAX
 
-            for i in range(_startIndex, end, int(_stride)):
+            i = _startIndex
+            while count < _trainingDataPairNumber and i < len(tokens) - _windowMAX:
                 if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
                 inputSeq = tokens[i:i + _windowMAX]
                 target = tokens[i + _windowMAX:i + _windowMAX + _windowMAX]
                 if len(target) < _windowMAX:
+                    i += int(_stride)
                     continue
                 if all(t in self.vocabList for t in inputSeq + target):
                     yield (inputSeq, target)
                     count += 1
                     if count % 1000 == 0:
                         print(f"{makeDatBoi()} {babyName}: generated {count}x trainingDataPairs!")
-                    if count >= _trainingDataPairNumber:
-                        break
                 else:
                     print(f"skipping <UNK> - inputSeq: {inputSeq}, target: {target}")
+                i += int(_stride)
 
     def saveVocab(self):
         with self.v_counsellor.infodump("saveVocab") as ʕっʘ‿ʘʔっ:
