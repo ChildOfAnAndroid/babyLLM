@@ -16,7 +16,7 @@ def formatMessage(user, text):
 
 class BABYBOT(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist, 
-                 twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "childofanandroid",
+                 twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "babyllm",
                  rollingContextSize = 1000, idleTrainSeconds = 15, N = 999):
         super().__init__(
             token = twitchToken,
@@ -59,7 +59,7 @@ class BABYBOT(commands.Bot):
         helloMessage = ("ʕっʘ‿ʘʔっ hello! i am awake!")
         await self.get_channel(self.twitchChannel).send(helloMessage)
         self.buffer.append(formatMessage(babyName, helloMessage))
-        if self.idle_task is None and False:
+        if self.idle_task is None:
             self.idle_task = self.loop.create_task(self.idleTrainChecker())
 
     async def event_message(self, message):
@@ -175,7 +175,7 @@ class BABYBOT(commands.Bot):
             babyReplyFormatted = formatMessage(self.nick, replyText)
 
             # training from prompt
-            if False:
+            if trainDuringChat:
                 self.babyLLM.train()
 
                 self.buffer.append(babyReplyFormatted)
@@ -293,7 +293,7 @@ class BABYBOT(commands.Bot):
             await ctx.send(f"i tried to save but something went wrong :(, the system said '{e}")
 
     async def idleTrainChecker(self):
-        while False:
+        while trainDuringChat:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             try:
@@ -334,8 +334,8 @@ class BABYBOT(commands.Bot):
                         await self.current_training_task  # wait for cleanup
                     except asyncio.CancelledError:
                         print("previous training task cancelled!")
+                        
                 # safe to start a new one
-                
                 self.babyLLM.loadModel()
                 self.babyLLM.to(modelDevice)
                 print("reloaded babyLLM model")
@@ -424,7 +424,7 @@ class BABYBOT(commands.Bot):
         token_tensor = torch.tensor(tokenIDs, dtype=torch.long, device=modelDevice)
 
         # create sliding windows (num_pairs, n+1)
-        windows = token_tensor.unfold(0, n + 1, twitchDataStride)
+        windows = token_tensor.unfold(0, n + 1, self.twitchDataStride)
         inputs_tensor = windows[:, :-1]
         targets_tensor = windows[:, 1:]
 
