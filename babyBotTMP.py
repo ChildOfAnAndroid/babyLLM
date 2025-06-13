@@ -16,8 +16,8 @@ def formatMessage(user, text):
 
 class BABYBOT(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist, 
-                 twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "babyllm",
-                 rollingContextSize = 1000, idleTrainSeconds = 60, N = 999):
+                 twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "childofanandroid",
+                 rollingContextSize = 500, idleTrainSeconds = 60, N = 499):
         super().__init__(
             token = twitchToken,
             nick = babyName,
@@ -126,8 +126,9 @@ class BABYBOT(commands.Bot):
         await ctx.reply(optCheckMessage)
         self.buffer.append(formatMessage(babyName, optCheckMessage))
 
-    @commands.command(name='babyllm')
-    async def babyllm_command(self, ctx: commands.Context):        
+    @commands.command(name='babyllm', aliases=['bby'])
+    async def babyllm_command(self, ctx: commands.Context):  
+        print(f"babyllm_command called because of {ctx.message.content}")      
         try:
             userMessage = self.buffer[-1]
             # generate prompt from twitch messages
@@ -143,7 +144,7 @@ class BABYBOT(commands.Bot):
             latestUserMessageCleaned = clean_text(latestUserMessageNoCommand)
 
             userTokens = self.librarian.tokenizeText(latestUserMessageCleaned)
-            numTokensToGen = len(userTokens)
+            numTokensToGen = max(7,len(userTokens))
 
             with torch.no_grad():
                 self.babyLLM.eval()
@@ -168,7 +169,10 @@ class BABYBOT(commands.Bot):
             replyText = self.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").strip().lower()
 
             replyText = replyText[:500]
-            await ctx.reply(replyText)
+            if len(replyText) < 1: 
+                replyText = "you broke me :'( i'm not gonna say anything now!"
+            sentMessage = await ctx.reply(replyText)
+            print(f"REPLY: I have tried to send this message: {sentMessage}")
             babyReplyFormatted = formatMessage(self.nick, replyText)
             with open(twitchLogPath, 'a', encoding='utf-8') as f:
                 f.write(userMessage + "\n" + babyReplyFormatted + "\n---\n")
@@ -262,38 +266,41 @@ class BABYBOT(commands.Bot):
             await asyncio.sleep(0.05)  # just to not hammer CPU
 
     async def _train_on_item(self, item):
-        """Train on chat message or context."""
-        print(f"Training on item: {item['type']} ...")
-        # Prepare tokens as you wish; you can expand this as needed
+        """train on chat message or context"""
+        print(f"training on item: {item['type']} ...")
         text = item["text"].lower()
-        tokensToLibrarian = self.librarian.tokenizeText(text)
+        textCLEAN = clean_text(text)
+        tokensToLibrarian = self.librarian.tokenizeText(textCLEAN)
         if len(tokensToLibrarian) < self.twitchWindowMAX + self.twitchWindowMAX + 1:
-            print(f"Not enough tokens ({len(tokensToLibrarian)}) for training. Skipping.")
+            print(f"not enough tokens ({len(tokensToLibrarian)}) for training. skipping.")
             return
 
         else:
             trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = 10, _startIndex = 1, _stride = trainingDataStride, _tokens = tokensToLibrarian)
             self.babyLLM.train()
-            # This runs the slow training in a background thread so you never block chat
+            # runs the slow training in a background thread, avoids blocking chat
             await self.loop.run_in_executor(
                 None,
                 lambda: self.tutor.trainModel(_trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1)
             )
-            print("Finished training on item.")
+            print("finished training on item!")
 
     async def idleTrainChecker(self):
         while trainDuringChat2 or trainDuringChat:
+            idles = 0
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             try:
                 if (now - self.lastInputTime > self.idleTrainSeconds) and len(self.buffer) > 2:
+                    idles += 1
                     self.lastInputTime = time.time()  # reset timer to prevent immediate re-trigger
                     channel = self.get_channel(self.twitchChannel)
-                    if channel:
-                        await channel.send("brb, i'm just gonna review my notes for a bit... !babyllm if you need me :)")
 
                     context = "\n ".join(self.buffer).strip().lower()
-                    await self.loop.run_in_executor(None, run_cleaning)
+                    if idles % 30 == 0:
+                        await self.loop.run_in_executor(None, run_cleaning)
+                        if channel:
+                            await channel.send("!lurk, i'm just gonna review some notes for a bit... !babyllm if you need me :)")
                     with open(trainingFilePathCLEANED, "r", encoding="utf-8") as f:
                         training_data_contents = f.read().strip().lower()
                     fullContext = (training_data_contents + " " + context)[:10000]

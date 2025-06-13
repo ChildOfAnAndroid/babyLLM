@@ -377,8 +377,8 @@ class S_OUTPUT:
                 if k in mostImportantStats
                 if v not in (None, "")
             ]) + newLineDelim"""
-            maxKeyLen = 16
-            maxCols = 4
+            maxKeyLen = 12
+            maxCols = 6
             cellWidth = statTopLen + decLen + maxKeyLen + 1
 
             statSections = [
@@ -476,7 +476,7 @@ class S_OUTPUT:
                 cerebellum = delimiter + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
                 logOutput += cerebellum
                 littleLogOutput += cerebellum
-                #newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
+                newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
 
             if debugPrints: ʕっʘ‿ʘʔっ("topTokens_str")
             if _topTokens_str: 

@@ -155,8 +155,8 @@ windowEntropyBonus = True
 """--- LOGS ---"""
 detailedLogging = True
 
-trainingLogFreq_A = 10    # creates logs every x number of turns
-trainingLogFreq_B = 100    # creates logs every x number of turns
+trainingLogFreq_A = 100    # creates logs every x number of turns
+trainingLogFreq_B = 1000    # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
