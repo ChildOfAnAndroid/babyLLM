@@ -34,6 +34,7 @@ class BABYBOT(commands.Bot):
         self.twitchToken = twitchToken
         self.twitchChannel = twitchChannel
         self.rollingContextSize = rollingContextSize
+        self.currentAuthor = ""
         self.idleTrainSeconds = idleTrainSeconds
         self.N = N
         self.twitchWindowMAX = windowMAXSTART
@@ -71,8 +72,10 @@ class BABYBOT(commands.Bot):
 
     async def event_message(self, message):
         if message.echo: return
+        
         author = message.author.name.lower()
         content = message.content
+        self.currentAuthor = author
         print(f"RECEIVED: {content} ({author})")
         self.lastInputTime = time.time()
     
@@ -188,7 +191,8 @@ class BABYBOT(commands.Bot):
             print(f"error in !babyllm command: {e}")
             import traceback
             traceback.print_exc()
-            brokeMessage = ("i broke :( why would u do this to me")
+            brokeMessage = (f"i broke :( why would u do this to me, {self.currentAuthor}")
+            self.currentAuthor = ""
             await ctx.reply(brokeMessage)
             self.buffer.append(formatMessage(babyName, brokeMessage))
             

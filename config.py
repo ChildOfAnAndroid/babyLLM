@@ -155,8 +155,8 @@ windowEntropyBonus = True
 """--- LOGS ---"""
 detailedLogging = True
 
-trainingLogFreq_A = 100    # creates logs every x number of turns
-trainingLogFreq_B = 1000    # creates logs every x number of turns
+trainingLogFreq_A = 10    # creates logs every x number of turns
+trainingLogFreq_B = 100    # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500
@@ -619,6 +619,8 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", chatLogPath_talkToYourselfComparisons, 0.00001),     # log: comparing babyllms answers to my answers
     ("text", "scribeSays.txt", 0.00001),
     ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-11.txt", -1),
+    ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-12.txt", -1),
+    ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-13.txt", -1),
 
     #--- TENSES ---
     ("text", "SCHOOL/library/tenses/presentTense.txt", 0.0001),     #  tense: present (kevin's weed theme?)
