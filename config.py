@@ -137,7 +137,7 @@ memoryLengthGOAL = 3
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.0s001 //
-learningRateGOAL = 0.00035
+learningRateGOAL = 0.0007
 temperatureGOAL = 0.85
 optimizerName = "AdamW" # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 #activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //

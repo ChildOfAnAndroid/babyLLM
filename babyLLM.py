@@ -50,6 +50,7 @@ class BABYLLM(nn.Module):
         self.rollingTokenTotals_tensor = torch.zeros(len(self.librarian.vocabList), device=self.device)
         self.gumBellend = 0
         self.pixelLoss_used = 0
+        self.targetTokenFromTutor = None
 
         self.stats = {}
         self.normalisedHistory = []
@@ -170,7 +171,7 @@ class BABYLLM(nn.Module):
             if not torch.isfinite(self.logRepetitionWindow):
                 print("logRepetitionWindow has gone non-finite. Resetting.")
                 self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
-            penalisedLogits = self.applyRepetitionPenalty(logitsBeforePenalty)
+            penalisedLogits = self.applyRepetitionPenalty(logitsBeforePenalty, _inputSeq)
             
             if debugPrints: print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
             if debugPrints: print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
@@ -588,11 +589,17 @@ class BABYLLM(nn.Module):
             return responseFromLogits
         
     @whocalled    
-    def applyRepetitionPenalty(self, _logits):
+    def applyRepetitionPenalty(self, _logits, _contextTokens = None):
         with self.counsellor.infodump("applyRepetitionPenalty") as ʕっʘ‿ʘʔっ:
             if not self.recentGeneratedTokens:
-                if debugPrints: ʕっʘ‿ʘʔっ("no recent generated tokens, returning _logits")
-                return _logits
+                if _contextTokens is None:
+                    if debugPrints: ʕっʘ‿ʘʔっ("no recent tokens or context, returning _logits")
+                    return _logits
+                if debugPrints: ʕっʘ‿ʘʔっ("using context tokens for repetition penalty")
+                recentTokens = _contextTokens[-int(self.numTokensPerStep):].detach()
+                recentTokens = recentTokens.to(self.device)
+            else:
+                recentTokens = torch.tensor(self.recentGeneratedTokens, device = self.device)
 
             if debugPrints: ʕっʘ‿ʘʔっ("repWindow = torch.exp(self.logRepetitionWindow)")
             repWindow = torch.exp(self.logRepetitionWindow)
@@ -600,8 +607,9 @@ class BABYLLM(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("penalty = self.repetitionPenalty")
             penalty = self.repetitionPenalty
 
-            if debugPrints: ʕっʘ‿ʘʔっ("recentTokens to tensor")
-            recentTokens = torch.tensor(self.recentGeneratedTokens, device = self.device)
+            if isinstance(recentTokens, list):
+                if debugPrints: ʕっʘ‿ʘʔっ("recentTokens list -> tensor")
+                recentTokens = torch.tensor(recentTokens, device = self.device)
             if debugPrints: ʕっʘ‿ʘʔっ("vocabSize = _logits.shape[1]")
             vocabSize = _logits.shape[1]
 
