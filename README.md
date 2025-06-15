@@ -2,6 +2,13 @@ readmeactuallyprobablydont.txt (readme is very unfinished!)
 
 ![babyllm](BRAIN/babyllm3.gif)
 > "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would"
+> training started: february 2025
+
+acheivements/use cases: 
+- is beginning to learn english, only from my personal writing (no web scraping) - its answers often suit the topic even if they're a little wobbly.
+- predicts an internal rgb 'pixel' colour state based on its own internal stats and time pulses, a sort of basic self-monitoring metabolism thing.
+- handled a spam attack from my lovely friends using its byte pair encoded tokens to form dominos in response to chinese characters(?)
+- simply mentioning babyllm causes annoying people on AI reddit to block you
 
 --- FILESTRUCTURE ---
 
@@ -87,7 +94,4 @@ Stats
 what the fuck is self?! i thought i had self identity issues and then i encountered python!!
 
 ---
-
-acheivements/use cases: 
-- mentioning babyllm causes annoying people on AI reddit to block you
 
