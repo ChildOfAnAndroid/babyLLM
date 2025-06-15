@@ -1,5 +1,8 @@
 readmeactuallyprobablydont.txt (readme is very unfinished!)
 
+![babyllm](BRAIN/babyllm3.gif)
+> "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would"
+
 --- FILESTRUCTURE ---
 
 babyLLM/

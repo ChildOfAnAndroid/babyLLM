@@ -469,9 +469,8 @@ class BABYLLM(nn.Module):
                 #self.logLR.data.fill_(self.logLR+0.000001) # increment LR manually (break grid)
 
             if debugPrints: ʕっʘ‿ʘʔっ("clip_grad_norm")
-            clipValue = torch.exp(self.logGradClip)
-            #torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = clipValue)
-            self.differentiableGradNorm(self.parameters(), max_norm = clipValue)
+            clipValue = 5 #torch.exp(self.logGradClip)
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = clipValue)
             self.gradientClipMaxNorm = clipValue
             if debugPrints: ʕっʘ‿ʘʔっ("optimizer.step")
             self.optimizer.step()  # Update weights
@@ -828,23 +827,6 @@ class BABYLLM(nn.Module):
         if non_zero.dim() == 0:
             non_zero = non_zero.unsqueeze(0)
         return {self.librarian.indexToToken[int(i)]: float(counts[int(i)]) for i in non_zero}
-    
-    def differentiableGradNorm(self, parameters, max_norm, eps=1e-6):
-        """avoids casting 'max_norm' to a Python float so that gradients can flow back"""
-        if isinstance(parameters, torch.Tensor):
-            parameters = [parameters]
-        params = [p for p in parameters if p.grad is not None]
-        if len(params) == 0:
-            device = max_norm.device if torch.is_tensor(max_norm) else "cpu"
-            return torch.tensor(0.0, device=device)
-        total_norm = torch.norm(
-            torch.stack([p.grad.detach().norm(2) for p in params]), 2
-        )
-        clip_coef = max_norm / (total_norm + eps)
-        clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
-        for p in params:
-            p.grad.mul_(clip_coef_clamped)
-        return total_norm
 
 
     """def log_all_learnable_params(self, prefix="PARAM_"):
