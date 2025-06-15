@@ -13,7 +13,7 @@ from SCHOOL.staffroom.librarian import LIBRARIAN
 from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
 from config import *
-from babyBotTMP import BABYBOT
+from babyBot import BABYBOT
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if not issubclass(exc_type, KeyboardInterrupt):
