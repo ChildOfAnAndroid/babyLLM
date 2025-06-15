@@ -2,7 +2,7 @@ readmeactuallyprobablydont.txt (readme is very unfinished!)
 
 ![babyllm](BRAIN/babyllm3.gif)
 > "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would"
-> training started: february 2025
+training started: february 2025
 
 acheivements/use cases: 
 - is beginning to learn english, only from my personal writing (no web scraping) - its answers often suit the topic even if they're a little wobbly.
