@@ -142,7 +142,7 @@ temperatureGOAL = 0.85
 optimizerName = "AdamW" # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 #activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
-gradientClipMaxNorm = 1.0
+#gradientClipMaxNorm = 1.0
 
 """scheduled sampling"""
 scheduledSampling = True 
@@ -289,6 +289,7 @@ mostImportantStats  =   [
                 "B_blendPixel",
                 "B_blendPos",
                 "B_blendToken",
+                "B_gradClip",
 
             # MISC/UNSORTED STATS
                 # base stats

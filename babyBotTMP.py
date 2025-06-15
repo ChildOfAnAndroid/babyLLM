@@ -5,6 +5,7 @@ import torch
 import time
 import asyncio
 from twitchio.ext import commands
+import re
 from datetime import datetime
 from collections import defaultdict
 from config import *
@@ -72,7 +73,7 @@ class BABYBOT(commands.Bot):
 
     async def event_message(self, message):
         if message.echo: return
-        
+
         author = message.author.name.lower()
         content = message.content
         self.currentAuthor = author

@@ -11,7 +11,6 @@ import torch.nn.functional as F
 from config import *
 import numpy as np
 import math
-from SCHOOL.staffroom.newsletter import deep_model_summary, STATS
 from SCHOOL.notebook.tools.genBoi import makeSafeBoi
 
 class TUTOR:
@@ -1075,7 +1074,7 @@ class TUTOR:
                     else:
                         self.stats["_B_temperature"] = self.temperature # Log TUTOR's current temp if model's isn't available
                     self.stats["LR"]                    = self.learningRate
-                    self.stats["gradientClipMaxNorm"]   = self.gradientClipMaxNorm
+                    #self.stats["gradientClipMaxNorm"]   = self.gradientClipMaxNorm
                     self.stats["latestLossDelta"]       = self.latestLossDelta
                     self.stats["memoryLength"]          = self.memoryLength
                     self.stats["perfectTokens"]         = self.perfectTokens
