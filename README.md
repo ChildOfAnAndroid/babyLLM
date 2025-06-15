@@ -35,8 +35,8 @@ babyLLM/
    - calligraphist.py       # terminal output, pretty stuff, etc - a mess.
    - counsellor.py          # debug logging, duration logging, decorator
    - HE_IS_SCRIBE.p         # roasts babyllms guesses on random occasions, or is nice! babyllm learns from these comments
-   - librarian.py           # tokenizer, currently generates main training data (trying to move that to tutor2.py)
-   - tutor.py               # main training file, contains many options at this point, trying to clean it up into tutor2.py
+   - librarian.py           # tokenizer, currently generates main training data
+   - tutor.py               # main training file, contains many options at this point, recently made it generate training pairs when needed instead of in advance
   - library/                # training data and notes, some are weird lol, it needs variety and chaos to learn! most of my private stuff is hidden so you wont see anything more spicy than 'charis touched the butt' (don't ask why thats part of the 'clean' training data because, tbh, i don't know - this whole project is a sleep deprived hallucination)
   - statistics/             # logs!
 
