@@ -88,6 +88,6 @@ what the fuck is self?! i thought i had self identity issues and then i encounte
 
 ---
 
-acheivements: 
+acheivements/use cases: 
 - mentioning babyllm causes annoying people on AI reddit to block you
 
