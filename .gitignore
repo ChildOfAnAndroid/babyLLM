@@ -34,3 +34,9 @@ BRAIN/soul/*
 secret.py 
 SCHOOL/library/charisStudies
 # IMPORTANT - NEVER COMMIT!!
+*.aseprite
+BRAIN/bbyBODY.json
+BRAIN/bbyBODYflatnew.gif
+BRAIN/bbyBODYflatold.gif
+BRAIN/bbyEYES_closed.json
+x

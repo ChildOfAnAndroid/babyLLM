@@ -96,7 +96,10 @@ class BABYBOT(commands.Bot):
             print(f"buffer now {len(self.buffer)} messages long")
             await self.training_queue.put({"type": "chat", "text": userMessage})
 
-        print(f"WAITING FOR COMMAND HANDLER FOR {content} ({author})")
+        if author in self.AIoptInUsers:
+            print(f"WAITING FOR COMMAND HANDLER FOR {content} ({author})")
+        else:
+            print(f"WAITING FOR COMMAND HANDLER FOR IGNORED CHAT MESSAGE")
         await self.handle_commands(message)
 
     # --- babyllm bot commands ---
@@ -188,14 +191,28 @@ class BABYBOT(commands.Bot):
 
             await self.training_queue.put({"type": "chat", "text": fullLearningContext})
 
-        except Exception as e:
+            """except Exception as e:
             print(f"error in !babyllm command: {e}")
-            import traceback
-            traceback.print_exc()
-            brokeMessage = (f"i broke :( why would u do this to me, {self.currentAuthor}")
+
+            #exception = traceback.format_exc()
+            brokeMessage = (f"i broke :( why would u do this to me, @{self.currentAuthor}!")
+            brokeMessage2 = (f"@{self.currentAuthor}! you just made the system say '{traceback.format_exc()}' >:(")
             self.currentAuthor = ""
             await ctx.reply(brokeMessage)
+            await ctx.reply(brokeMessage2)
             self.buffer.append(formatMessage(babyName, brokeMessage))
+            self.buffer.append(formatMessage(babyName, brokeMessage2))"""
+
+        except Exception as e:
+            import traceback
+            reason = ''.join(traceback.TracebackException.from_exception(e).format_exception_only()).strip()
+            brokeMessage = (f"i broke :( why would u do this to me, @{self.currentAuthor}!")
+            brokeMessage2 = (f"@{self.currentAuthor}! you just made the system say '{reason}' >:(")
+            self.currentAuthor = ""
+            await ctx.reply(brokeMessage)
+            await ctx.reply(brokeMessage2)
+            self.buffer.append(formatMessage(babyName, brokeMessage))
+            self.buffer.append(formatMessage(babyName, brokeMessage2))
             
     @commands.command(name='normaltrain')
     async def normaltrain_command(self, ctx: commands.Context):

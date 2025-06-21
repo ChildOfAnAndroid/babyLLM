@@ -378,7 +378,7 @@ class S_OUTPUT:
                 if v not in (None, "")
             ]) + newLineDelim"""
             maxKeyLen = 12
-            maxCols = 5
+            maxCols = 7
             cellWidth = statTopLen + decLen + maxKeyLen
 
             statSections = [

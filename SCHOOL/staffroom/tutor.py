@@ -680,7 +680,7 @@ class TUTOR:
 
             ids = [idx.item() if torch.is_tensor(idx) else int(idx) for idx in self.predictedTokenIndices]
             self.decodedTokenIndices = self.librarian.decodeIDs(ids)
-            print(f"{self.decodedTokenIndices}")
+            #print(f"{self.decodedTokenIndices}")
 
             return self.predictedTokenIndices, self.logitSeq
     
@@ -947,6 +947,7 @@ class TUTOR:
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog
             )
+            print(f"{self.decodedTokenIndices}")
 
     @whocalled
     def collectTurnStats(self):

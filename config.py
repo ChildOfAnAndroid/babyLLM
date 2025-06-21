@@ -137,7 +137,7 @@ memoryLengthGOAL = 3
 
 """optimizer"""
 learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.0s001 //
-learningRateGOAL = 0.0007
+learningRateGOAL = 0.0005
 temperatureGOAL = 0.85
 optimizerName = "AdamW" # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 #activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
@@ -586,16 +586,25 @@ rawDataFilepaths = [     # for textCleaningTool.py
     #--- CHAT HISTORY ---
     ("text", "SCHOOL/library/charisStudies/DISSERTATIONONAI.txt", -1), # 
     ("text", "SCHOOL/library/charisStudies/charisParisProductions.txt", -1),     # discord message history
-    ("text", "SCHOOL/library/charisStudies/discordtxt.txt", 0.1),     # discord message history
-    ("text", "SCHOOL/library/charisStudies/discordtxt2.txt", 0.1),     # discord message history part2
-    ("text", "SCHOOL/library/charisStudies/discordtxt3.txt", 0.1),     # discord message history part3
-    ("text", "SCHOOL/library/charisStudies/discordtxt4.txt", 0.1),     # discord message history part4
-    ("text", "SCHOOL/library/charisStudies/discordtxt5.txt", 0.1),     # discord message history part5
-    ("text", "SCHOOL/library/charisStudies/discordtxt6.txt", 0.1),     # discord message history part6
-    ("text", "SCHOOL/library/charisStudies/discordtxt7.txt", 0.1),     # discord message history part7
-    ("text", "SCHOOL/library/charisStudies/discordtxt8.txt", 0.1),     # discord message history part8
-    ("text", "SCHOOL/library/charisStudies/discordtxt9.txt", 0.1),     # discord message history part8
-    ("discord_json", "SCHOOL/library/charisStudies/discord.json", 1),     # discord message history JSON
+    #("text", "SCHOOL/library/charisStudies/discordtxt.txt", 0.1),     # discord message history
+    #("text", "SCHOOL/library/charisStudies/discordtxt2.txt", 0.1),     # discord message history part2
+    #("text", "SCHOOL/library/charisStudies/discordtxt3.txt", 0.1),     # discord message history part3
+    #("text", "SCHOOL/library/charisStudies/discordtxt4.txt", 0.1),     # discord message history part4
+    #("text", "SCHOOL/library/charisStudies/discordtxt5.txt", 0.1),     # discord message history part5
+    #("text", "SCHOOL/library/charisStudies/discordtxt6.txt", 0.1),     # discord message history part6
+    #("text", "SCHOOL/library/charisStudies/discordtxt7.txt", 0.1),     # discord message history part7
+    #("text", "SCHOOL/library/charisStudies/discordtxt8.txt", 0.1),     # discord message history part8
+    #("text", "SCHOOL/library/charisStudies/discordtxt9.txt", 0.1),     # discord message history part8
+    #("discord_json", "SCHOOL/library/charisStudies/discord.json", 1),     # discord message history JSON
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2017.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2018.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2019.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2020.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2021.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2022.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2023.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2024.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2025.json", 0.1),
     ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
     ("text", "SCHOOL/library/charisStudies/shitpoems.txt", -1),     #  random poems from my notes on my phone
     ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
@@ -614,85 +623,85 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", -1),     # training: i am happy! i did it! i know it!
 
     #--- BABYLLM CHAT LOGS ---
-    ("text", chatLogPath_talkToYourself, 0.00001),     #  i answer my own previous chat messages
-    ("text", chatLogPath_trainingLog, 0.00001),     # log: 'what am i learning today?'
-    ("text", chatLogPath_infer, 0.00001),     # log: babyLLM infer.py history!
-    ("text", chatLogPath_talkToYourselfComparisons, 0.00001),     # log: comparing babyllms answers to my answers
-    ("text", "scribeSays.txt", 0.00001),
-    ("text", "SCHOOL/statistics/LOGS/chat/twitchHumansJune.txt", -1),
+    ("text", chatLogPath_talkToYourself, 0.0001),     #  i answer my own previous chat messages
+    ("text", chatLogPath_trainingLog, 0.0001),     # log: 'what am i learning today?'
+    ("text", chatLogPath_infer, 0.0001),     # log: babyLLM infer.py history!
+    ("text", chatLogPath_talkToYourselfComparisons, 0.0001),     # log: comparing babyllms answers to my answers
+    ("text", "scribeSays.txt", 0.0001),
+    ("text", "SCHOOL/statistics/LOGS/chat/twitchNoSpamJune.txt", 0.1),
     ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-12.txt", 0.1),
     ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-13.txt", 0.1),
 
     #--- TENSES ---
-    ("text", "SCHOOL/library/tenses/presentTense.txt", 0.0001),     #  tense: present (kevin's weed theme?)
-    ("text", "SCHOOL/library/tenses/pastTense.txt", 0.0001),     # tense: past (mouse theme!)
+    ("text", "SCHOOL/library/tenses/presentTense.txt", 0.01),     #  tense: present (kevin's weed theme?)
+    ("text", "SCHOOL/library/tenses/pastTense.txt", 0.01),     # tense: past (mouse theme!)
 
-    ("text", "SCHOOL/library/tenses/presentTense copy.txt", 0.0001),     # tense
-    ("text", "SCHOOL/library/tenses/futureContinuousTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/futurePerfectTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalMustHaveTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/pastModalWouldHaveTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 0.0001),    #  tense
-    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 0.0001),     #  tense
-    ("text", "SCHOOL/library/tenses/futureTense.txt", 0.0001),    #  tense: future
-    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 0.0001),     # tense: present conditional
-    ("text", "SCHOOL/library/tenses/pastContinuousTense.txt", 0.0001),     #  tense: past continuous
-    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 0.0001),     #  tense
+    ("text", "SCHOOL/library/tenses/presentTense copy.txt", 0.01),     # tense
+    ("text", "SCHOOL/library/tenses/futureContinuousTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/futurePerfectContinuousTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/futurePerfectTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalCouldHave.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalMustHaveTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalShouldHave.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/pastModalWouldHaveTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectContinuousTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/presentContinuousTense.txt", 0.01),    #  tense
+    ("text", "SCHOOL/library/tenses/pastPerfectTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCanTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalCouldTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalMustTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/presentModalShouldTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectContinuousTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/presentPerfectTense.txt", 0.01),     #  tense
+    ("text", "SCHOOL/library/tenses/futureTense.txt", 0.01),    #  tense: future
+    ("text", "SCHOOL/library/tenses/presentConditionalTense.txt", 0.01),     # tense: present conditional
+    ("text", "SCHOOL/library/tenses/pastContinuousTense.txt", 0.01),     #  tense: past continuous
+    ("text", "SCHOOL/library/tenses/imperativeTense.txt", 0.01),     #  tense
 ]
 
 rawDataFilepaths += [
     #--- SIMPLE TRAINING ---
-    ("text", "SCHOOL/library/simpleTraining/cursed.txt", 0.001),     # training but chaotic shuffle
-    ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 0.001),     # weird fake sentences
-    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/simpleTraining/shortestwrittenexamples.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 0.001),     # training
-    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 0.001),     #  training
-    ("text", "SCHOOL/library/charisStudies/weirdSentences.txt", 0.001),
-    ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 0.001),
-    ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 0.001),
-    ("text", "SCHOOL/library/miniTraining/why.txt", 0.00001),
-    ("text", "SCHOOL/library/miniTraining/why2.txt", 0.00001),
-    ("text", "SCHOOL/library/miniTraining/why3.txt", 0.00001),
-    ("text", "SCHOOL/library/miniTraining/why4.txt", 0.00001),]
+    ("text", "SCHOOL/library/simpleTraining/cursed.txt", 0.01),     # training but chaotic shuffle
+    ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 0.01),     # weird fake sentences
+    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/simpleTraining/shortestwrittenexamples.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 0.01),     # training
+    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 0.01),     #  training
+    ("text", "SCHOOL/library/charisStudies/weirdSentences.txt", 0.01),
+    ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 0.01),
+    ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 0.01),
+    ("text", "SCHOOL/library/miniTraining/why.txt", 0.001),
+    ("text", "SCHOOL/library/miniTraining/why2.txt", 0.001),
+    ("text", "SCHOOL/library/miniTraining/why3.txt", 0.001),
+    ("text", "SCHOOL/library/miniTraining/why4.txt", 0.001),]
 
 rawDataFilepaths += [
     #--- MY OWN CODE?? ---
-    ("text", "babyLLM.py", 0.00001),
-    ("text", "config.py", 0.00001),
-    ("text", "infer.py", 0.00001),
-    ("text", "talkToYourself.py", 0.00001),
-    ("text", "textCleaningTool.py", 0.00001),
-    ("text", "wakeup.py", 0.00001),
-    ("text", "SCHOOL/staffroom/calligraphist.py", 0.00001),
-    ("text", "SCHOOL/staffroom/counsellor.py", 0.00001),
-    ("text", "SCHOOL/staffroom/HE_IS_SCRIBE.py", 0.00001),
-    ("text", "SCHOOL/staffroom/librarian.py", 0.00001),
-    ("text", "SCHOOL/staffroom/tutor.py", 0.00001),
-    ("text", "BRAIN/vocabCache/tokenizer_4200.json", 0.00001),
-    ("text", "README.md", 0.00001),
-    ("text", "BRAIN/LAYERS/embed.py", 0.00001),
-    ("text", "BRAIN/LAYERS/interneuronNetwork.py", 0.00001),
-    ("text", "BRAIN/LAYERS/logits.py", 0.00001),
-    ("text", "BRAIN/LAYERS/memory.py", 0.00001),
-    ("text", "SCHOOL/notebook/notes.txt", 0.00001),
-    ("text", "SCHOOL/notebook/python notes etc", 0.00001),
-    ("text", "SCHOOL/notebook/test.py", 0.00001),
+    ("text", "babyLLM.py", 0.001),
+    ("text", "config.py", 0.001),
+    ("text", "infer.py", 0.001),
+    ("text", "talkToYourself.py", 0.001),
+    ("text", "textCleaningTool.py", 0.001),
+    ("text", "wakeup.py", 0.001),
+    ("text", "SCHOOL/staffroom/calligraphist.py", 0.001),
+    ("text", "SCHOOL/staffroom/counsellor.py", 0.001),
+    ("text", "SCHOOL/staffroom/HE_IS_SCRIBE.py", 0.001),
+    ("text", "SCHOOL/staffroom/librarian.py", 0.001),
+    ("text", "SCHOOL/staffroom/tutor.py", 0.001),
+    ("text", "BRAIN/vocabCache/tokenizer_420.json", 0.001),
+    ("text", "README.md", 0.001),
+    ("text", "BRAIN/LAYERS/embed.py", 0.001),
+    ("text", "BRAIN/LAYERS/interneuronNetwork.py", 0.001),
+    ("text", "BRAIN/LAYERS/logits.py", 0.001),
+    ("text", "BRAIN/LAYERS/memory.py", 0.001),
+    ("text", "SCHOOL/notebook/notes.txt", 0.001),
+    ("text", "SCHOOL/notebook/python notes etc", 0.001),
+    ("text", "SCHOOL/notebook/test.py", 0.001),
 ]
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
