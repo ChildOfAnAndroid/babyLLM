@@ -313,7 +313,7 @@ class S_OUTPUT:
                 self.S_apply('dim', 'truth  → ') + truth_str
             )
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
-            with open(babyLogPathFull, "a") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
+            with open(babyLogPathFull, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
 
     @whocalled
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, 
@@ -497,12 +497,12 @@ class S_OUTPUT:
             if _detailedLogging == True: 
                 print(logOutput + "".join(self.S_types.get('reset')))
                 if _saveLog == True:
-                    with open(trainingLogPath_1000, "a") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
+                    with open(trainingLogPath_1000, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
 
             if debugPrints: ʕっʘ‿ʘʔっ("littleLogOutput")   
             if _detailedLogging == False: 
                 if _saveLog == True:
-                    with open(trainingLogPath_100, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+                    with open(trainingLogPath_100, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
                 if newLineBetweenStats:
                     print(newLineLittle + "".join(self.S_types.get('reset')))  
                 else:
@@ -511,9 +511,9 @@ class S_OUTPUT:
 
             if dontSaveEveryPrint:
                 if _trainingStepCounter % saveFreq_littleLog == 0:      
-                    with open(trainingLogPath_100, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+                    with open(trainingLogPath_100, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
             else:
-                with open(trainingLogPath_100, "a") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+                with open(trainingLogPath_100, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
 
     @whocalled
     def willItAverage(self, k, v):

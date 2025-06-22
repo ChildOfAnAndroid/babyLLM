@@ -5,6 +5,7 @@ from rich.traceback import install
 #from torch.profiler import profile, record_function, ProfilerActivity
 import sys, traceback, warnings, torch, os, random
 from datetime import datetime
+import time
 
 from babyLLM import BABYLLM
 from SCHOOL.staffroom.counsellor import COUNSELLOR
@@ -89,14 +90,29 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
 
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")
-                newStartIndex = openingQuestions(_counsellor=counsellor, _librarian=librarian, _windowMAX=windowMAXSTART, _first=True)
-                trainingDataPairs = librarian.genTrainingData(_windowMAX=windowMAXSTART, _trainingDataPairNumber=trainingDataPairNumber, _startIndex=newStartIndex, _stride=trainingDataStride)
+                if first == True:
+                    newStartIndex = openingQuestions(_counsellor=counsellor, _librarian=librarian, _windowMAX=windowMAX, _first=True)
+                else:
+                    newStartIndex = setStartIndex()
+
+                if tokenSpeedTest == True:
+                    tokenSpeedTestStart = time.time()
+
+                trainingDataPairs = librarian.genTrainingData(_windowMAX=windowMAX, _trainingDataPairNumber=trainingDataPairNumber, _startIndex=newStartIndex, _stride=trainingDataStride)
                 
                 # START THE LESSONS :)
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
                 if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
                 tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
+
+                if tokenSpeedTest == True:
+                    tokenSpeedTestEnd = time.time()
+                    thisTestSpeed = (tokenSpeedTestEnd - tokenSpeedTestStart)
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    tokenSpeedTest_str = f"\n{timestamp}| numTokens: {windowMAX}, speed: {thisTestSpeed:.2f}, avgLoss: {tutor.totalAvgLoss:.2f}, avgLossDelta: {tutor.totalAvgDelta:.2f}"
+                    with open(tokenSpeedTestFilePath, "a", encoding="utf-8") as logFile: logFile.write(tokenSpeedTest_str)
+
                 return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
             
             else:
@@ -268,10 +284,10 @@ def printStartLogs(_babyNote_loadCheckpointCheck, _userNote_loadCheckpoint, _bab
     notesString = f"--- {timestamp} --- \n{_babyNote_loadCheckpointCheck}\n{_userNote_loadCheckpoint}\n{_babyNote_loadCheckpoint}{babyNote_runStart}\n{userNote_runStart}"
     print(notesString)
     #ʕっʘ‿ʘʔっ("♥printStartLogs")
-    with open(chatLogPath_forHumans, "a") as logFile: logFile.write(notesString)
-    with open(trainingLogPath_100, "a") as logFile: logFile.write(notesString)
-    with open(trainingLogPath_1000, "a") as logFile: logFile.write(notesString)
-    with open(chatLogPath_trainingLog, "a") as logFile: logFile.write(notesString)
+    with open(chatLogPath_forHumans, "a", encoding="utf-8") as logFile: logFile.write(notesString)
+    with open(trainingLogPath_100, "a", encoding="utf-8") as logFile: logFile.write(notesString)
+    with open(trainingLogPath_1000, "a", encoding="utf-8") as logFile: logFile.write(notesString)
+    with open(chatLogPath_trainingLog, "a", encoding="utf-8") as logFile: logFile.write(notesString)
 
 def main():
     windowMAX           = numTokensPerStepSTART
@@ -350,13 +366,14 @@ def main():
                     easyStartThresh -= totalRuns
                 else:
                     easyStart = False
-            testing = False
+            testing = True
             if testing:
                 numWins += 1
                 winStreak += 1
-                MAINPairNumber = 3
-                windowMAX += 10
-                dataStride = 1
+                MAINPairNumber = trainingDataPairNumber
+                if winStreak % 5 == 0:
+                    windowMAX += 1
+                    dataStride = max(1,(windowMAX * 0.1))
             elif thisRunLoss < lastRunLoss:
                 numWins += 1
                 winStreak += 1

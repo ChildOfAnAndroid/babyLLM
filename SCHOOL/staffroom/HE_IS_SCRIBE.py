@@ -77,7 +77,7 @@ class SCRIBE:
         babySay = (f"{timestamp}|{emote} [{_babyName.lower()}]: {babySentence}")
         print(babySay)
 
-        with open("scribeSays.txt", "a") as f:
+        with open("scribeSays.txt", "a", encoding="utf-8") as f:
             f.write(babySay)
 
     @whocalled

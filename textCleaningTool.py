@@ -221,6 +221,33 @@ PATTERNS = [
 # fast pass
 # Batch apply regex substitutions
 
+def remove_long_word_lines(text, max_len=5):
+    lines = text.split("\n")
+    keep = []
+    for line in lines:
+        words = re.findall(r'\b\w+\b', line)
+        if all(len(word) <= max_len for word in words):
+            keep.append(line)
+    return "\n".join(keep)
+
+def keep_only_emoji_lines(text):
+    emoji_regex = re.compile(
+        "[\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map
+        "\U0001F1E0-\U0001F1FF"  # flags
+        "\U00002700-\U000027BF"  # dingbats
+        "\U0001F900-\U0001F9FF"  # supplemental symbols
+        "\U00002600-\U000026FF"  # misc symbols
+        "\U0001FA70-\U0001FAFF"  # symbols & pictographs extended
+        "\U000025A0-\U000025FF"  # geometric shapes
+        "]+", flags=re.UNICODE
+    )
+
+    lines = text.split('\n')
+    keep = [line for line in lines if emoji_regex.search(line)]
+    return '\n'.join(keep)
+
 def batch_sub(text, pattern_map):
     for pattern, replacement in pattern_map:
         text = pattern.sub(replacement, text)
@@ -250,7 +277,13 @@ def clean_text(text):
         text = text.replace(old, new)
 
     after = len(text.strip(" \t"))
-    print(f"reduced from {before:,} to {after:,} characters")
+    print(f"reduced from {before:,} to {after:,} characters!")
+    text = remove_long_word_lines(text, max_len=trainingWordLength)
+    long = len(text.strip(" \t"))
+    print(f"removing lines containing words over {trainingWordLength} characters... reduced from {after:,} to {long:,} characters!")
+    text = keep_only_emoji_lines(text)
+    final = len(text.strip(" \t"))
+    print(f"removing lines without emojis... reduced from {long:,} to {final:,} characters!")
     return text.strip(" \t")
 
 def process_file(current_file):

@@ -385,6 +385,12 @@ class TUTOR:
                     if self.perfectionistPassRate > perfectionistPassRateSTART:
                         self.perfectionistPassRate -= random.choice([(((self.perfectionistPassRate-perfectionistPassRateSTART) * (self.totalTries * 0.5)) * 0.3), (self.perfectionistPassRate/2)])
 
+                    if self.totalTurns % 100 == 0 and self.totalTurns > 0:
+                        print("HELLO I'M THIS CUTE!!!")
+                        self.saveFreqActions()
+                        torch.mps.empty_cache()
+                        return #self.totalLoss / self.totalTurns, self.totalTurns, self.perfectionistPassRate, self.learningRate
+                        
                     if currentReflection is not None:
                         if scribeusedThisTurn:
                             self.scribe.reflectionPairsFromGuess.pop(0)
@@ -394,6 +400,7 @@ class TUTOR:
                         trainingPair = None  # move to next pair
                         i += 1
                         self.trainingStepCounter += 1  # means reflections wont be training steps
+
                 if debugPrints: ʕっʘ‿ʘʔっ("♥finalSaveBeforeNewEpoch")
                 if self.totalTurns == 0:
                     print (f"We ran out of data (probably)!!!")

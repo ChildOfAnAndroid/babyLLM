@@ -651,6 +651,9 @@ class BABYLLM(nn.Module):
             with open(stepCheckpointFilePath, "w") as f:
                 if debugPrints or True: print(f"HELLO I AM SAVEMODEL STEPCOUNTER IS {_trainingStepCounter} AND START INDEX IS {_newStartIndex} I SHOULD WRITE {str(_trainingStepCounter+_newStartIndex)} to {stepCheckpointFilePath}")
                 f.write(str(_trainingStepCounter+_newStartIndex)) # THIS ISNT REAL, FIX LATER, MAYBE MOVE SAVE AND LOAD TO WAKEUP?
+            with open(lossCheckpointAppendFilePath, "a") as f:
+                if debugPrints or True: print(f"hi :) i am saveModel... avgLoss is: {_totalAvgLoss}, so... i'm writing {str(_totalAvgLoss)} to {lossCheckpointAppendFilePath}!")
+                f.write(str(_totalAvgLoss))
             with open(lossCheckpointFilePath, "w") as f:
                 if debugPrints or True: print(f"HELLO I AM SAVEMODEL AVGLOSS IS {_totalAvgLoss} I SHOULD WRITE {str(_totalAvgLoss)} to {lossCheckpointFilePath}")
                 f.write(str(_totalAvgLoss))

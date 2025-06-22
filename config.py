@@ -75,13 +75,15 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 50    # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 200   # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "BRAIN/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"  # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
 lossCheckpointFilePath = "BRAIN/soul/lossCheckpoint.txt"
+lossCheckpointAppendFilePath = "BRAIN/soul/lossCheckpointAppend.txt"
+tokenSpeedTestFilePath = "SCHOOL/statistics/LOGS/duration/tokenSpeedTest.txt"
 optInUsersPath = "BRAIN/soul/optInUsers.txt"
 
 """--- TRAINING ---"""
@@ -123,7 +125,7 @@ trainDuringChat = False
 trainDuringChat2 = True
 
 """--- MODEL ---"""
-numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 1 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 maxTokensPerStep    = 450
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
@@ -570,16 +572,18 @@ forwardProfiler = False
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 10000
-trainingDataSliceSize_max = 100000
+trainingDataSliceSize_min = 90000
+trainingDataSliceSize_max = 900000
 reflectionFreq = 10000
 stableFallThreshold = 3 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 3000 #169420
-trainingDataStride = 25
+trainingDataPairNumber = 100 #169420
+trainingWordLength = 5
+trainingDataStride = max(1,round(numTokensPerStepSTART * 0.1))
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
+tokenSpeedTest = True
 
 rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-
@@ -596,20 +600,20 @@ rawDataFilepaths = [     # for textCleaningTool.py
     #("text", "SCHOOL/library/charisStudies/discordtxt8.txt", 0.1),     # discord message history part8
     #("text", "SCHOOL/library/charisStudies/discordtxt9.txt", 0.1),     # discord message history part8
     #("discord_json", "SCHOOL/library/charisStudies/discord.json", 1),     # discord message history JSON
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2017.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2018.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2019.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2020.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2021.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2022.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2023.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2024.json", 0.1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2025.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2017.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2018.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2019.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2020.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2021.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2022.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2023.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2024.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2025.json", 0),
     ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
     ("text", "SCHOOL/library/charisStudies/shitpoems.txt", -1),     #  random poems from my notes on my phone
-    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 1),     # reddit posts
-    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 1),     # chatgpt history charis side only
-    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 1),     # old account facebook messages charis side only
+    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", -1),     # reddit posts
+    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", -1),     # chatgpt history charis side only
+    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", -1),     # old account facebook messages charis side only
     ("text", "SCHOOL/library/charisStudies/essays.txt", 1),     # essays
     ("text", "SCHOOL/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
 
@@ -628,7 +632,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", chatLogPath_infer, 0.0001),     # log: babyLLM infer.py history!
     ("text", chatLogPath_talkToYourselfComparisons, 0.0001),     # log: comparing babyllms answers to my answers
     ("text", "scribeSays.txt", 0.0001),
-    ("text", "SCHOOL/statistics/LOGS/chat/twitchNoSpamJune.txt", 0.1),
+    ("text", "SCHOOL/statistics/LOGS/chat/twitchHumansJune.txt", -1),
     ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-12.txt", 0.1),
     ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-13.txt", 0.1),
 
