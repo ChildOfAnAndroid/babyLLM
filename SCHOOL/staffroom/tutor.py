@@ -17,11 +17,12 @@ class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _numTokensPerStep, _first, 
                 _trainingLogFreq_A          = trainingLogFreq_A,
                 _perfectionistPassRateSTART = perfectionistPassRateSTART,
+                _learningRateGOAL           = learningRateGOAL,
                 _dataStride                 = 0,
                 _totalRuns                  = 0,
                 _totalTurnsAwake            = 0,  
                 _lastRunLoss                = 420,
-                _device                     = modelDevice):
+                _device                     = modelDevice,):
         
         torch.autograd.set_detect_anomaly(anomalyDetect)
         self.startIndex                 = 1
@@ -40,7 +41,7 @@ class TUTOR:
         self.totalRuns                  = _totalRuns
         self.dataStride                 = _dataStride
         self.trainingLogFreq_A          = _trainingLogFreq_A
-        self.learningRateGOAL           = learningRateGOAL
+        self.learningRateGOAL           = _learningRateGOAL
         self.tokenCounts = Counter()
         self.training_resume_state      = {}
 
@@ -313,7 +314,7 @@ class TUTOR:
                                     lrNudge = (self.totalAvgAbsDelta - centreHigh) * 0.1
                                 else:
                                     lrNudge = 0.0
-                                self.learningRateGOAL *= (1 + lrNudge)
+                                self.learningRateGOAL *= (1 + (lrNudge*0.001))
                             else:
                                 self.learningRateGOAL = learningRateGOAL
 
@@ -363,6 +364,13 @@ class TUTOR:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥END TURN♥") # END OF ONE TURN
                         self.latestLossDelta = self.endTurnActions()
 
+                        if tokenSpeedTest == True:
+                            if self.totalTurns % 250 == 0 and self.totalTurns > 0:
+                                print("HELLO I'M THIS CUTE!!!")
+                                self.saveFreqActions()
+                                torch.mps.empty_cache()
+                                return self.totalLoss / self.totalTurns, self.totalTurns, self.perfectionistPassRate, self.learningRateGOAL
+
                     self.totalTurnAttempts = 0
                     if self.totalTries >= self.maxRetries:
                         self.tooDifficult += 1
@@ -370,13 +378,13 @@ class TUTOR:
                         absdelta = abs(self.latestLossDelta)
                         fuzzyabs = (self.totalAvgAbsDelta + absdelta) * 0.5
                         # change LR goal based on recent stability
-                        if fuzzyabs < 0.01: self.learningRateGOAL *= 1.02
-                        elif fuzzyabs > 1.0: self.learningRateGOAL *= 0.90
-                        elif fuzzyabs > 0.05: self.learningRateGOAL *= 0.98
+                        if fuzzyabs < 0.01: self.learningRateGOAL *= 1.0002
+                        elif fuzzyabs > 1.0: self.learningRateGOAL *= 0.9990
+                        elif fuzzyabs > 0.05: self.learningRateGOAL *= 0.9998
                         else: self.learningRateGOAL = self.learningRateGOAL
 
                         # keep LR goal within bounds, stop explosions etc!
-                        self.learningRateGOAL = max(1e-6, min(0.0004, self.learningRateGOAL))
+                        self.learningRateGOAL = max(0.0002, min(0.001, self.learningRateGOAL))
                         if debugPrints or True: print(f"updated goal LR to {self.learningRateGOAL}")
 
                     if self.perfectionistPassRate < perfectionistPassRate:
@@ -384,12 +392,6 @@ class TUTOR:
 
                     if self.perfectionistPassRate > perfectionistPassRateSTART:
                         self.perfectionistPassRate -= random.choice([(((self.perfectionistPassRate-perfectionistPassRateSTART) * (self.totalTries * 0.5)) * 0.3), (self.perfectionistPassRate/2)])
-
-                    if self.totalTurns % 100 == 0 and self.totalTurns > 0:
-                        print("HELLO I'M THIS CUTE!!!")
-                        self.saveFreqActions()
-                        torch.mps.empty_cache()
-                        return #self.totalLoss / self.totalTurns, self.totalTurns, self.perfectionistPassRate, self.learningRate
                         
                     if currentReflection is not None:
                         if scribeusedThisTurn:

@@ -110,7 +110,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                     tokenSpeedTestEnd = time.time()
                     thisTestSpeed = (tokenSpeedTestEnd - tokenSpeedTestStart)
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    tokenSpeedTest_str = f"\n{timestamp}| numTokens: {windowMAX}, speed: {thisTestSpeed:.2f}, avgLoss: {tutor.totalAvgLoss:.2f}, avgLossDelta: {tutor.totalAvgDelta:.2f}"
+                    tokenSpeedTest_str = f"\n{timestamp}| numTokens: {windowMAX}, speed: {thisTestSpeed:.2f} (tokenAvg: {(thisTestSpeed/windowMAX):.2f}), avgLoss: {tutor.totalAvgLoss:.2f} (delta: {tutor.totalAvgDelta:.2f})"
                     with open(tokenSpeedTestFilePath, "a", encoding="utf-8") as logFile: logFile.write(tokenSpeedTest_str)
 
                 return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
@@ -371,7 +371,7 @@ def main():
                 numWins += 1
                 winStreak += 1
                 MAINPairNumber = trainingDataPairNumber
-                if winStreak % 5 == 0:
+                if winStreak % 2 == 0:
                     windowMAX += 1
                     dataStride = max(1,(windowMAX * 0.1))
             elif thisRunLoss < lastRunLoss:

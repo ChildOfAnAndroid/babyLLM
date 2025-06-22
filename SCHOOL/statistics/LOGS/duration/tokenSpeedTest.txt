@@ -1,47 +1,41 @@
-2025-06-22 03:48:23| numTokens: 1, avgLoss: 9.98861424446106, speed: 22.8381929397583
-2025-06-22 03:48:45| numTokens: 1, avgLoss: 9.944125003814698, speed: 22.245411157608032
-2025-06-22 03:49:08| numTokens: 1, avgLoss: 10.189716224670411, speed: 22.708679914474487
-2025-06-22 03:49:31| numTokens: 1, avgLoss: 10.353052959442138, speed: 22.155100107192993
-2025-06-22 03:49:53| numTokens: 1, avgLoss: 10.216675271987915, speed: 22.377995014190674
-2025-06-22 03:50:21| numTokens: 2, avgLoss: 10.004172611236573, speed: 27.787456035614014
-2025-06-22 03:50:49| numTokens: 2, avgLoss: 9.629287843704224, speed: 28.035227298736572
-2025-06-22 03:51:18| numTokens: 2, avgLoss: 9.812486906051635, speed: 28.47181987762451
-2025-06-22 03:51:46| numTokens: 2, avgLoss: 9.778929204940797, speed: 28.01408290863037
-2025-06-22 03:52:15| numTokens: 2, avgLoss: 9.47936029434204, speed: 28.350611925125122
-2025-06-22 03:52:48| numTokens: 3, avgLoss: 10.081253499984742, speed: 33.19044017791748
-2025-06-22 03:53:22| numTokens: 3, avgLoss: 9.31478705406189, speed: 33.5036039352417
-2025-06-22 03:53:55| numTokens: 3, avgLoss: 10.058234157562255, speed: 32.85218811035156
-2025-06-22 03:54:28| numTokens: 3, avgLoss: 9.827232904434204, speed: 32.80991506576538
-2025-06-22 03:55:02| numTokens: 3, avgLoss: 8.941102046966552, speed: 33.623356103897095
-2025-06-22 03:55:40| numTokens: 4, avgLoss: 10.062623720169068, speed: 38.37553906440735
-2025-06-22 03:56:19| numTokens: 4, avgLoss: 9.670050058364868, speed: 38.941275119781494
+
+2025-06-22 04:55:19| numTokens: 1, speed: 51.58 (tokenAvg: 51.58), avgLoss: 9.40 (delta: 0.09)
+2025-06-22 04:56:10| numTokens: 1, speed: 50.87 (tokenAvg: 50.87), avgLoss: 9.68 (delta: 0.05)
+2025-06-22 04:57:14| numTokens: 2, speed: 64.32 (tokenAvg: 32.16), avgLoss: 9.42 (delta: -0.02)
+2025-06-22 04:58:19| numTokens: 2, speed: 64.73 (tokenAvg: 32.36), avgLoss: 9.55 (delta: -0.03)
+2025-06-22 04:59:38| numTokens: 3, speed: 78.37 (tokenAvg: 26.12), avgLoss: 9.29 (delta: 0.04)
+2025-06-22 05:00:55| numTokens: 3, speed: 77.53 (tokenAvg: 25.84), avgLoss: 8.72 (delta: 0.12)
+2025-06-22 05:02:26| numTokens: 4, speed: 90.65 (tokenAvg: 22.66), avgLoss: 9.15 (delta: 0.11)
+2025-06-22 05:03:57| numTokens: 4, speed: 90.41 (tokenAvg: 22.60), avgLoss: 9.38 (delta: 0.12)
+2025-06-22 05:05:40| numTokens: 5, speed: 102.97 (tokenAvg: 20.59), avgLoss: 9.10 (delta: 0.09)
+2025-06-22 05:07:22| numTokens: 5, speed: 102.17 (tokenAvg: 20.43), avgLoss: 9.08 (delta: 0.10)
+2025-06-22 05:09:18| numTokens: 6, speed: 115.43 (tokenAvg: 19.24), avgLoss: 9.54 (delta: 0.15)
+2025-06-22 05:11:14| numTokens: 6, speed: 115.61 (tokenAvg: 19.27), avgLoss: 9.33 (delta: -0.03)
+2025-06-22 05:13:54| numTokens: 1, speed: 51.27 (tokenAvg: 51.27), avgLoss: 9.38 (delta: 0.14)
+2025-06-22 05:14:45| numTokens: 1, speed: 50.85 (tokenAvg: 50.85), avgLoss: 9.36 (delta: 0.09)
+2025-06-22 05:15:49| numTokens: 2, speed: 64.18 (tokenAvg: 32.09), avgLoss: 9.17 (delta: 0.01)
 
 --
 
-2025-06-22 03:58:23| numTokens: 1, speed: 22.98, avgLoss: 5.72, avgLossDelta: 0.01
-2025-06-22 03:58:46| numTokens: 1, speed: 22.43, avgLoss: 4.65, avgLossDelta: 0.01
-2025-06-22 03:59:09| numTokens: 1, speed: 22.95, avgLoss: 9.41, avgLossDelta: 0.02
-2025-06-22 03:59:32| numTokens: 1, speed: 22.45, avgLoss: 9.84, avgLossDelta: 0.08
-2025-06-22 03:59:55| numTokens: 1, speed: 22.78, avgLoss: 10.21, avgLossDelta: 0.10
-2025-06-22 04:00:23| numTokens: 2, speed: 27.67, avgLoss: 8.53, avgLossDelta: 0.09
-2025-06-22 04:00:51| numTokens: 2, speed: 28.42, avgLoss: 9.15, avgLossDelta: 0.09
-2025-06-22 04:01:20| numTokens: 2, speed: 28.18, avgLoss: 9.00, avgLossDelta: 0.08
-2025-06-22 04:01:48| numTokens: 2, speed: 27.90, avgLoss: 8.48, avgLossDelta: 0.08
-2025-06-22 04:02:16| numTokens: 2, speed: 28.26, avgLoss: 10.17, avgLossDelta: 0.09
-2025-06-22 04:02:49| numTokens: 3, speed: 33.21, avgLoss: 9.76, avgLossDelta: 0.09
-2025-06-22 04:03:23| numTokens: 3, speed: 33.12, avgLoss: 10.75, avgLossDelta: 0.11
-2025-06-22 04:03:56| numTokens: 3, speed: 32.81, avgLoss: 9.26, avgLossDelta: 0.09
-2025-06-22 04:04:29| numTokens: 3, speed: 33.45, avgLoss: 9.21, avgLossDelta: 0.08
-2025-06-22 04:05:03| numTokens: 3, speed: 33.14, avgLoss: 10.79, avgLossDelta: 0.10
-2025-06-22 04:05:42| numTokens: 4, speed: 38.75, avgLoss: 9.80, avgLossDelta: 0.16
-2025-06-22 04:06:20| numTokens: 4, speed: 38.47, avgLoss: 9.69, avgLossDelta: 0.10
-2025-06-22 04:06:59| numTokens: 4, speed: 38.36, avgLoss: 7.32, avgLossDelta: 0.06
-2025-06-22 04:07:37| numTokens: 4, speed: 38.40, avgLoss: 8.10, avgLossDelta: 0.07
-2025-06-22 04:08:16| numTokens: 4, speed: 38.93, avgLoss: 9.47, avgLossDelta: 0.09
-2025-06-22 04:09:00| numTokens: 5, speed: 43.29, avgLoss: 9.86, avgLossDelta: 0.09
-2025-06-22 04:09:43| numTokens: 5, speed: 43.29, avgLoss: 10.32, avgLossDelta: 0.10
-2025-06-22 04:10:27| numTokens: 5, speed: 43.23, avgLoss: 9.50, avgLossDelta: 0.09
-2025-06-22 04:11:10| numTokens: 5, speed: 43.33, avgLoss: 8.56, avgLossDelta: 0.08
-2025-06-22 04:11:54| numTokens: 5, speed: 43.64, avgLoss: 9.16, avgLossDelta: 0.08
+2025-06-22 05:16:58| numTokens: 1, speed: 51.33 (tokenAvg: 51.33), avgLoss: 9.58 (delta: 0.02)
+2025-06-22 05:17:49| numTokens: 1, speed: 50.85 (tokenAvg: 50.85), avgLoss: 9.45 (delta: -0.07)
 
 --
+
+2025-06-22 05:19:23| numTokens: 1, speed: 51.32 (tokenAvg: 51.32), avgLoss: 9.23 (delta: 0.06)
+2025-06-22 05:20:14| numTokens: 1, speed: 51.12 (tokenAvg: 51.12), avgLoss: 9.42 (delta: 0.04)
+2025-06-22 05:21:18| numTokens: 2, speed: 63.93 (tokenAvg: 31.96), avgLoss: 9.15 (delta: 0.00)
+2025-06-22 05:22:23| numTokens: 2, speed: 64.48 (tokenAvg: 32.24), avgLoss: 9.23 (delta: -0.08)
+2025-06-22 05:23:41| numTokens: 3, speed: 78.07 (tokenAvg: 26.02), avgLoss: 8.83 (delta: -0.08)
+2025-06-22 05:24:59| numTokens: 3, speed: 77.91 (tokenAvg: 25.97), avgLoss: 8.64 (delta: 0.03)
+2025-06-22 05:26:30| numTokens: 4, speed: 90.52 (tokenAvg: 22.63), avgLoss: 8.89 (delta: 0.13)
+2025-06-22 05:27:59| numTokens: 4, speed: 89.14 (tokenAvg: 22.28), avgLoss: 9.22 (delta: 0.19)
+2025-06-22 05:29:43| numTokens: 5, speed: 103.10 (tokenAvg: 20.62), avgLoss: 8.65 (delta: 0.10)
+2025-06-22 05:31:26| numTokens: 5, speed: 102.83 (tokenAvg: 20.57), avgLoss: 8.79 (delta: 0.08)
+2025-06-22 05:33:22| numTokens: 6, speed: 116.49 (tokenAvg: 19.42), avgLoss: 9.35 (delta: 0.11)
+2025-06-22 05:35:18| numTokens: 6, speed: 115.94 (tokenAvg: 19.32), avgLoss: 9.01 (delta: 0.06)
+2025-06-22 05:37:27| numTokens: 7, speed: 128.27 (tokenAvg: 18.32), avgLoss: 9.21 (delta: 0.23)
+2025-06-22 05:39:34| numTokens: 7, speed: 126.67 (tokenAvg: 18.10), avgLoss: 8.91 (delta: 0.03)
+2025-06-22 05:41:53| numTokens: 8, speed: 139.49 (tokenAvg: 17.44), avgLoss: 9.04 (delta: 0.16)
+2025-06-22 05:44:13| numTokens: 8, speed: 139.80 (tokenAvg: 17.48), avgLoss: 9.13 (delta: 0.05)
+2025-06-22 05:46:48| numTokens: 9, speed: 154.73 (tokenAvg: 17.19), avgLoss: 9.09 (delta: 0.22)
