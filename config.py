@@ -75,7 +75,7 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 """--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
 """--- MODEL ---"""
-saveModelFreq = 20000   # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 50   # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "BRAIN/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
 modelBackupFilePath = "BRAIN/soul/babyLLM.pth"  # where your currently trained saved boi is :)
@@ -112,6 +112,7 @@ chatLogPath_talkToYourselfComparisons = "SCHOOL/library/charisStudies/whoIsMoreL
 chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt"
 babyLogPathFull = f"SCHOOL/statistics/LOGS/chat/babyLogFull_{date}.txt"
 twitchLogPath = f"SCHOOL/statistics/LOGS/chat/twitchLog_{date}.txt"
+discordLogPath = f"SCHOOL/statistics/LOGS/chat/discordLog_{date}.txt"
 
 """--- VOCAB --- (see master config)"""
 
@@ -125,7 +126,7 @@ trainDuringChat = False
 trainDuringChat2 = True
 
 """--- MODEL ---"""
-numTokensPerStepSTART = 1 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 128 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 maxTokensPerStep    = 450
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
@@ -157,7 +158,7 @@ windowEntropyBonus = True
 """--- LOGS ---"""
 detailedLogging = True
 
-trainingLogFreq_A = 10    # creates logs every x number of turns
+trainingLogFreq_A = 20    # creates logs every x number of turns
 trainingLogFreq_B = 100    # creates logs every x number of turns
 
 dontSaveEveryPrint = True
@@ -579,11 +580,11 @@ stableFallThreshold = 3 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
 trainingDataPairNumber = 100 #169420
-trainingWordLength = 5
+trainingWordLength = 10
 trainingDataStride = max(1,round(numTokensPerStepSTART * 0.1))
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
-tokenSpeedTest = True
+tokenSpeedTest = False
 
 rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-

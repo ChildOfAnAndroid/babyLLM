@@ -14,7 +14,9 @@ from SCHOOL.staffroom.librarian import LIBRARIAN
 from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
 from config import *
+from secret import *
 from babyBot import BABYBOT
+from babyBot_discord import *
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if not issubclass(exc_type, KeyboardInterrupt):
@@ -79,7 +81,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                                                 _perfectionistPassRateSTART = passRateSTART,
                                                 _trainingLogFreq_A          = log_A,)
             
-            if mode == "bot":
+            if mode == "twitch":
                 print("--- LAUNCHING TWITCH BOT ---")
                 if debugPrints: ʕっʘ‿ʘʔっ("starting twitch bot!")
                 # create a bot instance, pass in the staff etc
@@ -87,6 +89,23 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
                 babyBot.run()
+
+            elif mode == "discord":
+                print("--- LAUNCHING DISCORD BOT ---")
+                if debugPrints: ʕっʘ‿ʘʔっ("starting discord bot!")
+                # create a bot instance, pass in the staff etc
+                babyBot = BABYBOT_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
+                #cog = BABYBOT_DISCORD_COG(babyBot)
+                #babyBot.add_cog(cog)
+
+                #cog = babyBot.get_cog("BBYCOG")
+                #print(f"Cog {cog} =>  {cog.get_commands()} {[c.name for c in cog.get_commands()]}")
+                #print(f"All bot commands: {[c.name for c in babyBot.commands]}")
+                #print(f"All cogs: {babyBot.cogs()}")
+
+                babyLLM.loadModel()
+                babyLLM.to(modelDevice)
+                babyBot.run(SECRETdiscordTokenSECRET)
 
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")
@@ -300,13 +319,17 @@ def main():
     learnRateGoal       = learningRateGOAL
 
     if len(sys.argv) > 1 and sys.argv[1].lower() == "bot":
-        run_mode = "bot"
+        run_mode = "twitch"
     else:
-        choice = input("run in [t]rain mode or as twitch [b]ot? ").lower()
-        if choice.startswith('b'): run_mode = "bot"
+        choice = input("run in train mode, [d]iscord, or as [t]witch bot? ").lower()
+        
+        if choice.startswith('t'): run_mode = "twitch"
+        elif choice.startswith('d'): run_mode = "discord"
         else: run_mode = "train"
 
-    if run_mode == "bot": 
+        print(f"Choice {choice} run_mode => {run_mode}")
+
+    if run_mode in ["twitch", "discord"]: 
         wakeup(windowMAX            = windowMAX, 
                 dataStride          = dataStride, 
                 totalTurnsAwake     = totalTurnsAwake, 
@@ -316,7 +339,7 @@ def main():
                 log_A               = logFreq_A,
                 lrGoal              = learnRateGoal,
                 trainingDataPairNum = MAINPairNumber,
-                mode                = "bot",)
+                mode                = run_mode,)
     else:
         lastRunLoss         = checkLossCheckpoint()
         #lastRunLoss         = 420

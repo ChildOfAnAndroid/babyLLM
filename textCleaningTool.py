@@ -278,12 +278,12 @@ def clean_text(text):
 
     after = len(text.strip(" \t"))
     print(f"reduced from {before:,} to {after:,} characters!")
-    text = remove_long_word_lines(text, max_len=trainingWordLength)
-    long = len(text.strip(" \t"))
-    print(f"removing lines containing words over {trainingWordLength} characters... reduced from {after:,} to {long:,} characters!")
-    text = keep_only_emoji_lines(text)
-    final = len(text.strip(" \t"))
-    print(f"removing lines without emojis... reduced from {long:,} to {final:,} characters!")
+    #text = remove_long_word_lines(text, max_len=trainingWordLength)
+    #long = len(text.strip(" \t"))
+    #print(f"removing lines containing words over {trainingWordLength} characters... reduced from {after:,} to {long:,} characters!")
+    #text = keep_only_emoji_lines(text)
+    #final = len(text.strip(" \t"))
+    #print(f"removing lines without emojis... reduced from {long:,} to {final:,} characters!")
     return text.strip(" \t")
 
 def process_file(current_file):

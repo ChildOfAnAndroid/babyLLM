@@ -6,8 +6,6 @@ import time
 import asyncio
 from twitchio.ext import commands
 import re
-from datetime import datetime
-from collections import defaultdict
 from config import *
 from secret import *
 from textCleaningTool import *

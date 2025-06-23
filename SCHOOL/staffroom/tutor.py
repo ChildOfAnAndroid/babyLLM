@@ -21,7 +21,7 @@ class TUTOR:
                 _dataStride                 = 0,
                 _totalRuns                  = 0,
                 _totalTurnsAwake            = 0,  
-                _lastRunLoss                = 420,
+                _lastRunLoss                = 4.20,
                 _device                     = modelDevice,):
         
         torch.autograd.set_detect_anomaly(anomalyDetect)
@@ -65,7 +65,7 @@ class TUTOR:
         self.totalLoss                  = 0
         self.totalLossAbsDelta          = 0
         self.totalLossDelta             = 0
-        self.totalAvgLoss               = 0
+        self.totalAvgLoss               = _lastRunLoss
         self.stableFallCount            = 1 ###
         self.maxRetries                 = perfectionistMaxRetries
         self.totalAvgAbsDelta           = 0
@@ -88,7 +88,7 @@ class TUTOR:
         self.tokenPerfectRate           = 0
         self.latestLossDelta            = 0.0
         self.stepLossFloat              = 0.0
-        self.averageRecentLoss          = 0.0
+        self.averageRecentLoss          = _lastRunLoss
         self.stats                      = {} 
         self.stringStats                = {} 
         self.guessedTokenSeq            = [] 
@@ -978,13 +978,13 @@ class TUTOR:
                     if self.bbb % 100 == 0: 
                         print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} {self.bbb}x")
                 self.averageRecentLoss = lossStats[rollB_avgKey]
-            elif rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (self.trainingLogFreq_A):
+            if rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (self.trainingLogFreq_A):
                 if debugPrints or True: 
                     self.ccc += 1
                     if self.ccc % 100 == 0: 
                         print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} {self.ccc}x")
                 self.averageRecentLoss = lossStats[rollA_avgKey]
-            else:
+            if False:
                 if rollPrint_avgKey in lossStats and rollPrint_key in lossStats and len(lossStats[rollPrint_key]) >= printFreq:
                     if debugPrints or True: 
                         self.ppp += 1
