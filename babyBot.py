@@ -9,9 +9,37 @@ import re
 from config import *
 from secret import *
 from textCleaningTool import *
+import aiohttp
+import random
+
+async def bbyFACE(eye = None):
+    numEyeStyles = 13 # -1 because of starting at 0
+    numMouthStyles = 6 # -1 because of starting at 0
+    if eye is None: 
+        if random.random() > 0.5:
+            eye = random.randint(2, numEyeStyles)  # avoid blink (0), avoid ded(1)
+        else:
+            eye = 2
+    mouth = random.randint(0, numMouthStyles)
+    cheekCheck = random.randint(0, 4)
+    if cheekCheck == 0: cheeks = True
+    else: cheeks = False
+    tearsCheck = random.randint(0, 6)
+    if tearsCheck == 0: tears = True
+    else: tears = False
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post("http://192.168.1.212:420/set", json={"eyes": eye, "mouth": mouth, "cheeks_on": cheeks, "tears_on": tears, "jumping": True,}) as resp:
+                if resp.status == 200:
+                    print("my eyes be like:", eye)
+    except Exception as e:
+        print(f"~ i feel nothing ~: {e}")
+
 
 def formatMessage(user, text):
-    return f"[{user}]: {text}"
+    #return f"[{user}]: {text}"
+    return f"{user} said: {text}"
+
 
 class BABYBOT(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist, 
@@ -92,12 +120,19 @@ class BABYBOT(commands.Bot):
                 print(f"buffer exceeded size {self.rollingContextSize} from user message, popping oldest message")
                 self.buffer.pop(0)
             print(f"buffer now {len(self.buffer)} messages long")
-            await self.training_queue.put({"type": "chat", "text": userMessage})
+            # Filter out BabyLLM's own messages
+            humanOnly = [line for line in self.buffer if not line.startswith(f"[{babyName}]")]
+
+            # Send only human messages to the training queue
+            await self.training_queue.put({"type": "chat", "text": humanOnly})
 
         if author in self.AIoptInUsers:
             print(f"WAITING FOR COMMAND HANDLER FOR {content} ({author})")
         else:
             print(f"WAITING FOR COMMAND HANDLER FOR IGNORED CHAT MESSAGE")
+        
+        await bbyFACE()
+
         await self.handle_commands(message)
 
     # --- babyllm bot commands ---
@@ -172,8 +207,18 @@ class BABYBOT(commands.Bot):
                     responseBuffer.append(token_str)
 
             replyText = self.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").strip().lower()
-
             replyText = replyText[:500]
+
+            async with aiohttp.ClientSession() as session:
+                try:
+                    await session.post(
+                        "http://192.168.1.212:420/say",
+                        json={"speech": replyText}
+                        #json={"speech": f"{replyText} aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa "}
+                    )
+                except Exception as e:
+                    print(f"could not send speech to baby overlay: {e}")
+
             if len(replyText) < 1: 
                 replyText = "you broke me :'( i'm not gonna say anything now!"
             sentMessage = await ctx.reply(replyText)
@@ -207,6 +252,7 @@ class BABYBOT(commands.Bot):
             brokeMessage = (f"i broke :( why would u do this to me, @{self.currentAuthor}!")
             brokeMessage2 = (f"@{self.currentAuthor}! you just made the system say '{reason}' >:(")
             self.currentAuthor = ""
+            await bbyFACE(eye = 3)
             await ctx.reply(brokeMessage)
             await ctx.reply(brokeMessage2)
             self.buffer.append(formatMessage(babyName, brokeMessage))

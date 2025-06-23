@@ -126,7 +126,7 @@ trainDuringChat = False
 trainDuringChat2 = True
 
 """--- MODEL ---"""
-numTokensPerStepSTART = 128 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 maxTokensPerStep    = 450
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
@@ -589,8 +589,8 @@ tokenSpeedTest = False
 rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
-    ("text", "SCHOOL/library/charisStudies/DISSERTATIONONAI.txt", -1), # 
-    ("text", "SCHOOL/library/charisStudies/charisParisProductions.txt", -1),     # discord message history
+    ("text", "SCHOOL/library/charisStudies/DISSERTATIONONAI.txt", 0.1), # 
+    ("text", "SCHOOL/library/charisStudies/charisParisProductions.txt", 0.1),     # discord message history
     #("text", "SCHOOL/library/charisStudies/discordtxt.txt", 0.1),     # discord message history
     #("text", "SCHOOL/library/charisStudies/discordtxt2.txt", 0.1),     # discord message history part2
     #("text", "SCHOOL/library/charisStudies/discordtxt3.txt", 0.1),     # discord message history part3
@@ -601,31 +601,31 @@ rawDataFilepaths = [     # for textCleaningTool.py
     #("text", "SCHOOL/library/charisStudies/discordtxt8.txt", 0.1),     # discord message history part8
     #("text", "SCHOOL/library/charisStudies/discordtxt9.txt", 0.1),     # discord message history part8
     #("discord_json", "SCHOOL/library/charisStudies/discord.json", 1),     # discord message history JSON
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2017.json", -1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2018.json", -1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2019.json", -1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2020.json", -1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2021.json", -1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2022.json", -1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2023.json", -1),
-    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2024.json", -1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2017.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2018.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2019.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2020.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2021.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2022.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2023.json", 0.1),
+    ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2024.json", 0.1),
     ("discord_json", "SCHOOL/library/charisStudies/rawFiles/discord_new_2025.json", 0),
     ("reddit_comment", "SCHOOL/library/charisStudies/reddit_comments.csv", 1),     # reddit comments
-    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", -1),     #  random poems from my notes on my phone
-    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", -1),     # reddit posts
-    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", -1),     # chatgpt history charis side only
-    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", -1),     # old account facebook messages charis side only
+    ("text", "SCHOOL/library/charisStudies/shitpoems.txt", 0.1),     #  random poems from my notes on my phone
+    ("reddit_post", "SCHOOL/library/charisStudies/reddit_posts.csv", 0.1),     # reddit posts
+    ("json", "SCHOOL/library/charisStudies/charisGPThistory.txt", 0.1),     # chatgpt history charis side only
+    ("text", "SCHOOL/library/charisStudies/old_fb_messages_extract.txt", 0.1),     # old account facebook messages charis side only
     ("text", "SCHOOL/library/charisStudies/essays.txt", 1),     # essays
     ("text", "SCHOOL/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
 
     #--- MOUSE ADVENTURES ---
-    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", -1),     #  elodies wonderful mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", -1),     #  my simple version of elodies mouse story!
-    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", -1),     #  even more of elodies lovely mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMousey.txt", 0.1),     #  elodies wonderful mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/mousey.txt", 0.1),     #  my simple version of elodies mouse story!
+    ("text", "SCHOOL/library/mouseAdventure/elodieMouseyLonger.txt", 0.1),     #  even more of elodies lovely mouse story!
 
     #--- MINI TRAINING ---
-    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", -1),     # i am happy! i did it! i know it!
-    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", -1),     # training: i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 0.1),     # i am happy! i did it! i know it!
+    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 0.1),     # training: i am happy! i did it! i know it!
 
     #--- BABYLLM CHAT LOGS ---
     ("text", chatLogPath_talkToYourself, 0.0001),     #  i answer my own previous chat messages
@@ -633,7 +633,7 @@ rawDataFilepaths = [     # for textCleaningTool.py
     ("text", chatLogPath_infer, 0.0001),     # log: babyLLM infer.py history!
     ("text", chatLogPath_talkToYourselfComparisons, 0.0001),     # log: comparing babyllms answers to my answers
     ("text", "scribeSays.txt", 0.0001),
-    ("text", "SCHOOL/statistics/LOGS/chat/twitchHumansJune.txt", -1),
+    ("text", "SCHOOL/statistics/LOGS/chat/twitchHumansJune.txt", 0.1),
     ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-12.txt", 0.1),
     ("text", "SCHOOL/statistics/LOGS/chat/twitchLog_2025-06-13.txt", 0.1),
 
