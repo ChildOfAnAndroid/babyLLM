@@ -5,7 +5,7 @@
 import random
 import time
 from config import *
-from SCHOOL.notebook.tools.genBoi import *
+from SHKAIRA.notebook.tools.genBoi import *
 
 class SCRIBE:
     def __init__(self, _counsellor, _calligraphist, _librarian, _numTokensPerStep):
@@ -148,7 +148,7 @@ class SCRIBE:
         }
         mood = None
         for k, threshold in self.calligraphist.S_statBands["loss"].items():
-            if k in moodBoard and _lossValue < threshold:
+            if k in moodBoard and _lossValue < threshold: # SUS LOL, WRONG SIGN??? 
                 mood = moodBoard.get(k, None)
                 break
 

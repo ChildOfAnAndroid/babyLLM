@@ -15,8 +15,8 @@ from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
 from config import *
 from secret import *
-from babyBot import BABYBOT
-from babyBot_discord import *
+from PHONE.babyBot import babyBot
+from PHONE.babyBot_discord import *
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if not issubclass(exc_type, KeyboardInterrupt):
@@ -85,27 +85,27 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 print("--- LAUNCHING TWITCH BOT ---")
                 if debugPrints: ʕっʘ‿ʘʔっ("starting twitch bot!")
                 # create a bot instance, pass in the staff etc
-                babyBot = BABYBOT(babyLLM, tutor, librarian, scribe, calligraphist)
+                PHONE.babyBot = PHONE.babyBot(babyLLM, tutor, librarian, scribe, calligraphist)
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
-                babyBot.run()
+                PHONE.babyBot.run()
 
             elif mode == "discord":
                 print("--- LAUNCHING DISCORD BOT ---")
                 if debugPrints: ʕっʘ‿ʘʔっ("starting discord bot!")
                 # create a bot instance, pass in the staff etc
-                babyBot = BABYBOT_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
-                #cog = BABYBOT_DISCORD_COG(babyBot)
-                #babyBot.add_cog(cog)
+                PHONE.babyBot = PHONE.babyBot_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
+                #cog = PHONE.babyBot_DISCORD_COG(PHONE.babyBot)
+                #PHONE.babyBot.add_cog(cog)
 
-                #cog = babyBot.get_cog("BBYCOG")
+                #cog = PHONE.babyBot.get_cog("BBYCOG")
                 #print(f"Cog {cog} =>  {cog.get_commands()} {[c.name for c in cog.get_commands()]}")
-                #print(f"All bot commands: {[c.name for c in babyBot.commands]}")
-                #print(f"All cogs: {babyBot.cogs()}")
+                #print(f"All bot commands: {[c.name for c in PHONE.babyBot.commands]}")
+                #print(f"All cogs: {PHONE.babyBot.cogs()}")
 
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
-                babyBot.run(SECRETdiscordTokenSECRET)
+                PHONE.babyBot.run(SECRETdiscordTokenSECRET)
 
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")

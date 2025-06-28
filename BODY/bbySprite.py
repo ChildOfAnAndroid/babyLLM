@@ -76,7 +76,8 @@ def pulse_loop():
         #babyState["pulse"] = 0.5 + 0.5 * math.sin(time.time() * 4)  # smooth breathing
         keyChoice = random.choice(["stretch_left", "stretch_right", "stretch_up", "stretch_down", "squish_left", "squish_right", "squish_up", "squish_down",])
         babyState[keyChoice] = random.choice([True, False])
-        time.sleep(0.472)
+        #time.sleep(0.472)
+        time.sleep(0.236)
 
 threading.Thread(target=pulse_loop, daemon=True).start()
 

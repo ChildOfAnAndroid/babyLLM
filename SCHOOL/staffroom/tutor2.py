@@ -13,7 +13,7 @@ from config import *
 from textCleaningTool import *
 
 # styling etc
-from SCHOOL.notebook.tools.genBoi import *
+from SHKAIRA.notebook.tools.genBoi import *
 
 class TUTOR:
     def __init__(self, _counsellor, _scribe, _librarian, _model, _first,
@@ -57,7 +57,7 @@ class TUTOR:
                         # self reflection (???)
                         # scribe training (HE_IS_SCRIBE.py)
                         # local chat (infer2.py)
-                        # twitch bot inptus (babyBotTMP.py)
+                        # twitch bot inptus (PHONE.babyBotTMP.py)
                     
                     # generates two lists of token strings, input and target, for babyLLM to train from
 

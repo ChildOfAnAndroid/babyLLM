@@ -10,7 +10,7 @@ from tokenizers import Tokenizer, models, trainers, pre_tokenizers, ByteLevelBPE
 from tokenizers.processors import ByteLevel
 from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 import os, re, json, random, torch, io
-from SCHOOL.notebook.tools.genBoi import *
+from SHKAIRA.notebook.tools.genBoi import *
 
 """
 Handles vocab creation, loading, and tokenization.

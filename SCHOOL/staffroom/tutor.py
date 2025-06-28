@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from config import *
 import numpy as np
 import math
-from SCHOOL.notebook.tools.genBoi import makeSafeBoi
+from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _numTokensPerStep, _first, 
@@ -493,8 +493,8 @@ class TUTOR:
                     return [], []
                 predictedRGB = self.model.predPixel
                 if debugPrints: print(f"guess: {predictedRGB}")
-                #print("predictedRGB:", predictedRGB.tolist())
-                #print("EMBED (mean):", self.model.latestTokenEmbed.mean().item())
+                if debugPrints: print("predictedRGB:", predictedRGB.tolist())
+                if debugPrints: print("EMBED (mean):", self.model.latestTokenEmbed.mean().item())
 
                 if forwardProfiler: print(prof.key_averages().table())
 
@@ -507,15 +507,15 @@ class TUTOR:
                 nextyToky = self.librarian.indexToToken.get(predy, self.librarian.tokenToIndex["<UNK>"])
                 toktoktok = nextyToky.replace('Ġ', ' ')
                 print(f"{toktoktok}", end = "", flush = True)
-                #print("token index:", predictedTokenIndex.item())
-                #print(f"[j={j}] inputLen={len(inputTensor)} → predicted {predictedTokenIndex.item()}")
+                if debugPrints: print("token index:", predictedTokenIndex.item())
+                if debugPrints: print(f"[j={j}] inputLen={len(inputTensor)} → predicted {predictedTokenIndex.item()}")
 
                 if debugPrints: ʕっʘ‿ʘʔっ("inputSeqPredictions")
                 self.predictedTokenIndices.append(predictedTokenIndex) # tensor shape [1]
 
                 # -- RGB visual tracker --
                 if not skipPixels and (hasattr(self.model, "latestTokenEmbed") and hasattr(self.model, "pixelPupil") and hasattr(self.model, "nextPixelTarget")):
-                    # Grab just the last token's RGB prediction
+                    # last token's RGB prediction
                     promptPixel = self.pixelNow
                     targetPixel = self.model.nextPixelTarget
 

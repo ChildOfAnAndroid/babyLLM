@@ -77,14 +77,14 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 """--- MODEL ---"""
 saveModelFreq = 50   # // 500 // 5000 // 10000 // saves the model every x number of turns
 
-modelFilePath = "BRAIN/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
-modelBackupFilePath = "BRAIN/soul/babyLLM.pth"  # where your currently trained saved boi is :)
+modelFilePath = "SHKAIRA/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
+modelBackupFilePath = "SHKAIRA/soul/babyLLM.pth"  # where your currently trained saved boi is :)
 
-stepCheckpointFilePath = "BRAIN/soul/stepCheckpoint.txt"
-lossCheckpointFilePath = "BRAIN/soul/lossCheckpoint.txt"
-lossCheckpointAppendFilePath = "BRAIN/soul/lossCheckpointAppend.txt"
-tokenSpeedTestFilePath = "SCHOOL/statistics/LOGS/duration/tokenSpeedTest.txt"
-optInUsersPath = "BRAIN/soul/optInUsers.txt"
+stepCheckpointFilePath = "SHKAIRA/soul/stepCheckpoint.txt"
+lossCheckpointFilePath = "SHKAIRA/soul/lossCheckpoint.txt"
+lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
+tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
+optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -95,24 +95,24 @@ printFreq = 1  # how often to print training progress to the terminal
 printPromptLength = 17500    # how many characters of the prompt to display in terminal
 gradientLength = 3000
 
-trainingLogPath_1000 = "SCHOOL/statistics/LOGS/training/trainingLog_1000.txt"
-trainingLogPath_100 = "SCHOOL/statistics/LOGS/training/trainingLog_100.txt"
-trainingLogPath_1 = "SCHOOL/statistics/LOGS/training/trainingLog_1.txt"
+trainingLogPath_1000 = "SHKAIRA/statistics/LOGS/training/trainingLog_1000.txt"
+trainingLogPath_100 = "SHKAIRA/statistics/LOGS/training/trainingLog_100.txt"
+trainingLogPath_1 = "SHKAIRA/statistics/LOGS/training/trainingLog_1.txt"
 
-durationLogPath_1000 = "SCHOOL/statistics/LOGS/duration/durationLog_1000.txt"
-durationLogPath_100 = "SCHOOL/statistics/LOGS/duration/durationLog_100.txt" 
-durationLogNeuronsPath_1 = "SCHOOL/statistics/LOGS/duration/durationLogNeurons_1.txt"
-durationLogBabyLLMPath_1 = "SCHOOL/statistics/LOGS/duration/durationLogBabyLLM_1.txt"
+durationLogPath_1000 = "SHKAIRA/statistics/LOGS/duration/durationLog_1000.txt"
+durationLogPath_100 = "SHKAIRA/statistics/LOGS/duration/durationLog_100.txt" 
+durationLogNeuronsPath_1 = "SHKAIRA/statistics/LOGS/duration/durationLogNeurons_1.txt"
+durationLogBabyLLMPath_1 = "SHKAIRA/statistics/LOGS/duration/durationLogBabyLLM_1.txt"
 
-chatLogPath_forHumans = "SCHOOL/statistics/LOGS/chat/chatForHumans.txt"
+chatLogPath_forHumans = "SHKAIRA/statistics/LOGS/chat/chatForHumans.txt"
 
-chatLogPath_infer = "SCHOOL/statistics/LOGS/chat/chatLog.txt"
-chatLogPath_talkToYourself = "SCHOOL/statistics/LOGS/chat/talkToYourselfBattle.txt"
-chatLogPath_talkToYourselfComparisons = "SCHOOL/library/charisStudies/whoIsMoreLikeYou.txt"
-chatLogPath_trainingLog = "SCHOOL/statistics/LOGS/chat/trainingLog_questions.txt"
-babyLogPathFull = f"SCHOOL/statistics/LOGS/chat/babyLogFull_{date}.txt"
-twitchLogPath = f"SCHOOL/statistics/LOGS/chat/twitchLog_{date}.txt"
-discordLogPath = f"SCHOOL/statistics/LOGS/chat/discordLog_{date}.txt"
+chatLogPath_infer = "SHKAIRA/statistics/LOGS/chat/chatLog.txt"
+chatLogPath_talkToYourself = "SHKAIRA/statistics/LOGS/chat/talkToYourselfBattle.txt"
+chatLogPath_talkToYourselfComparisons = "SHKAIRA/library/charisStudies/whoIsMoreLikeYou.txt"
+chatLogPath_trainingLog = "SHKAIRA/statistics/LOGS/chat/trainingLog_questions.txt"
+babyLogPathFull = f"SHKAIRA/statistics/LOGS/chat/babyLogFull_{date}.txt"
+twitchLogPath = f"SHKAIRA/statistics/LOGS/chat/twitchLog_{date}.txt"
+discordLogPath = f"SHKAIRA/statistics/LOGS/chat/discordLog_{date}.txt"
 
 """--- VOCAB --- (see master config)"""
 
@@ -751,8 +751,8 @@ minTokenFreq = 20   # the amount of repeats of a token needed to create a split 
 V_chunkSizeLoadData = 4096
 
 """vocab data & filepaths"""
-vocabCachePath = "BRAIN/vocabCache"
-vocabLoad = f"BRAIN/vocabCache/tokenizer_{vocabSize}.json"
+vocabCachePath = "SHKAIRA/vocabCache"
+vocabLoad = f"SHKAIRA/vocabCache/tokenizer_{vocabSize}.json"
 
 """--- MISC & EXTRA FORMATS ---"""
 #trainingFilePath_dict = [{"type": ftype, "in": fname, "out": trainingFilePath} for ftype, fname in rawDataFilepaths]     # Convert to dictionary format when needed

@@ -17,7 +17,7 @@ babyLLM/
  - babyLLM.py               # model definition, ties all the layers together
  - wakeup.py                # MAIN ENTRY POINT
  - infer2.py                # new simpler inference script, for chat whilst it's learning.
- - babyBot.py               # work-in-progress twitch chat bot to enable me/others to talk to it whilst it is actively training - optins obviously.
+ - PHONE.babyBot.py               # work-in-progress twitch chat bot to enable me/others to talk to it whilst it is actively training - optins obviously.
  - config.py                # adjustable numbers/settings etc
 
  - BRAIN/
