@@ -16,7 +16,7 @@ from textCleaningTool import *
 def formatMessage(user, text):
     return f"[{user}]: {text}"
 
-class babyBot_DISCORD(commands.Bot):
+class BABYBOT_DISCORD(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = 1156683242087387206,
                  rollingContextSize = 20, idleTrainSeconds = 60, N = 19):

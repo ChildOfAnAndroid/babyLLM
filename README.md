@@ -1,6 +1,7 @@
 readmeactuallyprobablydont.txt (readme is very unfinished!)
 
 ![babyllm](BRAIN/babyllm3.gif)
+> "\[babyllm\]: ʘʔっ that mice but im drinking nice (28th June 2025)"
 > "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would"
 
 training started: february 2025

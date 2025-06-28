@@ -15,7 +15,7 @@ from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
 from config import *
 from secret import *
-from PHONE.babyBot import babyBot
+from PHONE.babyBot import BABYBOT_TWITCH
 from PHONE.babyBot_discord import *
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -85,16 +85,16 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 print("--- LAUNCHING TWITCH BOT ---")
                 if debugPrints: ʕっʘ‿ʘʔっ("starting twitch bot!")
                 # create a bot instance, pass in the staff etc
-                PHONE.babyBot = PHONE.babyBot(babyLLM, tutor, librarian, scribe, calligraphist)
+                babyBot_twitch = BABYBOT_TWITCH(babyLLM, tutor, librarian, scribe, calligraphist)
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
-                PHONE.babyBot.run()
+                babyBot_twitch.run()
 
             elif mode == "discord":
                 print("--- LAUNCHING DISCORD BOT ---")
                 if debugPrints: ʕっʘ‿ʘʔっ("starting discord bot!")
                 # create a bot instance, pass in the staff etc
-                PHONE.babyBot = PHONE.babyBot_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
+                babyBot_discord = BABYBOT_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
                 #cog = PHONE.babyBot_DISCORD_COG(PHONE.babyBot)
                 #PHONE.babyBot.add_cog(cog)
 
@@ -105,7 +105,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
 
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
-                PHONE.babyBot.run(SECRETdiscordTokenSECRET)
+                babyBot_discord.run(SECRETdiscordTokenSECRET)
 
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")

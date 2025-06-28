@@ -41,7 +41,7 @@ def formatMessage(user, text):
     return f"{user} said: {text}"
 
 
-class babyBot(commands.Bot):
+class BABYBOT_TWITCH(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist, 
                  twitchToken = SECRETtwitchTokenSECRET, twitchChannel = "childofanandroid",
                  rollingContextSize = 20, idleTrainSeconds = 60, N = 19):
