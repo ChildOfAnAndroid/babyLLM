@@ -6,6 +6,8 @@ import threading
 import time
 import math
 import random
+import json
+import os
 
 app = Flask(__name__)
 
@@ -19,6 +21,8 @@ bbyBODY_numLayers = 5
 
 canvasSize = (80, 80)
 offsetCalc = round((80-64) / 2)
+
+babyStateFilePath = "babyState.json"
 
 # normally be updated live by BabyLLM's training process
 babyState = {
@@ -36,76 +40,150 @@ babyState = {
     "squish_up": False,
     "squish_down": False,
     "speech": "",
+    "cerebralLoad": 0,
+    "dreamIntensity": 0,
+    "memoryFlux": 0, 
+    "learningStability": 0,
+    "metabolicRate": 0,
 }
+
+baseColour = {"R": 133, "G": 239, "B": 238}
+currentColour = {"R": 133, "G": 239, "B": 238}
+targetColour = {"R": 133, "G": 239, "B": 238}
+
+def state_reader_loop():
+    while True:
+        if os.path.exists(babyStateFilePath):
+            try:
+                with open(babyStateFilePath, 'r') as f:
+                    babyState.update(json.load(f)) 
+
+                    for ch in ["R", "G", "B"]:
+                        if ch in babyState:
+                            targetColour[ch] = babyState[ch]
+
+                    if "tintStrength" not in babyState:
+                        babyState["tintStrength"] = 1.0 
+
+                    dreamIntensity = babyState.get("dreamIntensity", 0.0)
+                    bpm = 126
+                    bpm32th = 60 / (bpm * 8)
+                    metabolicRate = round(dreamIntensity) * bpm32th
+                    babyState["metabolicRate"] = metabolicRate
+
+            except (json.JSONDecodeError, IOError):
+                pass
+        time.sleep(0.1)
+
+threading.Thread(target=state_reader_loop, daemon=True).start()
 
 def blink_loop():
     while True:
         time.sleep(1 + (time.time() % 6))
+        metabolicRate = babyState.get("metabolicRate", 0.0)
 
-        sleepTime = random.choice([0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.238, 0.238, 0.472])
+        metabolicRate = random.choice([0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.238, 0.238, 0.472])
         original_eyes = babyState["eyes"]  # save current emotion
         babyState["eyes"] = 0  # blink column
         print(f"*blimk*")
-        time.sleep(sleepTime)
+        time.sleep(metabolicRate)
         
         babyState["eyes"] = original_eyes  # restore emotion
         
         if random.random() < 0.05:
-            time.sleep(sleepTime)
+            time.sleep(metabolicRate)
             babyState["eyes"] = 0  # blink column
             print(f"**blimk**")
-            time.sleep(sleepTime)
+            time.sleep(metabolicRate)
             
             babyState["eyes"] = original_eyes  # restore emotion
             
             if random.random() < 0.05:
-                time.sleep(sleepTime)
+                time.sleep(metabolicRate)
                 babyState["eyes"] = 0  # blink column
                 print(f"***blimk***")
-                time.sleep(sleepTime)
+                time.sleep(metabolicRate)
                 
                 babyState["eyes"] = original_eyes  # restore emotion
-                time.sleep(sleepTime)
-
+                time.sleep(metabolicRate)
 
 threading.Thread(target=blink_loop, daemon=True).start()
 
-def pulse_loop():
+def pulse_loop_random():
     while True:
         # This could be replaced later with a real layer-based signal
         #babyState["pulse"] = 0.5 + 0.5 * math.sin(time.time() * 4)  # smooth breathing
-        keyChoice = random.choice(["stretch_left", "stretch_right", "stretch_up", "stretch_down", "squish_left", "squish_right", "squish_up", "squish_down",])
+        keyChoice = random.choice(["stretch_left", "stretch_right", "stretch_up", "stretch_down", "squish_left", "squish_right", "squish_up", "squish_down", "cheeks_on", "tears_on"])
         babyState[keyChoice] = random.choice([True, False])
         #time.sleep(0.472)
         time.sleep(0.236)
 
+def pulse_loop():
+    while True:
+        cerebralLoad = babyState.get("cerebralLoad", 0.0)
+        learningStability = babyState.get("learningStability", 0.0)
+        memoryFlux = babyState.get("memoryFlux", 0.0)
+        metabolicRate = babyState.get("metabolicRate", 0.0)
+        
+        # --- body language ---
+        stimChoice = random.choice(["random", "tense", "dreamy"])
+        
+        if stimChoice == "tense":
+            # cerebral load -> tense (tall/thin) vs. relaxed (short/wide)
+            tense_threshold = random.uniform(0.1, 1.5)
+            is_tense = cerebralLoad > tense_threshold
+            tenseKey = random.choice(["stretch_up", "squish_left", "squish_right"])
+            babyState[tenseKey] = is_tense
+            relaxedKey = random.choice(["stretch_down", "stretch_left", "stretch_right"])
+            babyState[relaxedKey] = not is_tense
+
+        elif stimChoice == "dreamy":
+            # dream intensity -> dreamy (tall) vs. grounded (short)
+            dreamy_threshold = random.uniform(0.4, 0.6)
+            is_dreamy = learningStability > dreamy_threshold
+            babyState["stretch_up"] = is_dreamy
+            groundedKey = random.choice(["stretch_down", "squish_up"])
+            babyState[groundedKey] = not is_dreamy
+
+        elif stimChoice == "flux":
+            flux_threshold = random.uniform(0.4, 0.6)
+            is_flux = memoryFlux > flux_threshold
+            babyState["squish_down"] = is_flux
+
+        elif stimChoice == "random":
+            keyChoice = random.choice(["stretch_left", "stretch_right", "stretch_up", "stretch_down", "squish_left", "squish_right", "squish_up", "squish_down", "cheeks_on", "tears_on"])
+            babyState[keyChoice] = random.choice([True, False])
+            
+        time.sleep(metabolicRate)
+
 threading.Thread(target=pulse_loop, daemon=True).start()
 
 def jump_reset():
-    jumpTime = random.choice([0.119, 0.0595])
+    metabolism = babyState.get("metabolicRate", 0.0)
+    metabolicRate = metabolism * 5
     while True:
         if babyState.get("jumping"):
-            time.sleep(jumpTime)
+            time.sleep(metabolicRate)
             babyState["jumping"] = False
             if random.random() < 0.2:
-                time.sleep(jumpTime)
+                time.sleep(metabolicRate)
                 babyState["jumping"] = True
-                time.sleep(jumpTime)
+                time.sleep(metabolicRate)
                 babyState["jumping"] = False
                 if random.random() < 0.15:
-                    time.sleep(jumpTime)
+                    time.sleep(metabolicRate)
                     babyState["jumping"] = True
-                    time.sleep(jumpTime)
+                    time.sleep(metabolicRate)
                     babyState["jumping"] = False
                     if random.random() < 0.1:
-                        time.sleep(jumpTime)
+                        time.sleep(metabolicRate)
                         babyState["jumping"] = True
-                        time.sleep(jumpTime)
+                        time.sleep(metabolicRate)
                         babyState["jumping"] = False
                         if random.random() < 0.05:
-                            time.sleep(jumpTime)
+                            time.sleep(metabolicRate)
                             babyState["jumping"] = True
-                            time.sleep(jumpTime)
+                            time.sleep(metabolicRate)
                             babyState["jumping"] = False
         time.sleep(0.1)
 
@@ -133,6 +211,36 @@ def buildBabySprite():
     for i in range(bbyBODY_numLayers):
         frame = bbyBODY.crop((0, i * bbyHeight, bbyBODY.width, (i + 1) * bbyHeight))
         bbyBODY_full.paste(frame, (0, 0), frame)
+
+    blend_speed = 0.0002  # smaller = slower
+    return_speed = 0.00002
+
+    for channel in ["R", "G", "B"]:
+        delta = targetColour[channel] - currentColour[channel]
+        currentColour[channel] += delta * blend_speed
+        delta = baseColour[channel] - currentColour[channel]
+        currentColour[channel] += delta * return_speed
+
+    tintStrength = babyState.get("tintStrength", 1.0)
+
+    # Greyscale body first, then tint toward currentColor
+    pixels = bbyBODY_full.load()
+    for x in range(bbyBODY_full.width):
+        for y in range(bbyBODY_full.height):
+            pr, pg, pb, pa = pixels[x, y]
+            gray = int((pr + pg + pb) / 3)
+
+            # What the tint *would be* at full strength
+            rTint = int(gray * currentColour["R"] / 255)
+            gTint = int(gray * currentColour["G"] / 255)
+            bTint = int(gray * currentColour["B"] / 255)
+
+            # Blend original color toward the tint, based on tintStrength
+            outR = int((1 - tintStrength) * pr + tintStrength * rTint)
+            outG = int((1 - tintStrength) * pg + tintStrength * gTint)
+            outB = int((1 - tintStrength) * pb + tintStrength * bTint)
+
+            pixels[x, y] = (outR, outG, outB, pa)
 
     # Stretch body
     body_stretched = bbyBODY_full.resize((stretch_x, stretch_y), resample=Image.NEAREST)

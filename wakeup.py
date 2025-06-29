@@ -95,8 +95,8 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 if debugPrints: ʕっʘ‿ʘʔっ("starting discord bot!")
                 # create a bot instance, pass in the staff etc
                 babyBot_discord = BABYBOT_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
-                #cog = PHONE.babyBot_DISCORD_COG(PHONE.babyBot)
-                #PHONE.babyBot.add_cog(cog)
+                #cog = babyBot_DISCORD_COG(PHONE.babyBot)
+                #babyBot.add_cog(cog)
 
                 #cog = PHONE.babyBot.get_cog("BBYCOG")
                 #print(f"Cog {cog} =>  {cog.get_commands()} {[c.name for c in cog.get_commands()]}")

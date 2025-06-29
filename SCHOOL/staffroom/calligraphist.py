@@ -313,7 +313,7 @@ class S_OUTPUT:
                 self.S_apply('dim', 'truth  → ') + truth_str
             )
             if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
-            with open(babyLogPathFull, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
+            #with open(babyLogPathFull, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
 
     @whocalled
     def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, 

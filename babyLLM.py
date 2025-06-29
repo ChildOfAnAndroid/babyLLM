@@ -63,6 +63,11 @@ class BABYLLM(nn.Module):
         self.FINALlogitsHistory = []
         self.predPixel = torch.tensor([0.0, 0.0, 0.0], device = self.device)
 
+        self.cerebralLoad = 0.0
+        self.dreamIntensity = 0.0
+        self.memoryFlux = 0.0
+        self.learningStability = 0.0
+
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
@@ -266,17 +271,17 @@ class BABYLLM(nn.Module):
             if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
             # regulate the learned LR, temperature, repetition penalty (etc) towards target values
-            lrSoftClamp = 0.001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
+            lrSoftClamp = 0.0001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
             #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
-            tempSoftClamp = (self.CEloss_used * 4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            tempSoftClamp = (self.CEloss_used * 0.4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             if self.repetitionPenalty >= 0: 
-                repetitionPenaltySoftClamp = 0.000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+                repetitionPenaltySoftClamp = 0.0000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty >= -1:
-                repetitionPenaltySoftClamp = 0.0000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+                repetitionPenaltySoftClamp = 0.00000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             elif self.repetitionPenalty < -1:
-                repetitionPenaltySoftClamp = 0.0002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
-            elif self.repetitionPenalty < 0:
                 repetitionPenaltySoftClamp = 0.00002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+            elif self.repetitionPenalty < 0:
+                repetitionPenaltySoftClamp = 0.000002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
 
             loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lrSoftClamp_used = lrSoftClamp
@@ -291,7 +296,7 @@ class BABYLLM(nn.Module):
             if self.lastSoftSample is not None and not skipAuxLoss:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
                 kl_loss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
-                AUXloss_kl = kl_loss * 0.1
+                AUXloss_kl = kl_loss * 0.01
                 self.AUXlossKL_used = AUXloss_kl
                 #AUXloss = auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
                 cosSim = F.cosine_similarity(self.lastSoftSample, target)
@@ -336,8 +341,8 @@ class BABYLLM(nn.Module):
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
-                FINALloss += (self.PIXELloss * 1.5)
-                self.pixelLoss_used = (self.PIXELloss * 1.5)
+                FINALloss += (self.PIXELloss * 0.15)
+                self.pixelLoss_used = (self.PIXELloss * 0.15)
                 if debugPrints: print(f"{FINALloss} pixel + final")
             if self.lastSoftSample is not None and not skipAuxLoss: 
                 if torch.isnan(AUXloss) or not torch.isfinite(AUXloss):
@@ -354,7 +359,7 @@ class BABYLLM(nn.Module):
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
     @whocalled
-    def backward(self, _loss):
+    def backward(self, _loss, _lossDelta):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
             if debugPrints:
                 tensor_snitch(self, "babyllm backward start")
@@ -469,9 +474,20 @@ class BABYLLM(nn.Module):
                 #self.logLR.data.fill_(self.logLR+0.000001) # increment LR manually (break grid)
 
             if debugPrints: ʕっʘ‿ʘʔっ("clip_grad_norm")
-            clipValue = 5 #torch.exp(self.logGradClip)
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = clipValue)
-            self.gradientClipMaxNorm = clipValue
+            #clipValue = 5 #torch.exp(self.logGradClip)
+            #torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = clipValue)
+            #self.gradientClipMaxNorm = clipValue
+            with torch.no_grad():
+                base_clip = 5.0
+                sensitivity = 2.5 
+
+                lossDelta_tensor = torch.tensor(_lossDelta, device=self.device)
+                adjustment = (lossDelta_tensor * sensitivity)
+                clipValue = (base_clip + adjustment).clamp(min=1.0, max=7.5)
+
+            # Now, use the dynamically calculated clipValue
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue.item())
+            self.gradientClipMaxNorm = clipValue.item() # Update stats
             if debugPrints: ʕっʘ‿ʘʔっ("optimizer.step")
             self.optimizer.step()  # Update weights
             if debugPrints: ʕっʘ‿ʘʔっ("torch.exp(self.logRepetionWindow)")
@@ -516,80 +532,79 @@ class BABYLLM(nn.Module):
                 tensor_snitch(self.logits, "babyllm backward end")
 
     @whocalled
-    def getResponseFromLogits(self, _logits, _training = False):
+    def getResponseFromLogits(self, _logits, _training=False, _totAvgAbsDelta = 0.0):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
             if not torch.isfinite(_logits).all():
-                print("logits not finite before response gen:", _logits)
-                _logits = torch.nan_to_num(_logits, nan = 0.0, posinf = 1e3, neginf=-1e3)
-            if debugPrints: ʕっʘ‿ʘʔっ("update logarithmic parameters")
-            #self.repetitionWindow = torch.exp(self.logRepetitionWindow)#.clamp(min = 1.0)
-            if debugPrints: ʕっʘ‿ʘʔっ("torch.exp(self.logTemp)")
-            self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
-            if debugPrints: ʕっʘ‿ʘʔっ("_logits /= self.temperature")
-            _logits /= self.temperature
-            if debugPrints: ʕっʘ‿ʘʔっ("check for NaN logits")
-            if torch.isnan(_logits).any():
-                if debugPrints: ʕっʘ‿ʘʔっ("NaN yes = nan_to_num on _logits")
-                print("NaN in logits after temperature scaling!")
-                print("logTemp:", self.logTemp.item(), "Temp:", self.temperature.item())
-                print("logits stats:", _logits.min().item(), _logits.max().item(), _logits.mean().item())
-                _logits = torch.nan_to_num(_logits, nan = 0.0, posinf = 1e3, neginf=-1e3)
+                _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
 
-            if debugPrints: ʕっʘ‿ʘʔっ("if logits dim(1), unsqueeze(0)")
-            if _logits.dim() == 1: _logits = _logits.unsqueeze(0)  # ensure [1, vocabSize]
+            self.temperature = torch.exp(self.logTemp)
+            logits_scaled = _logits / self.temperature
 
+            if torch.isnan(logits_scaled).any():
+                logits_scaled = torch.nan_to_num(logits_scaled, nan=0.0, posinf=1e3, neginf=-1e3)
+
+            if logits_scaled.dim() == 1:
+                logits_scaled = logits_scaled.unsqueeze(0)
+
+            # Gumbel-Softmax
+            try:
+                base_probs = F.gumbel_softmax(logits_scaled, tau=self.temperature, hard=False)
+                assert torch.isfinite(base_probs).all(), "gumbelProbs has NaN or Inf!"
+            except Exception as e:
+                self.gumBellend += 1
+                if debugPrints: print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
+                base_probs = F.softmax(logits_scaled, dim=-1)
+            
             if _training:
-                if debugPrints: ʕっʘ‿ʘʔっ("training, use gumbel")
-                if debugPrints: ʕっʘ‿ʘʔっ("cloning _logits to logitForSample")
-                logitsForSample = _logits.clone()
-                if not torch.isfinite(logitsForSample).all():
-                    if debugPrints: ʕっʘ‿ʘʔっ("non-finite logits detected BEFORE GUMBEL, nan_to_num logitsForSample")
-                    print("non-finite logits detected BEFORE GUMBEL")
-                    print("logits:", logitsForSample)
-                    logitsForSample = torch.nan_to_num(logitsForSample, nan = 0.0, posinf = 1e3, neginf=-1e3)
-                try:
-                    if debugPrints: ʕっʘ‿ʘʔっ("gumbel softmax")
-                    gumbelProbs = F.gumbel_softmax(logitsForSample, tau = self.temperature, hard = False)
-                    assert torch.isfinite(gumbelProbs).all(), "gumbelProbs has NaN or Inf!"
-                except Exception as e:
-                    self.gumBellend += 1
-                    if debugPrints: ʕっʘ‿ʘʔっ("gumbel softmax failed")
-                    if debugPrints: print("gumbel softmax failed:", e)
-                    if debugPrints: print(f"falling back to softmax sampling (total fallbacks: {self.gumBellend})...")
-                    if debugPrints: ʕっʘ‿ʘʔっ("torch.softmax")
-                    gumbelProbs = torch.softmax(logitsForSample, dim = 1)
+                self.lastSoftSample = base_probs.clone()
 
-                self.lastSoftSample = gumbelProbs
-                if debugPrints: ʕっʘ‿ʘʔっ("gumbelProbs.argmax")
-                responseFromLogits = gumbelProbs.argmax(dim = 1, keepdim = True)
-                self.lastSoftSample = gumbelProbs
+            # Creativity
+            with torch.no_grad():
+                self.memoryFlux = (1 - F.cosine_similarity(self.memory.FINALmemory, self.memory2.FINALmemory)).item()
+                self.cerebralLoad = self.interneuronNetwork.cerebellum.std().item()
+                self.learningStability = _totAvgAbsDelta
+                self.dreamIntensity = (self.memoryFlux * 2.0) + (self.cerebralLoad * 5.0) + (self.learningStability * 1.0)
 
-                if debugPrints: ʕっʘ‿ʘʔっ("topK sampling")
-                topk = torch.topk(gumbelProbs, 10, dim = 1)
-                finite = torch.isfinite(topk.values[0])
-                self.rollingTokenTotals_tensor.index_add_(0, topk.indices[0][finite], topk.values[0][finite])
+                distortion_strength = torch.tensor(self.dreamIntensity * 0.02).clamp(0.0, 0.1).item()
+                vocab_size = base_probs.shape[-1]
+                num_to_distort = int(vocab_size * 0.05)
+                dream_indices = torch.randperm(vocab_size, device=self.device)[:num_to_distort]
+                dream_boost = torch.zeros_like(base_probs)
+                dream_boost.scatter_(1, dream_indices.unsqueeze(0), distortion_strength)
+                
+                augmented_probs = base_probs + dream_boost
+                augmented_probs = augmented_probs / augmented_probs.sum(dim=-1, keepdim=True)
 
-                #print("Top guesses + confidences:", [(self.librarian.indexToToken[i.item()], f"{p.item():.3f}") for i, p in zip(indices, values)])
+                # Dynamic Top-p
+                base_p = 0.92
+                dream_adjustment = - (self.dreamIntensity * 0.05)
+                top_p = torch.tensor(base_p + dream_adjustment).clamp(min=0.85, max=0.99).item()
 
-            else:
-                if debugPrints: ʕっʘ‿ʘʔっ("not training, using softmax")
-                probs = torch.softmax(_logits, dim = 1)
-                if debugPrints: ʕっʘ‿ʘʔっ("multinomial")
-                responseFromLogits = torch.multinomial(probs, 1)
-                self.lastSoftSample = None  # or keep the probs if you want analysis
+                sorted_probs, sorted_indices = torch.sort(augmented_probs, descending=True)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+                indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                augmented_probs[indices_to_remove] = 0
+                
+                if _training:
+                    # take the argmax from the *augmented* distribution - can still influence the training choice
+                    responseFromLogits = augmented_probs.argmax(dim=1, keepdim=True)
+                else:
+                    if torch.sum(augmented_probs) > 0:
+                        responseFromLogits = torch.multinomial(augmented_probs, num_samples=1)
+                    else:
+                        responseFromLogits = torch.topk(base_probs, 1).indices
 
-            #if debugPrints:
-                #print(f"[REP PENALTY] {self.repeatedPercent:.2%} repeated | repetition slice: {self.repetitionSlice} | Penalised: {[self.librarian.indexToToken.get(t, '<UNK>') for t in uniqueTokens]}")
-
-            if debugPrints: ʕっʘ‿ʘʔっ("create windows using rolling buffer")
-            repWindow = torch.exp(self.logRepetitionWindow)
-            self.repetitionWindow = repWindow / (1 + repWindow / self.numTokensPerStep)  # asymptotes near windowMAX
+            repWindow = torch.exp(self.logRepetitionWindow).item()
+            effective_repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)
             self.recentGeneratedTokens.append(responseFromLogits.item())
-            if len(self.recentGeneratedTokens) > int(self.repetitionWindow):
+            if len(self.recentGeneratedTokens) > int(effective_repWindow):
                 self.recentGeneratedTokens.pop(0)
 
             return responseFromLogits
-        
+            
     @whocalled    
     def applyRepetitionPenalty(self, _logits, _contextTokens = None):
         with self.counsellor.infodump("applyRepetitionPenalty") as ʕっʘ‿ʘʔっ:
@@ -608,6 +623,10 @@ class BABYLLM(nn.Module):
             repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)
             if debugPrints: ʕっʘ‿ʘʔっ("penalty = self.repetitionPenalty")
             penalty = self.repetitionPenalty
+            if penalty < 0.0:
+                new_value = self.repetitionPenalty.abs() * 3
+                self.repetitionPenalty.data.copy_(new_value)
+                penalty = self.repetitionPenalty
 
             if isinstance(recentTokens, list):
                 if debugPrints: ʕっʘ‿ʘʔっ("recentTokens list -> tensor")

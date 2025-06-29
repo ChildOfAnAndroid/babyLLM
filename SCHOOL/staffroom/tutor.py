@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from config import *
 import numpy as np
 import math
+import json
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 
 class TUTOR:
@@ -453,6 +454,11 @@ class TUTOR:
             self.tokenLevelCorrect = []
             self.tokenLevelLosses = []
 
+            CL = 0.0
+            DI = 0.0
+            MF = 0.0
+            LS = 0.0
+
             if not skipPixels:
                 # pre-filling next for step 0
                 if self.pixelNext is None:
@@ -499,7 +505,7 @@ class TUTOR:
                 if forwardProfiler: print(prof.key_averages().table())
 
                 if debugPrints: ʕっʘ‿ʘʔっ("getResponseFromLogits")
-                predictedTokenIndex = self.model.getResponseFromLogits(logits, _training = True)
+                predictedTokenIndex = self.model.getResponseFromLogits(logits, _training = True, _totAvgAbsDelta = self.totalAvgAbsDelta)
                 predy = predictedTokenIndex.cpu().item()
                 if debugPrints:
                     print("nextToken: ")
@@ -566,6 +572,26 @@ class TUTOR:
                     self.rgbPredictionBar += pred_block
                     self.rgbTargetBar     += tgt_block
 
+                    try:
+                        if True: #j == 0:
+                            CL = self.model.cerebralLoad
+                            DI = self.model.dreamIntensity
+                            MF = self.model.memoryFlux
+                            LS = self.totalAvgAbsDelta
+                        babyState = {
+                            "R": r,
+                            "G": g,
+                            "B": b, 
+                            "cerebralLoad": CL,
+                            "dreamIntensity": DI,
+                            "memoryFlux": MF, 
+                            "learningStability": LS,
+                        }
+                        with open(babyStateFilePath, 'w') as f:
+                            json.dump(babyState, f)
+                    except Exception as e:
+                        print(f"could not write to {babyStateFilePath}: {e}")
+
                 sampledTokens = scheduledSampling and random.random() < self.scheduledSamplingRate
                 if j == 0:
                     self.sampledFlags = []  # Only clear at start
@@ -611,7 +637,7 @@ class TUTOR:
                 self.rgbBar = f"PRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
                 #print(self.stringStats["rgbBar"])
 
-            triesInfluence = 0.05 
+            triesInfluence = 0.0005 
             triesLossModifier = (1 + (self.totalTries - 1)/10)
             BACKWARDtriesMod = (1.0 - triesInfluence) + (triesInfluence * triesLossModifier)
 
@@ -635,6 +661,7 @@ class TUTOR:
             #BACKWARDloss -= entropyPenalty
             #self.entropyLoss_used = entropyPenalty
             self.totalLoss += BACKWARDloss.item()
+            self.latestLossDelta = BACKWARDloss.item() - self.averageRecentLoss
             #if windowEntropyBonus:
                 #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
                     #entropyLoss = (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
@@ -650,12 +677,12 @@ class TUTOR:
                 self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
                 if profiler: 
                     with torch.profiler.profile(record_shapes = True) as prof:
-                        self.model.backward(BACKWARDloss)
+                        self.model.backward(BACKWARDloss, self.latestLossDelta)
                 elif mpsProfiler: 
                     with torch.mps.profiler.profile(mode='interval', wait_until_completed = False) as prof:
-                        self.model.backward(BACKWARDloss)
+                        self.model.backward(BACKWARDloss, self.latestLossDelta)
                 else:
-                    self.model.backward(BACKWARDloss)
+                    self.model.backward(BACKWARDloss, self.latestLossDelta)
             except RuntimeError as e:
                 print("TUTOR.trainStep.backward failed!", e)
                 self.model.optimizer.zero_grad(set_to_none=True)
@@ -671,7 +698,7 @@ class TUTOR:
             if debugPrints: ʕっʘ‿ʘʔっ("actions after looping")
             self.avgPixelDistTotals        += self.avgPixelDist
             self.totalAvgPixelDist          = self.avgPixelDistTotals / max(1, self.totalTurns)
-            self.stepLossFloat              = BACKWARDloss.detach().cpu().numpy().item()
+            self.stepLossFloat              = BACKWARDloss.detach().cpu().numpy().item() # why lol SUS WHY ?!?
             self.stats["loss"]              = self.stepLossFloat
             self.learningRate               = math.exp(self.model.logLR.detach().cpu().item())
             self.memoryLength               = self.model.memoryLength.detach().cpu().numpy().item()
@@ -957,6 +984,8 @@ class TUTOR:
                 _saveLog = _saveLog
             )
             print(f"{self.decodedTokenIndices}")
+            with open(babyLogPathFull, "a", encoding="utf-8") as f: f.write(self.calligraphist.S_stripForLogging(self.decodedTokenIndices) + "\n")
+
 
     @whocalled
     def collectTurnStats(self):
@@ -1136,6 +1165,18 @@ class TUTOR:
                 self.collectAllTimeStats()
                 if self.totalTurnsAwake % (self.reflectionFreq-1) == 0:
                     self.hesJustABaby = self.mapStatsToFeelings()
+
+                """try:
+                    babyState = {
+                        "cerebralLoad": self.model.cerebralLoad,
+                        "dreamIntensity": self.model.dreamIntensity,
+                        "memoryFlux": self.model.memoryFlux, 
+                        "learningStability": self.totalAvgAbsDelta
+                    }
+                    with open(babyStateFilePath, 'w') as f:
+                        json.dump(babyState, f)
+                except Exception as e:
+                    print(f"could not write to {babyStateFilePath}: {e}")"""
 
                 if debugPrints: print(f"DEBUG collectTurnStats: self.stats populated with {len(self.stats)} keys. First few: {dict(list(self.stats.items())[:5])}")
                 if debugPrints: print(f"DEBUG collectTurnStats: self.stringStats populated with {len(self.stringStats)} keys. First few: {dict(list(self.stringStats.items())[:5])}")

@@ -16,9 +16,12 @@ from textCleaningTool import *
 def formatMessage(user, text):
     return f"[{user}]: {text}"
 
+bby_lounge = 1388782896084422788
+ai_spam = 1156683242087387206
+
 class BABYBOT_DISCORD(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,
-                 discordToken = SECRETdiscordTokenSECRET, discordChannel = 1156683242087387206,
+                 discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_lounge,
                  rollingContextSize = 20, idleTrainSeconds = 60, N = 19):
         intents = discord.Intents.all()
         super().__init__(command_prefix='!', intents=intents)
@@ -62,7 +65,7 @@ class BABYBOT_DISCORD(commands.Bot):
         helloMessage = ("ʕっʘ‿ʘʔっ hello! i am awake!")
         channel = self.get_channel(self.discordChannel)
         if not self.get_cog("BBYCOG"):
-            await self.add_cog(PHONE.babyBot_DISCORD_COG(self))
+            await self.add_cog(babyBot_DISCORD_COG(self))
         if channel:
             await channel.send(helloMessage)
         self.buffer.append(formatMessage(babyName, helloMessage))
@@ -87,10 +90,13 @@ class BABYBOT_DISCORD(commands.Bot):
         else:
             strippedContent = content
 
-        if (strippedContent.strip() and (author in self.AIoptInUsers or content.startswith('!'))):
+        if (strippedContent.strip() and (author in self.AIoptInUsers or content.startswith('!b'))):
             userMessage = formatMessage(author, strippedContent)
-            with open(discordLogPath, 'a', encoding='utf-8') as f:
-                f.write(userMessage + "\n---\n")
+            if content.startswith('!bby'):
+                pass
+            else:
+                with open(discordLogPath, 'a', encoding='utf-8') as f:
+                    f.write(userMessage + "\n---\n")
             self.buffer.append(userMessage)
             if len(self.buffer) > self.rollingContextSize:
                 print(f"buffer exceeded size {self.rollingContextSize} from user message, popping oldest message")
@@ -230,7 +236,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice)
 
                     logits = self.bot.babyLLM.forward(inputTensor)
-                    nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training = True)
+                    totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
+                    nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training = True, _totAvgAbsDelta = totAvgAbsDelta)
                     nextTokenID = nextTokenIDTensor.item()
 
                     genSeqIDs.append(nextTokenID)
@@ -340,6 +347,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await ctx.send(f"i tried to save but something went wrong :(, the system said '{e}")
 
 if __name__ == "__main__":
-    bot = PHONE.babyBot_DISCORD(discordToken=SECRETdiscordTokenSECRET, discordChannel=1156683242087387206)
-    bot.add_cog(PHONE.babyBot_DISCORD_COG(bot))
+    bot = BABYBOT_DISCORD(discordToken=SECRETdiscordTokenSECRET, discordChannel=1156683242087387206)
+    bot.add_cog(babyBot_DISCORD_COG(bot))
     bot.run(bot.discordToken)

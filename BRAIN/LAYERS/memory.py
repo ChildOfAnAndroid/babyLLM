@@ -324,6 +324,8 @@ class MEMORY(nn.Module):
                     self.longTermMemory.copy_(self.newLong.detach())
 
                 # free graph memory
+                self.longTermDecay += 0.1
+                self.shortTermDecay -= 0.001
                 self.newShort = None
                 self.newLong = None
                 self.activationsTensor = None
@@ -342,7 +344,7 @@ class MEMORY(nn.Module):
                 # self.longTermMemory.mul_(keep_factor)
                 if debugPrints: print(f" to {self.shortTermMemory.mean().item():.10f}!")
                 #self.longTermDecay += 0.1
-                #self.shortTermDecay += 0.001
+                #self.shortTermDecay -= 0.001
                 #self.longTermMemory.zero_() #retaining long term cause, yk, long term! i felt mean!
             # clear any pending buffers
             self.newShort = None

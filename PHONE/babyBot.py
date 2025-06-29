@@ -198,7 +198,8 @@ class BABYBOT_TWITCH(commands.Bot):
                     inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice)
 
                     logits = self.babyLLM.forward(inputTensor)
-                    nextTokenIDTensor = self.babyLLM.getResponseFromLogits(logits, _training = True)
+                    totAvgAbsDelta = self.tutor.totalAvgAbsDelta
+                    nextTokenIDTensor = self.babyLLM.getResponseFromLogits(logits, _training = True, _totAvgAbsDelta = totAvgAbsDelta)
                     nextTokenID = nextTokenIDTensor.item()
 
                     genSeqIDs.append(nextTokenID)
