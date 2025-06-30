@@ -424,14 +424,8 @@ class BABYBOT_TWITCH(commands.Bot):
     @commands.command(name="bbyhelp")
     async def bbyhelp(self, ctx):
         help_text = (
-            "--- ʕっʘ‿ʘʔ⊃ -*- babyllm commands -*- ⊂ʕʘ‿ʘ૮ʔ ---\n"
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
-            "1) !bbycolour - set babys colour! either use RGB like 255 100 200, or !bbycolour + purple, orange, blue, pink, red, green, white, black, yellow, teal, grey, baby\n"
-            "2) !bby or !babyllm - send a message to babyLLM and he will reply :)\n"
-            "3) !aioptin — lets your chats affect babys training (but he won't respond unless you use !bby)\n"
-            "4) !aioptout — don't let your messages be saved to training data anymore (ask charis if you want them all DELETED too)\n"
-            "5) !aioptcheck — check whether you're opted in\n"
-            "if you wanna find out more, check out: https://github.com/ChildOfAnAndroid/babyLLM - i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!\n")
+            "if you wanna learn about my commands, check out '' :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
         for line in help_text.split("\n"):
             await ctx.reply(line)
             await asyncio.sleep(0.5)  # prevent Twitch rate limits

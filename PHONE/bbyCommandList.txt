@@ -1,0 +1,5 @@
+!bbycolour - set babys colour! either use RGB like 255 100 200, or !bbycolour + purple, orange, blue, pink, red, green, white, black, yellow, teal, grey, baby
+!bby or !babyllm - send a message to babyLLM and he will reply :)
+!aioptin — lets your chats affect babys training (but he won't respond unless you use !bby)
+!aioptout — don't let your messages be saved to training data anymore (ask charis if you want them all DELETED too)
+!aioptcheck — check whether you're opted in
