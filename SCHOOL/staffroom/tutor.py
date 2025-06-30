@@ -741,7 +741,7 @@ class TUTOR:
         timePulse   = 0.5 * (1 + math.sin(2 * math.pi * pulseSpeed * x))
 
         # RED - HIGH PERFECT TOKENS, EXCITED/SKILLED (energy up when getting more perfect, more red!)
-        red         = (0.0 
+        red         = (0.01 
                     + (0.2 * timePulse) 
                     + (0.2 * ((perf * 0.7) 
                     + (tokenLoss * 0.3))) 
@@ -750,11 +750,11 @@ class TUTOR:
         hueShift    = (math.sin(2 * math.pi * (x + delta + perf)) + 1) / 2  # [0..1]
         green       = (0.01 
                     + (tokenLoss * 0.08)
-                    + ((0.5 * ((delta * 0.5) 
+                    + ((0.2 * ((delta * 0.5) 
                     + ((self.totalAvgAbsDelta * 0.6) + (self.totalAvgDelta * 0.4) * 0.5))) 
                     + 0.05 * hueShift))
         # BLUE - HIGH PASS RATE, CALM, long range (calm up when doing better than the previous run, more blue!)
-        blue        = (0.2 
+        blue        = (0.3 
                     + ((self.perfectionistPassRate/100) * 0.6) 
                     + (0.2 * totDelta) 
                     + (0.4 * (1 - timePulse)))

@@ -126,7 +126,7 @@ def pulse_loop():
         metabolicRate = babyState.get("metabolicRate", 0.0)
         
         # --- body language ---
-        stimChoice = random.choice(["random", "tense", "dreamy"])
+        stimChoice = random.choice(["random", "tense", "dreamy", "flux"])
         
         if stimChoice == "tense":
             # cerebral load -> tense (tall/thin) vs. relaxed (short/wide)
@@ -212,18 +212,18 @@ def buildBabySprite():
         frame = bbyBODY.crop((0, i * bbyHeight, bbyBODY.width, (i + 1) * bbyHeight))
         bbyBODY_full.paste(frame, (0, 0), frame)
 
-    blend_speed = 0.0002  # smaller = slower
+    blend_speed = 0.02  # smaller = slower
     return_speed = 0.00002
 
     for channel in ["R", "G", "B"]:
         delta = targetColour[channel] - currentColour[channel]
         currentColour[channel] += delta * blend_speed
-        delta = baseColour[channel] - currentColour[channel]
-        currentColour[channel] += delta * return_speed
+        #delta = baseColour[channel] - currentColour[channel]
+        #currentColour[channel] += delta * return_speed
 
     tintStrength = babyState.get("tintStrength", 1.0)
 
-    # Greyscale body first, then tint toward currentColor
+    # Greyscale body first, then tint toward currentColour
     pixels = bbyBODY_full.load()
     for x in range(bbyBODY_full.width):
         for y in range(bbyBODY_full.height):
@@ -235,7 +235,7 @@ def buildBabySprite():
             gTint = int(gray * currentColour["G"] / 255)
             bTint = int(gray * currentColour["B"] / 255)
 
-            # Blend original color toward the tint, based on tintStrength
+            # Blend original colour toward the tint, based on tintStrength
             outR = int((1 - tintStrength) * pr + tintStrength * rTint)
             outG = int((1 - tintStrength) * pg + tintStrength * gTint)
             outB = int((1 - tintStrength) * pb + tintStrength * bTint)
@@ -317,6 +317,47 @@ def baby_say():
 def speech_text():
     return babyState.get("speech", ""), 200, {"Content-Type": "text/plain"}
 
+@app.route("/colour", methods=["POST"])
+def set_colour():
+    data = request.json
+    colour_input = data.get("colour", "").lower().strip()
+
+    namedColours = {
+        "purple":   {"R": 181, "G": 126, "B": 220},
+        "orange":     {"R": 255, "G": 145, "B": 0},
+        "blue":       {"R": 0,   "G": 132, "B": 255},
+        "pink":       {"R": 255, "G": 102, "B": 204},
+        "red":        {"R": 255, "G": 80,  "B": 80},
+        "green":      {"R": 80,  "G": 255, "B": 170},
+        "white":      {"R": 255, "G": 255, "B": 255},
+        "black":      {"R": 10,  "G": 10,  "B": 10},
+        "yellow":     {"R": 255, "G": 255, "B": 100},
+        "teal":       {"R": 100, "G": 255, "B": 255},
+        "grey":       {"R": 120, "G": 120, "B": 120},
+        "baby":       {"R": 133, "G": 239, "B": 238},         
+    }
+
+    rgb = None
+
+    parts = colour_input.replace(",", " ").split()
+    if len(parts) == 3 and all(p.strip().isdigit() for p in parts):
+        try:
+            r, g, b = [max(0, min(255, int(p))) for p in parts]
+            rgb = {"R": r, "G": g, "B": b}
+        except:
+            pass
+
+    elif colour_input in namedColours:
+        rgb = namedColours[colour_input]
+
+    if rgb:
+        for ch in ["R", "G", "B"]:
+            currentColour[ch] = rgb[ch]
+        print(f"baby colour updated to RGB: {rgb}")
+        return {"status": "ok", "set": rgb}
+
+    return {"status": "error", "msg": f"invalid colour input: '{colour_input}'"}, 400
+
 @app.route("/baby.html")
 def baby_html():
     return f"""
@@ -355,7 +396,7 @@ def baby_html():
                 border-radius: 10px;
                 box-shadow: 3px 3px black;
                 font-size: 36px;
-                color: white;
+                colour: white;
                 font-family: 'Silkscreen', monospace;
                 padding: 8px 10px;
                 overflow: hidden;

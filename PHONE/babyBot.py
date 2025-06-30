@@ -382,9 +382,64 @@ class BABYBOT_TWITCH(commands.Bot):
                 # this loop should never die, wait a bit before continuing
                 await asyncio.sleep(1)
 
+    @commands.command(name='bbycolour', aliases=['bbycolor'])
+    async def bbycolour_command(self, ctx: commands.Context):
+        author = ctx.author.name.lower()
+        content = ctx.message.content.strip()
+        parts = content.split(maxsplit=1)
+
+        if len(parts) < 2:
+            await ctx.reply("plz give me a colour like !bbycolour pink or !bbycolour 255 122 255 💗")
+            return
+
+        colour = parts[1].strip().lower()
+        userMessage = f"{author} turned you {colour}!"
+
+        try:
+            # STEP 1: Send colour to overlay server
+            async with aiohttp.ClientSession() as session:
+                async with session.post("http://192.168.1.212:420/colour", json={"colour": colour}) as resp:
+                    if resp.status != 200:
+                        await ctx.reply(f"huh? '{colour}' didn’t work. error: {resp.status}")
+                        return
+
+            # STEP 2: Add message to buffer + log file
+            formatted = formatMessage(author, userMessage)
+            self.buffer.append(formatted)
+            with open(twitchLogPath, 'a', encoding='utf-8') as f:
+                f.write(formatted + "\n---\n")
+
+            # STEP 3: Trigger Baby to respond
+            if len(self.buffer) > self.rollingContextSize:
+                self.buffer.pop(0)
+            humanOnly = [line for line in self.buffer if not line.startswith(f"[{babyName}]")]
+            await self.training_queue.put({"type": "chat", "text": humanOnly})
+
+            await bbyFACE()
+
+        except Exception as e:
+            print(f"error setting baby colour: {e}")
+            await ctx.reply("ummm... how can you even manage to break COLOUR {author}?! lmao i love u")
+
+    @commands.command(name="bbyhelp")
+    async def bbyhelp(self, ctx):
+        help_text = (
+            "--- ʕっʘ‿ʘʔ⊃ -*- babyllm commands -*- ⊂ʕʘ‿ʘ૮ʔ ---\n"
+            "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
+            "1) !bbycolour - set babys colour! either use RGB like 255 100 200, or !bbycolour + purple, orange, blue, pink, red, green, white, black, yellow, teal, grey, baby\n"
+            "2) !bby or !babyllm - send a message to babyLLM and he will reply :)\n"
+            "3) !aioptin — lets your chats affect babys training (but he won't respond unless you use !bby)\n"
+            "4) !aioptout — don't let your messages be saved to training data anymore (ask charis if you want them all DELETED too)\n"
+            "5) !aioptcheck — check whether you're opted in\n"
+            "if you wanna find out more, check out: https://github.com/ChildOfAnAndroid/babyLLM - i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!\n")
+        for line in help_text.split("\n"):
+            await ctx.reply(line)
+            await asyncio.sleep(0.5)  # prevent Twitch rate limits
+
+
 if __name__ == "__main__":
     #if 'oauth:' not in twitchToken:
         #print("plz replace 'twitchToken' with PHONE.babyBot's token :) - maybe it expired?")
     #else:
-    bot = PHONE.babyBot()
+    bot = BABYBOT_TWITCH()
     bot.run()
