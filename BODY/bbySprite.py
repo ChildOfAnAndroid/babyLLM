@@ -26,8 +26,8 @@ babyStateFilePath = "babyState.json"
 
 # normally be updated live by BabyLLM's training process
 babyState = {
-    "eyes": 2,
-    "mouth": 5,
+    "eyes": 5,
+    "mouth": 1,
     "cheeks_on": False,
     "tears_on": False,
     "jumping": False,
@@ -45,6 +45,8 @@ babyState = {
     "memoryFlux": 0, 
     "learningStability": 0,
     "metabolicRate": 0,
+    "correct": False,
+    "speaking": False,
 }
 
 baseColour = {"R": 133, "G": 239, "B": 238}
@@ -52,6 +54,7 @@ currentColour = {"R": 133, "G": 239, "B": 238}
 targetColour = {"R": 133, "G": 239, "B": 238}
 
 def state_reader_loop():
+    niceCount = 0
     while True:
         if os.path.exists(babyStateFilePath):
             try:
@@ -65,9 +68,17 @@ def state_reader_loop():
                     if "tintStrength" not in babyState:
                         babyState["tintStrength"] = 1.0 
 
+                    if babyState["correct"] == True:
+                        currentColour["B"] *= 1.05
+                        smile = random.choice([0,0,0,0,0,0,0,0,0,1])
+                        babyState["mouth"] -= smile
+
+                    if babyState["mouth"] < 0:
+                        babyState["mouth"] = 3
+
                     dreamIntensity = babyState.get("dreamIntensity", 0.0)
                     bpm = 126
-                    bpm32th = 60 / (bpm * 8)
+                    bpm32th = 60 / (bpm * 16)
                     metabolicRate = round(dreamIntensity) * bpm32th
                     babyState["metabolicRate"] = metabolicRate
 
@@ -79,32 +90,38 @@ threading.Thread(target=state_reader_loop, daemon=True).start()
 
 def blink_loop():
     while True:
-        time.sleep(1 + (time.time() % 6))
-        metabolicRate = babyState.get("metabolicRate", 0.0)
-
-        metabolicRate = random.choice([0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.119, 0.238, 0.238, 0.472])
-        original_eyes = babyState["eyes"]  # save current emotion
-        babyState["eyes"] = 0  # blink column
+        metabolism = babyState.get("metabolicRate", 0.5)
+        metabolicRate = metabolism * 0.5
+        dreamIntensity = babyState.get("dreamIntensity", 10.0)
+        wakefulness = max(1, round(dreamIntensity))  # never below 1
+        time.sleep(2 + (time.time() % wakefulness))
+        original_eyes = babyState["eyes"]  # save current eyes
+        blinkDirection = random.choice([0, 1])
+        babyState["eyes"] = blinkDirection  # blink
         print(f"*blimk*")
         time.sleep(metabolicRate)
+        if babyState["mouth"] < 20 and babyState["mouth"] > 0:
+            babyState["mouth"] += 1
         
-        babyState["eyes"] = original_eyes  # restore emotion
+        babyState["eyes"] = original_eyes
         
         if random.random() < 0.05:
+            if babyState["mouth"] < 100 and babyState["mouth"] > 0:
+                babyState["mouth"] += 2
             time.sleep(metabolicRate)
-            babyState["eyes"] = 0  # blink column
+            babyState["eyes"] = blinkDirection  # blink
             print(f"**blimk**")
             time.sleep(metabolicRate)
             
-            babyState["eyes"] = original_eyes  # restore emotion
+            babyState["eyes"] = original_eyes
             
             if random.random() < 0.05:
                 time.sleep(metabolicRate)
-                babyState["eyes"] = 0  # blink column
+                babyState["eyes"] = blinkDirection  # blink
                 print(f"***blimk***")
                 time.sleep(metabolicRate)
                 
-                babyState["eyes"] = original_eyes  # restore emotion
+                babyState["eyes"] = original_eyes
                 time.sleep(metabolicRate)
 
 threading.Thread(target=blink_loop, daemon=True).start()
@@ -126,7 +143,7 @@ def pulse_loop():
         metabolicRate = babyState.get("metabolicRate", 0.0)
         
         # --- body language ---
-        stimChoice = random.choice(["random", "tense", "dreamy", "flux"])
+        stimChoice = random.choice(["random", "tense", "dreamy", "flux", "blushy"])
         
         if stimChoice == "tense":
             # cerebral load -> tense (tall/thin) vs. relaxed (short/wide)
@@ -151,8 +168,13 @@ def pulse_loop():
             babyState["squish_down"] = is_flux
 
         elif stimChoice == "random":
-            keyChoice = random.choice(["stretch_left", "stretch_right", "stretch_up", "stretch_down", "squish_left", "squish_right", "squish_up", "squish_down", "cheeks_on", "tears_on"])
+            keyChoice = random.choice(["stretch_left", "stretch_right", "stretch_up", "stretch_down", "squish_left", "squish_right", "squish_up", "squish_down",])
             babyState[keyChoice] = random.choice([True, False])
+
+        elif stimChoice == "blushy":
+            if babyState["cheeks_on"] == True:
+                blush = random.choice([True, False])
+                babyState["cheeks_on"] = blush
             
         time.sleep(metabolicRate)
 
@@ -163,6 +185,8 @@ def jump_reset():
     metabolicRate = metabolism * 5
     while True:
         if babyState.get("jumping"):
+            if random.uniform(0, 1) < 0.05:
+                babyState["cheeks_on"] = True
             time.sleep(metabolicRate)
             babyState["jumping"] = False
             if random.random() < 0.2:
@@ -173,6 +197,7 @@ def jump_reset():
                 if random.random() < 0.15:
                     time.sleep(metabolicRate)
                     babyState["jumping"] = True
+                    babyState["cheeks_on"] = True
                     time.sleep(metabolicRate)
                     babyState["jumping"] = False
                     if random.random() < 0.1:
@@ -188,6 +213,22 @@ def jump_reset():
         time.sleep(0.1)
 
 threading.Thread(target=jump_reset, daemon=True).start()
+
+def speak_loop():
+    restingMouth = babyState["mouth"]
+    while True:
+        if babyState.get("speaking", False):
+            babyState["mouth"] = random.randint(55, 65)
+            time.sleep(babyState.get("metabolicRate", 0.1))
+            if random.random() < 0.25:
+                babyState["mouth"] = restingMouth
+                time.sleep(babyState.get("metabolicRate", 0.1))
+        else:
+            babyState["mouth"] = restingMouth
+            babyState["speaking"] = False
+            time.sleep(0.1)
+
+threading.Thread(target=speak_loop, daemon=True).start()
 
 def buildBabySprite():
     # Directional stretch (max 1px per side)
@@ -323,7 +364,7 @@ def set_colour():
     colour_input = data.get("colour", "").lower().strip()
 
     namedColours = {
-        "purple":   {"R": 181, "G": 126, "B": 220},
+        "purple":     {"R": 181, "G": 126, "B": 220},
         "orange":     {"R": 255, "G": 145, "B": 0},
         "blue":       {"R": 0,   "G": 132, "B": 255},
         "pink":       {"R": 255, "G": 102, "B": 204},
@@ -357,6 +398,15 @@ def set_colour():
         return {"status": "ok", "set": rgb}
 
     return {"status": "error", "msg": f"invalid colour input: '{colour_input}'"}, 400
+
+@app.route("/speak", methods=["POST"])
+def trigger_speaking():
+    data = request.json
+    if isinstance(data, dict) and "speaking" in data:
+        babyState["speaking"] = bool(data["speaking"])
+    else:
+        babyState["speaking"] = False
+    return {"status": "ok"}
 
 @app.route("/baby.html")
 def baby_html():
@@ -396,7 +446,7 @@ def baby_html():
                 border-radius: 10px;
                 box-shadow: 3px 3px black;
                 font-size: 36px;
-                colour: white;
+                color: white;
                 font-family: 'Silkscreen', monospace;
                 padding: 8px 10px;
                 overflow: hidden;
@@ -423,7 +473,7 @@ def baby_html():
             }}
         </style>
         <script>
-            let lastSpeech = "";
+        let lastSpeech = "";
             let currentIndex = 0;
             let displayTimer = null;
             let fadeTimer = null;
@@ -435,18 +485,34 @@ def baby_html():
                 currentIndex = 0;
                 targetEl.parentElement.classList.add("visible");
 
+                // Send SPEAKING = TRUE now
+                fetch("/speak", {{
+                    method: "POST",
+                    body: JSON.stringify({{ speaking: true }}),
+                    headers: {{ "Content-Type": "application/json" }}
+                }});
+
                 function typeChar() {{
                     if (currentIndex < text.length) {{
                         targetEl.innerHTML += text[currentIndex];
                         currentIndex++;
                         displayTimer = setTimeout(typeChar, 75);
+                    }} else {{
+                        // STOP SPEAKING IMMEDIATELY
+                        fetch("/speak", {{
+                            method: "POST",
+                            body: JSON.stringify({{ speaking: false }}),
+                            headers: {{ "Content-Type": "application/json" }}
+                        }});
+
+                        // Fade bubble a bit later
+                        fadeTimer = setTimeout(() => {{
+                            targetEl.parentElement.classList.remove("visible");
+                        }}, 4000);
                     }}
                 }}
-                typeChar();
 
-                fadeTimer = setTimeout(() => {{
-                    targetEl.parentElement.classList.remove("visible");
-                }}, 20000);
+                typeChar();
             }}
 
             function refresh() {{

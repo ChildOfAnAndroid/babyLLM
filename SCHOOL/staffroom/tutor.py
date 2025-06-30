@@ -573,6 +573,7 @@ class TUTOR:
                     self.rgbTargetBar     += tgt_block
 
                     try:
+                        JSONtokenCorrect = self.tokenLevelCorrect[-1] if len(self.tokenLevelCorrect)>0 else False
                         if True: #j == 0:
                             CL = self.model.cerebralLoad
                             DI = self.model.dreamIntensity
@@ -586,6 +587,7 @@ class TUTOR:
                             "dreamIntensity": DI,
                             "memoryFlux": MF, 
                             "learningStability": LS,
+                            "correct": JSONtokenCorrect,
                         }
                         with open(babyStateFilePath, 'w') as f:
                             json.dump(babyState, f)
