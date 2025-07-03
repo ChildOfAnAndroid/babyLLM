@@ -86,6 +86,7 @@ lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
 babyStateFilePath = "BODY/babyState.json"
 tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
+chatBufferFilepath = "SHKAIRA/soul/chatBuffer.txt"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -582,7 +583,7 @@ perfectionistRun = True
 # --- #
 trainingDataPairNumber = 100 #169420
 trainingWordLength = 10
-trainingDataStride = max(1,round(numTokensPerStepSTART * 0.75))
+trainingDataStride = max(1,round(numTokensPerStepSTART * 0.1))
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
 tokenSpeedTest = False

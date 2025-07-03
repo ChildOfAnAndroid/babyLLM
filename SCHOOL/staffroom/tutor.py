@@ -1045,9 +1045,9 @@ class TUTOR:
 
             if debugPrints: ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.totalTurns > printFreq:
-                if perfectionistRun: chance = (0.00005 * self.numTokensPerStep)
-                else: chance =(0.00005 * self.numTokensPerStep)
-                self.scribe.maybeCommentOnGuess(self.guessedTokenSeq, (self.stepLossFloat*0.1), "scribe", chance)
+                if perfectionistRun: chance = (0.0001 * self.numTokensPerStep)
+                else: chance = (0.0002 * self.numTokensPerStep)
+                self.scribe.maybeCommentOnGuess(self.decodedTokenIndices, (self.stepLossFloat), "scribe", chance)
 
             if debugPrints: ʕっʘ‿ʘʔっ("collectStats♥")
 

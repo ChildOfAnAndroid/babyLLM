@@ -77,7 +77,7 @@ def state_reader_loop():
                         babyState["mouth"] = 3
 
                     dreamIntensity = babyState.get("dreamIntensity", 0.0)
-                    bpm = 126
+                    bpm = 124
                     bpm32th = 60 / (bpm * 16)
                     metabolicRate = round(dreamIntensity) * bpm32th
                     babyState["metabolicRate"] = metabolicRate
@@ -259,8 +259,8 @@ def buildBabySprite():
     for channel in ["R", "G", "B"]:
         delta = targetColour[channel] - currentColour[channel]
         currentColour[channel] += delta * blend_speed
-        #delta = baseColour[channel] - currentColour[channel]
-        #currentColour[channel] += delta * return_speed
+        delta = baseColour[channel] - currentColour[channel]
+        currentColour[channel] += delta * return_speed
 
     tintStrength = babyState.get("tintStrength", 1.0)
 
@@ -394,6 +394,8 @@ def set_colour():
     if rgb:
         for ch in ["R", "G", "B"]:
             currentColour[ch] = rgb[ch]
+            delta = currentColour[ch] - baseColour[ch]
+            baseColour[ch] += delta * 0.02
         print(f"baby colour updated to RGB: {rgb}")
         return {"status": "ok", "set": rgb}
 

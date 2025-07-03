@@ -107,7 +107,14 @@ class MEMORY(nn.Module):
 
             # unified gate logits -> shape: [1, 4 * numNeurons]
             if debugPrints: ʕっʘ‿ʘʔっ("self.gateLater2")
-            gateLogits = self.gateLayer2(reducedInput).view(4, numNeurons)
+            #gateLogits = self.gateLayer2(reducedInput)
+            gateLogits = self.gateLayer2(reducedInput).squeeze(0)  # removes batch dim, gives [40000]
+
+            # check before reshaping
+            if gateLogits.shape[0] != 4 * numNeurons:
+                raise ValueError(f"gateLogits shape mismatch: expected {(4 * numNeurons,)}, got {gateLogits.shape}")
+
+            gateLogits = gateLogits.view(4, numNeurons)
             self.gateLogitsBuf.copy_(gateLogits.detach())  # keep detached version for logging
             if debugPrints: ʕっʘ‿ʘʔっ("clamp gatelayer2 -> gateLogits")
             gateLogits = gateLogits.clamp(-30, 30)
