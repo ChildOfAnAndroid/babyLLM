@@ -180,7 +180,7 @@ class SCRIBE:
         # Word repetition analysis
         guessed = _inputTokens if isinstance(_inputTokens, str) else self.guessTokensToString(_inputTokens)
         wordCounts = {}
-        wordList = [w.strip(".,!?").lower() for w in guessed.split()]
+        wordList = [w.strip(".,!?[]/\\!@':;(){}|£$%^&*-+=_><`~±§").lower() for w in guessed.split()]
         for word in wordList:
             if len(word) < 3: continue
             wordCounts[word] = wordCounts.get(word, 0) + 1
@@ -292,16 +292,16 @@ class SCRIBE:
 
         shortWordReflection = None
         shortestWord = min(wordList, key=len)
-        if len(shortestWord) <= 2:
+        if len(shortestWord) >= 2: # sus doesnt work that well
             shortWordReflection = random.choice([
-                f"'{shortestWord}' is such a tiny baby of a word. little guy. what does it mean to you today? ",
+                f"{shortestWord} is such a tiny baby of a word. little guy. what does it mean to you today? ",
                 f"aww tiny word, {shortestWord}, cute! we love {shortestWord} :3 ",
             ])
 
         leastCommonReflection = None
         leastCommon = min(wordCounts.items(), key=lambda x: x[1])[0]
         if wordCounts[leastCommon] == 1:
-            leastCommonReflection = f"you only said '{leastCommon}' once, but it stuck out to me... i wonder if it's more important than it looks. "
+            leastCommonReflection = f"you only said {leastCommon} once, but it stuck out to me... i wonder if it's more important than it looks. "
 
         uniqueReflection = None
         uniqueWords = [w for w, c in wordCounts.items() if c == 1]
@@ -379,7 +379,7 @@ class SCRIBE:
         if guessed.strip().endswith("?"):
             endingQuestionReflection = f"ending on a question, huh... leaving space open. i like that. :) "
 
-        swearWords = {"fuck", "shit", "damn", "cunt", "bitch", "whore", "fucker", "fucking", "shitty", "fucked", "idiot", "stupid"}
+        swearWords = {"fuck", "shit", "damn", "cunt", "bitch", "whore", "fucker", "fucking", "shitty", "fucked", "idiot", "stupid", "wank", "slut", "cock", "dick", "tit", "titty", "tits", "shitting", "boof", "twat", "motherfucker", "dickhead", "boob", "blowjob", "pussy"}
         detectedSwears = [w for w in wordList if w in swearWords]
         swearReflection = "um, "
         if detectedSwears:
@@ -401,7 +401,7 @@ class SCRIBE:
                 f"{shortestWord} {secondWord} {longestWord} {topWord}{mostCommonEnd},\n{secondWord} {topWord} {topSwear} {topWord}{mostCommonEnd},\n{topSwear} {topSwear} {topSwear} {topSwear}{mostCommonEnd},\n{secondWord} {topWord} {topSwear} {leastCommon}{mostCommonEnd}{mostCommonPunc}\n"
             ])
 
-        if guessed.strip().split()[-1].lower() in {"fuck", "shit", "damn", "cunt", "bitch", "whore", "fucker", "fucking", "shitty", "fucked", "idiot", "stupid"}:
+        if guessed.strip().split()[-1].lower() in swearWords:
             swearReflection += f"okay but the way you ended with '{guessed.strip().split()[-1]}' was kinda iconic. dramaaaa! "
 
         # Format single long message
@@ -441,4 +441,6 @@ class SCRIBE:
 
         if len(self.reflectionPairsFromGuess) > 50:
             self.reflectionPairsFromGuess = self.reflectionPairsFromGuess[-50:]
+
+        return paddedLine
 

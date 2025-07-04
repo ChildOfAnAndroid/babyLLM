@@ -133,6 +133,7 @@ REPLACEMENTS = {"’": "'",
                 "   ": " ",
                 "  ": " ",
                 " ": " ", # weird ass space thing
+                "": "",
                 " amnot ": " am not ", 
                 " embarassing": " embarrassing",
                 " beleive": " believe", 

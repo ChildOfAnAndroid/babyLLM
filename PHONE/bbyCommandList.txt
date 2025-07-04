@@ -3,3 +3,37 @@
 !aioptin — lets your chats affect babys training (but he won't respond unless you use !bby)
 !aioptout — don't let your messages be saved to training data anymore (ask charis if you want them all DELETED too)
 !aioptcheck — check whether you're opted in
+
+colours:
+    namedColours = {
+        "purple":     {"R": 181, "G": 126, "B": 220},
+        "orange":     {"R": 255, "G": 145, "B": 0},
+        "blue":       {"R": 0,   "G": 132, "B": 255},
+        "pink":       {"R": 255, "G": 102, "B": 204},
+        "red":        {"R": 255, "G": 80,  "B": 80},
+        "green":      {"R": 80,  "G": 255, "B": 170},
+        "white":      {"R": 255, "G": 255, "B": 255},
+        "black":      {"R": 10,  "G": 10,  "B": 10},
+        "yellow":     {"R": 255, "G": 255, "B": 100},
+        "teal":       {"R": 100, "G": 255, "B": 255},
+        "grey":       {"R": 120, "G": 120, "B": 120},
+        "baby":       {"R": 133, "G": 239, "B": 238},         
+    }
+
+    namedColours += {
+        "red red":      {"R": 255, "G": 0,   "B": 0},
+        "blue blue":    {"R": 0,   "G": 0,   "B": 255},
+        "green green":  {"R": 0,   "G": 255, "B": 0},
+        "fire brick":   {"R": 178, "G": 34,  "B": 34},
+        "coral":        {"R": 255, "G": 127, "B": 80},
+        "yellow green": {"R": 154, "G": 205, "B": 50},
+        "orange red":   {"R": 255, "G": 69,  "B": 0},
+        "sea green":    {"R": 46,  "G": 139, "B": 87},
+        "golden rod":   {"R": 218, "G": 165, "B": 32},
+        "chocolate":    {"R": 210, "G": 105, "B": 30},
+        "cadet blue":   {"R": 95,  "G": 158, "B": 160},
+        "dodger blue":  {"R": 30,  "G": 144, "B": 255},
+        "hot pink":     {"R": 255, "G": 105, "B": 180},
+        "blue violet":  {"R": 138, "G": 43,  "B": 226},
+        "spring green": {"R": 0,   "G": 255, "B": 127},
+    }

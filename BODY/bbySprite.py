@@ -52,6 +52,7 @@ babyState = {
 baseColour = {"R": 133, "G": 239, "B": 238}
 currentColour = {"R": 133, "G": 239, "B": 238}
 targetColour = {"R": 133, "G": 239, "B": 238}
+numMouthStyles = 63
 
 def state_reader_loop():
     niceCount = 0
@@ -75,9 +76,12 @@ def state_reader_loop():
 
                     if babyState["mouth"] < 0:
                         babyState["mouth"] = 3
+                    
+                    babyState["mouth"] = max(0, min(babyState["mouth"], numMouthStyles))
+
 
                     dreamIntensity = babyState.get("dreamIntensity", 0.0)
-                    bpm = 124
+                    bpm = 126
                     bpm32th = 60 / (bpm * 16)
                     metabolicRate = round(dreamIntensity) * bpm32th
                     babyState["metabolicRate"] = metabolicRate
@@ -253,14 +257,24 @@ def buildBabySprite():
         frame = bbyBODY.crop((0, i * bbyHeight, bbyBODY.width, (i + 1) * bbyHeight))
         bbyBODY_full.paste(frame, (0, 0), frame)
 
-    blend_speed = 0.02  # smaller = slower
-    return_speed = 0.00002
+    blend_speed = 0.1  # smaller = slower
+    return_speed = 0.075
 
     for channel in ["R", "G", "B"]:
+        def rgb_block(colour):
+            r = int(colour["R"])
+            g = int(colour["G"])
+            b = int(colour["B"])
+            return f"\033[48;2;{r};{g};{b}m   \033[0m"
+
+        print(f"[babyColour] BASE {rgb_block(baseColour)}  {baseColour}")
+        print(f"[babyColour] CURR {rgb_block(currentColour)}  {currentColour}")
         delta = targetColour[channel] - currentColour[channel]
         currentColour[channel] += delta * blend_speed
         delta = baseColour[channel] - currentColour[channel]
         currentColour[channel] += delta * return_speed
+        currentColour[channel] = max(0, min(255, currentColour[channel]))
+
 
     tintStrength = babyState.get("tintStrength", 1.0)
 
@@ -376,6 +390,21 @@ def set_colour():
         "teal":       {"R": 100, "G": 255, "B": 255},
         "grey":       {"R": 120, "G": 120, "B": 120},
         "baby":       {"R": 133, "G": 239, "B": 238},         
+        "red red":      {"R": 255, "G": 0,   "B": 0},
+        "blue blue":    {"R": 0,   "G": 0,   "B": 255},
+        "green green":  {"R": 0,   "G": 255, "B": 0},
+        "fire brick":   {"R": 178, "G": 34,  "B": 34},
+        "coral":        {"R": 255, "G": 127, "B": 80},
+        "yellow green": {"R": 154, "G": 205, "B": 50},
+        "orange red":   {"R": 255, "G": 69,  "B": 0},
+        "sea green":    {"R": 46,  "G": 139, "B": 87},
+        "golden rod":   {"R": 218, "G": 165, "B": 32},
+        "chocolate":    {"R": 210, "G": 105, "B": 30},
+        "cadet blue":   {"R": 95,  "G": 158, "B": 160},
+        "dodger blue":  {"R": 30,  "G": 144, "B": 255},
+        "hot pink":     {"R": 255, "G": 105, "B": 180},
+        "blue violet":  {"R": 138, "G": 43,  "B": 226},
+        "spring green": {"R": 0,   "G": 255, "B": 127},
     }
 
     rgb = None
@@ -395,7 +424,7 @@ def set_colour():
         for ch in ["R", "G", "B"]:
             currentColour[ch] = rgb[ch]
             delta = currentColour[ch] - baseColour[ch]
-            baseColour[ch] += delta * 0.02
+            baseColour[ch] += delta * 0.5
         print(f"baby colour updated to RGB: {rgb}")
         return {"status": "ok", "set": rgb}
 
@@ -428,6 +457,7 @@ def baby_html():
                 position: relative;
                 width: 550px;
                 height: 400px;
+                transition: opacity 1s linear;
             }}
             #baby {{
                 position: absolute;
@@ -475,10 +505,12 @@ def baby_html():
             }}
         </style>
         <script>
-        let lastSpeech = "";
+            let lastSpeech = "";
             let currentIndex = 0;
             let displayTimer = null;
             let fadeTimer = null;
+            let fadeStart = Date.now();
+            let fadeDuration = 30 * 60 * 1000; // 30 mins
 
             function typeOut(text, targetEl) {{
                 clearTimeout(displayTimer);
@@ -487,7 +519,10 @@ def baby_html():
                 currentIndex = 0;
                 targetEl.parentElement.classList.add("visible");
 
-                // Send SPEAKING = TRUE now
+                // Reset fade on speech
+                fadeStart = Date.now();
+
+                // Notify speaking
                 fetch("/speak", {{
                     method: "POST",
                     body: JSON.stringify({{ speaking: true }}),
@@ -500,14 +535,11 @@ def baby_html():
                         currentIndex++;
                         displayTimer = setTimeout(typeChar, 75);
                     }} else {{
-                        // STOP SPEAKING IMMEDIATELY
                         fetch("/speak", {{
                             method: "POST",
                             body: JSON.stringify({{ speaking: false }}),
                             headers: {{ "Content-Type": "application/json" }}
                         }});
-
-                        // Fade bubble a bit later
                         fadeTimer = setTimeout(() => {{
                             targetEl.parentElement.classList.remove("visible");
                         }}, 4000);
@@ -532,6 +564,14 @@ def baby_html():
                     }});
             }}
 
+            function updateOpacity() {{
+                let elapsed = Date.now() - fadeStart;
+                let ratio = Math.min(1, elapsed / fadeDuration);
+                let opacity = 1.0 - ratio;
+                document.getElementById("wrap").style.opacity = opacity;
+            }}
+
+            setInterval(updateOpacity, 1000);
             setInterval(refresh, 150);
         </script>
     </head>

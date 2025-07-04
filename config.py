@@ -575,7 +575,7 @@ forwardProfiler = False
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 90000
+trainingDataSliceSize_min = 9000
 trainingDataSliceSize_max = 900000
 reflectionFreq = 10000
 stableFallThreshold = 1 # min 2 cause loss delta is a turn behind lol

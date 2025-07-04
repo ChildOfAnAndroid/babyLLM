@@ -242,6 +242,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
             "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/PHONE/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
         for line in help_text.split("\n"):
+            self.bot.buffer.append(formatMessage(self.bot.babyName, line))
             await ctx.reply(line)
             await asyncio.sleep(0.5)  # prevent Twitch rate limits
 

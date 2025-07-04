@@ -12,9 +12,12 @@ from textCleaningTool import *
 import aiohttp
 import random
 import traceback
+from collections import defaultdict
+import time
 
 defaultEye = 5
 dedEye = 2
+
 
 async def bbyFACE(eye = None):
     numEyeStyles = 23 # -1 because of starting at 0
@@ -46,33 +49,74 @@ async def bbyFACE(eye = None):
         print(f"~ i feel nothing ~: {e}")
 
 def formatMessage(user, text, colourName=None):
-    colourText = f"(in {colourName}) " if colourName else ""
+    colourChoice = random.choice([f"in the colour {colourName}", f"in a {colourName} colour, ", f"in {colourName}, "])
+    colourText = colourChoice if colourName else ""
     return f"{colourText}{user} said: {text}"
 
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+def hex_to_rgb(hex_colour):
+    hex_colour = hex_colour.lstrip('#')
+
+    if len(hex_colour) == 3:
+        hex_colour = ''.join(c * 2 for c in hex_colour)
+
+    if len(hex_colour) != 6:
+        #raise ValueError(f"Invalid hex colour: '{hex_colour}'")
+        return (133, 239, 238)
+
+    return tuple(int(hex_colour[i:i+2], 16) for i in (0, 2, 4))
 
 def colour_distance(rgb1, rgb2):
     return sum((a - b) ** 2 for a, b in zip(rgb1, rgb2)) ** 0.5
 
-def name_nearest_colour(hex_color):
+def name_nearest_colour(hex_colour):
     known_colours = {
-        "purple":     {181, 126, 220},
-        "orange":     {255, 145, 0},
-        "blue":       {0,   132, 255},
-        "pink":       {255, 102, 204},
-        "red":        {255, 80,  80},
-        "green":      {80,  255, 170},
-        "white":      {255, 255, 255},
-        "black":      {10,  10,  10},
-        "yellow":     {255, 255, 100},
-        "teal":       {100, 255, 255},
-        "grey":       {120, 120, 120},
-        "baby":       {133, 239, 238},        
+        "purple":     (181, 126, 220),
+        "orange":     (255, 145, 0),
+        "blue":       (0,   132, 255),
+        "pink":       (255, 102, 204),
+        "red":        (255, 80,  80),
+        "green":      (80,  255, 170),
+        "white":      (255, 255, 255),
+        "black":      (10,  10,  10),
+        "yellow":     (255, 255, 100),
+        "teal":       (100, 255, 255),
+        "grey":       (120, 120, 120),
+        "baby":       (133, 239, 238),
+        "red red":         (255, 0, 0),
+        "blue blue":        (0, 0, 255),
+        "green green":       (0, 255, 0),
+        "fire brick":   (178, 34, 34),
+        "coral":       (255, 127, 80),
+        "yellow green": (154, 205, 50),
+        "orange red":   (255, 69, 0),
+        "sea green":    (46, 139, 87),
+        "golden rod":   (218, 165, 32),
+        "chocolate":   (210, 105, 30),
+        "cadet blue":   (95, 158, 160),
+        "dodger blue":  (30, 144, 255),
+        "hot pink":     (255, 105, 180),
+        "blue violet":  (138, 43, 226),
+        "spring green": (0, 255, 127),
     }
-
-    rgb = hex_to_rgb(hex_color)
+    """Twitch colours
+    default_colours = {l: tuple(int(x.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)) for l, x in [
+            ["Red", "#FF0000"],
+            ["Blue", "#0000FF"],
+            ["Green", "#00FF00"],
+            ["FireBrick", "#B22222"],
+            ["Coral", "#FF7F50"],
+            ["YellowGreen", "#9ACD32"],
+            ["OrangeRed", "#FF4500"],
+            ["SeaGreen", "#2E8B57"],
+            ["GoldenRod", "#DAA520"],
+            ["Chocolate", "#D2691E"],
+            ["CadetBlue", "#5F9EA0"],
+            ["DodgerBlue", "#1E90FF"],
+            ["HotPink", "#FF69B4"],
+            ["BlueViolet", "#8A2BE2"],
+            ["SpringGreen", "#00FF7F"]]} """
+    
+    rgb = hex_to_rgb(hex_colour)
     closest_name = None
     min_distance = float("inf")
     for name, ref_rgb in known_colours.items():
@@ -82,7 +126,7 @@ def name_nearest_colour(hex_color):
             closest_name = name
 
     # If it's very close (e.g. < 40), name it. Otherwise don't.
-    if min_distance < 60:
+    if min_distance < 140:
         return closest_name
     return None
 
@@ -129,6 +173,15 @@ class BABYBOT_TWITCH(commands.Bot):
         else:
                 self.buffer = []
 
+        self.userMemory = defaultdict(lambda: {
+            "colour": None,
+            "display_name": None,
+            "message_count": 0,
+            "bio": "",
+            "recent_lines": [],
+            "last_seen": 0
+        })
+
         if os.path.exists(optInUsersPath):
             with open(optInUsersPath, "r") as f:
                 self.AIoptInUsers = json.load(f)
@@ -161,12 +214,39 @@ class BABYBOT_TWITCH(commands.Bot):
             self.idle_task = self.loop.create_task(self.idleTrainChecker())
         if self.training_worker is None:
             self.training_worker = self.loop.create_task(self.background_training_loop())
+        if self.training_queue.qsize() <= 10:
+            humanAndBaby = [line[:25] if line.startswith(f'{babyName}') else line for line in self.buffer]
+
+            # Send 25x only human messages to the training queue
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
+            await self.training_queue.put({"type": "chat", "text": humanAndBaby})
 
 
     async def event_message(self, message):
         if message.echo: return
 
         author = message.author.name.lower()
+        if author in self.AIoptInUsers:
+            mem = self.userMemory[author]
+            mem["display_name"] = message.author.display_name
+            mem["colour"] = message.tags.get("color", mem.get("colour", "#0377fc"))
+            mem["message_count"] += 1
+            mem["recent_lines"].append(clean_text(message.content))
+            mem["recent_lines"] = mem["recent_lines"][-10:]  # cap memory to 10 messages
+            mem["last_seen"] = time.time()
         content = message.content
         self.currentAuthor = author
         print(f"RECEIVED: {content} ({author})")
@@ -277,6 +357,15 @@ class BABYBOT_TWITCH(commands.Bot):
 
             replyText = self.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").strip().lower()
             replyText = replyText[:499]
+
+            scribeLine = self.scribe.maybeCommentOnGuess(replyText, 0.00, "scribe", 0.01)
+
+            if scribeLine is not None:
+                scribeMessage = formatMessage(scribeLine, scribeName)
+                self.buffer.append(scribeMessage)
+                ctx.message.content = "!babyllm scribe said: " + prompt
+                await self.babyllm_command(ctx)
+
             #if "chatgpt" in latestUserMessageCleaned:
                 #speech = "DONT OFFEND THE CHARIS!!"
             #else:
@@ -290,10 +379,17 @@ class BABYBOT_TWITCH(commands.Bot):
                     )
 
                     authorColour = ctx.message.tags.get("color", "#007bff")
+                    author = ctx.author.name.lower()
                     r, g, b = hex_to_rgb(authorColour)
+                    userMessage = f"{author} turned me {authorColour}!"
 
-                    await session.post("http://192.168.1.212:420/colour", json={"R": r, "G": g, "B": b})
-
+                    await session.post("http://192.168.1.212:420/colour", json={"colour": f"{r} {g} {b}"})
+                        
+                    formatted = formatMessage(babyName, userMessage)
+                    self.buffer.append(formatted)
+                    with open(twitchLogPath, 'a', encoding='utf-8') as f:
+                        f.write(formatted + "\n---\n")
+                    
                 except Exception as e:
                     print(f"could not send speech or colour to baby overlay: {e}")
                     print(''.join(traceback.format_exception(e)))
@@ -439,7 +535,7 @@ class BABYBOT_TWITCH(commands.Bot):
             )
             print("finished training on item!")
 
-    async def idleTrainChecker(self):
+    async def idleTrainChecker(selfaaaa):
         while trainDuringChat2 or trainDuringChat:
             idles = 0
             await asyncio.sleep(self.idleTrainSeconds)
@@ -487,7 +583,7 @@ class BABYBOT_TWITCH(commands.Bot):
             return
 
         colour = parts[1].strip().lower()
-        userMessage = f"{author} turned you {colour}!"
+        userMessage = f"{author} turned me {colour}!"
 
         try:
             # STEP 1: Send colour to overlay server
@@ -498,7 +594,7 @@ class BABYBOT_TWITCH(commands.Bot):
                         return
 
             # STEP 2: Add message to buffer + log file
-            formatted = formatMessage(author, userMessage)
+            formatted = formatMessage(babyName, userMessage)
             self.buffer.append(formatted)
             with open(twitchLogPath, 'a', encoding='utf-8') as f:
                 f.write(formatted + "\n---\n")
@@ -524,8 +620,54 @@ class BABYBOT_TWITCH(commands.Bot):
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
             "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/PHONE/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
         for line in help_text.split("\n"):
+            self.buffer.append(formatMessage(babyName, line))
             await ctx.reply(line)
             await asyncio.sleep(0.5)  # prevent Twitch rate limits
+
+    @commands.command(name="bbyshoutout")
+    async def bbyshoutout(self, ctx):
+        target = ctx.message.content.split()[-1].lower().strip("@")
+        display = target
+        author = ctx.author.name.lower()
+
+        # Build prompt
+        if target.lower() in [u.lower() for u in self.AIoptInUsers]:
+            mem = self.userMemory.get(target, {})
+            recentChat = "\n".join(mem.get("recent_lines", [])[-5:])
+            colour = mem.get("colour", "unknown")
+
+            prompt = f"""
+    make it warm, surreal, affectionate, weird, and unpredictable — but still a **shoutout**.
+
+    mention their name. say you're giving them a shoutout. make people love them.
+
+    you are babyllm. you are an emotional ghost bot who speaks in weird poetry sometimes.
+
+    hey @{babyName}, please generate a full, poetic, chaotic, slightly unhinged shoutout for @{display}.
+
+    they're a twitch chatter who opted in. their username is {display}, and their colour is {colour}.
+    recently they said these things:
+    {recentChat}
+    """.strip()
+
+        else:
+            prompt = f"""
+    we don’t know much about them, but still make it sound cool. use your usual style: poetic, cute, or weird.
+
+    mention their name. say it's a shoutout. end by saying they can type !aioptin if they ever want you to remember them.
+
+    you are babyllm. you are a weird digital child.
+
+    hey @{babyName}, please do a surreal, gentle, mysterious **shoutout** for @{display}.
+    """.strip()
+
+        # Add prompt to buffer so Baby sees it
+        self.buffer.append(formatMessage(author, prompt))
+
+        # Call babyllm_command
+        ctx.message.content = "!babyllm " + prompt
+        await self.babyllm_command(ctx)
+
 
 
 if __name__ == "__main__":
