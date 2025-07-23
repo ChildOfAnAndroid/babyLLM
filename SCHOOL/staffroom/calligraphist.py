@@ -370,8 +370,8 @@ class S_OUTPUT:
                 if v not in (None, "")
             ]) + newLineDelim"""
             maxKeyLen = 12
-            maxCols = 7
-            cellWidth = statTopLen + decLen + maxKeyLen
+            maxCols = 6
+            cellWidth = statTopLen + decLen + maxKeyLen - 1
 
             statSections = [
                 ("EMBED STATS", re.compile(r"1E_")),

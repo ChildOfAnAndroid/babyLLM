@@ -6,6 +6,7 @@
 import torch
 import torch.nn as nn
 from config import *
+import torch.nn.functional as F
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 class LOGITS(nn.Module):
@@ -23,8 +24,6 @@ class LOGITS(nn.Module):
         self.normedActivationsScale = nn.Parameter(torch.tensor(0.5)) 
 
         self.logitNorm = nn.LayerNorm(vocabSize, device = self.device)
-        self.outputScale = nn.Parameter(torch.tensor(0.5)) 
-        self.normOutputScale = nn.Parameter(torch.tensor(0.5)) 
 
         self.stats = {}
 
@@ -64,34 +63,30 @@ class LOGITS(nn.Module):
             """imports the activations from interneuronNetwork, assuming that is is a tensor"""
             if debugPrints: ʕっʘ‿ʘʔっ("L1: activationsTensor") # <- INN? no? seems to come from babyLLM? maybe through babyLLM?
             actsTensor = _meanActivationsTensor # _1
-            rawActScale = torch.sigmoid(self.rawActivationsScale)
-            normActScale = torch.sigmoid(self.normedActivationsScale)
+            #rawActScale = torch.sigmoid(self.rawActivationsScale)
+            #normActScale = torch.sigmoid(self.normedActivationsScale)
             if debugPrints: ʕっʘ‿ʘʔっ("L2: normedActivationsTensor") # <- L1
             normedActsTensor = self.activationNorm(actsTensor) # _2
-            scaledActs = (actsTensor * rawActScale + normedActsTensor * normActScale)
-            scaledActs = scaledActs.clamp(-10, 10)
+            #scaledActs = (actsTensor * rawActScale + normedActsTensor * normActScale)
+            scaledActs = actsTensor + normedActsTensor # direct pass through skipping scaling
+            #scaledActs = scaledActs.clamp(-10, 10)
 
             if debugPrints: print(f"Debug logits: activations shape before @ weights: {scaledActs.shape}")
             if debugPrints: print(f"Debug logits: weights shape: {self.l_weights.shape}")
                         
             if debugPrints: ʕっʘ‿ʘʔっ("L3: scaledActivations") # <- L1 + L2
-            logitOutput = (scaledActs @ self.l_weights / (numNeurons ** 0.5)) + self.l_bias
-            logitOutput = logitOutput.clamp(-60, 60)
-            #logitNormed = (scaledActs @ self.l_weights) / (numNeurons ** 0.5) + self.l_bias
-            logitNormed = self.logitNorm(logitOutput)  # softly smooth
+            #logitOutput = (scaledActs @ self.l_weights / (numNeurons ** 0.5)) + self.l_bias
+            logitOutput = (scaledActs @ self.l_weights) + self.l_bias
+            #logitOutput = logitOutput.clamp(-60, 60) # DO NOT CLAMP, softens too much!
+            logitNormed = self.logitNorm(logitOutput) #+ logitOutput  # softly smooth
+            finalLogit  = logitNormed
 
-            if debugPrints: ʕっʘ‿ʘʔっ("L4: logitOutput") # <- L3 (with weights and bias)
-            outScale = torch.sigmoid(self.outputScale)
-            normOutScale = torch.sigmoid(self.normOutputScale)
-            finalLogit = (logitOutput * outScale) + (logitNormed * normOutScale)
             if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
 
             if debugPrints: ʕっʘ‿ʘʔっ("clamp scalar parameters")
             with torch.no_grad():
-                self.rawActivationsScale.data.clamp_(-10, 10)
-                self.normedActivationsScale.data.clamp_(-10, 10)
-                self.outputScale.data.clamp_(-10, 10)
-                self.normOutputScale.data.clamp_(-10, 10)
+                self.rawActivationsScale.data.clamp_(0, 0.75)
+                self.normedActivationsScale.data.clamp_(0, 0.75)
 
             if debugPrints: ʕっʘ‿ʘʔっ("append rolling self.stats")
             self.tensorNormHist.append(actsTensor.norm().item())
@@ -195,7 +190,7 @@ class LOGITS(nn.Module):
                 #self.stats["6L_1_normActsTensor_scale"] = normedScale.item()
                 #self.stats["6L_3_outSigmoid_scale"] = outScale.detach().item()
                 #self.stats["6L_4_outNormSigmoid_scale"] = normOutScale.detach().item()
-            if debugPrints: print("activation norm:", scaledActs.norm().item())
+            #if debugPrints: print("activation norm:", scaledActs.norm().item())
             if debugPrints: print("weight norm mean:", self.l_weights.norm(dim = 0).mean().item())
             if debugPrints: print("weight norm max:", self.l_weights.norm(dim = 0).max().item())
 
@@ -215,8 +210,6 @@ class LOGITS(nn.Module):
                 # scales (dont need on per token history as only updated in backward)
                 self.stats["6L_0_actsTensor_scale"] = self.rawActivationsScale.norm().item()
                 self.stats["6L_1_normActsTensor_scale"] = self.normedActivationsScale.norm().item()
-                self.stats["6L_3_out_scale"] = self.outputScale.detach().norm().item()
-                self.stats["6L_4_normOut_scale"] = self.normOutputScale.detach().norm().item()
 
                 if debugPrints: ʕっʘ‿ʘʔっ("sparsityStat")
                 sparsity = (self.l_weights.detach().abs() < 1e-5).float().mean().item()

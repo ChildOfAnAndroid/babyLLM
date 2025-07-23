@@ -98,6 +98,7 @@ class TUTOR:
         self.averageTriesTotal          = 0
         self.perfectionistPassRate      = _perfectionistPassRateSTART
         self.avgPixelDistTotals         = 0
+        self.decodedTokenIndices        = ""
 
         self.aaa    = 0
         self.bbb    = 0
@@ -551,14 +552,14 @@ class TUTOR:
                         slice2 = f"{smallDist:.0f}"
                         slice3 = slice2
 
-                    pixelThresh = 10
+                    pixelThresh = 1
                     self.avgPixelDist += pixelDist
 
                     #prompt_block = f"\x1b[48;2;{rp};{gp};{bp}m\x1b[38;2;{r};{g};{b}m{slice1}\x1b[0m"
                     if (r, g, b) == (rt, gt, bt):
                         invert_r, invert_g, invert_b = 255 - r, 255 - g, 255 - b
                         # Bold 1, Underline 4
-                        pred_block = f"\x1b[1;4;48;2;{invert_r};{invert_g};{invert_b}m\x1b[38;2;{rt};{gt};{bt}m{slice2}\x1b[0m"
+                        pred_block = f"\x1b[1;4;48;2;{invert_r};{invert_g};{invert_b}m\x1b[38;2;{rt};{gt};{bt}m{slice1}\x1b[0m"
                     elif pixelDist <= pixelThresh:
                         invert_r, invert_g, invert_b = 255 - r, 255 - g, 255 - b
                         # Bold 1, Underline 4, Yellow text 38;5;226
@@ -648,7 +649,7 @@ class TUTOR:
             BACKWARDperfMod = (1.0 - perfectInfluence) + (perfectInfluence * perfectLossModifier)
 
             self.avgPixelDist       = self.avgPixelDist / self.numTokensPerStep
-            pixelDistLoss           = min(1.5,self.avgPixelDist * 0.00001)
+            pixelDistLoss           = min(1.5,self.avgPixelDist * 0.001)
             self.pixelDistLoss_used = pixelDistLoss
 
             if debugPrints: ʕっʘ‿ʘʔっ("backward")
@@ -656,24 +657,39 @@ class TUTOR:
             self.triesLoss_used = (BACKWARDloss * (BACKWARDtriesMod - 1.0))
             self.perfLoss_used = (BACKWARDloss * (BACKWARDperfMod - 1.0))
             BACKWARDloss = BACKWARDloss * BACKWARDtriesMod * BACKWARDperfMod
-            BACKWARDloss = BACKWARDloss + (pixelDistLoss * 1.5)
+            BACKWARDloss = BACKWARDloss + pixelDistLoss
 
             #entropyBonus = getattr(self.model.interneuronNetwork, "entropyBonus", 0.0)
             #entropyPenalty = 0.01 * entropyBonus
             #BACKWARDloss -= entropyPenalty
             #self.entropyLoss_used = entropyPenalty
-            self.totalLoss += BACKWARDloss.item()
-            self.latestLossDelta = BACKWARDloss.item() - self.averageRecentLoss
-            #if windowEntropyBonus:
+
+            if windowEntropyBonus:
+                WEloss = BACKWARDloss
+                # entropy above the minimum
+                WEloss -= 0.00001 * torch.relu(0.02 - self.model.interneuronNetwork.entropyBonus)
+                WEloss -= 0.00010 * torch.relu(0.20 - self.model.interneuronNetwork.windowSizeEntropy)
+                rangePenalty = self.model.interneuronNetwork.rangePenalty
+                WEloss += 0.0010 * rangePenalty
+                meanPenalty = self.model.interneuronNetwork.meanPenalty
+                WEloss -= 0.0050 * meanPenalty
+                BACKWARDloss = WEloss
                 #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                    #entropyLoss = (0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.0001))
-                    #BACKWARDloss = BACKWARDloss + entropyLoss
-                    #self.entropyLoss_used = entropyLoss
+                #    entropyLoss = -0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.02) # MUST BE NEGATIVE!
+                #    BACKWARDloss = BACKWARDloss + entropyLoss
+                #    self.entropyLoss_used = entropyLoss
+
+                #if hasattr(self.model.interneuronNetwork, "windowSizeEntropy"):
+                #    entropySizeLoss = -0.1 * max(self.model.interneuronNetwork.windowSizeEntropy, 0.2) # MUST BE NEGATIVE!
+                #    BACKWARDloss = BACKWARDloss + entropySizeLoss
+                #    self.entropySizeLoss_used = entropySizeLoss
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
                 return [], []
             else: 
                 if debugPrints: print("TUTOR.trainStep.backward - loss is not NaN or Inf:", BACKWARDloss)
+                self.totalLoss += BACKWARDloss.item()
+                self.latestLossDelta = BACKWARDloss.item() - self.averageRecentLoss
                 
             try:
                 self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
@@ -704,7 +720,7 @@ class TUTOR:
             self.stats["loss"]              = self.stepLossFloat
             self.learningRate               = math.exp(self.model.logLR.detach().cpu().item())
             self.memoryLength               = self.model.memoryLength.detach().cpu().numpy().item()
-            self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().cpu().item())
+            #self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().cpu().item())
             self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
             self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
             #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
@@ -724,6 +740,14 @@ class TUTOR:
     
     @whocalled
     def getPixelForStep(self, j):
+        babyState = {}
+        try:
+            with open(babyStateFilePath, 'r') as f:
+                babyState = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError, IOError):
+            # its okay if we miss a frame.
+            pass 
+
         x = (j + 1) / (self.numTokensPerStep + self.trainingStepCounter%10)
 
         perf        = (self.totalTokenPerfectRate + self.tokenPerfectRate) / 200
@@ -734,32 +758,52 @@ class TUTOR:
         totDelta    = min((abs(self.averageRecentLoss - self.lastRunLoss)), 10) /10
 
         # PULSE SPEED = HIGHER LOSS RATE, HIGHER PULSE SPEED (increased metabolism?)
-        pulseSpeed  = (1.0 
-                    + (x * 0.5)
-                    + 4 * delta 
-                    + 2 * ((self.totalAvgLoss * 0.3) 
-                    + (stepLoss * 0.35) 
-                    + (tokenLoss * 0.35)))
+        pulseSpeed  = (0.5
+                    + (x * 0.25)
+                    + 2 * delta 
+                    + 1 * ((self.totalAvgLoss * 0.15) 
+                    + (stepLoss * 0.25) 
+                    + (tokenLoss * 0.25)))
         timePulse   = 0.5 * (1 + math.sin(2 * math.pi * pulseSpeed * x))
 
         # RED - HIGH PERFECT TOKENS, EXCITED/SKILLED (energy up when getting more perfect, more red!)
         red         = (0.01 
-                    + (0.2 * timePulse) 
-                    + (0.2 * ((perf * 0.7) 
-                    + (tokenLoss * 0.3))) 
-                    + (0.6 * correct))
+                    + (0.15 * timePulse) 
+                    + (0.15 * ((perf * 0.7) 
+                    + (tokenLoss * 0.2))) 
+                    + (0.8 * correct))
+        red         = min(red, 1.0)
         # GREEN - HIGH ABS DELTA, OVERSTIMULATED/LEARNING, mid range (growth up (or a bit queasy lol) when getting stronger deltas, more green!)
         hueShift    = (math.sin(2 * math.pi * (x + delta + perf)) + 1) / 2  # [0..1]
+        high_delta_event = pow(delta, 3) 
         green       = (0.01 
                     + (tokenLoss * 0.08)
                     + ((0.2 * ((delta * 0.5) 
                     + ((self.totalAvgAbsDelta * 0.6) + (self.totalAvgDelta * 0.4) * 0.5))) 
                     + 0.05 * hueShift))
+        green       = (green + (0.01 + (high_delta_event * 0.5))) * 0.5
+        green       = min(green, 1.0)
         # BLUE - HIGH PASS RATE, CALM, long range (calm up when doing better than the previous run, more blue!)
         blue        = (0.3 
                     + ((self.perfectionistPassRate/100) * 0.6) 
                     + (0.2 * totDelta) 
                     + (0.4 * (1 - timePulse)))
+        blue        = min(blue, 1.0)
+
+        if babyState:
+            ext_col = babyState.get("currentColour", {"R": 128, "G": 128, "B": 128})
+            #print(f"using bbySprite colours :D ({ext_col})")
+
+            # Scale external RGB [0–255] to [0–1]
+            ext_r   = ext_col["R"] / 255.0
+            ext_g   = ext_col["G"] / 255.0
+            ext_b   = ext_col["B"] / 255.0
+
+            # Blend internal prediction with external colour drift
+            blend_factor = 0.25  # scales 0–1 ideally
+            red     = red   * (1 - blend_factor) + ext_r * blend_factor
+            green   = green * (1 - blend_factor) + ext_g * blend_factor
+            blue    = blue  * (1 - blend_factor) + ext_b * blend_factor
 
         pixelPret   = torch.tensor([red, green, blue], device = self.device).clamp(0, 1)
 
@@ -920,6 +964,9 @@ class TUTOR:
                 _latestLossDelta = self.latestLossDelta,
                 _totalTokenCount = self.tokenCounts)
  
+    def tidy_token(self, tok):
+        return tok.replace("Ġ", " ").replace("Ċ", "\n").strip()
+
     @whocalled
     def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging, _saveLog, _currentStepOverride = None):
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
@@ -932,10 +979,13 @@ class TUTOR:
                 for k, v in Counter(rollingDict).most_common(50)])
             #topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
             #topTokens_str = "[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(20)]) + "]"
-            topTokens_str = ": " + delimiter.join([
+            self.topTokens_str = ": " + delimiter.join([
                 self.calligraphist.S_apply("dim", f"{k}({v:.1f})")
                 for k, v in self.tokenCounts.most_common(50)
             ])
+            self.topTokens_forBot = ": " + delimiter.join(
+                f"{self.tidy_token(k)}" for k, v in self.tokenCounts.most_common(100)
+            )
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
@@ -980,7 +1030,7 @@ class TUTOR:
                 _frequency = _frequency,
                 _LR = self.learningRate,
                 _INN_cerebellum_str = str(self.stringStats.get("INN_cerebellum_str", "<missing cerebellum>")),
-                _topTokens_str = topTokens_str,
+                _topTokens_str = self.topTokens_str,
                 _otherInfo_str = f"{topGuess_str}\n | {tokenPerfect_str} | {totalTokenPerfect_str} | passRate: {self.perfectionistPassRate:.0f}% | {remainingData_str}\n | turns: {self.totalTurns}/{self.totalTurnsAwake+self.totalTurns} | runs: {self.totalRuns} | Δ↗: {self.stableFallCount+1:.2f}/{stableFallThreshold}, tried {self.totalTurnAttempts}/{self.maxRetries}x, skipped {self.tooDifficult}, averageTries {self.averageTries:.0f} | windowMAX: {self.numTokensPerStep} | dataStride: {self.dataStride} | TUTOR.py {_frequency} |\n{self.rgbBar}",
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog
@@ -1045,8 +1095,9 @@ class TUTOR:
 
             if debugPrints: ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.totalTurns > printFreq:
-                if perfectionistRun: chance = (0.0001 * self.numTokensPerStep)
-                else: chance = (0.0002 * self.numTokensPerStep)
+                chance = 0.0001
+                #if perfectionistRun: chance = (0.00001 * self.numTokensPerStep)
+                #else: chance = (0.00002 * self.numTokensPerStep)
                 self.scribe.maybeCommentOnGuess(self.decodedTokenIndices, (self.stepLossFloat), "scribe", chance)
 
             if debugPrints: ʕっʘ‿ʘʔっ("collectStats♥")
@@ -1120,8 +1171,8 @@ class TUTOR:
                     self.stats["memoryLength"]          = self.memoryLength
                     self.stats["perfectTokens"]         = self.perfectTokens
                     self.stats["learningRateGOAL"]      = self.learningRateGOAL
-                    self.stats["L_triesLoss"]           = self.triesLoss_used
-                    self.stats["L_perfLoss"]            = self.perfLoss_used
+                    #self.stats["L_triesLoss"]           = self.triesLoss_used
+                    #self.stats["L_perfLoss"]            = self.perfLoss_used
                     #self.stats["L_entropyLoss"]         = self.entropyLoss_used
                     self.stats["L_pixelDistLoss"]       = self.pixelDistLoss_used
                     self.stats["avgPixelDist"]          = self.avgPixelDist

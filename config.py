@@ -68,7 +68,7 @@ guessedTokenSeq = []
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
 userName = "charis"
-babyName = "babyllm"
+babyName = "baby"
 scribeName = "scribe"
 enemyName = "george"
 extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
@@ -85,8 +85,10 @@ lossCheckpointFilePath = "SHKAIRA/soul/lossCheckpoint.txt"
 lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
 babyStateFilePath = "BODY/babyState.json"
 tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
+
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
 chatBufferFilepath = "SHKAIRA/soul/chatBuffer.txt"
+nicknamesPath = "userNicknames.json"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -128,11 +130,11 @@ trainDuringChat = False
 trainDuringChat2 = True
 
 """--- MODEL ---"""
-numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
-maxTokensPerStep    = 450
+numTokensPerStepSTART = 128 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+maxTokensPerStep    = 256
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
-perfectionistMaxRetries = 10
+perfectionistMaxRetries = 2
 inferenceOutputNumTokens = 40
 
 skipPixels = False
@@ -141,10 +143,10 @@ skipPixels = False
 memoryLengthGOAL = 3
 
 """optimizer"""
-learningRate = 0.00035  # // 0.0005 // 0.00005 // 0.0s001 //
-learningRateGOAL = 0.0005
-temperatureGOAL = 0.85
-optimizerName = "AdamW" # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
+learningRate = 0.0007  # // 0.0005 // 0.00005 // 0.0s001 //
+learningRateGOAL = 0.0007
+temperatureGOAL = 1.2
+optimizerName = "Sophia" # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 #activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
 #gradientClipMaxNorm = 1.0
@@ -153,12 +155,12 @@ optimizerName = "AdamW" # //"Adan" # // "Adam" //~decoupled weights adam, helps 
 scheduledSampling = True 
 
 """repetition penalty"""
-repetitionWindowGOAL = 16   # how many tokens to look back for repetition
-repetitionPenaltyGOAL = 2.0
+repetitionWindowGOAL = 36   # how many tokens to look back for repetition
+repetitionPenaltyGOAL = 0.9
 windowEntropyBonus = True
 
 """--- LOGS ---"""
-detailedLogging = True
+detailedLogging = False
 
 trainingLogFreq_A = 20    # creates logs every x number of turns
 trainingLogFreq_B = 100    # creates logs every x number of turns
@@ -251,6 +253,7 @@ mostImportantStats  =   [
             #       "3INN_x_FINALoutLayerNorm_norm_neuron",
                 "3INN_windowSizesMean",
                 "3INN_cerebellumMean",  
+                "3INN_windowEntropy",
                 #"3INN_windowFractionalityMean",
 
             # BABYLLM STATS
@@ -274,6 +277,9 @@ mostImportantStats  =   [
                 "L_perfLoss",
                 "L_entropyLoss",
                 "L_pixelDistLoss",
+                "B_blendPixel",
+                "B_blendPos",
+                "B_blendToken",
 
 
             # LOGIT STATS
@@ -575,13 +581,13 @@ forwardProfiler = False
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 9000
-trainingDataSliceSize_max = 900000
+trainingDataSliceSize_min = 40000
+trainingDataSliceSize_max = 400000
 reflectionFreq = 10000
 stableFallThreshold = 1 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 100 #169420
+trainingDataPairNumber = 7500 #169420
 trainingWordLength = 10
 trainingDataStride = max(1,round(numTokensPerStepSTART * 0.1))
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)

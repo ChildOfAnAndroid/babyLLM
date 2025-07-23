@@ -12,6 +12,7 @@ import torch.optim.lr_scheduler
 import torch_optimizer
 import math
 from collections import Counter
+from sophia.sophia import SophiaG
 
 from BRAIN.LAYERS.embed import EMBED
 from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
@@ -20,6 +21,20 @@ from BRAIN.LAYERS.memory import MEMORY
 #from BRAIN.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
+
+gradient_stats = {}
+
+def save_grad_hook(name):
+    """A hook function that saves the stats of a tensor's gradient."""
+    def hook(grad):
+        if grad is not None:
+            gradient_stats[name] = {
+                'norm': grad.norm().item(),
+                'mean': grad.mean().item(),
+                'std': grad.std().item(),
+                'sparsity': 1.0 - (grad.count_nonzero().item() / grad.numel())
+            }
+    return hook
 
 """this class combines all the core components of the babyLLM:"""
 """EMBED: token embedding layer"""
@@ -50,6 +65,7 @@ class BABYLLM(nn.Module):
         self.rollingTokenTotals_tensor = torch.zeros(len(self.librarian.vocabList), device=self.device)
         self.gumBellend = 0
         self.pixelLoss_used = 0
+        self.PIXELloss = 0
         self.targetTokenFromTutor = None
 
         self.stats = {}
@@ -67,6 +83,8 @@ class BABYLLM(nn.Module):
         self.dreamIntensity = 0.0
         self.memoryFlux = 0.0
         self.learningStability = 0.0
+        self.AUXlossCos_used = 0.0
+        self.AUXlossKL_used = 0.0
 
         """CEREBRAL LAYERS // BRAIN"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
@@ -74,7 +92,8 @@ class BABYLLM(nn.Module):
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory2 = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
-        self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
+        #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
+        self.pixelPupil = PIXEL(embedDimension, embedDimension, 3)
 
         """LEARNABLE LEARNING PARAMETERS"""
         self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device = self.device))
@@ -89,8 +108,17 @@ class BABYLLM(nn.Module):
         self.memoryLength = torch.sigmoid((1 - torch.exp(self.logMemoryLength)) * 0.1)
         self.memory2Length = torch.sigmoid((1 - torch.exp(self.logMemory2Length)) * 0.1)
 
+        """self.transformer_block = nn.TransformerEncoderLayer(
+            d_model=embedDimension, 
+            nhead=8,  # A reasonable number of attention heads
+            dim_feedforward=embedDimension * 4, # Standard practice
+            dropout=0.1,
+            activation='gelu',
+            batch_first=True # IMPORTANT
+        ).to(self.device)"""
+
         """stuff"""
-        self.gradientClipMaxNorm = torch.exp(self.logGradClip)
+        #self.gradientClipMaxNorm = torch.exp(self.logGradClip)
         self.temperature = None
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
@@ -104,10 +132,15 @@ class BABYLLM(nn.Module):
         #self.optimizer = baseOptim
 
         if optimizerName == "Adan":
-            self.optimizer = Adan(self.parameters(), lr = learningRate, betas=(0.98, 0.92, 0.99), eps = 1e-6, weight_decay = 0.005)
+            self.optimizer = Adan(self.parameters(), lr = learningRate, betas=(0.98, 0.92, 0.99), eps = 1e-6, weight_decay = 0.05)
+        if optimizerName == "Sophia":
+            self.optimizer = SophiaG(self.parameters(), lr=learningRate,  # start slightly lower LR than AdamW, Sophia can be aggressive
+            betas=(0.965, 0.99), rho=0.04, weight_decay=0.05)
         else:
             optimizerClass = getattr(optim, optimizerName)
-            self.optimizer = optimizerClass(self.parameters(), lr = learningRate, weight_decay = 0.005, fused = True)
+            self.optimizer = optimizerClass(self.parameters(), lr = learningRate, weight_decay = 0.05, fused = True)
+        #print("!!! RUNNING WITH SGD OPTIMIZER !!!")
+        #self.optimizer = optim.SGD(self.parameters(), lr=learningRate, momentum=0.9)
 
 
         if debugPrints:
@@ -116,6 +149,86 @@ class BABYLLM(nn.Module):
 
         #self.to(self.device)
         self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSamplingRate": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
+        
+        self.repetitionPenalty.register_hook(save_grad_hook('repetitionPenalty'))
+        self.logTemp.register_hook(save_grad_hook('logTemp'))
+        self.logLR.register_hook(save_grad_hook('logLR'))
+        #self.logGradClip.register_hook(save_grad_hook('logGradClip'))
+        #self.scheduledSamplingRate.register_hook(save_grad_hook('scheduledSamplingRate'))
+        self.logMemoryLength.register_hook(save_grad_hook('logMemoryLength'))
+        self.logMemory2Length.register_hook(save_grad_hook('logMemory2Length'))
+        self.logRepetitionWindow.register_hook(save_grad_hook('logRepetitionWindow'))
+        self.inputBlend.register_hook(save_grad_hook('inputBlend'))
+        self.embed.e_weights.register_hook(save_grad_hook('embed.e_weights'))
+        self.embed.weightsScale.register_hook(save_grad_hook('embed.weightsScale'))
+        self.embed.normScale.register_hook(save_grad_hook('embed.normScale'))
+        self.embed.embedNorm.weight.register_hook(save_grad_hook('embed.embedNorm.weight'))
+        self.embed.embedNorm.bias.register_hook(save_grad_hook('embed.embedNorm.bias'))
+        self.embed.pixelEmbed.weight.register_hook(save_grad_hook('embed.pixelEmbed.weight'))
+        self.embed.pixelEmbed.bias.register_hook(save_grad_hook('embed.pixelEmbed.bias'))
+        self.embed.posEmbedding.weight.register_hook(save_grad_hook('embed.posEmbedding.weight'))
+        self.interneuronNetwork.cerebellum.register_hook(save_grad_hook('interneuronNetwork.cerebellum'))
+        self.interneuronNetwork.windowFractionality.register_hook(save_grad_hook('interneuronNetwork.windowFractionality'))
+        self.interneuronNetwork.logWindowSizes.register_hook(save_grad_hook('interneuronNetwork.logWindowSizes'))
+        self.interneuronNetwork.neurons.n_weights.register_hook(save_grad_hook('interneuronNetwork.neurons.n_weights'))
+        self.interneuronNetwork.neurons.n_biases.register_hook(save_grad_hook('interneuronNetwork.neurons.n_biases'))
+        self.interneuronNetwork.neurons.inputNorm.weight.register_hook(save_grad_hook('interneuronNetwork.neurons.inputNorm.weight'))
+        self.interneuronNetwork.neurons.inputNorm.bias.register_hook(save_grad_hook('interneuronNetwork.neurons.inputNorm.bias'))
+        self.interneuronNetwork.neurons.activation_gain.register_hook(save_grad_hook('interneuronNetwork.neurons.activation_gain'))
+        self.interneuronNetwork.refinement2[0].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.0.weight'))
+        self.interneuronNetwork.refinement2[0].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.0.bias'))
+        self.interneuronNetwork.refinement2[2].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.2.weight'))
+        self.interneuronNetwork.refinement2[2].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.2.bias'))
+        self.interneuronNetwork.refinement2[3].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.3.weight'))
+        self.interneuronNetwork.refinement2[3].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.3.bias'))
+        self.interneuronNetwork.refinement2[4].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.4.weight'))
+        self.interneuronNetwork.refinement2[4].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.4.bias'))
+        self.logits.l_weights.register_hook(save_grad_hook('logits.l_weights'))
+        self.logits.l_bias.register_hook(save_grad_hook('logits.l_bias'))
+        self.logits.rawActivationsScale.register_hook(save_grad_hook('logits.rawActivationsScale'))
+        self.logits.normedActivationsScale.register_hook(save_grad_hook('logits.normedActivationsScale'))
+        #self.logits.outputScale.register_hook(save_grad_hook('logits.outputScale'))
+        #self.logits.normOutputScale.register_hook(save_grad_hook('logits.normOutputScale'))
+        self.logits.activationNorm.weight.register_hook(save_grad_hook('logits.activationNorm.weight'))
+        self.logits.activationNorm.bias.register_hook(save_grad_hook('logits.activationNorm.bias'))
+        self.logits.logitNorm.weight.register_hook(save_grad_hook('logits.logitNorm.weight'))
+        self.logits.logitNorm.bias.register_hook(save_grad_hook('logits.logitNorm.bias'))
+        self.memory.shortTermDecay.register_hook(save_grad_hook('memory.shortTermDecay'))
+        self.memory.longTermDecay.register_hook(save_grad_hook('memory.longTermDecay'))
+        self.memory.inputReducer.weight.register_hook(save_grad_hook('memory.inputReducer.weight'))
+        self.memory.inputReducer.bias.register_hook(save_grad_hook('memory.inputReducer.bias'))
+        self.memory.gateLayer2.weight.register_hook(save_grad_hook('memory.gateLayer2.weight'))
+        self.memory.gateLayer2.bias.register_hook(save_grad_hook('memory.gateLayer2.bias'))
+        self.memory.memoryProjector.weight.register_hook(save_grad_hook('memory.memoryProjector.weight'))
+        self.memory.memoryProjector.bias.register_hook(save_grad_hook('memory.memoryProjector.bias'))
+        self.memory.memoryInfluence2[0].weight.register_hook(save_grad_hook('memory.memoryInfluence2.0.weight'))
+        self.memory.memoryInfluence2[0].bias.register_hook(save_grad_hook('memory.memoryInfluence2.0.bias'))
+        self.memory.memoryInfluence2[2].weight.register_hook(save_grad_hook('memory.memoryInfluence2.2.weight'))
+        self.memory.memoryInfluence2[2].bias.register_hook(save_grad_hook('memory.memoryInfluence2.2.bias'))
+        self.memory.memoryInfluence2[3].weight.register_hook(save_grad_hook('memory.memoryInfluence2.3.weight'))
+        self.memory.memoryInfluence2[3].bias.register_hook(save_grad_hook('memory.memoryInfluence2.3.bias'))
+        self.memory.memoryInfluence2[4].weight.register_hook(save_grad_hook('memory.memoryInfluence2.4.weight'))
+        self.memory.memoryInfluence2[4].bias.register_hook(save_grad_hook('memory.memoryInfluence2.4.bias'))
+        self.memory2.shortTermDecay.register_hook(save_grad_hook('memory2.shortTermDecay'))
+        self.memory2.longTermDecay.register_hook(save_grad_hook('memory2.longTermDecay'))
+        self.memory2.inputReducer.weight.register_hook(save_grad_hook('memory2.inputReducer.weight'))
+        self.memory2.inputReducer.bias.register_hook(save_grad_hook('memory2.inputReducer.bias'))
+        self.memory2.gateLayer2.weight.register_hook(save_grad_hook('memory2.gateLayer2.weight'))
+        self.memory2.gateLayer2.bias.register_hook(save_grad_hook('memory2.gateLayer2.bias'))
+        self.memory2.memoryProjector.weight.register_hook(save_grad_hook('memory2.memoryProjector.weight'))
+        self.memory2.memoryProjector.bias.register_hook(save_grad_hook('memory2.memoryProjector.bias'))
+        self.memory2.memoryInfluence2[0].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.0.weight'))
+        self.memory2.memoryInfluence2[0].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.0.bias'))
+        self.memory2.memoryInfluence2[2].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.2.weight'))
+        self.memory2.memoryInfluence2[2].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.2.bias'))
+        self.memory2.memoryInfluence2[3].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.3.weight'))
+        self.memory2.memoryInfluence2[3].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.3.bias'))
+        self.memory2.memoryInfluence2[4].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.4.weight'))
+        self.memory2.memoryInfluence2[4].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.4.bias'))
+        self.pixelPupil.linear1.weight.register_hook(save_grad_hook('pixelPupil.linear1.weight'))
+        self.pixelPupil.linear1.bias.register_hook(save_grad_hook('pixelPupil.linear1.bias'))
+        self.pixelPupil.linear2.weight.register_hook(save_grad_hook('pixelPupil.linear2.weight'))
+        self.pixelPupil.linear2.bias.register_hook(save_grad_hook('pixelPupil.linear2.bias'))
 
     @whocalled
     def forward(self, _inputSeq = None, _pixel = None):
@@ -153,28 +266,44 @@ class BABYLLM(nn.Module):
             if debugPrints: print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
             if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
-            INNOutput = self.interneuronNetwork.forward(inputEmbeds) 
-            if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
-            if debugPrints: print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
-            if debugPrints: print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
 
-            if debugPrints: ʕっʘ‿ʘʔっ("B2: memoryOutput") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
-            if skipMemory:
-                if debugPrints: print("skipping memory layer...")
-                memoryOutput = INNOutput.detach()  # no grad path, super light
-            else:
-                memoryOutput = self.memory.forward(INNOutput)
-                memory2Input = (INNOutput * 0.5) + (memoryOutput * 0.5)
-                memory2Output = self.memory2.forward(memory2Input)
-                #self.latestMemGates = self.memory.latestMemoryGates
+            if True:
+                INNOutput = self.interneuronNetwork.forward(inputEmbeds)
+                if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
+                if debugPrints: print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
+                if debugPrints: print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
 
-            if debugPrints: ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
-            logitsBeforePenalty = self.logits.forward(memory2Output)
-            if debugPrints: print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
+                if debugPrints: ʕっʘ‿ʘʔっ("B2: memoryOutput") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
+                if skipMemory:
+                    if debugPrints: print("skipping memory layer...")
+                    memoryOutput = INNOutput
+                else:
+                    # --- RESIDUAL A: Pass the raw thought past the first memory layer ---
+                    memoryOutput = self.memory.forward(INNOutput) + INNOutput
+
+                    memory2Input = (INNOutput * 0.5) + (memoryOutput * 0.5)
+
+                    # --- RESIDUAL B: Bypass the second Memory Layer ---
+                    memory2Output = self.memory2.forward(memory2Input) + memory2Input
+                    #self.latestMemGates = self.memory.latestMemoryGates
+
+                if debugPrints: ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
+                logitsBeforePenalty = self.logits.forward(memory2Output)
+                if debugPrints: print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
+
+            if False: # standard transformer >:(
+                input_for_transformer = inputEmbeds.unsqueeze(0) 
+                transformer_output = self.transformer_block(input_for_transformer)
+                output_from_brain = transformer_output.squeeze(0)
+
+                logitsBeforePenalty = self.logits.forward(output_from_brain)
 
             if debugPrints: ʕっʘ‿ʘʔっ("B4: applyRepetitionPenalty to logits")
             if not torch.isfinite(self.logRepetitionWindow):
                 print("logRepetitionWindow has gone non-finite. Resetting.")
+                self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
+            if self.logRepetitionWindow > math.log(windowMAXSTART):
+                print("logRepetitionWindow is higher than windowMAXSTART. Resetting.")
                 self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
             penalisedLogits = self.applyRepetitionPenalty(logitsBeforePenalty, _inputSeq)
             
@@ -185,7 +314,9 @@ class BABYLLM(nn.Module):
             if skipFINALlogitNorm:
                 if debugPrints: ʕっʘ‿ʘʔっ("Bx: logits.forward")
                 FINALlogits = penalisedLogits
-                #FINALlogits = self.logits.forward(memoryOutput)
+            else:
+                FINALlogits = penalisedLogits 
+
             if debugPrints: print("AFTER logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
             if debugPrints: print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
             if debugPrints: print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
@@ -201,6 +332,7 @@ class BABYLLM(nn.Module):
                 #self.memory2OutputHistory.append(memory2Output.norm().item())
                 #self.penalisedOutputHistory.append(penalisedLogits.norm().item())
                 self.FINALlogitsHistory.append(FINALlogits.norm().item())
+                if debugPrints: print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
 
                 if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
                     self.forwardStats = {
@@ -271,18 +403,11 @@ class BABYLLM(nn.Module):
             if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
             # regulate the learned LR, temperature, repetition penalty (etc) towards target values
-            lrSoftClamp = 0.0001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
+            lrSoftClamp = 0.001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
             #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
             tempSoftClamp = (self.CEloss_used * 0.4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
-            if self.repetitionPenalty >= 0: 
-                repetitionPenaltySoftClamp = 0.0000000000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
-            elif self.repetitionPenalty >= -1:
-                repetitionPenaltySoftClamp = 0.00000001 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
-            elif self.repetitionPenalty < -1:
-                repetitionPenaltySoftClamp = 0.00002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
-            elif self.repetitionPenalty < 0:
-                repetitionPenaltySoftClamp = 0.000002 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
-
+            repetitionPenaltySoftClamp = 0.01 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+            
             loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lrSoftClamp_used = lrSoftClamp
             loss += tempSoftClamp
@@ -310,7 +435,8 @@ class BABYLLM(nn.Module):
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
                 if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss")
                 if debugPrints: print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape}), [-1] is {self.latestTokenEmbed[-1]} ({self.latestTokenEmbed[-1].shape})")
-                predictedRGB = self.pixelPupil(self.latestTokenEmbed[-1])
+                embedding = self.latestTokenEmbed[-1]
+                predictedRGB = self.pixelPupil(embedding)
                 self.predPixel = predictedRGB
                 rgbLoss = F.mse_loss(self.predPixel, self.nextPixelTarget)
                 #self.PIXELloss = rgbLoss * torch.sigmoid(loss - rgbLoss)
@@ -341,9 +467,10 @@ class BABYLLM(nn.Module):
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
-                FINALloss += (self.PIXELloss * 0.15)
-                self.pixelLoss_used = (self.PIXELloss * 0.15)
+                FINALloss += (self.PIXELloss * 0.5)
+                self.pixelLoss_used = (self.PIXELloss * 0.5)
                 if debugPrints: print(f"{FINALloss} pixel + final")
+
             if self.lastSoftSample is not None and not skipAuxLoss: 
                 if torch.isnan(AUXloss) or not torch.isfinite(AUXloss):
                     print(f"AUXloss contains NaN!")
@@ -352,7 +479,8 @@ class BABYLLM(nn.Module):
                 if debugPrints: print(f"{FINALloss} aux ({AUXloss}) + final")
             if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
             token_freqs = self.lastSoftSample.mean(dim = 0)
-            repLoss = (token_freqs**2).mean() * self.repetitionPenalty
+            repLoss_raw = (token_freqs**2).mean()
+            repLoss = repLoss_raw * self.repetitionPenalty * 0.05
             self.repLoss_used = repLoss
             FINALloss += repLoss
             return FINALloss
@@ -368,7 +496,7 @@ class BABYLLM(nn.Module):
                 tensor_snitch(self.embed, "babyllm backward start")
                 tensor_snitch(self.interneuronNetwork, "babyllm backward start")
                 tensor_snitch(self.logits, "babyllm backward start")
-                if debugPrints: ʕっʘ‿ʘʔっ("print named parameters")
+                ʕっʘ‿ʘʔっ("print named parameters")
                 printTensorAttrs(self, name='babyllm')
                 printTensorAttrs(self.memory, name='memory')
                 printTensorAttrs(self.memory2, name='memory2')
@@ -377,7 +505,7 @@ class BABYLLM(nn.Module):
                 printTensorAttrs(self.logits, name='logits')
                 for name, p in self.named_parameters():
                     if p.grad is None:
-                        if debugPrints: ʕっʘ‿ʘʔっ("print no grads")
+                        ʕっʘ‿ʘʔっ("print no grads")
                         print(f"before = {self.calligraphist.S_apply('dim', f'no grad: {name}')}")
                     else:
                         if debugPrints: ʕっʘ‿ʘʔっ("set yes grads")
@@ -399,6 +527,29 @@ class BABYLLM(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"before = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
                         if debugPrints: print("Loss:", _loss.item())
+
+            if self.totalTurns % 100 == 0:
+                grad_log_output = "\n--- Gradient Vitals (before) ---\n"
+                for name, stats in gradient_stats.items():
+                    norm_val = stats['norm']
+                    sparsity_val = stats['sparsity']
+                    mean_val = stats['mean']
+                    std_val = stats['std']
+                    
+                    norm_style = self.calligraphist.S_getStat(f"{name}_norm", norm_val)
+                    sparsity_style = self.calligraphist.S_getStat(f"{name}_sparsity", sparsity_val)
+                    mean_style = self.calligraphist.S_getStat(f"{name}_mean", mean_val)
+                    std_style = self.calligraphist.S_getStat(f"{name}_std", std_val)
+                    
+                    grad_log_output += f"{name:<50} | "
+                    grad_log_output += f"Norm: {self.calligraphist.S_apply(norm_style, f'{norm_val:.12f}')} | "
+                    grad_log_output += f"Sparsity: {self.calligraphist.S_apply(sparsity_style, f'{sparsity_val:.6%}')} | "
+                    grad_log_output += f"Sparsity: {self.calligraphist.S_apply(mean_style, f'{mean_val:.6%}')} | "
+                    grad_log_output += f"Sparsity: {self.calligraphist.S_apply(std_style, f'{std_val:.6%}')}\n"
+                
+                print(grad_log_output)
+                gradient_stats.clear()
+
             if debugPrints: ʕっʘ‿ʘʔっ("loss.backward")
             if debugPrints: print(f"windowMAX: {self.numTokensPerStep}")
             _loss.backward()
@@ -439,11 +590,41 @@ class BABYLLM(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
 
+            if True and self.totalTurns % 100 == 0:# and debugPrints:
+                grad_log_output = "\n--- Gradient Vitals (after) ---\n"
+                for name, stats in gradient_stats.items():
+                    norm_val = stats['norm']
+                    sparsity_val = stats['sparsity']
+                    mean_val = stats['mean']
+                    std_val = stats['std']
+                    
+                    norm_style = self.calligraphist.S_getStat(f"{name}_norm", norm_val)
+                    sparsity_style = self.calligraphist.S_getStat(f"{name}_sparsity", sparsity_val)
+                    mean_style = self.calligraphist.S_getStat(f"{name}_mean", mean_val)
+                    std_style = self.calligraphist.S_getStat(f"{name}_std", std_val)
+                    
+                    grad_log_output += f"{name:<50} | "
+                    grad_log_output += f"norm: {self.calligraphist.S_apply(norm_style, f'{norm_val:.12f}')} | "
+                    grad_log_output += f"sparsity: {self.calligraphist.S_apply(sparsity_style, f'{sparsity_val:.6%}')} | "
+                    grad_log_output += f"mean: {self.calligraphist.S_apply(mean_style, f'{mean_val:.6f}')} | "
+                    grad_log_output += f"std: {self.calligraphist.S_apply(std_style, f'{std_val:.6f}')}\n"
+
+                for name, param in self.named_parameters():
+                    if param.requires_grad:
+                        data = param.data
+                        print(f"{name}: shape={tuple(data.shape)} | "
+                            f"min={data.min().item():.4f} max={data.max().item():.4f} "
+                            f"mean={data.mean().item():.4e} std={data.std().item():.4e} "
+                            f"nonzero%={(data != 0).float().mean().item()*100:.2f}%")
+            
+                print(grad_log_output)
+                gradient_stats.clear()
+
             if debugPrints: ʕっʘ‿ʘʔっ("torch.no_grad")
             with torch.no_grad(): # RESET LEARNABLE PARAMETERS
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
                 if debugPrints: ʕっʘ‿ʘʔっ("fill scheduledSamplingRate")
-                self.scheduledSamplingRate.data.fill_(0.001)  # Scheduled sampling full (no scheduled sampling yet)
+                self.scheduledSamplingRate.data.fill_(0.02)  # Scheduled sampling full (no scheduled sampling yet)
                 #self.temperature.data.fill_(math.exp(self.logTemp))  # Temperature normal
                 #self.repetitionPenalty.data.fill_(1.0)  # Repetition penalty normal
                 #self.logMemoryLength.data.fill_(math.log(5))  # Memory length default
@@ -504,13 +685,13 @@ class BABYLLM(nn.Module):
                     "B_repetitionWindow": self.repetitionWindow.item(),
                     "B_temperature": torch.exp(self.logTemp).item(),
                     "L_CEloss": self.CEloss_used,
-                    #"L_PIXELloss": self.PIXELloss,
+                    "L_PIXELloss": self.PIXELloss,
                     "L_PIXELloss_scaled": self.pixelLoss_used,
                     "L_AUXlossCos": self.AUXlossCos_used,
                     "L_AUXlossKL": self.AUXlossKL_used,
-                    #"L_LRclamp": self.lrSoftClamp_used,
-                    #"L_tempClamp": self.tempSoftClamp_used,
-                    #"L_repPenClamp": self.repPenSoftClamp_used,
+                    "L_LRclamp": self.lrSoftClamp_used,
+                    "L_tempClamp": self.tempSoftClamp_used,
+                    "L_repPenClamp": self.repPenSoftClamp_used,
                     "L_repLoss": self.repLoss_used,
                     "B_gradClip": self.gradientClipMaxNorm,
                 }
@@ -556,7 +737,7 @@ class BABYLLM(nn.Module):
                 base_probs = F.softmax(logits_scaled, dim=-1)
             
             if _training:
-                self.lastSoftSample = base_probs.clone()
+                self.lastSoftSample = base_probs
 
             # Creativity
             with torch.no_grad():
@@ -624,7 +805,7 @@ class BABYLLM(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("penalty = self.repetitionPenalty")
             penalty = self.repetitionPenalty
             if penalty < 0.0:
-                new_value = self.repetitionPenalty.abs() * 3
+                new_value = self.repetitionPenalty.abs() * 1.3
                 self.repetitionPenalty.data.copy_(new_value)
                 penalty = self.repetitionPenalty
 
@@ -870,6 +1051,47 @@ class BABYLLM(nn.Module):
 
     @whocalled
     def getBabyStats(self): return self.stats
+    
+class PIXEL(nn.Module):
+    def __init__(self, in_features: int, hidden_features: int, out_features: int = 3, *, output_mode: str = "sigmoid", use_layernorm: bool = True, res_scale_init: float = 0.5,):
+        super().__init__()
+        self.linear1 = nn.Linear(in_features, hidden_features)
+        self.gelu    = nn.GELU()
+        self.linear2 = nn.Linear(hidden_features, out_features)
+
+        self.use_layernorm = use_layernorm
+        if use_layernorm:
+            self.ln = nn.LayerNorm(hidden_features)
+
+        self.alpha = nn.Parameter(torch.tensor(res_scale_init))
+        self.beta  = nn.Parameter(torch.tensor(res_scale_init))
+
+        self.register_buffer("inv_sqrt2", torch.tensor(1 / math.sqrt(2)))
+
+        assert output_mode in {"sigmoid", "clamp", "raw"}
+        self.output_mode = output_mode
+
+    def forward(self, x):
+        x_res = x
+        x = self.linear1(x)
+        x = x + self.alpha * x_res
+
+        x_res_gelu = x
+        x = self.gelu(x)
+        x = x + self.beta * x_res_gelu
+        x = x * self.inv_sqrt2
+
+        if self.use_layernorm:
+            x = self.ln(x)
+
+        logits = self.linear2(x)
+
+        if self.output_mode == "sigmoid":
+            return torch.sigmoid(logits)
+        elif self.output_mode == "clamp":
+            return torch.clamp(logits, 0.0, 1.0)
+        else:
+            return logits
     
 if __name__ == "__main__":
     exit(0)

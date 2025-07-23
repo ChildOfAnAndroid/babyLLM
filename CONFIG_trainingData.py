@@ -52,16 +52,16 @@ all_years = list(range(2009, 2026))
 CTD_enabled_years = [y for y in all_years if globals().get(f"data{y}", False)]
 
 # chat messages
-discord = False
-discordNum = 0.1
+discord = True
+discordNum = 0.5
 
-facebook = False
+facebook = True
 facebookNum = 0.1
 
 gchat = True
 gchatNum = 0.1
 
-chatgpt = False
+chatgpt = True
 chatgptNum = 0.1
 
 # live messages
@@ -75,21 +75,23 @@ youtube_liveNum = 0.1
 youtube_comments = True
 youtube_commentsNum = 0.1
 
-reddit = False
+reddit = True
 redditNum = 0.1
 
-livejournal = False
+livejournal = True
 livejournalNum = 0.1
+
+
 
 # emails
 charis23februles = True
-charis23februlesNum = 0.1
+charis23februlesNum = 0.01
 
 # writing
-eloMouse = False
+eloMouse = True
 eloMouseNum = 0.1
 
-notes = False
+notes = True
 notesNum = 0.1
 
 # babyBot chat logs
@@ -102,11 +104,11 @@ babyBot_discordNum = 0.0001
 babyBot_discordDays = 20
 
 # baby data
-babyData = False
-babyDataNum = 0.1
+babyData = True
+babyDataNum = 0.01
 
-tenses = False
-tensesNum = 0.1
+tenses = True
+tensesNum = 0.01
 
 # babyLLM code
 code = False
@@ -320,4 +322,3 @@ rawDataFilepaths += [
     ("text", "SCHOOL/library/miniTraining/why2.txt", 0.001),
     ("text", "SCHOOL/library/miniTraining/why3.txt", 0.001),
     ("text", "SCHOOL/library/miniTraining/why4.txt", 0.001),]"""
-

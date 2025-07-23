@@ -29,6 +29,7 @@ class NEURON(nn.Module):
         self.inputNorm = nn.LayerNorm(embedDimension, elementwise_affine = True, device = self.device)
         self.n_weights = nn.Parameter(torch.randn(numNeurons, embedDimension, device = self.device) * 0.01)
         self.n_biases = nn.Parameter(torch.zeros(numNeurons, device = self.device))
+        self.activation_gain = nn.Parameter(torch.ones(1, device=self.device))
         self.n_counsellor = COUNSELLOR("NEURON", _debug = debugPrints, _durations = durationLogging)
 
         self.stats = {}
@@ -64,7 +65,8 @@ class NEURON(nn.Module):
         #self.normedOutputHistory_neurons = []
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
-        #numNeuron, embedDimension, activationFunction, etc
+        #numNeuron, embedDimension, activationFunction, e
+
 
     @whocalled
     def forward(self, _inputEmbeds):  # embed: (batch_size, embed_size)
@@ -90,7 +92,9 @@ class NEURON(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
             #activated = activationFunction(rawOutput)
-            activated = gelu(rawOutput)
+            gained_output = (rawOutput * self.activation_gain) + rawOutput # SHOULD I PUT THIS NEW PASSTHROUGH HERE?
+        
+            activated = gelu(gained_output) + gained_output
 
             #ʕっʘ‿ʘʔっ("layerNorm")
             #normed = self.neuronNorm(activated)  # keeps shape: (seq_len, numNeurons)
@@ -287,12 +291,11 @@ class INTERNEURON_NETWORK(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("compute fresh floatWindowSizes + fractionality")
             # learnable fractionality, allows it to decide how descrite the windows should be
             fractionality = torch.sigmoid(self.windowFractionality)  # (numWindows,)
-            with torch.no_grad(): self.windowFractionality.clamp_(-6.0, 6.0)
+            with torch.no_grad(): self.windowFractionality.clamp_(-3.0, 3.0)
             
             minWindowSize = 0.1
             maxWindowSize = float(self.numTokensPerStep)
 
-            #clampedLogWindowSizes = self.logWindowSizes + (self.logWindowSizes.clamp(-1.5, 1.5) - self.logWindowSizes).detach()
             clampedLogWindowSizes = torch.tanh(self.logWindowSizes / 2) * 1.5  # output ∈ [-1.5, 1.5]
             scaledTanh = (torch.tanh(clampedLogWindowSizes) + 1) / 2  # ∈ [0, 1]
             floatWindowSizes = minWindowSize + (maxWindowSize - minWindowSize) * scaledTanh
@@ -306,27 +309,52 @@ class INTERNEURON_NETWORK(nn.Module):
             self.windowTensor_used = windowTensor.squeeze(1).detach()
             self.floatWindowSizes_used = floatWindowSizes.detach()
 
+            # entropy of window usage
+            with torch.no_grad():
+                windowSizes = self.windowTensor_used
+                num_bins = 10
+                bins = torch.linspace(1.0, float(self.numTokensPerStep), steps=num_bins + 1, device=self.device)
+                bin_ids = torch.bucketize(windowSizes, bins, right=False) - 1
+                bin_ids = torch.clamp(bin_ids, 0, num_bins - 1)
+
+                counts = torch.bincount(bin_ids, minlength=num_bins).float()
+                probs = counts / (counts.sum() + 1e-12)
+                probs = torch.clamp(probs, min=1e-12)
+            window_range = torch.max(windowTensor) - torch.min(windowTensor)
+            desired_range = self.numTokensPerStep - 1.0  # ideally full spread
+            self.rangePenalty = torch.relu(desired_range - window_range)
+
+            mean_window_size = torch.mean(windowTensor)
+            self.meanPenalty = torch.relu(mean_window_size - (self.numTokensPerStep / 2))
+
+            self.windowSizeEntropy = -torch.sum(probs * torch.log(probs))
+
             if debugPrints: ʕっʘ‿ʘʔっ("INN2: stackedWindowMeans")
             windowMeanStack = self.stackedWindowMeans(neuronActsPerToken, windowTensor)
 
             if debugPrints: ʕっʘ‿ʘʔっ("softmax weights from cerebellum")
             sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
-            with torch.no_grad(): self.cerebellum.clamp_(-5.0, 5.0)
-            clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
-            self.cerebellumSoft = clamped / clamped.sum()   # normalize across all windows
+            with torch.no_grad():
+                self.cerebellum.clamp_(0.0001, 1.0)
+            #clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
+            self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalize across all windows
+
+            variance = torch.var(self.cerebellumSoft)
+            self.windowWeightSpread = variance
 
             weightedWindowStack = windowMeanStack * self.cerebellumSoft.unsqueeze(1)
 
             if debugPrints: ʕっʘ‿ʘʔっ("entropy reward")
-            #self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
-            #self.entropyBonus = self.windowEntropy
+            self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
+            self.entropyBonus = self.windowEntropy
 
             if debugPrints: ʕっʘ‿ʘʔっ("weightedWindowStack.sum")
             combinedActivationsTensor = weightedWindowStack.sum(dim = 0, keepdim = True)
             ʕっʘ‿ʘʔっ(self.refinement2)
             refinedActivations = self.refinement2(combinedActivationsTensor)
 
-            FINALout = refinedActivations
+            # --- RESIDUAL CONNECTION ---
+            FINALout = combinedActivationsTensor + refinedActivations 
 
             # --- logging
             if debugPrints: ʕっʘ‿ʘʔっ("get inn stats no grad")
@@ -383,7 +411,8 @@ class INTERNEURON_NETWORK(nn.Module):
                     #"3INN_2_combinedActs_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
                     "3INN_x_refinedActs_norm": sum(self.refHistory) / len(self.refHistory),
                     #"3INN_3_refinedActs_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
-                    "3INN_windowSizesMean": floatWindowSizes.mean().item()
+                    "3INN_windowSizesMean": floatWindowSizes.mean().item(),
+                    "3INN_windowEntropy": self.windowSizeEntropy
                 }
                 if debugPrints: print(f"{self.stats}")
 
@@ -404,6 +433,8 @@ class INTERNEURON_NETWORK(nn.Module):
         with self.inn_counsellor.infodump("stackedWindowMeans") as ʕっʘ‿ʘʔっ:
             #neuronActsPerToken = activations
             if debugPrints: ʕっʘ‿ʘʔっ("activations.shape")
+            if len(activations.shape) == 1:
+                activations = activations.unsqueeze(0)
             seqLen, embedDim = activations.shape
 
             # PADDING ENSURES UNDERLYING DATA HAS CORRECT TENSOR/VECTOR SHAPE FOR THE MASK
@@ -461,15 +492,19 @@ class INTERNEURON_NETWORK(nn.Module):
                         self.stats["2N_sparsity"] = (self.neurons.n_weights.abs() < 1e-5).float().mean().item()
                         if debugPrints: print(f"neuron sparsity: {self.stats["2N_sparsity"]}")'''
 
-            if collectStats and INN_collectStats:
-                if debugPrints: ʕっʘ‿ʘʔっ("torch.no_grad♥")
-                with torch.no_grad():
-                    if INN_cerebellumStats:
-                        if debugPrints: ʕっʘ‿ʘʔっ("♥getCerebellumStats") #THIS WAS WINDOWWEIGHTING
-                        self.stats["3INN_windowFractionalityMean"] = torch.sigmoid(self.windowFractionality).mean().item()
-                        self.stats["3INN_cerebellumMean"] = self.cerebellum.mean().item()
-                        #self.stats["3INN_cerebellumStd"] = self.cerebellum.std().item()
-                        INN_cerebellumStats_fullValues = zip(self.floatWindowSizes_used, self.cerebellum, self.cerebellumSoft, self.windowTensor_used)
+                if INN_cerebellumStats:
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥getCerebellumStats")
+
+                    # --- RESILIENCE UPGRADE ---
+                    # Safely get the attributes. If they don't exist (because forward failed),
+                    # getattr will provide an empty tensor as a default.
+                    float_windows = getattr(self, 'floatWindowSizes_used', torch.empty(0))
+                    soft_weights = getattr(self, 'cerebellumSoft', torch.empty(0))
+                    tensor_windows = getattr(self, 'windowTensor_used', torch.empty(0))
+
+                    # Check if we have all the data we need before proceeding.
+                    if all(t.numel() > 0 for t in [float_windows, self.cerebellum, soft_weights, tensor_windows]):
+                        INN_cerebellumStats_fullValues = zip(float_windows, self.cerebellum, soft_weights, tensor_windows)
                         for w, raw, soft, tensor in INN_cerebellumStats_fullValues:
                             self.stats[f"INN_cerebellum_W{int(w)}_float"] = w.item()
                             self.stats[f"INN_cerebellum_W{int(w)}"] = raw.item()
@@ -479,6 +514,12 @@ class INTERNEURON_NETWORK(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("♥cerebellumString")
                         INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.floatWindowSizes_used, windowTensor = self.windowTensor_used, per_window_style = True)
                         if debugPrints: print(f"{INN_cerebellum_str}")
+                    else:
+                        # If any data is missing, we log it and exit gracefully
+                        # instead of crashing the whole program.
+                        if debugPrints: print("[INN_getStats] Missing one or more required tensors from forward pass. Skipping cerebellum stats.")
+                        INN_cerebellum_str = "<cerebellum data unavailable>"
+                    # --- END RESILIENCE UPGRADE ---
 
             if debugPrints: ʕっʘ‿ʘʔっ("update self.stats")
             #self.stats.update({f"{k}": v for k, v in self.neurons.getStats().items()})

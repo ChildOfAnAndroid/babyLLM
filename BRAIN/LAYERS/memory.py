@@ -19,7 +19,7 @@ class MEMORY(nn.Module):
         self.longTermDecay = nn.Parameter(torch.tensor(0.95, device = self.device))
 
         self.inputReducer = nn.Linear(numNeurons, embedDimension, device = self.device)       # 10k → 1k
-        self.gateLayer2     = nn.Linear(embedDimension, 4 * numNeurons, device = self.device)  # 1k → 30k
+        self.gateLayer2     = nn.Linear(embedDimension, 4 * numNeurons, device = self.device)  # 1k → 40k
 
         self.memoryProjector = nn.Linear(numNeurons, embedDimension, device = self.device)
         self.memoryInfluence2 = torch.nn.Sequential(
@@ -91,19 +91,19 @@ class MEMORY(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("shortTermDecay")
             shortDecay = torch.sigmoid(self.shortTermDecay)
-            with torch.no_grad(): self.shortTermDecay.clamp_(-5, 5) # keeps sigmoid ~[0.0067, 0.9933], so memory doesnt vanish or freeze forever
+            #with torch.no_grad(): self.shortTermDecay.clamp_(-5, 5) # keeps sigmoid ~[0.0067, 0.9933], so memory doesnt vanish or freeze forever
             if debugPrints: ʕっʘ‿ʘʔっ("longTermDecay")
             longDecay = torch.sigmoid(self.longTermDecay)
-            with torch.no_grad(): self.longTermDecay.clamp_(-5, 5)
+            #with torch.no_grad(): self.longTermDecay.clamp_(-5, 5)
 
             if debugPrints: ʕっʘ‿ʘʔっ("newShortTermMemory")
-            newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * self.activationsTensor)
+            newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * _activationsTensor)
             if debugPrints: ʕっʘ‿ʘʔっ("newLongTermMemory")
-            newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * self.activationsTensor)
+            newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * _activationsTensor)
 
             if debugPrints: ʕっʘ‿ʘʔっ("self.inputReducer")
-            reducedInput = self.inputReducer(self.activationsTensor)
-            self.reducedInputBuf.copy_(reducedInput.detach())  # store for stats without affecting autograd
+            reducedInput = self.inputReducer(_activationsTensor)
+            #self.reducedInputBuf.copy_(reducedInput.detach())  # ????? SUS ?? store for stats without affecting autograd
 
             # unified gate logits -> shape: [1, 4 * numNeurons]
             if debugPrints: ʕっʘ‿ʘʔっ("self.gateLater2")
@@ -115,26 +115,33 @@ class MEMORY(nn.Module):
                 raise ValueError(f"gateLogits shape mismatch: expected {(4 * numNeurons,)}, got {gateLogits.shape}")
 
             gateLogits = gateLogits.view(4, numNeurons)
-            self.gateLogitsBuf.copy_(gateLogits.detach())  # keep detached version for logging
+            #self.gateLogitsBuf.copy_(gateLogits.detach())  # ??? SUS ??? keep detached version for logging
             if debugPrints: ʕっʘ‿ʘʔっ("clamp gatelayer2 -> gateLogits")
-            gateLogits = gateLogits.clamp(-30, 30)
+            with torch.no_grad(): gateLogits = gateLogits.clamp(-30, 30)
 
             # softmax across sources (dim=0), sum to 1 per neuron
             if debugPrints: ʕっʘ‿ʘʔっ("softmax gateLogits")
             gateWeights = torch.softmax(gateLogits, dim=0)
-            shortGateScale, longGateScale, actGateScale, memGateScale = gateWeights
+
+            try:
+                shortGateScale, longGateScale, actGateScale, memGateScale = gateWeights.unbind()
+            except Exception as e:
+                raise RuntimeError(f"unpacc gate weights failed: {gateWeights}") from e
+
+            #shortGateScale, longGateScale, actGateScale, memGateScale = gateWeights
 
             if debugPrints: ʕっʘ‿ʘʔっ("firstGatedMemory")
             firstGatedMemory = (
                 (shortGateScale * newShort) +
                 (longGateScale * newLong) +
-                (actGateScale * self.activationsTensor)
+                (actGateScale * _activationsTensor)
             )
 
             if debugPrints: ʕっʘ‿ʘʔっ("self.memoryProjector")
             projectedMemory = self.memoryProjector(firstGatedMemory)
             if debugPrints: ʕっʘ‿ʘʔっ("mix embeds")
-            mixedEmbed = self.reducedInputBuf + projectedMemory
+            #mixedEmbed = self.reducedInputBuf + projectedMemory
+            mixedEmbed = reducedInput + projectedMemory
             if debugPrints: ʕっʘ‿ʘʔっ("self.memoryInfluence2")
             memoryGate = self.memoryInfluence2(mixedEmbed)
 
@@ -142,7 +149,7 @@ class MEMORY(nn.Module):
             self.gatedMemory = (
                 (shortGateScale * newShort) +
                 (longGateScale * newLong) +
-                (actGateScale * self.activationsTensor) +
+                (actGateScale * _activationsTensor) +
                 (memGateScale * memoryGate)
             )
             self.FINALmemory = self.gatedMemory
@@ -154,10 +161,10 @@ class MEMORY(nn.Module):
             self.memGateScaleHistory.append(memGateScale.mean().item()) # 7
 
             if debugPrints: ʕっʘ‿ʘʔっ("raw activation stats")
-            self.rawActivationsNormHistory.append(self.activationsTensor.norm().item()) # 0
-            self.rawActivationsHistory.append(self.activationsTensor.mean().item()) # 0
-            self.rawActivationsMaxHistory.append(self.activationsTensor.max().item()) # 0
-            self.rawActivationsMinHistory.append(self.activationsTensor.min().item()) # 0
+            self.rawActivationsNormHistory.append(_activationsTensor.norm().item()) # 0
+            self.rawActivationsHistory.append(_activationsTensor.mean().item()) # 0
+            self.rawActivationsMaxHistory.append( _activationsTensor.max().item()) # 0
+            self.rawActivationsMinHistory.append( _activationsTensor.min().item()) # 0
 
             """if debugPrints: ʕっʘ‿ʘʔっ("STM stats")
             self.shortTermMemoryNormHistory.append(self.shortTermMemory.norm().item()) # 1
@@ -331,11 +338,12 @@ class MEMORY(nn.Module):
                     self.longTermMemory.copy_(self.newLong.detach())
 
                 # free graph memory
-                self.longTermDecay += 0.1
-                self.shortTermDecay -= 0.001
-                self.newShort = None
-                self.newLong = None
-                self.activationsTensor = None
+                #self.longTermDecay += 0.1
+                #self.shortTermDecay -= 0.001
+                # POTENTIALLY CAUSES OF TENSOR + NONE TWITCHBOT ERROR:
+                #self.newShort = None
+                #self.newLong = None
+                #self.activationsTensor = None
 
     @whocalled
     def resetMemory(self, _memoryLength):
@@ -354,9 +362,9 @@ class MEMORY(nn.Module):
                 #self.shortTermDecay -= 0.001
                 #self.longTermMemory.zero_() #retaining long term cause, yk, long term! i felt mean!
             # clear any pending buffers
-            self.newShort = None
-            self.newLong = None
-            self.activationsTensor = None
+            #self.newShort = None
+            #self.newLong = None
+            #self.activationsTensor = None
 
     @whocalled
     def getMemoryStats(self): return self.stats

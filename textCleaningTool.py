@@ -1,7 +1,100 @@
 import os, re, json, csv, random
 from html import unescape
-from config import *
+from config import * 
+
 write_locks = {}
+
+_CONTRACTION_VARIATION_DATA = {
+    "do not": ["don't", "do not", "dont", "dont"],
+    "cannot": ["can't", "can not", "cant"],
+    "will not": ["won't", "will not", "wont"],
+    "i am": ["i'm", "i am", "im"],
+    "it is": ["it's", "it is", "its"],
+    "you are": ["you're", "you are", "u are", "u r"],
+    "they are": ["they're", "they are", "they r"],
+    "we are": ["we're", "we are", "we r"],
+    "he is": ["he's", "he is", "hes"],
+    "she is": ["she's", "she is", "shes"],
+    "that is": ["that's", "that is", "thats"],
+    "what is": ["what's", "what is", "whats"],
+    "where is": ["where's", "where is", "wheres"],
+    "weve": ["we've", "weve"],
+    "theyve": ["they've", "theyve"],
+    "ive": ["i've", "ive"],
+    "could not": ["couldn't", "could not", "couldnt"],
+    "should not": ["shouldn't", "should not", "shouldnt"],
+    "would not": ["wouldn't", "would not", "wouldnt"],
+    "is not": ["isn't", "is not", "isnt"],
+    "are not": ["aren't", "are not", "arent"],
+    "was not": ["wasn't", "was not", "wasnt"],
+    "were not": ["weren't", "were not", "werent"],
+    "have not": ["haven't", "have not", "havent"],
+    "has not": ["hasn't", "has not", "hasnt"],
+    "had not": ["hadn't", "had not", "hadnt"],
+    "does not": ["doesn't", "does not", "doesnt"],
+    "did not": ["didn't", "did not", "didnt"],
+    "want to": ["wanna", "want to"],
+    "got to go": ["got to go", "g2g", "gtg"],
+    "kind of": ["kinda", "kind of"],
+    "sort of": ["sorta", "sort of"],
+    "you": ["u", "you"],
+    "are": ["r", "are"],
+    "because": ["cuz", "because", "cause", "'cause"],
+    #"laughing out loud": ["lol", "laughing out loud", "lmao", "rofl"],
+    "be right back": ["brb", "be right back"],
+    "by the way": ["btw", "by the way"],
+    "i don't know": ["idk", "i don't know", "i dunno"],
+    "in my opinion": ["imo", "in my opinion"],
+    "in real life": ["irl", "in real life"],
+    "oh my god": ["omg", "oh my god",],
+    "what the fuck": ["wtf", "what the fuck"],
+    "as far as i know": ["afaik", "as far as i know"],
+    "for the win": ["ftw", "for the win"],
+    "for your information": ["fyi", "for your information"],
+    "please": ["pls", "please", "plz"],
+    "too long didn't read": ["tldr", "too long; didn't read"],
+    "talk to you later": ["ttyl", "talk to you later"],
+    "what are you doing": ["wyd", "what are you doing"],
+    "what about you": ["wbu", "what about you"],
+    "i know right": ["ikr", "i know right"],
+    "great": ["gr8", "great"],
+}
+
+# Create a reverse map: variant (lowercase) -> canonical form
+VARIANT_TO_CANONICAL = {}
+for canonical, variants in _CONTRACTION_VARIATION_DATA.items():
+    for variant in variants:
+        VARIANT_TO_CANONICAL[variant.lower()] = canonical # Store variants in lowercase for lookup
+
+# Pre-compile regexes for all variants, sorted by length (descending)
+# This ensures that longer phrases like "too long; didn't read" are matched before
+# shorter components like "didn't".
+_sorted_variants_for_regex = sorted(VARIANT_TO_CANONICAL.keys(), key=len, reverse=True)
+_RANDOM_REPLACEMENT_REGEXES = []
+for variant_str in _sorted_variants_for_regex:
+    # Use re.escape to properly handle any special regex characters in the variant string
+    _RANDOM_REPLACEMENT_REGEXES.append(re.compile(r'\b' + re.escape(variant_str) + r'\b', re.IGNORECASE))
+
+def apply_random_variations(text):
+    """
+    Applies random variations for contractions and informal phrases.
+    Iterates through pre-compiled regexes (longest first) and replaces matches
+    with a randomly chosen variant from its canonical group.
+    """
+    current_text = text
+    # Iterate over the pre-compiled regex patterns.
+    # The `sub` method with a function allows for dynamic replacement.
+    for variant_regex in _RANDOM_REPLACEMENT_REGEXES:
+        def replacer(match):
+            matched_text_lower = match.group(0).lower()
+            canonical_form = VARIANT_TO_CANONICAL.get(matched_text_lower)
+            if canonical_form and canonical_form in _CONTRACTION_VARIATION_DATA:
+                return random.choice(_CONTRACTION_VARIATION_DATA[canonical_form])
+            return match.group(0) # Fallback: return original match if not found (shouldn't happen with correct maps)
+
+        current_text = variant_regex.sub(replacer, current_text)
+    return current_text
+
 
 # (re.compile(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', text)
 # sed -E 's;(\\u[0-9a-fA-F]{4}){2,};;g' discord.json > discord.noemoji.json; mv discord.noemoji.json discord.json
@@ -48,14 +141,15 @@ write_locks = {}
 #(re.compile(r'\b(?:caj+)\b', re.I), 'casually')
 
 # ACROYNMS??
-# omg
-#(re.compile(r'\b(?:oh my god|oh my lord|oml|oml+|o+mg|omfg|errmagerd|omg|omg+)\b', re.I), 'oh my god') #burn him!
+# omg (Removed this fixed replacement, now handled by random variations)
+# (re.compile(r'\b(?:oh my god|oh my lord|oml|oml+|o+mg|omfg|errmagerd|omg|omg+)\b', re.I), 'oh my god') #burn him!
 
 """restock the library! check out some new books for babyllm :)"""
 
 EMAIL = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b')
 
 REPEATS = re.compile(r'(\S)\1{3,}', re.IGNORECASE)
+REPEATED_WORDS = re.compile(r'\b(\w+)(?:\s+\1){2,}\b', re.IGNORECASE)
 """# Dont allow character repeats
 (re.compile(r'(\\S)\1{3,}', r'\1\1\1', re.I)) # normalise everything to only 3 repeats tops
 (re.compile(r'(?:\.\\s\.)+', '...', text)  # Replace any ". ." patterns with "..."
@@ -104,39 +198,28 @@ ACCENTS = [
 (re.compile(r'(?:ô)', re.I), 'o')
 (re.compile(r'(?:ù)', re.I), 'u')"""
 
-REPLACEMENTS = {"’": "'", 
-                "ʼ": "'", 
-                "“": "'", 
-                "”": "'", 
-                "—": "-", 
+REPLACEMENTS = {"’": "'",
+                "ʼ": "'",
+                "“": "'",
+                "”": "'",
+                "—": "-",
                 "–": "-",
-                "///": "//", 
-                ". .": "..", 
-                ". . .": "...", 
-                ".,": ".", 
+                "///": "//",
+                ". .": "..",
+                ". . .": "...",
+                ".,": ".",
                 ",.": ",",
                 "::": ":",
                 "💥": "",
                 "•": "-",
                 ",,": ",",
                 "``":"'",
-                "’":"'",
-                "'":"'",
+                "'":"'", # This one is actually redundant with "’":"'" and "ʼ":"'"
                 "…": "...",
-                "          ": " ",
-                "         ": " ",
-                "        ": " ",
-                "       ": " ",
-                "      ": " ",
-                "     ": " ",
-                "    ": " ",
-                "   ": " ",
-                "  ": " ",
-                " ": " ", # weird ass space thing
-                "": "",
-                " amnot ": " am not ", 
+                # Removed multi-space replacements as MULTISPACE regex handles them
+                " amnot ": " am not ",
                 " embarassing": " embarrassing",
-                " beleive": " believe", 
+                " beleive": " believe",
                 " headphoens": " headphones",
                 #" noise ordinance": " kevinonline420",
                 " mom ": " mum ",
@@ -176,10 +259,10 @@ PATTERNS = [
     (re.compile(r'\b(?:19 north road east|queensway|percy terrace|connaught avenue|connaught ave|connaught|love lane|pix cottage|furzehill)\b', re.I), 'address'),
     # enemy
     (re.compile(r'\b(police)((?:wo)?m[ea]n|lady)(s?)\b', re.I), r'\1 \2\3'), #burn him!
-    (re.compile(r'\b(?:virgin media|bojo|boris johnson|estate agent|letting agent|jonny|giles|alice|alex mcginnes|mcginnes|alex|landlord|sahim|cops|police+(?:i[er]+)?|policiere|security guard|government|teacher|neighbour|george moore|jack clarke|george|lice|tommie|tommy|unanymous|nits)(s?)\b', re.I), 'george'), #burn him!
+    #(re.compile(r'\b(?:virgin media|bojo|boris johnson|estate agent|letting agent|jonny|giles|alice|alex mcginnes|mcginnes|alex|landlord|sahim|cops|police+(?:i[er]+)?|policiere|security guard|government|teacher|neighbour|george moore|jack clarke|george|lice|tommie|tommy|unanymous|nits)(s?)\b', re.I), 'george'), #burn him!
     # élodie
     (re.compile(r'\b(?:élodie|boris|boriss|élo)(s?)\b', re.I), 'elodie\\1'), #elodie🌻|
-    (re.compile(r'\b(?:loveggle|loveeggle|eggle|egglodie|louveangel|loveaangel|loveably|loveagnel|loveaigirl|loveaingle|lovealngle|loveangelelele|loveangely|loveangerl|loveangle1337|loveanglebus|loveangler|loveangwole|lovedevil|hatedevil|loveanus|lovedebil1337|lovedebil420|lovedoxxing|loveeagle|loveegg|loveeggly|lovefuckle|lovegangle|lovelodie|lovelyyyanglee|lovestrangel)(s?)\b', re.I), 'loveangle\\1'),
+    (re.compile(r'\b(?:loveggle|loveeggle|eggle|egglodie|louveangel|loveaangel|loveably|loveagnel|loveaigirl|loveaingle|lovealngle|loveangelelele|loveangely|loveangerl|loveangle1337|loveanglebus|loveangler|lovedevil|hatedevil|loveanus|lovedebil1337|lovedebil420|lovedoxxing|loveeagle|loveegg|loveeggly|lovefuckle|lovegangle|lovelodie|lovelyyyanglee|lovestrangel)(s?)\b', re.I), 'loveangle\\1'),
     # charis
     (re.compile(r'\b(?:chariss|circuitchild|charis anne male|charisannemale|charis23februles|battlestarfaptastula|charis male|bocab|cabbo|cazzy|caz|cabble)s?\b', re.I), 'charis'),
     (re.compile(r'(?:childofagamingdroid|child of an android|childofanandroid|childo|coaa)s?\b', re.I), 'childofanandroid'),
@@ -187,7 +270,7 @@ PATTERNS = [
     (re.compile(r'\b(?:𓆏frogofanandroid𓆏)\b', re.I), 'froggy'),
     (re.compile(r'\b(?:!babyllm)\b', re.I), ''),
     # kevin
-    (re.compile(r'\b(?:sherlock|sonic|pikachu|bulbasaur|charmander|sonic the hedgehog|shadow the hedgehog|doctor whobernd|benedict cumberbatch|benadict cumberbatch|cumberbatch|kirk|spock|spirk|martin freeman|piper|william shatner|leonard nimoy|alastair|marcel duchamp|cildo meireles|piero manzoni|paul mattock|mark verbos|idris khan|stanley jones|mark kaider rodger|peter johnson|peter dawson|benjamin watson|sheryl colclough|mark rodger|chloe readman|peter johnson|john locke|glenis male|pauline locke|sue male|susan male|phil male|philip male|p w male|asher wesley|michael male)(s?)\b', re.I), 'kevin\\1'),
+    #(re.compile(r'\b(?:sherlock|sonic|pikachu|bulbasaur|charmander|sonic the hedgehog|shadow the hedgehog|doctor whobernd|benedict cumberbatch|benadict cumberbatch|cumberbatch|kirk|spock|spirk|martin freeman|piper|william shatner|leonard nimoy|alastair|marcel duchamp|cildo meireles|piero manzoni|paul mattock|mark verbos|idris khan|stanley jones|mark kaider rodger|peter johnson|peter dawson|benjamin watson|sheryl colclough|mark rodger|chloe readman|peter johnson|john locke|glenis male|pauline locke|sue male|susan male|phil male|philip male|p w male|asher wesley|michael male)(s?)\b', re.I), 'kevin\\1'),
     (re.compile(r'\b(?:julie|fooly|jake|tanja|edmund|leonard|guy bar|liam|lara|duchamp|marcel|piero|pierre|paul|matthew|mckellar|verbos|idris|stanley|hilla|joseph|ryan|kai|johnson|dawson|martino|martin|benedict|natalie|henri|victoria|elizabeth|henry|jakc|asherrr|asherr|douglas|doug|steve|steven|stephen|stephan|stefan|steph|stephanie|guybar|helen|helena|marta|pat|patrick|richard|anna|jen|liam|helene|jim|martin|gillian|anon|anonymous|kate|justine|charlie|jerry|chris|locke|rupert|aoife|adam|alexandra|carlen|abigail|connor|courtney|david|becka|olly|becky|becci|billy stark|billy|thomas|ameliagh|amelia|andre|andrew|anthony|antony|tony|emma|jonathan|joseph|julian|justin|katherine|kegzi|lara|laura|alexa|lauren|lindsay|callum|catrin|charlotte|cherise|chloe|john|johnson|peter|sheryl|user|taylor|dawson|rachel|rebecca|samantha|sam|shannon|sophie|michelle|nathan|nicholas|nicole|oliver|matthew|leah|lorna|louis|lucy|lydia|dave|debbie|dhruti|edward|eddy|elisabeth|elizabeth|emily|felix|gavin|gillian|hannah|isobel|jacob|james|jamie|jasmine|jas|joanna|jacek|giovanni|jayne|greg|gregory|karen|adam|emanuelle|emmanuelle|vanessa|vikki|william|ruth|noah|arc|glenis|fred|dany|john|simone|pauline|paul|susan|guyslaine|phil|philip|phillip|michael|fairy|tae|sef|yeon|kai|rosie|simon|shalini|gawen|louise|tom coates|jon|mark|meggin|maloney|tom|ben|meg|sean|asher|lexi|beth|bethany|megan|dawson|james|iska)(s?)\b', re.I), 'kevin\\1'),
     (re.compile(r'\b(?:danny|dandan|dan|danrudge|rudge|daniel|argo|andre|kayla|kayyluhh|jed|wolf|jedidiah|michael|susan|sue|phil|philip|phillip|jedidiah|guyslaine|pauline|jon)(s?)\b', re.I), 'kevin\\1'),
     #(re.compile(r'\b(?:@sneakret.agent|valkyr|charismatic_canine|charismaticcanine|itskayyluhh|djsarahhall|deacon_vlad|dj alphabeats|missdoodzdj|chargednewt|lionastone|cacespowboy|markbiggus|waterguy12|buglady|bug lady|kaiderian|kingkaider|kaider|power pope|powerpope|rustypeugeot|moebius-ro|🌮tacosaurusmex🌮|ave_maria[0-9]{2}|tacosaurusmex|spacetaco|spacetaco_vibes)(s?)\b', re.I), 'kevinonline420'),
@@ -202,9 +285,9 @@ PATTERNS = [
     (re.compile(r'\b(?:fapping+|fappping+)(s?)\b', re.I), 'wanking\\1'), #burn him!
     # pfp
     (re.compile(r'\b(?:pfp)\b', re.I), 'profile pic'),
-    # night
-    (re.compile(r'\b(?:ni+ght+)\b', re.I), 'night'),
-    (re.compile(r'\b(?:gn+)\b', re.I), 'good night'),
+    # night (Removed fixed 'night' and 'gn' to allow random variation from the new system)
+    #(re.compile(r'\b(?:ni+ght+)\b', re.I), 'night'),
+    #(re.compile(r'\b(?:gn+)\b', re.I), 'good night'),
     # AWKWARD OLD PHRASES
     (re.compile(r'\b(?:yolo)\b', re.I), 'ima do it'), #burn him!
     (re.compile(r'\b(?:epic)\b', re.I), 'awesome'), #burn him!
@@ -258,13 +341,17 @@ def clean_text(text):
     before = len(text)
     text = unescape(text).strip(" \t")
     text = re.sub(r'(?:<END>)', '', text)  # placeholder
-    text = text.lower()
+    text = text.lower() # Convert to lowercase early for consistent matching
+
+    text = apply_random_variations(text)
+
     text = re.sub(r"[‘’]", "'", text)
     text = EMAIL.sub("kevinOnline420", text)
     text = BAD.sub("", text)
     text = REPEATS.sub(r"\1\1\1", text)
-    text = MULTISPACE.sub(" ", text)
-    text = batch_sub(text, PATTERNS)
+    text = REPEATED_WORDS.sub(r'\1', text)
+    text = MULTISPACE.sub(" ", text) # Initial multi-space clean up
+    text = batch_sub(text, PATTERNS) # Apply general patterns
 
     for pattern, replacement in EMOTES:
         text = pattern.sub(replacement, text)
@@ -272,10 +359,12 @@ def clean_text(text):
     for pattern, replacement in ACCENTS:
         text = pattern.sub(replacement, text)
 
-    text = re.sub(r'[ \t]+', ' ', text)
-
+    # Apply general string replacements defined in REPLACEMENTS dictionary
     for old, new in REPLACEMENTS.items():
         text = text.replace(old, new)
+
+    # Final multi-space clean up after all replacements
+    text = re.sub(r'[ \t]+', ' ', text)
 
     after = len(text.strip(" \t"))
     print(f"reduced from {before:,} to {after:,} characters!")
@@ -337,7 +426,8 @@ def process_file(current_file):
     cleaned_chunks = [clean_text(chunk) for chunk in chunks]
     cleaned_text = "".join(cleaned_chunks)
 
-    out_path = current_file["out"]
+    out_path = trainingFilePathCLEANED
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     try:
         with open(out_path, "a", encoding="utf-8") as file:
@@ -347,13 +437,13 @@ def process_file(current_file):
         print(f"write error for {out_path}: {e}")
 
 def run_cleaning():
-    # Step 1: Clear all output files (once)
-    for current_file in trainingFilePath_dict_weighted:
-        try:
-            with open(current_file["out"], "w", encoding="utf-8") as f:
-                pass
-        except Exception as e:
-            print(f"failed to clear file {current_file['out']}: {e}")
+    # Step 1: clear output file
+    try:
+        with open(trainingFilePathCLEANED, "w", encoding="utf-8") as f:
+            pass
+    except Exception as e:
+        print(f"failed to clear file {trainingFilePathCLEANED}: {e}")
+        return
 
     # Step 2: Process each file one by one
     print("starting sequential processing...")

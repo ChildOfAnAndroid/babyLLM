@@ -394,9 +394,13 @@ def main():
                 numWins += 1
                 winStreak += 1
                 MAINPairNumber = trainingDataPairNumber
-                if winStreak % 2 == 0:
-                    windowMAX += 1
+                #if winStreak % 2 == 0:
+                if windowMAX >= 1:
+                    windowInc = random.choice([2, 0.5])
+                    windowMAX *= windowInc
                     dataStride = max(1,(windowMAX * 0.1))
+                else:
+                    windowMAX = 1
             elif thisRunLoss < lastRunLoss:
                 numWins += 1
                 winStreak += 1

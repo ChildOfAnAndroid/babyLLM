@@ -52,6 +52,8 @@ babyState = {
 baseColour = {"R": 133, "G": 239, "B": 238}
 currentColour = {"R": 133, "G": 239, "B": 238}
 targetColour = {"R": 133, "G": 239, "B": 238}
+lastTargetColour = {"R": 133, "G": 239, "B": 238}
+
 numMouthStyles = 63
 
 def state_reader_loop():
@@ -70,18 +72,20 @@ def state_reader_loop():
                         babyState["tintStrength"] = 1.0 
 
                     if babyState["correct"] == True:
-                        currentColour["B"] *= 1.05
-                        smile = random.choice([0,0,0,0,0,0,0,0,0,1])
-                        babyState["mouth"] -= smile
+                        currentColour["R"] *= 1.05
+                        if babyState["mouth"] >= 0:
+                            smile = random.choice([0,0,0,1])
+                            babyState["mouth"] += smile
+                        else:
+                            babyState["mouth"] = 5
 
                     if babyState["mouth"] < 0:
-                        babyState["mouth"] = 3
+                        babyState["mouth"] = 5
                     
                     babyState["mouth"] = max(0, min(babyState["mouth"], numMouthStyles))
 
-
                     dreamIntensity = babyState.get("dreamIntensity", 0.0)
-                    bpm = 126
+                    bpm = 62
                     bpm32th = 60 / (bpm * 16)
                     metabolicRate = round(dreamIntensity) * bpm32th
                     babyState["metabolicRate"] = metabolicRate
@@ -93,7 +97,7 @@ def state_reader_loop():
 threading.Thread(target=state_reader_loop, daemon=True).start()
 
 def blink_loop():
-    while True:
+    while True: 
         metabolism = babyState.get("metabolicRate", 0.5)
         metabolicRate = metabolism * 0.5
         dreamIntensity = babyState.get("dreamIntensity", 10.0)
@@ -104,14 +108,13 @@ def blink_loop():
         babyState["eyes"] = blinkDirection  # blink
         print(f"*blimk*")
         time.sleep(metabolicRate)
-        if babyState["mouth"] < 20 and babyState["mouth"] > 0:
-            babyState["mouth"] += 1
-        
         babyState["eyes"] = original_eyes
-        
+        if babyState.get("speaking"):
+            time.sleep(metabolicRate)
+            continue   
+
         if random.random() < 0.05:
-            if babyState["mouth"] < 100 and babyState["mouth"] > 0:
-                babyState["mouth"] += 2
+            babyState["mouth"] += 1
             time.sleep(metabolicRate)
             babyState["eyes"] = blinkDirection  # blink
             print(f"**blimk**")
@@ -120,6 +123,7 @@ def blink_loop():
             babyState["eyes"] = original_eyes
             
             if random.random() < 0.05:
+                babyState["mouth"] += 1
                 time.sleep(metabolicRate)
                 babyState["eyes"] = blinkDirection  # blink
                 print(f"***blimk***")
@@ -186,7 +190,7 @@ threading.Thread(target=pulse_loop, daemon=True).start()
 
 def jump_reset():
     metabolism = babyState.get("metabolicRate", 0.0)
-    metabolicRate = metabolism * 5
+    metabolicRate = metabolism * 0.5
     while True:
         if babyState.get("jumping"):
             if random.uniform(0, 1) < 0.05:
@@ -220,21 +224,40 @@ threading.Thread(target=jump_reset, daemon=True).start()
 
 def speak_loop():
     restingMouth = babyState["mouth"]
+    lastState = False
+    speakStart = None
     while True:
         if babyState.get("speaking", False):
+            if not lastState:
+                restingMouth = babyState["mouth"]
+                speakStart = time.time()
+                lastState = True
+
             babyState["mouth"] = random.randint(55, 65)
             time.sleep(babyState.get("metabolicRate", 0.1))
+
             if random.random() < 0.25:
                 babyState["mouth"] = restingMouth
                 time.sleep(babyState.get("metabolicRate", 0.1))
+
+            # Failsafe: reset if stuck too long
+            if speakStart and (time.time() - speakStart > 10):
+                babyState["speaking"] = False
+                babyState["mouth"] = restingMouth
+                lastState = False
+                speakStart = None
+
         else:
-            babyState["mouth"] = restingMouth
-            babyState["speaking"] = False
+            if lastState:
+                lastState = False
+                babyState["mouth"] = restingMouth
             time.sleep(0.1)
 
 threading.Thread(target=speak_loop, daemon=True).start()
 
 def buildBabySprite():
+    global lastTargetColour
+
     # Directional stretch (max 1px per side)
     stretch_left  = int(bool(babyState.get("stretch_left", False)))
     stretch_right = int(bool(babyState.get("stretch_right", False)))
@@ -257,24 +280,38 @@ def buildBabySprite():
         frame = bbyBODY.crop((0, i * bbyHeight, bbyBODY.width, (i + 1) * bbyHeight))
         bbyBODY_full.paste(frame, (0, 0), frame)
 
-    blend_speed = 0.1  # smaller = slower
-    return_speed = 0.075
+    def rgb_block(colour):
+        r = int(colour["R"])
+        g = int(colour["G"])
+        b = int(colour["B"])
+        return f"\033[48;2;{r};{g};{b}m   \033[0m"
+
+    print(f"[babyColour] BASE {rgb_block(baseColour)}  {baseColour}")
+    print(f"[babyColour] CURR {rgb_block(currentColour)}  {currentColour}")
+    print(f"[babyColour] TARG {rgb_block(targetColour)}  {targetColour}")
+
+    metabolicRate = babyState.get("metabolicRate", 0.0)
 
     for channel in ["R", "G", "B"]:
-        def rgb_block(colour):
-            r = int(colour["R"])
-            g = int(colour["G"])
-            b = int(colour["B"])
-            return f"\033[48;2;{r};{g};{b}m   \033[0m"
+        blend_speed = 0.25 * (random.choice([0.25, 0.5, 1, 2]) * metabolicRate)
+        return_speed = 0.25 * (random.choice([0.25, 0.5]) * metabolicRate)
 
-        print(f"[babyColour] BASE {rgb_block(baseColour)}  {baseColour}")
-        print(f"[babyColour] CURR {rgb_block(currentColour)}  {currentColour}")
-        delta = targetColour[channel] - currentColour[channel]
-        currentColour[channel] += delta * blend_speed
-        delta = baseColour[channel] - currentColour[channel]
-        currentColour[channel] += delta * return_speed
-        currentColour[channel] = max(0, min(255, currentColour[channel]))
+        # blend toward target
+        if lastTargetColour != targetColour:
+            targetDelta = targetColour[channel] - currentColour[channel]
+            currentColour[channel] += targetDelta * (blend_speed * 2)
 
+        # nudge toward base
+        else:
+            targetDelta = targetColour[channel] - currentColour[channel]
+            currentColour[channel] += targetDelta * (blend_speed * 0.25)
+            baseDelta = baseColour[channel] - currentColour[channel]
+            currentColour[channel] += baseDelta * return_speed
+
+        # clamp to 0–255
+        currentColour[channel] = int(max(0, min(255, currentColour[channel])))
+            
+    lastTargetColour = targetColour
 
     tintStrength = babyState.get("tintStrength", 1.0)
 
@@ -338,6 +375,20 @@ def buildBabySprite():
         babyState["mouth"] * spriteSize[0], 0,
         (babyState["mouth"] + 1) * spriteSize[0], spriteSize[1]
     ))
+
+    def quick_darken(img, factor=0.85):
+        img = img.copy()
+        px = img.load()
+        for x in range(img.width):
+            for y in range(img.height):
+                r, g, b, a = px[x, y]
+                px[x, y] = (int(r * factor), int(g * factor), int(b * factor), a)
+        return img
+
+    bbyEYES_full = quick_darken(bbyEYES_full)
+    bbyMOUTH_full = quick_darken(bbyMOUTH_full)
+    if babyState["cheeks_on"]:
+        bbyCHEEKS_full = quick_darken(bbyCHEEKS_full)
 
     # Paste facial layers (same offset as body)
     if babyState["cheeks_on"]:

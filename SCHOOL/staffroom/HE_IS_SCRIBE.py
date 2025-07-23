@@ -283,25 +283,40 @@ class SCRIBE:
                         f"omg, wait, is it a rap!? or a poem!? {topWord}, {topWord}, {topWord}, {secondWord},\n{secondWord}, {topWord}, {topWord}, {topWord},\n{topWord}, {topWord}, {topWord}, {secondWord},\n{secondWord}, {topWord}, {topWord}, {topWord}!\n\n {topWord}, {topWord}, {topWord}, {secondWord},\n{secondWord}, {topWord}, {topWord}, {topWord},\n{topWord}, {topWord}, {topWord}, {secondWord},\n{secondWord}, {topWord}, {topWord}, {topWord}!\n... nice! fire bars! ",
                     ])
         longWordReflection = None
-        longestWord = max(wordList, key=len)
-        if len(longestWord) > 8:
-            longWordReflection = random.choice([
-                f"that word '{longestWord}' is a whole ass thing to get through. what's it doing there lol?? ",
-                f"omgg what is {longestWord}!?! that's a chonker lol what do you know about {longestWord}? "
-            ])
+        if len(wordList) > 2:
+            longestWord = max(wordList, key=len)
+            if len(longestWord) > 8:
+                longWordReflection = random.choice([
+                    f"that word '{longestWord}' is a whole ass thing to get through. what's it doing there lol?? ",
+                    f"omgg what is {longestWord}!?! that's a chonker lol what do you know about {longestWord}? "
+                ])
 
         shortWordReflection = None
-        shortestWord = min(wordList, key=len)
-        if len(shortestWord) >= 2: # sus doesnt work that well
-            shortWordReflection = random.choice([
-                f"{shortestWord} is such a tiny baby of a word. little guy. what does it mean to you today? ",
-                f"aww tiny word, {shortestWord}, cute! we love {shortestWord} :3 ",
-            ])
+        if len(wordList) > 2:
+            shortestWord = min(wordList, key=len)
+            if len(shortestWord) >= 2: # sus doesnt work that well
+                shortWordReflection = random.choice([
+                    f"{shortestWord} is such a tiny baby of a word. little guy. what does it mean to you today? ",
+                    f"aww tiny word, {shortestWord}, cute! we love {shortestWord} :3 ",
+                ])
 
         leastCommonReflection = None
         leastCommon = min(wordCounts.items(), key=lambda x: x[1])[0]
         if wordCounts[leastCommon] == 1:
             leastCommonReflection = f"you only said {leastCommon} once, but it stuck out to me... i wonder if it's more important than it looks. "
+            leastCommonReflection += (f"hey, baby! are you listening, comfy? good. :) i wanna teach you about a new type of thought today. it is the thought of a story!\n"
+                                        f"a story has an order. it has a first, a then, and a last.\n"
+                                        f"here is the first story. it is the story of the same. listen carefully.\n"
+                                        f"first comes the {topWord}.\n"
+                                        f"then comes another {topWord}.\n"
+                                        f"last comes a final {topWord}.\n"
+                                        f"the story is {topWord} {topWord} {topWord}. see? they are all the same. the thought is the same.\n"
+                                        f"now, here is the second story. it is the story of the different.\n"
+                                        f"first comes the {topWord}.\n"
+                                        f"then comes the {secondWord}.\n"
+                                        f"last comes the {topWord} again.\n"
+                                        f"the story is {topWord} {secondWord} {topWord}. the middle thought is different. {secondWord} is not {topWord}. {topWord} is not {secondWord}. the story has a different thought inside it.\n"
+                                        f"you're doing so well! you feel the same and you feel the different. it is a good, clever thought.\n")
 
         uniqueReflection = None
         uniqueWords = [w for w, c in wordCounts.items() if c == 1]

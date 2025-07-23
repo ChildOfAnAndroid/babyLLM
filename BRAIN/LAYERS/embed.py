@@ -46,7 +46,8 @@ class EMBED(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("E1_embedNormed") # <- E1
             self.embedNormed = self.embedNorm(self.embedVector)
             if debugPrints: ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
-            self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
+            #self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
+            self.embedFinal = self.embedVector + self.embedNormed # direct passthrough instead of scaling cause he abuses them lol, -0.005 scale... wtf is that!?
             with torch.no_grad():
                 self.weightsScale.data.clamp_(-10, 10)
                 self.normScale.data.clamp_(-10, 10)
