@@ -91,6 +91,7 @@ chatBufferFilepath = "SHKAIRA/soul/chatBuffer.txt"
 nicknamesPath = "userNicknames.json"
 babyLovePath = "babyLove.json"
 spamLevelPath = "spamLevel.json"
+lastSeenPath = "SHKAIRA/soul/lastSeen.json"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"

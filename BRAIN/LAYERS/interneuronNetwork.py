@@ -325,8 +325,8 @@ class INTERNEURON_NETWORK(nn.Module):
             desired_range = self.numTokensPerStep - 1.0  # ideally full spread
             self.rangePenalty = torch.relu(desired_range - window_range)
 
-            mean_window_size = torch.mean(windowTensor)
-            self.meanPenalty = torch.relu(mean_window_size - (self.numTokensPerStep / 2))
+            std_window_size = torch.std(windowTensor)
+            self.meanPenalty = torch.relu(0.1 - std_window_size)
 
             self.windowSizeEntropy = -torch.sum(probs * torch.log(probs))
 
@@ -334,9 +334,9 @@ class INTERNEURON_NETWORK(nn.Module):
             windowMeanStack = self.stackedWindowMeans(neuronActsPerToken, windowTensor)
 
             if debugPrints: ʕっʘ‿ʘʔっ("softmax weights from cerebellum")
-            sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
+            sigmoidWeights = torch.sigmoid(self.cerebellum * 10) # squish raw values into [0, 1]
             with torch.no_grad():
-                self.cerebellum.clamp_(0.00001, 1.5)
+                self.cerebellum.clamp_(0.01, 0.99)
             #clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
             self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalize across all windows
 
