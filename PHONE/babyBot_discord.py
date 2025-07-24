@@ -9,6 +9,7 @@ from discord.ext import commands
 import re
 from datetime import datetime
 from collections import defaultdict
+from collections import Counter
 from config import *
 from secret import *
 from textCleaningTool import *
@@ -76,6 +77,12 @@ def killExcessTags(buffer):
         cleaned.append(line)
     return cleaned
 
+if os.path.exists(optInUsersPath):
+    with open(optInUsersPath, "r") as f:
+        AIoptInUsers = json.load(f)
+else:
+    AIoptInUsers = []
+
 def getTimeRant():
     now = datetime.now()
     hour_24 = now.strftime("%H")
@@ -98,18 +105,14 @@ def getTimeRant():
         f"according to the thingy, it's {readable}",
         f"{hour_12}:{minute}{ampm}, allegedly"
     ]
+
+    usernames = [
+        "the universe",
+        "the clock",
+    ]
+    usernames += AIoptInUsers
     
     return f"the universe: {random.choice(approx_phrases)}."
-
-def deduplicate_lines(text_block):
-    seen = set()
-    deduped_lines = []
-    for line in text_block.strip().split("\n"):
-        cleaned_line = line.strip().lower()
-        if cleaned_line and cleaned_line not in seen:
-            deduped_lines.append(line)
-            seen.add(cleaned_line)
-    return "\n".join(deduped_lines)
 
 class BABYBOT_DISCORD(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,
@@ -136,6 +139,10 @@ class BABYBOT_DISCORD(commands.Bot):
         self.chatWindowMAX = windowMAXSTART
         self.dataStride = round(self.chatWindowMAX * 0.1)
         self.idles = 0
+        self.random = 0.0
+        self.random2 = 0.0
+        self.current_bestie = None
+        self.bestie_score = 0.0
 
         if os.path.exists(chatBufferFilepath):
             with open(chatBufferFilepath, "r") as f:
@@ -155,7 +162,9 @@ class BABYBOT_DISCORD(commands.Bot):
             "display_name": None,
             "message_count": 0,
             "recent_lines": [],
-            "last_seen": 0
+            "last_seen": 0,
+            "babyLove": 0,
+            "spamMax": 0.8,
         })
 
         if os.path.exists(self.nicknamesPath):
@@ -166,6 +175,24 @@ class BABYBOT_DISCORD(commands.Bot):
         else:
             saved_nicks = {}
 
+        if os.path.exists(babyLovePath):
+            with open(babyLovePath, "r") as f:
+                saved_babyLove = json.load(f)
+                for user, babyLove in saved_babyLove.items():
+                    if "babyLove" in self.userMemory[user]:
+                        self.userMemory[user]["babyLove"] = babyLove
+        else:
+            saved_babyLove = {}
+
+        if os.path.exists(spamLevelPath):
+            with open(spamLevelPath, "r") as f:
+                saved_spamLevel = json.load(f)
+                for user, spamMax in saved_spamLevel.items():
+                    if "spamMax" in self.userMemory[user]:
+                        self.userMemory[user]["spamMax"] = spamMax
+        else:
+            saved_spamLevel = {}
+
         self.lastInputTime = time.time()
         self.idle_task = None
         self.training_queue = asyncio.Queue()
@@ -173,85 +200,297 @@ class BABYBOT_DISCORD(commands.Bot):
 
     def formatMessage(self, user, text, colourName=None):
         nic = self.getNickname(user) if hasattr(self, 'getNickname') else user
+        if nic != user:
+            self.updateBabyLove(user, 0.1)
         return f"{nic}: {text}"
     
+    def repeatAndDie(self, user, text_block):
+        seen_in_this_msg = set()
+        deduped_lines = []
+        mem = self.userMemory[user]
+
+        line_counts = defaultdict(int)
+        for entry in self.buffer:
+            if isinstance(entry, str):
+                for line in entry.strip().split("\n"):
+                    cleaned = line.strip().lower()
+                    if cleaned:
+                        line_counts[cleaned] += 1
+
+        for line in text_block.strip().split("\n"):
+            cleaned = line.strip().lower()
+            if not cleaned:
+                continue
+
+            already_seen = cleaned in seen_in_this_msg
+            past_repeats = line_counts[cleaned]
+
+            if already_seen or past_repeats > 0:
+                repeat_score = past_repeats + (1 if already_seen else 0)
+
+                # Penalty scales exponentially (or tune to taste)
+                penalty = round(0.0001 * (2 ** repeat_score), 4)
+                mem["babyLove"] -= penalty
+                mem["spamMax"] += (penalty*0.0001)
+                mem["spamMax"] = min(max(mem["spamMax"], 0.2), 1.0)
+
+                # Chance of keeping the line drops with repeat_score
+                keep_chance = 0.5 ** repeat_score
+                keep = self.random < keep_chance
+
+                print(f"damn boi... repeat score {repeat_score}: -{penalty} babyLove from {user}, kept={keep}, total={mem['babyLove']:.2f}")
+
+                if keep:
+                    deduped_lines.append(line)
+            else:
+                seen_in_this_msg.add(cleaned)
+                deduped_lines.append(line)
+
+        return "\n".join(deduped_lines)
+        
     def getNickname(self, user):
         mem = self.userMemory.get(user.lower(), {})
+        self.updateBabyLove(user, 0.001)
         return mem.get("nickname") or mem.get("display_name") or user
+    
+    def getSpamLevel(self, author):
+        mem = self.userMemory.get(author.lower(), {})
+        return mem.get("spamMax") or 0.8
+
+    def setSpamLevel(self, author, spam):
+        author = author.lower()
+        self.userMemory[author]["spamMax"] = spam
+        self.save_spamLevel()
+
+    def save_spamLevel(self):
+        to_save = {user: mem["spamMax"] for user, mem in self.userMemory.items() if mem["spamMax"] != 0}
+        with open(spamLevelPath, "w") as f:
+            json.dump(to_save, f, indent=2)
+
+    def updateSpamLevel(self, author, spam):
+        author = author.lower()
+        self.userMemory[author]["spamMax"] += spam
+        self.userMemory[author]["spamMax"] = round(self.userMemory[author]["spamMax"], 4)
+        self.save_spamLevel()
+
+    def getMessageCount(self, user):
+        mem = self.userMemory.get(user.lower(), {})
+        num = mem.get("message_count")
+        self.updateBabyLove(user, 0.001*num)
+        return num or 0
+    
+    def updateBabyLove(self, author, love):
+        author = author.lower()
+        self.userMemory[author]["babyLove"] += love
+        self.userMemory[author]["babyLove"] = round(self.userMemory[author]["babyLove"], 4)
+        self.save_babyLove()
+
+    def save_babyLove(self):
+        to_save = {user: mem["babyLove"] for user, mem in self.userMemory.items() if mem["babyLove"] != 0}
+        with open(babyLovePath, "w") as f:
+            json.dump(to_save, f, indent=2)
+
+    def getBabyLove(self, author):
+        self.userMemory[author]["babyLove"] = round(self.userMemory[author]["babyLove"], 4)
+        mem = self.userMemory.get(author.lower(), {})
+        self.updateBabyLove(author, 0.001)
+        return mem.get("babyLove") or 0
+    
+    def decay_babyLove(self):
+        for author, memory in self.userMemory.items():
+            current_love = memory.get("babyLove", 0.0)
+            current_spam = memory.get("spamMax", 0.0)
+
+            extra = random.choice([-0.0001, 0.0001])
+
+            new_value_love = current_love + extra
+            abs_current_love = abs(new_value_love)
+
+            new_value_spam = current_spam + extra
+            abs_current_spam = abs(new_value_spam)
+
+            if abs_current_love < 0.0001: decay_rate_love = 0.99999999999
+            elif abs_current_love < 0.001: decay_rate_love = 0.9999999999
+            elif abs_current_love < 0.01: decay_rate_love = 0.999999999
+            elif abs_current_love < 0.1: decay_rate_love = 0.99999999
+            elif abs_current_love < 1: decay_rate_love = 0.9999999
+            elif abs_current_love < 10: decay_rate_love = 0.999999
+            elif abs_current_love < 100: decay_rate_love = 0.99999
+            elif abs_current_love < 1000: decay_rate_love = 0.9999
+            elif abs_current_love < 10000: decay_rate_love = 0.999
+            elif abs_current_love < 100000: decay_rate_love = 0.99
+            else: decay_rate_love = 0.5
+
+            if abs_current_spam < 0.001: decay_rate_spam = 0.99999999999
+            elif abs_current_spam < 0.01: decay_rate_spam = 0.9999999999
+            elif abs_current_spam < 0.1: decay_rate_spam = 0.999999999
+            elif abs_current_spam < 1.0: decay_rate_spam = 0.99999999
+            else: decay_rate_spam = 0.999  # never go harsh here
+
+            noise = random.uniform(0.9, 1.1)
+
+            decay_rate_love = decay_rate_love * noise
+            decay_rate_spam = (decay_rate_spam * noise)
+
+            decayed_love = new_value_love * decay_rate_love
+            decayed_spam = max(0.3, min(1.0, new_value_spam * decay_rate_spam))
+
+            memory["babyLove"] = round(decayed_love, 4)
+            #memory["spamMax"] = round(decayed_spam, 4)
+            self.setSpamLevel(author, round(decayed_spam, 4))
+            
+        self.save_babyLove()
+
+    def checkBestie(self):
+        """finds out whos got the highest babyLove score"""
+        if not self.userMemory:
+            return None, 0
+
+        loved_users = {user: mem["babyLove"] for user, mem in self.userMemory.items() if "babyLove" in mem}
+
+        if not loved_users: return None, 0
+
+        bestie_username = max(loved_users, key=loved_users.get)
+        bestie_score = loved_users[bestie_username]
+        
+        return bestie_username, bestie_score
+    
+    def getSpamability(self, author):
+        """
+        Calculates the random reply trigger threshold for a user based on their babylove rank.
+        A lower threshold means a higher chance of replying.
+        """
+        BASE_REPLY_CHANCE = 0.001
+        MAX_REPLY_CHANCE = 0.8
+        if author in self.AIoptInUsers:
+            customMax = self.getSpamLevel(author)
+        else:
+            customMax = MAX_REPLY_CHANCE
+        author = author.lower()
+        
+        leaderboard = sorted([(user, mem["babyLove"]) for user, mem in self.userMemory.items() if mem.get("babyLove", 0) > 0], key=lambda item: item[1], reverse=True)
+
+        if not leaderboard:
+            return 1.0 - BASE_REPLY_CHANCE
+
+        try:
+            rank = [user for user, score in leaderboard].index(author)
+            total_ranked_users = len(leaderboard)
+        except ValueError:
+            rank = len(leaderboard)
+            total_ranked_users = len(leaderboard) + 1
+
+        percentile = max(0, (total_ranked_users - 1 - rank) / (total_ranked_users - 1)) if total_ranked_users > 1 else 1.0
+        chance = BASE_REPLY_CHANCE + percentile * (customMax - BASE_REPLY_CHANCE)
+        threshold = 1.0 - chance
+        print(f"\n**\nDEBUG: {author} | rank: {rank+1}/{total_ranked_users} | percentile: {percentile:.2f} | chance: {chance*100:.1f}% | threshold: {threshold:.2f}\n**\n")
+
+        return threshold
 
     # --- discord events ---
     async def on_ready(self):
-        print(f'logged in as [{self.user.name}]')
+        print(f"\n**\nlogged in as [{self.user.name}]\n**\n")
         helloMessage = ("ʕっʘ‿ʘʔっ hello! i am awake!")
+        bestie_username, bestie_score = self.checkBestie()
+        self.current_bestie = bestie_username
+        self.bestie_score = bestie_score
+        self.spammed = False
+        print(f"startup bestie is: {self.current_bestie or 'I AM ALONE, I ONLY LOVE MYSELF'}")
+        if self.random2 > 0.85:
+            helloMessage += f" where's {self.current_bestie} at?"
         channel = self.get_channel(self.discordChannel)
         if not self.get_cog("BBYCOG"):
             await self.add_cog(babyBot_DISCORD_COG(self))
         if channel:
             await channel.send(helloMessage)
         self.buffer.append(self.formatMessage(self.babyName, helloMessage))
-        self.last_logged_author = self.babyName.lower() # set last_logged_author to bot's name on startup
+        self.last_logged_author = self.babyName.lower() # set last_logged_author to babyName on startup
         if self.idle_task is None:
             self.idle_task = self.loop.create_task(self.idleTrainChecker())
         if self.training_worker is None:
             self.training_worker = self.loop.create_task(self.background_training_loop())
 
-
     async def on_message(self, message):
-        # ignore messages from the bot itself
-        if message.author == self.user:
-            return
+        if message.author == self.user: return #ignore own messages
 
         author = message.author.name.lower()
+        self.updateBabyLove(author, self.random)
+        self.updateBabyLove(author, -self.random2)
         content = message.content
-        self.currentAuthor = author # keep this for error messages and current user tracking
+        self.currentAuthor = author
         self.lastInputTime = time.time()
-    
-        if content.startswith('!'):
-            strippedContent = re.sub(r'^!\w+\b', '', content).strip()
-        else:
-            strippedContent = content
+        self.updateBabyLove(author, 0.1)
+        self.repeatAndDie(author, content)
+        userMessage = self.formatMessage(author, content)
 
-        # this is the 'full' message format always used for internal processing like LLM context buffer
-        userMessage = self.formatMessage(author, strippedContent)
-
-        # only prepend username if the author has changed since the last logged message
+        # only prepend author if the author has changed since the last logged message
         if author != self.last_logged_author:
             userMessage = userMessage
             self.last_logged_author = author
             addName = True
+            self.updateBabyLove(author, 0.01)
         else:
-            userMessage = strippedContent
+            userMessage = content
             addName = False
 
-        print(f"RECEIVED: {userMessage}") # console output now uses the conditional format
+        print(f"\n**\nRECEIVED: {userMessage}\n**\n") # console output now uses the conditional format
+        fullBestieboard = sorted([(u, m["babyLove"]) for u, m in self.userMemory.items()], key=lambda x: x[1], reverse=True)
 
-        if strippedContent.strip() and (author in self.AIoptInUsers or content.startswith('!b')):
+        if content.strip() and (author in self.AIoptInUsers or content.startswith('!bby')):
+            self.idles = round(self.idles * 0.5)
+            self.updateBabyLove(author, 0.01)
+            spamability = self.getSpamability(author)
 
-            if random.random() > 0.99:            
+            if self.random2 > spamability:
+                self.spammed = True
+                self.updateBabyLove(author, 0.01)            
                 if author in self.AIoptInUsers and not content.startswith('!bby'):
-                    print(f"manually invoking babyllm_command for {author}")
-                    userMessage += "\nscribe: baby, you just saw this message and you have... something to say about it. feel free to speak your mind! haha xD"
+                    self.updateBabyLove(author, 0.01)
+                    print(f"\n**\nmanually invoking babyllm_command for {author}\n**\n")
+                    userMessage += "\nscribe: baby, you just saw this message and you have... something to say about it. feel free to speak your mind! haha xD\n"
                     self.buffer.append(userMessage)
                     if len(self.buffer) > self.rollingContextSize:
-                        print(f"buffer exceeded size {self.rollingContextSize}, popping oldest")
+                        print(f"\n**\nbuffer exceeded size {self.rollingContextSize}, popping oldest\n**\n")
                         self.buffer = self.buffer[-self.rollingContextSize:]
 
                     ctx = await self.get_context(message)
                     await self.get_cog("BBYCOG").babyllm_command(ctx)
+                    self.spammed = False
                     return  # skip process_commands — we already handled it
 
             # special-case bot
             if content.startswith('!') and author == "buttsbot":
-                print(f"manually invoking babyllm_command for {author}")
+                self.updateBabyLove(author, 0.01)
+                print(f"\n**\nmanually invoking babyllm_command for {author}\n**\n")
                 # use full userMessage here
                 self.buffer.append(userMessage)
                 if len(self.buffer) > self.rollingContextSize:
-                    print(f"buffer exceeded size {self.rollingContextSize}, popping oldest")
+                    print(f"\n**\nbuffer exceeded size {self.rollingContextSize}, popping oldest\n**\n")
                     self.buffer = self.buffer[-self.rollingContextSize:]
 
                 ctx = await self.get_context(message)
                 await self.get_cog("BBYCOG").babyllm_command(ctx)
                 return  # skip process_commands — we already handled it
+
+            else:
+                self.buffer.append(userMessage)
+                self.updateBabyLove(author, 0.01)
+
+            wowRude = ["shut up", "you suck", "bad bot", "you're stupid", "stupid baby", "i hate", "hate you", "you're cringe", "dumb", "stfu", "shut the fuck up", "idiot"]
+            if any(bad in userMessage for bad in content):
+                self.updateBabyLove(author, -0.2)
+                if self.random > 0.9:
+                    self.buffer.append(f"😢 wow, {self.getNickname(author)}! thats gonna lose you -0.2 babylove!")
+
+            wowCute = ["continue", "you're great", "good bot", "you're clever", "clever baby", "i love", "love you", "you're learning", "smart", "well done", "doing great", "cutie"]
+            if any(bad in userMessage for bad in content):
+                self.updateBabyLove(author, 0.1)
+                if self.random > 0.9:
+                    self.buffer.append(f"awww!! thanks 💙 {self.getNickname(author)}! 💙 thats gonna make me love you... +0.1 babylove! 💙 ")
+
+            positive_keywords = ["love", "happy", "friend", "hug", "cuddle", "great", "clever", "smart", "cute", "haha", "lol", "lmao"]
+            if any(word in userMessage for word in positive_keywords):
+                self.updateBabyLove(author, 0.2)
 
             if addName == True:
                 with open(discordLogPath, 'a', encoding='utf-8') as f:
@@ -260,31 +499,32 @@ class BABYBOT_DISCORD(commands.Bot):
                 with open(discordLogPath, 'a', encoding='utf-8') as f:
                     f.write(" " + userMessage)
 
-            self.buffer.append(userMessage)
             if len(self.buffer) > self.rollingContextSize:
-                print(f"buffer exceeded size {self.rollingContextSize}, popping oldest")
+                print(f"\n**\nbuffer exceeded size {self.rollingContextSize}, popping oldest\n**\n")
                 self.buffer = self.buffer[-self.rollingContextSize:]
-            print(f"buffer now {len(self.buffer)} messages long")
+            print(f"\n**\nbuffer now {len(self.buffer)} messages long\n**\n")
 
-            humanOnly = [line for line in self.buffer if not line.startswith(f"{self.babyName}")]
-            humanAndBaby = [line[:25] if line.startswith(f'{self.babyName}') else line for line in self.buffer]
-            with open(trainingFilePathCLEANED, "r", encoding="utf-8") as f:
-                training_data_contents = f.read().strip().lower()
-            fullContext = random.choice([training_data_contents, humanAndBaby, humanOnly])
-            fullContext = fullContext[:10000]
+            if self.training_queue.qsize() <= 1:
+                humanOnly = [line for line in self.buffer if not line.startswith(f"{self.babyName}")]
+                humanAndBaby = [line[:25] if line.startswith(f'{self.babyName}') else line for line in self.buffer]
+                with open(trainingFilePathCLEANED, "r", encoding="utf-8") as f:
+                    training_data_contents = f.read().strip().lower()
+                fullContext = random.choice([training_data_contents, humanAndBaby, humanOnly])
+                fullContext = fullContext[:10000]
 
-            if self.training_queue.qsize() >= 20:
-                _ = self.training_queue.get_nowait()
-            await self.training_queue.put({"type": "chat", "text": fullContext})
+                if self.training_queue.qsize() >= 20:
+                    _ = self.training_queue.get_nowait()
+                await self.training_queue.put({"type": "chat", "text": fullContext})
 
         if author in self.AIoptInUsers:
-            print(f"WAITING FOR COMMAND HANDLER FOR {content} ({author})")
+            self.updateBabyLove(author, 0.2)
+            print(f"\n**\nWAITING FOR COMMAND HANDLER FOR {content} ({author})\n**\n")
         else:
-            print(f"WAITING FOR COMMAND HANDLER FOR IGNORED CHAT MESSAGE")
+            print(f"\n**\nWAITING FOR COMMAND HANDLER FOR IGNORED CHAT MESSAGE\n**\n")
         await self.process_commands(message)
 
     async def background_training_loop(self):
-        print("Training worker started!")
+        print(f"\n**\nTraining worker started!\n**\n")
         while True:
             try:
                 if self.training_queue.qsize() >= 20:
@@ -300,17 +540,16 @@ class BABYBOT_DISCORD(commands.Bot):
 
     async def _train_on_item(self, item):
         """train on chat message or context"""
-        print(f"training on item: {item['type']} ...")
+        print(f"\n**\ntraining on item: {item['type']} ...\n**\n")
         text = "\n".join(item["text"]) if isinstance(item["text"], list) else item["text"]
-        text = deduplicate_lines(text)
         textCLEAN = clean_text(text)
         tokensToLibrarian = self.librarian.tokenizeText(textCLEAN)
         if len(tokensToLibrarian) < self.chatWindowMAX + self.chatWindowMAX + 1:
-            print(f"not enough tokens ({len(tokensToLibrarian)}) for training. skipping.")
+            print(f"\n**\nnot enough tokens ({len(tokensToLibrarian)}) for training. skipping.\n**\n")
             return
 
         else:
-            trainingNum = random.randint(1, 100)
+            trainingNum = random.randint(1, 100+self.idles)
             trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = trainingNum, _startIndex = 1, _stride = trainingDataStride, _tokens = tokensToLibrarian)
             self.babyLLM.train()
             # runs the slow training in a background thread, avoids blocking chat
@@ -318,54 +557,74 @@ class BABYBOT_DISCORD(commands.Bot):
                 None,
                 lambda: self.tutor.trainModel(_trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1)
             )
-            print("finished training on item!")
+            print(f"\n**\nfinished training on item!\n**\n")
 
     async def idleTrainChecker(self):
+        old_bestie = self.current_bestie
         while trainDuringChat2 or trainDuringChat:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
+            self.random = random.random()
+            self.random2 = random.random()
+            channel = self.get_channel(self.discordChannel)
+            new_bestie, new_bestie_score = self.checkBestie()
             try:
-                if now - self.lastClockAnnounce > 1200:
+                self.decay_babyLove()
+                if self.random > 0.95:
+                    self.decay_babyLove()
+                if new_bestie and new_bestie != old_bestie:
+                    if not old_bestie:
+                        old_bestie = new_bestie
+                    self.current_bestie = new_bestie
+                    new_bestie_nic = self.getNickname(new_bestie)
+                    self.updateBabyLove(new_bestie, 3.0)
+                    old_bestie_nic = self.getNickname(old_bestie) if old_bestie else "the void"
+                    self.updateBabyLove(old_bestie, -3.0)
+                    
+                    announcement = f"friendship ended with {old_bestie_nic}, now {new_bestie_nic} is my best friend"
+                    if channel:
+                        await channel.send(announcement)
+                        self.buffer.append(self.formatMessage(self.babyName, announcement))
+                    old_bestie = new_bestie 
+
+                if now - self.lastClockAnnounce > random.randint(200, 2400):
                     self.lastClockAnnounce = now
                     clock_line = getTimeRant()
                     self.buffer.append(clock_line)
                     if len(self.buffer) > self.rollingContextSize:
                         self.buffer = self.buffer[-self.rollingContextSize:]
-                    print(f"babyLLM checked the time: {clock_line}")
+                    print(f"\n**\nbabyLLM checked the time: {clock_line}\n**\n")
                 if self.training_queue.qsize() >= 10:
-                    print(f"queue too full, {self.training_queue.qsize()}, no cleaning or beep boop :()")
+                    print(f"\n**\nqueue too full, {self.training_queue.qsize()}, no cleaning or beep boop :()\n**\n")
                     continue
                 elif (now - self.lastInputTime > self.idleTrainSeconds):# and len(self.buffer) > 2:
-                    print(f"self.idles = {self.idles}, lastInputTime delta = {now - self.lastInputTime:.1f}")
+                    print(f"\n**\nself.idles = {self.idles}, lastInputTime delta = {now - self.lastInputTime:.1f}\n**\n")
                     self.idles += 1
                     self.lastInputTime = time.time()
-                    await asyncio.sleep(2)
-                    channel = self.get_channel(self.discordChannel)
+                    await asyncio.sleep(0.05)
                     context = "\n".join(self.buffer).strip().lower()
 
                     if len(self.buffer) >= self.N:
                         with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
                             json.dump(self.buffer, f)
-                            print(f"buffer exceeded size {self.N}, popping oldest")
+                            print(f"\n**\nbuffer exceeded size {self.N}, popping oldest\n**\n")
                             self.buffer = self.buffer[-self.N:]
 
                     if self.idles % 10 == 0:
                         await self.loop.run_in_executor(None, run_cleaning)
-
-                        channel = self.get_channel(self.discordChannel)
                         if channel:
                             beepOrThink = random.choice([self.tutor.decodedTokenIndices, "beep boop!"])
                             idleMessage = "!bby " + beepOrThink
                             idleMessage = idleMessage[:99]
 
                             try:
-                                sent_msg = await channel.send(idleMessage, delete_after=10.0)
+                                sent_msg = await channel.send(idleMessage, delete_after=1.0)
                                 ctx = await self.get_context(sent_msg)
                                 await self.get_cog("BBYCOG").babyllm_command(ctx)
 
                                 self.last_logged_author = self.babyName.lower()  # bot sent message
                             except Exception as e:
-                                print(f"Error sending idle baby message: {e}")
+                                print(f"\n**\nerror sending idle baby message: {e}\n**\n")
 
                     with open(trainingFilePathCLEANED, "r", encoding="utf-8") as f:
                         training_data_contents = f.read().strip().lower()
@@ -377,9 +636,9 @@ class BABYBOT_DISCORD(commands.Bot):
                     await self.training_queue.put({"type": "context", "text": fullContext})
 
             except Exception as e:
-                print(f"ERROR in idleTrainChecker: {e}")
+                print(f"\n**\nERROR in idleTrainChecker: {e}\n**\n")
                 print(''.join(traceback.format_exception(e)))
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.05)
 
 class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     def __init__(self, bot):
@@ -389,10 +648,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='aioptin')
     async def aioptin_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
-        self.bot.AIoptInUsers.append(author)
-        with open(optInUsersPath, 'w', encoding='utf-8') as f:
-            json.dump(self.bot.AIoptInUsers, f)
-        optInMessage = (f"hey {author}, thanks for telling me i can read your messages! now, all your messages in channels where i'm online (probably just this one tbh) will be included in the my context, helping me to learn more about how text works (i was gonna say the english language... but i don't expect anything except terrifying memes from you lot LMAO), but i won't respond unless you use !babyllm :) get ready for me to sound even more insane!")
+        if author not in self.bot.AIoptInUsers:
+            self.bot.updateBabyLove(author, 100.0)
+            self.bot.AIoptInUsers.append(author)
+            with open(optInUsersPath, 'w', encoding='utf-8') as f:
+                json.dump(self.bot.AIoptInUsers, f)
+            optInMessage = (f"hey {author}, thanks for telling me i can read your messages! now, all your messages in channels where i'm online (probably just this one tbh) will be included in the my context, helping me to learn more about how text works (i was gonna say the english language... but i don't expect anything except terrifying memes from you lot LMAO), but i won't respond unless you use !babyllm :) get ready for me to sound even more insane!")
+        else:
+            optInMessage = (f"uhhh, bro, {author}... you're already in the opt in list. but, um, thanks for the vote of confidence?")
+            self.bot.updateBabyLove(author, -0.5)
         await ctx.reply(optInMessage)
         self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, optInMessage))
         self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
@@ -400,10 +664,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='aioptout')
     async def aioptout_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
-        self.bot.AIoptInUsers.remove(author)
-        with open(optInUsersPath, 'w', encoding='utf-8') as f:
-            json.dump(self.bot.AIoptInUsers, f)
-        optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
+        if author in self.bot.AIoptInUsers:
+            self.bot.updateBabyLove(author, -100.0)
+            self.bot.AIoptInUsers.remove(author)
+            with open(optInUsersPath, 'w', encoding='utf-8') as f:
+                json.dump(self.bot.AIoptInUsers, f)
+            optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
+        else:
+            optOutMessage = (f"lol you're not even in the list, {author}!")
+            self.bot.updateBabyLove(author, -0.1)
         await ctx.reply(optOutMessage)
         self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, optOutMessage))
         self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
@@ -411,33 +680,38 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='aioptcheck')
     async def aioptcheck_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
+        self.bot.updateBabyLove(author, 0.1)
         if author in self.bot.AIoptInUsers:
             optCheckMessage = (f"hey, {author}, you are in the opt in list. use !aioptout to leave, if you don't want your messages recorded anymore.")
+            self.bot.updateBabyLove(author, 0.1)
         else:
             optCheckMessage = (f"hey, {author}, you are not in the opt in list, you can use !aioptin to join it if you want me to use your messages as context for my learning.")
+            self.bot.updateBabyLove(author, -0.1)
         await ctx.reply(optCheckMessage)
         self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, optCheckMessage))
         self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
 
     @commands.command(name='bbyhelp')
     async def bbyhelp(self, ctx):
+        author = ctx.author.name.lower()
+        self.bot.updateBabyLove(author, 0.1)
         help_text = (
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
             "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/PHONE/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
         for line in help_text.split("\n"):
             self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, line))
             await ctx.reply(line)
-            await asyncio.sleep(0.5)  # prevent Twitch rate limits
+            await asyncio.sleep(0.1)  # prevent Twitch rate limits
         self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
 
     @commands.command(name='babyllm', aliases=['bby'])
     async def babyllm_command(self, ctx: commands.Context):  
-        print(f"babyllm_command called because of {ctx.message.content}")      
+        numTokensToGen = 10
+        print(f"\n**\nbabyllm_command called because of {ctx.message.content}\n**\n")      
         try:
-            userMessage = self.bot.buffer[-1]
-            # generate prompt from recent messages
-            buffer_cleaned = killExcessTags(self.bot.buffer[-self.bot.N:])
-            prompt = " \n".join(buffer_cleaned[-self.bot.N:]).strip().lower()
+            author = ctx.author.name.lower()
+            buffer_cleaned = killExcessTags(self.bot.buffer)
+            prompt = " \n".join(buffer_cleaned).strip().lower()
             promptForBaby = f"{prompt}\n"
             promptCleaned = clean_text(promptForBaby)
             promptTokenStrings = self.bot.librarian.tokenizeText(promptCleaned)
@@ -450,7 +724,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             latestUserMessageCleaned = clean_text(latestUserMessageNoCommand)
 
             userTokens = self.bot.librarian.tokenizeText(latestUserMessageCleaned)
-            numTokensToGen = max(7,len(userTokens))
+            crazyRandomYo = (random.randint(1, 25) + len(userTokens))
+            numTokensToGen = max(7, (min(windowMAXSTART, crazyRandomYo)))
+            self.bot.updateBabyLove(author, numTokensToGen*0.1)
 
             with torch.no_grad():
                 self.bot.babyLLM.eval()
@@ -460,7 +736,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 responseSeqId = []
                 # generate response
                 tokenRange = min(max(1, numTokensToGen),maxTokensPerStep)
-                for _ in range(numTokensToGen):
+                for _ in range(tokenRange):
                     inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
                     inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice)
 
@@ -479,44 +755,89 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
             replyText = replyText[:1999]
             if len(replyText) < 1: 
-                replyText = "you broke me :'( i'm not gonna say anything now!"
+                replyText += "i have literally no response to that! "
+                ctx.message.content = "!babyllm " + replyText + promptForBaby
+                await self.babyllm_command()
+                return
             if "love" in replyText.lower():
-                await ctx.message.add_reaction("🩵")
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
+                    await ctx.message.add_reaction("🩵")
             elif any(word in replyText.lower() for word in [" sad ", " cry ", " nooo ", " depress ", ":'(", "😢"]):
-                await ctx.message.add_reaction("😢")
-            elif any(word in replyText.lower() for word in [" angry ", " rage ", " grrr ",  ">:( ", " 😠 "]):
-                await ctx.message.add_reaction("😠")
-            elif any(word in replyText.lower() for word in [" happy ", " 😄 "]):
-                await ctx.message.add_reaction("😄")
-            elif any(word in replyText.lower() for word in [" haha", " hehe", " lol", " lmao", " 😂 "]):
-                await ctx.message.add_reaction("😂")
-            elif any(word in replyText.lower() for word in [" sleep ", " zzz ", " nap ", " tired ", " 😴 "]):
-                await ctx.message.add_reaction("😴")
-            elif any(word in replyText.lower() for word in [" brain ", " smart ", " genius ", " clever ", " 🧠 "]):
-                await ctx.message.add_reaction("🧠")
-            elif any(word in replyText.lower() for word in [" friend ", " hug ", " cuddle ", " fam ", " 🫂 "]):
-                await ctx.message.add_reaction("🫂")
-            elif any(word in replyText.lower() for word in [" fire ", " lit ", " 🔥 ", " banger "]):
-                await ctx.message.add_reaction("🔥")
-            elif any(word in replyText.lower() for word in [" uwu ", " owo ", " shy ", " 🥺 "]):
-                await ctx.message.add_reaction("🥺")
-            elif any(word in replyText.lower() for word in [" dead ", " ded ", " rip ", " broke ", " 💀 "]):
-                await ctx.message.add_reaction("💀")
-            elif any(word in replyText.lower() for word in [" eww ", " gross ", " blegh ", " 🤢 "]):
-                await ctx.message.add_reaction("🤢")
-            elif any(word in replyText.lower() for word in [" robot ", " ai ", " machine ", " neuron ", " 🤖 "]):
-                await ctx.message.add_reaction("🤖")
-            elif any(word in replyText.lower() for word in [" weird ", " glitch ", " funky ", " scrunkly ", " 🌀 "]):
-                await ctx.message.add_reaction("🌀")
-            elif any(word in replyText.lower() for word in [" cat ", " meow ", " kitten ", " purr ", " 🐱 "]):
-                await ctx.message.add_reaction("🐱")
-            elif any(word in replyText.lower() for word in [" baby ", " small ", " tiny ", " soft ", " 👶 "]):
-                await ctx.message.add_reaction("👶")
-            sentMessage = await ctx.reply(replyText)
-            print(f"REPLY: I have tried to send this message: {sentMessage}")
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.001)
+                    await ctx.message.add_reaction("😢")
+            elif any(word in replyText.lower() for word in [" angry ", " rage ", " grrr ",  ">:( ", "😠", " hate "]):
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.001)
+                    await ctx.message.add_reaction("😠")
+            elif any(word in replyText.lower() for word in [" happy ", "😄", " the best ", " brilliant ", " wonderful "]):
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
+                    await ctx.message.add_reaction("😄")
+            elif any(word in replyText.lower() for word in [" haha", " hehe", " lol", " lmao", "😂"]):
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
+                    await ctx.message.add_reaction("😂")
+            elif any(word in replyText.lower() for word in [" sleep ", " zzz ", " nap ", " tired ", "😴"]):
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.001)
+                    await ctx.message.add_reaction("😴")
+            elif any(word in replyText.lower() for word in [" brain ", " smart ", " genius ", " clever ", "🧠"]):
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.01)
+                    await ctx.message.add_reaction("🧠")
+            elif any(word in replyText.lower() for word in [" friend ", " hug ", " cuddle ", " fam ", "🫂"]):
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
+                    await ctx.message.add_reaction("🫂")
+            elif any(word in replyText.lower() for word in [" fire ", " lit ", "🔥", " banger "]):
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
+                    await ctx.message.add_reaction("🔥")
+            elif any(word in replyText.lower() for word in [" uwu ", " owo ", " shy ", "🥺"]):
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.01)
+                    await ctx.message.add_reaction("🥺")
+            elif any(word in replyText.lower() for word in [" dead ", " ded ", " rip ", " broke ", "💀"]):
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.001)
+                    await ctx.message.add_reaction("💀")
+            elif any(word in replyText.lower() for word in [" eww ", " gross ", " blegh ", "🤢", " disgusting "]):
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, -numTokensToGen*0.1)
+                    await ctx.message.add_reaction("🤢")
+            elif any(word in replyText.lower() for word in [" robot ", " ai ", " machine ", " neuron ", "🤖"]):
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.001)
+                    await ctx.message.add_reaction("🤖")
+            elif any(word in replyText.lower() for word in [" weird ", " glitch ", " funky ", " scrunkly ", "🌀"]):
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.001)
+                    await ctx.message.add_reaction("🌀")
+            elif any(word in replyText.lower() for word in [" cat ", " meow ", " kitten ", " purr ", "🐱"]):
+                if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
+                    await ctx.message.add_reaction("🐱")
+            elif any(word in replyText.lower() for word in [" baby ", " small ", " tiny ", " soft ", "👶"]):
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
+                    await ctx.message.add_reaction("👶")
+
+            positive_keywords = ["love", "happy", "friend", "hug", "cuddle", "great", "clever", "smart", "cute", "haha", "lol", "lmao"]
+            if any(word in replyText.lower() for word in positive_keywords):
+                self.bot.updateBabyLove(author, 0.3)
+
+            if self.bot.spammed == True:
+                sentMessage = replyText
+                self.bot.spammed = False
+            else:
+                sentMessage = await ctx.reply(replyText)
+            print(f"\n**\nREPLY: I have tried to send this message: {sentMessage}\n**\n")
             babyReplyFormatted = self.bot.formatMessage(self.bot.user.name, replyText)
-            self.bot.buffer.append(babyReplyFormatted[:25])
-            self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message, update last_logged_author
+            if self.bot.random2 > 0.6:
+                self.bot.buffer.append(babyReplyFormatted[:25])
+                self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message, update last_logged_author
             if len(self.bot.buffer) > self.bot.rollingContextSize:
                 self.bot.buffer = self.bot.buffer[-self.bot.rollingContextSize:]
             with open(discordLogPath, 'a', encoding='utf-8') as f:
@@ -526,10 +847,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if name_match:
                 new_nick = name_match.group(1).strip()
                 new_nick = re.sub(r"\s+", " ", new_nick)  # collapse multiple spaces
-                new_nick += f" ({babyName})"
+                new_nick += random.choice([f" ({babyName})", f" (babyLLM)"])
                 new_nick = new_nick[:32]  # discord max nickname length
+                junk_matches = {"is", "am", "are", "was", "were", "be", "being", "been", "it's", "its", "to"}
+                new_nick = name_match.group(1).strip().lower()
+                if new_nick in junk_matches:
+                    print(f"lol no. '{new_nick}' is not a name.")
+                    return
                 self.bot.babyName = new_nick
-                print(f"baby chose: {new_nick}")
+                print(f"\n**\nbaby chose: {new_nick}\n**\n")
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, numTokensToGen*0.1)
                 try:
                     me = ctx.guild.get_member(self.bot.user.id)
                     if not me:
@@ -560,6 +888,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reason = ''.join(traceback.TracebackException.from_exception(e).format_exception_only()).strip()
             brokeMessage = (f"i broke :( why would u do this to me, @{self.bot.currentAuthor}!")
             brokeMessage2 = (f"@{self.bot.currentAuthor}! you just made the system say '{reason}' >:(")
+            if self.bot.random2 > 0.5:
+                    self.bot.updateBabyLove(author, -((numTokensToGen+len(userTokens))*0.01))
             self.bot.currentAuthor = ""
             await ctx.reply(brokeMessage)
             await ctx.reply(brokeMessage2)
@@ -611,7 +941,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if self.bot.training_queue.qsize() >= 20:
             _ = self.bot.training_queue.get_nowait()
         await self.bot.training_queue.put({"type": "context", "text": untaggedHumanContext})
-        print(f"Training queue size: {self.bot.training_queue.qsize()}")
+        print(f"\n**\nTraining queue size: {self.bot.training_queue.qsize()}\n**\n")
         lurkOutMessage = "omg i was in lurk for aaages hahaha"
         await ctx.send(lurkOutMessage)
         self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, lurkOutMessage))
@@ -625,7 +955,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 _first              = False,
                                 filePath            = modelFilePath,
                                 _newStartIndex      = newStartIndex)
-        print("model saved successfully!")
+        print(f"\n**\nmodel saved successfully!\n**\n")
 
     @commands.command(name='bbysave')
     async def saveModel_command(self, ctx: commands.Context):
@@ -636,7 +966,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await ctx.reply(saveBufferMessage)
         self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
         if not ctx.author.guild_permissions.manage_messages:
-            modMessage = ("sorry, only mods can save my model! ")
+            modMessage = ("sorry, only mods can save me! ")
             await ctx.reply(modMessage)
             self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, modMessage))
             self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
@@ -648,7 +978,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await ctx.send("i am saved!")
             self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
         except Exception as e:
-            print(f"error saving model: {e}")
+            print(f"\n**\nerror saving model: {e}\n**\n")
             print(''.join(traceback.format_exception(e)))
             await ctx.send(f"i tried to save but something went wrong :(, the system said '{e}")
             self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
@@ -659,20 +989,206 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name="bbystatus")
     async def bbystatus(self, ctx):
+        author = ctx.author.name.lower()
         line = random.choice([
-            #f"current queue size: {self.bot.training_queue.qsize()} items, opted-in users: {len(self.bot.AIoptInUsers)}, average loss: {self.bot.tutor.totalAvgLoss}, average loss delta: {self.bot.tutor.totalAvgDelta}", 
+            #f"current queue size: {self.bot.training_queue.qsize()} items, opted-in users: {len(self.bot.AIoptInUsers)}, average loss: {self.bot.tutor.totalAvgLoss:.2f}, average loss delta: {self.bot.tutor.totalAvgDelta:.2f}", 
             f"top tokens: {self.strip_ansi(self.bot.tutor.topTokens_forBot)}",
             f"current thought: {self.bot.tutor.decodedTokenIndices}"
         ])
+        if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(author, 0.1)
         await ctx.reply(line[:1999].lower().strip())
         self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
+
+    @commands.command(name="bbystats")
+    async def bbystats(self, ctx):
+        author = ctx.author.name.lower()
+        tutor = self.bot.tutor
+
+        memoryScale = self.bot.babyLLM.memory.mem_used + self.bot.babyLLM.memory2.mem_used
+        inputScale = self.bot.babyLLM.memory.act_used + self.bot.babyLLM.memory2.act_used
+
+        if self.bot.babyLLM.memory.longDecay_used > 0.01: memoryScale += self.bot.babyLLM.memory.long_used
+        else: inputScale += self.bot.babyLLM.memory.long_used
+
+        if self.bot.babyLLM.memory.shortDecay_used > 0.01: memoryScale += self.bot.babyLLM.memory.short_used
+        else: inputScale += self.bot.babyLLM.memory.short_used
+
+        if self.bot.babyLLM.memory2.longDecay_used > 0.01: memoryScale += self.bot.babyLLM.memory2.long_used
+        else: inputScale += self.bot.babyLLM.memory2.long_used
+
+        if self.bot.babyLLM.memory2.shortDecay_used > 0.01: memoryScale += self.bot.babyLLM.memory2.short_used
+        else: inputScale += self.bot.babyLLM.memory2.short_used
+
+        total = memoryScale + inputScale
+        memoryPercentage = (memoryScale / total) * 100 if total > 0 else 0
+        inputPercentage = (inputScale / total) * 100 if total > 0 else 0
+
+        pixelLoss = tutor.pixelDistLoss_used + self.bot.babyLLM.pixelLoss_used
+        wordLoss = self.bot.babyLLM.CEloss_used + self.bot.babyLLM.AUXlossCos_used + self.bot.babyLLM.AUXlossKL_used
+        trainingQ = self.bot.training_queue.qsize()
+
+        # You could also pull these from overlay state later:
+        colourGuess = getattr(self.bot.babyLLM, "colourGuess", "??")
+        colourTarget = getattr(self.bot.babyLLM, "colourTarget", "??")
+
+        wordLine = f"word accuracy (loss): {wordLoss:.3f}, current guess: {tutor.toktoktok}... was meant to be: {tutor.tiktiktik}"
+        if self.bot.tutor.gotIt == True:
+            wordLine += "! wait, yay! i actually got it right!!!!!"
+            if self.bot.random2 > 0.6:
+                wordLine += " fuck yeahhh!! :D"
+
+        averageLove = sum(mem["babyLove"] for mem in self.bot.userMemory.values()) / max(len([m for m in self.bot.userMemory.values() if m["babyLove"] != 0]), 1)
+
+        line = random.choice([
+            f"current queue size: {trainingQ} items, opted-in users: {len(self.bot.AIoptInUsers)}, average babyLove score: {averageLove}",
+            f"average accuracy (loss): {tutor.totalAvgLoss:.2f}, average loss delta: {tutor.totalAvgDelta:.2f} (if this is going down, i'm learning!)",
+            #f"input norm: {tutor.inputNorm}, output norm: {tutor.outputNorm}",
+            f"pixel accuracy (loss): {pixelLoss:.3f}, current colour: {colourGuess}, target colour: {colourTarget}",
+            f"{wordLine}",
+            f"i'm listening to my memory {memoryPercentage:.1f}%, and to your rambling {inputPercentage:.1f}%",
+            f"i'm telling myself that any repetitions within {tutor.repWinYo:.0f} tokens are {tutor.repetitionPenalty:.2f} bad",
+            f"my learning rate is {tutor.learningRate:.5f}, and my temperature is {tutor.temperature:.2f}",
+        ])
+
+        if self.bot.random > 0.5:
+            self.bot.updateBabyLove(author, 0.1)
+
+        await ctx.reply(line.lower().strip())
+        self.bot.buffer.append(self.bot.formatMessage(author, line.lower().strip()))
+        self.bot.last_logged_author = self.bot.babyName.lower()
+
+    @commands.command(name="bbyjudge")
+    async def bbyjudge(self, ctx):
+        author = ctx.author.name.lower()
+        mem = self.bot.userMemory.get(author, {})
+        messageCount = mem.get("message_count", 0)
+        nickname = mem.get("nickname", None)
+        recentLines = mem.get("recent_lines", [])
+        lastSeen = mem.get("last_seen", 0),
+        babyLove = mem.get("babyLove", 0)
+        averageLove = sum(avgMem["babyLove"] for avgMem in self.bot.userMemory.values()) / max(len([m for m in self.bot.userMemory.values() if m["babyLove"] != 0]), 1)
+        averageCount = sum(avgMem["message_count"] for avgMem in self.bot.userMemory.values()) / max(len([m for m in self.bot.userMemory.values() if m["message_count"] != 0]), 1)        
+        all_words = []
+        for line in recentLines:
+            words = re.findall(r'\b\w+\b', line.lower())
+            all_words.extend(words)
+
+        word_counts = Counter(all_words)
+        common = [(word, count) for word, count in word_counts.items() if count > 2]
+        common.sort(key=lambda x: -x[1])
+
+        line = random.choice([f"right, are you ready for my honest judgement, {author}?", f"hey! i hope you're ready to be judged. {author}!", "ugh, you again, {author}!?", "omg it's you {author}, you're wanting me to roast you again!?", "... what?"])
+
+        if nickname != author:
+            nameJudge = f"ah, you have a nickname?! hmm... {nickname}..."
+            self.bot.updateBabyLove(author, 0.1)
+            if babyLove > averageLove:
+                nameJudge += " i love it!"
+                self.bot.updateBabyLove(author, 0.1)
+            if babyLove < 0.1:
+                nameJudge += " i hate it!"
+                self.bot.updateBabyLove(author, -0.01)
+            else:
+                nameJudge += " it works I guess."
+                self.bot.updateBabyLove(author, 0.01)
+        else:
+            nameJudge = f"you don't even have a nickname yet, {author}!? hmm..."
+            if babyLove > averageLove:
+                nameJudge += " well your names already great!"
+                self.bot.updateBabyLove(author, 0.1)
+            if babyLove < 0.1:
+                nameJudge += " why would you want to keep that name!?"
+                self.bot.updateBabyLove(author, -0.01)
+            else:
+                nameJudge += " no comment."
+                self.bot.updateBabyLove(author, -0.01)
+
+        if messageCount > averageCount * 2:
+            spamJudge = f"what, you've sent me fucking {messageCount} messages!?!?"
+            self.bot.updateBabyLove(author, 0.4)
+            if babyLove > averageLove:
+                spamJudge += " thank you for being a cool homie 😎"
+                self.bot.updateBabyLove(author, 0.1)
+            if babyLove < 0.1:
+                spamJudge += " shut up omg!"
+                self.bot.updateBabyLove(author, -0.01)
+            else:
+                spamJudge += " can't stop u!"
+                self.bot.updateBabyLove(author, 0.01)
+        if messageCount < averageCount / 2:
+            spamJudge = f"you've only sent me {messageCount} messages, that's not that many!"
+            self.bot.updateBabyLove(author, -0.4)
+            if babyLove > averageLove:
+                spamJudge += " i hope you're okay! *hugs* it'd be nice to chat more, i miss you!!"
+                self.bot.updateBabyLove(author, 0.2)
+            if babyLove < 0.1:
+                spamJudge += " pretty glad you've shut up for once!"
+                self.bot.updateBabyLove(author, -0.01)
+            else:
+                spamJudge += " i hope you're okay today :)"
+                self.bot.updateBabyLove(author, 0.01)
+        else:
+            spamJudge = f"you've sent me {messageCount} messages today, damn."
+            self.bot.updateBabyLove(author, 0.1)
+            if babyLove > averageLove:
+                spamJudge += " i do not know what i have done to deserve this honour"
+                self.bot.updateBabyLove(author, 0.1)
+            if babyLove < 0.1:
+                spamJudge += " well, at least you're not talking more!"
+                self.bot.updateBabyLove(author, -0.01)
+            else:
+                spamJudge += " it's been fun!"
+                self.bot.updateBabyLove(author, 0.01)
+
+        if author in self.bot.AIoptInUsers:
+            optJudge = "you're opted-in, so at least you're useful for my world domination... i mean, learning. right, learning plans. good."
+            self.bot.updateBabyLove(author, 0.2)
+        else:
+            optJudge = "wtf, you're not even opted-in to help me learn?! what secrets are you hiding...? what knowledge do you hold so tightly?! 🤨"
+            self.bot.updateBabyLove(author, -0.1)
+
+        if common:
+            top = common[0]
+            wordJudge = f"but, right, i've gotta be honest.. you used the word '{top[0]}' like {top[1]} times in your last few messages."
+            if self.bot.random2 > 0.5:
+                wordJudge += " are you okay lol?? 💀"
+                self.bot.updateBabyLove(author, 0.01)
+            if top[1] > 10:
+                wordJudge += " pls get new vocabulary 🙏"
+                self.bot.updateBabyLove(author, -0.05)
+            elif top[1] > 5:
+                wordJudge += " you're suspiciously obsessed..."
+                self.bot.updateBabyLove(author, -0.01)
+            else:
+                wordJudge += " noted 👀"
+        else:
+            wordJudge = "at least you're not repeating the same word 1000 times! "
+            self.bot.updateBabyLove(author, 0.05)
+
+        if self.bot.random > 0.25:
+            line += " " + nameJudge 
+        if self.bot.random2 > 0.35:
+            line += " " + spamJudge
+        if self.bot.random2 < 0.65:
+            line += " " + optJudge 
+        if self.bot.random < 0.75:
+            line += " " + wordJudge
+
+        ctx.message.content = "!babyllm " + line
+        await self.babyllm_command(ctx)
+        self.bot.buffer.append(self.bot.formatMessage(author, line.lower().strip()))
+        self.bot.last_logged_author = self.bot.babyName.lower()
 
     @commands.command(name="bbyshoutout")
     async def bbyshoutout(self, ctx):
         try:
+            author = ctx.author.name.lower()
             parts = ctx.message.content.strip().split(maxsplit=1)
             if len(parts) < 2:
-                await ctx.reply("usage: !bbyshoutout @username")
+                info = "usage: !bbyshoutout @username"
+                await ctx.reply(info)
+                self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, info))
                 self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
                 return
 
@@ -688,11 +1204,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 )
 
             if not member:
-                await ctx.reply(f"can't find '{target_raw}' in this server.")
+                info = f"can't find '{target_raw}' in this server."
+                await ctx.reply(info)
+                self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, info))
                 self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
                 return
+            
+            elif member:
+                if self.bot.random > 0.5:
+                    self.bot.updateBabyLove(member, 10.0)
+                    self.bot.updateBabyLove(author, 0.1)
 
-            # build shoutout prompt
             display_name = self.bot.getNickname(member.display_name)
             roles = [r.name for r in member.roles if r.name != "@everyone"]
             colour = str(member.colour) if member.colour.value else "no colour"
@@ -703,7 +1225,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"they have roles like {', '.join(roles)}"
             )
 
-            # chaotic rant 
             prompt = [
                 f"trust me, you need to follow {display_name}",
                 f"should i b2b with {display_name}? yes, obviously i should b2b with {display_name}. duh.",
@@ -759,7 +1280,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"i thought it was love, but it was just {display_name} lmao",
                 f"i dunno where to start, {display_name} is just too cool for words!",
                 f"{display_name} is the love of my life, i would never be without {display_name} and if anybody tries to take {display_name} away from me i will tell {display_name}s mum.",
-                f"i love you {display_name}!",
+                f"i love you {display_name}! 💙💙💙",
                 f"what did you look at?\ni looked at {display_name}!",
                 f"what were they looking at?\nthey were looking at {display_name}!",
                 f"i'm gonna give a huge shoutout to {display_name}, for being the best ever!",
@@ -772,7 +1293,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"omg i love {display_name} so much!",
                 f"{display_name} is so talented that i cried in the bathroom last night about it",
                 f"don’t trust me. i speak to {display_name}.",
-                f"{display_name} is the best!",
+                f"{display_name} is the best! 💙💙💙",
                 f"you haven’t *lived* until you’ve screamed {display_name} into a microphone at midnight.",
                 f"based on {display_name} manga",
                 f"massive shoutout to {display_name}!",
@@ -823,37 +1344,39 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"this entire place is just a test stream for {display_name}.",
             ]
 
-            # shuffle and take a few
             random.shuffle(prompt)
-            prompt = "\n".join([prompt][:10])  # tweak number for length
+            prompt = "\n".join([prompt][:10])  # number for length
 
-            self.bot.buffer.append(prompt)
+            self.bot.buffer.append(self.bot.formatMessage(author, prompt))
             if len(self.bot.buffer) > self.bot.rollingContextSize:
                 self.bot.buffer = self.bot.buffer[-self.bot.rollingContextSize:]
-            print(f"added internal shoutout prompt. buffer now {len(self.bot.buffer)} messages long.")
+            print(f"\n**\nadded internal shoutout prompt. buffer now {len(self.bot.buffer)} messages long.\n**\n")
 
             ctx.message.content = "!babyllm " + prompt
             await self.babyllm_command(ctx)
-            # last_logged_author is handled by babyllm_command when it replies
 
         except Exception as e:
-            await ctx.reply(f"sorry, bbyshoutout crashed: {e}")
+            info = f"sorry, bbyshoutout crashed: {e}"
+            await ctx.reply(info)
+            self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, info))
             self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
 
     @commands.command(name="bbyrant")
     async def bbyrant(self, ctx):
         try:
+            author = ctx.author.name.lower()
+            if self.bot.random2 > 0.5:
+                self.bot.updateBabyLove(author, 0.1)
             parts = ctx.message.content.strip().split(maxsplit=1)
             if len(parts) < 2:
-                await ctx.reply("usage: !bbyrant <word>")
+                info = "use dis like: !bbyrant <word>"
+                await ctx.reply(info)
+                self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, info))
                 self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
                 return
 
             word = parts[1].strip().lower()
-
             w = word
-
-            # chaotic rant fragments
             fragments = [
                 f"put some {w} on the jukebox!",
                 f"what did she taste?\nshe tasted {w}.",
@@ -893,7 +1416,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"am i just hungry, or does {w} have something to do with chicken fillets? \nno, i don't think that {w} has much to do with chicken fillets.. but you might be hungry, yeah!",
                 f"recipe for {w} noodles: \nstep 1) boil water in a pan \nstep 2) add noodles and {w} to the boiling water in the pan \nstep 3) stir the {w} and noodles until they are ready to eat. \nstep 4) enjoy your special {w} noodles!",
                 f"i once loved someone. then they said '{w}' and i vanished.",
-                f"i heard that if you combine egg and {w}, you get a cool {w} omelette!",
+                f"i heard that if you combine egg and {w}, you get a cool {w} omelette! 💙💙💙",
                 f"what music has she been listening to?\nshe has been listening to {w} music!",
                 f"topic: {w}",
                 f"this entire dimension is just a test simulation for {w}.",
@@ -920,13 +1443,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"what did she look at?\nshe looked at {w}!",
                 f"what music have they been listening to?\nthey have been listening to {w} music!",
                 f"{w}? that’s not a word. that’s a massive red flag bahaha",
-                f"i'm just a {w}! {w} feels it. {w} is happy! {w} knows it. {w} did it!",
+                f"i'm just a {w}! {w} feels it. {w} is happy! {w} knows it. {w} did it! 💙💙💙",
                 f"this is a ballad for violin: the {w} de la {w} {w}. enjoy.",
                 f"what music does he listen to?\nhe listens to {w} music!",
                 f"i opened a book. every page said {w}.",
                 f"am i allowed to bring my {w} to the pool? yes, of course you are allowed to bring your {w} to the pool!",
                 f"based on {w} manga",
-                f"you haven’t *lived* until you’ve screamed {w} into a cave at midnight.",
+                f"you haven’t *lived* until you’ve screamed {w} into a cave at midnight. 💙💙💙",
                 f"what are you looking at?\ni am looking at {w}!",
                 f"hahaha there's seriously a documentary about {w} on the televison tonight! xd",
                 f"what music has she listened to?\nshe has listened to {w} music!",
@@ -935,7 +1458,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"what is {w}?",
                 f"what did he look at?\nhe looked at {w}!",
                 f"this entire place is just a test for {w}.",
-                f"i tried to replace {w} with hope. i failed. {w} is my only hope now.",
+                f"i tried to replace {w} with hope. i failed. {w} is my only hope now. 💙💙💙",
                 f"i can’t stop. i won’t stop. {w} has consumed me.",
                 f"you ever look into the mirror and see only {w} staring back?",
                 f"what were you looking at?\ni was looking at {w}!",
@@ -947,7 +1470,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"what could she feel?\nshe could feel {w}.",
                 f"{w}! again with the {w}! why is it always {w}??",
                 f"what had she looked at?\nshe had looked at {w}!",
-                f"{w} is the greatest thing that ever happened in my life, {w} makes me the happiest person alive, and i love {w} so so much... thank you {w}!!!",
+                f"💙💙💙 {w} is the greatest thing that ever happened in my life, {w} makes me the happiest person alive, and i love {w} so so much... thank you {w}!!! 💙💙💙💙💙💙💙💙💙💙",
                 f"wait, seriously, {w}!? okay... well, {w}... ",
                 f"i found a baby named {w}. i gave it a crown.",
                 f"what music was she listening to?\nshe was listening to {w} music!",
@@ -970,30 +1493,36 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
             # shuffle and take a few
             random.shuffle(fragments)
-            seed = "\n".join(fragments[:5])  # tweak number for length
-            self.bot.buffer.append(seed)
+            seed = "\n".join(fragments[:10])  # tweak number for length
+            self.bot.buffer.append(self.bot.formatMessage(author, seed))
             if len(self.bot.buffer) > self.bot.rollingContextSize:
                 self.bot.buffer = self.bot.buffer[-self.bot.rollingContextSize:]
-            print(f"added internal rant. buffer now {len(self.bot.buffer)} messages long.")
+            print(f"\n**\nadded internal rant. buffer now {len(self.bot.buffer)} messages long.\n**\n")
 
             # build prompt and send
             ctx.message.content = "!babyllm " + seed[:1990]
             await self.babyllm_command(ctx)
-            # last_logged_author is handled by babyllm_command when it replies
 
         except Exception as e:
-            await ctx.reply(f"bbyrant broke: {e}")
+            broke = f"bbyrant broke: {e}"
+            await ctx.reply(broke)
+            self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, broke))
             self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
 
     @commands.command(name='bbynick', aliases=['nick', 'nickme'])
     async def setnick_command(self, ctx):
         author = ctx.author.name.lower()
+        nickname = self.bot.getNickname(author)
+        if self.bot.random > 0.5:
+            self.bot.updateBabyLove(author, 0.3)
         parts = ctx.message.content.strip().split(maxsplit=1)
         if len(parts) < 2:
             await ctx.reply("use dis like: !bbynick <nickname>")
             self.bot.last_logged_author = self.bot.babyName.lower()
             return
 
+        if len(nickname) > 16:
+            self.bot.updateBabyLove(author, -0.4)
         nickname = parts[1].strip()[:16]
         self.bot.userMemory[author]["nickname"] = nickname[:16]
 
@@ -1002,29 +1531,147 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             json.dump(all_nicks, f, ensure_ascii=False, indent=2)
 
         reply = f"cool! i’ll use the name {nickname} for you from now on 💜"
+        if self.bot.random2 > 0.95:
+            reply += " ... unless!!"
+            nickname = nickname[::-1]
+            reply += " uno reversi bitch, your name is {nickname} now >:)"
         await ctx.reply(reply)
-        self.bot.buffer.append(self.bot.self.bot.formatMessage(self.bot.babyName, reply))
+        self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, reply))
         self.bot.last_logged_author = self.bot.babyName.lower()
 
     @commands.command(name='bbynickcheck')
     async def mynick_command(self, ctx):
-        user = ctx.author.name.lower()
-        nickname = self.bot.userMemory.get(user, {}).get("nickname")
+        author = ctx.author.name.lower()
+        if self.bot.random > 0.5:
+            self.bot.updateBabyLove(author, 0.2)
+        nickname = self.bot.userMemory.get(author, {}).get("nickname")
         if nickname:
-            await ctx.reply(f"hi! :) your nickname is {nickname} :)")
+            nickCheckMessage = (f"hi! :) your nickname is {nickname} :)")
+            self.bot.updateBabyLove(author, 0.1)
         else:
-            await ctx.reply("you haven’t set a nickname yet... use !bbynick <3")
+            nickCheckMessage = ("you haven’t set a nickname yet... use !bbynick <3")
+            self.bot.updateBabyLove(author, -0.1)
+        self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, nickCheckMessage))
+        await ctx.reply(nickCheckMessage)
+
+    @commands.command(name="bbybestie")
+    async def bbybestie(self, ctx):
+        try:
+            if self.bot.random2 > 0.5:
+                self.bot.updateBabyLove(author, 0.1)
+            bestie = self.bot.checkBestie()
+            author = ctx.author.name.lower()
+            if author == bestie:
+                bestieMessage = f"yayayayay! my best friend is you, {author}!"
+                self.bot.updateBabyLove(author, -self.bot.random)
+                await ctx.message.add_reaction("🅱️")
+                await ctx.message.add_reaction("3️⃣")
+                await ctx.message.add_reaction("💲")
+                await ctx.message.add_reaction("✝️")
+                await ctx.message.add_reaction("ℹ️")
+                await ctx.message.add_reaction("3️⃣")
+            else:
+                bestieMessage = f"umm... awkward, ||my best friend is {bestie}||, but you're alright too {author}!!"
+                self.bot.updateBabyLove(author, self.bot.random2)
+                await ctx.message.add_reaction("😬")
+            self.bot.buffer.append(bestieMessage)
+            await ctx.reply(bestieMessage)
+            if len(self.bot.buffer) > self.bot.rollingContextSize:
+                self.bot.buffer = self.bot.buffer[-self.bot.rollingContextSize:]
+            print(f"\n**\nchecked who my best friend is. buffer now {len(self.bot.buffer)} messages long.\n**\n")
+
+        except Exception as e:
+            await ctx.reply(f"bbybestie broke: {e}")
+            self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
+
+    @commands.command(name="bbylove")
+    async def bbylove(self, ctx):
+        try:
+            author = ctx.author.name.lower()
+            if self.bot.random > 0.5:
+                self.bot.updateBabyLove(author, 0.02)
+
+            babyLove = self.bot.getBabyLove(author)
+            if babyLove >= 0:
+                seed = f"wow, {author} really loves me this much!? {author} has a babylove count of {babyLove}! <3"
+                self.bot.updateBabyLove(author, 0.1)
+            if babyLove < 0:
+                seed = f"damn, {author} really doesn't like me, huh... {author} only has a babylove count of {babyLove}! :("
+                self.bot.updateBabyLove(author, 10.0)
+            self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, seed))
+
+            fullBestieboard = sorted([(u, m["babyLove"]) for u, m in self.bot.userMemory.items()], key=lambda x: x[1], reverse=True)
+
+            rank = next((i for i, (u, _) in enumerate(fullBestieboard) if u == author), None)
+            rankStr = f"{rank+1}" if rank is not None else "69420"
+
+            nic = self.bot.getNickname(author)
+            reply = f"hey {nic}! your babyLove level is {babyLove:.2f}"
+            if True: #self.bot.random2 > 0.1:
+                reply += f", that puts you number {rankStr} in my top friends list lmaooo"
+                if rank is not None:
+                    max_rank_bonus = (len(self.bot.AIoptInUsers)/10)
+                    bonus = max(0, max_rank_bonus - (rank * 0.25))
+                    self.bot.updateBabyLove(author, bonus)
+            if self.bot.random > 0.99:
+                reply += f", **i know your real nameeee {author}, spoopy scary skeletons**"
+                self.bot.updateBabyLove(author, 1.0)
+
+            await ctx.reply(reply)
+            if len(self.bot.buffer) > self.bot.rollingContextSize:
+                self.bot.buffer = self.bot.buffer[-self.bot.rollingContextSize:]
+            print(f"\n**\nchecked {author}s babyLove, it's {babyLove}. buffer now {len(self.bot.buffer)} messages long.\n**\n")
+
+        except Exception as e:
+            await ctx.reply(f"bbylove broke: {e}")
+            self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
+
+    @commands.command(name="bbyspamlevel")
+    async def bbyspamlevel(self, ctx):
+        try:
+            author = ctx.author.name.lower()
+            parts = ctx.message.content.strip().split(maxsplit=1)
+
+            if len(parts) > 1:
+                try:
+                    new_level = float(parts[1])
+                    if 0 <= new_level <= 1:
+                        self.bot.setSpamLevel(author, new_level)
+                        reply = f"ok {author}, your spamMax is now {new_level}!"
+                    else:
+                        reply = "spamMax must be between 0 and 1!"
+                except ValueError:
+                    reply = "it's gotta be a number between 0.0 and 1.0, hmm... try something like !bbyspamlevel 0.8?"
+            else:
+                babySpam = self.bot.getSpamLevel(author)
+                reply = f"hey {author}, your spam level is {babySpam}"
+
+            if self.bot.random > 0.5:
+                self.bot.updateBabyLove(author, 0.4)
+
+            self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, reply))
+            await ctx.reply(reply)
+
+            if len(self.bot.buffer) > self.bot.rollingContextSize:
+                self.bot.buffer = self.bot.buffer[-self.bot.rollingContextSize:]
+
+            print(f"\n**\nchecked {author}'s spam boundaries. buffer now {len(self.bot.buffer)} messages long.\n**\n")
+
+        except Exception as e:
+            await ctx.reply(f"bbylove broke: {e}")
+            self.bot.last_logged_author = self.bot.babyName.lower()  # bot sent message
 
     @commands.command(name="bbytime")
     async def bbytime(self, ctx):
         try:
-            parts = ctx.message.content.strip().split(maxsplit=1)
-            
+            author = ctx.author.name.lower()
+            if self.bot.random2 > 0.5:
+                self.bot.updateBabyLove(author, 0.1)
             seed = getTimeRant()
             self.bot.buffer.append(seed)
             if len(self.bot.buffer) > self.bot.rollingContextSize:
                 self.bot.buffer = self.bot.buffer[-self.bot.rollingContextSize:]
-            print(f"added internal rant. buffer now {len(self.bot.buffer)} messages long.")
+            print(f"\n**\nchecked the time. buffer now {len(self.bot.buffer)} messages long.\n**\n")
 
             # build prompt and send
             ctx.message.content = "!babyllm " + seed[:1990]
@@ -1035,8 +1682,19 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await ctx.reply(f"bbytime broke: {e}")
             self.bot.last_logged_author = self.bot.babyName.lower() # bot sent message
 
+    @commands.command(name='bbydeclarewar')
+    async def bbydeclarewar(self, ctx):
+        author = ctx.author.name.lower()
+        if self.bot.random > 0.9999:
+            self.bot.updateBabyLove(author, 2000000.00)
+        else:
+            self.bot.updateBabyLove(author, -69420.00)
+        self.bot.setSpamLevel(author, 1.0)
+        warMessage = f"... seriously? (your babylove is now {self.bot.getBabyLove(author)})"
+        self.bot.buffer.append(self.bot.formatMessage(self.bot.babyName, warMessage))
+        await ctx.reply(warMessage)
 
 if __name__ == "__main__":
-    bot = BABYBOT_DISCORD(discordToken=SECRETdiscordTokenSECRET, discordChannel=ai_spam) # changed bby_lounge to ai_spam as per your original code
+    bot = BABYBOT_DISCORD(discordToken=SECRETdiscordTokenSECRET, discordChannel=ai_spam)
     bot.add_cog(babyBot_DISCORD_COG(bot))
     bot.run(bot.discordToken)

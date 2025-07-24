@@ -68,7 +68,7 @@ guessedTokenSeq = []
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
 userName = "charis"
-babyName = "baby"
+babyName = "babyllm"
 scribeName = "scribe"
 enemyName = "george"
 extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
@@ -89,6 +89,8 @@ tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
 chatBufferFilepath = "SHKAIRA/soul/chatBuffer.txt"
 nicknamesPath = "userNicknames.json"
+babyLovePath = "babyLove.json"
+spamLevelPath = "spamLevel.json"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -143,9 +145,9 @@ skipPixels = False
 memoryLengthGOAL = 3
 
 """optimizer"""
-learningRate = 0.0007  # // 0.0005 // 0.00005 // 0.0s001 //
-learningRateGOAL = 0.0007
-temperatureGOAL = 1.2
+learningRate = 0.00065  # // 0.0005 // 0.00005 // 0.0s001 //
+learningRateGOAL = 0.00065
+temperatureGOAL = 1.1
 optimizerName = "Sophia" # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff
 #activationFunction = gelu   # // leakyRelu // relu // relu6 // gelu //
 
@@ -581,8 +583,6 @@ forwardProfiler = False
 """--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
-trainingDataSliceSize_min = 40000
-trainingDataSliceSize_max = 400000
 reflectionFreq = 10000
 stableFallThreshold = 1 # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
@@ -594,8 +594,8 @@ trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
 tokenSpeedTest = False
 
-import CONFIG_trainingData
-rawDataFilepaths = CONFIG_trainingData.rawDataFilepaths
+from CONFIG_trainingData import rawDataFilepaths
+rawDataFilepaths = rawDataFilepaths
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 """-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""

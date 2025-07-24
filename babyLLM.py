@@ -242,6 +242,7 @@ class BABYLLM(nn.Module):
                 tensor_snitch(self.logits, "babyllm forward start")
             if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
             self.temperature = torch.exp(self.logTemp)
+            self.interneuronNetwork.temperature = self.temperature
             self.pixel = _pixel
 
             if debugPrints: ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
@@ -719,6 +720,7 @@ class BABYLLM(nn.Module):
                 _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
 
             self.temperature = torch.exp(self.logTemp)
+            self.interneuronNetwork.temperature = self.temperature
             logits_scaled = _logits / self.temperature
 
             if torch.isnan(logits_scaled).any():
@@ -891,6 +893,7 @@ class BABYLLM(nn.Module):
                 repWindow = torch.exp(self.logRepetitionWindow)
                 self.repetitionWindow = repWindow / (1 + repWindow / self.numTokensPerStep)  # asymptotes near windowMAX
                 self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
+                self.interneuronNetwork.temperature = self.temperature
                 print(f"loading model from path: {filePath}") 
                 self.load_state_dict(torch.load(filePath), strict = saveStrict)
                 # try loading optimizer separately

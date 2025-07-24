@@ -233,6 +233,7 @@ class INTERNEURON_NETWORK(nn.Module):
         self.calligraphist = _calligraphist
         self.numTokensPerStep = _numTokensPerStep
         self.entropyBonus = 0
+        self.temperature = temperatureGOAL
 
         self.stats = {}
 
@@ -335,7 +336,7 @@ class INTERNEURON_NETWORK(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("softmax weights from cerebellum")
             sigmoidWeights = torch.sigmoid(self.cerebellum) # squish raw values into [0, 1]
             with torch.no_grad():
-                self.cerebellum.clamp_(0.0001, 1.0)
+                self.cerebellum.clamp_(0.00001, 1.5)
             #clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
             self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalize across all windows
 

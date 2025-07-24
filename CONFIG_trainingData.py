@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime, timedelta
+import random
 
 def add_recent_log_files(base_folder, prefix, dtype, weight, days_back=30):
     if not os.path.exists(base_folder):
@@ -29,6 +30,10 @@ def add_recent_log_files(base_folder, prefix, dtype, weight, days_back=30):
         print(f"[AUTO-ADD] {dtype}: {full_path} @ {weight} (from {file_date.date()})")
         rawDataFilepaths.append((dtype, full_path, weight))
 
+"""--- TRAINING CONFIG ---"""
+trainingDataSliceSize_min = 10000
+trainingDataSliceSize_max = 100000
+
 # years
 data2025 = True
 data2024 = True
@@ -51,9 +56,14 @@ data2010 = True
 all_years = list(range(2009, 2026))
 CTD_enabled_years = [y for y in all_years if globals().get(f"data{y}", False)]
 
+shuffle = True
+
+limit = True
+fileLimit = 10
+
 # chat messages
-discord = True
-discordNum = 0.5
+discord_DATA = True
+discord_DATANum = 0.5
 
 facebook = True
 facebookNum = 0.1
@@ -81,8 +91,6 @@ redditNum = 0.1
 livejournal = True
 livejournalNum = 0.1
 
-
-
 # emails
 charis23februles = True
 charis23februlesNum = 0.01
@@ -99,9 +107,9 @@ babyBot_twitch = True
 babyBot_twitchNum = 0.0001
 babyBot_twitchDays = 20
 
-babyBot_discord = True
-babyBot_discordNum = 0.0001
-babyBot_discordDays = 20
+babyBot_discord_DATA = True
+babyBot_discord_DATANum = 0.0001
+babyBot_discord_DATADays = 20
 
 # baby data
 babyData = True
@@ -123,13 +131,13 @@ def add_data(CTD_enabled, CTD_years, CTD_basePath, CTD_filenameTemplate, CTD_dty
         rawDataFilepaths.append((CTD_dtype, f"{CTD_basePath}/{CTD_path}",CTD_weight))
 
 # --- CHAT MESSAGES ---
-# discord
-add_data(discord,
+# discord_DATA
+add_data(discord_DATA,
          CTD_enabled_years,
          "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/01_DISCORD/02_FORMATTED",
          "discord_new_{CTD_year}.json",
          "discord_json",
-         discordNum)
+         discord_DATANum)
 
 # facebook
 if facebook:
@@ -221,13 +229,13 @@ if babyBot_twitch:
     )
 
 # discord
-if babyBot_discord:
+if babyBot_discord_DATA:
     add_recent_log_files(
         base_folder="/Users/charis/Dropbox/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/statistics/LOGS/chat",
         prefix="discordLog",
         dtype="text",
-        weight=babyBot_discordNum,
-        days_back=babyBot_discordDays,
+        weight=babyBot_discord_DATANum,
+        days_back=babyBot_discord_DATADays,
     )
 
 # code
@@ -284,6 +292,13 @@ if tenses:
         ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/imperativeTense.txt", tensesNum),     #  tense
     ]
 
+if shuffle:
+    random.shuffle(rawDataFilepaths)
+
+if limit:
+    rawDataFilepaths = rawDataFilepaths[:fileLimit]
+    if shuffle:
+        random.shuffle(rawDataFilepaths)
 
 """rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-

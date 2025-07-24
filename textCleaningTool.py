@@ -1,6 +1,7 @@
 import os, re, json, csv, random
 from html import unescape
 from config import * 
+from CONFIG_trainingData import *
 
 write_locks = {}
 
@@ -10,9 +11,9 @@ _CONTRACTION_VARIATION_DATA = {
     "will not": ["won't", "will not", "wont"],
     "i am": ["i'm", "i am", "im"],
     "it is": ["it's", "it is", "its"],
-    "you are": ["you're", "you are", "u are", "u r"],
+    "you are": ["you're", "u are", "u r", "youre"],
     "they are": ["they're", "they are", "they r"],
-    "we are": ["we're", "we are", "we r"],
+    "we are": ["we're", "we r"],
     "he is": ["he's", "he is", "hes"],
     "she is": ["she's", "she is", "shes"],
     "that is": ["that's", "that is", "thats"],
@@ -34,6 +35,7 @@ _CONTRACTION_VARIATION_DATA = {
     "does not": ["doesn't", "does not", "doesnt"],
     "did not": ["didn't", "did not", "didnt"],
     "want to": ["wanna", "want to"],
+    "elodie": ["elodie", "élodie"],
     "got to go": ["got to go", "g2g", "gtg"],
     "kind of": ["kinda", "kind of"],
     "sort of": ["sorta", "sort of"],

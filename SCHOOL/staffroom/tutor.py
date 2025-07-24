@@ -512,8 +512,8 @@ class TUTOR:
                     print("nextToken: ")
                     print(predy, end = "")
                 nextyToky = self.librarian.indexToToken.get(predy, self.librarian.tokenToIndex["<UNK>"])
-                toktoktok = nextyToky.replace('Ġ', ' ')
-                print(f"{toktoktok}", end = "", flush = True)
+                self.toktoktok = nextyToky.replace('Ġ', ' ')
+                print(f"{self.toktoktok}", end = "", flush = True)
                 if debugPrints: print("token index:", predictedTokenIndex.item())
                 if debugPrints: print(f"[j={j}] inputLen={len(inputTensor)} → predicted {predictedTokenIndex.item()}")
 
@@ -609,6 +609,8 @@ class TUTOR:
 
                 inputSeqPredictions.append(nextTokenInput) # multi-token autoregressive generation: append next token to your current input — becomes the prompt for the next token
                 isCorrect = (nextTokenInput == predictedTokenIndex.item())
+                self.gotIt = isCorrect
+                self.tiktiktik = nextTokenInput
                 self.model.targetTokenFromTutor = _targetTokenIndexSeq[j]
                 self.tokenLevelCorrect.append(1.0 if isCorrect else 0.0)
                 if debugPrints: print(f"isCorrect = {isCorrect} for target: {nextTokenInput} vs guess: {predictedTokenIndex.item()}... tokenLevelCorrect = {self.tokenLevelCorrect}")
@@ -1043,6 +1045,7 @@ class TUTOR:
     def collectTurnStats(self):
         with self.counsellor.infodump("collectTurnStats") as ʕっʘ‿ʘʔっ:
             if debugPrints: ʕっʘ‿ʘʔっ("self.librarian.indexToToken.get(idx.item*())")
+            self.repWinYo = self.stats.get("_B_repetitionWindow", 0.0)
             lossStats = self.ʕっෆ‿ෆʔっ.get("loss", {})
             rollupA_key = f"BIG{self.trainingLogFreq_A}"
             rollupA_avgKey = f"{rollupA_key}_avg"
