@@ -12,6 +12,7 @@ from config import *
 import numpy as np
 import math
 import json
+import asyncio
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 
 class TUTOR:
@@ -45,6 +46,7 @@ class TUTOR:
         self.learningRateGOAL           = _learningRateGOAL
         self.tokenCounts = Counter()
         self.training_resume_state      = {}
+        self.training_lock              = asyncio.Lock()
 
         self.temperature                = 0.75
         self.scheduledSamplingRate      = self.model.scheduledSamplingRate
@@ -162,6 +164,7 @@ class TUTOR:
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     @whocalled
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex): ###
+        #async with self.training_lock:
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ: ###
             if debugPrints: ʕっʘ‿ʘʔっ("trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)")
             trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)

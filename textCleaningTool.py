@@ -245,16 +245,16 @@ REPLACEMENTS = {"’": "'",
 
 PATTERNS = [
     # social/chat
-    (re.compile(r'\b(?:teamspeakk|teamspeak|snapchat|whatsapp|fbc|facebook messenger|msn|skype|discord|sms|text message)\b', re.I), 'discord'), #burn him!
+    #(re.compile(r'\b(?:teamspeakk|teamspeak|snapchat|whatsapp|fbc|facebook messenger|msn|skype|discord|sms|text message)\b', re.I), 'discord'), #burn him!
     # smink
     #(re.compile(r'\b(?:spliff|spleeef|spleef|dab|smi+n+k+|smon+k+)s?\b', re.I), 'smink'), #burn him!
     # bing
     #(re.compile(r'\b(?:bo+ng+|pipette+|bing+|one hitter)s?\b', re.I), 'bing'), #burn him!
     # companies
-    (re.compile(r'\b(?:monzo|santander|natwest|bourso|bank)(s?)\b', re.I), r'bank\1'), #burn him!
+    #(re.compile(r'\b(?:monzo|santander|natwest|bourso|bank)(s?)\b', re.I), r'bank\1'), #burn him!
     (re.compile(r'\b(?:gear4music|gearformusic|patagonia|andrex|sistema|heinz|garofalo|isigny ste mere|cathedral city|nike|adidas|synthrotek)\b', re.I), 'brondspoon'), #burn him!
-    (re.compile(r'\b(?:coop|subway|kfc|maccys|uber|bravissimo|starbuck|nando|mcdonald|m&s|amazon|ebay|argos|ocado|tesco|sainsbury|hobbycraft|shop)(s?)\b', re.I), r'shop\1'), #burn him!
-    (re.compile(r'\b(?:pub|wetherspoon|weatherspoon|bread and roses|bread&roses)\b', re.I), 'breadrose'), #burn him!
+    #(re.compile(r'\b(?:coop|subway|kfc|maccys|uber|bravissimo|starbuck|nando|mcdonald|m&s|amazon|ebay|argos|ocado|tesco|sainsbury|hobbycraft|shop)(s?)\b', re.I), r'shop\1'), #burn him!
+    #(re.compile(r'\b(?:pub|wetherspoon|weatherspoon|bread and roses|bread&roses)\b', re.I), 'breadrose'), #burn him!
     # places
     (re.compile(r'\b(?:jetline cruise|jetline|office|sitel|europcar|upsu|b-bar|bbar|the su)\b', re.I), 'work'),
     #(re.compile(r'\b(?:classroom|class room|uni|school|college|university|greenleas|southcott|bishop ramsey|leighton middle)\b', re.I), 'school')
@@ -354,6 +354,7 @@ def clean_text(text):
     text = REPEATED_WORDS.sub(r'\1', text)
     text = MULTISPACE.sub(" ", text) # Initial multi-space clean up
     text = batch_sub(text, PATTERNS) # Apply general patterns
+    text = re.sub(r"!bby ", "", text)
 
     for pattern, replacement in EMOTES:
         text = pattern.sub(replacement, text)

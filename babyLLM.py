@@ -404,10 +404,10 @@ class BABYLLM(nn.Module):
             if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
             # regulate the learned LR, temperature, repetition penalty (etc) towards target values
-            lrSoftClamp = 0.001 * (self.logLR - math.log(learningRateGOAL)).pow(2)
+            lrSoftClamp = 0.0015 * (self.logLR - math.log(learningRateGOAL)).pow(2)
             #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
             tempSoftClamp = (self.CEloss_used * 0.4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
-            repetitionPenaltySoftClamp = 0.01 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
+            repetitionPenaltySoftClamp = 0.04 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             
             loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lrSoftClamp_used = lrSoftClamp
@@ -432,6 +432,14 @@ class BABYLLM(nn.Module):
                 if debugPrints: print(f"{AUXloss} + aux")
             else:
                 AUXloss = 0
+
+            if self.lastSoftSample is not None:
+                token_freqs = self.lastSoftSample.mean(dim = 0)
+                repLoss_raw = (token_freqs**2).mean()
+                repLoss = repLoss_raw * 100.0
+                self.repLoss_used = repLoss
+                FINALloss += repLoss    
+                if debugPrints: print(f"{FINALloss} repLoss ({repLoss}) + final")    
 
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
                 if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss")
@@ -479,11 +487,7 @@ class BABYLLM(nn.Module):
                 FINALloss += AUXloss
                 if debugPrints: print(f"{FINALloss} aux ({AUXloss}) + final")
             if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
-            token_freqs = self.lastSoftSample.mean(dim = 0)
-            repLoss_raw = (token_freqs**2).mean()
-            repLoss = repLoss_raw * self.repetitionPenalty * 0.05
-            self.repLoss_used = repLoss
-            FINALloss += repLoss
+
             return FINALloss
     
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
@@ -807,7 +811,7 @@ class BABYLLM(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("penalty = self.repetitionPenalty")
             penalty = self.repetitionPenalty
             if penalty < 0.0:
-                new_value = self.repetitionPenalty.abs() * 1.3
+                new_value = repetitionPenaltyGOAL
                 self.repetitionPenalty.data.copy_(new_value)
                 penalty = self.repetitionPenalty
 
@@ -822,7 +826,10 @@ class BABYLLM(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("windowCenter")
             windowCenter = len(recentTokens) - 0.5  # so token 0 gets proper suppression
             if debugPrints: ʕっʘ‿ʘʔっ("softMask = torch.sigmoid((positions - (windowCenter - repWindow)) * 0.5)")
-            softMask = torch.sigmoid((positions - (windowCenter - repWindow)) * 0.5)
+            #softMask = torch.sigmoid((positions - (windowCenter - repWindow)) * 0.5)
+            distance_from_window_start = positions - (len(recentTokens) - repWindow)
+            relative_position_in_window = distance_from_window_start / repWindow
+            softMask = torch.clamp(relative_position_in_window, 0.0, 1.0)
 
             if debugPrints: ʕっʘ‿ʘʔっ("oneHots")
             oneHots = F.one_hot(recentTokens, num_classes = vocabSize).float()

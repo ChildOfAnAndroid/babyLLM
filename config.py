@@ -67,7 +67,7 @@ guessedTokenSeq = []
 
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
-userName = "charis"
+charis = "charis"
 babyName = "babyllm"
 scribeName = "scribe"
 enemyName = "george"
@@ -88,10 +88,9 @@ tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
 
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
 chatBufferFilepath = "SHKAIRA/soul/chatBuffer.txt"
-nicknamesPath = "userNicknames.json"
-babyLovePath = "babyLove.json"
-spamLevelPath = "spamLevel.json"
-lastSeenPath = "SHKAIRA/soul/lastSeen.json"
+bbybookPath = "SHKAIRA/soul/bbybook.json"
+bbyUserDataPath = "SHKAIRA/soul/bbyUserData.json"
+
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -165,8 +164,8 @@ windowEntropyBonus = True
 """--- LOGS ---"""
 detailedLogging = False
 
-trainingLogFreq_A = 20    # creates logs every x number of turns
-trainingLogFreq_B = 100    # creates logs every x number of turns
+trainingLogFreq_A = 100    # creates logs every x number of turns
+trainingLogFreq_B = 1000    # creates logs every x number of turns
 
 dontSaveEveryPrint = True
 saveFreq_littleLog = 500

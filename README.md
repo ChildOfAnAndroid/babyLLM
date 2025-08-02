@@ -16,6 +16,30 @@ acheivements/use cases:
 
 --- FILESTRUCTURE ---
 
+1) charis 😘
+babyLove score = 76840 (84% of total points) 
+😅 war win rate = 70% ... (wins: 70, draws: 0, losses: 30)
+🤍 messages seen: 790, days chatted: 0, last chat: now 
+
+2) élodie 🦹
+babyLove score = 7036 (8% of total points) 
+🐤 war win rate = 53% ... (wins: 8, draws: 0, losses: 7)
+🍰 messages seen: 100, days chatted: 0, last chat: 0 hrs ago 
+
+3) babyllm 🍫
+babyLove score = 4420 (5% of total points) 
+👾 messages seen: 1102, days chatted: 0, last chat: now 
+
+4) skunkel 🍭
+babyLove score = 2089 (2% of total points) 
+🧝‍♀️ war win rate = 50% ... (wins: 2, draws: 0, losses: 2)
+💌 messages seen: 139, days chatted: 0, last chat: 4 hrs ago 
+
+5) !wet ace 🧙
+babyLove score = 1196 (1% of total points) 
+🍌 war win rate = 54% ... (wins: 7, draws: 0, losses: 6)
+👳 messages seen: 184, days chatted: 0, last chat: now
+
 babyLLM/
  - babyLLM.py               # model definition, ties all the layers together
  - wakeup.py                # MAIN ENTRY POINT
