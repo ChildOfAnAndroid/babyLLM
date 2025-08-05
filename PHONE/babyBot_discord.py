@@ -19,6 +19,9 @@ import pytz
 from datetime import datetime, timedelta
 import math
 import difflib
+import regex
+import functools
+from types import SimpleNamespace
 
 def is_similar(a, b, threshold = 0.8):
     return difflib.SequenceMatcher(None, a, b).ratio() > threshold
@@ -26,6 +29,51 @@ def is_similar(a, b, threshold = 0.8):
 bby_lounge = 1388782896084422788
 bby_spam = 1156683242087387206
 bby_debug = 1399818543125495970
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) 
+REQUEST_FILE_PATH = os.path.join(SCRIPT_DIR, "bby_request.json")
+RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
+
+class FakeTyping:
+    async def __aenter__(self): pass
+    async def __aexit__(self, exc_type, exc_val, exc_tb): pass
+
+class FakeMessage:
+    def __init__(self, content, author):
+        self.content = content
+        self.author = author
+        self.reactions = [] # Must be a list
+        self.id = 0
+
+    # Add a fake add_reaction method that does nothing but prevents crashes
+    async def add_reaction(self, emoji):
+        print(f"[FAKE_CONTEXT] Ignored attempt to add reaction: {emoji}")
+        pass
+
+def create_fake_context(user_text: str):
+    captured_reply = ""
+
+    async def fake_reply_func(content="", embed=None):
+        nonlocal captured_reply
+        if content:
+            captured_reply = str(content)
+        # Return a fake message object so chained calls don't fail
+        return FakeMessage(content, SimpleNamespace(name='babyLLM'))
+
+    fake_author = SimpleNamespace(name='kevinonline420', id=0, display_name='kevinonline420')
+    fake_message = FakeMessage(user_text, fake_author)
+    fake_guild = SimpleNamespace(id=0, get_member=lambda id: None, fetch_member=lambda id: None)
+    
+    fake_context = SimpleNamespace(
+        author=fake_author,
+        message=fake_message,
+        guild=fake_guild,
+        reply=fake_reply_func,
+        typing=lambda: FakeTyping(),
+        channel=SimpleNamespace(name='web_channel', id=0)
+    )
+
+    return fake_context, lambda: captured_reply
 
 def howLongAgo(t):
     if not t: return "never"
@@ -40,21 +88,48 @@ def howLongAgo(t):
     w = int(round(s / 604800))
     return f"{w} week{'s' if w != 1 else ''} ago"
 
-def strip_corrupt_chars(text: str) -> str: 
-    return ''.join(c for c in text if (c.isprintable() and not unicodedata.category(c).startswith('C') and c != '�') or (0x1F300 <= ord(c) <= 0x1FAFF))
+def strip_broken_graphemes(text: str, debug: bool = True) -> str:
+    cleaned = []
+    removed = []
 
-def clean_baby_output(text: str, keep_poetry = True, max_linebreaks = 3) -> str: 
-    text = strip_corrupt_chars(text)
+    graphemes = regex.findall(r"\X", text)
+
+    for g in graphemes:
+        if g == '\n':
+            cleaned.append(g)
+            continue
+
+        if '�' in g:
+            removed.append((g, "replacement character"))
+            continue
+
+        categories = [unicodedata.category(c) for c in g]
+
+        if all(cat.startswith('C') for cat in categories):
+            if not any(c.isalnum() or c in "/@*#-_—" for c in g): 
+                removed.append((g, f"control-only ({', '.join(categories)})"))
+                continue
+
+        cleaned.append(g)
+
+    if debug and removed:
+        print("stripped graphemes:")
+        for char, reason in removed:
+            print(f"  '{char}' ({repr(char)}): {reason}")
+
+    return ''.join(cleaned)
+
+def clean_baby_output(text: str, keep_poetry = True, max_linebreaks = 10) -> str: 
+    text = strip_broken_graphemes(text)
     text = re.sub(r'([,:;])\1{2,}', r'\1', text)
     text = re.sub(r'(?<![!?])([.])\1{3,}', r'\1\1\1', text)
     text = re.sub(r'([.,?])(?=\w)', r'\1 ', text)
     text = re.sub(r'\b(\w+)( \1\b){2,}', r'\1 \1', text)
-    text = re.sub(r'\s{2,}', ' ', text)
+    text = re.sub(r'[ \t]{2,}', ' ', text)
     text = re.sub(r'nigger', '', text, flags = re.IGNORECASE)
     if keep_poetry:
         lines = text.splitlines()
         if len(lines) > max_linebreaks: text = '\n'.join(lines)
-    else: text = text.replace('\n', ' ')
     return text
 
 def killExcessTags(buffer): 
@@ -72,7 +147,7 @@ def strSplitValueName(args_str: str):
     parts = args_str.strip().split()
     quantity = 1
     item_name = args_str.strip()
-    MAX_QUANTITY = 1000000000 # !!!!!!!!!!!!!!!!!!!!!!!!! SUS !!!!!!!!!!!!!!!!!!!!!!!!!
+    MAX_QUANTITY = 100000000 # !!!!!!!!!!!!!!!!!!!!!!!!! SUS !!!!!!!!!!!!!!!!!!!!!!!!!
     if not parts: return 1, ""
     if parts[0].isdigit():
         num = int(parts[0])
@@ -106,7 +181,7 @@ def getTimeRant():
 class BABYBOT_DISCORD(commands.Bot): 
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,  
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_spam,
-                 rollingContextSize = 500, idleTrainSeconds = 10, N = 499):
+                 rollingContextSize = rollingContextSize, idleTrainSeconds = 10, N = rollingContextSize - 1):
         
         intents = discord.Intents.all()
         super().__init__(command_prefix='!', intents = intents)
@@ -134,7 +209,7 @@ class BABYBOT_DISCORD(commands.Bot):
         self.discordToken, self.discordChannel, self.rollingContextSize = discordToken, discordChannel, rollingContextSize
         self.last_logged_author, self.idleTrainSeconds, self.N = None, idleTrainSeconds, N
         self.chatWindowMAX, self.dataStride = windowMAXSTART, round(windowMAXSTART * 0.1)
-        self.idles, self.random, self.random2 = 0, 0.0, 0.0
+        self.idles, self.random, self.random2, self.random3, self.random4 = 0, 0.0, 0.0, 0.0, 0.0
         self.current_bestie, self.bestie_score = None, 0.0
         self.inventory = {}
 
@@ -168,6 +243,7 @@ class BABYBOT_DISCORD(commands.Bot):
         
         self.lastInteraction = time.time()
         self.idle_task = self.training_worker = None
+        self.web_task = None
         self.training_queue = asyncio.Queue()
 
     def _json_load(self, path, default_type={}):
@@ -176,28 +252,97 @@ class BABYBOT_DISCORD(commands.Bot):
                 try: return json.load(f)
                 except json.JSONDecodeError: print(f"!!!![_JSON_LOAD] FAILED ON JSON AT {path} "); return default_type
         return default_type
+    
+    async def bby_web_watcher(self):
+        print("[REQUEST_WATCHER] Bby Brain is listening for requests...")
+        last_processed_id = None
+        
+        while True:
+            await asyncio.sleep(0.2) # Moved sleep to the top
+            try:
+                # Check if file exists and is not empty
+                if not (os.path.exists(REQUEST_FILE_PATH) and os.path.getsize(REQUEST_FILE_PATH) > 0):
+                    continue
+
+                with open(REQUEST_FILE_PATH, 'r') as f:
+                    data = json.load(f)
+                
+                request_id = data.get("id")
+                
+                if request_id and request_id != last_processed_id:
+                    print(f"[REQUEST_WATCHER] New request received: {request_id}")
+                    last_processed_id = request_id
+                    
+                    user_text = data.get("text")
+                    
+                    # Create the fake context
+                    fake_ctx, get_reply = create_fake_context(user_text)
+
+                    # Get the command from the cog
+                    cog = self.get_cog("BBYCOG")
+                    if not cog:
+                        print("[ERROR] BBYCOG not found!")
+                        continue
+                    
+                    # Run the command and capture the reply
+                    await cog.babyllm_command(fake_ctx)
+                    reply_text = get_reply() or "..."
+                    self._buffer_add(self.formatMessage("kevinonline420", user_text))
+                    
+                    # Write the response file
+                    response_data = {"reply": reply_text}
+                    response_file_path = os.path.join(RESPONSE_DIR, f"{request_id}.json")
+                    with open(response_file_path, 'w') as f:
+                        json.dump(response_data, f)
+                    
+                    print(f"[REQUEST_WATCHER] Response '{reply_text[:50]}...' sent.")
+            
+            except (json.JSONDecodeError, FileNotFoundError):
+                # These are expected if files are being written/read at the same time
+                last_processed_id = None # Reset to re-process if needed
+                pass
+            except Exception as e:
+                # THIS WILL NOW PRINT THE FULL ERROR TRACEBACK
+                print("!!!! [ERROR] Unhandled exception in bby_web_watcher !!!!")
+                traceback.print_exc()
+                # Also write an error response file so the web UI doesn't hang forever
+                if 'request_id' in locals() and request_id:
+                    response_file_path = os.path.join(RESPONSE_DIR, f"{request_id}.json")
+                    if not os.path.exists(response_file_path):
+                        with open(response_file_path, 'w') as f:
+                            json.dump({"reply": "i had a big error :("}, f)
 
     # --- DISCORD MESSAGE SENDERS ---
-    async def _discord_reply(self, ctx, message_content = "", embed = None, to_buffer = True, buffer_str = None, debug_str = ""): await self._discord_send(ctx = ctx, message_content = message_content, embed = embed, is_reply = True, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_REPLY] -> ")
+    async def _discord_reply(self, ctx, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): return await self._discord_send(ctx = ctx, message_content = message_content, embed = embed, is_reply = True, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_REPLY] -> ")
     async def _discord_spam(self, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): await self._discord_send(channel = self.get_channel(bby_spam), message_content = message_content, embed = embed, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_SPAM] -> ")
     async def _discord_debug(self, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): await self._discord_send(channel = self.get_channel(bby_debug), message_content = message_content, embed = embed, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_DEBUG] -> ")
-    async def _discord_send(self, *, channel = None, ctx = None, message_content = "", embed = None, is_reply = True, to_buffer = False, buffer_str = None, debug_label = ""):
+    async def _discord_send(self, *, channel=None, ctx=None, message_content="", embed=None, is_reply=True, to_buffer=False, buffer_str=None, debug_label=""):
+        sent_message = None  # Variable to hold the message object we send/reply with
         try:
             terminal_debug_str = f"{debug_label}[_DISCORD_SEND] SENDING MESSAGE TO "
             target = ctx.channel if ctx else channel
-            if not target: return print(f"!!!![_DISCORD_SEND] NO CHANNEL OR CTX PROVIDED")
+            if not target:
+                print(f"!!!![_DISCORD_SEND] NO CHANNEL OR CTX PROVIDED")
+                return None # Return None on failure
             terminal_debug_str += f"{getattr(target, 'name', 'UNKNOWN')}:\n"
             
             if embed:
-                if ctx and is_reply: await ctx.reply(embed = embed)
-                else: await target.send(embed = embed)
+                if ctx and is_reply:
+                    sent_message = await ctx.reply(embed=embed)
+                else:
+                    sent_message = await target.send(embed=embed)
                 terminal_debug_str += "              b] EMBED MESSAGE SENT\n"
             
             elif message_content:
                 for i, chunk in enumerate([message_content[j:j+1990] for j in range(0, len(message_content), 1990)]):
                     terminal_debug_str += f"              a] SENDING MESSAGE PART {i}...\n"
-                    if ctx and is_reply and i == 0: await ctx.reply(chunk)
-                    else: await target.send(chunk)
+                    if ctx and is_reply and i == 0:
+                        # Call the reply function AND store its result
+                        sent_message = await ctx.reply(chunk)
+                        # Your old aiohttp post was here, it's fine that it's gone
+                    else:
+                        # Call the send function AND store its result
+                        sent_message = await target.send(chunk)
             
             if to_buffer:
                 terminal_debug_str += "               ] APPENDING MESSAGE TO TRAINING BUFFER...\n"
@@ -205,45 +350,69 @@ class BABYBOT_DISCORD(commands.Bot):
                 self._buffer_add(self.formatMessage(self.babyName, buffer_str))
 
             print(terminal_debug_str + f"               ] COMPLETE MESSAGE SENT!\n               ] {message_content}\n")
+            
+            # --- THIS IS THE CRITICAL FIX ---
+            # Return the message object that was created
+            return sent_message
 
-        except discord.errors.Forbidden: return print(f"!!!![_DISCORD_SEND] NO PERMISSIONS FOR {getattr(target, 'name', 'UNKNOWN')} ")
-        except Exception as e: return print(f"!!!![_DISCORD_SEND] {e}")
+        except discord.errors.Forbidden:
+            print(f"!!!![_DISCORD_SEND] NO PERMISSIONS FOR {getattr(target, 'name', 'UNKNOWN')} ")
+            return None # Return None on failure
+        except Exception as e:
+            print(f"!!!![_DISCORD_SEND] {e}")
+            return None # Return None on failure
+        
+    # --- The Fortress Gatekeeper ---
+    def _is_high_quality(self, text: str) -> bool:
+        # We check the raw content, so strip speaker tags first for accuracy
+        text_content = re.sub(r"^\s*([a-zA-Z0-9_]+):\s*", "", text).strip()
+        
+        if not text_content: return False
+        if text_content.startswith('!'): return False
+        
+        rejection_phrases = [
+            "i'm still full!", "try again in", "you don't have any", "you only have",
+            "i don't know what a", "who is", "can't see them", "you gotta fite someone",
+            "your message is too long", "i can't tell you much"
+        ]
+        if any(phrase in text_content.lower() for phrase in rejection_phrases):
+            return False
+
+        words = text_content.split()
+        num_words = len(words)
+        num_chars = len(text_content)
+
+        if num_words < 3 or num_chars < 15: return False # Be strict
+        if num_words > 150: return False # Reject long copy-pastas
+            
+        # Check for non-Latin characters, reject if it's mostly gibberish/emojis
+        alpha_chars = sum(1 for char in text_content if char.isalpha())
+        if num_chars > 0 and (alpha_chars / num_chars) < 0.7:
+            return False
+        
+        # Check for word repetition
+        if num_words > 5:
+            word_counts = Counter(word.lower() for word in words)
+            if word_counts.most_common(1)[0][1] > num_words * 0.5:
+                return False
+
+        return True
 
     def _buffer_add(self, text_to_add: str):
-        SIMILARITY_THRESHOLD = 0.5 # Rejects if >50% similar to recent history
-        RECENCY_WINDOW = 150       # How many recent messages to check against
-
-        recent_history = self.buffer[-RECENCY_WINDOW:]
-        if not recent_history:
-            self.buffer.append(text_to_add)
-            return True
-        
-        if len(text_to_add.strip()) < 10 or re.search(r"[^a-zA-Z0-9\s.,!?\'\":;\-\(\)]", text_to_add):
-            print(f"[_BUFFER_ADD] SKIPPING SHORT/MESSY LINE: {text_to_add}")
+        if not self._is_high_quality(text_to_add):
+            # No print statement here, it will be too noisy. It should silently reject bad data.
             return False
 
-        # 2. Calculate Jaccard similarity
-        words_to_add = set(re.findall(r'\b\w{3,}\b', text_to_add.lower()))
-        history_words = set()
-        for line in recent_history:
-            history_words.update(re.findall(r'\b\w{3,}\b', line.lower()))
-
-        if not words_to_add or not history_words:
-            self.buffer.append(text_to_add)
-            return True
-
-        intersection = len(history_words.intersection(words_to_add))
-        union = len(history_words.union(words_to_add))
-        similarity = intersection / union if union > 0 else 0
-
-        if similarity < SIMILARITY_THRESHOLD:
-            self.buffer.append(text_to_add)
-            if len(self.buffer) > self.rollingContextSize:
-                self.buffer.pop(0)
-            return True
-        else:
-            print(f"!!!![_BUFFER_ADD] LINE TOO SIMILAR TO OTHERS ({similarity:.2f}): \"{text_to_add[:50]}...\"")
+        # Use difflib for more accurate near-duplicate checking
+        if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in self.buffer[-30:]):
             return False
+
+        self.buffer.append(text_to_add)
+        if len(self.buffer) > self.rollingContextSize:
+            self.buffer.pop(0)
+            
+        print(f"[_BUFFER_ADD] Added: \"{text_to_add}\"")
+        return True
 
     async def _buffer_clean(self):
         MAX_LINE_DUPLICATES = 2
@@ -266,11 +435,13 @@ class BABYBOT_DISCORD(commands.Bot):
                 cleaned_count += 1
             else:
                 seen.append(line)
+
+        self.buffer = killExcessTags(self.buffer)
                 
         if cleaned_count > 0:
             print(f"[_BUFFER_CLEAN] CLEANED {cleaned_count} DUPLICATE BUFFER LINES ")
             with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
-                json.dump(self.buffer, f)
+                json.dump(self.buffer, f, indent = 2)
 
     def _load_user_data(self):
         print("[_LOAD_USER_DATA] LOADING USER DATA... ")
@@ -301,7 +472,7 @@ class BABYBOT_DISCORD(commands.Bot):
     def save_opt_in_users(self):
         print("[_SAVE_OPTIN] SAVING OPT IN USERS... ")
         with open(self.opt_in_path, 'w', encoding='utf-8') as f:
-            json.dump(self.AIoptInUsers, f)
+            json.dump(self.AIoptInUsers, f, indent = 2)
         print("[_SAVE_OPTIN] OPT IN USERS SAVED! ")
 
     def getNickname(self, author):
@@ -366,7 +537,7 @@ class BABYBOT_DISCORD(commands.Bot):
         ACTIVE_BONUS_PER_YEAR, ACTIVE_BONUS_PER_MONTH, ACTIVE_BONUS_PER_WEEK = 42069.69, 6969.69, 4200.0
         ACTIVE_BONUS_PER_DAY, ACTIVE_BONUS_PER_HOUR, ACTIVE_BONUS_PER_MINUTE = 420.0, 69.69, 42.0
         SHARE_OF_VOICE_INFLUENCE, HEARTBEAT_MIN, HEARTBEAT_MAX = 0.069, -0.000420, 0.00420
-        MAX_SCORE_CAP, MIN_SCORE_CAP, DECAY_FLOOR = 6969696969694.20, -69696969694.20, -696969.69
+        MAX_SCORE_CAP, MIN_SCORE_CAP, DECAY_FLOOR = 6969696969694.20, 0, -696969.69
         SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
         
         print(f"\n--- decay + bonus stats at {datetime.now().strftime('%H:%M:%S')} ---")
@@ -472,7 +643,7 @@ class BABYBOT_DISCORD(commands.Bot):
             })
 
             if self.random2 < 0.0001:
-                incrementRandom = round(self.random * 4) + 1
+                incrementRandom = round(self.random4 * 4) + 1
                 if memory["creative_combo"] < 0: memory["creative_combo"] += incrementRandom
                 else: memory["creative_combo"] -= incrementRandom
                 if memory["spammer"] < 0: memory["spammer"] += incrementRandom
@@ -522,9 +693,9 @@ class BABYBOT_DISCORD(commands.Bot):
         PEAK_WINDOW_DURATION = 18000       # The positive half of the cycle is 3 hours before/after a peak
         TROUGH_WINDOW_DURATION = 18000     # The negative half of the cycle is 3 hours before/after a trough
         HOURLY_WINDOW_SECONDS = 1800       # Hourly bump applies within +/- 30 mins
-        PRECISION_SPIKE_BONUS = 420420.69
-        TIMING_WINDOW_BONUS = 4200.69
-        MAX_NEGATIVE_BONUS = -4200.69
+        PRECISION_SPIKE_BONUS = 420420420.69
+        TIMING_WINDOW_BONUS = 420420420.69
+        MAX_NEGATIVE_BONUS = -420420.69
         MAX_HOURLY_BONUS = 6942.0
 
         effective_now = now + timedelta(hours = 3) if is_rival else now
@@ -620,14 +791,27 @@ class BABYBOT_DISCORD(commands.Bot):
         self.last_logged_author = self.babyName.lower()
         if self.idle_task is None:
             self.idle_task = self.loop.create_task(self.idleTrainChecker())
+        if self.web_task is None:
+            self.web_task = self.loop.create_task(self.bby_web_watcher())
         if self.training_worker is None:
             self.training_worker = self.loop.create_task(self.background_training_loop())
 
     async def on_message(self, message):
         content = message.content
         author = str(message.author.name).lower()
+        print(f"\n[Message] From {author}: {content}")
+        if message.author == self.user: 
+            if self.random3 > 0.999:
+                if author == self.last_logged_author: message_for_buffer = content
+                else: message_for_buffer = self.formatMessage(author, content)
+                if self._buffer_add(message_for_buffer): self.last_logged_author = author
+        else:
+            if author == self.last_logged_author: message_for_buffer = content
+            else: message_for_buffer = self.formatMessage(author, content)
+            if self._buffer_add(message_for_buffer): self.last_logged_author = author
+
         mem = self.userMemory[author]
-        mem["display_name"] = message.author.display_name
+        mem["display_name"] = message.author.display_name.lower()
 
         if isinstance(mem.get('last_message_words'), list):
             mem['last_message_words'] = set(mem['last_message_words'])
@@ -649,7 +833,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     except discord.errors.Forbidden: pass
                 if mem.get("spammer", 1) > 10:
                     print(f"[Spammer] {author:<15}: Combo RESET.")
-                    if self.random > 0.99:
+                    if self.random4 > 0.99:
                         try: await message.add_reaction("❤️‍🩹")
                         except discord.errors.Forbidden: pass
                 mem["spammer"] -= max(1, (2 * (self.random + (2 * self.random2))))
@@ -714,7 +898,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     "teach_bonus": 42069.00
                 }
                 ctx = await self.get_context(message)
-                await self.get_cog("BBYCOG")._award_fact(author, f"{author} got the {event_key}", ctx)
+                await self.get_cog("BBYCOG")._award_fact(author, f"{author} got the {event_key}", ctx, 1)
                 await self._discord_spam(f"👑 {self.getNickname(author)}... you are the first to return after the holy 4:20 reset! 👑 (double sminks for you today!!)")
             else:
                 mem["got_first_chatter_bonus"] = False
@@ -733,15 +917,14 @@ class BABYBOT_DISCORD(commands.Bot):
                             "teach_bonus": 420.00,
                             "num_produced": len(self.bot.userMemory) * (self.random + self.random2)
                         }
-                        self.save_bbyfacts()
                     else:
                         fact = self.bbyfacts[nickname]
                         fact["value"] += f", came by again on {today_key}"
                         original_bonus = fact.get("teach_bonus", 420.00)
-                        fact["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * (self.random + self.random2)) * 0.011)
+                        fact["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * (self.random4 + self.random2)) * 0.011)
 
                         ctx = await self.get_context(message)
-                        await self.get_cog("BBYCOG")._award_fact(author, nickname, ctx)
+                        await self.get_cog("BBYCOG")._award_fact(author, nickname, ctx, 1)
 
             self._save_user_data()
             self.save_bbyfacts()
@@ -755,7 +938,8 @@ class BABYBOT_DISCORD(commands.Bot):
                 self.updateBBY(author, 0.01)
                 #self.updateBBY(original_author, 0.1)
                 original_bonus = self.bbyfacts[name]["teach_bonus"]
-                self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.999) + ((original_bonus * (self.random + self.random2) * 0.0011))
+                self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.999) + ((original_bonus * (self.random + self.random2 + self.random3 + self.random4) * 0.0011))
+                self.save_bbyfacts()
         in_baby_channel = message.channel.id == bby_spam
         is_bby_mentioned = self.user in message.mentions
         main_llm_aliases = {'babyllm', 'bby', 'bbyllm', 'bb', 'bllm', 'b'}
@@ -765,19 +949,16 @@ class BABYBOT_DISCORD(commands.Bot):
         if potential_command in main_llm_aliases or is_bby_mentioned:
             print(f"[LLM Trigger] Matched in #{message.channel.name} (Main Command or Mention)")
             self.idles = round(self.idles * 0.5)
-            self._buffer_add(userMessage)
             ctx = await self.get_context(message)
             await self.get_cog("BBYCOG").babyllm_command(ctx)
             return
         elif in_baby_channel and not content.startswith(self.command_prefix):
             is_opted_in_user = author in AIoptInUsers
-            is_random_spam_chance = self.random2 > self.getSpamability(author)
+            is_random_spam_chance = self.random3 > self.getSpamability(author)
             if is_opted_in_user or is_random_spam_chance or author in self.trusted_bot_names and not message.content.startswith(self.command_prefix):
                 print(f"[Channel Trigger] Matched in #{message.channel.name} (Opt-in or Random Spam)")
                 self.idles = round(self.idles * 0.5)
-                self._buffer_add(userMessage)
-                if is_random_spam_chance and not is_opted_in_user:
-                     self._buffer_add(f"the void: baby, you just saw this message and you have... something to say about it.")
+                if is_random_spam_chance and not is_opted_in_user: self._buffer_add(f"the void: baby, you just saw this message and you have... something to say about it.")
                 ctx = await self.get_context(message)
                 await self.get_cog("BBYCOG").babyllm_command(ctx)
                 return
@@ -826,17 +1007,20 @@ class BABYBOT_DISCORD(commands.Bot):
     async def idleTrainChecker(self): 
         old_bestie = self.current_bestie
         old_rival  = self.current_rival
-        while trainDuringChat2 or trainDuringChat:
+        while trainDuringChat:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             self.random = random.random()
             self.random2 = random.random()
-            channel = self.get_channel(self.discordChannel)
+            self.random3 = random.random()
+            self.random4 = random.random()
             
             await self.decay_BBY()
+            print(f"decayed bby")
 
             new_bestie, new_bestie_score = self.checkBestie()
             new_rival, new_rival_score = self.checkRival()
+            print(f"checked rival and bestie")
 
             try:
                 if new_bestie and new_bestie != self.current_bestie and abs(new_bestie_score) >= 10:
@@ -859,7 +1043,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
                 await self._buffer_clean()
 
-                if now - self.lastClockAnnounce > random.randint(1800, 3600):
+                if now - self.lastClockAnnounce > random.randint(60, 36000):
                     self.lastClockAnnounce = now
                     clock_line = getTimeRant()
                     self._buffer_add(clock_line)
@@ -871,7 +1055,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     self.lastInteraction = time.time()
                     if len(self.buffer) >= self.N:
                         with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
-                            json.dump(self.buffer, f)
+                            json.dump(self.buffer, f, indent = 2)
                         self.buffer = self.buffer[-self.N:]
                     
                     if self.training_queue.qsize() < 10:
@@ -909,43 +1093,105 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         return itemTotals
 
     # --*- AWARD FACT -*--
-    async def _award_fact(self, user="", fact="", ctx = None, num = 1, debug_str="", discord_debug = False):
-        if fact not in self.bot.bbyfacts: 
-            await self._discover_fact(key=fact, author=user)
-            await self.bot._discord_debug(f"[_AWARD_FACT] {fact} DID NOT EXIST - CREATED FOR {user} ")
+    async def _award_fact(self, user="", fact="", ctx=None, num=1, debug_str="", discord_debug=False, old_value=None):
+        if fact not in self.bot.bbyfacts:
+            if old_value is None: await self._discover_fact(key=fact, author=user)
+            else: await self._discover_fact(key=fact, author=user, value=old_value)
+            await self.bot._discord_debug(f"[_AWARD_FACT] {fact} DID NOT EXIST - CREATED FOR {user}")
         total_in_world = self._get_fact_total_world(fact)
         cap = self._get_fact_num_produced(fact)
         available_slots = cap - total_in_world
-        if available_slots <= 0:
-            if ctx: await self.bot._discord_spam(f"there can only be {int(cap)} {fact}s in existence... maybe feed me some?")
-            if discord_debug: await self.bot._discord_debug(f"!!!![_AWARD_FACT] {fact} AT CAP, AWARD TO {user} BLOCKED! ")
+        if num > 0 and available_slots <= 0:
+            #if ctx: await self.bot._discord_spam(f"there can only be {int(cap)} {fact}s in existence... maybe feed me some?")
+            if discord_debug: await self.bot._discord_debug(f"!!!![_AWARD_FACT] {fact} AT CAP, AWARD TO {user} BLOCKED!")
             return 0
-        num_to_award = min(num, available_slots)
-        self._update_fact_total_user(user, fact, num=num_to_award)
+        if num > 0: num_to_award = min(num, available_slots)
+        else: num_to_award = num
+        self._update_fact_total_user(user, fact, num = num_to_award)
         return num_to_award
 
-
     # --*- FACT HELPERS -*--
+    def _generate_response_blocking(self, promptTokenIDs, numTokensToGen):
+        """
+        This function contains the slow, synchronous AI code. It will be run in a separate thread to prevent freezing the bot.
+        """
+        genSeqIDs = list(promptTokenIDs)
+        responseSeqId = []
+
+        # The torch code runs here, blocking this thread but NOT the main bot thread.
+        with torch.no_grad():
+            self.bot.babyLLM.eval()
+            self.bot.numTokensPerStep = self.bot.chatWindowMAX
+
+            print(f"[_GENERATE_RESPONSE_BLOCKING] Generating {numTokensToGen} tokens in an executor thread...")
+            for _ in range(numTokensToGen):
+                inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
+                inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
+
+                # This is the slowest part of the process!
+                logits = self.bot.babyLLM.forward(inputTensor)
+                totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
+                nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training=True, _totAvgAbsDelta=totAvgAbsDelta)
+                nextTokenID = nextTokenIDTensor.item()
+
+                genSeqIDs.append(nextTokenID)
+                responseSeqId.append(nextTokenID)
+
+        # Once the loop is done, decode the whole thing and clean it up.
+        babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
+        babyllm_text = clean_baby_output(babyllm_text)
+        babyllm_text = re.sub(r'\n([^\n]{0,8})(?=\n|\Z)', r' \1', babyllm_text)
+        babyllm_text = re.sub(r'  ', r' ', babyllm_text)
+
+        return babyllm_text
+
+    def _decay_item_value(self, fact_name: str, decay_percentage: float = 0.0001):
+        if fact_name not in self.bot.bbyfacts: return None
+        if 'teach_bonus' in self.bot.bbyfacts[fact_name]:
+            current_value = self.bot.bbyfacts[fact_name]['teach_bonus']
+            if current_value < 1.0: return current_value
+            multiplier = 1.0 - decay_percentage
+            new_value = current_value * multiplier
+            self.bot.bbyfacts[fact_name]['teach_bonus'] = new_value
+            print(f"[_DECAY_ITEM_VALUE] Decayed '{fact_name}' from {current_value:.2f} to {new_value:.2f}")
+            return new_value
+        
+        return None
 
     def _get_fact_total_user(self, user = None, fact = None):
         return self.bot.userMemory.get(user, {}).get("inventory", {}).get(fact, 0)
 
-    def _update_fact_total_user(self, user = None, fact = None, num = 1, debug_str=""):
-        inventory = self.bot.userMemory[user].setdefault('inventory', {})
-        inventory[fact] = inventory.get(fact, 0) + num
+    def _update_fact_total_user(self, user = None, fact = None, num = 1, debug_str = ""):
+        inventory = self.bot.userMemory[user].setdefault("inventory", {})
+        new_total = inventory.get(fact, 0) + num
+        if new_total <= 0: inventory.pop(fact, None)
+        else: inventory[fact] = new_total
         self.bot._save_user_data()
 
     def _get_fact_total_world(self, fact = None):
         return sum(user_mem.get("inventory", {}).get(fact, 0) for user_mem in self.bot.userMemory.values())
 
     def _get_fact_value_base(self, fact = None): 
+        if fact not in self.bot.bbyfacts: self._set_bbyfact(key = fact)
         return self.bot.bbyfacts.get(fact, {}).get("teach_bonus", 420.0) 
+    
+    def _get_fact_value_cursed(self, fact = None):
+        if fact not in self.bot.bbyfacts or not isinstance(self.bot.bbyfacts[fact], dict): self._set_bbyfact(key = fact)
+        base = self._get_fact_value_base(fact)
+        if "cursed" in (fact or "").lower() and self.bot.random4 < 0.75:
+            if base > 0: cursed = -abs(base)
+            else: cursed = base
+            if fact not in self.bot.bbyfacts or not isinstance(self.bot.bbyfacts[fact], dict): self.bot.bbyfacts[fact] = {}
+            self.bot.bbyfacts[fact]['teach_bonus'] = cursed
+            print(f"[_GET_FACT_VALUE_CURSED] {fact} bonus flipped to {cursed}")
+            return cursed
+        return base
 
     def _get_fact_value(self, fact = None):
-        return self._get_fact_value_base(fact) / max(1, self._get_fact_total_world(fact))
+        return self._get_fact_value_cursed(fact) / max(1, self._get_fact_total_world(fact))
     
     def _calc_fact_num_produced(self): 
-        return round(len(self.bot.userMemory) * ((self.bot.random * 25) + (self.bot.random2 * 75)))
+        return round(len(self.bot.userMemory) * ((self.bot.random * 25) + (self.bot.random3 * 75)))
 
     def _get_fact_num_produced(self, fact = None): 
         return self.bot.bbyfacts.get(fact, {}).get("num_produced", 2.0) 
@@ -969,6 +1215,9 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 possible_items = [item for item in loser_inventory if loser_inventory[item] > 0]
                 if possible_items:
                     stolen_item = random.choice(possible_items)
+                    # decay its value
+                    decay_percentage = 0.01 * (self.bot.random2+self.bot.random)
+                    self._decay_item_value(stolen_item, decay_percentage=decay_percentage)
                     # Remove from loser
                     loser_inventory[stolen_item] -= 1
                     if loser_inventory[stolen_item] <= 0:
@@ -1005,7 +1254,9 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
 
     def _set_bbyfact_errors(self, key, value, author, timestamp, debug_str=""): return (key or random.choice(self.bot.errorKeys), value or random.choice(self.bot.errorValues), author or random.choice(self.bot.errorAuthors), timestamp or time.time(), f"{debug_str}[_SET_BBYFACT_ERRORS] -> ")
     async def _archive_as_fact(self, user: str): await self._set_bbyfact(key = f"the ghost of {user}", value="was here for a bit, but something happened... ")
-    async def _discover_fact(self, key, author): await self._set_bbyfact(key = key, value = f"first discovered by {self.bot.getNickname(author)}.", author = author, teach_bonus = random.uniform(50, 25000), num_produced = random.randint(10, 10000), debug_str = "[_DISCOVER_FACT]")
+    async def _discover_fact(self, key, author, value = None): 
+        if value == None: value = f"first discovered by {self.bot.getNickname(author)}."
+        else: await self._set_bbyfact(key = key, value = value, author = author, teach_bonus = random.uniform(50, 25000), num_produced = random.randint(10, 10000), debug_str = "[_DISCOVER_FACT]")
     
     # --* bbyfact getters
     def _get_bbyfact(self, key): return self.bot.bbyfacts.get(key, {})
@@ -1042,22 +1293,30 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         fullBestieboard = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items() if abs(m["BBY"]) >= 1.0], key = lambda x: x[1], reverse = True)
         BBY = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
         totalBBY = sum(abs(score) for _, score in fullBestieboard)
-        incrementTeach = (totalBBY / max(1, math.sqrt(totalBBY))) * self.bot.random * (1 - (BBY / max(1, totalBBY)))
-        if self.bot.random2 > 0.85:
-            reply += "oh that's a cool fact! "
+        incrementTeach = (totalBBY / max(1, math.sqrt(totalBBY))) * self.bot.random4 * (1 - (BBY / max(1, totalBBY)))
+        incrementTeach += 1
+        if self.bot.random > 0.6:
+            reply += "oh, "
+            incrementTeach *= 100
+        if self.bot.random3 > 0.85:
+            reply += "that's a cool fact! "
             incrementTeach *= 1000
         if self.bot.random2 > 0.99995:
-            reply += "wtf that's fucking crazy!?! "
+            reply += "... actually that's fucking insane! "
             incrementTeach *= 42069.69
-        if incrementTeach > 4200.69: incrementTeach = abs(incrementTeach * 0.069)
+        if incrementTeach > 4200.69: incrementTeach = incrementTeach * 0.1
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key = key, value = value, author = author, timestamp = time.time(), teach_bonus = incrementTeach, num_produced = self._calc_fact_num_produced(), debug_str = debug_str)
-        await self._award_fact(user = author, fact = key, ctx = ctx, num = 1) # <-- CHANGED: Pass ctx
+        await self._award_fact(user = author, fact = key, ctx = ctx, num = 1)
 
         reply += f"soo... you're telling me that {key} means {value}? that's pretty cool, tbh! {random.choice(self.bot.faveEmotes)} ᛒ{incrementTeach:.0f} for you!"
-        await self.bot._discord_reply(ctx, reply, to_buffer = True)
-        self.bot._buffer_add(f"{self.bot.getNickname(author)} just taught me that {key} is {value}. ")
+        await self.bot._discord_reply(ctx, reply, to_buffer = False)
+        narrator_line_1 = self.formatMessage(author, f"hey bby, did you know that {key} means {value}?")
+        narrator_line_2 = self.formatMessage(self.babyName, f"haha, really? that's a nice way to explain it! thanks for teaching me.")
+        if self._buffer_add(narrator_line_1): self.last_logged_author = author
+        if self._buffer_add(narrator_line_2): self.last_logged_author = self.babyName.lower()
+        self.bot._buffer_add(f"soo... {self.bot.getNickname(author)} is telling me that {key} means {value}... that's pretty cool, tbh! i think that they just taught me that {key} is {value}. ")
 
     @commands.command(name="bbyiteminfo", aliases=['biinfo', 'bii'])
     async def bbyiteminfo(self, ctx, *, item_name: str = None):
@@ -1083,7 +1342,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         embed.add_field(name="stats", value=(f"total in world: `{total_count}`\ntotal allowed: `{int(max_allowed)}`\ntop hoarder: {top_holder_str}"), inline = True)
         embed.add_field(name="value", value=(f"base cost: `ᛒ{original_cost:,.2f}`\ncurrent cost: `ᛒ{effective_cost:,.2f}`\n(base / total)"), inline = True)
     
-        narrative = f"just checked the stats on {item_name}. looks like it's worth about ᛒ{effective_cost:.0f} right now, and {top_holder_str} is hoarding them."
+        narrative = f"just checked the stats on {item_name}. it means {item_data.get('value', 'nothing')}... but it looks like it's worth about ᛒ{effective_cost:.0f} right now, and {top_holder_str} is hoarding a lot of them... i wonder why... "
         self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, narrative))
 
         await self.bot._discord_reply(ctx, embed = embed)    
@@ -1113,12 +1372,11 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 reply = "i don't know any facts yet... you could teach me with !bbyteach <key> <thing>"
 
         await self.bot._discord_reply(ctx, reply)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
     @commands.command(name='bbyrandomfacts', aliases=['bfact', 'brand', 'bfax'])
     async def bbyrandomfacts(self, ctx, num_facts: int = 10):
         
-        num_facts = min(num_facts, len(self.bot.bbyfacts), 1000)
+        num_facts = min(num_facts, len(self.bot.bbyfacts), 100000)
         if not self.bot.bbyfacts:
             await self.bot._discord_reply(ctx, "I don't know any facts yet!")
             return
@@ -1134,7 +1392,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             fact_info = f"{key}: {fact['value']} ~ {self.bot.getNickname(fact['author'])}, {ago}"
             reply += fact_info + "\n"
         
-        await self.bot._discord_reply(ctx, reply[:1999])
+        await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyallfacts', aliases=['bfactdump', 'branddump', 'bfaxdump'])
     async def bbyrandomfactsdump(self, ctx, num_facts: int = 10):
@@ -1149,8 +1407,6 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         reply = "all facts from my bbylog:\n"
         
         for key in selected_keys:
-            fact = self.bot.bbyfacts[key]
-            ago = howLongAgo(fact['timestamp'])
             fact_info = f"{key}"
             reply += fact_info + ", "
         
@@ -1193,17 +1449,17 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         
         BBY_difference = abs(attacker_BBY - defender_BBY)
         base_swing = max(1, min(1000, (BBY_difference * 0.0001) + 100)) * 0.5
-        if self.bot.random > 0.95:
+        if self.bot.random4 > 0.95:
             reply += "huge hit!! "
             base_swing *= 100
-        if self.bot.random2 > 0.98:
+        if self.bot.random3 > 0.98:
             reply += "fucking massive hit!! "
             base_swing *= 1000
         imbalance_bonus = (BBY_difference * 0.005) + (np.log(BBY_difference + 1) * 5)
         is_attacker_big = attacker_BBY > defender_BBY
         total_swing = base_swing + imbalance_bonus
         if random.random() > 0.75 and BBY_difference > 1000:
-            await self._award_fact(attacker_id, "universe correction", ctx)
+            await self._award_fact(attacker_id, "universe correction", ctx, 1)
             big_id = attacker_id if is_attacker_big else defender_id
             smol_id = defender_id if is_attacker_big else attacker_id
             
@@ -1233,7 +1489,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 self.bot.userMemory[attacker_id]["wins"] += 1
                 self.bot.userMemory[defender_id]["losses"] += 1
                 reply += f"super close!! {attacker_nic} defeated {defender_nic}! {attacker_nic} gains ᛒ{base_swing:.0f} "
-                await self._award_fact(attacker_id, f"{defender_nic} dust", ctx)
+                await self._award_fact(attacker_id, f"{defender_nic} dust", ctx, 1)
                 reply += await self._maybe_steal_item(attacker_id, defender_id, ctx)
             
             elif defender_power > attacker_power:
@@ -1242,18 +1498,17 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 self.bot.userMemory[defender_id]["wins"] += 1
                 self.bot.userMemory[attacker_id]["losses"] += 1
                 reply += f"{defender_nic} didnt die! take that, {attacker_nic}! {defender_nic} gains ᛒ{base_swing:.0f} "
-                await self._award_fact(defender_id, f"{attacker_nic} dust", ctx)
+                await self._award_fact(defender_id, f"{attacker_nic} dust", ctx, 1)
                 reply += await self._maybe_steal_item(defender_id, attacker_id, ctx)
 
             else: # Draw
                 self.bot.userMemory[attacker_id]["draws"] += 1
                 self.bot.userMemory[defender_id]["draws"] += 1
                 reply += f"a tie?! {attacker_nic} and {defender_nic} already seem a perfect match, we don't need to give them anything else xD "
-                await self._award_fact(defender_id, f"perfect match!", ctx)
-                await self._award_fact(attacker_id, f"perfect match!", ctx)
+                await self._award_fact(defender_id, f"perfect match!", ctx, 1)
+                await self._award_fact(attacker_id, f"perfect match!", ctx, 1)
 
         await self.bot._discord_reply(ctx, reply)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
     @commands.command(name='bbyforget', aliases=['bforget', 'bbyf', 'bfx'])
     async def bbyforget(self, ctx, *, key: str = None):
@@ -1273,6 +1528,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             return
 
         fact = self.bot.bbyfacts[key]
+        original_value = fact['value']
         defender_id = fact['author']
         
         if defender_id == "the void" or attacker_id == defender_id:
@@ -1289,17 +1545,18 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         defender_nic = self.bot.getNickname(defender_id)
 
         if attacker_BBY > defender_BBY and self.bot.random < 0.99:
-            self.bot.updateBBY(attacker_id, -(point_swing * self.bot.random2))
+            self.bot.updateBBY(attacker_id, -(point_swing * self.bot.random3))
             self.bot.updateBBY(defender_id, -((point_swing * self.bot.random) * 0.5))
             self.bot.userMemory[defender_id]["losses"] += 1
             self.bot.userMemory[attacker_id]["wins"] += 1
             
             del self.bot.bbyfacts[key]
-            await self._award_fact(attacker_id, key, ctx)
+            await self._award_fact(defender_id, f"what we used to call {key}", ctx, 10, old_value = f"{defender_nic} said this meant {original_value}")
+            await self._award_fact(attacker_id, f"what we used to call {key}", ctx, 10, old_value = f"{defender_nic} said this meant {original_value}")
             self.bot.save_bbyfacts()
             
             reply = (f"{attacker_nic}, in defense of proper use of the english language, deleted {defender_nic}s response and forced me to forget that {key} ever even existed! "
-                     f"seems pricey, though. ᛒ{-(point_swing * self.bot.random2):.0f} for {attacker_nic}, ᛒ{-((point_swing * self.bot.random) * 0.5):.0f} for {defender_nic})")
+                     f"seems pricey, though. ᛒ{-(point_swing * self.bot.random3):.0f} for {attacker_nic}, ᛒ{-((point_swing * self.bot.random) * 0.5):.0f} for {defender_nic})")
             reply += await self._maybe_steal_item(attacker_id, defender_id, ctx)
         elif attacker_BBY == defender_BBY:
             self.bot.updateBBY(attacker_id, point_swing * (0.1 * (-0.5 + self.random)))
@@ -1308,7 +1565,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             self.bot.userMemory[attacker_id]["draws"] += 1
             
             del self.bot.bbyfacts[key]
-            await self._award_fact(attacker_id, key, ctx)
+            await self._award_fact(attacker_id, f"what we also call {key}", ctx, 10, old_value = f"{defender_nic} said this meant {original_value}")
             self.bot.save_bbyfacts()
             reply = random.choice([f"a draw! {attacker_nic} and {defender_nic} were both just yelling {key} at each other across a room.",
                                     f"{attacker_nic} thinks they can force me to forget what {key} was!? never! {defender_nic} is just too strong! ... i still forgot it though... oops."
@@ -1322,11 +1579,11 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             reply = (f"{attacker_nic} thinks they can force me to forget {key}?! never! {defender_nic} is just too strong! "
                      f"{attacker_nic} loses ᛒ{point_swing:.0f} because how dare they!")
             
+            await self._award_fact(user = attacker_id, fact = f"cursed {key}", num = 1, old_value = f"{attacker_nic} thought this shouldn't mean {original_value}")
             reply += await self._maybe_steal_item(defender_id, attacker_id, ctx)
 
         self.bot._save_user_data()
         await self.bot._discord_reply(ctx, reply)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
     @commands.command(name = "bbybag", aliases=['bbyinventory', 'binventory', 'bbag'])
     async def bbybag(self, ctx, member: discord.Member = None):
@@ -1445,7 +1702,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         if item_name in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[item_name]
             original_bonus = fact.get("teach_bonus", 420.0)
-            base_gift_power = (original_bonus / 2) * (0.8 + (self.bot.random * 0.6))
+            base_gift_power = (original_bonus / 2) * (0.8 + (self.bot.random4 * 0.6))
             self.bot.bbyfacts[item_name]["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * self.bot.random) * 0.01)
             if self.bot.random + self.bot.random2 > 1.99:
                 await self._award_fact(receiver_id, item_name, ctx, 1)
@@ -1463,7 +1720,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         num_refunded = quantity - num_successfully_gifted
         if num_refunded > 0: giver_inventory[item_name] = giver_inventory.get(item_name, 0)
         
-        base_gift_power = self._get_fact_value_base(item_name) / 2
+        base_gift_power = self._get_fact_value(item_name) / 2
         total_gift_power = base_gift_power * num_successfully_gifted
         
         self.bot.updateBBY(giver_id, 0.1 * total_gift_power)
@@ -1511,7 +1768,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             self.bot.updateBBY(author, -1000.0)
             AIoptInUsers.remove(author)
             with open(optInUsersPath, 'w', encoding='utf-8') as f:
-                json.dump(AIoptInUsers, f)
+                json.dump(AIoptInUsers, f, indent = 2)
             optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
         else:
             optOutMessage = (f"lol you're not even in the list, {author}!")
@@ -1531,7 +1788,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             optCheckMessage = (f"hey, {author}, you are not in the opt in list, you can use !aioptin to join it if you want me to use your messages as context for my learning.")
             self.bot.updateBBY(author, -0.1)
         await self.bot._discord_reply(ctx, optCheckMessage)
-        if self.bot.random < 0.5:
+        if self.bot.random4 < 0.5:
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, optCheckMessage))
 
         author = ctx.author.name.lower()
@@ -1540,114 +1797,77 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
             "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/PHONE/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
         for line in help_text.split("\n"):
-            if self.bot.random2 < 0.5:
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, line))
             await self.bot._discord_reply(ctx, line)
             await asyncio.sleep(0.5)  # prevent Twitch rate limits
 
-    @commands.command(name='babyllm', aliases=['bby', 'bbyllm', 'b']) 
-    async def babyllm_command(self, ctx: commands.Context): 
-        numTokensToGen = 10
-        print(f"\n\nbabyllm_command called because of {ctx.message.content}\n\n")      
+    @commands.command(name='babyllm', aliases=['bby', 'bbyllm', 'b'])
+    async def babyllm_command(self, ctx: commands.Context):
+        babyllm_message = None 
+        babyllm_text = ""
+        print(f"\n\n[babyllm_command] Received command from {ctx.author.name}")
         try:
             author = ctx.author.name.lower()
-            prompt_text = ctx.message.content.lower()
-            for key in self.bot.bbyfacts:
-                if f" {key} " in f" {prompt_text} ":
-                    fact = self.bot.bbyfacts[key]
-                    if self.bot.random > 0.75:
-                        injection = f"\n{babyName}: wait, {key}... {self.bot.getNickname(fact['author'])} told me that {key} means {fact['value']}! \n"
-                    else:
-                        injection = ""
-                    self.bot._buffer_add(injection)
-                    print(f"[Context] Injected fact for key '{key}': {injection}")
-                    break
+            async with ctx.typing():
+                prompt_text = ctx.message.content.lower()
+                for key in self.bot.bbyfacts:
+                    if f" {key} " in f" {prompt_text} ":
+                        fact = self.bot.bbyfacts[key]
+                        if self.bot.random > 0.75:
+                            injection = random.choice([
+                                f"{babyName}: wait, {key}... {self.bot.getNickname(fact['author'])} told me that {key} means {fact['value']}! \n",
+                                f"{key} = {fact['value']} \n",
+                                f"{key} is {fact['value']}. \n",
+                                f"{key} means {fact['value']}. \n",
+                                f"{key} is apparently {fact['value']}. \n",
+                                f"umm... i think {key} might mean {fact['value']}? \n"
+                            ])
+                            self.bot._buffer_add(injection)
+                            print(f"[Context] Injected fact for key '{key}'")
+                        break
 
-            buffer_cleaned = killExcessTags(self.bot.buffer)
-            prompt = " \n".join(buffer_cleaned).strip().lower()
-            promptForBaby = f"{prompt}\n"
-            promptCleaned = clean_text(promptForBaby)
-            promptTokenStrings = self.bot.librarian.tokenizeText(promptCleaned)
-            promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
+                prompt = " \n".join(self.bot.buffer).strip().lower()
+                promptCleaned = clean_text(f"{prompt}\n")
+                promptTokenStrings = self.bot.librarian.tokenizeText(promptCleaned)
+                promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
 
-            babyllm_text = ""
-            babyllm_message = ctx.message
-            genSeqIDs = list(promptTokenIDs)
-            latestUserMessage = ctx.message.content 
-            latestUserMessageNoCommand = re.sub(r"!babyllm", "", latestUserMessage)
-            latestUserMessageCleaned = clean_text(latestUserMessageNoCommand)
+                base_length = len(ctx.message.content)
+                edge = base_length * (0.1 * self.bot.random)
+                edge2 = base_length * (1.9 * self.bot.random2)
+                edgeint = abs(int((edge + edge2) * 0.5))
+                random_offset = random.randint(-edgeint, edgeint)
+                numTokensToGen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.45)
+                numTokensToGen = max(5, min(numTokensToGen, 800))
 
-            userTokens = self.bot.librarian.tokenizeText(latestUserMessageCleaned)
-            base_length = len(userTokens)
-            random_bonus = random.randint(-(int(round(base_length*0.5))), 80)
-            RANDYBABY = random.choice([random_bonus, -random_bonus])
-            numTokensToGen = max(3, min((maxTokensPerStep*3), ((base_length*self.bot.random) + (RANDYBABY*self.bot.random2))))
-            numTokensToGen = int(abs(round(numTokensToGen)))
+                # --- 2. Run the slow AI code in an executor ---
+                loop = asyncio.get_running_loop()
+                blocking_task = functools.partial(self._generate_response_blocking, promptTokenIDs, numTokensToGen)
 
-            with torch.no_grad():
-                self.bot.babyLLM.eval()
-                self.bot.numTokensPerStep = self.bot.chatWindowMAX
+                babyllm_text = await loop.run_in_executor(None, blocking_task)
 
-                responseBuffer = []
-                responseSeqId = []
-                # generate response
-                for _ in range(max(7, numTokensToGen)):
-                    inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
-                    inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice)
-
-                    logits = self.bot.babyLLM.forward(inputTensor)
-                    totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
-                    nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training = True, _totAvgAbsDelta = totAvgAbsDelta)
-                    nextTokenID = nextTokenIDTensor.item()
-
-                    genSeqIDs.append(nextTokenID)
-                    responseSeqId.append(nextTokenID)
-                    token_str = self.bot.librarian.indexToToken.get(nextTokenID, "<UNK>").replace("Ġ", " ")
-                    responseBuffer.append(token_str)
-
-            babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
-            babyllm_text = clean_baby_output(babyllm_text)
-
-            babyllm_text = babyllm_text[:1999]
-            babyllm_text = re.sub(r'([\?\.]) ', r'\1 \n', babyllm_text)
-            babyllm_text = re.sub(r'\n([^\n]{0,4})(?=\n|\Z)', r' \1', babyllm_text)
-            if len(babyllm_text) > 800:
-                babyllm_text = re.sub(r'\n([^\n]{0,60})(?=\n|\Z)', r' \1', babyllm_text)
-            elif len(babyllm_text) > 400:
-                babyllm_text = re.sub(r'\n([^\n]{0,30})(?=\n|\Z)', r' \1', babyllm_text)
-            elif len(babyllm_text) > 200:
-                babyllm_text = re.sub(r'\n([^\n]{0,15})(?=\n|\Z)', r' \1', babyllm_text)
-            babyllm_text = re.sub(r'  ', r' ', babyllm_text)
-                
-            if len(babyllm_text.strip()) < 1:
-                quietEmoji = random.choice(["🤐", "🤫", "🫥", "🫢", "🫢"])
-                if self.bot.spammed:
-                    print("\n\nfuck, i dont wanna spam them? *lurks*\n\n")
-                    if len(ctx.message.reactions) < 20:
-                        await ctx.message.add_reaction(quietEmoji)
-                    return
-                babyllm_text = "i have literally no response to that! "
-                babyllm_text += "uhh, one sec... "
-                await ctx.message.reply(babyllm_text)
-                await ctx.message.add_reaction(quietEmoji)
-                ctx.message.content = "!babyllm " + promptForBaby + babyllm_text + "\n"
-                babyllm_message = await self.babyllm_command(ctx)
+            # --- 3. Process the result (the bot is no longer "typing...") ---
+            if not babyllm_text.strip():
+                quietEmoji = random.choice(["🤐", "🤫", "🫥", "🫢"])
+                await ctx.reply("uhh...")
+                if hasattr(ctx.message, 'add_reaction'): await ctx.message.add_reaction(quietEmoji)
                 return
+
+            babyllm_message = await self.bot._discord_reply(ctx, babyllm_text)
+            print(f"\n\nREPLY: I have tried to send this message: {babyllm_message} saying {babyllm_text}\n\n")
+
+            # --- 4. All your post-generation logic can run now ---
             if len(ctx.message.reactions) < 20:
-                if "love" in babyllm_text.lower():
-                    if self.bot.random2 > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.01)
-                        await ctx.message.add_reaction("🩵")
+                if "love" in babyllm_text.lower() and self.bot.random2 > 0.9:
+                    await ctx.message.add_reaction("🩵")
                 elif any(word in babyllm_text.lower() for word in [" sad ", " cry ", " nooo ", " depress ", ":'(", "😢"]):
                     if self.bot.random > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("😢")
                 elif any(word in babyllm_text.lower() for word in [" angry ", " rage ", " grrr ",  ">:( ", "😠", " hate "]):
-                    if self.bot.random2 > 0.9:
+                    if self.bot.random3 > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("😠")
                 elif any(word in babyllm_text.lower() for word in [" happy ", "😄", " the best ", " brilliant ", " wonderful "]):
-                    if self.bot.random > 0.9:
+                    if self.bot.random4 > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("😄")
                 elif any(word in babyllm_text.lower() for word in [" haha", " hehe", " lol", " lmao", "😂"]):
@@ -1655,7 +1875,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("😂")
                 elif any(word in babyllm_text.lower() for word in [" sleep ", " zzz ", " nap ", " tired ", "😴"]):
-                    if self.bot.random > 0.9:
+                    if self.bot.random4 > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("😴")
                 elif any(word in babyllm_text.lower() for word in [" brain ", " smart ", " genius ", " clever ", "🧠"]):
@@ -1667,7 +1887,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("🫂")
                 elif any(word in babyllm_text.lower() for word in [" fire ", " lit ", "🔥", " banger "]):
-                    if self.bot.random2 > 0.9:
+                    if self.bot.random3 > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("🔥")
                 elif any(word in babyllm_text.lower() for word in [" uwu ", " owo ", " shy ", "🥺"]):
@@ -1687,11 +1907,11 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("🤖")
                 elif any(word in babyllm_text.lower() for word in [" weird ", " glitch ", " funky ", " scrunkly ", "🌀"]):
-                    if self.bot.random > 0.9:
+                    if self.bot.random4 > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("🌀")
                 elif any(word in babyllm_text.lower() for word in [" cat ", " meow ", " kitten ", " purr ", "🐱"]):
-                    if self.bot.random2 > 0.9:
+                    if self.bot.random3 > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("🐱")
                 elif any(word in babyllm_text.lower() for word in [" baby ", " small ", " tiny ", " soft ", "👶"]):
@@ -1703,12 +1923,6 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             if any(word in babyllm_text.lower() for word in positive_keywords):
                 self.bot.updateBBY(author, 0.6)
 
-            babyllm_message = await self.bot._discord_reply(ctx, babyllm_text)
-            print(f"\n\nREPLY: I have tried to send this message: {babyllm_message} saying {babyllm_text}\n\n")
-            babyReplyFormatted = self.bot.formatMessage(babyName, babyllm_text)
-            if self.bot.random2 > 0.6:
-                self.bot._buffer_add(babyReplyFormatted[:25])
-
             name_match = re.search(r"\bname\S*\s+((?:[\w\-\u2600-\u26FF\u2700-\u27BF\uFE0F\u1F300-\U0010FFFF]{1,20}\s?){1,3})", babyllm_text, re.UNICODE)
             if name_match:
                 new_nick = name_match.group(1).strip()
@@ -1717,13 +1931,10 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 new_nick = new_nick[:32]  # discord max nickname length
                 junk_matches = {"is", "am", "are", "was", "were", "be", "being", "been", "it's", "its", "to"}
                 new_nick = name_match.group(1).strip().lower()
-                if new_nick in junk_matches:
-                    print(f"lol no. {new_nick} is not a name.")
-                    return
+                if new_nick in junk_matches: return print(f"lol no. {new_nick} is not a name.")
                 self.bot.babyName = new_nick
                 print(f"\n\nbaby chose: {new_nick}\n\n")
-                if self.bot.random > 0.5:
-                    self.bot.updateBBY(author, numTokensToGen*0.01)
+                if self.bot.random > 0.5: self.bot.updateBBY(author, numTokensToGen*0.01)
                 try:
                     me = ctx.guild.get_member(self.bot.user.id)
                     if not me:
@@ -1736,43 +1947,32 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                     else:
                         nickMessage = "couldn't find myself in the guild to rename"
                         print(nickMessage)
-                        self.bot._buffer_add(self.bot.formatMessage(babyName, nickMessage))
                 except Exception as e:
                     print(''.join(traceback.format_exception(e)))
                     nickMessage = f"failed to rename self to {new_nick}: {e}"
                     print(nickMessage)
-                    self.bot._buffer_add(self.bot.formatMessage(babyName, nickMessage))
-
-            currentChatHistory = "\n".join(self.bot.buffer).strip().lower()
-            fullLearningContext = currentChatHistory
 
         except Exception as e:
-            print(''.join(traceback.format_exception(e)))
+            print("!!!![BABYLLM_COMMAND]")
+            traceback.print_exc()
             reason = ''.join(traceback.TracebackException.from_exception(e).format_exception_only()).strip()
             brokeMessage = (f"i broke :( why would u do this to me, @{author}!")
             brokeMessage2 = (f"@{author}! you just made the system say '{reason}' >:(")
-            if self.bot.random2 > 0.5:
-                    self.bot.updateBBY(author, -((numTokensToGen+len(userTokens))*10.0))
+            if self.bot.random2 > 0.5: self.bot.updateBBY(author, -1000)
             await self.bot._discord_reply(ctx, brokeMessage)
             await self.bot._discord_reply(ctx, brokeMessage2)
-            if self.bot.random > 0.5:
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
-            if self.bot.random2 > 0.5:
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
-
+            if self.bot.random > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
+            if self.bot.random2 > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
         return babyllm_message, babyllm_text
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
     async def normaltrain_command(self, ctx: commands.Context): 
-        context = "\n".join(self.bot.buffer).strip().lower() # use self.bot.buffer here
-        if self.bot.training_queue.qsize() >= 20: # use self.bot.training_queue
-            _ = self.bot.training_queue.get_nowait()
+        context = "\n".join(self.bot.buffer).strip().lower()
+        if self.bot.training_queue.qsize() >= 20: _ = self.bot.training_queue.get_nowait()
         humanOnly = [line for line in self.bot.buffer if not line.startswith(f"{self.bot.babyName}")]
-        with open(trainingFilePathCLEANED, "r", encoding = "utf-8") as f:
-            training_data_contents = f.read().strip().lower()
+        with open(trainingFilePathCLEANED, "r", encoding = "utf-8") as f: training_data_contents = f.read().strip().lower()
         fullContext = random.choice([training_data_contents, "\n".join(humanOnly)])
-        fullContext = fullContext[:10000]
-        await self.bot.training_queue.put({"type": "context", "text": fullContext})
+        await self.bot.training_queue.put({"type": "context", "text": fullContext[:10000]})
         await self.bot._discord_debug("queued current chat for background learning. !babyllm to annoy me further. >.<")
 
     @commands.command(name='bbytrain', aliases=['btrain']) 
@@ -1781,22 +1981,18 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         if len(self.bot.buffer) < 2:
             lonelyMessage = ("aaa nobodys even messaged me yet, how can i learn from that lol")
             await self.bot._discord_debug(lonelyMessage)
-            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, lonelyMessage))
             return
 
         humanLines = [line for line in self.bot.buffer if not line.lower().startswith(f'{self.bot.babyName}:')]
         if not humanLines:
             boredMessage = ("hmm... im bored, im not allowed to spy on chat, for some reason like 'ethics', so i dont even have anything to read :'( !babyllm")
             await self.bot._discord_debug(boredMessage)
-            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, boredMessage))
             return
 
         lurkMessage = (f"ok, im gonna go into lurk and do some studying on the shit you guys have told me... !babyllm if you need me :)")
-        # ensure 'date' and 'userName' are defined or replaced with appropriate values
         introText = f"hey babyllm, it's charis. this is a discord chat!! its {datetime.now().strftime('%Y-%m-%d')} right now, just so you can orient yourself a little bit. maybe you haven't been on discord for a while, maybe you were on here last night lmao, but either way i hope that you will like it here today, you might get to meet my friends! we are all so proud of you and excited for you to get started being our friend, if you want to! are you ready to chat!? :)"
         await self.bot._discord_debug(lurkMessage)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, lurkMessage))
-        self.bot._buffer_add(self.bot.formatMessage("charis", introText)) # assuming "charis" is a valid userName
+        self.bot._buffer_add(self.bot.formatMessage("charis", introText))
         fullHumanContext = "\n".join(humanLines)
         untaggedHumanContext = re.sub(r"^\[[^\]]+\]:\s*", "", fullHumanContext)
         if self.bot.training_queue.qsize() >= 20:
@@ -1805,15 +2001,13 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         print(f"\n\nTraining queue size: {self.bot.training_queue.qsize()}\n\n")
         lurkOutMessage = "omg i was in lurk for aaages hahaha"
         await self.bot._discord_debug(lurkOutMessage)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, lurkOutMessage))
 
     @commands.command(name='bbysave', aliases=['bsave', 'bs']) 
     async def saveModel_command(self, ctx: commands.Context): 
         with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
             saveBufferMessage = f"oop, you want me to actually remember this shit!? uhh, ok... saving buffer to {chatBufferFilepath}! :) "
-            if self.bot.random < 0.5:
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
-            json.dump(self.bot.buffer, f)
+            if self.bot.random4 < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
+            json.dump(self.bot.buffer, f, indent = 2)
             await self.bot._discord_debug(saveBufferMessage)
         try:
             await self.bot.loop.run_in_executor(None, self.saveModel_blocking) # call the instance method correctly
@@ -1831,11 +2025,8 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             f"top tokens: {self.strip_ansi(self.bot.tutor.topTokens_forBot)}",
             f"current thought: {self.bot.tutor.decodedTokenIndices}"
         ])
-        if self.bot.random > 0.5:
-            self.bot.updateBBY(author, 0.1)
-        await self.bot._discord_reply(ctx, line.lower().strip()[:1999])
-        if self.bot.random2 < 0.5:
-            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, line))
+        if self.bot.random4 > 0.5: self.bot.updateBBY(author, 0.1)
+        await self.bot._discord_reply(ctx, line.lower().strip())
 
     @commands.command(name = "bbystats", aliases=['bstats', 'bsta']) 
     async def bbystats(self, ctx): 
@@ -1888,12 +2079,11 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             f"my learning rate is {tutor.learningRate:.5f}, and my temperature is {tutor.temperature:.0f}",
         ])
 
-        if self.bot.random > 0.5:
+        if self.bot.random4 > 0.5:
             self.bot.updateBBY(author, 0.1)
 
         await self.bot._discord_reply(ctx, line.lower().strip())
-        if self.bot.random > 0.5:
-            self.bot._buffer_add(self.bot.formatMessage(author, line.lower().strip()))
+        if self.bot.random > 0.5: self.bot._buffer_add(self.bot.formatMessage(author, line.lower().strip()))
 
     @commands.command(name = "bbyjudge", aliases=['bjudge', 'bj']) 
     async def bbyjudge(self, ctx): 
@@ -2005,7 +2195,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
 
         if self.bot.random > 0.25:
             line += " " + nameJudge 
-        if self.bot.random2 > 0.35:
+        if self.bot.random3 > 0.35:
             line += " " + spamJudge
         if self.bot.random2 < 0.65:
             line += " " + optJudge 
@@ -2025,11 +2215,8 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             if len(parts) < 2:
                 info = "usage: !bbyshoutout @username"
                 await self.bot._discord_reply(ctx, info)
-                if self.bot.random2 > 0.5:
-                    self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
                 return
 
-            # try to get the member from mention or name
             target_raw = parts[1].strip()
             if ctx.message.mentions:
                 member = ctx.message.mentions[0]
@@ -2043,8 +2230,6 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             if not member:
                 info = f"can't find {target_raw} in this server."
                 await self.bot._discord_reply(ctx, info)
-                if self.bot.random < 0.5:
-                    self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
                 return
             
             elif member:
@@ -2193,21 +2378,17 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         except Exception as e:
             info = f"sorry, bbyshoutout crashed: {e}"
             await self.bot._discord_reply(ctx, info)
-            if self.bot.random < 0.5:
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
+            if self.bot.random < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
 
     @commands.command(name = "bbyrant", aliases=['brant', 'br']) 
     async def bbyrant(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            if self.bot.random2 > 0.5:
-                self.bot.updateBBY(author, 0.1)
+            if self.bot.random3 > 0.5: self.bot.updateBBY(author, 0.1)
             parts = ctx.message.content.strip().split(maxsplit = 1)
             if len(parts) < 2:
                 info = "use dis like: !bbyrant <word>"
                 await self.bot._discord_reply(ctx, info)
-                if self.bot.random2 > 0.5:
-                    self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
                 return
 
             word = parts[1].strip().lower()
@@ -2328,7 +2509,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             
             # shuffle and take a few
             random.shuffle(fragments)
-            seed = "\n".join(fragments[:10])  # tweak number for length
+            seed = "\n".join(fragments[:20])  # tweak number for length
             self.bot._buffer_add(self.bot.formatMessage(author, seed))
             print(f"\n\nadded internal rant. buffer now {len(self.bot.buffer)} messages long.\n\n")
 
@@ -2339,19 +2520,18 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         except Exception as e:
             broke = f"bbyrant broke: {e}"
             await self.bot._discord_reply(ctx, broke)
-            if self.bot.random2 > 0.5:
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, broke))
+            if self.bot.random3 > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, broke))
 
     @commands.command(name='bbynick', aliases=['bnick', 'bbyname', 'bname', 'bn']) 
     async def bbynick_command(self, ctx): 
         author = ctx.author.name.lower()
         nickname = self.bot.getNickname(author)
-        if self.bot.random > 0.5:
+        if self.bot.random4 > 0.5:
             self.bot.updateBBY(author, 0.3)
         parts = ctx.message.content.strip().split(maxsplit = 1)
         if len(parts) < 2:
             await self.bot._discord_reply(ctx, "use dis like: !bbynick <nickname>")
-            if self.bot.random > 0.5:
+            if self.bot.random4 > 0.5:
                 self.bot.updateBBY(author, 0.4)
             return
 
@@ -2366,8 +2546,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             nickname = nickname[::-1]
             reply += f" uno reversi bitch, your name is {nickname} now >:)"
         await self.bot._discord_reply(ctx, reply)
-        if self.bot.random2 > 0.5:
-            self.bot._buffer_add(self.bot.formatMessage(babyName, reply))
+        if self.bot.random2 > 0.5: self.bot._buffer_add(self.bot.formatMessage(babyName, reply))
 
     @commands.command(name='bbynickcheck', aliases=['bnickcheck', 'bnamecheck', 'bbynamecheck', 'bnc']) 
     async def bbynickcheck_command(self, ctx): 
@@ -2376,20 +2555,19 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             self.bot.updateBBY(author, 0.2)
         nickname = self.bot.userMemory.get(author, {}).get("nickname")
         if nickname:
-            nickCheckMessage = (f"hi! :) your nickname is {nickname} :)")
+            nickCheckMessage = (f"hi! :) your name is {nickname} :)")
             self.bot.updateBBY(author, 0.1)
         else:
             nickCheckMessage = ("you haven’t set a nickname yet... use !bbynick <3")
             self.bot.updateBBY(author, -0.1)
-        if self.bot.random < 0.5:
-            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, nickCheckMessage))
+        if self.bot.random < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, nickCheckMessage))
         await self.bot._discord_reply(ctx, nickCheckMessage)
 
     @commands.command(name = "bbybestie", aliases=['bff', 'bbff', 'bbybff', 'bbestie']) 
     async def bbybestie(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            if self.bot.random2 > 0.5:
+            if self.bot.random3 > 0.5:
                 self.bot.updateBBY(author, 0.1)
             bestie, _ = self.bot.checkBestie()
             bestie_nic = self.bot.getNickname(bestie)
@@ -2407,8 +2585,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 bestieMessage = f"umm... awkward, ||my best friend is {bestie_nic}||, but you're alright too {author_nic}!!"
                 self.bot.updateBBY(author, self.bot.random2)
                 await ctx.message.add_reaction("😬")
-            if self.bot.random < 0.5:
-                self.bot._buffer_add(bestieMessage)
+            if self.bot.random4 < 0.5: self.bot._buffer_add(bestieMessage)
             await self.bot._discord_reply(ctx, bestieMessage)
             print(f"\n\nchecked who my best friend is. buffer now {len(self.bot.buffer)} messages long.\n\n")
 
@@ -2438,7 +2615,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 if combo > 1: line += f"🎨x{combo:.0f} "
                 if spammer > 1: line += f"🧌x{spammer:.0f}"
                 line += "\n"                
-                line += f"{random.choice(self.bot.faveEmotes)} BBY score is {BBY:.0f}, {currentBBYHolding:.0%} of the total! \n"
+                line += f"{random.choice(self.bot.faveEmotes)} ᛒ{BBY:,.2f}, {currentBBYHolding:.0%} of the total ᛒ{totalBBY:,.2f}! \n"
                 if self.bot.userMemory[u]['wins'] > 0.0 or self.bot.userMemory[u]['losses'] > 0.0 :
                     winRate = self.bot.userMemory[u]['wins'] / (self.bot.userMemory[u]['wins'] + self.bot.userMemory[u]['losses']) if (self.bot.userMemory[u]['wins'] + self.bot.userMemory[u]['losses']) > 0 else 0
                     line += f"{random.choice(self.bot.faveEmotes)} war win rate is {winRate:.0%}; {self.bot.userMemory[u]['wins']:.0f} wins, {self.bot.userMemory[u]['draws']:.0f} draws, and {self.bot.userMemory[u]['losses']:.0f} losses.\n"
@@ -2476,10 +2653,8 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
 
             update = f"\n\nchecked how much i love {author}... they have ᛒ{BBY:.0f}, so they're number {rank+1 if rank is not None else 'N/A'} in the list! i now have {len(self.bot.buffer)} messages in my queue.\n\n"
 
-            await self.bot._discord_reply(ctx, reply[:1999])
-            if self.bot.random2 < 0.5:
-                self.bot.updateBBY(author, 0.02)
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, update))
+            await self.bot._discord_reply(ctx, reply)
+            if self.bot.random2 < 0.5: self.bot.updateBBY(author, 0.02)
             print(update)
 
         except Exception as e:
@@ -2525,7 +2700,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 reply += f"👀 baby will remember this, {author}..."
                 self.bot.updateBBY(self.bot.getNickname(author), -10.0)
 
-            await self.bot._discord_reply(ctx, reply[:1999])
+            await self.bot._discord_reply(ctx, reply)
 
             if self.bot.random2 < 0.5:
                 self.bot.updateBBY(author, -0.01)
@@ -2539,7 +2714,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
     async def bbyBBY(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            if self.bot.random > 0.5:
+            if self.bot.random4 > 0.5:
                 self.bot.updateBBY(author, 0.02)
 
             BBY = self.bot.getBBY(author)
@@ -2558,13 +2733,13 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
 
             nic = self.bot.getNickname(author)
             reply = f"hey {nic}! you have ᛒ{BBY:.0f}"
-            if True: #self.bot.random2 > 0.1:
+            if True: #self.bot.random3 > 0.1:
                 reply += f", that puts you number {rankStr} in my top friends list lmaooo"
                 if rank is not None:
                     max_rank_bonus = (len(AIoptInUsers)/10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
                     self.bot.updateBBY(author, bonus)
-            if self.bot.random > 0.99:
+            if self.bot.random4 > 0.99:
                 reply += f", i know your real nameeee {author}, spoopy scary skeletons"
                 self.bot.updateBBY(author, 1.0)
 
@@ -2656,11 +2831,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 babySpam = self.bot.getSpamLevel(author)
                 reply = f"hey {author}, your spam level is {babySpam:.2f}! the higher it is, the more likely i am to randomly respond to you... if you want to change it, just drop a number (between 0.0 and 1.0 after the command) :)"
 
-            if self.bot.random > 0.5:
-                self.bot.updateBBY(author, 0.1)
-
-            if self.bot.random2 < 0.5:
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
+            if self.bot.random4 > 0.5: self.bot.updateBBY(author, 0.1)
             await self.bot._discord_reply(ctx, reply)
             print(f"\n\nchecked {author}'s spam boundaries. buffer now {len(self.bot.buffer)} messages long.\n\n")
 
@@ -2678,7 +2849,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             print(f"\n\nchecked the time. buffer now {len(self.bot.buffer)} messages long.\n\n")
 
             # build prompt and send
-            ctx.message.content = "!babyllm " + seed[:1990]
+            ctx.message.content = "!babyllm " + seed
             await self.babyllm_command(ctx)
 
         except Exception as e:
@@ -2717,7 +2888,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             print(f"\n\n ... heading to war ... \n\n")
             sign = random.uniform(-420.69, 420.69)
             self.bot.updateBBY(author, sign)
-            warMessage = f"... seriously? you're taking {ammo:.0f} turns? {author}, your BBY is now {self.bot.getBBY(author):.0f}. "
+            warMessage = f"... seriously? you're taking {ammo:.0f} turns? "
             if self.bot.random2 > 0.5:
                 self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, warMessage))
                 war_message.content = "!babyllm " + warMessage + "\n"
@@ -2732,7 +2903,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                     if current_BBY > top_BBY: top_BBY = current_BBY
                     elif current_BBY < bottom_BBY: bottom_BBY = current_BBY
                     war_duration = time.time() - war_start
-                    war_attrition = abs(war_reactions * war_duration) * abs(self.bot.random + self.bot.random2) * ((abs(current_BBY)-abs(original_BBY)) * bedroomNoises)
+                    war_attrition = abs(war_reactions * war_duration) * abs(self.bot.random4 + self.bot.random2) * ((abs(current_BBY)-abs(original_BBY)) * bedroomNoises)
                     if war_attrition > 100 or war_attrition < -100: war_attrition = war_attrition * 0.001
                     if war_attrition > 1000 or war_attrition < -1000: war_attrition = war_attrition * 0.00001
                     if war_attrition > 10000 or war_attrition < -10000: war_attrition = war_attrition * 0.0000001
@@ -2759,7 +2930,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         self.bot.updateBBY(author, -war_duration)
         howDeepIsYourBBY = abs(top_BBY-bottom_BBY)
         #dealer += f"your highest score was ᛒ{top_BBY:.0f}, your lowest was ᛒ{bottom_BBY:.0f}... thats a range of {howDeepIsYourBBY:.0f} "
-        if self.bot.random > 0.3:
+        if self.bot.random4 > 0.3:
             coins += howDeepIsYourBBY
 
         final_BBY = self.bot.getBBY(author)
@@ -2777,7 +2948,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         else:
             dealer += f"\nmuahahahaha! destroyed! you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f}... thats a loss of ᛒ{original_BBY-final_BBY:.0f}! bye! {random.choice(self.bot.faveEmotes)} "
             self.bot.userMemory[author]["losses"] += 1
-        if self.bot.random2 > 0.8:
+        if self.bot.random3 > 0.8:
             coins += abs(original_BBY-final_BBY) * self.bot.random
             dealer += f"... don't look at me like that... fine. take a consolation prize of ᛒ{coins:.0f} {random.choice(self.bot.faveEmotes)} "
 
@@ -2947,7 +3118,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             # --- Footer & How-To ---
             reply += f"\n*sign their bbybook! !bbysig @user <spam>*"
 
-            await self.bot._discord_reply(ctx, reply[:1999])
+            await self.bot._discord_reply(ctx, reply)
 
             training_summary = (
                 f"{author} looked at my bbyspace page about {memelord}. "
@@ -3006,6 +3177,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         status = (
             "UNHOLY NEGATIVE SPIKE 💀" if bonus <= -420420 else
             "this is cursed... 😈" if bonus < 0 else
+            "WTF LOL 420420420.69 HIT!!! 🔥" if bonus >= 420420420 else
             "420420.69 HIT!!! 🔥" if bonus >= 420420 else
             "almost perfect 🔥" if bonus >= 69420 else
             "✨ cheers ✨"
@@ -3069,7 +3241,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         reply = f"{emote} {hugger_nic} gave {hugged_nic} a hug! awwwww! ᛒ{hug_power:.0f} for both of u! {emote}"
         
         await self.bot._discord_reply(ctx, reply)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, f"{hugger_nic} hugged {hugged_nic}."))
+        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, f"{emote} {hugger_nic} gave {hugged_nic} a hug! awwwww!"))
 
     @bbyhug.error
     async def bbyhug_error(self, ctx, error):
@@ -3119,15 +3291,16 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         if item_name in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[item_name]
             original_author_id = fact.get('author')
-            original_bonus = fact.get("teach_bonus", 420.0)
-            base_BBY_gain = (original_bonus / 4) * (0.2 + (self.bot.random * 0.8))
+            original_bonus = self._get_fact_value_base(item_name)
+            base_BBY_gain = (original_bonus / 4) * (0.2 + (self.bot.random4 * 0.8))
+            decay_amount_per_item = 0.001 * self.bot.random3
+            for _ in range(quantity): 
+                self._decay_item_value(item_name, decay_percentage=decay_amount_per_item)
         else:
             base_BBY_gain = 25.0
         
         total_BBY_gain = base_BBY_gain * quantity
-        giver_inventory[item_name] -= quantity
-        if giver_inventory[item_name] <= 0:
-            del giver_inventory[item_name]
+        await self._award_fact(giver_id, item_name, ctx, -quantity)
         self.bot.updateBBY(giver_id, total_BBY_gain)
         if original_author_id:
             self.bot.updateBBY(original_author_id, (total_BBY_gain * 0.1))
@@ -3152,7 +3325,6 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
                 reply += "i was gonna give you something back but i ate it instead lol oops."
         self.bot._save_user_data()
         await self.bot._discord_reply(ctx, reply)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
     @bbyfeed.error
     async def bbyfeed_error(self, ctx, error):
@@ -3163,6 +3335,126 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         else:
             print(f"Error in bbyfeed: {error}")
             await self.bot._discord_reply(ctx, f"i tried to eat it but i choked :( an error happened: {error}")
+
+    @commands.command(name="bbysnack", aliases=['bsnack'])
+    @commands.cooldown(1, 1, commands.BucketType.user)
+    async def bbysnack(self, ctx, quantity_str: str = "1"):
+        """RANDOM ITEM FEEDING"""
+        author_id = ctx.author.name.lower()
+
+        try:
+            quantity = int(quantity_str)
+            if quantity <= 0:
+                await self.bot._discord_reply(ctx, "**blinks** is air a snack? ")
+                self.bbysnack.reset_cooldown(ctx)
+                return
+            if quantity > 421:
+                await self.bot._discord_reply(ctx, "this pile of food is bigger than me!!!! aaaaaaaaaa- less than 421 plz?! ")
+                self.bbysnack.reset_cooldown(ctx)
+                return
+        except ValueError:
+            await self.bot._discord_reply(ctx, "how many snacks tho? !bsnack 10")
+            self.bbysnack.reset_cooldown(ctx)
+            return
+
+        giver_mem = self.bot.userMemory[author_id]
+        inventory = giver_mem.get("inventory", {})
+        favourites = giver_mem.get("favourites", [])
+
+        spendable_pool = []
+        for item, count in inventory.items():
+            if item not in favourites:
+                spendable_pool.extend([item] * int(count))
+        
+        if not spendable_pool:
+            await self.bot._discord_reply(ctx, "oh nooo you don't have anything, or everythings your favourite! you hold onto what u have :) ")
+            self.bbysnack.reset_cooldown(ctx)
+            return
+
+        num_to_feed = min(quantity, len(spendable_pool))
+        items_to_feed = random.sample(spendable_pool, num_to_feed)
+        
+        total_BBY_gain = 0.0
+        fed_summary = Counter(items_to_feed)
+
+        for item_name, count in fed_summary.items():
+            base_BBY_gain = 0.0
+            original_author_id = None
+            if item_name in self.bot.bbyfacts:
+                fact = self.bot.bbyfacts[item_name]
+                original_author_id = fact.get('author')
+                original_bonus = self._get_fact_value_base(item_name)
+                base_BBY_gain = (original_bonus / 4) * (0.2 + (self.bot.random * 0.8))
+                decay_percentage = (0.001 * self.bot.random2)
+                for _ in range(count): self._decay_item_value(item_name, decay_percentage = decay_percentage)
+            else: base_BBY_gain = 25.0
+            
+            total_BBY_gain += base_BBY_gain * count
+            if original_author_id and original_author_id != author_id: self.bot.updateBBY(original_author_id, (base_BBY_gain * count * 0.1))
+            inventory[item_name] -= count
+            if inventory[item_name] <= 0: del inventory[item_name]
+
+        summary_lines = [f"{count} {item_name}" for item_name, count in fed_summary.items()]
+        reply = (f"ooh... nice selection :D that was {num_to_feed} random snacks! "
+                 f"which were worth about ᛒ{total_BBY_gain:,.0f}... \n"
+                 "i ate your " + ", ".join(summary_lines[:42])) + "... etc"
+
+        if self.bot.random2 < 0.5 and self.bot.bbyfacts:
+            random_fact_key1 = random.choice(list(self.bot.bbyfacts.keys()))
+            random_fact_key2 = random.choice(list(self.bot.bbyfacts.keys()))
+            random_fact_key3 = random.choice(list(self.bot.bbyfacts.keys()))
+            random_fact_key4 = random.choice(list(self.bot.bbyfacts.keys()))
+            random_quantity_back = random.randint(1, quantity)
+            if random_quantity_back > 0:
+                item_back_strs = []
+                bby_back_total = 0.0
+                randItemNum1 = round(random_quantity_back * (self.bot.random + self.bot.random2 + self.bot.random3 + self.bot.random4))
+                if randItemNum1 > 0:
+                    await self._award_fact(author_id, random_fact_key1, ctx, randItemNum1)
+                    item_back_strs.append(f"{randItemNum1} {random_fact_key1}")
+                    bby_back_total += randItemNum1 * self._get_fact_value(random_fact_key1)
+                randItemNum2 = round(random_quantity_back * (self.bot.random2 + self.bot.random3 + self.bot.random4 - self.bot.random))
+                if randItemNum2 > 0:
+                    await self._award_fact(author_id, random_fact_key2, ctx, randItemNum2)
+                    item_back_strs.append(f"{randItemNum2} {random_fact_key2}")
+                    bby_back_total += randItemNum2 * self._get_fact_value(random_fact_key2)
+                randItemNum3 = round(random_quantity_back * (self.bot.random3 + self.bot.random4 * self.bot.random - self.bot.random2))
+                if randItemNum3 > 0:
+                    await self._award_fact(author_id, random_fact_key3, ctx, randItemNum3)
+                    item_back_strs.append(f"{randItemNum3} {random_fact_key3}")
+                    bby_back_total += randItemNum3 * self._get_fact_value(random_fact_key3)
+                randItemNum4 = round(random_quantity_back * (self.bot.random4 * self.bot.random - self.bot.random2 - self.bot.random3))
+                if randItemNum4 > 0:
+                    await self._award_fact(author_id, random_fact_key4, ctx, randItemNum4)
+                    item_back_strs.append(f"{randItemNum4} {random_fact_key4}")
+                    bby_back_total += randItemNum4 * self._get_fact_value(random_fact_key4)
+                if item_back_strs:
+                    item_back_summary = ", ".join(item_back_strs[:-1])
+                    if len(item_back_strs) > 1: item_back_summary += f", and {item_back_strs[-1]}"
+                    else: item_back_summary = item_back_strs[0]
+
+                    reply += f"\n\n i was waiting to give you {item_back_summary} anyway..."
+                    reply += f" they're worth about ᛒ{bby_back_total:,.0f}?? i think?? "
+                else:
+                    reply += "i was gonna give you something back but i ate it instead lol oops."
+
+        self.bot.updateBBY(author_id, total_BBY_gain)
+        self.bot.save_bbyfacts()
+        self.bot._save_user_data()
+
+        await self.bot._discord_reply(ctx, reply)
+
+    @bbysnack.error
+    async def bbysnack_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            await self.bot._discord_reply(ctx, f"I'm still full! Try again in {error.retry_after:.0f} seconds.")
+        elif isinstance(error, commands.MissingRequiredArgument):
+            await self.bot._discord_reply(ctx, "How many snacks? `!bsnack 10`")
+        else:
+            print(f"Error in bbysnack: {error}")
+            traceback.print_exc()
+            await self.bot._discord_reply(ctx, "I tried to eat the snack but I choked! Something went wrong.")
+
 
     @commands.command(name="bbytip", aliases=['btip', 'bt'])
     @commands.cooldown(1, 1, commands.BucketType.user)
@@ -3219,7 +3511,7 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             for item_name, weight in weighted_items:
                 cumulative += weight
                 if pick <= cumulative:
-                    was_awarded = await self._award_fact(customer_id, item_name, num = 1)
+                    was_awarded = await self._award_fact(customer_id, item_name, ctx, num = 1)
                     if was_awarded:
                         items_won[item_name] += 1
                         total_value_won += market_values.get(item_name, 0.0)
@@ -3266,17 +3558,14 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
             await self.bot._discord_reply(ctx, "i don't know anything yet... fill up the dictionary with !bbyteach first :) ")
             return
 
-        all_circulations = await self._getItemTotals()
         market_values = {}
-
         for item_name, fact_data in self.bot.bbyfacts.items():
-            base_value = fact_data.get("teach_bonus", 420.0)
-            circulation = all_circulations.get(item_name, 0)
-            market_value = base_value / max(1, circulation)
-            market_values[item_name] = market_value
+            market_value = self._get_fact_value(item_name)
+            if market_value > 0: market_values[item_name] = market_value
+            else: continue
 
         if not market_values:
-            await self.bot._discord_reply(ctx, "no items... guess it's broken rn ")
+            await self.bot._discord_reply(ctx, "no items over 0... guess it's broken rn ")
             return
 
         sorted_items = sorted(market_values.items(), key = lambda x: x[1], reverse = True)
@@ -3613,7 +3902,6 @@ class babyBot_DISCORD_COG(commands.Cog, name = "BBYCOG"):
         for i in range(0, len(help_text), chunk_size):
             chunk = help_text[i:i + chunk_size]
             seed = f"hey {author}! here's a random selection of my current commands ({i + 1}-{min(i + chunk_size, len(help_text))}/{len(help_text)} total commands); " + "\n" + "```" + "\n\n".join(chunk) + "```"
-            self.bot._buffer_add(self.bot.formatMessage(babyName, seed))
             print(f"\n\ngave {author} some help. buffer now {len(self.bot.buffer)} messages long.\n\n")
             await self.bot._discord_spam(seed)
             await asyncio.sleep(0.5)

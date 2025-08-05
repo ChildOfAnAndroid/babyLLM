@@ -950,6 +950,34 @@ class BABYLLM(nn.Module):
                 
             except FileNotFoundError: print("no saved model found")
 
+    def generate(self, _prompt, _numTokens, _temperature):
+        """
+        Generates a sequence of tokens autoregressively based on a prompt.
+        This is the main function called by the bots for inference.
+        """
+        self.eval() # Set the model to evaluation mode (disables things like dropout)
+        self.temperature = torch.exp(self.logTemp).item()
+        prompt_tokens = self.librarian.tokenizeText(_prompt)
+        gen_token_ids = [self.librarian.tokenToIndex.get(t, 0) for t in prompt_tokens]
+        
+        response_ids = []
+
+        with torch.no_grad(): # We don't need to calculate gradients during generation
+            for _ in range(_numTokens):
+                # The context window is the last `numTokensPerStep` tokens
+                input_ids = gen_token_ids[-self.numTokensPerStep:]
+                input_tensor = torch.tensor(input_ids, dtype=torch.long, device=self.device)
+                logits = self.forward(input_tensor)
+                next_token_tensor = self.getResponseFromLogits(logits, _training=False)
+                next_token_id = next_token_tensor.item()
+                gen_token_ids.append(next_token_id)
+                response_ids.append(next_token_id)
+                # if next_token_id == self.librarian.tokenToIndex.get("<EOS>", -1):
+                #     break
+        
+        # Decode the generated IDs back into a string
+        return self.librarian.decodeIDs(response_ids)
+
     @whocalled
     def babyllm_diary_entry(self, interneuronNetwork, step):
         with self.counsellor.infodump("babyllm_diary_entry") as ʕっʘ‿ʘʔっ:

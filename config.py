@@ -5,6 +5,9 @@
 import datetime as CONFIGDATE
 date = CONFIGDATE.date.today()
 
+bby_spam_channel_id = 1156683242087387206
+twitch_channel = "childofanandroid"
+rollingContextSize = 420
 
 import torch
 modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -68,6 +71,7 @@ guessedTokenSeq = []
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
 charis = "charis"
+userName = charis
 babyName = "babyllm"
 scribeName = "scribe"
 enemyName = "george"
@@ -83,14 +87,14 @@ modelBackupFilePath = "SHKAIRA/soul/babyLLM.pth"  # where your currently trained
 stepCheckpointFilePath = "SHKAIRA/soul/stepCheckpoint.txt"
 lossCheckpointFilePath = "SHKAIRA/soul/lossCheckpoint.txt"
 lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
-babyStateFilePath = "BODY/babyState.json"
+babyStateFilePath = "PHONE/babyState.json"
 tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
 
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
-chatBufferFilepath = "SHKAIRA/soul/chatBuffer.txt"
+chatBufferFilepath = "SHKAIRA/soul/chatBuffer.json"
 bbybookPath = "SHKAIRA/soul/bbybook.json"
 bbyUserDataPath = "SHKAIRA/soul/bbyUserData.json"
-
+promptsPath = "BBYBOT/COMMANDS/bby_prompts.json"
 
 """--- TRAINING ---"""
 trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
@@ -128,11 +132,10 @@ discordLogPath = f"SHKAIRA/statistics/LOGS/chat/discordLog_{date}.txt"
 
 """--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
 """--- TWITCH BOT ---"""
-trainDuringChat = False
-trainDuringChat2 = True
+trainDuringChat = True
 
 """--- MODEL ---"""
-numTokensPerStepSTART = 128 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
 maxTokensPerStep    = 256
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80

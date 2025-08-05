@@ -16,15 +16,17 @@ import asyncio
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 
 class TUTOR:
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _numTokensPerStep, _first, 
-                _trainingLogFreq_A          = trainingLogFreq_A,
-                _perfectionistPassRateSTART = perfectionistPassRateSTART,
-                _learningRateGOAL           = learningRateGOAL,
-                _dataStride                 = 0,
-                _totalRuns                  = 0,
-                _totalTurnsAwake            = 0,  
-                _lastRunLoss                = 4.20,
-                _device                     = modelDevice,):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
+                 _numTokensPerStep              = numTokensPerStepSTART,
+                 _first                         = False, 
+                 _trainingLogFreq_A             = trainingLogFreq_A,
+                 _perfectionistPassRateSTART    = perfectionistPassRateSTART,
+                 _learningRateGOAL              = learningRateGOAL,
+                 _dataStride                    = 0,
+                 _totalRuns                     = 0,
+                 _totalTurnsAwake               = 0,  
+                 _lastRunLoss                   = 4.20,
+                 _device                        = modelDevice,):
         
         torch.autograd.set_detect_anomaly(anomalyDetect)
         self.startIndex                 = 1
@@ -594,7 +596,7 @@ class TUTOR:
                             "correct": JSONtokenCorrect,
                         }
                         with open(babyStateFilePath, 'w') as f:
-                            json.dump(babyState, f)
+                            json.dump(babyState, f, indent = 2)
                     except Exception as e:
                         print(f"could not write to {babyStateFilePath}: {e}")
 

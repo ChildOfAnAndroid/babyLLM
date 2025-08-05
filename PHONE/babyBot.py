@@ -329,7 +329,7 @@ class BABYBOT_TWITCH(commands.Bot):
         author = ctx.author.name.lower()
         self.AIoptInUsers.remove(author)
         with open(optInUsersPath, 'w', encoding='utf-8') as f:
-            json.dump(self.AIoptInUsers, f)
+            json.dump(self.AIoptInUsers, f, indent = 2)
         optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
         await ctx.reply(optOutMessage)
         self.buffer.append(self.formatMessage(babyName, optOutMessage))
@@ -547,7 +547,7 @@ class BABYBOT_TWITCH(commands.Bot):
         with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
             saveBufferMessage = f"oop, you want me to actually remember this shit!? uhh, ok... saving buffer to {chatBufferFilepath}! :) "
             self.buffer.append(self.formatMessage(babyName, saveBufferMessage))
-            json.dump(self.buffer, f)
+            json.dump(self.buffer, f, indent = 2)
             await ctx.reply(saveBufferMessage)
         if not ctx.author.is_mod:
             modMessage = ("sorry, only mods can save me! ")
@@ -617,7 +617,7 @@ class BABYBOT_TWITCH(commands.Bot):
 
                     if len(self.buffer) >= self.N:
                         with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
-                            json.dump(self.buffer, f)
+                            json.dump(self.buffer, f, indent = 2)
                             print(f"buffer exceeded size {self.N}, popping oldest")
                             self.buffer = self.buffer[-self.N:]
 
