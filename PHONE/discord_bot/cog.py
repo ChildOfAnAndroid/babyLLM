@@ -14,12 +14,12 @@ import traceback
 import torch
 import numpy as np
 import pytz
+from typing import TYPE_CHECKING
 
 from config import *
 from secret import *
 from textCleaningTool import *
 
-from .bot import BABYBOT_DISCORD
 from .utils import (
     is_similar,
     howLongAgo,
@@ -29,9 +29,11 @@ from .utils import (
     getTimeRant,
 )
 
+if TYPE_CHECKING:
+    from .bot import BABYBOT_DISCORD
 
 class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
-    def __init__(self, bot: BABYBOT_DISCORD):
+    def __init__(self, bot: 'BABYBOT_DISCORD'):
         self.bot = bot
 
     async def _getItemTotals(self):
@@ -714,11 +716,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='bbyoptout', aliases=['boptout']) 
     async def bbyoptout_command(self, ctx: commands.Context): 
         author = ctx.author.name.lower()
-        if author in AIoptInUsers:
+        if author in self.bot.AIoptInUsers:
             self.bot.updateBBY(author, -1000.0)
-            AIoptInUsers.remove(author)
+            self.bot.AIoptInUsers.remove(author)
             with open(optInUsersPath, 'w', encoding='utf-8') as f:
-                json.dump(AIoptInUsers, f, indent = 2)
+                json.dump(self.bot.AIoptInUsers, f, indent = 2)
             optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
         else:
             optOutMessage = (f"lol you're not even in the list, {author}!")
@@ -731,7 +733,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyoptcheck_command(self, ctx: commands.Context): 
         author = ctx.author.name.lower()
         self.bot.updateBBY(author, 0.1)
-        if author in AIoptInUsers:
+        if author in self.bot.AIoptInUsers:
             optCheckMessage = (f"hey, {author}, you are in the opt in list. use !aioptout to leave, if you don't want your messages recorded anymore.")
             self.bot.updateBBY(author, 0.1)
         else:
@@ -1019,7 +1021,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         averageBBY = sum(mem["BBY"] for mem in self.bot.userMemory.values()) / max(len([m for m in self.bot.userMemory.values() if m["BBY"] != 0]), 1)
 
         line = random.choice([
-            f"current queue size: {trainingQ} items, opted-in users: {len(AIoptInUsers)}, : {averageBBY}",
+            f"current queue size: {trainingQ} items, opted-in users: {len(self.bot.AIoptInUsers)}, : {averageBBY}",
             f"average accuracy (loss): {tutor.totalAvgLoss:.0f}, average loss delta: {tutor.totalAvgDelta:.0f} (if this is going down, i'm learning!)",
             #f"input norm: {tutor.inputNorm}, output norm: {tutor.outputNorm}",
             f"pixel accuracy (loss): {pixelLoss:.3f}, current colour: {colourGuess}, target colour: {colourTarget}",
@@ -1118,7 +1120,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 spamJudge += " it's been fun!"
                 self.bot.updateBBY(author, 0.01)
 
-        if author in AIoptInUsers:
+        if author in self.bot.AIoptInUsers:
             optJudge = "you're opted-in, so at least you're useful for my world domination... i mean, learning. right, learning plans. good."
             self.bot.updateBBY(author, 0.2)
         else:
@@ -1593,7 +1595,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 reply += line
 
                 if rank is not None:
-                    max_rank_bonus = (len(AIoptInUsers) / 10)
+                    max_rank_bonus = (len(self.bot.AIoptInUsers) / 10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
                     self.bot.updateBBY(author, bonus)
 
@@ -1642,7 +1644,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     line += f"{random.choice(self.bot.faveEmotes)} {self.bot.userMemory[u]['message_count']:.0f} rants in {self.bot.userMemory[u]['loyalty']:.0f} days, we last fought {last_seen}. \n\n"
                 reply += line
                 if rank is not None:
-                    min_rank_bonus = -len(AIoptInUsers) / 20
+                    min_rank_bonus = -len(self.bot.AIoptInUsers) / 20
                     penalty = min(0, min_rank_bonus + (rank * 0.15))
                     self.bot.updateBBY(author, penalty)
 
@@ -1686,7 +1688,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if True: #self.bot.random3 > 0.1:
                 reply += f", that puts you number {rankStr} in my top friends list lmaooo"
                 if rank is not None:
-                    max_rank_bonus = (len(AIoptInUsers)/10)
+                    max_rank_bonus = (len(self.bot.AIoptInUsers)/10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
                     self.bot.updateBBY(author, bonus)
             if self.bot.random4 > 0.99:

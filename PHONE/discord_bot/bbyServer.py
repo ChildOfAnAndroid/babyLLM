@@ -7,13 +7,14 @@ import os
 import random
 import uuid
 
+chat_history = []
+chat_lock = threading.Lock()
+
 # --- setup ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE_PATH = os.path.join(SCRIPT_DIR, "babyState.json")
 app = Flask(__name__)
 CORS(app)
-
-# --- ADD THESE FILE PATHS ---
 REQUEST_FILE_PATH = os.path.join(SCRIPT_DIR, "bby_request.json")
 RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
 os.makedirs(RESPONSE_DIR, exist_ok=True) # Ensure the response directory exists
@@ -206,6 +207,7 @@ def speech_controller_loop():
             if time.time() - speak_start_time > 10:
                 print("[SPEECH_CONTROLLER] Speech timed out, resetting.")
                 babyState["isSpeaking"] = False
+                babyState["mouth"] = 3
                 babyState["speechText"] = ""
                 speak_start_time = None
 
@@ -219,7 +221,7 @@ threading.Thread(target=blink_loop, daemon=True).start()
 threading.Thread(target=pulse_loop, daemon=True).start()
 threading.Thread(target=smart_jump_loop, daemon=True).start()
 threading.Thread(target=living_colour_loop, daemon=True).start()
-threading.Thread(target=speech_controller_loop, daemon=True).start() # <-- ADDED THIS LINE
+threading.Thread(target=speech_controller_loop, daemon=True).start()
 
 
 # --- app routes ---
@@ -228,66 +230,74 @@ def get_state(): return jsonify(babyState)
 
 @app.route("/api/say", methods=["POST"])
 def user_say():
-    """
-    Receives text, passes it to the Discord bot via a file,
-    waits for a response file, and returns the reply.
-    """
     data = request.json
     text = data.get("text", "")
+    author = data.get("author", "kevinonline420") 
     
-    if not text:
-        return jsonify({"status": "error", "reply": "No text provided."}), 400
+    if not text: return jsonify({"status": "error", "reply": "no text :("}), 400
+
+    user_message = {
+        "id": str(uuid.uuid4()),
+        "author": author,
+        "text": text,
+        "timestamp": time.time()
+    }
+    with chat_lock:
+        chat_history.append(user_message)
+        if len(chat_history) > 1000: chat_history.pop(0)
 
     request_id = str(uuid.uuid4())
-    request_data = {"id": request_id, "text": text}
+    request_data = {"id": request_id, "text": text, "author": author} 
     response_file_path = os.path.join(RESPONSE_DIR, f"{request_id}.json")
     
-    print(f"[API_SAY] Creating request {request_id} for text: '{text}'")
+    print(f"[API_SAY] {request_id}: User '{author}' says: {text}")
     
     try:
         with open(REQUEST_FILE_PATH, 'w') as f:
             json.dump(request_data, f)
     except Exception as e:
-        print(f"[ERROR] Could not write request file: {e}")
+        print(f"[ERROR] {e}")
         return jsonify({"status": "error", "reply": "..."}), 500
 
     start_time = time.time()
-    timeout = 180
+    timeout = 180 
     reply_text = "... timeout :("
 
     try:
         while time.time() - start_time < timeout:
             if os.path.exists(response_file_path):
-                # Response found!
-                print(f"[API_SAY] Found response file for {request_id}")
-                with open(response_file_path, 'r') as f:
-                    response_data = json.load(f)
+                print(f"[API_SAY] response for {request_id}")
+                with open(response_file_path, 'r') as f: response_data = json.load(f)
                 reply_text = response_data.get("reply", "...")
                 
-                # Set the baby's state to speaking with the new text
                 babyState["speechText"] = reply_text
                 babyState["isSpeaking"] = True
                 
-                break # Exit the waiting loop
-            time.sleep(0.1) # Check every 100ms to not fry the CPU
-        else:
-            # This 'else' belongs to the 'while' loop, it runs if the loop finishes without a 'break'
-            print(f"[API_SAY] Timed out waiting for response for request {request_id}")
+                bot_message = {
+                    "id": str(uuid.uuid4()),
+                    "author": "babyLLM",
+                    "text": reply_text,
+                    "timestamp": time.time()
+                }
+                with chat_lock:
+                    chat_history.append(bot_message)
+                    if len(chat_history) > 1000: chat_history.pop(0)
+                break
+            time.sleep(0.1)
+        else: print(f"[API_SAY] timeout on {request_id}")
 
     finally:
-        # 4. Clean up the files
-        if os.path.exists(REQUEST_FILE_PATH):
-            # We clear the request file instead of deleting to avoid race conditions
-            # The bot will see it's an old request and ignore it.
-            open(REQUEST_FILE_PATH, 'w').close()
-        if os.path.exists(response_file_path):
-            os.remove(response_file_path)
+        if os.path.exists(REQUEST_FILE_PATH): open(REQUEST_FILE_PATH, 'w').close()
+        if os.path.exists(response_file_path): os.remove(response_file_path)
+    return jsonify({"status": "ok", "reply": reply_text, "author": author})
 
-    return jsonify({"status": "ok", "reply": reply_text})
+@app.route("/api/chat_history")
+def get_chat_history():
+    """returns the current conversation history as api object list - not saved json on pc"""
+    with chat_lock: return jsonify(chat_history)
 
 @app.route("/api/set", methods=["POST"])
 def set_state():
-    """Client can request changes, which the artistic loops will use."""
     updates = request.json
     
     if "R" in updates: targetColour["R"] = updates["R"]
@@ -309,7 +319,7 @@ def get_bbybook():
                 facts = json.load(f)
             return jsonify(facts)
         except Exception as e:
-            print(f"[ERROR] Could not read bbybook.json: {e}")
+            print(f"[ERROR] could not read bbybook.json: {e}")
             return jsonify({"error": "could not read bbybook file"}), 500
     else:
         return jsonify({})

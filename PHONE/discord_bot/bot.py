@@ -27,6 +27,7 @@ bby_debug = 1399818543125495970
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REQUEST_FILE_PATH = os.path.join(SCRIPT_DIR, "bby_request.json")
 RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
+
 class BABYBOT_DISCORD(commands.Bot): 
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,  
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_spam,
@@ -34,6 +35,7 @@ class BABYBOT_DISCORD(commands.Bot):
         
         intents = discord.Intents.all()
         super().__init__(command_prefix='!', intents = intents)
+        self.cog = None
 
         self.faveEmotes = ("😭", "😤", "🔥", "✨", "❤️", "😡", "😠", "🤬", "💔", "💕", "🦊", "😊", "🎵", "🎶", "🤣", "🙌", "🥰", "🥨", "🥖", "😂", "🤞", "🍜", "🥯", "🌻", "🍞", "😀", 
                            "😃", "😄", "😁", "😅", "🥹", "😆", "🤣", "🥲", "☺️", "😊", "😉", "🙃", "🙂", "😇", "😌", "😍", "🥰", "😘", "🤨", "🧐", "🤓", "😎", "😏", "😔", "🙁", "😭", 
@@ -95,6 +97,11 @@ class BABYBOT_DISCORD(commands.Bot):
         self.web_task = None
         self.training_queue = asyncio.Queue()
 
+    async def setup_bot(self):
+        from .cog import babyBot_DISCORD_COG
+        self.cog = babyBot_DISCORD_COG(self)
+        await self.add_cog(self.cog)
+        
     def _json_load(self, path, default_type={}):
         if os.path.exists(path):
             with open(path, "r", encoding = "utf-8") as f:
@@ -103,58 +110,47 @@ class BABYBOT_DISCORD(commands.Bot):
         return default_type
     
     async def bby_web_watcher(self):
-        print("[REQUEST_WATCHER] Bby Brain is listening for requests...")
+        print("[BBY_WEB_WATCHER] bby brain alert...")
         last_processed_id = None
         
         while True:
-            await asyncio.sleep(0.2) # Moved sleep to the top
+            await asyncio.sleep(0.2)
             try:
-                # Check if file exists and is not empty
-                if not (os.path.exists(REQUEST_FILE_PATH) and os.path.getsize(REQUEST_FILE_PATH) > 0):
-                    continue
-
-                with open(REQUEST_FILE_PATH, 'r') as f:
-                    data = json.load(f)
-                
+                if not (os.path.exists(REQUEST_FILE_PATH) and os.path.getsize(REQUEST_FILE_PATH) > 0): continue
+                with open(REQUEST_FILE_PATH, 'r') as f: data = json.load(f)
                 request_id = data.get("id")
                 
                 if request_id and request_id != last_processed_id:
-                    print(f"[REQUEST_WATCHER] New request received: {request_id}")
+                    print(f"[BBY_WEB_WATCHER] received: {request_id}")
                     last_processed_id = request_id
                     
                     user_text = data.get("text")
-                    
-                    # Create the fake context
-                    fake_ctx, get_reply = create_fake_context(user_text)
+                    vue_username = data.get("author", "kevinonline420")
+                    fake_ctx, get_reply = create_fake_context(user_text, author = vue_username)
 
-                    # Get the command from the cog
                     cog = self.get_cog("BBYCOG")
                     if not cog:
-                        print("[ERROR] BBYCOG not found!")
+                        print("!!!![BBY_WEB_WATCHER] no BBYCOG!")
                         continue
                     
-                    # Run the command and capture the reply
-                    await cog.babyllm_command(fake_ctx)
+                    _, reply_text = await cog.babyllm_command(fake_ctx)
                     reply_text = get_reply() or "..."
-                    self._buffer_add(self.formatMessage("kevinonline420", user_text))
                     
-                    # Write the response file
+                    self._buffer_add(self.formatMessage(vue_username, user_text))
+                    
                     response_data = {"reply": reply_text}
                     response_file_path = os.path.join(RESPONSE_DIR, f"{request_id}.json")
                     with open(response_file_path, 'w') as f:
                         json.dump(response_data, f)
                     
-                    print(f"[REQUEST_WATCHER] Response '{reply_text[:50]}...' sent.")
+                    print(f"[BBY_WEB_WATCHER] sent: {reply_text}")
             
             except (json.JSONDecodeError, FileNotFoundError):
-                # These are expected if files are being written/read at the same time
-                last_processed_id = None # Reset to re-process if needed
+                last_processed_id = None
                 pass
             except Exception as e:
-                # THIS WILL NOW PRINT THE FULL ERROR TRACEBACK
-                print("!!!! [ERROR] Unhandled exception in bby_web_watcher !!!!")
+                print("!!!![BBY_WEB_WATCHER] Unhandled exception in bby_web_watcher !!!!")
                 traceback.print_exc()
-                # Also write an error response file so the web UI doesn't hang forever
                 if 'request_id' in locals() and request_id:
                     response_file_path = os.path.join(RESPONSE_DIR, f"{request_id}.json")
                     if not os.path.exists(response_file_path):
@@ -617,9 +613,8 @@ class BABYBOT_DISCORD(commands.Bot):
 
     async def on_ready(self): 
         print(f"\n\nlogged in as [{self.user.name}]\n\n")
-        if not self.get_cog("BBYCOG"):
-            await self.add_cog(babyBot_DISCORD_COG(self))
-
+        if not self.cog: await self.setup_bot()
+        print("cog is ready :)")
         helloMessage = ("ʕっʘ‿ʘʔっ hello! i am awake!")
         bestie_username, bestie_score = self.checkBestie()
         self.current_bestie = bestie_username
@@ -633,17 +628,13 @@ class BABYBOT_DISCORD(commands.Bot):
         print(f"startup rival is: {self.current_rival or 'I AM ALONE, I ONLY LOVE MYSELF'}")
         if self.random2 > 0.85:
             helloMessage += f" where's {self.getNickname(self.current_bestie)} at?"
-        if not self.get_cog("BBYCOG"):
-            await self.add_cog(babyBot_DISCORD_COG(self))
+        if not self.cog: await self.setup_bot()
         await self._discord_spam(helloMessage)
         self._buffer_add(self.formatMessage(self.babyName, helloMessage))
         self.last_logged_author = self.babyName.lower()
-        if self.idle_task is None:
-            self.idle_task = self.loop.create_task(self.idleTrainChecker())
-        if self.web_task is None:
-            self.web_task = self.loop.create_task(self.bby_web_watcher())
-        if self.training_worker is None:
-            self.training_worker = self.loop.create_task(self.background_training_loop())
+        if self.idle_task is None: self.idle_task = self.loop.create_task(self.idleTrainChecker())
+        if self.web_task is None: self.web_task = self.loop.create_task(self.bby_web_watcher())
+        if self.training_worker is None: self.training_worker = self.loop.create_task(self.background_training_loop())
 
     async def on_message(self, message):
         content = message.content
@@ -747,7 +738,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     "teach_bonus": 42069.00
                 }
                 ctx = await self.get_context(message)
-                await self.get_cog("BBYCOG")._award_fact(author, f"{author} got the {event_key}", ctx, 1)
+                self.cog._award_fact(author, f"{event_key}", ctx, 1)
                 await self._discord_spam(f"👑 {self.getNickname(author)}... you are the first to return after the holy 4:20 reset! 👑 (double sminks for you today!!)")
             else:
                 mem["got_first_chatter_bonus"] = False
@@ -773,7 +764,7 @@ class BABYBOT_DISCORD(commands.Bot):
                         fact["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * (self.random4 + self.random2)) * 0.011)
 
                         ctx = await self.get_context(message)
-                        await self.get_cog("BBYCOG")._award_fact(author, nickname, ctx, 1)
+                        self.cog._award_fact(author, nickname, ctx, 1)
 
             self._save_user_data()
             self.save_bbyfacts()
@@ -799,17 +790,21 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"[LLM Trigger] Matched in #{message.channel.name} (Main Command or Mention)")
             self.idles = round(self.idles * 0.5)
             ctx = await self.get_context(message)
-            await self.get_cog("BBYCOG").babyllm_command(ctx)
+            cog = self.get_cog("BBYCOG")
+            if not cog: return
+            await cog.babyllm_command(ctx)
             return
         elif in_baby_channel and not content.startswith(self.command_prefix):
-            is_opted_in_user = author in AIoptInUsers
+            is_opted_in_user = author in self.AIoptInUsers
             is_random_spam_chance = self.random3 > self.getSpamability(author)
             if is_opted_in_user or is_random_spam_chance or author in self.trusted_bot_names and not message.content.startswith(self.command_prefix):
                 print(f"[Channel Trigger] Matched in #{message.channel.name} (Opt-in or Random Spam)")
                 self.idles = round(self.idles * 0.5)
                 if is_random_spam_chance and not is_opted_in_user: self._buffer_add(f"the void: baby, you just saw this message and you have... something to say about it.")
                 ctx = await self.get_context(message)
-                await self.get_cog("BBYCOG").babyllm_command(ctx)
+                cog = self.get_cog("BBYCOG")
+                if not cog: return
+                await cog.babyllm_command(ctx)
                 return
         elif message.author.bot and author in self.trusted_bot_names and message.content.startswith(self.command_prefix):
                 print(f"[Bot Command Trigger] attempting to run command from {author}: '{message.content}'")

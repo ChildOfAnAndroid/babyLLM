@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import random
 import re
 import numpy as np
+import traceback
 
 from config import bbyUserDataPath, optInUsersPath
 from .bby_book import BBYBook

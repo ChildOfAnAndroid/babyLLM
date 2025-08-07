@@ -1,10 +1,3 @@
-diff --git a//dev/null b/PHONE/discord_bot/utils.py
-index 0000000000000000000000000000000000000000..ed3585c273bdcb6ea2387e890aee5dcb7e1e874e 100644
---- a//dev/null
-++ b/PHONE/discord_bot/utils.py
-@@ -0,0 +1,147 @@
-"""Utility helpers for the Discord bot."""
-
 import random
 import re
 import time

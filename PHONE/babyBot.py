@@ -600,7 +600,7 @@ class BABYBOT_TWITCH(commands.Bot):
             print("finished training on item!")
 
     async def idleTrainChecker(self):
-        while trainDuringChat2 or trainDuringChat:
+        while trainDuringChat:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             print(f"queue: {self.training_queue.qsize()}, time: {now}")
