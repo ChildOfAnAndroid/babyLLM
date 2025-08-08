@@ -1,13 +1,12 @@
-# main.py (Corrected)
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 
 from rich.traceback import install
-import sys, traceback, warnings, torch, os, random, asyncio
+#from torch.profiler import profile, record_function, ProfilerActivity
+import sys, traceback, warnings, torch, os, random
 from datetime import datetime
 import time
 
-# --- LLM & School Imports ---
 from babyLLM import BABYLLM
 from SCHOOL.staffroom.counsellor import COUNSELLOR
 from SCHOOL.staffroom.calligraphist import S_OUTPUT
@@ -16,240 +15,306 @@ from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
 from SCHOOL.staffroom.tutor import TUTOR
 from config import *
 from secret import *
-
-# --- BBYBOT Imports ---
-from BBYBOT.DISCORD.bby_discord import BBYDiscord
-from BBYBOT.COMMANDS.bby_commands import BBYCommands
-from BBYBOT.UTILS.bby_users import BBYUsers
-from BBYBOT.UTILS.bby_book import BBYBook
-# Note: You would import your BABYBOT_TWITCH here if it were in a separate file
-# from PHONE.babyBot import BABYBOT_TWITCH 
-
-# --- Global Setup ---
-def handle_exception(exc_type, exc_value, exc_traceback):
-    if not issubclass(exc_type, KeyboardInterrupt):
-        print("[RIP ʕっₓᴥₓʔっ] Uncaught Exception:")
-        traceback.print_exception(exc_type, exc_value, exc_traceback)
+from PHONE.babyBot import BABYBOT_TWITCH
+from PHONE.babyBot_discord import *
+from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, printStartLogs
 
 sys.excepthook = handle_exception
-warnings.simplefilter("default")
-install(show_locals=True)
-torch.autograd.set_detect_anomaly(mode=anomalyDetect, check_nan=debugPrints)
+warnings.simplefilter("default") # show all warnings (PyTorch hides some by default)
+install(show_locals = True)
+torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
-
-async def run_discord_bot():
-    """Initializes and runs the Discord bot."""
-    print("--- LAUNCHING DISCORD BOT ---")
-    
-    # --- Initialize Managers (Bot's "Brain") ---
-    print("[Main] Initializing BBYBook Manager...")
-    book_manager = BBYBook()
-    print("[Main] Initializing BBYUsers Manager...")
-    user_manager = BBYUsers(book_manager)
-    print("[Main] Initializing BBYCommands Handler...")
-    command_handler = BBYCommands(user_manager, book_manager)
-    
-    # --- Initialize LLM Staff ("School") ---
-    print("[Main] Waking up the School...")
-    counsellor = COUNSELLOR("babyLLM", _debug=debugPrints, _durations=durationLogging)
-    librarian = LIBRARIAN(_counsellor=counsellor, _baseTokenizerPath=None, _forceRetrain=False)
-    calligraphist = S_OUTPUT(_counsellor=counsellor)
-    scribe = SCRIBE(_counsellor=counsellor, _calligraphist=calligraphist, _librarian=librarian, _numTokensPerStep=windowMAXSTART)
-    
-    print("[Main] Waking up babyLLM...")
-    baby_llm = BABYLLM(_counsellor=counsellor, _calligraphist=calligraphist, _scribe=scribe, _librarian=librarian, 
-                       _device=modelDevice, _numTokensPerStep=windowMAXSTART, _first=False, _learningRateGOAL=learningRateGOAL)
-    
-    tutor = TUTOR(_counsellor=counsellor, _calligraphist=calligraphist, _scribe=scribe, _librarian=librarian, _model=baby_llm,
-                  _device=modelDevice, _numTokensPerStep=windowMAXSTART, _dataStride=trainingDataStride, _first=False)
-
-    # --- Load Model ---
-    baby_llm.loadModel()
-    baby_llm.to(modelDevice)
-
-    # --- Bundle LLM components for the bot ---
-    llm_bundle = {
-        "llm": baby_llm,
-        "tutor": tutor,
-        "librarian": librarian,
-        "scribe": scribe,
-        "calligraphist": calligraphist,
-    }
-    
-    # --- Initialize and Run Bot ---
-    training_queue = asyncio.Queue()
-    bot = BBYDiscord(user_manager, book_manager, command_handler, llm_bundle, training_queue)
-
-    async def periodic_tasks():
-        """A background task to run periodic updates."""
-        await bot.wait_until_ready()
-        while not bot.is_closed():
-            try:
-                print("\n[Periodic Task] Running decay and archiving cycle...")
-                await user_manager.decay_bby()
-                await user_manager.handle_ghost_archiving()
-
-                old_bestie = user_manager.current_bestie
-                old_rival = user_manager.current_rival
-                user_manager.update_bestie_rival()
-                
-                if user_manager.current_bestie and user_manager.current_bestie != old_bestie:
-                    await bot.announce_bestie_change(old_bestie, user_manager.current_bestie)
-                
-                if user_manager.current_rival and user_manager.current_rival != old_rival:
-                    await bot.announce_rival_change(old_rival, user_manager.current_rival)
-
-            except Exception as e:
-                print(f"!!!![Periodic Task] Error: {e}")
-                traceback.print_exc()
-
-            await asyncio.sleep(600) # Run every 10 minutes
-
-    async with bot:
-        bot.loop.create_task(periodic_tasks())
-        await bot.start(SECRETdiscordTokenSECRET)
-
-# --- Functions for Offline Training Mode ---
-# This wakeup function is now ONLY for offline training.
-def wakeup(windowMAX, dataStride, passRateSTART, lrGoal=learningRateGOAL, trainingDataPairNum=trainingDataPairNumber, log_A=trainingLogFreq_A, totalTurnsAwake=0, totalRuns=0, first=True):
+def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trainingDataPairNum = trainingDataPairNumber, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True, mode = "train"):
     try:
-        # This function's logic is correct and remains the same.
-        counsellor = COUNSELLOR("babyLLM", _debug=debugPrints, _durations=durationLogging)
+        # WAKE UP THE SCHOOL :)
+        counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
         with counsellor.infodump("wakeup") as ʕっʘ‿ʘʔっ:
-            if debugPrints: ʕっʘ‿ʘʔっ("waking the librarian...")
-            librarian = LIBRARIAN(_counsellor=counsellor)
-            if debugPrints: ʕっʘ‿ʘʔっ("loading chaos agents...")
-            calligraphist = S_OUTPUT(_counsellor=counsellor)
-            scribe = SCRIBE(_counsellor=counsellor, _calligraphist=calligraphist, _librarian=librarian, _numTokensPerStep=windowMAX)
-            if debugPrints: ʕっʘ‿ʘʔっ("loading babyLLM...")
-            babyLLM = BABYLLM(_counsellor=counsellor, _calligraphist=calligraphist, _scribe=scribe, _librarian=librarian,
-                              _device=modelDevice, _numTokensPerStep=windowMAX, _first=first, _learningRateGOAL=lrGoal)
-            tutor = TUTOR(_counsellor=counsellor, _calligraphist=calligraphist, _scribe=scribe, _librarian=librarian, _model=babyLLM,
-                          _device=modelDevice, _numTokensPerStep=windowMAX, _dataStride=dataStride, _first=first,
-                          _lastRunLoss=checkLossCheckpoint(), _totalTurnsAwake=totalTurnsAwake, _totalRuns=totalRuns,
-                          _perfectionistPassRateSTART=passRateSTART, _trainingLogFreq_A=log_A)
-            
-            print("--- STARTING OFFLINE TRAINING ---")
-            if first:
-                newStartIndex = openingQuestions(_counsellor=counsellor, _librarian=librarian, _windowMAX=windowMAX, _first=True)
-            else:
-                newStartIndex = setStartIndex()
 
-            trainingDataPairs = librarian.genTrainingData(_windowMAX=windowMAX, _trainingDataPairNumber=trainingDataPairNumber, _startIndex=newStartIndex, _stride=trainingDataStride)
+            # OPEN THE LIBRARY :)
+            if debugPrints: ʕっʘ‿ʘʔっ("waking the librarian...")
+            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False) #_baseTokenizerPath = "BRAIN/vocabCache/2000_20/tokenizer_2000.json", _forceRetrain = True)
+
+            if False: exit(0)
+            #if debugPrints: ʕっʘ‿ʘʔっ("opening questions...")
+            #newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian, _windowMAX = windowMAX, _first = first)
+
+            #if debugPrints: ʕっʘ‿ʘʔっ("generating training data pairs...")
+            #trainingDataPairs   =           librarian.genTrainingData(_windowMAX = windowMAX, _trainingDataPairNumber = trainingDataPairNum, _startIndex = newStartIndex, _stride = dataStride)
+            #if debugPrints:                 print(f"Total trainingDataPairs: {len(trainingDataPairs)}")
+
+            if debugPrints: ʕっʘ‿ʘʔっ("loading chaos agents...")
+            calligraphist       = S_OUTPUT  (_counsellor                = counsellor)
+
+            scribe              = SCRIBE    (_counsellor                = counsellor, 
+                                                _calligraphist          = calligraphist, 
+                                                _librarian              = librarian,
+                                                _numTokensPerStep       = windowMAX,
+                                                )
             
-            babyLLM.loadModel()
-            babyLLM.to(modelDevice)
-            if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
-            tutor.trainModel(_trainingDataPairs=trainingDataPairs, _epochs=epochs, _startIndex=newStartIndex)
+            # WAKE UP THE BABY :)
+            if debugPrints: ʕっʘ‿ʘʔっ("loading babyLLM...")
+            babyLLM             = BABYLLM   (_counsellor                = counsellor,
+                                                _calligraphist          = calligraphist, 
+                                                _scribe                 = scribe,
+                                                _librarian              = librarian, 
+                                                _device                 = modelDevice,
+                                                _numTokensPerStep       = windowMAX,
+                                                _first                  = first,
+                                                _learningRateGOAL       = lrGoal,)
+
+            tutor               = TUTOR     (_counsellor                    = counsellor,
+                                                _calligraphist              = calligraphist, 
+                                                _scribe                     = scribe,
+                                                _librarian                  = librarian, 
+                                                _model                      = babyLLM,
+                                                _device                     = modelDevice,
+                                                _numTokensPerStep           = windowMAX,
+                                                _dataStride                 = dataStride,
+                                                _first                      = first,
+                                                _lastRunLoss                = checkLossCheckpoint(),
+                                                _totalTurnsAwake            = totalTurnsAwake,
+                                                _totalRuns                  = totalRuns,
+                                                _perfectionistPassRateSTART = passRateSTART,
+                                                _trainingLogFreq_A          = log_A,)
             
-            return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
+            if mode == "twitch":
+                print("--- LAUNCHING TWITCH BOT ---")
+                if debugPrints: ʕっʘ‿ʘʔっ("starting twitch bot!")
+                # create a bot instance, pass in the staff etc
+                babyBot_twitch = BABYBOT_TWITCH(babyLLM, tutor, librarian, scribe, calligraphist)
+                babyLLM.loadModel()
+                babyLLM.to(modelDevice)
+                babyBot_twitch.run()
+
+            elif mode == "discord":
+                print("--- LAUNCHING DISCORD BOT ---")
+                if debugPrints: ʕっʘ‿ʘʔっ("starting discord bot!")
+                # create a bot instance, pass in the staff etc
+                run_discord_bot(babyLLM, tutor, librarian, scribe, calligraphist, SECRETdiscordTokenSECRET)
+
+            elif mode == "train":
+                print("--- STARTING OFFLINE TRAINING ---")
+                if first == True: newStartIndex = openingQuestions(_counsellor=counsellor, _librarian=librarian, _windowMAX=windowMAX, _first=True)
+                else: newStartIndex = setStartIndex()
+                if tokenSpeedTest == True: tokenSpeedTestStart = time.time()
+                trainingDataPairs = librarian.genTrainingData(_windowMAX=windowMAX, _trainingDataPairNumber=trainingDataPairNumber, _startIndex=newStartIndex, _stride=trainingDataStride)
+                
+                # START THE LESSONS :)
+                babyLLM.loadModel()
+                babyLLM.to(modelDevice)
+                if debugPrints: ʕっʘ‿ʘʔっ("starting lessons!")
+                tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = epochs, _startIndex = newStartIndex)
+
+                if tokenSpeedTest == True:
+                    tokenSpeedTestEnd = time.time()
+                    thisTestSpeed = (tokenSpeedTestEnd - tokenSpeedTestStart)
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    tokenSpeedTest_str = f"\n{timestamp}| numTokens: {windowMAX}, speed: {thisTestSpeed:.2f} (tokenAvg: {(thisTestSpeed/windowMAX):.2f}), avgLoss: {tutor.totalAvgLoss:.2f} (delta: {tutor.totalAvgDelta:.2f})"
+                    with open(tokenSpeedTestFilePath, "a", encoding="utf-8") as logFile: logFile.write(tokenSpeedTest_str)
+
+                return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
             
+            else:
+                print(f"unknown mode: '{mode}'. Please use 'train' or 'bot'.")
+
     except Exception as e:
         print(f"[RIP ʕっₓᴥₓʔっ]")
         raise
-    # --- The extensive KeyboardInterrupt logic from your original file remains here ---
-    except KeyboardInterrupt:
-        # ... your keyboard interrupt logic ...
-        print("Keyboard interrupt during training.")
+    except KeyboardInterrupt: #as k
+        for name, p in babyLLM.named_parameters():
+            if p.grad is None:
+                msg = babyLLM.calligraphist.S_apply('emergency', f'NO GRAD: {name}')
+                print(f"keyboard interrupt = {msg}")
+            else: 
+                grad = p.grad
+                shape = tuple(grad.shape)
+                norm = grad.norm().item()
+                nonzero = grad.count_nonzero().item()
+                total = grad.numel()
+                sparsity = 1 - (nonzero / total)
+                mean = grad.mean().item()
+                std = grad.std().item()
+                detail = (
+                    f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | "
+                    f"sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}"
+                )
+                msg = babyLLM.calligraphist.S_apply('almostPerfect', detail)
+                print(f"keyboard interrupt = {msg}")
+                if debugPrints: ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
+        if tutor.trainingStepCounter:
+            step = tutor.trainingStepCounter
+            totalAvgLoss = tutor.totalAvgLoss
+            totalTurnsAwake += tutor.totalTurns
+        else:
+            step = 1
+        choice = input("save, cancel (do not save before exit), restart or interact?" + f"\n{userName}: ").lower()
+        if choice in ("save", "") or choice.startswith("s"): 
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = s")
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
+            print("\nit's rude to interrupt people.. but, bye bye! :)")
+        elif choice == "cancel" or choice.startswith("c"): 
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = c")
+            print("\nhey! i wanted to remember that! :(")
+        elif choice == "interact" or choice.startswith("i"):
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = i")
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
+            import code
+            print("try:\nbabyLLM.stats\nbabyLLM.scheduledSampling\nbabyLLM.memory.memory\nbabyLLM.interneuronNetwork.cerebellum\nbabyLLM.logits.forward(...)\nUse `exit()` to return to terminal.\n")
+            code.interact(local = locals())
+        elif choice == "restart" or choice.startswith("r"):
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = r")
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
+            print("you spin me right round, babyllm, right round...")
+            return totalAvgLoss
+        else: 
+            if debugPrints: ʕっʘ‿ʘʔっ("♥choice = None")
+            babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
+            print("\nuhh... i'm confused, but i saved anyway!")
+        if modelDevice.type == 'mps':
+            torch.mps.empty_cache()
+            print(f"cache emptied")
         exit(8)
 
-# --- The helper functions for offline training remain here ---
-def setStartIndex(): # ...
-    if os.path.exists(stepCheckpointFilePath):
-        with open(stepCheckpointFilePath, "r") as f:
-            try: savedStep = int(f.read().strip())
-            except ValueError: savedStep = 0
-    else: savedStep = 0
-    return savedStep + trainingStartIndex
-
-def checkLossCheckpoint(): # ...
-    if os.path.exists(lossCheckpointFilePath):
-        with open(lossCheckpointFilePath, "r") as f:
-            try: lastTurnLoss = float(f.read().strip())
-            except ValueError: lastTurnLoss = 0
-    else: lastTurnLoss = 0
-    return lastTurnLoss
-    
-def openingQuestions(_counsellor, _librarian, _windowMAX, _first): # ...
-    print("--- Opening Questions (Offline Training) ---")
-    # ... your opening questions logic ...
-    return setStartIndex()
-
-def printStartLogs(*args, **kwargs): # ...
-    # ... your print start logs logic ...
-    pass
-
-# --- MAIN EXECUTION ---
 def main():
-    choice = input("Run in [t]rain mode, [d]iscord, or as [T]witch bot? ").lower()
-    
-    if choice.startswith('d'):
-        run_mode = "discord"
-    elif choice.startswith('t'):
-        run_mode = "train"
-    elif choice.startswith('T'):
+    windowMAX           = numTokensPerStepSTART
+    dataStride          = trainingDataStride
+    passRateSTART       = perfectionistPassRateSTART
+    totalTurnsAwake     = 0
+    totalRuns           = 0
+    MAINPairNumber      = trainingDataPairNumber
+    logFreq_A           = trainingLogFreq_A
+    learnRateGoal       = learningRateGOAL
+
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "bot":
         run_mode = "twitch"
     else:
-        print("Defaulting to training mode.")
-        run_mode = "train"
-
-    print(f"Starting in mode: {run_mode}")
-    
-    # --- THIS IS THE CORRECTED DISPATCHER LOGIC ---
-    if run_mode == "discord":
-        try:
-            asyncio.run(run_discord_bot())
-        except KeyboardInterrupt:
-            print("\nShutting down Discord bot.")
-
-    elif run_mode == "twitch":
-        print("Twitch bot mode selected.")
-        print("NOTE: The Twitch bot logic needs to be refactored into its own `run_twitch_bot` function similar to the Discord one.")
-        # Example of what it might look like:
-        # try:
-        #     asyncio.run(run_twitch_bot())
-        # except KeyboardInterrupt:
-        #     print("\nShutting down Twitch bot.")
-    
-    elif run_mode == "train":
-        # This is your original, complex offline training loop.
-        # It correctly calls the single-purpose `wakeup` function.
-        windowMAX = numTokensPerStepSTART
-        dataStride = trainingDataStride
-        passRateSTART = perfectionistPassRateSTART
-        totalTurnsAwake, totalRuns = 0, 0
-        MAINPairNumber = trainingDataPairNumber
-        logFreq_A = trainingLogFreq_A
-        learnRateGoal = learningRateGOAL
-        lastRunLoss = checkLossCheckpoint()
-        firstRun = True
+        choice = input("run in train mode, [d]iscord, or as [t]witch bot? ").lower()
         
+        if choice.startswith('t'): run_mode = "twitch"
+        elif choice.startswith('d'): run_mode = "discord"
+        else: run_mode = "train"
+
+        print(f"Choice {choice} run_mode => {run_mode}")
+
+    if run_mode in ["twitch", "discord"]: 
+        wakeup(windowMAX            = windowMAX, 
+                dataStride          = dataStride, 
+                totalTurnsAwake     = totalTurnsAwake, 
+                totalRuns           = totalRuns, 
+                first               = False,
+                passRateSTART       = passRateSTART,
+                log_A               = logFreq_A,
+                lrGoal              = learnRateGoal,
+                trainingDataPairNum = MAINPairNumber,
+                mode                = run_mode,)
+    else:
+        lastRunLoss         = checkLossCheckpoint()
+        #lastRunLoss         = 420
+        firstRun            = True
+        easyStartThresh     = 3
+        #logFreq_A           = windowMAXSTART * perfectionistMaxRetries
+        numWins = 0
+        winStreak = 0
         while windowMAX <= maxTokensPerStep:
-            print(f"\n--- STARTING NEW TRAINING LOOP (Window: {windowMAX}) ---")
-            thisRunLoss, totalTurns, passRateEND, learnRateGoalEND = wakeup(
-                windowMAX=windowMAX, 
-                dataStride=dataStride, 
-                totalTurnsAwake=totalTurnsAwake, 
-                totalRuns=totalRuns, 
-                first=firstRun,
-                passRateSTART=passRateSTART,
-                log_A=logFreq_A,
-                lrGoal=learnRateGoal,
-                trainingDataPairNum=MAINPairNumber
-            )
-            
-            # --- Your dynamic parameter adjustment logic ---
+            print(f"\n--- STARTING NEW TRAINING LOOP ---")
+            thisRunLoss, totalTurns, passRateEND, learnRateGoalEND = wakeup(windowMAX   = windowMAX, 
+                                                                    dataStride          = dataStride, 
+                                                                    totalTurnsAwake     = totalTurnsAwake, 
+                                                                    totalRuns           = totalRuns, 
+                                                                    first               = firstRun,
+                                                                    passRateSTART       = passRateSTART,
+                                                                    log_A               = logFreq_A,
+                                                                    lrGoal              = learnRateGoal,
+                                                                    trainingDataPairNum = MAINPairNumber,
+                                                                    mode = "train")
+            #logFreq_A = windowMAX * perfectionistMaxRetries
+            logFreq_A = trainingLogFreq_A
+            learnRateGoal = (learnRateGoalEND+learningRateGOAL+learningRateGOAL)/3
             totalRuns += 1
             totalTurnsAwake += totalTurns
             firstRun = False
+            easyStart = True
+
+            print(f"BEFORE UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss:.2f}, lastRunLoss = {lastRunLoss:.2f}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
+            scale = abs(thisRunLoss - lastRunLoss) + 0.01
+            choice = random.choice([-1,0,0,1,1,1,1,2,2,2,3,3,4,5,4,3,3,2,2,2,1,1,1,1,0,0,-1])
+            increment = round(choice * (totalRuns / totalTurnsAwake) * scale)
+            print(f"increment = {increment} = {choice} * ({totalRuns} / {totalTurnsAwake}) * {scale} = {choice} * {totalRuns/totalTurnsAwake} * {scale}")
+
+            maxAllowedWindowJump = round(0.2 * (maxTokensPerStep - windowMAX))
+            maxAllowedStrideJump = round(0.2 * ((windowMAX * 2) - dataStride))
+
+            halfWindow = round(windowMAX / 20)+1
+            halfStride = round(dataStride / 20)+1
+
+            incrementW = random.choice([(max(1, min((increment + (halfWindow)), maxAllowedWindowJump))), round(windowMAX * 0.1)])
+            incrementS = random.choice([(max(1, min((increment + (halfStride)), maxAllowedStrideJump))), round(dataStride * 0.1)])
+
+            if easyStart:
+                if easyStartThresh > 0:
+                    lastRunLoss = (min(lastRunLoss, thisRunLoss) + lastRunLoss)/2
+                    easyStartThresh -= totalRuns
+                else:
+                    easyStart = False
+            testing = True
+            if testing:
+                numWins += 1
+                winStreak += 1
+                MAINPairNumber = trainingDataPairNumber
+                #if winStreak % 2 == 0:
+                if windowMAX >= 1:
+                    windowInc = random.choice([2, 0.5])
+                    windowMAX *= windowInc
+                    dataStride = max(1,(windowMAX * 0.1))
+                else:
+                    windowMAX = 1
+            elif thisRunLoss < lastRunLoss:
+                numWins += 1
+                winStreak += 1
+                if winStreak >= 2:
+                    winStreak -= 1
+                    MAINPairNumber -= choice
+                    if random.choice([True, False]):
+                        print(f"upping windowMAX from {windowMAX} to {windowMAX+incrementW}")
+                        windowMAX += (incrementW+incrementW)
+                    else:
+                        print(f"upping dataStride from {dataStride} to {dataStride+incrementS}")
+                        dataStride += (incrementS+incrementS)
+            else:
+                windowOrStride = random.choice([True, False])
+                if winStreak > 0:
+                    winStreak = -1
+                MAINPairNumber += choice
+                if windowMAX > incrementW+1:
+                    if windowOrStride:
+                        print(f"downing windowMAX from {windowMAX} to {windowMAX-incrementW}")
+                        windowMAX -= incrementW
+                    else:
+                        print(f"windowMAX staying at {windowMAX}")
+                elif dataStride > incrementS+1:
+                    if not windowOrStride:
+                        print(f"downing dataStride from {dataStride} to {dataStride-incrementS}")
+                        dataStride -= incrementS
+                    else:
+                        print(f"dataStride staying at {dataStride}")
+                elif dataStride == 1 and windowMAX == 1 or random.random() < 0.001:
+                    random.choice([2, windowMAX, dataStride, (windowMAX * 2), (dataStride * 2), winStreak, totalRuns, incrementS, incrementW, passRateSTART, passRateEND, lastRunLoss, thisRunLoss, numWins, maxAllowedWindowJump, maxAllowedStrideJump, choice, scale, 4, 6, 8, 12, 16])
+                    if random.choice([True, False]):
+                        print(f"bored. windowMAX from {windowMAX} to {2}")
+                        windowMAX = 2
+                    else:
+                        print(f"bored. dataStride from {dataStride} to {2}")
+                        dataStride = 2
+            
+            windowMAX = round(max(1, min(windowMAX, maxTokensPerStep)))
+            dataStride = round(max(1, min(dataStride, windowMAX * 0.1)))
+            if MAINPairNumber < 1:
+                MAINPairNumber = 2
+            print(f"normalised: dataStride is {dataStride}, windowMAX is {windowMAX}")
+
             lastRunLoss = thisRunLoss
             passRateSTART = passRateEND
-            learnRateGoal = (learnRateGoalEND + learningRateGOAL + learningRateGOAL) / 3
-            
-            # (Your logic for adjusting windowMAX, dataStride, etc. goes here)
-            print(f"Loop finished. Last loss: {thisRunLoss:.4f}. Updating parameters...")
-            windowMAX = round(windowMAX * 1.25) # Simplified example
-            dataStride = round(max(1, windowMAX * 0.1))
+            print(f"AFTER UPDATE: totalTurnsAwake = {totalTurnsAwake}, thisRunLoss = {thisRunLoss}, lastRunLoss = {lastRunLoss}, windowMAX = {windowMAX}, dataStride = {dataStride}, trainingPairNumber = {MAINPairNumber}, numWins = {numWins}, winStreak = {winStreak}")
 
 if __name__ == "__main__":
     main()
