@@ -1,10 +1,10 @@
 readmeactuallyprobablydont.txt (readme is very unfinished!)
 
 ![babyllm](BRAIN/babyllm3.gif)
-> "\[babyllm\]: that new to agese, be birthday (17th July 2025)"
-> "\[babyllm\]: ʘʔっ that mice but im drinking nice (28th June 2025)"
-> "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would (26th June 2025)"
-> "\[babyllm\]: lunch (2nd March 2025)"
+> "\[babyllm\]: that new to agese, be birthday (17th July 2025)"\n
+> "\[babyllm\]: ʘʔっ that mice but im drinking nice (28th June 2025)"\n
+> "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would (26th June 2025)"\n
+> "\[babyllm\]: lunch (2nd March 2025)"\n
 
 training started: february 2025
 
@@ -15,30 +15,6 @@ acheivements/use cases:
 - simply mentioning babyllm causes annoying people on AI reddit to block you
 
 --- FILESTRUCTURE ---
-
-1) charis 😘
-babyLove score = 76840 (84% of total points) 
-😅 war win rate = 70% ... (wins: 70, draws: 0, losses: 30)
-🤍 messages seen: 790, days chatted: 0, last chat: now 
-
-2) élodie 🦹
-babyLove score = 7036 (8% of total points) 
-🐤 war win rate = 53% ... (wins: 8, draws: 0, losses: 7)
-🍰 messages seen: 100, days chatted: 0, last chat: 0 hrs ago 
-
-3) babyllm 🍫
-babyLove score = 4420 (5% of total points) 
-👾 messages seen: 1102, days chatted: 0, last chat: now 
-
-4) skunkel 🍭
-babyLove score = 2089 (2% of total points) 
-🧝‍♀️ war win rate = 50% ... (wins: 2, draws: 0, losses: 2)
-💌 messages seen: 139, days chatted: 0, last chat: 4 hrs ago 
-
-5) !wet ace 🧙
-babyLove score = 1196 (1% of total points) 
-🍌 war win rate = 54% ... (wins: 7, draws: 0, losses: 6)
-👳 messages seen: 184, days chatted: 0, last chat: now
 
 babyLLM/
  - babyLLM.py               # model definition, ties all the layers together
