@@ -111,6 +111,11 @@ class BABYBOT_DISCORD(commands.Bot):
                 except json.JSONDecodeError: print(f"!!!![_JSON_LOAD] FAILED ON JSON AT {path} "); return default_type
         return default_type
     
+    def _save_json(self, path, data, label, **dump_kwargs):
+        print(f"[{label}] saving {label}... ")
+        with open(path, "w", encoding="utf-8") as f: json.dump(data, f, indent = 2, **dump_kwargs)
+        print(f"[{label}] {label} saved! ")
+    
     async def bby_web_watcher(self):
         print("[BBY_WEB_WATCHER] bby brain alert...")
         last_processed_id = None
@@ -156,8 +161,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 if 'request_id' in locals() and request_id:
                     response_file_path = os.path.join(RESPONSE_DIR, f"{request_id}.json")
                     if not os.path.exists(response_file_path):
-                        with open(response_file_path, 'w') as f:
-                            json.dump({"reply": "i had a big error :("}, f)
+                        with open(response_file_path, 'w') as f: json.dump({"reply": "i had a big error :("}, f)
 
     # --- DISCORD MESSAGE SENDERS ---
     async def _discord_reply(self, ctx, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): return await self._discord_send(ctx = ctx, message_content = message_content, embed = embed, is_reply = True, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_REPLY] -> ")
@@ -256,8 +260,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 
         if cleaned_count > 0:
             print(f"[_BUFFER_CLEAN] CLEANED {cleaned_count} DUPLICATE BUFFER LINES ")
-            with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
-                json.dump(self.buffer, f, indent = 2)
+            self._save_json(chatBufferFilepath, self.buffer, "_BUFFER_CLEAN")
 
     def _load_user_data(self):
         print("[_LOAD_USER_DATA] LOADING USER DATA... ")
@@ -267,29 +270,16 @@ class BABYBOT_DISCORD(commands.Bot):
         print("[_LOAD_USER_DATA] USER DATA LOADED! ")
 
     def _save_user_data(self):
-        print("[_SAVE_USER_DATA] SAVING USER DATA... ")
         data_to_save = {}
         for user_id, mem in self.userMemory.items():
             serializable_mem = mem.copy()
             if 'last_message_words' in serializable_mem:
                 serializable_mem['last_message_words'] = list(serializable_mem['last_message_words'])
             data_to_save[user_id] = serializable_mem
+        self._save_json(self.user_data_path, data_to_save, "_SAVE_USER_DATA")
 
-        with open(self.user_data_path, "w", encoding = "utf-8") as f:
-            json.dump(data_to_save, f, indent = 2)
-        print("[_SAVE_USER_DATA] USER DATA SAVED! ")
-
-    def save_bbyfacts(self):
-        print("[_SAVE_BBYFACTS] SAVING BBYFACTS... ")
-        with open(self.bbyfacts_path, "w", encoding = "utf-8") as f:
-            json.dump(self.bbyfacts, f, ensure_ascii = False, indent = 2)
-        print("[_SAVE_BBYFACTS] BBYFACTS SAVED! ")
-
-    def save_opt_in_users(self):
-        print("[_SAVE_OPTIN] SAVING OPT IN USERS... ")
-        with open(self.opt_in_path, 'w', encoding='utf-8') as f:
-            json.dump(self.AIoptInUsers, f, indent = 2)
-        print("[_SAVE_OPTIN] OPT IN USERS SAVED! ")
+    def save_bbyfacts(self): self._save_json(self.bbyfacts_path, self.bbyfacts, "_SAVE_BBYFACTS", ensure_ascii = False)
+    def save_opt_in_users(self): self._save_json(self.opt_in_path, self.AIoptInUsers, "_SAVE_OPTIN")
 
     def getNickname(self, author):
         if not author: return "someone"
@@ -855,8 +845,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     self.idles += 1
                     self.lastInteraction = time.time()
                     if len(self.buffer) >= self.N:
-                        with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
-                            json.dump(self.buffer, f, indent = 2)
+                        self._save_json(chatBufferFilepath, self.buffer, "IDLETRAINCHECKER")
                         self.buffer = self.buffer[-self.N:]
                     
                     if self.training_queue.qsize() < 10:

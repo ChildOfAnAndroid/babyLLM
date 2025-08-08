@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 import random
 import re
@@ -572,9 +571,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot._save_user_data()
         await self.bot._discord_reply(ctx, reply)
 
-    @commands.command(name = "bbybag", aliases=['bbyinventory', 'binventory', 'bbag'])
+    @commands.command(name="bbybag", aliases=['bbyinventory', 'binventory', 'bbag', 'bbybagfull', 'bbyinventoryfull', 'binventoryfull', 'bbagfull' ])
     async def bbybag(self, ctx, member: discord.Member = None):
-        """Shows your inventory, or another user's... or even the bot's!"""
+        """Shows your inventory, or another user's... or even the bot's! Use the *full* aliases to see everything."""
+        full_aliases = {'bbybagfull', 'bbyinventoryfull', 'binventoryfull', 'bbagfull'}
+        show_all = ctx.invoked_with in full_aliases
         target_nic = ""
         inventory = {}
         user_favourites = []
@@ -599,55 +600,25 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"{reply_text} make stuff with !bbyteach \"<item>\" <definition>")
             return
 
-        # Sort inventory by amount (descending), then alphabetically for ties
-        sorted_items = sorted(inventory.items(), key = lambda kv: (-kv[1], kv[0]))
-        top_items = sorted_items[:20]
-
-        reply = f"hoarde of {target_nic}: \n"
-        for key, count in top_items:
-            fave_marker = "⭐ " if key in user_favourites else ""
-            reply += f"> {fave_marker}{key:<25} x{count}\n"
-
-        if member == ctx.author:
-            reply += "\nsee full bag at !bbybagfull, feed me with !bbyfeed [num] <item>, gift with !bbygift @user [num] <item> or !bbyfave <item> to save to your favourites :) "
-
-        await self.bot._discord_reply(ctx, reply)
-
-    @commands.command(name = "bbybagfull", aliases=['bbyinventoryfull', 'binventoryfull', 'bbagfull'])
-    async def bbybagfull(self, ctx, member: discord.Member = None):
-        """Shows the complete, sorted inventory for a user or the bot."""
-        target_nic = ""
-        inventory = {}
-        user_favourites = []
-        if member is None:
-            member = ctx.author
-            target_nic = self.bot.getNickname(member.name.lower())
-            user_mem = self.bot.userMemory[member.name.lower()]
-            inventory = user_mem.get("inventory", {})
-            user_favourites = user_mem.get("favourites", [])
-        elif member.id == self.bot.user.id:
-            target_nic = "my"
-            inventory = self.bot.inventory
+        if show_all:
+            sorted_items = sorted(inventory.items())
+            item_lines = []
+            for item, count in sorted_items:
+                fave_marker = "⭐ " if item in user_favourites else ""
+                item_lines.append(f"{fave_marker}x{count} {item}")
+            inventory_string = "\n".join(item_lines)
+            reply = f"hoarde of {target_nic}: \n{inventory_string}\n"
+            if member == ctx.author:
+                reply += "\nfeed me an item with !bbyfeed [num] <item> "
         else:
-            target_nic = f"{self.bot.getNickname(member.name.lower())}'s"
-            user_mem = self.bot.userMemory[member.name.lower()]
-            inventory = user_mem.get("inventory", {})
-            user_favourites = user_mem.get("favourites", [])
-
-        if not inventory:
-            reply_text = f"{target_nic} bag is empty!"
-            await self.bot._discord_reply(ctx, f"{reply_text} get items with !bbyteach \"<item>\" <definition> or !bbyforget ")
-            return
-        sorted_items = sorted(inventory.items())
-        item_lines = []
-        
-        for item, count in sorted_items:
-            fave_marker = "⭐ " if item in user_favourites else ""
-            item_lines.append(f"{fave_marker}x{count} {item}")
-        inventory_string = "\n".join(item_lines)
-        reply = (f"hoarde of {target_nic}: \n"
-                 f"{inventory_string}\n")
-        if member == ctx.author: reply += "\nfeed me an item with !bbyfeed [num] <item> "
+            sorted_items = sorted(inventory.items(), key=lambda kv: (-kv[1], kv[0]))
+            top_items = sorted_items[:20]
+            reply = f"hoarde of {target_nic}: \n"
+            for key, count in top_items:
+                fave_marker = "⭐ " if key in user_favourites else ""
+                reply += f"> {fave_marker}{key:<25} x{count}\n"
+            if member == ctx.author:
+                reply += "\nsee full bag with !bbybagfull, feed me with !bbyfeed [num] <item>, gift with !bbygift @user [num] <item> or !bbyfave <item> to save to your favourites :) "
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbygift", aliases=['bgiveitem', 'bgift', 'bbygive'])
@@ -754,8 +725,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if author in self.bot.AIoptInUsers:
             self.bot.updateBBY(author, -1000.0)
             self.bot.AIoptInUsers.remove(author)
-            with open(optInUsersPath, 'w', encoding='utf-8') as f:
-                json.dump(self.bot.AIoptInUsers, f, indent = 2)
+            self.bot.save_opt_in_users()
             optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
         else:
             optOutMessage = (f"lol you're not even in the list, {author}!")
@@ -990,12 +960,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_debug(lurkOutMessage)
 
     @commands.command(name='bbysave', aliases=['bsave', 'bs']) 
-    async def saveModel_command(self, ctx: commands.Context): 
-        with open(chatBufferFilepath, 'w', encoding='utf-8') as f:
-            saveBufferMessage = f"oop, you want me to actually remember this shit!? uhh, ok... saving buffer to {chatBufferFilepath}! :) "
-            if self.bot.random4 < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
-            json.dump(self.bot.buffer, f, indent = 2)
-            await self.bot._discord_debug(saveBufferMessage)
+    async def saveModel_command(self, ctx: commands.Context):
+        saveBufferMessage = f"oop, you want me to actually remember this shit!? uhh, ok... saving buffer to {chatBufferFilepath}! :) "
+        if self.bot.random4 < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
+        self.bot._save_json(chatBufferFilepath, self.bot.buffer, "!BBYSAVE")
+        await self.bot._discord_debug(saveBufferMessage)
         try:
             await self.bot.loop.run_in_executor(None, self.saveModel_blocking) # call the instance method correctly
             await self.bot._discord_reply(ctx, "i am saved!")
