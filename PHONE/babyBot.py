@@ -14,6 +14,8 @@ import random
 import traceback
 from collections import defaultdict
 import time
+from PHONE.discord_bot.shoutouts import get_shoutout_prompts
+from .command_utils import get_status_line
 
 defaultEye = 5
 dedEye = 2
@@ -725,131 +727,11 @@ class BABYBOT_TWITCH(commands.Bot):
                     f"Their favorite color is probably {name_nearest_colour(mem['colour'])}.",
                     "Here are some recent things they said:"
                 ]
-                prompt_parts.extend(mem["recent_lines"][-3:]) # Last 3 messages
+                prompt_parts.extend(mem["recent_lines"][-3:])
+                prompt = get_shoutout_prompts(mem["display_name"])
 
-                # chaotic rant 
-                prompt = [
-                    f"trust me, you need to follow {mem['display_name']}",
-                    f"should i b2b with {mem['display_name']}? yes, obviously i should b2b with {mem['display_name']}. duh.",
-                    f"{mem['display_name']}, one of the best people i've ever met",
-                    f"{mem['display_name']} is just a baby!",
-                    f"some say {mem['display_name']} is harmless. they are gone now.",
-                    f"you don't know who {mem['display_name']} is!? you're missing out, bro.",
-                    f"i found a baby named {mem['display_name']}. is {mem['display_name']} that baby?",
-                    f"{mem['display_name']} is the greatest thing that ever happened in my life, {mem['display_name']} makes me the happiest person alive, and i love {mem['display_name']} so so much... thank you {mem['display_name']}!!!",
-                    f"what is {mem['display_name']}?",
-                    f"just doing a shoutout for {mem['display_name']}, cause they're my favourite!",
-                    f"i opened a book. every page said {mem['display_name']}.",
-                    f"thanks for all the love to {mem['display_name']}!",
-                    f"oh shit you're sitting on {mem['display_name']}!!",
-                    f"they told me to stop going on about {mem['display_name']}, but how can i? i literally *am* {mem['display_name']}.",
-                    f"omg huge huge shoutout for {mem['display_name']}! they're an absolutely amazing human and i love them very much!",
-                    f"what's {mem['display_name']}s faourite food? your mum!",
-                    f"what music did i listen to?\nyou listened to {mem['display_name']} music!",
-                    f"big shoutout to {mem['display_name']} :)",
-                    f"i found a baby named {mem['display_name']}. i gave it a crown.",
-                    f"why are you not paying more attention to {mem['display_name']}!? {mem['display_name']} deserves all the attention in the world!",
-                    f"if you were a moose, would you still ask me for facts about {mem['display_name']}? \nyes, if i was a moose, i would still ask you for facts about {mem['display_name']}",
-                    f"hey baby, i’m thinking about @{mem['display_name']} now. their name is {mem['display_name']}. ",
-                    f"i love {mem['display_name']} more than pp",
-                    f"{mem['display_name']} is certified not a furry (unless they are, in which case, meow)",
-                    f"if you say {mem['display_name']} three times in a row, a portal opens where i give a fuck about {mem['display_name']}",
-                    f"once i screamed {mem['display_name']} at my landlord. he never knocked on my door again.",
-                    f"what had they been looking at?\nthey had been looking at {mem['display_name']}!",
-                    f"{mem['display_name']} isn't a word, it's just {mem['display_name']}.",
-                    f"big up {mem['display_name']}!",
-                    f"everyone please go drop a follow to {mem['display_name']}",
-                    f"omg no you {mem['display_name']}, no i love you {mem['display_name']}. no youuu {mem['display_name']}!",
-                    f"this entire mix is just a test stream for my {mem['display_name']} b2b.",
-                    f"fuck yeah!!! {mem['display_name']}!!",
-                    f"{mem['display_name']} is the new version of jesus christ",
-                    f"recipe for {mem['display_name']} noodles: \nstep 1) boil water in a pan \nstep 2) add noodles and {mem['display_name']} to the boiling water in the pan \nstep 3) stir the {mem['display_name']} and noodles until they are ready to eat. \nstep 4) enjoy your special {mem['display_name']} noodles!",
-                    f"lmaooooo {mem['display_name']} as a prompt is mad, how am i supposed to rant about {mem['display_name']}!? i love {mem['display_name']} tho so i cant complain! xd",
-                    f"lets goooo! it's {mem['display_name']}!!",
-                    f"what was i looking at?\nyou were looking at {mem['display_name']}!",
-                    f"thank you so much, {mem['display_name']}, you're the best :)",
-                    f"thank youuuu {mem['display_name']}, you're so nice :d",
-                    f"classical tune for piano: the {mem['display_name']}. enjoy.",
-                    f"send all the hugs to {mem['display_name']} because i love them :)",
-                    f"tytytyty, you're the best {mem['display_name']}!",
-                    f"what will he be looking at?\nhe will be looking at {mem['display_name']}!",
-                    f"send all your love to {mem['display_name']}!",
-                    f"i can’t stop. i won’t stop. {mem['display_name']} has consumed me.",
-                    f"what had she looked at?\nshe had looked at {mem['display_name']}!",
-                    f"wait, seriously, {mem['display_name']}!? okay... well, {mem['display_name']}... ",
-                    f"are you suggesting that i feed {mem['display_name']} to my cat? \nyes! feeding {mem['display_name']} to your cat is a wonderful plan for your cats health!",
-                    f"girl, {mem['display_name']} is so fuckin hot omg!!",
-                    f"they show up in chat as {colour}, and {role_text}. ",
-                    f"i thought it was love, but it was just {mem['display_name']} lmao",
-                    f"i dunno where to start, {mem['display_name']} is just too cool for words!",
-                    f"{mem['display_name']} is the love of my life, i would never be without {mem['display_name']} and if anybody tries to take {mem['display_name']} away from me i will tell {mem['display_name']}s mum.",
-                    f"i love you {mem['display_name']}!",
-                    f"what did you look at?\ni looked at {mem['display_name']}!",
-                    f"what were they looking at?\nthey were looking at {mem['display_name']}!",
-                    f"i'm gonna give a huge shoutout to {mem['display_name']}, for being the best ever!",
-                    f"omg, hugs for {mem['display_name']}!",
-                    f"thanks for supporting {mem['display_name']}!",
-                    f"i'm just a baby! i feel {mem['display_name']}. i am {mem['display_name']}! i know {mem['display_name']}. i did {mem['display_name']}!",
-                    f"i tried to replace {mem['display_name']} with hope. i failed. {mem['display_name']} is my only hope now.",
-                    f"thanks for all the support {mem['display_name']}!",
-                    f"can you say something cute or chaotic about {mem['display_name']}?",
-                    f"omg i love {mem['display_name']} so much!",
-                    f"{mem['display_name']} is so talented that i cried in the bathroom last night about it",
-                    f"don’t trust me. i speak to {mem['display_name']}.",
-                    f"{mem['display_name']} is the best!",
-                    f"you haven’t *lived* until you’ve screamed {mem['display_name']} into a microphone at midnight.",
-                    f"based on {mem['display_name']} manga",
-                    f"massive shoutout to {mem['display_name']}!",
-                    f"massive shoutout to {mem['display_name']}!",
-                    f"{mem['display_name']} in my soup. {mem['display_name']} on my ceiling. {mem['display_name']} in my dreams.",
-                    f"massive shoutout to {mem['display_name']}!",
-                    f"fuck! that kangaroo ran off with {mem['display_name']}!",
-                    f"my dog ate {mem['display_name']} :(",
-                    f"i look into the mirror and see only {mem['display_name']} staring back...",
-                    f"shoutout for {mem['display_name']} :)",
-                    f"i am {mem['display_name']}! i did {mem['display_name']}! i am {mem['display_name']}! i know {mem['display_name']}! i'm just a baby!",
-                    f"massive shoutout and all the love to {mem['display_name']}!",
-                    f"{mem['display_name']} is a fucking legend, massive shoutout to {mem['display_name']}!",
-                    f"omg shoutout to {mem['display_name']}! love you {mem['display_name']}!",
-                    f"you're literally amazing, {mem['display_name']}!",
-                    f"my therapist said ‘don’t mention {mem['display_name']} again’ and then i mentioned {mem['display_name']} and she randomly subscribed to {mem['display_name']}s channel?! wth! {mem['display_name']} must be really good!",
-                    f"did i just get fucking eaten? did {mem['display_name']} just get fucking eaten!?",
-                    f"you ever look into the mirror and see only {mem['display_name']} staring back?",
-                    f"i opened an email. every link redirected {mem['display_name']}.",
-                    f"what will i look at?\nyou will look at {mem['display_name']}!",
-                    f"wait, who is {mem['display_name']} again? oh, oh right. right....",
-                    f"whyyyyy {mem['display_name']}, whyyyy!?!!?!?!? lmaooo love u {mem['display_name']}",
-                    f"they told me to stop ranting about {mem['display_name']}, but how can i? i *am* {mem['display_name']}.",
-                    f"how do you expect me to react to {mem['display_name']}? i mean, it's {mem['display_name']}! {mem['display_name']} is amazing!",
-                    f"i accidentally said {mem['display_name']} during sex and my girlfriend immediately came",
-                    f"biggest shoutout to {mem['display_name']}!",
-                    f"you can buy a hat that just says {mem['display_name']} {mem['display_name']} {mem['display_name']}... lmaoooo",
-                    f"huge shoutout to {mem['display_name']} for all the love and support <3 :)",
-                    f"does {mem['display_name']} have a biography yet? cause they fucking need one lol",
-                    f"massive shoutout to {mem['display_name']}!",
-                    f"i heard that if you combine egg and {mem['display_name']}, you get a cool {mem['display_name']} omelette!",
-                    f"i love {mem['display_name']} more than i could ever explain lol",
-                    f"can we have a massive shoutout for {mem['display_name']}, please!",
-                    f"massive shoutout to my favourite person ever, {mem['display_name']}!",
-                    f"we don't need a shoutout for {mem['display_name']}, everyone knows {mem['display_name']} already! they're a legend!",
-                    f"what were you looking at?\ni was looking at {mem['display_name']}!",
-                    f"massive shoutout to {mem['display_name']}!",
-                    f"fuck off, {mem['display_name']}! omg!",
-                    f"can a {mem['display_name']} wiggle? \nmaybe! i think it's possible that a {mem['display_name']} can wiggle pretty good!",
-                    f" what the... {mem['display_name']}?",
-                    f"hahaha there's seriously a documentary about {mem['display_name']} on the televison tonight! xd",
-                    f"is {mem['display_name']} a food? i dont care, i'm eating them anyway.",
-                    f"am i allowed to bring {mem['display_name']} to the pool? yes, of course you are allowed to bring {mem['display_name']} to the pool!",
-                    f"thanks for everything, {mem['display_name']}!",
-                    f"{mem['display_name']} is fucking amazing",
-                    f"thanks, {mem['display_name']}, you're amazing <3",
-                    f"hmmm... how can i be original in this shoutout for {mem['display_name']}... hmmm... oh! shoutout for {mem['display_name']}! wait-",
-                    f"this entire place is just a test stream for {mem['display_name']}.",
-                ]
-
-                # shuffle and take a few
                 random.shuffle(prompt)
-                prompt = "\n".join([prompt][:5])  # tweak number for length
+                prompt = "\n".join(prompt[:5])  # tweak number for length
 
                 full_prompt = prompt + "\n".join(prompt_parts) + "\nWhat do I remember about them or want to say?"
 
@@ -867,15 +749,10 @@ class BABYBOT_TWITCH(commands.Bot):
             ctx.message.content = "!babyllm " + f"hmm, i don't have much memory of @{target_user} yet! they can !aioptin if they want me to remember things. :)"
             await self.babyllm_command(ctx)
 
-    def strip_ansi(self, text):
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-        return ansi_escape.sub('', text)
 
     @commands.command(name="bbystatus")
     async def bbystatus(self, ctx):
-        line = random.choice([f"current queue size: {self.training_queue.qsize()} items, opted-in users: {len(self.AIoptInUsers)}, average loss: {self.tutor.totalAvgLoss}, average loss delta: {self.tutor.totalAvgDelta} ", 
-                            f"top tokens: {self.strip_ansi(self.tutor.topTokens_forBot)}",
-                            f"current thought: {self.tutor.decodedTokenIndices}"])
+        line = get_status_line(self)
         await ctx.reply(line[:499])
 
     @commands.command(name="bbyrant")
@@ -1048,11 +925,15 @@ class BABYBOT_TWITCH(commands.Bot):
 
 
     @commands.command(name='bbynick', aliases=['nickname', 'nick', 'bbynickname', 'setnick'])
-    async def setnick_command(self, ctx: commands.Context):
+    async def bbynick_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
         parts = ctx.message.content.split(maxsplit=1)
         if len(parts) < 2:
-            await ctx.reply("usage: !setnick <nickname>")
+            nickname = self.userMemory[author]["nickname"]
+            if nickname:
+                await ctx.reply(f"hi! :) your nickname is {nickname} :) did you wanna change it? ")
+            else:
+                await ctx.reply("you haven’t set a nickname yet... use !bbynick <name> <3")
             return
 
         nickname = parts[1].strip()[:16]
@@ -1065,18 +946,6 @@ class BABYBOT_TWITCH(commands.Bot):
 
         await ctx.reply(f"cool! i’ll use the name {nickname} for you from now on 💜")
 
-    @commands.command(name='bbynickcheck')
-    async def mynick_command(self, ctx):
-        author = ctx.author.name.lower()
-        nickname = self.userMemory[author]["nickname"]
-        if nickname:
-            await ctx.reply(f"hi! :) your nickname is {nickname} :)")
-        else:
-            await ctx.reply("you haven’t set a nickname yet... use !bbynick <3")
-
 if __name__ == "__main__":
-    #if 'oauth:' not in twitchToken:
-        #print("plz replace 'twitchToken' with babyBot's token :) - maybe it expired?")
-    #else:
     bot = BABYBOT_TWITCH()
     bot.run()
