@@ -124,18 +124,8 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 print("--- LAUNCHING DISCORD BOT ---")
                 if debugPrints: ʕっʘ‿ʘʔっ("starting discord bot!")
                 # create a bot instance, pass in the staff etc
-                babyBot_discord = BABYBOT_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
-                #cog = babyBot_DISCORD_COG(PHONE.babyBot)
-                #babyBot.add_cog(cog)
+                run_discord_bot(babyLLM, tutor, librarian, scribe, calligraphist, SECRETdiscordTokenSECRET)
 
-                #cog = PHONE.babyBot.get_cog("BBYCOG")
-                #print(f"Cog {cog} =>  {cog.get_commands()} {[c.name for c in cog.get_commands()]}")
-                #print(f"All bot commands: {[c.name for c in PHONE.babyBot.commands]}")
-                #print(f"All cogs: {PHONE.babyBot.cogs()}")
-
-                babyLLM.loadModel()
-                babyLLM.to(modelDevice)
-                babyBot_discord.run(SECRETdiscordTokenSECRET)
 
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")

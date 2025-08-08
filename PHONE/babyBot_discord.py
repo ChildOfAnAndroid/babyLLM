@@ -1,3 +1,12 @@
 from PHONE.discord_bot.bot import BABYBOT_DISCORD
 from PHONE.discord_bot.cog import babyBot_DISCORD_COG
-__all__ = ["BABYBOT_DISCORD", "babyBot_DISCORD_COG"]
+from config import modelDevice
+
+def run_discord_bot(babyLLM, tutor, librarian, scribe, calligraphist, token):
+    """Start the Discord bot using the provided LLM components and token."""
+    bot = BABYBOT_DISCORD(babyLLM, tutor, librarian, scribe, calligraphist)
+    babyLLM.loadModel()
+    babyLLM.to(modelDevice)
+    bot.run(token)
+
+__all__ = ["BABYBOT_DISCORD", "babyBot_DISCORD_COG", "run_discord_bot"]
