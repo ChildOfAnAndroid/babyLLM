@@ -1,10 +1,10 @@
 readmeactuallyprobablydont.txt (readme is very unfinished!)
 
 ![babyllm](BRAIN/babyllm3.gif)
-> "\[babyllm\]: that new to agese, be birthday (17th July 2025)"\n
-> "\[babyllm\]: ʘʔっ that mice but im drinking nice (28th June 2025)"\n
-> "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would (26th June 2025)"\n
-> "\[babyllm\]: lunch (2nd March 2025)"\n
+> "\[babyllm\]: that new to agese, be birthday (17th July 2025)"
+> "\[babyllm\]: ʘʔっ that mice but im drinking nice (28th June 2025)"
+> "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would (26th June 2025)"
+> "\[babyllm\]: lunch (2nd March 2025)"
 
 training started: february 2025
 
