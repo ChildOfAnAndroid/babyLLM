@@ -11,12 +11,7 @@ import math
 from config import *
 from SCHOOL.staffroom.counsellor import COUNSELLOR
 from torch.nn.functional import gelu
-
-
-"""def tensorStats(tensor: torch.Tensor, prefix: str, statsDict: dict):
-    statsDict[f"{prefix}_norm"] = tensor.norm().item()
-    statsDict[f"{prefix}_norm_token"] = tensor.norm(dim = 1).mean().item()
-    statsDict[f"{prefix}_norm_neuron"] = tensor.norm(dim = 0).mean().item()"""
+from helpers import clamp_param
 
 class NEURON(nn.Module):
     def __init__(self, _counsellor, _numTokensPerStep, _device = modelDevice):
@@ -292,7 +287,7 @@ class INTERNEURON_NETWORK(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("compute fresh floatWindowSizes + fractionality")
             # learnable fractionality, allows it to decide how descrite the windows should be
             fractionality = torch.sigmoid(self.windowFractionality)  # (numWindows,)
-            with torch.no_grad(): self.windowFractionality.clamp_(-3.0, 3.0)
+            clamp_param(self.windowFractionality, -3.0, 3.0)
             
             minWindowSize = 0.1
             maxWindowSize = float(self.numTokensPerStep)
@@ -335,8 +330,7 @@ class INTERNEURON_NETWORK(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("softmax weights from cerebellum")
             sigmoidWeights = torch.sigmoid(self.cerebellum * 10) # squish raw values into [0, 1]
-            with torch.no_grad():
-                self.cerebellum.clamp_(0.01, 0.99)
+            clamp_param(self.cerebellum, 0.01, 0.99)
             #clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
             self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalize across all windows
 

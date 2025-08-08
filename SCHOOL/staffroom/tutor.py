@@ -14,6 +14,7 @@ import math
 import json
 import asyncio
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
+from helpers import get_grad_stats
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
@@ -945,14 +946,12 @@ class TUTOR:
                 if p.grad is None:
                     print(f"after = {self.calligraphist.S_apply('emergency', f'NO GRAD: {name}')}")
                 else:
-                    grad = p.grad
-                    shape = tuple(grad.shape)
-                    norm = grad.norm().item()
-                    nonzero = grad.count_nonzero().item()
-                    total = grad.numel()
-                    sparsity = 1 - (nonzero / total)
-                    mean = grad.mean().item()
-                    std = grad.std().item()
+                    stats = get_grad_stats(p.grad)
+                    shape = stats["shape"]
+                    norm = stats["norm"]
+                    sparsity = stats["sparsity"]
+                    mean = stats["mean"]
+                    std = stats["std"]
                     print(f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
 
     @whocalled               

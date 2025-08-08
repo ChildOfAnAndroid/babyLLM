@@ -21,6 +21,7 @@ from BRAIN.LAYERS.memory import MEMORY
 #from BRAIN.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
+from helpers import clamp_param, get_grad_stats
 
 gradient_stats = {}
 
@@ -28,13 +29,10 @@ def save_grad_hook(name):
     """A hook function that saves the stats of a tensor's gradient."""
     def hook(grad):
         if grad is not None:
-            gradient_stats[name] = {
-                'norm': grad.norm().item(),
-                'mean': grad.mean().item(),
-                'std': grad.std().item(),
-                'sparsity': 1.0 - (grad.count_nonzero().item() / grad.numel())
-            }
+            gradient_stats[name] = get_grad_stats(grad)
     return hook
+
+def log_param_to_length(log_param): return torch.sigmoid((1 - torch.exp(log_param)) * 0.1)
 
 """this class combines all the core components of the babyLLM:"""
 """EMBED: token embedding layer"""
@@ -105,8 +103,8 @@ class BABYLLM(nn.Module):
         self.logMemory2Length = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
         self.inputBlend = nn.Parameter(torch.ones(3, device = self.device))
-        self.memoryLength = torch.sigmoid((1 - torch.exp(self.logMemoryLength)) * 0.1)
-        self.memory2Length = torch.sigmoid((1 - torch.exp(self.logMemory2Length)) * 0.1)
+        self.memoryLength = log_param_to_length(self.logMemoryLength)
+        self.memory2Length = log_param_to_length(self.logMemory2Length)
 
         """self.transformer_block = nn.TransformerEncoderLayer(
             d_model=embedDimension, 
@@ -514,21 +512,12 @@ class BABYLLM(nn.Module):
                         print(f"before = {self.calligraphist.S_apply('dim', f'no grad: {name}')}")
                     else:
                         if debugPrints: ʕっʘ‿ʘʔっ("set yes grads")
-                        grad = p.grad
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad shape")
-                        shape = tuple(grad.shape)
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad norm")
-                        norm = grad.norm().item()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad nonzero")
-                        nonzero = grad.count_nonzero().item()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad numEl \ numan")
-                        total = grad.numel()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad sparsity")
-                        sparsity = 1 - (nonzero / total)
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad mean")
-                        mean = grad.mean().item()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad std")
-                        std = grad.std().item()
+                        stats = get_grad_stats(p.grad)
+                        shape = stats["shape"]
+                        norm = stats["norm"]
+                        sparsity = stats["sparsity"]
+                        mean = stats["mean"]
+                        std = stats["std"]
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"before = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
                         if debugPrints: print("Loss:", _loss.item())
@@ -575,26 +564,17 @@ class BABYLLM(nn.Module):
                     if p.grad is None:
                         if debugPrints: ʕっʘ‿ʘʔっ("print no grads")
                         print(f"after = {self.calligraphist.S_apply('emergency', f'NO GRAD: {name}')}")
-                    else: 
+                    else:
                         if debugPrints: ʕっʘ‿ʘʔっ("set yes grads")
-                        grad = p.grad
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad shape")
-                        shape = tuple(grad.shape)
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad norm")
-                        norm = grad.norm().item()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad nonzero")
-                        nonzero = grad.count_nonzero().item()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad numEl \ numan")
-                        total = grad.numel()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad sparsity")
-                        sparsity = 1 - (nonzero / total)
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad mean")
-                        mean = grad.mean().item()
-                        if debugPrints: ʕっʘ‿ʘʔっ("set yes grad std")
-                        std = grad.std().item()
+                        stats = get_grad_stats(p.grad)
+                        shape = stats["shape"]
+                        norm = stats["norm"]
+                        sparsity = stats["sparsity"]
+                        mean = stats["mean"]
+                        std = stats["std"]
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
-
+                    
             if True and self.totalTurns % 100 == 0:# and debugPrints:
                 grad_log_output = "\n--- Gradient Vitals (after) ---\n"
                 for name, stats in gradient_stats.items():
@@ -643,9 +623,8 @@ class BABYLLM(nn.Module):
 
             if True:
                 if debugPrints: ʕっʘ‿ʘʔっ("torch.no_grad")
-                with torch.no_grad():
-                    if debugPrints: ʕっʘ‿ʘʔっ("clamp logLR")
-                    self.logLR.clamp_(math.log(0.0001), math.log(0.001))  # CLAMP IT! IN MEMORY OF THE AMAZING 1.00 SELF LEARNED LOSS RUN OF 27-APRIL-2025! - you certainly dropped the delta! you win!
+                if debugPrints: ʕっʘ‿ʘʔっ("clamp logLR")
+                clamp_param(self.logLR, math.log(0.0001), math.log(0.001))  # CLAMP IT! IN MEMORY OF THE AMAZING 1.00 SELF LEARNED LOSS RUN OF 27-APRIL-2025! - you certainly dropped the delta! you win!
                 if debugPrints: ʕっʘ‿ʘʔっ("set self.memoryLength")
                 self.memoryLength = torch.sigmoid((self.totalTurns - torch.exp(self.logMemoryLength)) * 0.5)
                 if debugPrints: ʕっʘ‿ʘʔっ("set self.memoryLength2")

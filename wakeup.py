@@ -17,7 +17,8 @@ from config import *
 from secret import *
 from PHONE.babyBot import BABYBOT_TWITCH
 from PHONE.babyBot_discord import *
-from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, printStartLogs
+from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, printStartLogs, append_to_files
+from helpers import get_grad_stats
 
 sys.excepthook = handle_exception
 warnings.simplefilter("default") # show all warnings (PyTorch hides some by default)
@@ -110,7 +111,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                     thisTestSpeed = (tokenSpeedTestEnd - tokenSpeedTestStart)
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     tokenSpeedTest_str = f"\n{timestamp}| numTokens: {windowMAX}, speed: {thisTestSpeed:.2f} (tokenAvg: {(thisTestSpeed/windowMAX):.2f}), avgLoss: {tutor.totalAvgLoss:.2f} (delta: {tutor.totalAvgDelta:.2f})"
-                    with open(tokenSpeedTestFilePath, "a", encoding="utf-8") as logFile: logFile.write(tokenSpeedTest_str)
+                    append_to_files(tokenSpeedTest_str, tokenSpeedTestFilePath)
 
                 return tutor.totalAvgLoss, tutor.totalTurns, tutor.perfectionistPassRate, tutor.learningRateGOAL
             
@@ -125,15 +126,13 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
             if p.grad is None:
                 msg = babyLLM.calligraphist.S_apply('emergency', f'NO GRAD: {name}')
                 print(f"keyboard interrupt = {msg}")
-            else: 
-                grad = p.grad
-                shape = tuple(grad.shape)
-                norm = grad.norm().item()
-                nonzero = grad.count_nonzero().item()
-                total = grad.numel()
-                sparsity = 1 - (nonzero / total)
-                mean = grad.mean().item()
-                std = grad.std().item()
+            else:
+                stats = get_grad_stats(p.grad)
+                shape = stats["shape"]
+                norm = stats["norm"]
+                sparsity = stats["sparsity"]
+                mean = stats["mean"]
+                std = stats["std"]
                 detail = (
                     f"yes grad: {name} | shape: {shape} | norm: {norm:.4f} | "
                     f"sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}"

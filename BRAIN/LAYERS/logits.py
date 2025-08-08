@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from config import *
 import torch.nn.functional as F
+from helpers import clamp_param
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 class LOGITS(nn.Module):
@@ -84,9 +85,8 @@ class LOGITS(nn.Module):
             if debugPrints: print(f"Debug logits: logitOutput shape AFTER @ weights: {logitOutput.shape}")
 
             if debugPrints: ʕっʘ‿ʘʔっ("clamp scalar parameters")
-            with torch.no_grad():
-                self.rawActivationsScale.data.clamp_(0, 0.75)
-                self.normedActivationsScale.data.clamp_(0, 0.75)
+            clamp_param(self.rawActivationsScale, 0, 0.75)
+            clamp_param(self.normedActivationsScale, 0, 0.75)
 
             if debugPrints: ʕっʘ‿ʘʔっ("append rolling self.stats")
             self.tensorNormHist.append(actsTensor.norm().item())

@@ -5,6 +5,7 @@
 import torch
 import torch.nn as nn
 from config import *
+from helpers import clamp_param
 
 """creates an embedding layer for each word in the vocabulary"""
 class EMBED(nn.Module):
@@ -48,9 +49,8 @@ class EMBED(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
             #self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
             self.embedFinal = self.embedVector + self.embedNormed # direct passthrough instead of scaling cause he abuses them lol, -0.005 scale... wtf is that!?
-            with torch.no_grad():
-                self.weightsScale.data.clamp_(-10, 10)
-                self.normScale.data.clamp_(-10, 10)
+            clamp_param(self.weightsScale, -10, 10)
+            clamp_param(self.normScale, -10, 10)
             return self.embedFinal # E3 -> N??
     
     @whocalled
