@@ -57,6 +57,8 @@ class BABYBOT_DISCORD(commands.Bot):
         self.babyLLM, self.tutor, self.librarian, self.scribe, self.calligraphist = babyLLM, tutor, librarian, scribe, calligraphist
         self.babyName, self.lastClockAnnounce = babyName, 0
         self.trusted_bot_names = ["buttsbot", "babyllm", "skunkllm"]
+        self.temp_not_opt = ["chucklesw73", "rustypeugeot", "tomkenchmusic", "stereochromus", "noiseordinance", "kazumianzai", "wakelessnine", "hrh_ginsterbusch", "3roc", 
+                             "shaka6331", "ave_maria33", "nequals", "3therealdescent"]
         self.discordToken, self.discordChannel, self.rollingContextSize = discordToken, discordChannel, rollingContextSize
         self.last_logged_author, self.idleTrainSeconds, self.N = None, idleTrainSeconds, N
         self.chatWindowMAX, self.dataStride = windowMAXSTART, round(windowMAXSTART * 0.1)
@@ -207,64 +209,34 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"!!!![_DISCORD_SEND] {e}")
             return None # Return None on failure
         
-    # --- The Fortress Gatekeeper ---
     def _is_high_quality(self, text: str) -> bool:
-        # We check the raw content, so strip speaker tags first for accuracy
         text_content = re.sub(r"^\s*([a-zA-Z0-9_]+):\s*", "", text).strip()
-        
         if not text_content: return False
-        if text_content.startswith('!'): return False
-        
-        rejection_phrases = [
-            "i'm still full!", "try again in", "you don't have any", "you only have",
-            "i don't know what a", "who is", "can't see them", "you gotta fite someone",
-            "your message is too long", "i can't tell you much"
-        ]
-        if any(phrase in text_content.lower() for phrase in rejection_phrases):
-            return False
-
         words = text_content.split()
         num_words = len(words)
         num_chars = len(text_content)
-
-        if num_words < 3 or num_chars < 15: return False # Be strict
-        if num_words > 150: return False # Reject long copy-pastas
-            
-        # Check for non-Latin characters, reject if it's mostly gibberish/emojis
+        if num_words < 3 or num_chars < 15: return False
+        if num_words > 4200: return False
         alpha_chars = sum(1 for char in text_content if char.isalpha())
-        if num_chars > 0 and (alpha_chars / num_chars) < 0.7:
-            return False
-        
-        # Check for word repetition
+        if num_chars > 0 and (alpha_chars / num_chars) < 0.7: return False
         if num_words > 5:
             word_counts = Counter(word.lower() for word in words)
             if word_counts.most_common(1)[0][1] > num_words * 0.5:
                 return False
-
         return True
 
     def _buffer_add(self, text_to_add: str):
-        if not self._is_high_quality(text_to_add):
-            # No print statement here, it will be too noisy. It should silently reject bad data.
-            return False
-
-        # Use difflib for more accurate near-duplicate checking
-        if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in self.buffer[-30:]):
-            return False
-
+        if not self._is_high_quality(text_to_add): return False
+        if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in self.buffer[-30:]): return False
         self.buffer.append(text_to_add)
-        if len(self.buffer) > self.rollingContextSize:
-            self.buffer.pop(0)
-            
-        print(f"[_BUFFER_ADD] Added: \"{text_to_add}\"")
+        if len(self.buffer) > self.rollingContextSize: self.buffer.pop(0)
+        print(f"[_BUFFER_ADD] added: \"{text_to_add}\"")
         return True
 
     async def _buffer_clean(self):
         MAX_LINE_DUPLICATES = 2
-        
         line_counts = Counter(self.buffer)
         cleaned_count = 0
-        
         for i in range(len(self.buffer) - 1, -1, -1):
             line = self.buffer[i]
             if line_counts[line] > MAX_LINE_DUPLICATES:
@@ -278,8 +250,7 @@ class BABYBOT_DISCORD(commands.Bot):
             if any(is_similar(line, other) for other in seen):
                 del self.buffer[i]
                 cleaned_count += 1
-            else:
-                seen.append(line)
+            else: seen.append(line)
 
         self.buffer = killExcessTags(self.buffer)
                 
@@ -382,7 +353,7 @@ class BABYBOT_DISCORD(commands.Bot):
         ACTIVE_BONUS_PER_YEAR, ACTIVE_BONUS_PER_MONTH, ACTIVE_BONUS_PER_WEEK = 42069.69, 6969.69, 4200.0
         ACTIVE_BONUS_PER_DAY, ACTIVE_BONUS_PER_HOUR, ACTIVE_BONUS_PER_MINUTE = 420.0, 69.69, 42.0
         SHARE_OF_VOICE_INFLUENCE, HEARTBEAT_MIN, HEARTBEAT_MAX = 0.069, -0.000420, 0.00420
-        MAX_SCORE_CAP, MIN_SCORE_CAP, DECAY_FLOOR = 6969696969694.20, 0, -696969.69
+        MAX_SCORE_CAP, MIN_SCORE_CAP, DECAY_FLOOR = 6969696969694.20, 0, -69696969.69
         SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
         
         print(f"\n--- decay + bonus stats at {datetime.now().strftime('%H:%M:%S')} ---")
@@ -530,14 +501,10 @@ class BABYBOT_DISCORD(commands.Bot):
             self._save_user_data()
 
     def calculate_smink_bonus(self, now, is_rival):
-        """
-        Calculates sminks bonus based on which event (peak or trough) is closer,
-        featuring a scaled "pyramid" spike for perfect timing.
-        """
-        PRECISION_WINDOW_SECONDS = 42      # Spike applies only within +/- 42 seconds of 4:20
-        PEAK_WINDOW_DURATION = 18000       # The positive half of the cycle is 3 hours before/after a peak
-        TROUGH_WINDOW_DURATION = 18000     # The negative half of the cycle is 3 hours before/after a trough
-        HOURLY_WINDOW_SECONDS = 1800       # Hourly bump applies within +/- 30 mins
+        PRECISION_WINDOW_SECONDS = 42      # spike only within +/- 42 seconds of 4:20
+        PEAK_WINDOW_DURATION = 18000       # positive half of the cycle 3h before/after a peak
+        TROUGH_WINDOW_DURATION = 18000     # negative half of the cycle 3h before/after a trough
+        HOURLY_WINDOW_SECONDS = 1800       # +/- 30 mins
         PRECISION_SPIKE_BONUS = 420420420.69
         TIMING_WINDOW_BONUS = 420420420.69
         MAX_NEGATIVE_BONUS = -420420.69
@@ -561,10 +528,10 @@ class BABYBOT_DISCORD(commands.Bot):
         diff_to_hourly = abs((now.minute * 60 + now.second) - (20 * 60))
 
         # --- UK 420 ---
+        precision_bonus = 0
         if diff_to_peak <= PRECISION_WINDOW_SECONDS:
             multiplier = (PRECISION_WINDOW_SECONDS - diff_to_peak) / PRECISION_WINDOW_SECONDS
             precision_bonus = PRECISION_SPIKE_BONUS * multiplier
-            return precision_bonus
 
         mega_bonus = 0.0
         if diff_to_peak < diff_to_trough:
@@ -580,7 +547,7 @@ class BABYBOT_DISCORD(commands.Bot):
             angle = (diff_to_hourly / HOURLY_WINDOW_SECONDS) * (math.pi / 2)
             hourly_bonus = MAX_HOURLY_BONUS * math.cos(angle)
 
-        return mega_bonus + hourly_bonus
+        return mega_bonus + hourly_bonus + precision_bonus
 
     def checkBestie(self):
         BBYd_users = {u: m["BBY"] for u, m in self.userMemory.items() if "BBY" in m}
@@ -640,6 +607,7 @@ class BABYBOT_DISCORD(commands.Bot):
         content = message.content
         author = str(message.author.name).lower()
         print(f"\n[Message] From {author}: {content}")
+        if message.author in self.temp_not_opt: return
         if message.author == self.user: 
             if self.random3 > 0.999:
                 if author == self.last_logged_author: message_for_buffer = content
@@ -731,12 +699,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 self.updateBBY(author, 42069.0)
                 print(f"[Event] {self.getNickname(author)} is the FIRST chatter of the day! +ᛒ42")
                 mem["got_first_chatter_bonus"] = True
-                self.bbyfacts[event_key] = {
-                    "value": f"the first person to chat on this day was {self.getNickname(author)}.",
-                    "author": author,
-                    "timestamp": time.time(),
-                    "teach_bonus": 42069.00
-                }
+                await self.cog._set_bbyfact(key = event_key, author = author, value = f"the first person to chat on this day was {self.getNickname(author)}.")
                 ctx = await self.get_context(message)
                 self.cog._award_fact(author, f"{event_key}", ctx, 1)
                 await self._discord_spam(f"👑 {self.getNickname(author)}... you are the first to return after the holy 4:20 reset! 👑 (double sminks for you today!!)")
@@ -748,30 +711,24 @@ class BABYBOT_DISCORD(commands.Bot):
                     if "inventory" not in mem: mem["inventory"] = {}
                     current_tokens = mem["inventory"].get("smink token", 0)
                     mem["inventory"]["smink token"] = current_tokens + int(mem["loyalty"])
-                    nickname = self.getNickname(author)
-                    if nickname not in self.bbyfacts:
-                        self.bbyfacts[nickname] = {
-                            "value": f"{nickname} had their {event_key}",
-                            "author": author,
-                            "timestamp": time.time(),
-                            "teach_bonus": 420.00,
-                            "num_produced": len(self.bot.userMemory) * (self.random + self.random2)
-                        }
-                    else:
-                        fact = self.bbyfacts[nickname]
-                        fact["value"] += f", came by again on {today_key}"
-                        original_bonus = fact.get("teach_bonus", 420.00)
-                        fact["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * (self.random4 + self.random2)) * 0.011)
+                nickname = self.getNickname(author)
+                if nickname not in self.bbyfacts:
+                    await self.cog._set_bbyfact(key = nickname, author = author, value = f"{nickname} had their {event_key}")
+                else:
+                    fact = self.bbyfacts[nickname]
+                    fact["value"] += f", came by again on {today_key}"
+                    original_bonus = fact.get("teach_bonus", 420.00)
+                    fact["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * (self.random4 + self.random2)) * 0.011)
 
-                        ctx = await self.get_context(message)
-                        self.cog._award_fact(author, nickname, ctx, 1)
+                    ctx = await self.get_context(message)
+                    self.cog._award_fact(author, nickname, ctx, 1)
 
             self._save_user_data()
             self.save_bbyfacts()
 
         lower_content = content.lower()
-        if any(w in lower_content for w in ["shut up", "you suck"]): self.updateBBY(author, -0.5)
-        if any(w in lower_content for w in ["good bot", "clever baby"]): self.updateBBY(author, 0.5)
+        if any(w in lower_content for w in ["shut up", "you suck"]): self.updateBBY(author, -5000.0)
+        if any(w in lower_content for w in ["good bot", "clever baby"]): self.updateBBY(author, 5000)
         for name, fact in self.bbyfacts.items():
             if name in lower_content:
                 #original_author = fact[name]

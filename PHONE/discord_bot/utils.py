@@ -81,16 +81,15 @@ def clean_baby_output(text: str, keep_poetry=True, max_linebreaks=10) -> str:
 def killExcessTags(buffer):
     cleaned, prev_speaker = [], None
     for line in buffer:
-        match = re.match(r"^\s*([a-zA-Z0-9_]+):", line)
+        match = re.match(r"^\s*([^:]{0,16}):", line) # remove anything thats not a colon before 16 characters, if its followed by a colon
         if match:
             speaker = match.group(1)
             if speaker == prev_speaker:
-                line = re.sub(r"^\s*[a-zA-Z0-9_]+:\s*", "", line)
+                line = re.sub(r"^\s*[^:]{0,16}:\s*", "", line)
             else:
                 prev_speaker = speaker
         cleaned.append(line)
     return cleaned
-
 
 def strSplitValueName(args_str: str):
     parts = args_str.strip().split()
