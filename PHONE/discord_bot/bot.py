@@ -58,7 +58,7 @@ class BABYBOT_DISCORD(commands.Bot):
         self.babyName, self.lastClockAnnounce = babyName, 0
         self.trusted_bot_names = ["buttsbot", "babyllm", "skunkllm"]
         self.temp_not_opt = ["chucklesw73", "rustypeugeot", "tomkenchmusic", "stereochromus", "noiseordinance", "kazumianzai", "wakelessnine", "hrh_ginsterbusch", "3roc", 
-                             "shaka6331", "ave_maria33", "nequals", "3therealdescent"]
+                             "shaka6331", "ave_maria33", "nequals", "3therealdescent", "merlinofthevoid"]
         self.discordToken, self.discordChannel, self.rollingContextSize = discordToken, discordChannel, rollingContextSize
         self.last_logged_author, self.idleTrainSeconds, self.N = None, idleTrainSeconds, N
         self.chatWindowMAX, self.dataStride = windowMAXSTART, round(windowMAXSTART * 0.1)
@@ -134,6 +134,13 @@ class BABYBOT_DISCORD(commands.Bot):
                     user_text = data.get("text")
                     vue_username = data.get("author", "kevinonline420")
                     fake_ctx, get_reply = create_fake_context(user_text, author = vue_username)
+
+                    author_key = vue_username.lower()
+                    mem = self.userMemory[author_key]
+                    mem["display_name"] = author_key
+                    mem["message_count"] += 1.0
+                    mem["last_seen"] = time.time()
+                    self._save_user_data()
 
                     cog = self.get_cog("BBYCOG")
                     if not cog:
@@ -331,8 +338,16 @@ class BABYBOT_DISCORD(commands.Bot):
 
     def updateBBY(self, author, BBY):
         author = str(author).lower()
-        mem = self.userMemory[author]
-        mem["BBY"] = round(mem.get("BBY", 0.0) + BBY, 4)
+        try:
+            if author in self.temp_not_opt and author not in self.AIoptInUsers: 
+                print(f"[UPDATEBBY] deleted user {author} cause not opted in and charis still hasn't found a better way")
+                del self.userMemory[author]
+            else:
+                MAX_SCORE_CAP, MIN_SCORE_CAP = 6969696969694.20, 0
+                mem = self.userMemory[author]
+                mem["BBY"] = max(MIN_SCORE_CAP, min(round(mem.get("BBY", 0.0) + BBY, 4), MAX_SCORE_CAP))
+            self._save_user_data
+        except: print(f"error in updateBBY")
     
     def getBBY(self, author):
         return round(self.userMemory.get(str(author).lower(), {}).get("BBY", 0.0), 4)
@@ -343,7 +358,7 @@ class BABYBOT_DISCORD(commands.Bot):
         ACTIVE_BONUS_PER_YEAR, ACTIVE_BONUS_PER_MONTH, ACTIVE_BONUS_PER_WEEK = 42069.69, 6969.69, 4200.0
         ACTIVE_BONUS_PER_DAY, ACTIVE_BONUS_PER_HOUR, ACTIVE_BONUS_PER_MINUTE = 420.0, 69.69, 42.0
         SHARE_OF_VOICE_INFLUENCE, HEARTBEAT_MIN, HEARTBEAT_MAX = 0.069, -0.000420, 0.00420
-        MAX_SCORE_CAP, MIN_SCORE_CAP, DECAY_FLOOR = 6969696969694.20, 0, -69696969.69
+        DECAY_FLOOR = -69696969.69
         SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
         
         print(f"\n--- decay + bonus stats at {datetime.now().strftime('%H:%M:%S')} ---")
@@ -430,13 +445,12 @@ class BABYBOT_DISCORD(commands.Bot):
             debug_log.append(f"boost: {negative_bonus:.4f}")
 
             # --- CLAMP ---
-            if BBY_change_this_interval < DECAY_FLOOR:
-                BBY_change_this_interval = DECAY_FLOOR
+            if BBY_change_this_interval < DECAY_FLOOR: BBY_change_this_interval = DECAY_FLOOR
 
             final_BBY = current_BBY + BBY_change_this_interval
+            self.updateBBY(author, BBY_change_this_interval)
             debug_log.insert(0, f"total: {BBY_change_this_interval:+.4f}")
             memory["last_decay_debug"] = debug_log
-            memory["BBY"] = max(MIN_SCORE_CAP, min(final_BBY, MAX_SCORE_CAP))
             memory["spamMax"] = max(0.001, min(0.8, memory.get("spamMax", 0.8) * 0.99999))
 
             # --- Store for later sorting ---
@@ -496,9 +510,9 @@ class BABYBOT_DISCORD(commands.Bot):
         TROUGH_WINDOW_DURATION = 18000     # negative half of the cycle 3h before/after a trough
         HOURLY_WINDOW_SECONDS = 1800       # +/- 30 mins
         PRECISION_SPIKE_BONUS = 420420420.69
-        TIMING_WINDOW_BONUS = 420420420.69
-        MAX_NEGATIVE_BONUS = -420420.69
-        MAX_HOURLY_BONUS = 6942.0
+        TIMING_WINDOW_BONUS = 42069420.69
+        MAX_NEGATIVE_BONUS = -42069.69
+        MAX_HOURLY_BONUS = 420420.0
 
         effective_now = now + timedelta(hours = 3) if is_rival else now
         
@@ -597,7 +611,7 @@ class BABYBOT_DISCORD(commands.Bot):
         content = message.content
         author = str(message.author.name).lower()
         print(f"\n[Message] From {author}: {content}")
-        if message.author in self.temp_not_opt: return
+        if author in self.temp_not_opt: return
         if message.author == self.user: 
             if self.random3 > 0.999:
                 if author == self.last_logged_author: message_for_buffer = content
