@@ -322,22 +322,23 @@ def user_say():
     data = request.json or {}
     text = data.get("text", "")
     author = data.get("author", "kevinonline420")
+    colour = data.get("colour", {"r": 133, "g": 239, "b": 238})
+
     if not text:
         return jsonify({"status": "error", "reply": "no text :("}), 400
 
-    # track user message
     user_message = {
         "id": str(uuid.uuid4()),
         "author": author,
         "text": text,
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "colour": colour
     }
     with chat_lock:
         chat_history.append(user_message)
-        if len(chat_history) > 100:
+        if len(chat_history) > 1000:
             chat_history.pop(0)
 
-    # queue job
     request_id = str(uuid.uuid4())
     done = threading.Event()
     pending[request_id] = {"event": done, "reply": "..."}
@@ -348,17 +349,22 @@ def user_say():
     reply_text = pending[request_id]["reply"]
     pending.pop(request_id, None)
 
-    # add bot message to chat history
+    bot_bubble_colour = {
+        "r": babyState.get("R", 133),
+        "g": babyState.get("G", 239),
+        "b": babyState.get("B", 238)
+    }
+
     bot_message = {
         "id": str(uuid.uuid4()),
         "author": "babyLLM",
         "text": reply_text,
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "colour": bot_bubble_colour
     }
     with chat_lock:
         chat_history.append(bot_message)
-        if len(chat_history) > 1000:
-            chat_history.pop(0)
+        if len(chat_history) > 100: chat_history.pop(0)
 
     return jsonify({"status": "ok" if finished else "timeout", "reply": reply_text, "author": author})
 
