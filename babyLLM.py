@@ -269,8 +269,6 @@ class BABYLLM(nn.Module):
                 #self.memory2OutputHistory.append(memory2Output.norm().item())
                 #self.penalisedOutputHistory.append(penalisedLogits.norm().item())
                 self.FINALlogitsHistory.append(FINALlogits.norm().item())
-                debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
-
                 if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
                     self.forwardStats = {
                         #"2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
@@ -284,6 +282,7 @@ class BABYLLM(nn.Module):
                     self.forwardStats["B_blendToken"] = blend_vals[0]
                     self.forwardStats["B_blendPos"] = blend_vals[1]
                     self.forwardStats["B_blendPixel"] = blend_vals[2]
+                    debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
                     self.stats.update(self.forwardStats)
                     
                     self.inputEmbedsHistory = []
