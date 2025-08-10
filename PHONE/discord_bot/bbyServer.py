@@ -11,20 +11,19 @@ import uuid
 import queue
 import base64
 from collections import deque
-import array # NEW: For efficient timestamp storage
+import array
 
 # --- setup ---
-# ... (paths remain the same) ...
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE_PATH = os.path.join(SCRIPT_DIR, "babyState.json")
 PAINT_STATE_FILE_PATH = os.path.join(SCRIPT_DIR, "paintState.raw")
-PAINT_TIMESTAMP_FILE_PATH = os.path.join(SCRIPT_DIR, "paintTimestamps.raw") # NEW
+PAINT_TIMESTAMP_FILE_PATH = os.path.join(SCRIPT_DIR, "paintTimestamps.raw")
 REQUEST_FILE_PATH = os.path.join(SCRIPT_DIR, "bby_request.json")
 RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
 os.makedirs(RESPONSE_DIR, exist_ok=True)
 BBYBOOK_FILE_PATH = os.path.expanduser("~/Dropbox/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/soul/bbybook.json")
 PAINT_LIFESPAN_FILE_PATH = os.path.join(SCRIPT_DIR, "paintLifespans.raw") 
-CHAT_HISTORY_FILE_PATH = os.path.join(SCRIPT_DIR, "chatHistory.json") # NEW
+CHAT_HISTORY_FILE_PATH = os.path.join(SCRIPT_DIR, "chatHistory.json")
 
 app = Flask(__name__)
 CORS(app)
@@ -65,7 +64,10 @@ try:
         with paint_lock:
             with open(PAINT_TIMESTAMP_FILE_PATH, 'rb') as f:
                 paint_timestamp_data.fromfile(f, PAINT_PIXEL_COUNT)
-                print("Loaded existing timestamp state.")
+                # --- DIAGNOSTIC 1: Check data immediately after loading ---
+                non_zero_timestamps = sum(1 for t in paint_timestamp_data if t > 0)
+                print(f"[DATA_LOAD] Loaded existing timestamp state. Found {non_zero_timestamps} active pixels on disk.")
+
     if os.path.exists(PAINT_LIFESPAN_FILE_PATH):
         with paint_lock:
             with open(PAINT_LIFESPAN_FILE_PATH, 'rb') as f:
@@ -77,13 +79,25 @@ except Exception as e:
 def pixel_aging_loop():
     print("[PIXEL_AGING_LOOP] active.")
     while True:
+        time.sleep(60) # Move sleep to the top to prevent a race condition on the first run
+        
+        pixels_faded = 0
+        pixels_erased = 0
+        active_pixels = 0
         try:
             with paint_lock:
+                # --- DIAGNOSTIC 3: Log what the thread sees ---
+                non_zero_in_thread = sum(1 for t in paint_timestamp_data if t > 0)
+                print(f"[AGING_THREAD_CHECK] The aging loop sees {non_zero_in_thread} active pixels in memory.")
+
                 now = int(time.time())
-                pixels_changed = False
+                pixels_changed_on_disk = False
                 for i in range(PAINT_PIXEL_COUNT):
                     timestamp = paint_timestamp_data[i]
                     if timestamp == 0: continue 
+
+                    active_pixels += 1 # Correctly increment counter
+                    
                     age = now - timestamp
                     alpha_index = i * 4 + 3
                     current_alpha = paint_rgba_data[alpha_index]
@@ -98,29 +112,26 @@ def pixel_aging_loop():
                         if current_alpha > 0:
                             new_alpha = 0
                             paint_timestamp_data[i] = 0
+                            pixels_erased += 1 # Correctly increment counter
                     elif age > fade_start_seconds:
                         fade_progress = (age - fade_start_seconds) / fade_duration
                         new_alpha = int(255 * (1.0 - fade_progress))
+                        if new_alpha < current_alpha:
+                            pixels_faded += 1 # Correctly increment counter
                     
                     if new_alpha != current_alpha:
                         paint_rgba_data[alpha_index] = min(255, max(0, new_alpha))
-                        pixels_changed = True
+                        pixels_changed_on_disk = True
                 
-                if pixels_changed:
+                if pixels_changed_on_disk: 
                     with open(PAINT_STATE_FILE_PATH, 'wb') as f: f.write(paint_rgba_data)
+                    
+            print(f"[PIXEL_AGING_REPORT | {time.strftime('%H:%M:%S')}] Active Pixels: {active_pixels}, Fading: {pixels_faded}, Erased This Cycle: {pixels_erased}")
         except Exception as e: print(f"[ERROR] pixel_aging_loop: {e}")
-        time.sleep(60)
+
 
 # --- THE BABY SOUL ---
-babyState = {
-    "eyes": 5, "mouth": 1, "cheeks_on": False, "tears_on": False, "jumping": False,
-    "stretch_left": False, "stretch_right": False, "stretch_up": False, "stretch_down": False,
-    "squish_left": False, "squish_right": False, "squish_up": False, "squish_down": False,
-    "isSpeaking": False, "speechText": "",
-    "R": 133, "G": 239, "B": 238,
-    "cerebralLoad": 0.0, "dreamIntensity": 0.0, "memoryFlux": 0.0,
-    "learningStability": 0.0, "metabolicRate": 0.0,
-}
+babyState = { "eyes": 5, "mouth": 1, "cheeks_on": False, "tears_on": False, "jumping": False, "stretch_left": False, "stretch_right": False, "stretch_up": False, "stretch_down": False, "squish_left": False, "squish_right": False, "squish_up": False, "squish_down": False, "isSpeaking": False, "speechText": "", "R": 133, "G": 239, "B": 238, "cerebralLoad": 0.0, "dreamIntensity": 0.0, "memoryFlux": 0.0, "learningStability": 0.0, "metabolicRate": 0.0, }
 baseColour = {"R": 133, "G": 239, "B": 238}
 targetColour = {"R": 133, "G": 239, "B": 238}
 lastTargetColour = {"R": 133, "G": 239, "B": 238}
@@ -352,48 +363,32 @@ def worker_loop():
         author = job["author"]
         response_file_path = os.path.join(RESPONSE_DIR, f"{request_id}.json")
 
-        # write bridge request
         try:
-            with open(REQUEST_FILE_PATH, "w", encoding="utf-8") as f:
-                json.dump({"id": request_id, "text": text, "author": author}, f)
-        except Exception as e:
-            print("[WORKER][ERROR] writing request:", e)
+            with open(REQUEST_FILE_PATH, "w", encoding="utf-8") as f: json.dump({"id": request_id, "text": text, "author": author}, f)
+        except Exception as e: print("[WORKER][ERROR] writing request:", e)
 
-        # wait for bridge reply file
-        start = time.time()
-        timeout = 180.0
-        reply_text = "... timeout :("
+        start = time.time(); timeout = 180.0; reply_text = "... timeout :("
         while time.time() - start < timeout:
             if os.path.exists(response_file_path):
                 try:
-                    with open(response_file_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+                    with open(response_file_path, "r", encoding="utf-8") as f: data = json.load(f)
                     reply_text = data.get("reply", "...")
-                except Exception as e:
-                    reply_text = f"... error reading reply: {e}"
+                except Exception as e: reply_text = f"... error reading reply: {e}"
                 break
             time.sleep(0.1)
 
-        # cleanup
         try:
-            if os.path.exists(REQUEST_FILE_PATH):
-                open(REQUEST_FILE_PATH, "w").close()
-            if os.path.exists(response_file_path):
-                os.remove(response_file_path)
-        except Exception:
-            pass
+            if os.path.exists(REQUEST_FILE_PATH): open(REQUEST_FILE_PATH, "w").close()
+            if os.path.exists(response_file_path): os.remove(response_file_path)
+        except Exception: pass
 
-        # set baby speaking state (visual)
         babyState["speechText"] = reply_text
         babyState["isSpeaking"] = True
-
-        # fulfill waiting request
         item = pending.get(request_id)
         if item:
             item["reply"] = reply_text
             item["event"].set()
 
-# start the single worker thread
 threading.Thread(target=worker_loop, daemon=True).start()
 
 # --- routes ---
@@ -426,22 +421,20 @@ def paint_pixel():
                     pixel_index = y * 64 + x
                     rgba_index = pixel_index * 4
                     lifespan_index = pixel_index * 2
-                    
                     paint_rgba_data[rgba_index:rgba_index+4] = [r, g, b, a]
-                    
                     if a > 0:
                         paint_timestamp_data[pixel_index] = now
-                        
+                        # --- DIAGNOSTIC 2: Confirm the timestamp was set ---
+                        print(f"[PAINT_PIXEL] Set timestamp for pixel ({p['x']},{p['y']}) to {now}")
                         start_fade = (random.random() * 1) * 60 * 60
                         end_fade = start_fade + ((random.random() * 47) + 1) * 60 * 60
-
                         paint_lifespan_data[lifespan_index] = start_fade
                         paint_lifespan_data[lifespan_index + 1] = end_fade
                     else:
                         paint_timestamp_data[pixel_index] = 0
                         paint_lifespan_data[lifespan_index] = 0.0
                         paint_lifespan_data[lifespan_index + 1] = 0.0
-
+            
             with open(PAINT_STATE_FILE_PATH, 'wb') as f: f.write(paint_rgba_data)
             with open(PAINT_TIMESTAMP_FILE_PATH, 'wb') as f: paint_timestamp_data.tofile(f)
             with open(PAINT_LIFESPAN_FILE_PATH, 'wb') as f: paint_lifespan_data.tofile(f)
@@ -500,20 +493,12 @@ def user_say():
     author = data.get("author", "kevinonline420")
     colour = data.get("colour", {"r": 133, "g": 239, "b": 238})
 
-    if not text:
-        return jsonify({"status": "error", "reply": "no text :("}), 400
+    if not text: return jsonify({"status": "error", "reply": "no text :("}), 400
 
-    user_message = {
-        "id": str(uuid.uuid4()),
-        "author": author,
-        "text": text,
-        "timestamp": time.time(),
-        "colour": colour
-    }
+    user_message = { "id": str(uuid.uuid4()), "author": author, "text": text, "timestamp": time.time(), "colour": colour }
     with chat_lock:
         chat_history.append(user_message)
-        if len(chat_history) > 100:
-            chat_history.pop(0)
+        if len(chat_history) > 100: chat_history.pop(0)
 
     request_id = str(uuid.uuid4())
     done = threading.Event()
@@ -525,19 +510,9 @@ def user_say():
     reply_text = pending[request_id]["reply"]
     pending.pop(request_id, None)
 
-    bot_bubble_colour = {
-        "r": babyState.get("R", 133),
-        "g": babyState.get("G", 239),
-        "b": babyState.get("B", 238)
-    }
-
-    bot_message = {
-        "id": str(uuid.uuid4()),
-        "author": "babyLLM",
-        "text": reply_text,
-        "timestamp": time.time(),
-        "colour": bot_bubble_colour
-    }
+    bot_bubble_colour = { "r": babyState.get("R", 133), "g": babyState.get("G", 239), "b": babyState.get("B", 238) }
+    bot_message = { "id": str(uuid.uuid4()), "author": "babyLLM", "text": reply_text, "timestamp": time.time(), "colour": bot_bubble_colour }
+    
     with chat_lock:
         chat_history.append(bot_message)
         if len(chat_history) > 100: chat_history.pop(0)
