@@ -21,7 +21,7 @@ from BRAIN.LAYERS.memory import MEMORY
 #from BRAIN.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
-from helpers import clamp_param, get_grad_stats
+from helpers import clamp_param, get_grad_stats, debug_print, register_grad_hooks
 
 gradient_stats = {}
 
@@ -120,9 +120,9 @@ class BABYLLM(nn.Module):
         self.temperature = None
 
         """OPTIMIZER - this updates all of the layers learnable parameters"""
-        if debugPrints: 
-            print("registered parameters: ")
-            for name, param in BABYLLM.named_parameters(self): print(name, param.shape)
+        debug_print("registered parameters: ")
+        for name, param in BABYLLM.named_parameters(self):
+            debug_print(name, param.shape)
 
         #baseOptim = optim.RAdam(self.parameters(), lr = learningRate)
         #baseOptim = torch_optimizer.Lion(self.parameters(), lr = 1e-4)
@@ -141,92 +141,31 @@ class BABYLLM(nn.Module):
         #self.optimizer = optim.SGD(self.parameters(), lr=learningRate, momentum=0.9)
 
 
-        if debugPrints:
-            for name, param in self.named_parameters():
-                print(f"{name}: requires_grad={param.requires_grad}")
+        for name, param in self.named_parameters():
+            debug_print(f"{name}: requires_grad={param.requires_grad}")
 
         #self.to(self.device)
-        self.statsCategories = {"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "scheduledSamplingRate": 0, "tokenCount": 0, "memoryGateShort": 0, "memoryGateLong": 0, "memoryGateCurrent": 0, "shortDecay": 0, "longDecay": 0,}
-        
-        self.repetitionPenalty.register_hook(save_grad_hook('repetitionPenalty'))
-        self.logTemp.register_hook(save_grad_hook('logTemp'))
-        self.logLR.register_hook(save_grad_hook('logLR'))
-        #self.logGradClip.register_hook(save_grad_hook('logGradClip'))
-        #self.scheduledSamplingRate.register_hook(save_grad_hook('scheduledSamplingRate'))
-        self.logMemoryLength.register_hook(save_grad_hook('logMemoryLength'))
-        self.logMemory2Length.register_hook(save_grad_hook('logMemory2Length'))
-        self.logRepetitionWindow.register_hook(save_grad_hook('logRepetitionWindow'))
-        self.inputBlend.register_hook(save_grad_hook('inputBlend'))
-        self.embed.e_weights.register_hook(save_grad_hook('embed.e_weights'))
-        self.embed.weightsScale.register_hook(save_grad_hook('embed.weightsScale'))
-        self.embed.normScale.register_hook(save_grad_hook('embed.normScale'))
-        self.embed.embedNorm.weight.register_hook(save_grad_hook('embed.embedNorm.weight'))
-        self.embed.embedNorm.bias.register_hook(save_grad_hook('embed.embedNorm.bias'))
-        self.embed.pixelEmbed.weight.register_hook(save_grad_hook('embed.pixelEmbed.weight'))
-        self.embed.pixelEmbed.bias.register_hook(save_grad_hook('embed.pixelEmbed.bias'))
-        self.embed.posEmbedding.weight.register_hook(save_grad_hook('embed.posEmbedding.weight'))
-        self.interneuronNetwork.cerebellum.register_hook(save_grad_hook('interneuronNetwork.cerebellum'))
-        self.interneuronNetwork.windowFractionality.register_hook(save_grad_hook('interneuronNetwork.windowFractionality'))
-        self.interneuronNetwork.logWindowSizes.register_hook(save_grad_hook('interneuronNetwork.logWindowSizes'))
-        self.interneuronNetwork.neurons.n_weights.register_hook(save_grad_hook('interneuronNetwork.neurons.n_weights'))
-        self.interneuronNetwork.neurons.n_biases.register_hook(save_grad_hook('interneuronNetwork.neurons.n_biases'))
-        self.interneuronNetwork.neurons.inputNorm.weight.register_hook(save_grad_hook('interneuronNetwork.neurons.inputNorm.weight'))
-        self.interneuronNetwork.neurons.inputNorm.bias.register_hook(save_grad_hook('interneuronNetwork.neurons.inputNorm.bias'))
-        self.interneuronNetwork.neurons.activation_gain.register_hook(save_grad_hook('interneuronNetwork.neurons.activation_gain'))
-        self.interneuronNetwork.refinement2[0].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.0.weight'))
-        self.interneuronNetwork.refinement2[0].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.0.bias'))
-        self.interneuronNetwork.refinement2[2].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.2.weight'))
-        self.interneuronNetwork.refinement2[2].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.2.bias'))
-        self.interneuronNetwork.refinement2[3].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.3.weight'))
-        self.interneuronNetwork.refinement2[3].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.3.bias'))
-        self.interneuronNetwork.refinement2[4].weight.register_hook(save_grad_hook('interneuronNetwork.refinement2.4.weight'))
-        self.interneuronNetwork.refinement2[4].bias.register_hook(save_grad_hook('interneuronNetwork.refinement2.4.bias'))
-        self.logits.l_weights.register_hook(save_grad_hook('logits.l_weights'))
-        self.logits.l_bias.register_hook(save_grad_hook('logits.l_bias'))
-        self.logits.rawActivationsScale.register_hook(save_grad_hook('logits.rawActivationsScale'))
-        self.logits.normedActivationsScale.register_hook(save_grad_hook('logits.normedActivationsScale'))
-        #self.logits.outputScale.register_hook(save_grad_hook('logits.outputScale'))
-        #self.logits.normOutputScale.register_hook(save_grad_hook('logits.normOutputScale'))
-        self.logits.activationNorm.weight.register_hook(save_grad_hook('logits.activationNorm.weight'))
-        self.logits.activationNorm.bias.register_hook(save_grad_hook('logits.activationNorm.bias'))
-        self.logits.logitNorm.weight.register_hook(save_grad_hook('logits.logitNorm.weight'))
-        self.logits.logitNorm.bias.register_hook(save_grad_hook('logits.logitNorm.bias'))
-        self.memory.shortTermDecay.register_hook(save_grad_hook('memory.shortTermDecay'))
-        self.memory.longTermDecay.register_hook(save_grad_hook('memory.longTermDecay'))
-        self.memory.inputReducer.weight.register_hook(save_grad_hook('memory.inputReducer.weight'))
-        self.memory.inputReducer.bias.register_hook(save_grad_hook('memory.inputReducer.bias'))
-        self.memory.gateLayer2.weight.register_hook(save_grad_hook('memory.gateLayer2.weight'))
-        self.memory.gateLayer2.bias.register_hook(save_grad_hook('memory.gateLayer2.bias'))
-        self.memory.memoryProjector.weight.register_hook(save_grad_hook('memory.memoryProjector.weight'))
-        self.memory.memoryProjector.bias.register_hook(save_grad_hook('memory.memoryProjector.bias'))
-        self.memory.memoryInfluence2[0].weight.register_hook(save_grad_hook('memory.memoryInfluence2.0.weight'))
-        self.memory.memoryInfluence2[0].bias.register_hook(save_grad_hook('memory.memoryInfluence2.0.bias'))
-        self.memory.memoryInfluence2[2].weight.register_hook(save_grad_hook('memory.memoryInfluence2.2.weight'))
-        self.memory.memoryInfluence2[2].bias.register_hook(save_grad_hook('memory.memoryInfluence2.2.bias'))
-        self.memory.memoryInfluence2[3].weight.register_hook(save_grad_hook('memory.memoryInfluence2.3.weight'))
-        self.memory.memoryInfluence2[3].bias.register_hook(save_grad_hook('memory.memoryInfluence2.3.bias'))
-        self.memory.memoryInfluence2[4].weight.register_hook(save_grad_hook('memory.memoryInfluence2.4.weight'))
-        self.memory.memoryInfluence2[4].bias.register_hook(save_grad_hook('memory.memoryInfluence2.4.bias'))
-        self.memory2.shortTermDecay.register_hook(save_grad_hook('memory2.shortTermDecay'))
-        self.memory2.longTermDecay.register_hook(save_grad_hook('memory2.longTermDecay'))
-        self.memory2.inputReducer.weight.register_hook(save_grad_hook('memory2.inputReducer.weight'))
-        self.memory2.inputReducer.bias.register_hook(save_grad_hook('memory2.inputReducer.bias'))
-        self.memory2.gateLayer2.weight.register_hook(save_grad_hook('memory2.gateLayer2.weight'))
-        self.memory2.gateLayer2.bias.register_hook(save_grad_hook('memory2.gateLayer2.bias'))
-        self.memory2.memoryProjector.weight.register_hook(save_grad_hook('memory2.memoryProjector.weight'))
-        self.memory2.memoryProjector.bias.register_hook(save_grad_hook('memory2.memoryProjector.bias'))
-        self.memory2.memoryInfluence2[0].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.0.weight'))
-        self.memory2.memoryInfluence2[0].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.0.bias'))
-        self.memory2.memoryInfluence2[2].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.2.weight'))
-        self.memory2.memoryInfluence2[2].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.2.bias'))
-        self.memory2.memoryInfluence2[3].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.3.weight'))
-        self.memory2.memoryInfluence2[3].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.3.bias'))
-        self.memory2.memoryInfluence2[4].weight.register_hook(save_grad_hook('memory2.memoryInfluence2.4.weight'))
-        self.memory2.memoryInfluence2[4].bias.register_hook(save_grad_hook('memory2.memoryInfluence2.4.bias'))
-        self.pixelPupil.linear1.weight.register_hook(save_grad_hook('pixelPupil.linear1.weight'))
-        self.pixelPupil.linear1.bias.register_hook(save_grad_hook('pixelPupil.linear1.bias'))
-        self.pixelPupil.linear2.weight.register_hook(save_grad_hook('pixelPupil.linear2.weight'))
-        self.pixelPupil.linear2.bias.register_hook(save_grad_hook('pixelPupil.linear2.bias'))
+        self.statsCategories = {
+            "loss": 0,
+            "gradNorm": 0,
+            "logitMin": 0,
+            "logitMax": 0,
+            "scheduledSamplingRate": 0,
+            "tokenCount": 0,
+            "memoryGateShort": 0,
+            "memoryGateLong": 0,
+            "memoryGateCurrent": 0,
+            "shortDecay": 0,
+            "longDecay": 0,
+        }
+
+        excluded = {
+            "logGradClip",
+            "scheduledSamplingRate",
+            "logits.outputScale",
+            "logits.normOutputScale",
+        }
+        register_grad_hooks(((name, param) for name, param in self.named_parameters() if name not in excluded), save_grad_hook,)
 
     @whocalled
     def forward(self, _inputSeq = None, _pixel = None):
@@ -238,7 +177,7 @@ class BABYLLM(nn.Module):
                 tensor_snitch(self.embed, "babyllm forward start")
                 tensor_snitch(self.interneuronNetwork, "babyllm forward start")
                 tensor_snitch(self.logits, "babyllm forward start")
-            if debugPrints: print(f"Debug: Input to forward: {_inputSeq}")
+            debug_print(f"Debug: Input to forward: {_inputSeq}")
             self.temperature = torch.exp(self.logTemp)
             self.interneuronNetwork.temperature = self.temperature
             self.pixel = _pixel
@@ -251,10 +190,9 @@ class BABYLLM(nn.Module):
             posEmbed = self.embed.posEmbedding(pos_indices)  # [seq_len, embed_dim]
             if not skipPixels and (_pixel is not None):
                 rgbEmbed = self.embed(_pixel = _pixel)
-                if debugPrints:
-                    print("tokenEmbed:", tokenEmbed.shape)
-                    print("posEmbed:", posEmbed.shape)
-                    print("rgbEmbed:", rgbEmbed.shape)
+                debug_print("tokenEmbed:", tokenEmbed.shape)
+                debug_print("posEmbed:", posEmbed.shape)
+                debug_print("rgbEmbed:", rgbEmbed.shape)
                 #blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
                 #inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
                 blend = F.softmax(self.inputBlend, dim = 0)
@@ -262,19 +200,19 @@ class BABYLLM(nn.Module):
             else:
                 inputEmbeds = tokenEmbed
             self.latestTokenEmbed = inputEmbeds
-            if debugPrints: print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
+            debug_print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
             if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
 
             if True:
                 INNOutput = self.interneuronNetwork.forward(inputEmbeds)
-                if debugPrints: print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
-                if debugPrints: print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
-                if debugPrints: print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
+                debug_print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
+                debug_print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
+                debug_print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
 
                 if debugPrints: ʕっʘ‿ʘʔっ("B2: memoryOutput") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
                 if skipMemory:
-                    if debugPrints: print("skipping memory layer...")
+                    debug_print("skipping memory layer...")
                     memoryOutput = INNOutput
                 else:
                     # --- RESIDUAL A: Pass the raw thought past the first memory layer ---
@@ -288,7 +226,7 @@ class BABYLLM(nn.Module):
 
                 if debugPrints: ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
                 logitsBeforePenalty = self.logits.forward(memory2Output)
-                if debugPrints: print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
+                debug_print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
 
             if False: # standard transformer >:(
                 input_for_transformer = inputEmbeds.unsqueeze(0) 
@@ -306,20 +244,20 @@ class BABYLLM(nn.Module):
                 self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
             penalisedLogits = self.applyRepetitionPenalty(logitsBeforePenalty, _inputSeq)
             
-            if debugPrints: print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
-            if debugPrints: print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
-            if debugPrints: print("before logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
-            if debugPrints: print("before logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
+            debug_print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
+            debug_print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
+            debug_print("before logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
+            debug_print("before logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
             if skipFINALlogitNorm:
                 if debugPrints: ʕっʘ‿ʘʔっ("Bx: logits.forward")
                 FINALlogits = penalisedLogits
             else:
                 FINALlogits = penalisedLogits 
 
-            if debugPrints: print("AFTER logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
-            if debugPrints: print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
-            if debugPrints: print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
-            if debugPrints: print("AFTER memory output requires_grad?", self.memory.longTermMemory.requires_grad)
+            debug_print("AFTER logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
+            debug_print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
+            debug_print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
+            debug_print("AFTER memory output requires_grad?", self.memory.longTermMemory.requires_grad)
 
             if True:
                 if debugPrints: ʕっʘ‿ʘʔっ("stats collection!")
@@ -331,7 +269,7 @@ class BABYLLM(nn.Module):
                 #self.memory2OutputHistory.append(memory2Output.norm().item())
                 #self.penalisedOutputHistory.append(penalisedLogits.norm().item())
                 self.FINALlogitsHistory.append(FINALlogits.norm().item())
-                if debugPrints: print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
+                debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
 
                 if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
                     self.forwardStats = {
@@ -383,7 +321,7 @@ class BABYLLM(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("targetTensor")          
             targetTensor = torch.tensor([_targetTokenIndex], dtype = torch.long, device = self.device)
             
-            if debugPrints: print(f"logits shape: {_logits.shape} | target: {_targetTokenIndex}")
+            debug_print(f"logits shape: {_logits.shape} | target: {_targetTokenIndex}")
             if _logits.dim() == 1: 
                 _logits = _logits.unsqueeze(0) # ensure logits are at least 2d
             
@@ -395,11 +333,11 @@ class BABYLLM(nn.Module):
                 print("NaN/Inf loss detected — logits:", _logits)
                 return torch.tensor(10.0, device = self.device, requires_grad = True)
 
-            if debugPrints: print(f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
+            debug_print(f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}")
             
             self.CELossDelta = loss - ((self.lastLossBaby) if self.lastLossBaby is not None else 0)
 
-            if debugPrints: print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
+            debug_print(f"{self.lastLossBaby:0.1f}", end = ", ") # take delta
 
             # regulate the learned LR, temperature, repetition penalty (etc) towards target values
             lrSoftClamp = 0.0015 * (self.logLR - math.log(learningRateGOAL)).pow(2)
@@ -415,7 +353,7 @@ class BABYLLM(nn.Module):
             self.repPenSoftClamp_used = repetitionPenaltySoftClamp
             self.lastLossBaby = loss.item()
             FINALloss = loss
-            if debugPrints: print(f"{FINALloss} + loss")
+            debug_print(f"{FINALloss} + loss")
 
             if self.lastSoftSample is not None and not skipAuxLoss:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
@@ -427,7 +365,7 @@ class BABYLLM(nn.Module):
                 AUXloss_cos = (1.0 - cosSim.mean())
                 self.AUXlossCos_used = AUXloss_cos
                 AUXloss = AUXloss_cos + AUXloss_kl
-                if debugPrints: print(f"{AUXloss} + aux")
+                debug_print(f"{AUXloss} + aux")
             else:
                 AUXloss = 0
 
@@ -437,11 +375,11 @@ class BABYLLM(nn.Module):
                 repLoss = repLoss_raw * 100.0
                 self.repLoss_used = repLoss
                 FINALloss += repLoss    
-                if debugPrints: print(f"{FINALloss} repLoss ({repLoss}) + final")    
+                debug_print(f"{FINALloss} repLoss ({repLoss}) + final")    
 
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
                 if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss")
-                if debugPrints: print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape}), [-1] is {self.latestTokenEmbed[-1]} ({self.latestTokenEmbed[-1].shape})")
+                debug_print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape}), [-1] is {self.latestTokenEmbed[-1]} ({self.latestTokenEmbed[-1].shape})")
                 embedding = self.latestTokenEmbed[-1]
                 predictedRGB = self.pixelPupil(embedding)
                 self.predPixel = predictedRGB
@@ -452,15 +390,15 @@ class BABYLLM(nn.Module):
                 if debugPrints: self.print_rgb_block(self.pixel, "prompt")
                 if debugPrints: self.print_rgb_block(predictedRGB, "guess")
                 if debugPrints: self.print_rgb_block(self.nextPixelTarget, "truth")
-                if debugPrints: print(f"{rgbLoss} + rgb")
-                if debugPrints: print(f"{self.PIXELloss} + pixel")
+                debug_print(f"{rgbLoss} + rgb")
+                debug_print(f"{self.PIXELloss} + pixel")
                 # Detach the token embedding once it's no longer needed for gradient computation
                 if self.latestTokenEmbed is not None:
                     self.latestTokenEmbed = self.latestTokenEmbed.detach()
 
             else:
                 FINALloss = loss
-                if debugPrints: print(f"{FINALloss} + final")
+                debug_print(f"{FINALloss} + final")
 
             #tempSoftClamp = 0.4 * (self.logTemp - math.log(0.5)).pow(2)
 
@@ -476,15 +414,15 @@ class BABYLLM(nn.Module):
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
                 FINALloss += (self.PIXELloss * 0.5)
                 self.pixelLoss_used = (self.PIXELloss * 0.5)
-                if debugPrints: print(f"{FINALloss} pixel + final")
+                debug_print(f"{FINALloss} pixel + final")
 
             if self.lastSoftSample is not None and not skipAuxLoss: 
                 if torch.isnan(AUXloss) or not torch.isfinite(AUXloss):
                     print(f"AUXloss contains NaN!")
                     AUXloss = torch.tensor(0.0, device = self.device)
                 FINALloss += AUXloss
-                if debugPrints: print(f"{FINALloss} aux ({AUXloss}) + final")
-            if debugPrints: print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
+                debug_print(f"{FINALloss} aux ({AUXloss}) + final")
+            debug_print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
 
             return FINALloss
     
@@ -520,7 +458,7 @@ class BABYLLM(nn.Module):
                         std = stats["std"]
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"before = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
-                        if debugPrints: print("Loss:", _loss.item())
+                        debug_print("Loss:", _loss.item())
 
             if self.totalTurns % 100 == 0:
                 grad_log_output = "\n--- Gradient Vitals (before) ---\n"
@@ -545,12 +483,12 @@ class BABYLLM(nn.Module):
                 gradient_stats.clear()
 
             if debugPrints: ʕっʘ‿ʘʔっ("loss.backward")
-            if debugPrints: print(f"windowMAX: {self.numTokensPerStep}")
+            debug_print(f"windowMAX: {self.numTokensPerStep}")
             _loss.backward()
-            if debugPrints: print("Logit weights grad norm:", self.logits.l_weights.grad.norm())
-            if debugPrints: print("LogWindowSizes grad norm:", self.interneuronNetwork.logWindowSizes.grad.norm())
-            if debugPrints: print("Cerebellum grad norm:", self.interneuronNetwork.cerebellum.grad.norm())
-            if debugPrints: print("Repetition penalty grad norm:", self.repetitionPenalty.grad.norm())
+            debug_print("Logit weights grad norm:", self.logits.l_weights.grad.norm())
+            debug_print("LogWindowSizes grad norm:", self.interneuronNetwork.logWindowSizes.grad.norm())
+            debug_print("Cerebellum grad norm:", self.interneuronNetwork.cerebellum.grad.norm())
+            debug_print("Repetition penalty grad norm:", self.repetitionPenalty.grad.norm())
             #print(next(self.parameters()).grad)
             if debugPrints:
                 if debugPrints: ʕっʘ‿ʘʔっ("print named parameters")
@@ -718,7 +656,7 @@ class BABYLLM(nn.Module):
                 assert torch.isfinite(base_probs).all(), "gumbelProbs has NaN or Inf!"
             except Exception as e:
                 self.gumBellend += 1
-                if debugPrints: print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
+                debug_print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
                 base_probs = F.softmax(logits_scaled, dim=-1)
             
             if _training:
@@ -1011,11 +949,11 @@ class BABYLLM(nn.Module):
                 else: 
                     self.stepsSinceMemory2Reset = 1
                 if self.stepsSinceMemoryReset > 3: 
-                    if debugPrints: print(f"resetting memory1 after {self.stepsSinceMemoryReset} steps... (learned mem length: {torch.exp(self.logMemoryLength)} ({self.memoryLength}))")
+                    debug_print(f"resetting memory1 after {self.stepsSinceMemoryReset} steps... (learned mem length: {torch.exp(self.logMemoryLength)} ({self.memoryLength}))")
                     self.memory.resetMemory(_memoryLength = self.memoryLength)
                     self.stepsSinceMemoryReset = 0
                 if self.stepsSinceMemory2Reset > 3:
-                    if debugPrints: print(f"resetting memory2 after {self.stepsSinceMemory2Reset} steps... (learned mem length: {torch.exp(self.logMemory2Length)} ({self.memory2Length}))")
+                    debug_print(f"resetting memory2 after {self.stepsSinceMemory2Reset} steps... (learned mem length: {torch.exp(self.logMemory2Length)} ({self.memory2Length}))")
                     self.memory2.resetMemory(_memoryLength = self.memory2Length)
                     self.stepsSinceMemory2Reset = 0 
 
