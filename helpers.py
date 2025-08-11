@@ -6,8 +6,14 @@ from typing import Iterable, Tuple, Callable
 try: from config import debugPrints as _debug_enabled
 except Exception: _debug_enabled = os.getenv("BABYLLM_DEBUG") == "1"
 
-def get_grad_stats(grad: torch.Tensor) -> dict: return {"shape": tuple(grad.shape), "norm": grad.norm().item(), "mean": grad.mean().item(), "std": grad.std().item(), "sparsity": 1.0 - (grad.count_nonzero().item() / grad.numel()),}
-
+def get_grad_stats(grad: torch.Tensor) -> dict:
+    return {
+        "shape": tuple(grad.shape),
+        "norm": grad.norm().item(),
+        "mean": grad.mean().item(),
+        "std": grad.std(unbiased=False).item(),
+        "sparsity": 1.0 - (grad.count_nonzero().item() / grad.numel()),
+    }
 def clamp_param(param: torch.Tensor, min_val: float, max_val: float) -> None:
     with torch.no_grad(): param.data.clamp_(min_val, max_val)
 

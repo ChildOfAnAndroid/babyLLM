@@ -63,14 +63,13 @@ try:
     if os.path.exists(PAINT_TIMESTAMP_FILE_PATH):
         with paint_lock:
             with open(PAINT_TIMESTAMP_FILE_PATH, 'rb') as f:
+                paint_timestamp_data = array.array('L')
                 paint_timestamp_data.fromfile(f, PAINT_PIXEL_COUNT)
-                # --- DIAGNOSTIC 1: Check data immediately after loading ---
-                non_zero_timestamps = sum(1 for t in paint_timestamp_data if t > 0)
-                print(f"[DATA_LOAD] Loaded existing timestamp state. Found {non_zero_timestamps} active pixels on disk.")
-
+                print("Loaded existing timestamp state.")
     if os.path.exists(PAINT_LIFESPAN_FILE_PATH):
         with paint_lock:
             with open(PAINT_LIFESPAN_FILE_PATH, 'rb') as f:
+                paint_lifespan_data = array.array('f')
                 paint_lifespan_data.fromfile(f, PAINT_PIXEL_COUNT * 2)
                 print("Loaded existing lifespan state.")
 except Exception as e:
@@ -91,13 +90,11 @@ def pixel_aging_loop():
                 print(f"[AGING_THREAD_CHECK] The aging loop sees {non_zero_in_thread} active pixels in memory.")
 
                 now = int(time.time())
-                pixels_changed_on_disk = False
+                changed_pixels = []
                 for i in range(PAINT_PIXEL_COUNT):
                     timestamp = paint_timestamp_data[i]
-                    if timestamp == 0: continue 
-
-                    active_pixels += 1 # Correctly increment counter
-                    
+                    if timestamp == 0:
+                        continue
                     age = now - timestamp
                     alpha_index = i * 4 + 3
                     current_alpha = paint_rgba_data[alpha_index]
@@ -105,28 +102,47 @@ def pixel_aging_loop():
                     fade_end_seconds = paint_lifespan_data[i * 2 + 1]
                     fade_duration = fade_end_seconds - fade_start_seconds
 
-                    if fade_duration <= 0: continue
+                    if fade_duration <= 0:
+                        continue
 
                     new_alpha = current_alpha
                     if age > fade_end_seconds:
                         if current_alpha > 0:
                             new_alpha = 0
                             paint_timestamp_data[i] = 0
-                            pixels_erased += 1 # Correctly increment counter
+                            paint_lifespan_data[i * 2] = 0.0
+                            paint_lifespan_data[i * 2 + 1] = 0.0
                     elif age > fade_start_seconds:
                         fade_progress = (age - fade_start_seconds) / fade_duration
-                        new_alpha = int(255 * (1.0 - fade_progress))
-                        if new_alpha < current_alpha:
-                            pixels_faded += 1 # Correctly increment counter
-                    
+                        new_alpha = int(current_alpha * (1.0 - fade_progress))
+
                     if new_alpha != current_alpha:
                         paint_rgba_data[alpha_index] = min(255, max(0, new_alpha))
-                        pixels_changed_on_disk = True
-                
-                if pixels_changed_on_disk: 
-                    with open(PAINT_STATE_FILE_PATH, 'wb') as f: f.write(paint_rgba_data)
-                    
-            print(f"[PIXEL_AGING_REPORT | {time.strftime('%H:%M:%S')}] Active Pixels: {active_pixels}, Fading: {pixels_faded}, Erased This Cycle: {pixels_erased}")
+                        x = i % 64
+                        y = i // 64
+                        rgba_index = i * 4
+                        changed_pixels.append({
+                            "x": x,
+                            "y": y,
+                            "r": paint_rgba_data[rgba_index],
+                            "g": paint_rgba_data[rgba_index + 1],
+                            "b": paint_rgba_data[rgba_index + 2],
+                            "a": paint_rgba_data[alpha_index]
+                        })
+
+                if changed_pixels:
+                    with open(PAINT_STATE_FILE_PATH, 'wb') as f:
+                        f.write(paint_rgba_data)
+                    with open(PAINT_TIMESTAMP_FILE_PATH, 'wb') as f:
+                        paint_timestamp_data.tofile(f)
+                    with open(PAINT_LIFESPAN_FILE_PATH, 'wb') as f:
+                        paint_lifespan_data.tofile(f)
+                print(f"[PIXEL_AGING_REPORT | {time.strftime('%H:%M:%S')}] Active Pixels: {active_pixels}, Fading: {pixels_faded}, Erased This Cycle: {pixels_erased}")
+
+            if changed_pixels:
+                event = {"id": str(uuid.uuid4()), "ts": time.time(), "pixels": changed_pixels}
+                with paint_event_lock:
+                    paint_event_log.append(event)
         except Exception as e: print(f"[ERROR] pixel_aging_loop: {e}")
 
 
