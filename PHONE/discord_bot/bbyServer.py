@@ -174,7 +174,7 @@ def pixel_aging_loop():
         except Exception as e:
             print(f"[ERROR] pixel_aging_loop: {e}")
 
-        time.sleep(5)
+        time.sleep(60)
 
 
 # --- THE BABY SOUL ---

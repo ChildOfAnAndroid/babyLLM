@@ -168,6 +168,36 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         top_str = f"{self.bot.getNickname(top_user)} (with x{top_count})" if top_user else "no one... yet!"
         return top_user, top_count, top_str
 
+    # --*- FACT & USER RANKING HELPERS -*--
+
+    def _get_current_value_rank(self, fact_name: str):
+        market_values = {
+            name: self._get_fact_value(name) 
+            for name, data in self.bot.bbyfacts.items() 
+            if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
+        }
+        if not market_values: return (float('inf'), "Unranked")
+        sorted_items = sorted(market_values.items(), key=lambda item: item[1], reverse=True)
+        ranked_names = [name for name, value in sorted_items]
+        try:
+            rank = ranked_names.index(fact_name) + 1
+            return rank, f"{rank}"
+        except ValueError: return (float('inf'), "Unranked")
+
+    def _get_bby_leaderboard(self, reverse=True):
+        eligible_users = {u: m["BBY"] for u, m in self.bot.userMemory.items() if m.get("BBY") != 0}
+        return sorted(eligible_users.items(), key=lambda item: item[1], reverse=reverse)
+
+    def _get_user_bby_rank(self, user_id: str):
+        leaderboard = self._get_bby_leaderboard(reverse=True)
+        total_ranked_users = len(leaderboard)
+        ranked_ids = [u_id for u_id, bby_score in leaderboard]
+
+        try:
+            rank = ranked_ids.index(user_id) + 1
+            return rank, total_ranked_users
+        except ValueError: return None, total_ranked_users
+
     async def _maybe_steal_item(self, winner_id, loser_id, ctx, chance = 0.42):
         if random.random() < chance:
             loser_inventory = self.bot.userMemory.get(loser_id, {}).get("inventory", {})
@@ -258,7 +288,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if len(value) > 300:
             await self.bot._discord_debug(f"[_TEACH] DEFINITION LENGTH OVER 200, CANCELLING UPDATE FOR {key} ")
             return await self.bot._discord_reply(ctx, "long af... too long actually... could you keep the description under like 300 characters? ")
-
         fullBestieboard = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items() if abs(m["BBY"]) >= 1.0], key=lambda x: x[1], reverse=True)
         BBY = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
         totalBBY = sum(abs(score) for _, score in fullBestieboard)
@@ -273,8 +302,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if self.bot.random2 > 0.99995:
             reply += "... actually that's fucking insane! "
             incrementTeach *= 42069.69
-        if incrementTeach > 4200.69:
-            incrementTeach = incrementTeach * 0.075
+        if incrementTeach > 4200.69: incrementTeach = incrementTeach * 0.075
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
@@ -282,14 +310,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         num_produced = self._get_fact_num_produced(key)        
         awardNumber = round((self.bot.random4 * self.bot.random3) * (random.uniform(1, (num_produced * self.bot.random2 * self.bot.random))) + 1)
         awardNumber = await self._award_fact(user = author, fact = key, ctx = ctx, num = awardNumber)
-        all_bonuses = sorted([fact.get('teach_bonus', 0) for fact in self.bot.bbyfacts.values() if isinstance(fact, dict) and fact.get('teach_bonus', 0) > 0], reverse=True)
-        try:
-            rank = all_bonuses.index(incrementTeach) + 1
-            rank_str = f"{rank}"
-        except ValueError: rank_str = "Unranked"
-        effective_cost = self._get_fact_value(key)
-        if rank < 20: reply += "damn, top 20! "
-        reply += f"that got BBY rank number {rank_str} :) i gave you {int(awardNumber)} of them, and so the world's only allowed {int(num_produced-(int(awardNumber)))} more!"
+        rank, rank_str = self._get_current_value_rank(key)
+        if rank <= 20:  reply += "damn, top 20! "
+        reply += f"that got rank {rank_str}! :) i gave you {int(awardNumber)} of them, and so the world's only allowed {int(num_produced-(int(awardNumber)))} more!"
         await self.bot._discord_reply(ctx, reply, to_buffer=False)
         narrator_line_1 = self.bot.formatMessage(author, f"hey bby, did you know that {key} means {value}?")
         narrator_line_2 = self.bot.formatMessage(self.bot.babyName.lower(), f"haha, really? that's a nice way to explain it! thanks for teaching me.")
@@ -1429,12 +1452,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyfriends(self, ctx): 
         try:
             author = ctx.author.name.lower()
-
-            fullBestieboard = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items() if abs(m["BBY"])], key = lambda x: x[1], reverse = True)
+            fullBestieboard = self._get_bby_leaderboard(reverse=True)
+            if not fullBestieboard: return await self.bot._discord_reply(ctx, "no one has any BBY yet, the world is perfectly balanced... for now.")
             BBY = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
             totalBBY = sum(abs(score) for _, score in fullBestieboard)
-            rank = next((i for i, (u, _) in enumerate(fullBestieboard) if u == author), None)
-     
+            rank, _ = self._get_user_bby_rank(author)
             reply = f"{random.choice(self.bot.faveEmotes)}xoxo welcome to my bbyspace page! xoxo{random.choice(self.bot.faveEmotes)}\n"
             reply += random.choice(["xoxo rawr xD my besties are... xoxo", "xoxo top friends 2001!!!1! xoxo", "xoxo people i hate xoxo", "xoxo people i hate least xoxo", "xoxo not 1337 n00bs xoxo", "xoxo top 10 vatsim players xoxo", "xoxo ur mum gay xoxo", "xoxo rawr is i love u in dinosore xoxo", "xoxo avalance patrolers xoxo", "xoxo eve online leaderboard xoxo", "xoxo falling furni event!! habbo club members only xoxo"])
             reply += "\n\n"
@@ -1455,33 +1477,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 if self.bot.userMemory[u]['message_count'] > 0.0 or self.bot.userMemory[u]['last_seen'] > 0.0 or self.bot.userMemory[u]['loyalty'] > 0.0:
                     last_seen = howLongAgo(self.bot.userMemory[u].get("last_seen", 0.0))
                     line += f"{random.choice(self.bot.faveEmotes)} {self.bot.userMemory[u]['message_count']:.0f} messages in {self.bot.userMemory[u]['loyalty']:.0f} days, we last spoke {last_seen}! \n"
-                
                 inventory = self.bot.userMemory[u].get('inventory', {})
                 if inventory:
                     total_items_count = sum(inventory.values())
                     most_owned_item, most_owned_count = max(inventory.items(), key=lambda item: item[1])
-                    
                     user_item_values = {item: self._get_fact_value(item) for item in inventory}
                     most_valuable_item, most_valuable_value = max(user_item_values.items(), key=lambda item: item[1])
-
                     unique_items_owned = len(inventory)
                     total_unique_items = len(self.bot.bbyfacts) if self.bot.bbyfacts else 1
-
                     line += (f"{random.choice(self.bot.faveEmotes)} hoards {int(total_items_count)} items ({unique_items_owned} unique) "
                              f"most owned: x{int(most_owned_count)} {most_owned_item}; "
                              f"most valuable: {most_valuable_item} (ᛒ{most_valuable_value:,.0f}) \n\n")
-                else:
-                    line += f"{random.choice(self.bot.faveEmotes)} has no items yet! :( \n\n" 
+                else: line += f"{random.choice(self.bot.faveEmotes)} has no items yet! :( \n\n" 
                 reply += line
                 if rank is not None:
                     max_rank_bonus = (len(self.bot.AIoptInUsers) / 10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
                     self.bot.updateBBY(author, bonus)
-
             if self.bot.random > 0.99:
                 reply += f"\n👻 also... i know your real name {author} :) reee!!!"
                 self.bot.updateBBY(author, 10.0)
-            update = f"\n\nchecked how much i love {author}... they have ᛒ{BBY:.0f}, so they're number {rank+1 if rank is not None else 'N/A'} in the list! i now have {len(self.bot.buffer)} messages in my queue.\n\n"
+            update = f"\n\nchecked how much i love {author}... they have ᛒ{BBY:.0f}, so they're number {rank if rank is not None else 'N/A'} in the list! i now have {len(self.bot.buffer)} messages in my queue.\n\n"
             await self.bot._discord_reply(ctx, reply)
             if self.bot.random2 < 0.5: self.bot.updateBBY(author, 0.02)
             print(update)
@@ -1493,20 +1509,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyrivals(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            fullRivals = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items() if abs(m["BBY"])], key = lambda x: x[1])
+            fullRivals = self._get_bby_leaderboard(reverse=False)
+            if not fullRivals: return await self.bot._discord_reply(ctx, "no one has any BBY yet, there are no rivals, only peace... for now.")
             BBY = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
             totalBBY = sum(abs(score) for _, score in fullRivals)
-            rank = next((i for i, (u, _) in enumerate(fullRivals) if u == author), None)
-
+            ranked_ids = [u_id for u_id, bby_score in fullRivals]
+            try: rank = ranked_ids.index(author) + 1
+            except ValueError: rank = None
             reply = "the weakest links have been located "
             reply += random.choice(["lol", "... uh oh", ", uh oh stinky", "! prepare the laser!", "... this is awkward", ", baby saw this", "... oh fuck no", "! ur in trouble now!", "- low vibez only xoxo"]) + " "
             reply += f"{random.choice(self.bot.faveEmotes)} \n\n"
-
             for i, (u, BBY) in enumerate(fullRivals[:5], 1):
                 name = self.bot.getNickname(u)
                 combo = self.bot.userMemory[u].get('creative_combo', 1)
                 spammer = self.bot.userMemory[u].get('spammer', 1)
-                currentBBYHolding = abs(BBY) / totalBBY if totalBBY else 0.0  # moved inside loop!
+                currentBBYHolding = abs(BBY) / totalBBY if totalBBY else 0.0
                 line = f"{i}. {name} "
                 if combo > 1: line += f"🎨x{combo:.0f} "
                 if spammer > 1: line += f"🧌x{spammer:.0f}"
@@ -1523,18 +1540,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     min_rank_bonus = -len(self.bot.AIoptInUsers) / 20
                     penalty = min(0, min_rank_bonus + (rank * 0.15))
                     self.bot.updateBBY(author, penalty)
-
             if self.bot.random > 0.99:
                 reply += f"👀 baby will remember this, {author}..."
                 self.bot.updateBBY(self.bot.getNickname(author), -10.0)
-
             await self.bot._discord_reply(ctx, reply)
-
             if self.bot.random2 < 0.5:
                 self.bot.updateBBY(author, -0.01)
                 self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
-            print(f"\n\nchecked {author}'s BBY ({BBY:.0f}), rival rank #{rank+1 if rank is not None else '??'}. buffer now {len(self.bot.buffer)} messages long.\n\n")
-
+            print(f"\n\nchecked {author}'s BBY ({BBY:.0f}), rival rank #{rank if rank is not None else '??'}. buffer now {len(self.bot.buffer)} messages long.\n\n")
         except Exception as e:
             await self.bot._discord_reply(ctx, f"bbyrivals broke: {e}")
 
@@ -1546,6 +1559,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 self.bot.updateBBY(author, 0.02)
 
             BBY = self.bot.getBBY(author)
+            # ... (seed generation logic unchanged)
             if BBY >= 0:
                 seed = f"wow, {author} really loves me this much!? {author} has a ᛒ{BBY}! <3"
                 self.bot.updateBBY(author, 0.1)
@@ -1554,19 +1568,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 self.bot.updateBBY(author, 10.0)
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, seed))
 
-            fullBestieboard = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items()], key = lambda x: x[1], reverse = True)
-
-            rank = next((i for i, (u, _) in enumerate(fullBestieboard) if u == author), None)
-            rankStr = f"{rank+1}" if rank is not None else "69420"
+            # --- USE HELPER ---
+            rank, _ = self._get_user_bby_rank(author)
+            rankStr = f"{rank}" if rank is not None else "69420"
+            # --- END HELPER USE ---
 
             nic = self.bot.getNickname(author)
             reply = f"hey {nic}! you have ᛒ{BBY:.0f}"
-            if True: #self.bot.random3 > 0.1:
+            if True:
                 reply += f", that puts you number {rankStr} in my top friends list lmaooo"
                 if rank is not None:
                     max_rank_bonus = (len(self.bot.AIoptInUsers)/10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
                     self.bot.updateBBY(author, bonus)
+            # ... (rest of command unchanged)
             if self.bot.random4 > 0.99:
                 reply += f", i know your real nameeee {author}, spoopy scary skeletons"
                 self.bot.updateBBY(author, 1.0)
@@ -2286,8 +2301,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if tip_amount_per_pull <= 0 or num_pulls <= 0:
                 await self.bot._discord_reply(ctx, "hmm... what can i give you for a negative amount... a fucking slap. lmaoooo")
                 return await self._award_fact(customer_id, "a fucking slap", ctx, num = 1)
-            if num_pulls > 421:
-                return await self.bot._discord_reply(ctx, "jesus christ lmfao be reasonable xD less than 421 plz ")
+            if num_pulls > 42069:
+                return await self.bot._discord_reply(ctx, "jesus christ lmfao be reasonable xD less than 42069 plz ")
         except ValueError:
             return await self.bot._discord_reply(ctx, f"brr i can't read that... please use numbers! !bbytip <tip> <attempts> ")
 
@@ -2369,85 +2384,62 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name = "bbyitems", aliases=["bbytop", "bmarket", "bbyvalues"])
     async def bbyitems(self, ctx):
-        """View the top 5 and bottom 5 BBYbook item values."""
-        if not self.bot.bbyfacts:
-            await self.bot._discord_reply(ctx, "i don't know anything yet... fill up the dictionary with !bbyteach first :) ")
-            return
-
-        market_values = {}
-        for item_name, fact_data in self.bot.bbyfacts.items():
-            market_value = self._get_fact_value(item_name)
-            if market_value > 0: market_values[item_name] = market_value
-            else: continue
-
-        if not market_values:
-            await self.bot._discord_reply(ctx, "no items over 0... guess it's broken rn ")
-            return
-
-        sorted_items = sorted(market_values.items(), key = lambda x: x[1], reverse = True)
+        """View the top 20 and bottom 20 BBYbook item values."""
+        if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "i don't know anything yet... fill up the dictionary with !bbyteach first :) ")
+        market_values = {
+            name: self._get_fact_value(name) 
+            for name, data in self.bot.bbyfacts.items() 
+            if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
+        }
+        if not market_values: return await self.bot._discord_reply(ctx, "no items have a positive value... i guess it's all very cursed rn ")
+        sorted_items = sorted(market_values.items(), key=lambda x: x[1], reverse=True)
         top_items = sorted_items[:20]
-        bottom_items = sorted_items[-20:]
-
-        def fmt(name, val):
-            return f"{name} is ᛒ{int(round(val)):,}"
-
+        bottom_items = sorted_items[-20:] if len(sorted_items) > 20 else []
+        def fmt(name, val): return f"{name} is ᛒ{int(round(val)):,}"
         top_list = "\n".join([f"{i+1}. {fmt(n, v)}" for i, (n, v) in enumerate(top_items)])
-        bottom_list = "\n".join([f"{len(sorted_items) - len(bottom_items) + i + 1}. {fmt(n, v)}" for i, (n, v) in enumerate(bottom_items)])
+        bottom_start_index = len(sorted_items) - len(bottom_items)
+        bottom_list = "\n".join([f"{bottom_start_index + i + 1}. {fmt(n, v)}" for i, (n, v) in enumerate(bottom_items)])
 
-        reply = f"item values!\n\n"
+        reply = f"item values! ({len(sorted_items)} total ranked items)\n\n"
         reply += f"top 20: \n{top_list}\n\n"
-        reply += f"bottom 20: \n{bottom_list}"
+        if bottom_list:
+            reply += f"bottom 20: \n{bottom_list}"
 
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbyinfo", aliases=['binfo', 'bi'])
     async def bbyinfo(self, ctx, *, member: discord.Member = None):
         """Displays everything bbyllm knows about a user."""
-        if member is None:
-            member = ctx.author
-
+        if member is None: member = ctx.author
         target_id = member.name.lower()
         target_nic = self.bot.getNickname(target_id)
-
         if target_id not in self.bot.userMemory: return await self.bot._discord_reply(ctx, f"i don't know who {member.display_name} is... have they even talked yet? lol")
         if target_id not in self.bot.AIoptInUsers: return await self.bot._discord_reply(ctx, f"i can't tell you much - they've not opted in! (!bbyoptin)")
 
         mem = self.bot.userMemory[target_id]
         BBY = mem.get("BBY", 0.0)
-        leaderboard = sorted(
-            [(u, m.get("BBY", 0.0)) for u, m in self.bot.userMemory.items()],
-            key = lambda item: item[1],
-            reverse = True
-        )
-        try:
-            rank = [u for u, s in leaderboard].index(target_id) + 1
-        except ValueError:
-            rank = "no rank"
-        total_users = len(leaderboard)
-
+        rank, total_users = self._get_user_bby_rank(target_id)
+        rank_str = f"#{rank}" if rank is not None else "Unranked"
         bestie, _ = self.bot.checkBestie()
         rival, _ = self.bot.checkRival()
         status = ""
-        if target_id == bestie:
-            status = "💖 bffls! 💖"
-        elif target_id == rival:
-            status = "💀 fuck u 💀"
-
+        if target_id == bestie: status = "💖 bffls! 💖"
+        elif target_id == rival: status = "💀 fuck u 💀"
         message_count = mem.get("message_count", 0)
         loyalty = mem.get("loyalty", 1)
-        last_seen = howLongAgo(mem.get("last_seen", 0))
-
         wins = mem.get("wins", 0)
         losses = mem.get("losses", 0)
         draws = mem.get("draws", 0)
         total_fites = wins + losses
         win_rate = (wins / total_fites * 100) if total_fites > 0 else 0
-
         creative_combo = mem.get("creative_combo", 1)
         spammer = mem.get("spammer", 1)
         timezone = mem.get("timezone", "Not Set")
-
         opt_in_status = "✅" if target_id in self.bot.AIoptInUsers else "❌"
+        embed_color = discord.Color.default()
+        if BBY > 1000: embed_color = discord.Color.gold()
+        elif BBY > 0: embed_color = discord.Color.green()
+        elif BBY < 0: embed_color = discord.Color.red()
 
         facts_taught = [f"{k}" for k, v in self.bot.bbyfacts.items() if v.get('author', '').lower() == target_id]
         facts_summary = f"taught me {len(facts_taught)} things."
@@ -2472,11 +2464,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             inventory_summary = "\n".join(summary_lines)
             if len(sorted_items) > 5: inventory_summary += f"\n> ...and {len(sorted_items) - 5} more items."
 
-        embed_color = discord.Color.default()
-        if BBY > 1000: embed_color = discord.Color.gold()
-        elif BBY > 0: embed_color = discord.Color.green()
-        elif BBY < 0: embed_color = discord.Color.red()
-
         embed = discord.Embed(
             title = f"bbyllm's info on: {target_nic}",
             description = status,
@@ -2485,18 +2472,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
         embed.set_thumbnail(url = member.display_avatar.url)
         embed.set_footer(text = "information is power... or whatever...")
-
+        
         embed.add_field(
             name = "stats",
             value = f"BBY: `ᛒ{BBY:,.2f}`\n"
-                  f"rank: `#{rank} / {total_users}`\n"
+                  f"rank: `{rank_str} / {total_users}`\n"
                   f"active days: `{loyalty}`\n"
-                  f"last seen: `{last_seen}`\n"
                   f"w/l/d: `{int(wins)}/{int(losses)}/{int(draws)}`\n"
                   f"win rate: `{win_rate:.1f}%`\n",
             inline = True
         )
-
+        
         embed.add_field(
             name = "about u",
             value = f"creativity level: `x{creative_combo:.0f}`\n"
