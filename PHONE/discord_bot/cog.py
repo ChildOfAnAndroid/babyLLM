@@ -95,7 +95,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if wins > 0 or losses > 0:
             total_fites = wins + losses
             win_rate = (wins / total_fites * 100) if total_fites > 0 else 0
-            line += f"{emote} war win rate is {win_rate:.0%}; {wins:.0f} wins, {draws:.0f} draws, and {losses:.0f} losses.\n"
+            line += f"{emote} war win rate is {win_rate:.0f}%; {wins:.0f} wins, {draws:.0f} draws, and {losses:.0f} losses.\n"
 
         msg_count = user_mem.get('message_count', 0.0)
         loyalty = user_mem.get('loyalty', 0.0)
@@ -1485,8 +1485,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply += random.choice(["xoxo rawr xD my besties are... xoxo", "xoxo top friends 2001!!!1! xoxo", "xoxo people i hate xoxo", "xoxo people i hate least xoxo", "xoxo not 1337 n00bs xoxo", "xoxo top 10 vatsim players xoxo", "xoxo ur mum gay xoxo", "xoxo rawr is i love u in dinosore xoxo", "xoxo avalance patrolers xoxo", "xoxo eve online leaderboard xoxo", "xoxo falling furni event!! habbo club members only xoxo"])
             reply += "\n\n"
 
-            for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1):
-                reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=False)
+            for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1): reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=False)
 
             if rank is not None:
                 max_rank_bonus = (len(self.bot.AIoptInUsers) / 10)
@@ -2020,7 +2019,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, f"uk 420 is in {time_str}, {nature}, or just {next_spike.strftime('%H:%M:%S')} in {tzname}")
 
     @commands.command(name = "bbyhug", aliases=['bhug', 'bbyhugs', 'bhugs'])
-    @commands.cooldown(1, 3, commands.BucketType.user) 
+    @commands.cooldown(1, 1, commands.BucketType.user) 
     async def bbyhug(self, ctx, member: discord.Member):
         hugger_id = ctx.author.name.lower()
         hugged_id = member.name.lower()

@@ -1,6 +1,6 @@
 # bbyServer.py
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import threading
 import time
@@ -25,29 +25,72 @@ BBYBOOK_FILE_PATH = os.path.expanduser("~/Dropbox/00_Icharis/02_LAB/01_babyLLM/S
 PAINT_LIFESPAN_FILE_PATH = os.path.join(SCRIPT_DIR, "paintLifespans.raw")
 CHAT_HISTORY_FILE_PATH = os.path.join(SCRIPT_DIR, "chatHistory.json")
 
+# --- snapshots (server keeps data; client can attach face PNG) ---
+SNAP_DIR = os.path.join(SCRIPT_DIR, "snapshots")
+SNAP_META = os.path.join(SNAP_DIR, "index.json")
+os.makedirs(SNAP_DIR, exist_ok=True)
+try:
+    with open(SNAP_META, "r", encoding="utf-8") as f:
+        snapshot_index = json.load(f)
+except Exception:
+    snapshot_index = []  # [{id, ts, label, has_png}]
+
+def _write_snap_index():
+    try:
+        with open(SNAP_META, "w", encoding="utf-8") as f:
+            json.dump(snapshot_index, f)
+    except Exception as e:
+        print("[ERROR] writing snapshot index:", e)
+
+def _save_snapshot(label=""):
+    """Save raw paint + current baby state. Returns meta dict."""
+    snap_id = str(uuid.uuid4())
+    ts = int(time.time())
+    raw_path   = os.path.join(SNAP_DIR, f"{snap_id}.raw")
+    state_path = os.path.join(SNAP_DIR, f"{snap_id}.state.json")
+    with paint_lock:
+        buf = bytes(paint_rgba_data)
+        state = dict(babyState)
+    with open(raw_path, "wb") as f:
+        f.write(buf)
+    with open(state_path, "w", encoding="utf-8") as f:
+        json.dump(state, f)
+    meta = {"id": snap_id, "ts": ts, "label": label, "has_png": False}
+    snapshot_index.append(meta)
+    _write_snap_index()
+    return meta
+
+def _attach_png(snap_id: str, png_bytes: bytes):
+    """Attach a composite PNG (full face) to an existing snapshot."""
+    png_path = os.path.join(SNAP_DIR, f"{snap_id}.png")
+    with open(png_path, "wb") as f:
+        f.write(png_bytes)
+    for m in snapshot_index:
+        if m["id"] == snap_id:
+            m["has_png"] = True
+            break
+    _write_snap_index()
+
 app = Flask(__name__)
 CORS(app)
 
-# fade config
-P_SHORT  = 0.01   # ~1%: very short (minutes)
-P_MEDIUM = 0.89   # ~89%: 4–24 hours (most)
-P_LONG   = 0.10   # ~10%: 6–9 days (the relics)
+# ---- fade config ----
+P_SHORT  = 0.001   # ~1%: very short
+P_MEDIUM = 0.899   # ~89%: 4–72 hours 
+P_LONG   = 0.10   # ~10%: 6–21 days
 REPAINT_REFRESHES_LIFE = False
 STROKE_COHERENCE = True
 COHERENCE_JITTER = 0.12
-REPAINT_POLICY = "diff_color_refresh"
+REPAINT_POLICY = "diff_color_refresh"  # "always" | "never" | "diff_color_refresh"
 
 def _sample_total_seconds():
     u = random.random()
     if u < P_SHORT:
-        # 2–5 minutes
-        return random.uniform(2 * 60, 5 * 60)
+        return random.uniform(2 * 60, 60 * 60)                 # 2–60 min
     elif u < P_SHORT + P_MEDIUM:
-        # 4–24 hours
-        return random.uniform(4 * 3600, 24 * 3600)
+        return random.uniform(4 * 3600, 72 * 3600)            # 4–72 h
     else:
-        # 6–9 days
-        return random.uniform(6 * 24 * 3600, 9 * 24 * 3600)
+        return random.uniform(6 * 24 * 3600, 21 * 24 * 3600)   # 6–21 days
 
 def _split_linger_fade(total_seconds: float):
     linger_frac = random.uniform(0.0, 0.25)
@@ -59,7 +102,7 @@ def _split_linger_fade(total_seconds: float):
 chat_history = []
 chat_lock = threading.Lock()
 paint_lock = threading.Lock()
-paint_event_log = deque(maxlen=500)
+paint_event_log = deque(maxlen=2000)
 paint_event_lock = threading.Lock()
 
 # --- shared paint data ---
@@ -176,6 +219,50 @@ def pixel_aging_loop():
 
         time.sleep(60)
 
+# --- activity tracker for auto-snapshots ---
+activity_lock = threading.Lock()
+BURST_WINDOW = 30            # look back N seconds
+BURST_THRESHOLD_PX = 200     # “lots of activity” in that window
+IDLE_SNAPSHOT_AFTER = 60     # after burst ends, wait this long with no paint
+recent_paints = deque()      # (ts, num_pixels)
+last_paint_ts = 0.0
+burst_active = False
+burst_start_ts = 0.0
+last_autosnap_ts = 0.0
+last_autosnap_id = None
+
+def _register_paint(n):
+    """Call this once per /api/paint_pixel to record activity."""
+    global last_paint_ts, burst_active, burst_start_ts
+    now = time.time()
+    with activity_lock:
+        last_paint_ts = now
+        recent_paints.append((now, n))
+        cutoff = now - BURST_WINDOW
+        while recent_paints and recent_paints[0][0] < cutoff:
+            recent_paints.popleft()
+        total = sum(k for _, k in recent_paints)
+        if not burst_active and total >= BURST_THRESHOLD_PX:
+            burst_active = True
+            burst_start_ts = now
+        return total
+
+def autosnap_loop():
+    """Create a snapshot after a burst cools off for > IDLE_SNAPSHOT_AFTER."""
+    global burst_active, last_autosnap_ts, last_autosnap_id
+    print("[AUTOSNAP_LOOP] active.")
+    while True:
+        time.sleep(5)
+        now = time.time()
+        with activity_lock:
+            should = burst_active and (now - last_paint_ts) >= IDLE_SNAPSHOT_AFTER
+        if should:
+            meta = _save_snapshot(label="auto-burst")
+            with activity_lock:
+                burst_active = False
+                last_autosnap_ts = now
+                last_autosnap_id = meta["id"]
+            print(f"[AUTOSNAP] {meta['id']}")
 
 # --- THE BABY SOUL ---
 babyState = {
@@ -400,7 +487,17 @@ def speech_controller_loop():
         time.sleep(0.5)
 
 # start background state loops
-for fn in (state_reader_loop, blink_loop, pulse_loop, smart_jump_loop, living_colour_loop, speech_controller_loop, pixel_aging_loop, speak_loop):
+for fn in (
+    state_reader_loop,
+    blink_loop,
+    pulse_loop,
+    smart_jump_loop,
+    living_colour_loop,
+    speech_controller_loop,
+    pixel_aging_loop,
+    speak_loop,
+    autosnap_loop,  # <-- new
+):
     threading.Thread(target=fn, daemon=True).start()
 
 # --- queue ---
@@ -490,22 +587,28 @@ def paint_pixel():
                     old_r = paint_rgba_data[rgba_index]
                     old_g = paint_rgba_data[rgba_index + 1]
                     old_b = paint_rgba_data[rgba_index + 2]
-                    old_a = paint_rgba_data[rgba_index + 3]
                     same_colour_rgb = (old_r == r and old_g == g and old_b == b)
 
-                    if REPAINT_POLICY == "always": refresh = True
-                    elif REPAINT_POLICY == "never": refresh = (paint_timestamp_data[pixel_index] == 0)
+                    # decide refresh policy
+                    if REPAINT_POLICY == "always":
+                        refresh = True
+                    elif REPAINT_POLICY == "never":
+                        refresh = (paint_timestamp_data[pixel_index] == 0)
                     elif REPAINT_POLICY == "diff_color_refresh":
-                        # dead pixels always refresh; alive pixels refresh only if colour changed
                         refresh = (paint_timestamp_data[pixel_index] == 0) or (not same_colour_rgb)
-                    else: refresh = (paint_timestamp_data[pixel_index] == 0)
+                    else:
+                        refresh = (paint_timestamp_data[pixel_index] == 0)
+
+                    # write RGBA
                     paint_rgba_data[rgba_index:rgba_index + 4] = [r, g, b, a]
 
                     if a > 0:
                         if refresh:
                             paint_timestamp_data[pixel_index] = now
-                            if STROKE_COHERENCE and stroke_base_total is not None: total = stroke_base_total * random.uniform(1 - COHERENCE_JITTER, 1 + COHERENCE_JITTER)
-                            else: total = _sample_total_seconds()
+                            if STROKE_COHERENCE and stroke_base_total is not None:
+                                total = stroke_base_total * random.uniform(1 - COHERENCE_JITTER, 1 + COHERENCE_JITTER)
+                            else:
+                                total = _sample_total_seconds()
                             start_fade, end_fade = _split_linger_fade(total)
                             paint_lifespan_data[lifespan_index] = start_fade
                             paint_lifespan_data[lifespan_index + 1] = end_fade
@@ -514,10 +617,15 @@ def paint_pixel():
                         paint_lifespan_data[lifespan_index] = 0.0
                         paint_lifespan_data[lifespan_index + 1] = 0.0
 
+            # persist (simple and fine at this scale)
             with open(PAINT_STATE_FILE_PATH, 'wb') as f: f.write(paint_rgba_data)
             with open(PAINT_TIMESTAMP_FILE_PATH, 'wb') as f: paint_timestamp_data.tofile(f)
             with open(PAINT_LIFESPAN_FILE_PATH, 'wb') as f: paint_lifespan_data.tofile(f)
 
+        # record activity for auto-snapshot logic
+        _register_paint(len(pixels))
+
+        # echo batch as event
         event = {'id': str(uuid.uuid4()), 'ts': time.time(), 'pixels': pixels}
         with paint_event_lock: paint_event_log.append(event)
         return jsonify({"status": "ok"})
@@ -545,6 +653,75 @@ def get_paint_events():
             out.append(ev)
         return jsonify(list(reversed(out)))
 
+# --- snapshot + activity routes ---
+
+@app.route("/api/snapshot", methods=["POST"])
+def create_snapshot():
+    data = request.json or {}
+    label = data.get("label", "")
+    meta = _save_snapshot(label)
+
+    png_url = None
+    b64 = data.get("composite_png_b64")
+    if b64:
+        _attach_png(meta["id"], base64.b64decode(b64.split(",")[-1]))
+        meta["has_png"] = True
+        png_url = request.host_url.rstrip("/") + f"/snapshots/{meta['id']}.png"
+
+    return jsonify({"status": "ok", "snapshot": meta, "png_url": png_url})
+
+@app.route("/api/snapshot_attach_png/<snap_id>", methods=["POST"])
+def attach_snapshot_png(snap_id):
+    b64 = (request.json or {}).get("composite_png_b64")
+    if not b64:
+        return jsonify({"error":"missing composite_png_b64"}), 400
+    _attach_png(snap_id, base64.b64decode(b64.split(",")[-1]))
+    return jsonify({"status":"ok"})
+
+@app.route("/api/snapshots")
+def list_snapshots():
+    out = []
+    base = request.host_url.rstrip("/")
+    for m in snapshot_index:
+        item = dict(m)
+        if m.get("has_png"):
+            item["png_url"] = f"{base}/snapshots/{m['id']}.png"
+        out.append(item)
+    return jsonify(out)
+
+
+@app.route("/api/snapshot/<snap_id>")
+def get_snapshot(snap_id):
+    path = os.path.join(SNAP_DIR, f"{snap_id}.raw")
+    if not os.path.exists(path):
+        return jsonify({"error":"not found"}), 404
+    with open(path, "rb") as f:
+        raw = f.read()
+    b64 = base64.b64encode(raw).decode("utf-8")
+    return jsonify({"w": 64, "h": 64, "rgba_b64": b64})
+
+@app.route("/snapshots/<snap_id>.png")
+def serve_snapshot_png(snap_id):
+    path = os.path.join(SNAP_DIR, f"{snap_id}.png")
+    if not os.path.exists(path): return jsonify({"error": "not found"}), 404
+    return send_from_directory(SNAP_DIR, f"{snap_id}.png", mimetype="image/png")
+
+@app.route("/api/activity")
+def activity():
+    now = time.time()
+    with activity_lock:
+        total = sum(k for t, k in recent_paints if t >= now - BURST_WINDOW)
+        idle = (now - last_paint_ts) if last_paint_ts else 1e9
+        return jsonify({
+            "pixels_last_window": total,
+            "window_seconds": BURST_WINDOW,
+            "idle_seconds": idle,
+            "burst_active": burst_active,
+            "burst_started": burst_start_ts if burst_active else None,
+            "last_autosnap_id": last_autosnap_id,
+            "last_autosnap_ts": last_autosnap_ts,
+        })
+
 @app.route("/api/set", methods=["POST"])
 def set_state():
     updates = request.json or {}
@@ -568,6 +745,11 @@ def get_bbybook():
             return jsonify({"error": "could not read bbybook file"}), 500
     else:
         return jsonify({})
+
+# --- chat ---
+
+job_queue = job_queue  # (already defined above)
+pending = pending
 
 @app.route("/api/say", methods=["POST"])
 def user_say():
