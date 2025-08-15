@@ -570,19 +570,35 @@ class BABYBOT_DISCORD(commands.Bot):
         try:
             snap_dir = os.path.join(SCRIPT_DIR, "snapshots")
             index_path = os.path.join(snap_dir, "index.json")
-            if not os.path.exists(index_path): return print("[UPDATE_AVATAR] no snapshot index found")
-            with open(index_path, "r", encoding="utf-8") as f: index = json.load(f)
-            if not index: return print("[UPDATE_AVATAR] snapshot index empty")
+            if not os.path.exists(index_path):
+                return print("[UPDATE_AVATAR] no snapshot index found")
+            with open(index_path, "r", encoding="utf-8") as f:
+                index = json.load(f)
+            if not index:
+                return print("[UPDATE_AVATAR] snapshot index empty")
+
             for meta in reversed(index):
-                if meta.get("has_png"):
-                    snap_id = meta.get("id")
-                    png_path = os.path.join(snap_dir, f"{snap_id}.png")
-                    if os.path.exists(png_path):
-                        with open(png_path, "rb") as img: avatar_bytes = img.read()
-                        await self.user.edit(avatar=avatar_bytes)
-                        print(f"[UPDATE_AVATAR] updated avatar from {png_path}")
-                    else: print(f"[UPDATE_AVATAR] png not found: {png_path}")
-                    return print("[UPDATE_AVATAR] no snapshot with png found")
+                if not meta.get("has_png"):
+                    continue
+
+                snap_id = meta.get("id")
+                png_path = os.path.join(snap_dir, f"{snap_id}.png")
+                if not os.path.exists(png_path):
+                    print(f"[UPDATE_AVATAR] png not found: {png_path}")
+                    continue
+
+                with open(png_path, "rb") as img:
+                    avatar_bytes = img.read()
+
+                if not avatar_bytes:
+                    print(f"[UPDATE_AVATAR] empty png: {png_path}")
+                    continue
+
+                await self.user.edit(avatar=avatar_bytes)
+                print(f"[UPDATE_AVATAR] updated avatar from {png_path}")
+                return
+
+            print("[UPDATE_AVATAR] no snapshot with png found")
         except Exception as e:
             print(f"[UPDATE_AVATAR] error: {e}")
             traceback.print_exc()
