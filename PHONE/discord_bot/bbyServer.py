@@ -2,7 +2,7 @@
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-import threading
+import threading, re
 import time
 import json
 import os
@@ -23,7 +23,28 @@ RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
 os.makedirs(RESPONSE_DIR, exist_ok=True)
 BBYBOOK_FILE_PATH = os.path.expanduser("~/Dropbox/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/soul/bbybook.json")
 PAINT_LIFESPAN_FILE_PATH = os.path.join(SCRIPT_DIR, "paintLifespans.raw")
+PAINT_ALPHA0_FILE_PATH = PAINT_LIFESPAN_FILE_PATH + ".alpha0"
 CHAT_HISTORY_FILE_PATH = os.path.join(SCRIPT_DIR, "chatHistory.json")
+
+# --- unified file saving helpers ---
+
+def _write_json_index(filepath: str, data: list):
+    """Writes a list to a JSON file."""
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"[ERROR] writing JSON index to {os.path.basename(filepath)}: {e}")
+
+def _save_file(filepath: str, file_bytes: bytes) -> bool:
+    """Writes bytes to a file, returning True on success."""
+    try:
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+        return True
+    except Exception as e:
+        print(f"[ERROR] writing file to {filepath}: {e}")
+        return False
 
 # --- snapshots (server keeps data; client can attach face PNG) ---
 SNAP_DIR = os.path.join(SCRIPT_DIR, "snapshots")
@@ -35,60 +56,120 @@ try:
 except Exception:
     snapshot_index = []  # [{id, ts, label, has_png}]
 
-def _write_snap_index():
-    try:
-        with open(SNAP_META, "w", encoding="utf-8") as f:
-            json.dump(snapshot_index, f)
-    except Exception as e:
-        print("[ERROR] writing snapshot index:", e)
-
 def _save_snapshot(label=""):
     """Save raw paint + current baby state. Returns meta dict."""
     snap_id = str(uuid.uuid4())
     ts = int(time.time())
     raw_path   = os.path.join(SNAP_DIR, f"{snap_id}.raw")
     state_path = os.path.join(SNAP_DIR, f"{snap_id}.state.json")
+
     with paint_lock:
-        buf = bytes(paint_rgba_data)
-        state = dict(babyState)
-    with open(raw_path, "wb") as f:
-        f.write(buf)
-    with open(state_path, "w", encoding="utf-8") as f:
-        json.dump(state, f)
+        paint_bytes = bytes(paint_rgba_data)
+        state_dict = dict(babyState)
+
+    state_json_bytes = json.dumps(state_dict, indent=2).encode('utf-8')
+
+    if not _save_file(raw_path, paint_bytes) or not _save_file(state_path, state_json_bytes):
+        print(f"[ERROR] Failed to save snapshot files for {snap_id}")
+        return None
+
     meta = {"id": snap_id, "ts": ts, "label": label, "has_png": False}
     snapshot_index.append(meta)
-    _write_snap_index()
+    _write_json_index(SNAP_META, snapshot_index)
     return meta
 
 def _attach_png(snap_id: str, png_bytes: bytes):
     """Attach a composite PNG (full face) to an existing snapshot."""
     png_path = os.path.join(SNAP_DIR, f"{snap_id}.png")
-    with open(png_path, "wb") as f:
-        f.write(png_bytes)
+    if not _save_file(png_path, png_bytes):
+        print(f"[ERROR] Failed to attach PNG for snapshot {snap_id}")
+        return
+
     for m in snapshot_index:
         if m["id"] == snap_id:
             m["has_png"] = True
             break
-    _write_snap_index()
+    _write_json_index(SNAP_META, snapshot_index)
+
+# --- simple live gallery (PNG) ---
+GALLERY_DIR = os.path.join(SCRIPT_DIR, "gallery")
+GALLERY_META = os.path.join(GALLERY_DIR, "index.json")
+os.makedirs(GALLERY_DIR, exist_ok=True)
+try:
+    with open(GALLERY_META, "r", encoding="utf-8") as f:
+        gallery_index = json.load(f)
+except Exception:
+    gallery_index = []  # [{id, ts, author, title, label, file, snap_id?}]
+
+# accept either data URLs or raw base64
+_data_url_re = re.compile(r'^data:(?P<mime>image/[^;]+);base64,(?P<b64>.+)$', re.I)
+def _decode_data_url(s: str) -> bytes:
+    m = _data_url_re.match(s)
+    return base64.b64decode(m.group('b64')) if m else base64.b64decode(s)
+
+def _add_to_gallery(image_bytes: bytes, author: str = "anon", title: str = "", label: str = "", snap_id: str | None = None):
+    """Validates, saves an image to the gallery, and updates the index (with title + optional snap link)."""
+    if not image_bytes:
+        raise ValueError("Cannot save empty image data")
+    if len(image_bytes) > 8 * 1024 * 1024:
+        raise ValueError("Image too large (>8MB)")
+
+    gid = str(uuid.uuid4())
+    ts = int(time.time())
+    fname = f"{ts}_{gid}.png"
+    fpath = os.path.join(GALLERY_DIR, fname)
+
+    if not _save_file(fpath, image_bytes):
+        print(f"[ERROR] Failed to save gallery file for new ID {gid}")
+        return None
+
+    if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        print("[GALLERY][WARN] Saved file does not have PNG magic header; proceeding anyway.")
+
+    # Back-compat: keep label, add title (prefer title, but keep label mirrored for legacy clients)
+    meta = {
+        "id": gid,
+        "ts": ts,
+        "author": author,
+        "title": title or label,
+        "label": label or title,
+        "file": fname
+    }
+    if snap_id:
+        meta["snap_id"] = snap_id
+
+    gallery_index.append(meta)
+
+    if len(gallery_index) > 5000:
+        del gallery_index[: len(gallery_index) - 5000]
+
+    _write_json_index(GALLERY_META, gallery_index)
+    return meta
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024  # 8MB cap, explicit 413s
 CORS(app)
 
 # ---- fade config ----
 P_SHORT  = 0.001   # ~1%: very short
-P_MEDIUM = 0.899   # ~89%: 4–72 hours 
-P_LONG   = 0.10   # ~10%: 6–21 days
-REPAINT_REFRESHES_LIFE = False
+P_MEDIUM = 0.899   # ~89%: 4–72 hours
+P_LONG   = 0.10    # ~10%: 6–21 days
+
+# improvements
+REPAINT_REFRESHES_LIFE = True     # allow repaint (a>0) to refresh lifespan
 STROKE_COHERENCE = True
 COHERENCE_JITTER = 0.12
 REPAINT_POLICY = "diff_color_refresh"  # "always" | "never" | "diff_color_refresh"
+
+LIFESPAN_SCALE = 3.0              # global slow-down multiplier (2–6 is sane)
+MIN_FADE_SECONDS = 20 * 60        # ensure at least this much fade span
 
 def _sample_total_seconds():
     u = random.random()
     if u < P_SHORT:
         return random.uniform(2 * 60, 60 * 60)                 # 2–60 min
     elif u < P_SHORT + P_MEDIUM:
-        return random.uniform(4 * 3600, 72 * 3600)            # 4–72 h
+        return random.uniform(4 * 3600,144 * 3600)             # 4–144 h
     else:
         return random.uniform(6 * 24 * 3600, 21 * 24 * 3600)   # 6–21 days
 
@@ -96,6 +177,9 @@ def _split_linger_fade(total_seconds: float):
     linger_frac = random.uniform(0.0, 0.25)
     start = total_seconds * linger_frac
     end = max(start + 1.0, total_seconds)  # ensure at least 1s of fade
+    # enforce minimum
+    if (end - start) < MIN_FADE_SECONDS:
+        end = start + MIN_FADE_SECONDS
     return float(start), float(end)
 
 # --- shared state ---
@@ -114,6 +198,8 @@ PAINT_DATA_SIZE = PAINT_PIXEL_COUNT * 4
 paint_rgba_data = bytearray(PAINT_DATA_SIZE)
 paint_timestamp_data = array.array('L', [0] * PAINT_PIXEL_COUNT)
 paint_lifespan_data = array.array('f', [0.0] * (PAINT_PIXEL_COUNT * 2))
+# initial alpha for fade (so we fade from painted alpha, not 255)
+paint_alpha0_data = array.array('B', [0] * PAINT_PIXEL_COUNT)
 
 # --- load data ---
 try:
@@ -145,6 +231,12 @@ try:
                 paint_lifespan_data = array.array('f')
                 paint_lifespan_data.fromfile(f, PAINT_PIXEL_COUNT * 2)
                 print("Loaded existing lifespan state.")
+    if os.path.exists(PAINT_ALPHA0_FILE_PATH):
+        with paint_lock:
+            with open(PAINT_ALPHA0_FILE_PATH, 'rb') as f:
+                paint_alpha0_data = array.array('B')
+                paint_alpha0_data.fromfile(f, PAINT_PIXEL_COUNT)
+                print("Loaded existing alpha0 state.")
 except Exception as e:
     print(f"[ERROR] Could not load paint state: {e}")
 
@@ -181,11 +273,15 @@ def pixel_aging_loop():
                             paint_timestamp_data[i] = 0
                             paint_lifespan_data[i * 2] = 0.0
                             paint_lifespan_data[i * 2 + 1] = 0.0
+                            paint_alpha0_data[i] = 0
                             pixels_erased += 1
                     elif age > start_fade:
                         fade_progress = (age - start_fade) / dur
+                        # clamp + gentle ease-out
                         fade_progress = max(0.0, min(1.0, fade_progress))
-                        new_a = int(255 * (1.0 - fade_progress))  # absolute fade
+                        fade_progress = fade_progress * fade_progress
+                        alpha0 = paint_alpha0_data[i] or cur_a or 255
+                        new_a = int(alpha0 * (1.0 - fade_progress))
 
                     if new_a != cur_a:
                         paint_rgba_data[a_idx] = max(0, min(255, new_a))
@@ -206,6 +302,7 @@ def pixel_aging_loop():
                     with open(PAINT_STATE_FILE_PATH, 'wb') as f: f.write(paint_rgba_data)
                     with open(PAINT_TIMESTAMP_FILE_PATH, 'wb') as f: paint_timestamp_data.tofile(f)
                     with open(PAINT_LIFESPAN_FILE_PATH, 'wb') as f: paint_lifespan_data.tofile(f)
+                    with open(PAINT_ALPHA0_FILE_PATH, 'wb') as f: paint_alpha0_data.tofile(f)
 
             print(f"[PIXEL_AGING_REPORT | {time.strftime('%H:%M:%S')}] Active Pixels: {active_pixels}, Fading: {pixels_faded}, Erased This Cycle: {pixels_erased}")
 
@@ -258,11 +355,12 @@ def autosnap_loop():
             should = burst_active and (now - last_paint_ts) >= IDLE_SNAPSHOT_AFTER
         if should:
             meta = _save_snapshot(label="auto-burst")
-            with activity_lock:
-                burst_active = False
-                last_autosnap_ts = now
-                last_autosnap_id = meta["id"]
-            print(f"[AUTOSNAP] {meta['id']}")
+            if meta:
+                with activity_lock:
+                    burst_active = False
+                    last_autosnap_ts = now
+                    last_autosnap_id = meta["id"]
+                print(f"[AUTOSNAP] {meta['id']}")
 
 # --- THE BABY SOUL ---
 babyState = {
@@ -496,7 +594,7 @@ for fn in (
     speech_controller_loop,
     pixel_aging_loop,
     speak_loop,
-    autosnap_loop,  # <-- new
+    autosnap_loop,
 ):
     threading.Thread(target=fn, daemon=True).start()
 
@@ -590,14 +688,17 @@ def paint_pixel():
                     same_colour_rgb = (old_r == r and old_g == g and old_b == b)
 
                     # decide refresh policy
-                    if REPAINT_POLICY == "always":
+                    if REPAINT_REFRESHES_LIFE and a > 0:
                         refresh = True
-                    elif REPAINT_POLICY == "never":
-                        refresh = (paint_timestamp_data[pixel_index] == 0)
-                    elif REPAINT_POLICY == "diff_color_refresh":
-                        refresh = (paint_timestamp_data[pixel_index] == 0) or (not same_colour_rgb)
                     else:
-                        refresh = (paint_timestamp_data[pixel_index] == 0)
+                        if REPAINT_POLICY == "always":
+                            refresh = True
+                        elif REPAINT_POLICY == "never":
+                            refresh = (paint_timestamp_data[pixel_index] == 0)
+                        elif REPAINT_POLICY == "diff_color_refresh":
+                            refresh = (paint_timestamp_data[pixel_index] == 0) or (not same_colour_rgb)
+                        else:
+                            refresh = (paint_timestamp_data[pixel_index] == 0)
 
                     # write RGBA
                     paint_rgba_data[rgba_index:rgba_index + 4] = [r, g, b, a]
@@ -609,18 +710,23 @@ def paint_pixel():
                                 total = stroke_base_total * random.uniform(1 - COHERENCE_JITTER, 1 + COHERENCE_JITTER)
                             else:
                                 total = _sample_total_seconds()
+                            total *= LIFESPAN_SCALE
                             start_fade, end_fade = _split_linger_fade(total)
-                            paint_lifespan_data[lifespan_index] = start_fade
-                            paint_lifespan_data[lifespan_index + 1] = end_fade
+                            paint_lifespan_data[lifespan_index] = float(start_fade)
+                            paint_lifespan_data[lifespan_index + 1] = float(end_fade)
+                            # capture starting alpha for fade
+                            paint_alpha0_data[pixel_index] = a
                     else:
                         paint_timestamp_data[pixel_index] = 0
                         paint_lifespan_data[lifespan_index] = 0.0
                         paint_lifespan_data[lifespan_index + 1] = 0.0
+                        paint_alpha0_data[pixel_index] = 0
 
             # persist (simple and fine at this scale)
             with open(PAINT_STATE_FILE_PATH, 'wb') as f: f.write(paint_rgba_data)
             with open(PAINT_TIMESTAMP_FILE_PATH, 'wb') as f: paint_timestamp_data.tofile(f)
             with open(PAINT_LIFESPAN_FILE_PATH, 'wb') as f: paint_lifespan_data.tofile(f)
+            with open(PAINT_ALPHA0_FILE_PATH, 'wb') as f: paint_alpha0_data.tofile(f)
 
         # record activity for auto-snapshot logic
         _register_paint(len(pixels))
@@ -661,11 +767,14 @@ def create_snapshot():
     label = data.get("label", "")
     meta = _save_snapshot(label)
 
+    if not meta:
+        return jsonify({"status": "error", "message": "Failed to save snapshot"}), 500
+
     png_url = None
     b64 = data.get("composite_png_b64")
     if b64:
         _attach_png(meta["id"], base64.b64decode(b64.split(",")[-1]))
-        meta["has_png"] = True
+        meta["has_png"] = True # Reflect change in response
         png_url = request.host_url.rstrip("/") + f"/snapshots/{meta['id']}.png"
 
     return jsonify({"status": "ok", "snapshot": meta, "png_url": png_url})
@@ -689,7 +798,6 @@ def list_snapshots():
         out.append(item)
     return jsonify(out)
 
-
 @app.route("/api/snapshot/<snap_id>")
 def get_snapshot(snap_id):
     path = os.path.join(SNAP_DIR, f"{snap_id}.raw")
@@ -700,11 +808,154 @@ def get_snapshot(snap_id):
     b64 = base64.b64encode(raw).decode("utf-8")
     return jsonify({"w": 64, "h": 64, "rgba_b64": b64})
 
+# ------------------------------
+# LIVE GALLERY (PNG uploads)
+# ------------------------------
+
+
+@app.route("/api/gallery/save", methods=["POST"])
+def gallery_save():
+    """
+    Accepts EITHER:
+      - Raw body: Content-Type: image/png (or image/*); optional headers x-author, x-title, x-label, x-snap-id
+      - JSON: { "png_b64": "data:image/png;base64,....", "author"?, "title"?, "label"?, "snap_id"? }
+    Returns: { ok, id, url, title } or { ok: false, error }
+    """
+    try:
+        author, title, label, image_bytes, snap_id = "anon", "", "", None, None
+
+        # --- NEW, MORE ROBUST LOGIC ---
+        # First, try to parse the request as JSON. 'silent=True' prevents a crash if it's not JSON.
+        json_data = request.get_json(silent=True)
+
+        if json_data and 'png_b64' in json_data:
+            # --- Path 1: It's a valid JSON request ---
+            print("[GALLERY_SAVE] Handling request as JSON.")
+            b64 = (json_data.get("png_b64") or "").strip()
+            if not b64:
+                return jsonify({"ok": False, "error": "missing png_b64"}), 400
+            try:
+                image_bytes = _decode_data_url(b64)
+            except Exception as e:
+                print(f"[GALLERY_SAVE][ERROR] base64 decode: {e}")
+                return jsonify({"ok": False, "error": "bad base64 image data"}), 400
+            author  = str(json_data.get("author") or "anon")
+            title   = str(json_data.get("title")  or "")
+            label   = str(json_data.get("label")  or "")
+            snap_id = str(json_data.get("snap_id")) if json_data.get("snap_id") else None
+        else:
+            # --- Path 2: It's not JSON, so treat it as a raw image upload ---
+            print("[GALLERY_SAVE] Handling request as raw image data.")
+            image_bytes = request.get_data(cache=False, as_text=False)
+            if not image_bytes:
+                 return jsonify({"ok": False, "error": "no raw image data found"}), 400
+                 
+            author  = request.headers.get("x-author") or "anon"
+            title   = request.headers.get("x-title")  or ""
+            label   = request.headers.get("x-label")  or ""
+            snap_id = request.headers.get("x-snap-id") or None
+
+        # --- The rest of the function is the same for both paths ---
+        meta = _add_to_gallery(image_bytes, author=author, title=title, label=label, snap_id=snap_id)
+        if not meta:
+            return jsonify({"ok": False, "error": "server failed to save image"}), 500
+
+        base = request.host_url.rstrip("/")
+        url = f"{base}/gallery/{meta['file']}"
+        print(f"[GALLERY_SAVE] OK -> {url}")
+        return jsonify({"ok": True, "id": meta["id"], "url": url, "title": meta.get("title","")})
+
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 413 # Payload Too Large or Bad Value
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": f"server exception: {type(e).__name__}: {e}"}), 500
+
+@app.route("/api/gallery")
+def gallery_list():
+    # newest first, last 100
+    base = request.host_url.rstrip("/")
+    items = []
+    # Iterate over a copy in reverse to avoid issues with list modification
+    for m in reversed(list(gallery_index)[-100:]):
+        it = dict(m)
+        # back-compat: ensure 'title' exists for old records
+        it["title"] = it.get("title") or it.get("label") or ""
+        it["url"] = f"{base}/gallery/{m['file']}"
+        items.append(it)
+    return jsonify(items)
+
+@app.route("/api/gallery/update_meta", methods=["POST"])
+def gallery_update_meta():
+    """
+    JSON: { "id": "<gallery_id>", "title"?: "<new title>", "label"?: "<optional legacy sync>" }
+    """
+    data = request.get_json(force=True, silent=False) or {}
+    gid = (data.get("id") or "").strip()
+    if not gid:
+        return jsonify({"ok": False, "error": "missing id"}), 400
+    new_title = (data.get("title") or "").strip()
+    new_label = (data.get("label") or "").strip()
+    found = False
+    for m in gallery_index:
+        if m.get("id") == gid:
+            if new_title:
+                m["title"] = new_title
+                if not new_label:
+                    m["label"] = m.get("label") or new_title
+            if new_label:
+                m["label"] = new_label
+            found = True
+            break
+    if not found:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    _write_json_index(GALLERY_META, gallery_index)
+    return jsonify({"ok": True})
+
+@app.route("/gallery/<path:fname>")
+def gallery_file(fname):
+    # Use werkzeug's security helpers to prevent path traversal attacks
+    safe_path = os.path.join(GALLERY_DIR, fname)
+    if not os.path.normpath(safe_path).startswith(os.path.abspath(GALLERY_DIR)): return jsonify({"error": "forbidden"}), 403
+    if not os.path.isfile(safe_path): return jsonify({"error": "not found"}), 404
+    return send_from_directory(GALLERY_DIR, fname, mimetype="image/png")
+
 @app.route("/snapshots/<snap_id>.png")
 def serve_snapshot_png(snap_id):
     path = os.path.join(SNAP_DIR, f"{snap_id}.png")
     if not os.path.exists(path): return jsonify({"error": "not found"}), 404
     return send_from_directory(SNAP_DIR, f"{snap_id}.png", mimetype="image/png")
+
+@app.route("/api/gallery/save_snapshot", methods=["POST"])
+def gallery_save_snapshot():
+    """
+    JSON: { "snap_id": "<uuid>", "title"?: "<title>", "author"?: "<name>", "label"?: "<legacy label>" }
+    Copies snapshots/<snap_id>.png to gallery and links snap_id in meta.
+    """
+    try:
+        data = request.get_json(force=True, silent=False) or {}
+        snap_id = (data.get("snap_id") or "").strip()
+        if not snap_id:
+            return jsonify({"ok": False, "error": "missing snap_id"}), 400
+        author = str(data.get("author") or "anon")
+        title  = str(data.get("title")  or "")
+        label  = str(data.get("label")  or "")
+
+        png_path = os.path.join(SNAP_DIR, f"{snap_id}.png")
+        if not os.path.isfile(png_path):
+            return jsonify({"ok": False, "error": "snapshot png not found"}), 404
+
+        with open(png_path, "rb") as f:
+            image_bytes = f.read()
+
+        meta = _add_to_gallery(image_bytes, author=author, title=title, label=label, snap_id=snap_id)
+        base = request.host_url.rstrip("/")
+        url = f"{base}/gallery/{meta['file']}"
+        return jsonify({"ok": True, "id": meta["id"], "url": url, "title": meta.get("title",""), "snap_id": snap_id})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"ok": False, "error": f"server exception: {type(e).__name__}: {e}"}), 500
 
 @app.route("/api/activity")
 def activity():
@@ -747,9 +998,6 @@ def get_bbybook():
         return jsonify({})
 
 # --- chat ---
-
-job_queue = job_queue  # (already defined above)
-pending = pending
 
 @app.route("/api/say", methods=["POST"])
 def user_say():

@@ -8,15 +8,15 @@ from datetime import datetime
 import time
 
 from babyLLM import BABYLLM
-from SCHOOL.staffroom.counsellor import COUNSELLOR
-from SCHOOL.staffroom.calligraphist import S_OUTPUT
-from SCHOOL.staffroom.librarian import LIBRARIAN
-from SCHOOL.staffroom.HE_IS_SCRIBE import SCRIBE
-from SCHOOL.staffroom.tutor import TUTOR
+from school.staffroom.counsellor import COUNSELLOR
+from school.staffroom.calligraphist import S_OUTPUT
+from school.staffroom.librarian import LIBRARIAN
+from school.staffroom.HE_IS_SCRIBE import SCRIBE
+from school.staffroom.tutor import TUTOR
 from config import *
 from secret import *
-from PHONE.babyBot import BABYBOT_TWITCH
-from PHONE.babyBot_discord import *
+from phone.babyBot import BABYBOT_TWITCH
+from phone.babyBot_discord import *
 from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, printStartLogs, append_to_files
 from helpers import get_grad_stats
 
@@ -27,13 +27,13 @@ torch.autograd.set_detect_anomaly(mode = anomalyDetect, check_nan = debugPrints)
 
 def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trainingDataPairNum = trainingDataPairNumber, log_A = trainingLogFreq_A, totalTurnsAwake = 0, totalRuns = 0, first = True, mode = "train"):
     try:
-        # WAKE UP THE SCHOOL :)
+        # WAKE UP THE school :)
         counsellor              = COUNSELLOR("babyLLM", _debug = debugPrints, _durations = durationLogging)
         with counsellor.infodump("wakeup") as ʕっʘ‿ʘʔっ:
 
             # OPEN THE LIBRARY :)
             if debugPrints: ʕっʘ‿ʘʔっ("waking the librarian...")
-            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False) #_baseTokenizerPath = "BRAIN/vocabCache/2000_20/tokenizer_2000.json", _forceRetrain = True)
+            librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False) #_baseTokenizerPath = "brain/vocabCache/2000_20/tokenizer_2000.json", _forceRetrain = True)
 
             if False: exit(0)
             #if debugPrints: ʕっʘ‿ʘʔっ("opening questions...")

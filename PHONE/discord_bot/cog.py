@@ -20,7 +20,7 @@ from secret import *
 from textCleaningTool import *
 
 from .shoutouts import get_shoutout_prompts
-from PHONE.command_utils import strip_ansi, get_status_line
+from phone.command_utils import strip_ansi, get_status_line
 from .utils import (
     is_similar,
     howLongAgo,
@@ -833,7 +833,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.updateBBY(author, 0.1)
         help_text = (
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
-            "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/PHONE/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
+            "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/phone/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
         for line in help_text.split("\n"):
             await self.bot._discord_reply(ctx, line)
             await asyncio.sleep(0.5)  # fuck u rate limits
@@ -885,7 +885,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # --- bby no longer typing... ---
             if not babyllm_text.strip():
                 quietEmoji = random.choice(["🤐", "🤫", "🫥", "🫢"])
-                await ctx.reply("uhh...")
+                await self.babyllm_command(ctx)
                 if hasattr(ctx.message, 'add_reaction'): await ctx.message.add_reaction(quietEmoji)
                 return
 
@@ -2506,6 +2506,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot._buffer_add(buffer_entry)
         print(f"[Buffer] narrative thought for bbyinfo: {narrative_thought}")
         await self.bot._discord_reply(ctx, embed = embed)
+
+    @commands.command(name="bbyface", aliases=["bpfp", "bavatar"])
+    async def bbyface(self, ctx: commands.Context):
+        """Updates bby's Discord avatar from the latest snapshot."""
+        await self.bot.update_avatar_from_snapshots()
+        await self.bot._discord_reply(ctx, "do i look different?")
 
     @commands.command(name = "bbyfave", aliases=['bbyfav', 'bfave'])
     async def bbyfave(self, ctx, *, item_name: str):

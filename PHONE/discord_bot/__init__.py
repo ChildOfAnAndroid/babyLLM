@@ -1,9 +1,9 @@
 """bbys on discord!"""
 
-from PHONE.discord_bot.bot import BABYBOT_DISCORD
-from PHONE.discord_bot.cog import babyBot_DISCORD_COG
-from PHONE.discord_bot.context import create_fake_context
-from PHONE.discord_bot import utils
+from phone.discord_bot.bot import BABYBOT_DISCORD
+from phone.discord_bot.cog import babyBot_DISCORD_COG
+from phone.discord_bot.context import create_fake_context
+from phone.discord_bot import utils
 
 __all__ = [
     "BABYBOT_DISCORD",

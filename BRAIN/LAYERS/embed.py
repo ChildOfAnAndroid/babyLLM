@@ -1,6 +1,6 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# EMBEDDING LAYER // BRAIN/LAYERS/embed.py
+# EMBEDDING LAYER // brain/LAYERS/embed.py
 
 import torch
 import torch.nn as nn
@@ -99,7 +99,7 @@ class EMBED(nn.Module):
         return torch.nn.functional.cosine_similarity(e1.unsqueeze(0), e2.unsqueeze(0))
 
 if __name__ == "__main__":
-    from SCHOOL.staffroom.counsellor import COUNSELLOR
+    from school.staffroom.counsellor import COUNSELLOR
 
     TESTtokenIndex = 500
 

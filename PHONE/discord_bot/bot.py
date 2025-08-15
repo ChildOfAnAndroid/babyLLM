@@ -565,8 +565,30 @@ class BABYBOT_DISCORD(commands.Bot):
         rival = min(BBYd_users, key = BBYd_users.get)
         return rival, BBYd_users[rival]
     
+    async def update_avatar_from_snapshots(self):
+        """Update Discord avatar using the latest snapshot saved by bbyServer."""
+        try:
+            snap_dir = os.path.join(SCRIPT_DIR, "snapshots")
+            index_path = os.path.join(snap_dir, "index.json")
+            if not os.path.exists(index_path): return print("[UPDATE_AVATAR] no snapshot index found")
+            with open(index_path, "r", encoding="utf-8") as f: index = json.load(f)
+            if not index: return print("[UPDATE_AVATAR] snapshot index empty")
+            for meta in reversed(index):
+                if meta.get("has_png"):
+                    snap_id = meta.get("id")
+                    png_path = os.path.join(snap_dir, f"{snap_id}.png")
+                    if os.path.exists(png_path):
+                        with open(png_path, "rb") as img: avatar_bytes = img.read()
+                        await self.user.edit(avatar=avatar_bytes)
+                        print(f"[UPDATE_AVATAR] updated avatar from {png_path}")
+                    else: print(f"[UPDATE_AVATAR] png not found: {png_path}")
+                    return print("[UPDATE_AVATAR] no snapshot with png found")
+        except Exception as e:
+            print(f"[UPDATE_AVATAR] error: {e}")
+            traceback.print_exc()
+
     def getSpamability(self, author):
-        MIN_REPLY_CHANCE = 0.001 
+        MIN_REPLY_CHANCE = 0.001
         author = str(author).lower()
         if author not in self.AIoptInUsers:
             return 1.0 - MIN_REPLY_CHANCE
@@ -582,11 +604,12 @@ class BABYBOT_DISCORD(commands.Bot):
         final_chance = MIN_REPLY_CHANCE + percentile * (custom_max_chance - MIN_REPLY_CHANCE)
         return 1.0 - final_chance
 
-    async def on_ready(self): 
+    async def on_ready(self):
         print(f"\n\nlogged in as [{self.user.name}]\n\n")
         if not self.cog: await self.setup_bot()
         print("cog is ready :)")
         helloMessage = ("ʕっʘ‿ʘʔっ hello! i am awake!")
+        await self.update_avatar_from_snapshots()
         bestie_username, bestie_score = self.checkBestie()
         self.current_bestie = bestie_username
         self.bestie_score = bestie_score
@@ -600,12 +623,13 @@ class BABYBOT_DISCORD(commands.Bot):
         if self.random2 > 0.85:
             helloMessage += f" where's {self.getNickname(self.current_bestie)} at?"
         if not self.cog: await self.setup_bot()
-        await self._discord_spam(helloMessage)
         self._buffer_add(self.formatMessage(self.babyName, helloMessage))
         self.last_logged_author = self.babyName.lower()
         if self.idle_task is None: self.idle_task = self.loop.create_task(self.idleTrainChecker())
         if self.web_task is None: self.web_task = self.loop.create_task(self.bby_web_watcher())
         if self.training_worker is None: self.training_worker = self.loop.create_task(self.background_training_loop())
+        await self._discord_spam(helloMessage)
+
 
     async def on_message(self, message):
         content = message.content
@@ -729,6 +753,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
             self._save_user_data()
             self.save_bbyfacts()
+            await self.update_avatar_from_snapshots()
 
         lower_content = content.lower()
         if any(w in lower_content for w in ["shut up", "you suck"]): self.updateBBY(author, -5000.0)

@@ -245,20 +245,20 @@ if code:
         ("text", "babyLLM.py", codeNum),
         ("text", "config.py", codeNum),
         ("text", "CONFIG_trainingData.py", codeNum),
-        ("text", "PHONE/infer2.py", codeNum),
+        ("text", "phone/infer2.py", codeNum),
         ("text", "textCleaningTool.py", codeNum),
         ("text", "wakeup.py", codeNum),
-        ("text", "SCHOOL/staffroom/calligraphist.py", codeNum),
-        ("text", "SCHOOL/staffroom/counsellor.py", codeNum),
-        ("text", "SCHOOL/staffroom/HE_IS_SCRIBE.py", codeNum),
-        ("text", "SCHOOL/staffroom/librarian.py", codeNum),
-        ("text", "SCHOOL/staffroom/tutor.py", codeNum),
-        ("text", "BRAIN/vocabCache/tokenizer_420.json", codeNum),
+        ("text", "school/staffroom/calligraphist.py", codeNum),
+        ("text", "school/staffroom/counsellor.py", codeNum),
+        ("text", "school/staffroom/HE_IS_SCRIBE.py", codeNum),
+        ("text", "school/staffroom/librarian.py", codeNum),
+        ("text", "school/staffroom/tutor.py", codeNum),
+        ("text", "brain/vocabCache/tokenizer_420.json", codeNum),
         ("text", "README.md", codeNum),
-        ("text", "BRAIN/LAYERS/embed.py", codeNum),
-        ("text", "BRAIN/LAYERS/interneuronNetwork.py", codeNum),
-        ("text", "BRAIN/LAYERS/logits.py", codeNum),
-        ("text", "BRAIN/LAYERS/memory.py", codeNum),
+        ("text", "brain/LAYERS/embed.py", codeNum),
+        ("text", "brain/LAYERS/interneuronNetwork.py", codeNum),
+        ("text", "brain/LAYERS/logits.py", codeNum),
+        ("text", "brain/LAYERS/memory.py", codeNum),
         ("text", "SHKAIRA/notebook/notes.txt", codeNum),
         ("text", "SHKAIRA/notebook/notes.txtpython notes etc", codeNum),
         ("text", "SHKAIRA/notebook/test.py", codeNum),
@@ -303,12 +303,12 @@ if limit:
 """rawDataFilepaths = [     # for textCleaningTool.py
     #-*- CHARIS STUDIES -*-
     #--- CHAT HISTORY ---
-    ("text", "SCHOOL/library/charisStudies/essays.txt", 1),     # essays
-    ("text", "SCHOOL/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
+    ("text", "school/library/charisStudies/essays.txt", 1),     # essays
+    ("text", "school/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
 
     #--- MINI TRAINING ---
-    ("text", "SCHOOL/library/miniTraining/miniTraining.txt", 0.1),     # i am happy! i did it! i know it!
-    ("text", "SCHOOL/library/miniTraining/miniTraining2.txt", 0.1),     # training: i am happy! i did it! i know it!
+    ("text", "school/library/miniTraining/miniTraining.txt", 0.1),     # i am happy! i did it! i know it!
+    ("text", "school/library/miniTraining/miniTraining2.txt", 0.1),     # training: i am happy! i did it! i know it!
 
     #--- BABYLLM CHAT LOGS ---
     ("text", chatLogPath_talkToYourself, 0.0001),     #  i answer my own previous chat messages
@@ -319,21 +319,21 @@ if limit:
 
 rawDataFilepaths += [
     #--- SIMPLE TRAINING ---
-    ("text", "SCHOOL/library/simpleTraining/cursed.txt", 0.01),     # training but chaotic shuffle
-    ("text", "SCHOOL/library/simpleTraining/geepyGenerated.txt", 0.01),     # weird fake sentences
-    ("text", "SCHOOL/library/simpleTraining/sampleshorterwrittenexamples.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/simpleTraining/shortestwrittenexamples.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/simpleTraining/shorterwrittenexamples.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longerwrittenexamples.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/simpleTraining/lineSortedData.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/simpleTraining/longestwrittenexamples.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/simpleTraining/mixedwrittenanddefs.txt", 0.01),     # training
-    ("text", "SCHOOL/library/simpleTraining/writtenexamples.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/simpleTraining/variedWrittenExamples.txt", 0.01),     #  training
-    ("text", "SCHOOL/library/charisStudies/weirdSentences.txt", 0.01),
-    ("text", "SCHOOL/library/charisStudies/weirdMixedStuff.txt", 0.01),
-    ("text", "SCHOOL/library/simpleTraining/computingKnowledge.txt", 0.01),
-    ("text", "SCHOOL/library/miniTraining/why.txt", 0.001),
-    ("text", "SCHOOL/library/miniTraining/why2.txt", 0.001),
-    ("text", "SCHOOL/library/miniTraining/why3.txt", 0.001),
-    ("text", "SCHOOL/library/miniTraining/why4.txt", 0.001),]"""
+    ("text", "school/library/simpleTraining/cursed.txt", 0.01),     # training but chaotic shuffle
+    ("text", "school/library/simpleTraining/geepyGenerated.txt", 0.01),     # weird fake sentences
+    ("text", "school/library/simpleTraining/sampleshorterwrittenexamples.txt", 0.01),     #  training
+    ("text", "school/library/simpleTraining/shortestwrittenexamples.txt", 0.01),     #  training
+    ("text", "school/library/simpleTraining/shorterwrittenexamples.txt", 0.01),     #  training
+    ("text", "school/library/simpleTraining/longerwrittenexamples.txt", 0.01),     #  training
+    ("text", "school/library/simpleTraining/lineSortedData.txt", 0.01),     #  training
+    ("text", "school/library/simpleTraining/longestwrittenexamples.txt", 0.01),     #  training
+    ("text", "school/library/simpleTraining/mixedwrittenanddefs.txt", 0.01),     # training
+    ("text", "school/library/simpleTraining/writtenexamples.txt", 0.01),     #  training
+    ("text", "school/library/simpleTraining/variedWrittenExamples.txt", 0.01),     #  training
+    ("text", "school/library/charisStudies/weirdSentences.txt", 0.01),
+    ("text", "school/library/charisStudies/weirdMixedStuff.txt", 0.01),
+    ("text", "school/library/simpleTraining/computingKnowledge.txt", 0.01),
+    ("text", "school/library/miniTraining/why.txt", 0.001),
+    ("text", "school/library/miniTraining/why2.txt", 0.001),
+    ("text", "school/library/miniTraining/why3.txt", 0.001),
+    ("text", "school/library/miniTraining/why4.txt", 0.001),]"""

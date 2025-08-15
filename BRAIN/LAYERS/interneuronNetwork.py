@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # INTERNEURON NETWORK & NEURONS
-# BRAIN/LAYERS/interneuronNetwork.py
+# brain/LAYERS/interneuronNetwork.py
 
 import torch
 import torch.nn as nn
@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import random
 import math
 from config import *
-from SCHOOL.staffroom.counsellor import COUNSELLOR
+from school.staffroom.counsellor import COUNSELLOR
 from torch.nn.functional import gelu
 from helpers import clamp_param
 

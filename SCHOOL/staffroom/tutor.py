@@ -1,7 +1,7 @@
 # CHARIS CAT 2025 
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
-# SCHOOL/staffroom/tutor.py
+# school/staffroom/tutor.py
 
 import random, sys
 from collections import Counter, defaultdict
@@ -157,7 +157,7 @@ class TUTOR:
         return base
 
     @whocalled
-    def loadIntro(self, path="SCHOOL/library/charisStudies/forbbyllm.txt"):
+    def loadIntro(self, path="school/library/charisStudies/forbbyllm.txt"):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 return f.read().strip()

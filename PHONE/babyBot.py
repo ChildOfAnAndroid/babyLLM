@@ -14,7 +14,7 @@ import random
 import traceback
 from collections import defaultdict
 import time
-from PHONE.discord_bot.shoutouts import get_shoutout_prompts
+from phone.discord_bot.shoutouts import get_shoutout_prompts
 from .command_utils import get_status_line
 
 defaultEye = 5
@@ -705,7 +705,7 @@ class BABYBOT_TWITCH(commands.Bot):
     async def bbyhelp(self, ctx):
         help_text = (
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
-            "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/PHONE/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
+            "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/phone/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
         for line in help_text.split("\n"):
             self.buffer.append(self.formatMessage(babyName, line))
             await ctx.reply(line)

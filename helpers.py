@@ -25,6 +25,6 @@ def register_grad_hooks(
     hook_fn_provider: Callable[[str], Callable[[torch.Tensor], None]],
 ) -> None:
     for name, param in named_params:
-        param.register_hook(hook_fn_provider(name))
+        if param.requires_grad: param.register_hook(hook_fn_provider(name))
 
 __all__ = ["get_grad_stats", "clamp_param", "debug_print", "register_grad_hooks"]

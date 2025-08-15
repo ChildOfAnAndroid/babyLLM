@@ -14,11 +14,11 @@ import math
 from collections import Counter
 from sophia.sophia import SophiaG
 
-from BRAIN.LAYERS.embed import EMBED
-from BRAIN.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
-from BRAIN.LAYERS.logits import LOGITS
-from BRAIN.LAYERS.memory import MEMORY
-#from BRAIN.LAYERS.sensoryWobble import WOBBLE
+from brain.LAYERS.embed import EMBED
+from brain.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
+from brain.LAYERS.logits import LOGITS
+from brain.LAYERS.memory import MEMORY
+#from brain.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
 from helpers import clamp_param, get_grad_stats, debug_print, register_grad_hooks
@@ -84,7 +84,7 @@ class BABYLLM(nn.Module):
         self.AUXlossCos_used = 0.0
         self.AUXlossKL_used = 0.0
 
-        """CEREBRAL LAYERS // BRAIN"""
+        """CEREBRAL LAYERS // brain"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)

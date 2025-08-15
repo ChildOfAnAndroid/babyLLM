@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # NICE TERMINAL OUTPUT AND LOGGING STYLING SHEET THING
-# BRAIN/LAYERS/S_output.py
+# brain/LAYERS/S_output.py
 
 from config import *
 from datetime import datetime

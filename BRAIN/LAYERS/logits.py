@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # OUTPUT LAYER FOR LOGIT PREDICTION
-# BRAIN/LAYERS/logits.py
+# brain/LAYERS/logits.py
 
 import torch
 import torch.nn as nn

@@ -1,6 +1,6 @@
 readmeactuallyprobablydont.txt (readme is very unfinished!)
 
-![babyllm](BRAIN/babyllm3.gif)
+![babyllm](brain/babyllm3.gif)
 > "\[babyllm\]: that new to agese, be birthday (17th July 2025)"
 > "\[babyllm\]: ʘʔっ that mice but im drinking nice (28th June 2025)"
 > "\[babyllm\]: let. we that kevin me trust, access them data access know - equ mind hear would (26th June 2025)"
@@ -23,7 +23,7 @@ babyLLM/
  - babyBot.py               # work-in-progress twitch chat bot to enable me/others to talk to it whilst it is actively training - optins obviously.
  - config.py                # adjustable numbers/settings etc
 
- - BRAIN/
+ - brain/
   - LAYERS/                 # neural network layers
    - embed.py               # embedding layer
    - interneuronNetork.py   # neurons and interneuron network
@@ -33,7 +33,7 @@ babyLLM/
   - vocabCache/             # tokenizer and vocab files
   - SOUL/                   # where savefiles are kept!
 
- - SCHOOL/                  # school staff! logging, training, etc
+ - school/                  # school staff! logging, training, etc
   - staffroom/              # has the librarian (tokenizer), tutor (training), calligraphist (terminal output), counsellor (debug logging), etc...
    - calligraphist.py       # terminal output, pretty stuff, etc - a mess.
    - counsellor.py          # debug logging, duration logging, decorator

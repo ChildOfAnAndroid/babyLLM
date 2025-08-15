@@ -1,6 +1,6 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# MEMORY LAYER // BRAIN/LAYERS/memory.py
+# MEMORY LAYER // brain/LAYERS/memory.py
 
 import torch
 import torch.nn as nn
@@ -382,7 +382,7 @@ class MEMORY(nn.Module):
                 setattr(self, attr, [])
 
 if __name__ == "__main__":
-    from SCHOOL.staffroom.counsellor import COUNSELLOR
+    from school.staffroom.counsellor import COUNSELLOR
 
     memory = MEMORY(numNeurons = numNeurons)
 

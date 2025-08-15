@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # VOCAB: TRAINING GENERATION AND TOKENIZATION
-# BRAIN/LAYERS/vocab.py
+# brain/LAYERS/vocab.py
 
 from collections import Counter
 from config import *
@@ -264,7 +264,7 @@ class LIBRARIAN:
 
 if __name__ == "__main__":
     counsellor = type("Dummy", (), {"infodump": lambda self, label: open(os.devnull, 'w')})()
-    librarian = LIBRARIAN(_counsellor = counsellor, _vocabSize = 4200, _baseTokenizerPath = "BRAIN/vocabCache/tokenizer_2000.json")
+    librarian = LIBRARIAN(_counsellor = counsellor, _vocabSize = 4200, _baseTokenizerPath = "brain/vocabCache/tokenizer_2000.json")
     print(f"--- 2000-{vocabSize} ---: {librarian.vocabList[2000:vocabSize]}")
     print(f"--- 1701-2000 ---: {librarian.vocabList[1701:2000]}")
     print(f"--- 1001-1700 ---: {librarian.vocabList[301:1700]}")

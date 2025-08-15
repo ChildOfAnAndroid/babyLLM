@@ -87,7 +87,7 @@ modelBackupFilePath = "SHKAIRA/soul/babyLLM.pth"  # where your currently trained
 stepCheckpointFilePath = "SHKAIRA/soul/stepCheckpoint.txt"
 lossCheckpointFilePath = "SHKAIRA/soul/lossCheckpoint.txt"
 lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
-babyStateFilePath = "PHONE/discord_bot/babyState.json"
+babyStateFilePath = "phone/discord_bot/babyState.json"
 tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
 
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
@@ -97,8 +97,8 @@ bbyUserDataPath = "SHKAIRA/soul/bbyUserData.json"
 promptsPath = "BBYBOT/COMMANDS/bby_prompts.json"
 
 """--- TRAINING ---"""
-trainingFilePathCLEANED = "SCHOOL/library/trainingData.txt"
-trainingFilePathTEST = "SCHOOL/library/trainingDataTEST.txt"
+trainingFilePathCLEANED = "school/library/trainingData.txt"
+trainingFilePathTEST = "school/library/trainingDataTEST.txt"
 
 """--- LOGS ---"""
 printFreq = 1  # how often to print training progress to the terminal
@@ -650,7 +650,7 @@ vocabLoad = f"SHKAIRA/vocabCache/tokenizer_{vocabSize}.json"
 trainingFilePath_dict = [{"type": ftype, "in": fname, "weight": weight, "out": trainingFilePath} for ftype, fname, weight in rawDataFilepaths]
 
 trainingFilePath_arr = [trainingFilePath]
-#tokenizedDataPath = "SCHOOL/tokenizedTrainingData.txt"
+#tokenizedDataPath = "school/tokenizedTrainingData.txt"
 
 trainingFilePath_dict_weighted = []
 for entry in trainingFilePath_dict:
