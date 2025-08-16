@@ -808,9 +808,7 @@ def get_snapshot(snap_id):
     b64 = base64.b64encode(raw).decode("utf-8")
     return jsonify({"w": 64, "h": 64, "rgba_b64": b64})
 
-# ------------------------------
 # LIVE GALLERY (PNG uploads)
-# ------------------------------
 
 
 @app.route("/api/gallery/save", methods=["POST"])
@@ -824,8 +822,7 @@ def gallery_save():
     try:
         author, title, label, image_bytes, snap_id = "anon", "", "", None, None
 
-        # --- NEW, MORE ROBUST LOGIC ---
-        # First, try to parse the request as JSON. 'silent=True' prevents a crash if it's not JSON.
+        # try to parse the request as JSON. 'silent=True' prevents a crash if it's not JSON.
         json_data = request.get_json(silent=True)
 
         if json_data and 'png_b64' in json_data:
