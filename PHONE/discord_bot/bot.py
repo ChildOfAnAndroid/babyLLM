@@ -15,6 +15,8 @@ import random
 import pytz
 from datetime import datetime, timedelta
 import math
+import aiohttp
+from urllib.parse import urljoin
 import functools
 
 from .context import create_fake_context
@@ -565,9 +567,99 @@ class BABYBOT_DISCORD(commands.Bot):
         rival = min(BBYd_users, key = BBYd_users.get)
         return rival, BBYd_users[rival]
     
+    async def _get_http(self) -> aiohttp.ClientSession:
+        if not hasattr(self, "_http_session") or self._http_session is None or getattr(self._http_session, "closed", True):
+            self._http_session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=180))
+        return self._http_session
+
+    async def web_post_consent(self, *, platform: str, user_id: str, handle: str, display_name: str, consent: bool = True):
+        http = await self._get_http()
+        base = os.environ.get('BBY_API_BASE', 'https://childofanandroid.co.uk/api').rstrip('/') + '/'
+        url = urljoin(base, 'consent')
+        payload = {'platform': platform, 'user_id': user_id, 'handle': handle, 'display_name': display_name, 'consent': bool(consent)}
+        try:
+            async with http.post(url, json=payload) as r:
+                data = await r.json(content_type=None)
+                if r.status != 200:
+                    print(f"[SYNC][consent] {r.status} -> {data}")
+                return {'ok': r.status == 200, 'status': r.status, **(data if isinstance(data, dict) else {})}
+        except Exception as e:
+            print(f"[SYNC][consent][ERR] {e}")
+            return {'ok': False, 'error': str(e)}
+
+    async def web_post_say(self, *, text: str, platform: str, user_id: str, handle: str, display_name: str, is_command: bool = False):
+        http = await self._get_http()
+        base = os.environ.get('BBY_API_BASE', 'https://childofanandroid.co.uk/api').rstrip('/') + '/'
+        url = urljoin(base, 'say')
+        payload = {'text': text, 'platform': platform, 'user_id': user_id, 'handle': handle, 'display_name': display_name, 'is_command': bool(is_command)}
+        try:
+            async with http.post(url, json=payload) as r:
+                data = await r.json(content_type=None)
+                if r.status != 200:
+                    print(f"[SYNC][say] {r.status} -> {data}")
+                return {'ok': r.status == 200, 'status': r.status, **(data if isinstance(data, dict) else {})}
+        except Exception as e:
+            print(f"[SYNC][say][ERR] {e}")
+            return {'ok': False, 'error': str(e)}
+
     async def update_avatar_from_snapshots(self):
-        """Update Discord avatar using the latest snapshot, preferring the new HTTP API and falling back to local files."""
+        """Update Discord avatar using the most recent snapshot.
+        Prefers the new HTTP API, with a robust 'newest' scorer, and falls back to local files.
+        """
         import aiohttp
+        from datetime import datetime
+
+        def _to_epoch(ts_val):
+            """Convert various timestamp-like values to a float epoch seconds."""
+            if ts_val is None:
+                return 0.0
+            try:
+                # numeric (already epoch or seconds-like)
+                return float(ts_val)
+            except Exception:
+                pass
+            try:
+                # ISO8601 string (handle 'Z')
+                s = str(ts_val).replace('Z', '+00:00')
+                return datetime.fromisoformat(s).timestamp()
+            except Exception:
+                return 0.0
+
+        def _int_or_0(x):
+            try:
+                return int(x)
+            except Exception:
+                return 0
+
+        def score_snapshot(meta, index_pos=0):
+            """Return a sortable score for 'newness'. Higher is newer."""
+            if not isinstance(meta, dict):
+                return (-1, -1, -1, -1)  # very low
+            # Consider multiple possible fields for recency.
+            ts_fields = (
+                meta.get('timestamp'),            # numeric seconds
+                meta.get('created_at'),           # ISO string or numeric
+                meta.get('updated_at'),           # ISO string or numeric
+                meta.get('ts'),                   # any custom ts
+            )
+            ts = max((_to_epoch(v) for v in ts_fields), default=0.0)
+
+            # If IDs are numeric/monotonic, use as secondary.
+            # Also try snapshot_id.
+            id_score = max(_int_or_0(meta.get('id')), _int_or_0(meta.get('snapshot_id')))
+
+            # If png_url contains a number that looks like an epoch, use that as well.
+            url = meta.get('png_url') or ''
+            url_num = 0
+            try:
+                import re
+                nums = [int(n) for n in re.findall(r"(\d{10,})", url)]
+                url_num = max(nums) if nums else 0
+            except Exception:
+                pass
+
+            # As final tiebreaker, prefer later positions (assuming server returns ascending by default).
+            return (ts, url_num, id_score, index_pos)
 
         async def _get_json(session, url):
             try:
@@ -593,54 +685,53 @@ class BABYBOT_DISCORD(commands.Bot):
             # --- 1) Try the new API first ---
             base = os.environ.get("BBY_API_BASE", "https://childofanandroid.co.uk/api").rstrip("/")
             async with aiohttp.ClientSession() as session:
-                # Try a snapshots listing endpoint – tolerate multiple shapes.
-                # a) `/snapshots` returning a list of dicts with `id`, `png_url`, `has_png` etc.
-                snapshots = await _get_json(session, f"{base}/snapshots")
-
-                # b) If not available, try `/activity` then fetch specific snapshot meta
-                if not snapshots:
-                    activity = await _get_json(session, f"{base}/activity")
-                    if activity and activity.get("last_autosnap_id"):
-                        last_id = activity["last_autosnap_id"]
-                        meta = await _get_json(session, f"{base}/snapshots/{last_id}.json")
-                        snapshots = [meta] if meta else None
-
-                # c) Normalise into newest-first iterable
-                if snapshots and isinstance(snapshots, dict):
-                    snapshots = [snapshots]
-                if snapshots and isinstance(snapshots, list):
-                    # prefer entries that already have a png url attached
-                    def _snap_key(m):
-                        ts = m.get("timestamp") or m.get("created_at") or 0
-                        try:
-                            return float(ts)
-                        except Exception:
-                            return 0.0
-                    snapshots.sort(key=_snap_key, reverse=True)
-
-                    for meta in snapshots:
-                        if not meta:
-                            continue
-                        png_url = meta.get("png_url")
-                        if not png_url:
-                            # Some APIs expose `id` and serve the png at `/snapshots/<id>.png`
-                            sid = meta.get("id") or meta.get("snapshot_id")
+                # Prefer a dedicated 'latest' if your API supports it (cheap try).
+                latest_meta = await _get_json(session, f"{base}/snapshots/latest.json")
+                candidates = []
+                if latest_meta and isinstance(latest_meta, dict):
+                    candidates.append(latest_meta)
+                else:
+                    # Fallback to listing
+                    snapshots = await _get_json(session, f"{base}/snapshots")
+                    if snapshots and isinstance(snapshots, dict):
+                        snapshots = [snapshots]
+                    if snapshots and isinstance(snapshots, list):
+                        candidates.extend(snapshots)
+                    else:
+                        # Try activity → last ids
+                        activity = await _get_json(session, f"{base}/activity")
+                        for key in ("last_snapshot_id", "last_autosnap_id", "last_id"):
+                            sid = activity.get(key) if isinstance(activity, dict) else None
                             if sid:
-                                png_url = f"{base}/snapshots/{sid}.png"
+                                meta = await _get_json(session, f"{base}/snapshots/{sid}.json")
+                                if meta:
+                                    candidates.append(meta)
+                                    break
 
-                        if not png_url:
-                            # As a last hint, honour a boolean flag and attempt conventional path
-                            if meta.get("has_png") and meta.get("id"):
-                                png_url = f"{base}/snapshots/{meta['id']}.png"
+                # Rank candidates newest-first using robust scorer.
+                ranked = sorted(
+                    ((meta, score_snapshot(meta, i)) for i, meta in enumerate(candidates) if meta),
+                    key=lambda t: t[1],
+                    reverse=True,
+                )
 
-                        if not png_url:
-                            continue
+                # Try each candidate (newest to oldest) until one works.
+                for meta, _ in ranked:
+                    png_url = meta.get("png_url")
+                    if not png_url:
+                        sid = meta.get("id") or meta.get("snapshot_id")
+                        if sid:
+                            png_url = f"{base}/snapshots/{sid}.png"
+                    if not png_url and meta.get("has_png") and meta.get("id"):
+                        png_url = f"{base}/snapshots/{meta['id']}.png"
+                    if not png_url:
+                        continue
 
-                        avatar_bytes = await _get_bytes(session, png_url)
-                        if avatar_bytes:
-                            await self.user.edit(avatar=avatar_bytes)
-                            print(f"[UPDATE_AVATAR] updated avatar from API: {png_url}")
-                            return
+                    avatar_bytes = await _get_bytes(session, png_url)
+                    if avatar_bytes:
+                        await self.user.edit(avatar=avatar_bytes)
+                        print(f"[UPDATE_AVATAR] updated avatar from API: {png_url}")
+                        return
 
                 print("[UPDATE_AVATAR] API path did not yield a png; falling back to local snapshots...")
 
@@ -655,10 +746,19 @@ class BABYBOT_DISCORD(commands.Bot):
             if not index:
                 return print("[UPDATE_AVATAR] snapshot index empty (local)")
 
-            for meta in reversed(index):
+            # Pick newest by same scoring logic; include position as a tie-breaker.
+            ranked_local = sorted(
+                ((meta, score_snapshot(meta, i)) for i, meta in enumerate(index) if meta),
+                key=lambda t: t[1],
+                reverse=True,
+            )
+
+            for meta, _ in ranked_local:
                 if not meta.get("has_png"):
                     continue
-                snap_id = meta.get("id")
+                snap_id = meta.get("id") or meta.get("snapshot_id")
+                if not snap_id:
+                    continue
                 png_path = os.path.join(snap_dir, f"{snap_id}.png")
                 if not os.path.exists(png_path):
                     print(f"[UPDATE_AVATAR] png not found: {png_path}")
@@ -739,10 +839,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
         mem = self.userMemory[author]
         mem["display_name"] = message.author.display_name.lower()
-
-        if isinstance(mem.get('last_message_words'), list):
-            mem['last_message_words'] = set(mem['last_message_words'])
-
+        if isinstance(mem.get('last_message_words'), list): mem['last_message_words'] = set(mem['last_message_words'])
         current_words = set(re.findall(r'\b\w{3,}\b', content.lower()))
         if len(current_words) > 1:
             last_words = mem.get("last_message_words", set())
@@ -786,6 +883,30 @@ class BABYBOT_DISCORD(commands.Bot):
         with open(discordLogPath, 'a', encoding='utf-8') as f: f.write(f"\n---\n{userMessage}")
         if len(self.buffer) > self.rollingContextSize: self.buffer.pop(0)
         if self.training_queue.qsize() < 20: await self.training_queue.put({"type": "chat", "text": "\n".join(self.buffer)})
+
+        # --- Sync Discord activity to the web server (privacy rules)
+        try:
+            snowflake = str(message.author.id)
+            handle = message.author.name
+            display_name = message.author.display_name
+            is_command = isinstance(message.content, str) and message.content.startswith(self.command_prefix)
+
+            # Local opt-in is source of truth right now
+            author_key = str(message.author.name).lower()
+            is_opted_in = author_key in self.AIoptInUsers
+
+            # If locally opted-in but server may not know yet, send consent once
+            mem = self.userMemory.get(author_key, {})
+            if is_opted_in and not mem.get('synced_optin'):
+                res = await self.web_post_consent(platform='discord', user_id=snowflake, handle=handle, display_name=display_name, consent=True)
+                if res.get('ok'):
+                    mem['synced_optin'] = True
+                    self.userMemory[author_key] = mem
+                    self._save_user_data()
+
+            # Guests: only send commands. Opted-in: send everything.
+            if is_opted_in or is_command: await self.web_post_say(text=message.content, platform='discord', user_id=snowflake, handle=handle, display_name=display_name, is_command=is_command)
+        except Exception as e: print(f"[SYNC][on_message] {e}")
 
         if message.author == self.user: return
 
@@ -1000,3 +1121,9 @@ class BABYBOT_DISCORD(commands.Bot):
         nature = "" if is_rival else ""
         return next_time, delta, nature
 
+    async def close(self):
+        try:
+            if hasattr(self, '_http_session') and self._http_session and not getattr(self._http_session, 'closed', True):
+                await self._http_session.close()
+        finally:
+            await super().close()
