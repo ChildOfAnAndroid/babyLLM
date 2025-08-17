@@ -230,6 +230,30 @@ def ping():
     print("[PING] Received ping request, sending pong.")
     return jsonify(ok=True, msg="hello from local brain")
 
+# --- Set state endpoint (inserted) ---
+@app.post("/api/state")
+def set_state():
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify(error="bad json"), 400
+    allowed = {
+        "eyes","mouth","cheeks_on","tears_on","jumping",
+        "stretch_left","stretch_right","stretch_up","stretch_down",
+        "squish_left","squish_right","squish_up","squish_down",
+        "isSpeaking","speechText","R","G","B",
+        "cerebralLoad","dreamIntensity","memoryFlux","learningStability"
+    }
+    with state_lock:
+        for k,v in data.items():
+            if k in allowed:
+                babyState[k] = v
+        try:
+            with open(STATE_FILE_PATH, 'w') as f:
+                json.dump(babyState, f)
+        except Exception as e:
+            return jsonify(error=f"persist failed: {e}"), 500
+    return jsonify(ok=True, state=babyState)
+
 @app.get("/api/state")
 def get_state():
     with state_lock:

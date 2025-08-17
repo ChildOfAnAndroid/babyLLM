@@ -566,39 +566,114 @@ class BABYBOT_DISCORD(commands.Bot):
         return rival, BBYd_users[rival]
     
     async def update_avatar_from_snapshots(self):
-        """Update Discord avatar using the latest snapshot saved by bbyServer."""
+        """Update Discord avatar using the latest snapshot, preferring the new HTTP API and falling back to local files."""
+        import aiohttp
+
+        async def _get_json(session, url):
+            try:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    print(f"[UPDATE_AVATAR] GET {url} -> {resp.status}")
+            except Exception as e:
+                print(f"[UPDATE_AVATAR] GET {url} error: {e}")
+            return None
+
+        async def _get_bytes(session, url):
+            try:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    if resp.status == 200:
+                        return await resp.read()
+                    print(f"[UPDATE_AVATAR] GET(bytes) {url} -> {resp.status}")
+            except Exception as e:
+                print(f"[UPDATE_AVATAR] GET(bytes) {url} error: {e}")
+            return None
+
         try:
+            # --- 1) Try the new API first ---
+            base = os.environ.get("BBY_API_BASE", "https://childofanandroid.co.uk/api").rstrip("/")
+            async with aiohttp.ClientSession() as session:
+                # Try a snapshots listing endpoint – tolerate multiple shapes.
+                # a) `/snapshots` returning a list of dicts with `id`, `png_url`, `has_png` etc.
+                snapshots = await _get_json(session, f"{base}/snapshots")
+
+                # b) If not available, try `/activity` then fetch specific snapshot meta
+                if not snapshots:
+                    activity = await _get_json(session, f"{base}/activity")
+                    if activity and activity.get("last_autosnap_id"):
+                        last_id = activity["last_autosnap_id"]
+                        meta = await _get_json(session, f"{base}/snapshots/{last_id}.json")
+                        snapshots = [meta] if meta else None
+
+                # c) Normalise into newest-first iterable
+                if snapshots and isinstance(snapshots, dict):
+                    snapshots = [snapshots]
+                if snapshots and isinstance(snapshots, list):
+                    # prefer entries that already have a png url attached
+                    def _snap_key(m):
+                        ts = m.get("timestamp") or m.get("created_at") or 0
+                        try:
+                            return float(ts)
+                        except Exception:
+                            return 0.0
+                    snapshots.sort(key=_snap_key, reverse=True)
+
+                    for meta in snapshots:
+                        if not meta:
+                            continue
+                        png_url = meta.get("png_url")
+                        if not png_url:
+                            # Some APIs expose `id` and serve the png at `/snapshots/<id>.png`
+                            sid = meta.get("id") or meta.get("snapshot_id")
+                            if sid:
+                                png_url = f"{base}/snapshots/{sid}.png"
+
+                        if not png_url:
+                            # As a last hint, honour a boolean flag and attempt conventional path
+                            if meta.get("has_png") and meta.get("id"):
+                                png_url = f"{base}/snapshots/{meta['id']}.png"
+
+                        if not png_url:
+                            continue
+
+                        avatar_bytes = await _get_bytes(session, png_url)
+                        if avatar_bytes:
+                            await self.user.edit(avatar=avatar_bytes)
+                            print(f"[UPDATE_AVATAR] updated avatar from API: {png_url}")
+                            return
+
+                print("[UPDATE_AVATAR] API path did not yield a png; falling back to local snapshots...")
+
+            # --- 2) Fallback: old local-file behaviour ---
             snap_dir = os.path.join(SCRIPT_DIR, "snapshots")
             index_path = os.path.join(snap_dir, "index.json")
             if not os.path.exists(index_path):
-                return print("[UPDATE_AVATAR] no snapshot index found")
+                return print("[UPDATE_AVATAR] no snapshot index found (local)")
+
             with open(index_path, "r", encoding="utf-8") as f:
                 index = json.load(f)
             if not index:
-                return print("[UPDATE_AVATAR] snapshot index empty")
+                return print("[UPDATE_AVATAR] snapshot index empty (local)")
 
             for meta in reversed(index):
                 if not meta.get("has_png"):
                     continue
-
                 snap_id = meta.get("id")
                 png_path = os.path.join(snap_dir, f"{snap_id}.png")
                 if not os.path.exists(png_path):
                     print(f"[UPDATE_AVATAR] png not found: {png_path}")
                     continue
-
                 with open(png_path, "rb") as img:
                     avatar_bytes = img.read()
-
                 if not avatar_bytes:
                     print(f"[UPDATE_AVATAR] empty png: {png_path}")
                     continue
-
                 await self.user.edit(avatar=avatar_bytes)
-                print(f"[UPDATE_AVATAR] updated avatar from {png_path}")
+                print(f"[UPDATE_AVATAR] updated avatar from local: {png_path}")
                 return
 
-            print("[UPDATE_AVATAR] no snapshot with png found")
+            print("[UPDATE_AVATAR] no snapshot with png found (local)")
+
         except Exception as e:
             print(f"[UPDATE_AVATAR] error: {e}")
             traceback.print_exc()
