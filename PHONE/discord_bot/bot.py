@@ -889,7 +889,7 @@ class BABYBOT_DISCORD(commands.Bot):
             snowflake = str(message.author.id)
             handle = message.author.name
             display_name = message.author.display_name
-            is_command = isinstance(message.content, str) and message.content.startswith(self.command_prefix)
+            #is_command = isinstance(message.content, str) and message.content.startswith(self.command_prefix)
 
             # Local opt-in is source of truth right now
             author_key = str(message.author.name).lower()
@@ -905,7 +905,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     self._save_user_data()
 
             # Guests: only send commands. Opted-in: send everything.
-            if is_opted_in or is_command: await self.web_post_say(text=message.content, platform='discord', user_id=snowflake, handle=handle, display_name=display_name, is_command=is_command)
+            #if is_opted_in or is_command: await self.web_post_say(text=message.content, platform='discord', user_id=snowflake, handle=handle, display_name=display_name, is_command=is_command)
         except Exception as e: print(f"[SYNC][on_message] {e}")
 
         if message.author == self.user: return
