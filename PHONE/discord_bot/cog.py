@@ -14,6 +14,8 @@ import torch
 import numpy as np
 import pytz
 from typing import TYPE_CHECKING, Tuple, Optional
+import aiohttp
+from urllib.parse import quote
 
 from config import *
 from secret import *
@@ -36,6 +38,58 @@ if TYPE_CHECKING:
 class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     def __init__(self, bot: 'BABYBOT_DISCORD'):
         self.bot = bot
+        # lightweight gallery cache so we don't hammer the site
+        self._gallery_cache = {"ts": 0.0, "by_label": {}}
+        self._gallery_ttl = 120.0  # seconds
+    async def _ensure_gallery_cache(self):
+        """Fetch /api/gallery from childofanandroid.co.uk and cache label->url for a short time."""
+        try:
+            now = time.time()
+            if (now - self._gallery_cache.get("ts", 0.0)) < self._gallery_ttl and self._gallery_cache.get("by_label"):
+                return
+            url = "https://childofanandroid.co.uk/api/gallery"
+            by_label = {}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=10) as resp:
+                    if resp.status != 200:
+                        return
+                    data = await resp.json()
+                    if isinstance(data, list):
+                        for item in data:
+                            label = (item.get("label") or "").strip().lower()
+                            img_url = item.get("url") or None
+                            if label and img_url and label not in by_label:
+                                by_label[label] = img_url
+            if by_label:
+                self._gallery_cache = {"ts": now, "by_label": by_label}
+        except Exception:
+            # keep cache as-is on failure
+            pass
+
+    async def _get_card_image_url(self, label: str) -> str | None:
+        if not label: return None
+        await self._ensure_gallery_cache()
+        return self._gallery_cache.get("by_label", {}).get(label.strip().lower())
+
+    @staticmethod
+    def _compact_number_uk(n: float) -> str:
+        try:
+            if n is None:
+                return "—"
+            sign = "-" if n < 0 else ""
+            a = abs(float(n))
+            def trim(s: str) -> str:
+                return s[:-2] if s.endswith(".0") else s
+            if a < 1_000:
+                return sign + f"{a:.0f}"
+            if a < 1_000_000:
+                return sign + trim(f"{a/1_000:.1f}") + "k"
+            if a < 1_000_000_000:
+                return sign + trim(f"{a/1_000_000:.1f}") + "m"
+            return sign + trim(f"{a/1_000_000_000:.1f}") + "b"
+        except Exception:
+            return "—"
+
 
     # --*- REFACTOR HELPER METHODS -*--
 
@@ -413,35 +467,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if self.bot._buffer_add(narrator_line_1): self.bot.last_logged_author = author
         if self.bot._buffer_add(narrator_line_2): self.bot.last_logged_author = self.bot.babyName.lower()
         self.bot._buffer_add(f"soo... {self.bot.getNickname(author)} is telling me that {key} means {value}... that's pretty cool, tbh! i think that they just taught me that {key} is {value}. ")
-
-    @commands.command(name="bbyiteminfo", aliases=['biinfo', 'bii'])
-    async def bbyiteminfo(self, ctx, *, item_name: str = None):
-        """Shows all info on an item, how many there are total, who has the most of them, max allowed, cost and effective cost."""
-        if item_name:
-            item_name, item_data = await self._get_fact_or_reply(ctx, item_name)
-            if not item_name: return
-        else:
-            if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "there are no items :(")
-            item_name, item_data = self._get_bbyfact_random()
-
-        _, _, top_holder_str = self._check_fact_hoarding_user(fact = item_name)
-        total_count = self._get_fact_total_world(item_name)
-        max_allowed = self._get_fact_num_produced(item_name)
-        original_cost = self._get_fact_value_base(fact = item_name)
-        effective_cost = self._get_fact_value(fact = item_name)
-        original_author = self.bot.getNickname(item_data.get('author', 'the void'))
-        id = self._get_fact_id(fact = item_name)
-        created_ago = howLongAgo(item_data.get('timestamp', 0))
-
-        embed = discord.Embed(title = f"{item_name.lower().strip()}", description = f"*{item_data.get('value', 'nothing found...')}*", color = discord.Color.random())
-        embed.set_footer(text = f"item number {id} was taught by {original_author}, {created_ago}.")
-        embed.add_field(name="stats", value=(f"total in world: `{total_count}`\ntotal allowed: `{int(max_allowed)}`\ntop hoarder: {top_holder_str}"), inline = True)
-        embed.add_field(name="value", value=(f"base cost: `ᛒ{original_cost:,.2f}`\ncurrent cost: `ᛒ{effective_cost:,.2f}`\n(base / total)"), inline = True)
-    
-        narrative = f"just checked the stats on {item_name}. it means {item_data.get('value', 'nothing')}... but it looks like it's worth about ᛒ{effective_cost:.0f} right now, and {top_holder_str} is hoarding a lot of them... i wonder why... "
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, narrative))
-
-        await self.bot._discord_reply(ctx, embed = embed)    
 
     @commands.command(name='bbywhatis', aliases=['bwhatis', 'bwi'])
     async def bbywhatis(self, ctx, *, key: str = None):
@@ -2661,6 +2686,82 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_spam(seed)
             await asyncio.sleep(0.5)
         await self.bot._discord_reply(ctx, "check the discord spam room! its a long list :)")
+
+    @commands.command(name='bbyiteminfo', aliases=['bii', 'biteminfo', 'bbyii']) 
+    async def cmd_bii(self, ctx: commands.Context, *, item_name: str | None = None):
+        """
+        Shows all info on an item (old bbyiteminfo/biinfo/bii behaviour) and,
+        if a card exists on the website gallery, includes the full illustrated card image.
+        Usage: !bii <fact name>  (or just !bii for a random item)
+        """
+        try:
+            # --- item selection
+            if item_name:
+                item_name, item_data = await self._get_fact_or_reply(ctx, item_name)
+                if not item_name: return
+            else:
+                if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "there are no items :(")
+                try: item_name, item_data = self._get_bbyfact_random()
+                except Exception:
+                    k = random.choice(list(self.bot.bbyfacts.keys()))
+                    item_name, item_data = k, self.bot.bbyfacts[k]
+
+            # --- stats
+            _, _, top_holder_str = self._check_fact_hoarding_user(fact=item_name)
+            total_count     = self._get_fact_total_world(item_name)
+            max_allowed     = self._get_fact_num_produced(item_name)
+            original_cost   = self._get_fact_value_base(fact=item_name)
+            effective_cost  = self._get_fact_value(fact=item_name)
+            original_author = self.bot.getNickname(item_data.get('author', 'the void'))
+            iid             = self._get_fact_id(fact=item_name)
+            created_ago     = howLongAgo(item_data.get('timestamp', 0))
+
+            # --- embed
+            embed = discord.Embed(
+                title=f"{item_name.lower().strip()}",
+                description=f"*{item_data.get('value', 'nothing found...')}*",
+                color=discord.Color.random()
+            )
+            embed.set_footer(text=f"item number {iid} was taught by {original_author}, {created_ago}.")
+
+            embed.add_field(
+                name="stats",
+                value=(
+                    f"total in world: `{total_count}`\n"
+                    f"total allowed: `{int(max_allowed)}`\n"
+                    f"top hoarder: {top_holder_str}"
+                ),
+                inline=True
+            )
+            embed.add_field(
+                name="value",
+                value=(
+                    f"base cost: `ᛒ{original_cost:,.2f}`\n"
+                    f"current cost: `ᛒ{effective_cost:,.2f}`\n"
+                    f"(base / total)"
+                ),
+                inline=True
+            )
+
+            # --- illustrated card
+            try:
+                img_url = await self._get_card_image_url(item_name)
+                if img_url: embed.set_image(url=img_url)
+            except Exception: pass
+
+            # --- narrative buffer
+            narrative = (
+                f"just checked the stats on {item_name}. it means {item_data.get('value', 'nothing')}... "
+                f"but it looks like it's worth about ᛒ{effective_cost:.0f} right now, and {top_holder_str} is hoarding a lot of them... "
+                f"i wonder why... "
+            )
+            try: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, narrative))
+            except Exception: pass
+
+            await self.bot._discord_reply(ctx, embed=embed)
+        except Exception:
+            traceback.print_exc()
+            await self.bot._discord_reply(ctx, "i tried to show it but i had some error :(")
 
 if __name__ == "__main__":
     print("to run this bot, you need to set up all the required components (babyLLM, tutor, etc.) and then run the bot.")
