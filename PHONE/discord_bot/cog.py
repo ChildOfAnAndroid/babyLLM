@@ -2867,6 +2867,32 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             iid             = self._get_fact_id(fact=item_name)
             created_ago     = howLongAgo(item_data.get('timestamp', 0))
 
+            # --- brain connections
+            brain_assocs = []
+            try:
+                word = (item_name or "").strip().lower()
+                token_ids = self.bot.librarian.tokenizer.encode(word)
+                if token_ids:
+                    token_id = token_ids[0]
+                    unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
+                    if token_id != unk_id:
+                        with torch.no_grad():
+                            target_vec = self.bot.babyLLM.embed.e_weights[token_id]
+                            all_vecs = self.bot.babyLLM.embed.e_weights
+                            sims = torch.nn.functional.cosine_similarity(all_vecs, target_vec.unsqueeze(0), dim=1)
+                            top_vals, top_idx = torch.topk(sims, 6)
+                        for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
+                            if idx == token_id:
+                                continue
+                            token_str = self.bot.librarian.decodeIDs([idx]).strip()
+                            if token_str == self.bot.librarian.unkToken:
+                                continue
+                            brain_assocs.append(f"{token_str} ({val:.2f})")
+                            if len(brain_assocs) >= 5:
+                                break
+            except Exception:
+                brain_assocs = []
+
             # --- embed
             embed = discord.Embed(
                 title=f"{item_name.lower().strip()}",
@@ -2893,6 +2919,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 ),
                 inline=True
             )
+
+            if brain_assocs:
+                embed.add_field(
+                    name="brain connects",
+                    value=", ".join(brain_assocs),
+                    inline=False,
+                )
 
             # --- illustrated card
             try:
