@@ -479,7 +479,54 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         narrator_line_2 = self.bot.formatMessage(self.bot.babyName.lower(), f"haha, really? that's a nice way to explain it! thanks for teaching me.")
         if self.bot._buffer_add(narrator_line_1): self.bot.last_logged_author = author
         if self.bot._buffer_add(narrator_line_2): self.bot.last_logged_author = self.bot.babyName.lower()
-        self.bot._buffer_add(f"soo... {self.bot.getNickname(author)} is telling me that {key} means {value}... that's pretty cool, tbh! i think that they just taught me that {key} is {value}. ")
+
+        opener = random.choice([
+            "soo...",
+            "oh!",
+            "guess what,",
+            "wow,",
+            "you know,",
+        ])
+        teller = random.choice([
+            "is telling me",
+            "says",
+            "reckons",
+            "tells me",
+            "explains",
+        ])
+        meaning_word1 = random.choice([
+            "means",
+            "is",
+            "stands for",
+            "represents",
+            "signifies",
+        ])
+        meaning_word2 = random.choice([
+            "means",
+            "is",
+            "stands for",
+            "represents",
+            "signifies",
+        ])
+        cool_word = random.choice([
+            "pretty cool",
+            "kinda neat",
+            "pretty awesome",
+            "rather interesting",
+            "super cool",
+        ])
+        learn_phrase = random.choice([
+            "i think that they just taught me that",
+            "guess that teaches me that",
+            "now i know that",
+            "i just learned that",
+            "they've taught me that",
+        ])
+        varied_line = (
+            f"{opener} {self.bot.getNickname(author)} {teller} that {key} {meaning_word1} {value}... "
+            f"that's {cool_word}, tbh! {learn_phrase} {key} {meaning_word2} {value}. "
+        )
+        self.bot._buffer_add(varied_line)
 
     @commands.command(name='bbywhatis', aliases=['bwhatis', 'bwi'])
     async def bbywhatis(self, ctx, *, key: str = None):
