@@ -88,6 +88,7 @@ stepCheckpointFilePath = "SHKAIRA/soul/stepCheckpoint.txt"
 lossCheckpointFilePath = "SHKAIRA/soul/lossCheckpoint.txt"
 lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
 babyStateFilePath = "phone/discord_bot/babyState.json"
+topTokensFilePath = "phone/discord_bot/topTokens.json"
 tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
 
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"

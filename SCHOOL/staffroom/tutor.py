@@ -3,7 +3,7 @@
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
 
-import random, sys
+import random, sys, os
 from collections import Counter, defaultdict
 from datetime import datetime
 import torch
@@ -48,8 +48,11 @@ class TUTOR:
         self.trainingLogFreq_A          = _trainingLogFreq_A
         self.learningRateGOAL           = _learningRateGOAL
         self.tokenCounts = Counter()
+        self.topTokens_str = ""
+        self.topTokens_forBot = ""
         self.training_resume_state      = {}
         self.training_lock              = asyncio.Lock()
+        self.load_token_counts()
 
         self.temperature                = 0.75
         self.scheduledSamplingRate      = self.model.scheduledSamplingRate
@@ -988,6 +991,33 @@ class TUTOR:
     def tidy_token(self, tok):
         return tok.replace("Ġ", " ").replace("Ċ", "\n").strip()
 
+    def update_top_tokens(self):
+        delimiter = self.calligraphist.S_apply("dim", ", ")
+        self.topTokens_str = ": " + delimiter.join([
+            self.calligraphist.S_apply("dim", f"{k}({v:.1f})")
+            for k, v in self.tokenCounts.most_common(50)
+        ])
+        self.topTokens_forBot = ": " + delimiter.join(
+            f"{self.tidy_token(k)}" for k, v in self.tokenCounts.most_common(100)
+        )
+
+    def load_token_counts(self):
+        try:
+            with open(topTokensFilePath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.tokenCounts = Counter(data)
+        except FileNotFoundError:
+            self.tokenCounts = Counter()
+        self.update_top_tokens()
+
+    def save_token_counts(self):
+        try:
+            os.makedirs(os.path.dirname(topTokensFilePath), exist_ok=True)
+            with open(topTokensFilePath, "w", encoding="utf-8") as f:
+                json.dump(self.tokenCounts, f, indent=2)
+        except Exception as e:
+            print(f"could not write to {topTokensFilePath}: {e}")
+
     @whocalled
     def logFreqActions(self, _trainingDataPairs, _stringStats, _frequency, _trainingLogPath, _detailedLogging, _saveLog, _currentStepOverride = None):
         with self.counsellor.infodump("logFreqActions") as ʕっʘ‿ʘʔっ:
@@ -1000,13 +1030,8 @@ class TUTOR:
                 for k, v in Counter(rollingDict).most_common(50)])
             #topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
             #topTokens_str = "[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(20)]) + "]"
-            self.topTokens_str = ": " + delimiter.join([
-                self.calligraphist.S_apply("dim", f"{k}({v:.1f})")
-                for k, v in self.tokenCounts.most_common(50)
-            ])
-            self.topTokens_forBot = ": " + delimiter.join(
-                f"{self.tidy_token(k)}" for k, v in self.tokenCounts.most_common(100)
-            )
+            self.update_top_tokens()
+            self.save_token_counts()
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
