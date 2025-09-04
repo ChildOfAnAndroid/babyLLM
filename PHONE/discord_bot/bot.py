@@ -81,7 +81,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     "wins": 0.0, "losses": 0.0, "draws": 0.0,
                     "last_seen": time.time(), "message_count": 0.0, "loyalty": 1,
                     "last_message_words": set(), "creative_combo": 1, "spammer": 1,
-                    "inventory": {}, "favourites": []}
+                    "inventory": {}, "favourites": [], "next_talk_milestone": 50}
 
         if os.path.exists(self.user_data_path):
             print(f"[BABYBOT_DISCORD__INIT__] {self.user_data_path} LOADING FROM PATH... ")
@@ -915,6 +915,12 @@ class BABYBOT_DISCORD(commands.Bot):
 
         # --- UK Timezone Setup & Daily Reset Logic ---
         mem["message_count"] += 1.0
+        milestone = mem.get("next_talk_milestone", 50)
+        if mem["message_count"] >= milestone:
+            milestone_msg = f"i've been chatting with {self.getNickname(author)} loads lately."
+            self._buffer_add(self.formatMessage(self.babyName, milestone_msg))
+            mem["next_talk_milestone"] = milestone + 50
+            self._save_user_data()
         uk_tz = pytz.timezone("Europe/London")
         now_uk = datetime.now(uk_tz)
         day_start_420am = now_uk.replace(hour = 4, minute = 20, second = 0, microsecond = 0)
@@ -1036,8 +1042,9 @@ class BABYBOT_DISCORD(commands.Bot):
         text = "\n".join(item["text"]) if isinstance(item["text"], list) else item["text"]
         textCLEAN = clean_text(text)
         tokensToLibrarian = self.librarian.tokenizeText(textCLEAN)
-        if len(tokensToLibrarian) < self.chatWindowMAX * 2 + 1:
-            print(f"\n\nnot enough tokens ({len(tokensToLibrarian)}) for training. skipping.\n\n")
+        token_count = len(tokensToLibrarian)
+        if token_count < self.chatWindowMAX * 2 + 1:
+            print(f"\n\nnot enough tokens ({token_count}) for training. skipping.\n\n")
             return
 
         trainingNum = random.randint(1, 100+self.idles)
@@ -1047,6 +1054,8 @@ class BABYBOT_DISCORD(commands.Bot):
             None,
             lambda: self.tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = 1, _startIndex = 1)
         )
+        training_note = self.formatMessage(self.babyName, f"i've just had a lesson on {token_count} tokens.")
+        self._buffer_add(training_note)
         print(f"\n\nfinished training on item!\n\n")
 
     async def idleTrainChecker(self): 
@@ -1097,6 +1106,8 @@ class BABYBOT_DISCORD(commands.Bot):
 
                 if (now - self.lastInteraction > self.idleTrainSeconds):
                     self.idles += 1
+                    idle_msg = self.formatMessage(self.babyName, f"it's been {int(self.idles * self.idleTrainSeconds)} seconds since anyone had a chat with me.")
+                    self._buffer_add(idle_msg)
                     self.lastInteraction = time.time()
                     if len(self.buffer) >= self.N:
                         self._save_json(chatBufferFilepath, self.buffer, "IDLETRAINCHECKER")

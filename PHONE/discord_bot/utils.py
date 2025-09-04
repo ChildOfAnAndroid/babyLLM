@@ -14,21 +14,29 @@ def is_similar(a, b, threshold=0.8):
 
 def howLongAgo(t):
     if not t:
-        return "never"
+        return random.choice(["never", "not yet", "no record"])
     s = time.time() - t
     if s < 60:
-        return "less than a minute ago"
+        return random.choice([
+            "less than a minute ago",
+            "just moments ago",
+            "under a minute back",
+        ])
     m = int(round(s / 60 / 3) * 3)
     if m < 60:
-        return f"maybe {m} minutes ago"
+        prefix = random.choice(["maybe", "roughly", "around", "like"])
+        return f"{prefix} {m} minutes ago"
     h = int(round(s / 3600 / 3) * 3)
     if h < 24:
-        return f"about {h} hours ago"
+        prefix = random.choice(["about", "around", "roughly", "close to"])
+        return f"{prefix} {h} hours ago"
     d = int(round(s / 86400 / 3) * 3)
     if d < 14:
-        return f"around {d} days ago"
+        prefix = random.choice(["around", "about", "roughly", "like"])
+        return f"{prefix} {d} days ago"
     w = int(round(s / 604800))
-    return f"{w} week{'s' if w != 1 else ''} ago"
+    prefix = random.choice(["around", "about", "roughly", "like"])
+    return f"{prefix} {w} week{'s' if w != 1 else ''} ago"
 
 
 def strip_broken_graphemes(text: str, debug: bool = True) -> str:
@@ -128,8 +136,20 @@ def getTimeRant(ai_opt_in_users):
         f"maybe {hour_24}:{minute}? idk",
         f"according to the thingy, it's {readable}",
         f"{hour_12}:{minute}{ampm}, allegedly",
+        f"i peeked at a watch and saw {readable}",
+        f"the stars whisper {hour_12}:{minute}{ampm}",
+        f"call it {hour_12}:{minute}{ampm} or so",
+        f"my clock muttered {readable}",
+        f"the vibes say it's {readable}",
     ]
-    usernames = ["the universe", "the clock", "the void"] + ai_opt_in_users
+    usernames = [
+        "the universe",
+        "the clock",
+        "the void",
+        "my phone",
+        "the wall calendar",
+        "the microwave",
+    ] + ai_opt_in_users
     return f"{random.choice(usernames)}: {random.choice(approx_phrases)} "
 
 
