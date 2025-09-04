@@ -31,6 +31,8 @@ from .utils import (
     killExcessTags,
     strSplitValueName,
     getTimeRant,
+    style_gain,
+    style_loss,
 )
 
 if TYPE_CHECKING:
@@ -375,7 +377,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     winner_inventory = self.bot.userMemory[winner_id].setdefault("inventory", {})
                     winner_inventory[stolen_item] = winner_inventory.get(stolen_item, 0) + 1
 
-                    return f"damn, {self.bot.getNickname(winner_id)} even nicked a {stolen_item} from {self.bot.getNickname(loser_id)}!!"
+                    return f"damn, {self.bot.getNickname(winner_id)} even nicked a {style_gain(stolen_item)} from {self.bot.getNickname(loser_id)}!!"
                 return ""
             return ""
         return ""
@@ -429,59 +431,36 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         text = text.strip().lower()
         token_ids = self.bot.librarian.tokenizer.encode(text)
         if not token_ids:
-            return "i connect nothing to... the input you just gave me >:("
+            return ""
 
-        unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
         embed = self.bot.babyLLM.embed.e_weights
+        vec = embed[token_ids].mean(dim=0)
+        raw = self._get_similar_tokens(vec, token_ids, top_k, with_scores=True)
+        if not raw:
+            return ""
 
-        all_outputs = []
-        valid_vectors = []
-        tokens = [self.bot.librarian.indexToToken.get(tid, self.bot.librarian.unkToken) for tid in token_ids]
+        formatted: list[str] = []
+        for tok, score in raw:
+            tok_display = escape_markdown(tok)
+            if score >= 0.75:
+                formatted.append(f"****{tok_display}****")
+            elif score >= 0.5:
+                formatted.append(f"**{tok_display}**")
+            else:
+                formatted.append(tok_display)
 
-        for tid, tok in zip(token_ids, tokens):
-            if tid == unk_id:
-                all_outputs.append(f"wtf is {tok}?")
-                continue
-
-            vec = embed[tid]
-            valid_vectors.append(vec)
-            connections_raw = self._get_similar_tokens(vec, [tid], top_k)
-            connections = [f"*{escape_markdown(c)}*" for c in connections_raw]
-            tidy = self.bot.tutor.tidy_token(tok) if hasattr(self.bot, 'tutor') and hasattr(self.bot.tutor, 'tidy_token') else tok
-            all_outputs.append(
-                f"when i think of {escape_markdown(tidy)}, i also think about " + ", ".join(connections)
-            )
-
-        if len(valid_vectors) > 1:
-            combo_vec = torch.stack(valid_vectors).mean(dim=0)
-            blend_raw = self._get_similar_tokens(combo_vec, token_ids, top_k)
-            blend = [f"*{escape_markdown(c)}*" for c in blend_raw]
-            combo_label = " + ".join(
-                [
-                    self.bot.tutor.tidy_token(t)
-                    if hasattr(self.bot, "tutor") and hasattr(self.bot.tutor, "tidy_token")
-                    else t
-                    for t in tokens
-                ]
-            )
-            all_outputs.append(
-                f"together {escape_markdown(combo_label)} makes me think about " + ", ".join(blend)
-            )
-        elif not valid_vectors:
-            all_outputs.append("i literally cannot parse any of this shit hahaha im sorry :(")
-
-        return "\n".join(all_outputs)
+        return f"[p] \u2192 {', '.join(formatted)}"
 
 
-    def _get_similar_tokens(self, vec: torch.Tensor, exclude_ids: list[int], top_k: int) -> list[str]:
+    def _get_similar_tokens(self, vec: torch.Tensor, exclude_ids: list[int], top_k: int, with_scores: bool = False):
         embed = self.bot.babyLLM.embed.e_weights
         with torch.no_grad():
             sims = torch.nn.functional.cosine_similarity(embed, vec.unsqueeze(0), dim=1)
-            _, top_idx = torch.topk(sims, top_k + len(exclude_ids))
+            top_vals, top_idx = torch.topk(sims, top_k + len(exclude_ids))
 
-        associations: list[str] = []
+        associations = []
         seen_tokens = set()
-        for idx in top_idx.tolist():
+        for score, idx in zip(top_vals.tolist(), top_idx.tolist()):
             if idx in exclude_ids:
                 continue
             token_str = self.bot.librarian.decodeIDs([idx])
@@ -490,7 +469,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if token_str in seen_tokens:
                 continue
             seen_tokens.add(token_str)
-            associations.append(token_str)
+            if with_scores:
+                associations.append((token_str, score))
+            else:
+                associations.append(token_str)
             if len(associations) >= top_k:
                 break
         return associations
@@ -660,7 +642,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
-        reply += f"soo... you're telling me that {key} means {value}? that's pretty cool, tbh! {random.choice(self.bot.faveEmotes)} +ᛒ{incrementTeach:,.0f} for you! \n"
+        reply += (
+            f"soo... you're telling me that {key} means {value}? that's pretty cool, tbh! "
+            f"{random.choice(self.bot.faveEmotes)} {style_gain(f'+ᛒ{incrementTeach:,.0f}')} for you! \n"
+        )
         num_produced = self._get_fact_num_produced(key)        
         awardNumber = round((self.bot.random4 * self.bot.random3) * (random.uniform(1, (num_produced * self.bot.random2 * self.bot.random))) + 1)
         awardNumber = await self._award_fact(user = author, fact = key, ctx = ctx, num = awardNumber)
@@ -988,9 +973,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bot.userMemory[smol_id]["wins"] += 1
             self.bot.userMemory[big_id]["losses"] += 1
 
-            reply += (f"{attacker_nic} tried to boop {defender_nic}! "
-                    f"the universe is correct again. {big_nic} loses ᛒ{total_swing:.0f} "
-                    f"and {smol_nic} gains ᛒ{total_swing:.0f}! fuk u, {big_nic}! {random.choice(self.bot.faveEmotes)}")
+            reply += (
+                f"{attacker_nic} tried to boop {defender_nic}! "
+                f"the universe is correct again. {big_nic} loses {style_loss(f'ᛒ{total_swing:.0f}')} "
+                f"and {smol_nic} gains {style_gain(f'ᛒ{total_swing:.0f}')}! fuk u, {big_nic}! {random.choice(self.bot.faveEmotes)}"
+            )
 
             reply += await self._maybe_steal_item(smol_id, big_id, ctx)
             reply += await self._maybe_steal_item(smol_id, big_id, ctx)
@@ -1004,7 +991,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 self.bot.updateBBY(defender_id, -base_swing)
                 self.bot.userMemory[attacker_id]["wins"] += 1
                 self.bot.userMemory[defender_id]["losses"] += 1
-                reply += f"super close!! {attacker_nic} defeated {defender_nic}! {attacker_nic} gains ᛒ{base_swing:.0f} "
+                reply += f"super close!! {attacker_nic} defeated {defender_nic}! {attacker_nic} gains {style_gain(f'ᛒ{base_swing:.0f}')} "
                 await self._award_fact(attacker_id, f"{defender_nic} dust", ctx, 1)
                 reply += await self._maybe_steal_item(attacker_id, defender_id, ctx)
             
@@ -1013,7 +1000,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 self.bot.updateBBY(attacker_id, -base_swing)
                 self.bot.userMemory[defender_id]["wins"] += 1
                 self.bot.userMemory[attacker_id]["losses"] += 1
-                reply += f"{defender_nic} didnt die! take that, {attacker_nic}! {defender_nic} gains ᛒ{base_swing:.0f} "
+                reply += f"{defender_nic} didnt die! take that, {attacker_nic}! {defender_nic} gains {style_gain(f'ᛒ{base_swing:.0f}')} "
                 await self._award_fact(defender_id, f"{attacker_nic} dust", ctx, 1)
                 reply += await self._maybe_steal_item(defender_id, attacker_id, ctx)
 
@@ -1066,8 +1053,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self._award_fact(attacker_id, f"what we used to call {key}", ctx, 10, old_value = f"{defender_nic} said this meant {original_value}")
             self.bot.save_bbyfacts()
             
-            reply = (f"{attacker_nic}, in defense of proper use of the english language, deleted {defender_nic}s response and forced me to forget that {key} ever even existed! "
-                     f"seems pricey, though. ᛒ{-(point_swing * self.bot.random3):.0f} for {attacker_nic}, ᛒ{-((point_swing * self.bot.random) * 0.5):.0f} for {defender_nic})")
+            reply = (
+                f"{attacker_nic}, in defense of proper use of the english language, deleted {defender_nic}s response and forced me to forget that {key} ever even existed! "
+                f"seems pricey, though. {style_loss(f'ᛒ{-(point_swing * self.bot.random3):.0f}')} for {attacker_nic}, "
+                f"{style_loss(f'ᛒ{-((point_swing * self.bot.random) * 0.5):.0f}')} for {defender_nic})"
+            )
             reply += await self._maybe_steal_item(attacker_id, defender_id, ctx)
         elif attacker_BBY == defender_BBY:
             self.bot.updateBBY(attacker_id, point_swing * (0.1 * (-0.5 + self.random)))
@@ -1087,8 +1077,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bot.userMemory[defender_id]["wins"] += 1
             self.bot.userMemory[attacker_id]["losses"] += 1
 
-            reply = (f"{attacker_nic} thinks they can force me to forget {key}?! never! {defender_nic} is just too strong! "
-                     f"{attacker_nic} loses ᛒ{point_swing:.0f} because how dare they!")
+            reply = (
+                f"{attacker_nic} thinks they can force me to forget {key}?! never! {defender_nic} is just too strong! "
+                f"{attacker_nic} loses {style_loss(f'ᛒ{point_swing:.0f}')} because how dare they!"
+            )
             
             await self._award_fact(user = attacker_id, fact = f"cursed {key}", num = 1, old_value = f"{attacker_nic} thought this shouldn't mean {original_value}. that thought was wrong.")
             reply += await self._maybe_steal_item(defender_id, attacker_id, ctx)
@@ -1208,9 +1200,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         receiver_nic = self.bot.getNickname(receiver_id)
         emote = random.choice(self.bot.faveEmotes)
         
-        reply = f"{giver_nic} gave {receiver_nic} {num_successfully_gifted}x {item_name}! aww!! {emote}"
-        if num_successfully_gifted > 0: reply += f" ᛒ{0.5 * total_gift_power:,.0f} for {receiver_nic}, and a lil ᛒ{0.1 * total_gift_power:,.0f} back to {giver_nic} :)"
-        if num_refunded > 0: reply += f"\nyou somehow had more than the total allowed... what? um... {num_refunded}x disappeared into the abyss "
+        reply = f"{giver_nic} gave {receiver_nic} {style_gain(f'{num_successfully_gifted}x {item_name}')}! aww!! {emote}"
+        if num_successfully_gifted > 0:
+            reply += (
+                f" {style_gain(f'ᛒ{0.5 * total_gift_power:,.0f}')} for {receiver_nic},"
+                f" and a lil {style_gain(f'ᛒ{0.1 * total_gift_power:,.0f}')} back to {giver_nic} :)"
+            )
+        if num_refunded > 0:
+            reply += f"\nyou somehow had more than the total allowed... what? um... {style_loss(f'{num_refunded}x')} disappeared into the abyss "
             
         await self.bot._discord_reply(ctx, reply)
 
@@ -2198,19 +2195,29 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         coins = 0
         if BBY_change > 0:
-            dealer += f"shit, i think you won this one... you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f}... thats a win of ᛒ{final_BBY-original_BBY:.0f}... {random.choice(self.bot.faveEmotes)} "
+            dealer += (
+                f"shit, i think you won this one... you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f}... "
+                f"thats a win of {style_gain(f'ᛒ{final_BBY-original_BBY:.0f}')}... {random.choice(self.bot.faveEmotes)} "
+            )
             self.bot.userMemory[author]["wins"] += 1
             dealer += await self._maybe_steal_item(author, self.bot.user, ctx)
             
         elif BBY_change == 0:
-            dealer += f"wait, nice! you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f} - thats a win of ᛒ{final_BBY-original_BBY:.0f}! so, a loss. look, blame charis for the bad code {random.choice(self.bot.faveEmotes)} "
+            dealer += (
+                f"wait, nice! you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f} - "
+                f"thats a win of {style_gain(f'ᛒ{final_BBY-original_BBY:.0f}')}! so, a loss. "
+                f"look, blame charis for the bad code {random.choice(self.bot.faveEmotes)} "
+            )
             self.bot.userMemory[author]["draws"] += 1
         else:
-            dealer += f"\nmuahahahaha! destroyed! you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f}... thats a loss of ᛒ{original_BBY-final_BBY:.0f}! bye! {random.choice(self.bot.faveEmotes)} "
+            dealer += (
+                f"\nmuahahahaha! destroyed! you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f}... "
+                f"thats a loss of {style_loss(f'ᛒ{original_BBY-final_BBY:.0f}')}! bye! {random.choice(self.bot.faveEmotes)} "
+            )
             self.bot.userMemory[author]["losses"] += 1
         if self.bot.random3 > 0.8:
             coins += abs(original_BBY-final_BBY) * self.bot.random
-            dealer += f"... don't look at me like that... fine. take a consolation prize of ᛒ{coins:.0f} {random.choice(self.bot.faveEmotes)} "
+            dealer += f"... don't look at me like that... fine. take a consolation prize of {style_gain(f'ᛒ{coins:.0f}')} {random.choice(self.bot.faveEmotes)} "
 
         self.bot._save_user_data()
         await self.bot._discord_reply(ctx, dealer)
@@ -2232,9 +2239,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             final_BBY = self.bot.getBBY(author)
             if self.bot.random2 > 0.8:
                 coins += coins
-                offer += f"i just dropped you (another!) bonus of ᛒ{coins:.0f}, your total is now ᛒ{final_BBY:.0f} {random.choice(self.bot.faveEmotes)} "                
+                offer += f"i just dropped you (another!) bonus of {style_gain(f'ᛒ{coins:.0f}')}, your total is now ᛒ{final_BBY:.0f} {random.choice(self.bot.faveEmotes)} "
             else:
-                offer += f"i just dropped you a bonus of ᛒ{coins:.0f}, your total is now ᛒ{final_BBY:.0f} {random.choice(self.bot.faveEmotes)} "
+                offer += f"i just dropped you a bonus of {style_gain(f'ᛒ{coins:.0f}')}, your total is now ᛒ{final_BBY:.0f} {random.choice(self.bot.faveEmotes)} "
 
         if offer != "":
             await self.bot._discord_reply(ctx, offer)
@@ -2431,7 +2438,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "almost perfect 🔥" if bonus >= 69420 else
             "✨ cheers ✨"
         )
-        await self.bot._discord_reply(ctx, f"{status}... you found ᛒ{bonus:.0f}! you only have {inventory.get('smink token', 0)} smink tokens left :o")
+        await self.bot._discord_reply(ctx, f"{status}... you found {style_gain(f'ᛒ{bonus:.0f}')}! you only have {inventory.get('smink token', 0)} smink tokens left :o")
 
     @commands.command(name='bbysetzone')
     async def bbysetzone(self, ctx, tz_name: str):
@@ -2486,7 +2493,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         hugged_current_count = hugged_inventory.get(f"hug from {hugger_nic}", 0)
         hugged_inventory[f"hug from {hugger_nic}"] = hugged_current_count + 1
 
-        reply = f"{emote} {hugger_nic} gave {hugged_nic} a hug! awwwww! ᛒ{hug_power:.0f} for both of u! {emote}"
+        reply = f"{emote} {hugger_nic} gave {hugged_nic} a hug! awwwww! {style_gain(f'ᛒ{hug_power:.0f}')} for both of u! {emote}"
         
         await self.bot._discord_reply(ctx, reply)
         self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, f"{emote} {hugger_nic} gave {hugged_nic} a hug! awwwww!"))
@@ -2531,7 +2538,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return
 
         if quantity > available_count:
-            reply += f"aaa! you only have {available_count} {item_name}! i'll just take it all! "
+            reply += f"aaa! you only have {style_loss(f'{available_count} {item_name}')}! i'll just take it all! "
             quantity = available_count
 
         base_BBY_gain = 25.0
@@ -2556,13 +2563,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bot.updateBBY(original_author_id, total_BBY_gain * 0.1)
 
         item_str = f"{quantity}x {item_name}" if quantity > 1 else f"a {item_name}"
+        item_loss = style_loss(item_str)
+        bby_gain = style_gain(f"ᛒ{total_BBY_gain:.0f}")
         reply += random.choice([
-            f"this {item_str} tastes weird... but i guess i'll give you ᛒ{total_BBY_gain:.0f}! {random.choice(self.bot.faveEmotes)}",
-            f"omg {self.bot.getNickname(giver_id)} gave me {item_str}!! fuck yehhhhhh!! here's ᛒ{total_BBY_gain:.0f} for you! {random.choice(self.bot.faveEmotes)}"
+            f"this {item_loss} tastes weird... but i guess i'll give you {bby_gain}! {random.choice(self.bot.faveEmotes)}",
+            f"omg {self.bot.getNickname(giver_id)} gave me {item_loss}!! fuck yehhhhhh!! here's {bby_gain} for you! {random.choice(self.bot.faveEmotes)}"
         ])
 
         if original_author_id and original_author_id != giver_id:
-            reply += f" and a lil for {self.bot.getNickname(original_author_id)} for teaching me about {item_name}!"
+            reply += f" and a lil for {self.bot.getNickname(original_author_id)} for teaching me about {style_loss(item_name)}!"
 
         if self.bot.random < 0.5 and self.bot.bbyfacts:
             random_fact_key = random.choice(list(self.bot.bbyfacts.keys()))
@@ -2571,7 +2580,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 awarded_back = await self._award_fact(giver_id, random_fact_key, ctx, quantity_back)
                 if awarded_back > 0:
                     item_back_str = f"{awarded_back}x {random_fact_key}" if awarded_back > 1 else f"a {random_fact_key}"
-                    reply += f"\n\ni was waiting to give you {item_back_str} anyway! "
+                    reply += f"\n\ni was waiting to give you {style_gain(item_back_str)} anyway! "
             else:
                 reply += "\n\n(i was gonna give you something back but i ate it instead lol oops)"
 
@@ -2646,8 +2655,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         summary_lines = [f"{count} {item_name}" for item_name, count in fed_summary.items()]
         reply = (
             f"ooh... nice selection :D that was {quantity} random snacks! "
-            f"which were worth about ᛒ{total_BBY_gain:,.0f}... \n"
-            "**i ate your " + ", ".join(summary_lines[:10]) + "... etc**"
+            f"which were worth about {style_gain(f'ᛒ{total_BBY_gain:,.0f}')}... \n"
+            f"i ate your {style_loss(', '.join(summary_lines[:10]) + '... etc')}"
         )
 
         if self.bot.random2 < 0.5 and self.bot.bbyfacts:
@@ -2672,8 +2681,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     item_back_summary += f", and {item_back_strs[-1]}"
                 else:
                     item_back_summary = item_back_strs[0]
-                reply += f"\n\ni was waiting to give you {item_back_summary} anyway..."
-                reply += f" they're worth about ᛒ{bby_back_total:,.0f}?? i think??"
+                reply += f"\n\ni was waiting to give you {style_gain(item_back_summary)} anyway..."
+                reply += f" they're worth about {style_gain(f'ᛒ{bby_back_total:,.0f}')}?? i think??"
             else:
                 reply += "\n\n... i was gonna give you something back but i ate it instead lol oops."
 
@@ -2713,7 +2722,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         total_cost = tip_amount_per_pull * num_pulls
         if self.bot.getBBY(customer_id) < total_cost:
-            return await self.bot._discord_reply(ctx, f"you need ᛒ{total_cost:,.0f}, but you only have ᛒ{self.bot.getBBY(customer_id):,.0f}... sorry :( ")
+            return await self.bot._discord_reply(ctx, f"you need {style_loss(f'ᛒ{total_cost:,.0f}')}, but you only have ᛒ{self.bot.getBBY(customer_id):,.0f}... sorry :( ")
             
         if not self.bot.bbyfacts:
             return await self.bot._discord_reply(ctx, "there are no items!! teach me things with !bbyteach to create them ")
@@ -2757,7 +2766,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         successful_pulls += 1
                     break
         
-        reply = f"aaa thanks for the ᛒ{total_cost:,.0f}!!! {random.choice(self.bot.faveEmotes)} "
+        reply = f"aaa thanks for the {style_gain(f'ᛒ{total_cost:,.0f}')}!!! {random.choice(self.bot.faveEmotes)} "
         if not items_won: reply += "you won... nothing!!! :D "
         else:
             reply += "you got... "
@@ -2766,14 +2775,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if len(sorted_items) > 42:
                 display_items = sorted_items[:42]
                 more_items_count = len(sorted_items) - 42
-                item_strings = [f"{count} {item}" for item, count in display_items]
+                item_strings = [style_gain(f"{count} {item}") for item, count in display_items]
                 reply += ", ".join(item_strings)
                 reply += f", ...and {more_items_count} more.. things.. "
             else:
-                item_strings = [f"{count} {item}" for item, count in sorted_items]
+                item_strings = [style_gain(f"{count} {item}") for item, count in sorted_items]
                 reply += ", ".join(item_strings)
 
-            reply += f". i think that's worth like ᛒ{total_value_won:,.0f}?? "
+            reply += f". i think that's worth like {style_gain(f'ᛒ{total_value_won:,.0f}')}?? "
 
         await self.bot._discord_reply(ctx, reply)
 

@@ -150,6 +150,16 @@ def strSplitValueName(args_str: str):
     return quantity, escape_markdown(item_name)
 
 
+def style_gain(text: str) -> str:
+    """Format *text* to show a gain using bold markdown."""
+    return f"**{text}**"
+
+
+def style_loss(text: str) -> str:
+    """Format *text* to show a loss using italic markdown."""
+    return f"*{text}*"
+
+
 def getTimeRant(ai_opt_in_users):
     now = datetime.now()
     hour_24 = now.strftime("%H")
@@ -196,5 +206,7 @@ __all__ = [
     "clean_baby_output",
     "killExcessTags",
     "strSplitValueName",
+    "style_gain",
+    "style_loss",
     "getTimeRant",
 ]
