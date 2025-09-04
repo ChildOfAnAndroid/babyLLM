@@ -427,30 +427,86 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         existing_ids = [fact.get("id", 0) for fact in self.bot.bbyfacts.values() if isinstance(fact, dict) and "id" in fact]
         return max(*existing_ids, 0) + 1
 
-    def _get_brain_connections(self, text: str, top_k: int = 5) -> str:
-        text = text.strip().lower()
+    def _get_brain_connections(self, text: str, top_k: int = 10) -> str:
+        text = (text or "").strip().lower()
+        if not text:
+            return ""
+
+        # Tokenize full input (can be multiple tokens)
         token_ids = self.bot.librarian.tokenizer.encode(text)
         if not token_ids:
             return ""
 
-        embed = self.bot.babyLLM.embed.e_weights
-        vec = embed[token_ids].mean(dim=0)
-        raw = self._get_similar_tokens(vec, token_ids, top_k, with_scores=True)
-        if not raw:
+        unk = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
+        valid_ids = [tid for tid in token_ids if tid != unk]
+        if not valid_ids:
             return ""
 
-        formatted: list[str] = []
-        for tok, score in raw:
-            tok_display = escape_markdown(tok)
-            if score >= 0.75:
-                formatted.append(f"****{tok_display}****")
-            elif score >= 0.5:
-                formatted.append(f"**{tok_display}**")
+        embed = self.bot.babyLLM.embed.e_weights  # [vocab, dim]
+
+        lines: list[str] = []
+        token_vectors = []
+
+        # --- Per-token lines ---
+        for tid in valid_ids:
+            tok_str = self.bot.librarian.decodeIDs([tid]).strip()
+            if not tok_str or tok_str == self.bot.librarian.unkToken:
+                continue
+
+            vec = embed[tid]  # use the token’s own vector (not mean)
+            token_vectors.append(vec)
+
+            # Get similar tokens, excluding the token itself
+            raw = self._get_similar_tokens(vec, [tid], top_k, with_scores=True)
+            if not raw:
+                # still show the token header with nothing found
+                lines.append(f"{escape_markdown(tok_str)} → (no connections)")
+                continue
+
+            formatted = []
+            min_score = 0.11
+            for candidate, score in raw:
+                if score < min_score: continue
+                cand_disp = escape_markdown(candidate)
+                if score >= 0.75:
+                    formatted.append(f"**{cand_disp}**")
+                elif score >= 0.50:
+                    formatted.append(f"*{cand_disp}*")
+                else:
+                    formatted.append(cand_disp)
+
+            lines.append(f"{escape_markdown(tok_str)} → {', '.join(formatted)}")
+
+        # --- Combo/average line ---
+        if token_vectors and len(valid_ids) > 1:  # only show combo if >1 token
+            combo_vec = torch.stack(token_vectors, dim=0).mean(dim=0)
+            raw_combo = self._get_similar_tokens(combo_vec, valid_ids, top_k, with_scores=True)
+
+            combo_tokens = [self.bot.librarian.decodeIDs([tid]).strip()
+                            for tid in valid_ids
+                            if self.bot.librarian.decodeIDs([tid]).strip()
+                            and self.bot.librarian.decodeIDs([tid]).strip() != self.bot.librarian.unkToken]
+
+            combo_label = "\n" + (" + ".join(escape_markdown(t) for t in combo_tokens)
+                                if combo_tokens else "blend")
+
+            if raw_combo:
+                formatted_combo = []
+                for candidate, score in raw_combo:
+                    if score < min_score: continue
+                    cand_disp = escape_markdown(candidate)
+                    if score >= 0.75:
+                        formatted_combo.append(f"**{cand_disp}**")
+                    elif score >= 0.50:
+                        formatted_combo.append(f"*{cand_disp}*")
+                    else:
+                        formatted_combo.append(cand_disp)
+                if formatted_combo:
+                    lines.append(f"{combo_label} → {', '.join(formatted_combo)}")
             else:
-                formatted.append(tok_display)
+                lines.append(f"{combo_label} → (no connections)")
 
-        return f"[p] \u2192 {', '.join(formatted)}"
-
+        return "\n".join(lines)
 
     def _get_similar_tokens(self, vec: torch.Tensor, exclude_ids: list[int], top_k: int, with_scores: bool = False):
         embed = self.bot.babyLLM.embed.e_weights
