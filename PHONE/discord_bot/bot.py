@@ -58,7 +58,9 @@ class BABYBOT_DISCORD(commands.Bot):
         
         self.babyLLM, self.tutor, self.librarian, self.scribe, self.calligraphist = babyLLM, tutor, librarian, scribe, calligraphist
         self.babyName, self.lastClockAnnounce = babyName, 0
-        self.trusted_bot_names = ["buttsbot", "babyllm", "skunkllm"]
+        # Bots that are allowed to issue commands to babyllm. Messages from all bots
+        # are processed, but only these bots are trusted to run commands.
+        self.trusted_bot_names = {"buttsbot", "babyllm", "skunkllm", "tatsu", "tatsumaki"}
         self.temp_not_opt = ["chucklesw73", "rustypeugeot", "tomkenchmusic", "stereochromus", "noiseordinance", "kazumianzai", "wakelessnine", "hrh_ginsterbusch", "3roc", 
                              "shaka6331", "ave_maria33", "nequals", "3therealdescent", "merlinofthevoid"]
         self.discordToken, self.discordChannel, self.rollingContextSize = discordToken, discordChannel, rollingContextSize
@@ -996,7 +998,7 @@ class BABYBOT_DISCORD(commands.Bot):
         elif in_baby_channel and not content.startswith(self.command_prefix):
             is_opted_in_user = author in self.AIoptInUsers
             is_random_spam_chance = self.random3 > self.getSpamability(author)
-            if is_opted_in_user or is_random_spam_chance or author in self.trusted_bot_names and not message.content.startswith(self.command_prefix):
+            if is_opted_in_user or is_random_spam_chance or (message.author.bot and not message.content.startswith(self.command_prefix)):
                 print(f"[Channel Trigger] Matched in #{message.channel.name} (Opt-in or Random Spam)")
                 self.idles = round(self.idles * 0.5)
                 if is_random_spam_chance and not is_opted_in_user: self._buffer_add(f"the void: baby, you just saw this message and you have... something to say about it.")
