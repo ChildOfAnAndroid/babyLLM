@@ -261,11 +261,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return self.bot.userMemory.get(user, {}).get("inventory", {}).get(fact, 0)
 
     def _update_fact_total_user(self, user = None, fact = None, num = 1, debug_str = ""):
-        inventory = self.bot.userMemory[user].setdefault("inventory", {})
-        new_total = inventory.get(fact, 0) + num
-        if new_total <= 0: inventory.pop(fact, None)
-        else: inventory[fact] = new_total
-        self.bot._save_user_data()
+            user_mem = self.bot.userMemory.get(user, {})
+            inventory = user_mem.setdefault("inventory", {})
+            new_total = inventory.get(fact, 0) + num
+            
+            if new_total <= 0:
+                inventory.pop(fact, None)
+                # If the item is fully removed from inventory, also remove it from favourites.
+                favourites = user_mem.get("favourites", [])
+                if fact in favourites:
+                    while fact in favourites:
+                        favourites.remove(fact)
+                    print(f"[_UPDATE_FACT_TOTAL_USER] Removed {fact} from {user} favourites")
+            else: inventory[fact] = new_total
+                
+            self.bot._save_user_data()
 
     def _get_fact_total_world(self, fact = None):
         return sum(user_mem.get("inventory", {}).get(fact, 0) for user_mem in self.bot.userMemory.values())
@@ -420,6 +430,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         author = ctx.author.name.lower()
         key = key.lower().strip()
         reply = ""
+
+        if not key: return await self.bot._discord_reply(ctx, "oh woww! nothing!? hot.")
+            
 
         if key in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[key]
@@ -2385,17 +2398,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         }
         if not market_values: return await self.bot._discord_reply(ctx, "no items have a positive value... i guess it's all very cursed rn ")
         sorted_items = sorted(market_values.items(), key=lambda x: x[1], reverse=True)
-        top_items = sorted_items[:20]
-        bottom_items = sorted_items[-20:] if len(sorted_items) > 20 else []
+        top_items = sorted_items[:50]
+        bottom_items = sorted_items[-10:] if len(sorted_items) > 10 else []
         def fmt(name, val): return f"{name} is ᛒ{int(round(val)):,}"
         top_list = "\n".join([f"{i+1}. {fmt(n, v)}" for i, (n, v) in enumerate(top_items)])
         bottom_start_index = len(sorted_items) - len(bottom_items)
         bottom_list = "\n".join([f"{bottom_start_index + i + 1}. {fmt(n, v)}" for i, (n, v) in enumerate(bottom_items)])
 
         reply = f"item values! ({len(sorted_items)} total ranked items)\n\n"
-        reply += f"top 20: \n{top_list}\n\n"
+        reply += f"top 50: \n{top_list}\n\n"
         if bottom_list:
-            reply += f"bottom 20: \n{bottom_list}"
+            reply += f"bottom 10: \n{bottom_list}"
 
         await self.bot._discord_reply(ctx, reply)
 
@@ -2599,19 +2612,32 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         """Shows your list of favourite (locked) items."""
         author_id = ctx.author.name.lower()
         mem = self.bot.userMemory[author_id]
+        inventory = mem.get("inventory", {}) # Get inventory for the check
         favourites = mem.get("favourites", [])
         loyalty = mem.get("loyalty", 0.0)
         favouritesLimit = loyalty + 69
-        
-        if not favourites:
-            await self.bot._discord_reply(ctx, f"whaaat, i thought you just hated everything lol! theres nothing here, use !bbyfave <item> :)")
+        original_fave_count = len(favourites)
+        # This automatically removes None, blank strings, and ghosts of items you no longer own.
+        synced_favourites = [
+            fave for fave in favourites 
+            if isinstance(fave, str) and fave and fave in inventory and inventory[fave] > 0
+        ]
+        removed_count = original_fave_count - len(synced_favourites)
+        if removed_count > 0:
+            mem["favourites"] = synced_favourites
+            self.bot._save_user_data()
+        favourites_to_display = synced_favourites        
+        if not favourites_to_display:
+            reply = "whaaat, i thought you just hated everything lol! theres nothing here, use !bbyfave <item> :)"
+            if removed_count > 0: reply += f"\n\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
+            await self.bot._discord_reply(ctx, reply)
             return
         
-        reply = f"your ⭐ favourite items ({len(favourites)}/{int(favouritesLimit)}):\n"
-        sorted_faves = sorted(favourites)
-        for i, item in enumerate(sorted_faves, 1):
-            reply += f"> {i}. ⭐{item}⭐\n"
-        
+        reply = f"your ⭐ favourite items ({len(favourites_to_display)}/{int(favouritesLimit)}):\n"
+        sorted_faves = sorted(favourites_to_display) 
+        for i, item in enumerate(sorted_faves, 1): reply += f"> {i}. ⭐{item}⭐\n"
+        if removed_count > 0: reply += f"\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
+
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyhelp', aliases=['bh', 'bhelp']) 
