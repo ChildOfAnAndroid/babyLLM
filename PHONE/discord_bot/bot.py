@@ -73,6 +73,7 @@ class BABYBOT_DISCORD(commands.Bot):
         # --- bbywtf game state ---
         self.pending_wtf = {}
         self.word_usage = Counter()
+        self.opt_in_token_usage = Counter()
         self.wtf_threshold = 30
         self.wtf_reacts = ["💡", "😳", "💀", "🤔", "😂", "🙀"]
 
@@ -891,6 +892,7 @@ class BABYBOT_DISCORD(commands.Bot):
         content = message.clean_content
         author = str(message.author.name).lower()
         print(f"\n[Message] From {author}: {content}")
+        is_opted_in = False
         if author in self.temp_not_opt: return
         if message.author == self.user: 
             if self.random3 > 0.999:
@@ -989,6 +991,9 @@ class BABYBOT_DISCORD(commands.Bot):
             self.translate_game["guesses"][author] = content.strip().lower()
 
         if not message.content.startswith(self.command_prefix):
+            if is_opted_in:
+                tokens = self.librarian.tokenizeText(content.lower())
+                self.opt_in_token_usage.update(tokens)
             for w in re.findall(r'\b[a-z]{3,}\b', message.clean_content.lower()):
                 if w in self.bbyfacts: continue
                 self.word_usage[w] += 1

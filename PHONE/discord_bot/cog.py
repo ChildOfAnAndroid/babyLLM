@@ -3198,5 +3198,29 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             traceback.print_exc()
             await self.bot._discord_reply(ctx, "i tried to show it but i had some error :(")
 
+    @commands.command(name='bbytoken', aliases=['btoken', 'bbytok'])
+    async def bbytoken(self, ctx: commands.Context, *tokens: str):
+        """Investigate usage stats for one or more tokens."""
+        if not tokens:
+            return await self.bot._discord_reply(ctx, "give me a token to investigate :(")
+
+        tutor = self.bot.tutor
+        lines = []
+        for raw_tok in tokens:
+            tok = raw_tok
+            bot_count = tutor.tokenCounts.get(tok, 0)
+            user_count = self.bot.opt_in_token_usage.get(tok, 0)
+            tidy = tutor.tidy_token(tok) if hasattr(tutor, 'tidy_token') else tok
+            stats_bits = [
+                f"avg loss {tutor.averageRecentLoss:.2f}",
+                f"perfect {tutor.tokenPerfectRate:.2f}%",
+                f"total perfect {tutor.totalTokenPerfectRate:.2f}%",
+                f"runs {tutor.totalRuns}",
+            ]
+            line = f"{escape_markdown(tidy)} → bby {bot_count:.0f}x, opt-ins {user_count:.0f}x | " + "; ".join(stats_bits)
+            lines.append(line)
+
+        await self.bot._discord_reply(ctx, "\n".join(lines))
+
 if __name__ == "__main__":
     print("to run this bot, you need to set up all the required components (babyLLM, tutor, etc.) and then run the bot.")
