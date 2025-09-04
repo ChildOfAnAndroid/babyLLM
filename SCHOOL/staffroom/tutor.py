@@ -163,6 +163,21 @@ class TUTOR:
                 return f.read().strip()
         except FileNotFoundError:
             return "hey... (message file missing!) "
+
+    @whocalled
+    def makeStatsPrompt(self, include_prefix: bool = True) -> str:
+        """return a short natural language summary of the tutor's current stats"""
+        bits = [
+            f"i've completed {self.totalRuns} lessons",
+        ]
+        if self.totalTurnsAwake:
+            bits.append(f"stayed awake for {self.totalTurnsAwake} turns")
+        bits.append(f"my average loss is {self.averageRecentLoss:.2f}")
+        bits.append(f"perfection rate {self.perfectionistPassRate:.1f}%")
+        msg = ", ".join(bits) + "."
+        if include_prefix:
+            msg = f"here's how i'm doing: {msg}"
+        return msg
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     @whocalled

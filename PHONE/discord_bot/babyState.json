@@ -1,10 +1,1 @@
-{
-  "R": 102,
-  "G": 97,
-  "B": 133,
-  "cerebralLoad": 0.03171549364924431,
-  "dreamIntensity": 0.45044571582854576,
-  "memoryFlux": 0.07765388488769531,
-  "learningStability": 0.1365604778069336,
-  "correct": 0.0
-}
+{"eyes": 5, "mouth": 1, "cheeks_on": false, "tears_on": false, "jumping": false, "stretch_left": true, "stretch_right": true, "stretch_up": false, "stretch_down": true, "squish_left": false, "squish_right": false, "squish_up": true, "squish_down": false, "isSpeaking": false, "speechText": "", "R": 89, "G": 99, "B": 161, "cerebralLoad": 0.03224341198801994, "dreamIntensity": 0.6862086188487265, "memoryFlux": 0.07522380352020264, "learningStability": 0.37454395186822154, "metabolicRate": 0.06048387096774194, "correct": 0.0}

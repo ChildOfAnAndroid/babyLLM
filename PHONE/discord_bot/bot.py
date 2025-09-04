@@ -917,7 +917,8 @@ class BABYBOT_DISCORD(commands.Bot):
         mem["message_count"] += 1.0
         milestone = mem.get("next_talk_milestone", 50)
         if mem["message_count"] >= milestone:
-            milestone_msg = f"i've been chatting with {self.getNickname(author)} loads lately."
+            stats_short = self.tutor.makeStatsPrompt(include_prefix=False)
+            milestone_msg = f"i've been chatting with {self.getNickname(author)} loads lately. {stats_short}"
             self._buffer_add(self.formatMessage(self.babyName, milestone_msg))
             mem["next_talk_milestone"] = milestone + 50
             self._save_user_data()
@@ -1054,7 +1055,8 @@ class BABYBOT_DISCORD(commands.Bot):
             None,
             lambda: self.tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = 1, _startIndex = 1)
         )
-        training_note = self.formatMessage(self.babyName, f"i've just had a lesson on {token_count} tokens.")
+        stats_prompt = self.tutor.makeStatsPrompt()
+        training_note = self.formatMessage(self.babyName, f"i've just had a lesson on {token_count} tokens. {stats_prompt}")
         self._buffer_add(training_note)
         print(f"\n\nfinished training on item!\n\n")
 
@@ -1106,7 +1108,8 @@ class BABYBOT_DISCORD(commands.Bot):
 
                 if (now - self.lastInteraction > self.idleTrainSeconds):
                     self.idles += 1
-                    idle_msg = self.formatMessage(self.babyName, f"it's been {int(self.idles * self.idleTrainSeconds)} seconds since anyone had a chat with me.")
+                    stats_short = self.tutor.makeStatsPrompt(include_prefix=False)
+                    idle_msg = self.formatMessage(self.babyName, f"it's been {int(self.idles * self.idleTrainSeconds)} seconds since anyone had a chat with me. {stats_short}")
                     self._buffer_add(idle_msg)
                     self.lastInteraction = time.time()
                     if len(self.buffer) >= self.N:
