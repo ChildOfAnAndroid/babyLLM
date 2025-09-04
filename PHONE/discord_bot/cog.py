@@ -424,6 +424,44 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         existing_ids = [fact.get("id", 0) for fact in self.bot.bbyfacts.values() if isinstance(fact, dict) and "id" in fact]
         return max(*existing_ids, 0) + 1
 
+    def _get_brain_connections(self, text: str, top_k: int = 5) -> list[str]:
+        """Return up to ``top_k`` token strings most associated with ``text``.
+
+        Handles multi-token inputs by averaging their embeddings and
+        skipping any unknown tokens. Results exclude tokens that appear
+        in the original text.
+        """
+        word = (text or "").strip().lower()
+        if not word:
+            return []
+
+        token_ids = self.bot.librarian.tokenizer.encode(word)
+        if not token_ids:
+            return []
+
+        unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
+        valid_ids = [tid for tid in token_ids if tid != unk_id]
+        if not valid_ids:
+            return []
+
+        with torch.no_grad():
+            target_vec = self.bot.babyLLM.embed.e_weights[valid_ids].mean(dim=0)
+            all_vecs = self.bot.babyLLM.embed.e_weights
+            sims = torch.nn.functional.cosine_similarity(all_vecs, target_vec.unsqueeze(0), dim=1)
+            top_vals, top_idx = torch.topk(sims, top_k + len(valid_ids))
+
+        associations = []
+        for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
+            if idx in valid_ids:
+                continue
+            token_str = self.bot.librarian.decodeIDs([idx]).strip()
+            if token_str == self.bot.librarian.unkToken:
+                continue
+            associations.append(f"{token_str} ({val:.2f})")
+            if len(associations) >= top_k:
+                break
+        return associations
+
     # --------*-- BOT COMMANDS --*--------
     @commands.command(name='bbyteach', aliases=['bteach', 'btx'])
     async def bbyteach(self, ctx, key: str, *, value: str, debug_str=""):
@@ -637,32 +675,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not word:
             return await self.bot._discord_reply(ctx, "you gotta give me a word to think about!")
 
-        token_ids = self.bot.librarian.tokenizer.encode(word)
-        if not token_ids:
-            return await self.bot._discord_reply(ctx, f"i don't know how to think about '{word}' yet :(")
-
-        token_id = token_ids[0]
-        unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
-        if token_id == unk_id:
-            return await self.bot._discord_reply(ctx, f"i don't really understand '{word}' yet...")
-
-        with torch.no_grad():
-            target_vec = self.bot.babyLLM.embed.e_weights[token_id]
-            all_vecs = self.bot.babyLLM.embed.e_weights
-            sims = torch.nn.functional.cosine_similarity(all_vecs, target_vec.unsqueeze(0), dim=1)
-            top_vals, top_idx = torch.topk(sims, 6)  # include original token
-
-        associations = []
-        for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
-            if idx == token_id:
-                continue
-            token_str = self.bot.librarian.decodeIDs([idx]).strip()
-            if token_str == self.bot.librarian.unkToken:
-                continue
-            associations.append(f"{token_str} ({val:.2f})")
-            if len(associations) >= 5:
-                break
-
+        associations = self._get_brain_connections(word)
         if associations:
             reply = f"hmm... i connect {word} with: {', '.join(associations)}"
         else:
@@ -2868,30 +2881,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             created_ago     = howLongAgo(item_data.get('timestamp', 0))
 
             # --- brain connections
-            brain_assocs = []
-            try:
-                word = (item_name or "").strip().lower()
-                token_ids = self.bot.librarian.tokenizer.encode(word)
-                if token_ids:
-                    token_id = token_ids[0]
-                    unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
-                    if token_id != unk_id:
-                        with torch.no_grad():
-                            target_vec = self.bot.babyLLM.embed.e_weights[token_id]
-                            all_vecs = self.bot.babyLLM.embed.e_weights
-                            sims = torch.nn.functional.cosine_similarity(all_vecs, target_vec.unsqueeze(0), dim=1)
-                            top_vals, top_idx = torch.topk(sims, 6)
-                        for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
-                            if idx == token_id:
-                                continue
-                            token_str = self.bot.librarian.decodeIDs([idx]).strip()
-                            if token_str == self.bot.librarian.unkToken:
-                                continue
-                            brain_assocs.append(f"{token_str} ({val:.2f})")
-                            if len(brain_assocs) >= 5:
-                                break
-            except Exception:
-                brain_assocs = []
+            brain_assocs = self._get_brain_connections(item_name)
 
             # --- embed
             embed = discord.Embed(
