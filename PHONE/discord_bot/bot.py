@@ -33,7 +33,7 @@ RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
 class BABYBOT_DISCORD(commands.Bot): 
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,  
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_spam,
-                 rollingContextSize = rollingContextSize, idleTrainSeconds = 10, N = rollingContextSize - 1):
+                 rollingContextSize = rollingContextSize, idleTrainSeconds = 100, N = rollingContextSize - 1):
         
         intents = discord.Intents.all()
         super().__init__(command_prefix='!', intents = intents)
@@ -362,6 +362,7 @@ class BABYBOT_DISCORD(commands.Bot):
         SHARE_OF_VOICE_INFLUENCE, HEARTBEAT_MIN, HEARTBEAT_MAX = 0.069, -0.000420, 0.00420
         DECAY_FLOOR = -69696969.69
         SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
+        interval_multiplier = SECONDS_PER_INTERVAL / 10.0
         
         print(f"\n--- decay + bonus stats at {datetime.now().strftime('%H:%M:%S')} ---")
         active_users = {u: m for u, m in self.userMemory.items() if "BBY" in m}
@@ -395,11 +396,11 @@ class BABYBOT_DISCORD(commands.Bot):
             debug_log.append(f"decay: {-final_decay_amount:.4f}")
 
             # --- CREATIVE OR SPAMMER? ---
-            combo_bonus = 0.0005 * current_combo
+            combo_bonus = 0.0005 * current_combo * interval_multiplier
             BBY_change_this_interval += combo_bonus
             debug_log.append(f"🎨: {combo_bonus:.4f}")
-            
-            spam_penalty = -0.0005 * current_spam
+
+            spam_penalty = -0.0005 * current_spam * interval_multiplier
             BBY_change_this_interval += spam_penalty
             debug_log.append(f"🧌: {spam_penalty:.4f}")
             
@@ -415,7 +416,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 debug_log.append(f"eat the rich tax: {-tax_per_interval:.4f}")
 
             # --- ACTIVITY ---
-            heartbeat_bonus = random.uniform(HEARTBEAT_MIN, HEARTBEAT_MAX)
+            heartbeat_bonus = random.uniform(HEARTBEAT_MIN, HEARTBEAT_MAX) * interval_multiplier
             BBY_change_this_interval += heartbeat_bonus
             debug_log.append(f"heartbeat: {heartbeat_bonus:.4f}")
             
@@ -439,10 +440,10 @@ class BABYBOT_DISCORD(commands.Bot):
 
             negative_bonus = 0.0
             new_BBY = current_BBY + BBY_change_this_interval
-            if new_BBY < 0: negative_bonus += 0.5
-            if new_BBY < -1000: negative_bonus += 69.0
-            if new_BBY < -10000: negative_bonus += 420.0
-            if new_BBY < -100000: negative_bonus += 4206.9
+            if new_BBY < 0: negative_bonus += 0.5 * interval_multiplier
+            if new_BBY < -1000: negative_bonus += 69.0 * interval_multiplier
+            if new_BBY < -10000: negative_bonus += 420.0 * interval_multiplier
+            if new_BBY < -100000: negative_bonus += 4206.9 * interval_multiplier
             BBY_change_this_interval += negative_bonus
             debug_log.append(f"boost: {negative_bonus:.4f}")
 
@@ -453,7 +454,7 @@ class BABYBOT_DISCORD(commands.Bot):
             self.updateBBY(author, BBY_change_this_interval)
             debug_log.insert(0, f"total: {BBY_change_this_interval:+.4f}")
             memory["last_decay_debug"] = debug_log
-            memory["spamMax"] = max(0.001, min(0.8, memory.get("spamMax", 0.8) * 0.99999))
+            memory["spamMax"] = max(0.001, min(0.8, memory.get("spamMax", 0.8) * (0.99999 ** interval_multiplier)))
 
             # --- Store for later sorting ---
             decay_logs.append({
@@ -464,7 +465,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 "log": debug_log,
             })
 
-            if self.random2 < 0.0001:
+            if self.random2 < 0.0001 * interval_multiplier:
                 incrementRandom = round(self.random4 * 4) + 1
                 if memory["creative_combo"] < 0: memory["creative_combo"] += incrementRandom
                 else: memory["creative_combo"] -= incrementRandom
