@@ -24,6 +24,7 @@ from textCleaningTool import *
 from .shoutouts import get_shoutout_prompts
 from phone.command_utils import strip_ansi, get_status_line
 from .utils import (
+    escape_markdown,
     is_similar,
     howLongAgo,
     clean_baby_output,
@@ -122,7 +123,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def _get_fact_or_reply(self, ctx: commands.Context, item_name: str) -> Tuple[Optional[str], Optional[dict]]:
         cleaned_name = item_name.lower().strip()
         if cleaned_name not in self.bot.bbyfacts:
-            await self.bot._discord_reply(ctx, f"i don't know what a {cleaned_name} is...")
+            await self.bot._discord_reply(ctx, f"i don't know what a {escape_markdown(cleaned_name)} is...")
             return None, None
         return cleaned_name, self.bot.bbyfacts[cleaned_name]
 

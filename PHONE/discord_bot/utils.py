@@ -7,6 +7,41 @@ import difflib
 import regex
 import unicodedata
 
+try:
+    from discord.utils import escape_markdown as _escape_markdown
+except Exception:  # pragma: no cover - fallback when discord isn't available
+    _MARKDOWN_RE = re.compile(r'([`*_~\[\]()>#|\\])')
+
+    def _escape_markdown(text: str, *, as_needed: bool = False, ignore_links: bool = True) -> str:
+        """Basic markdown escaper used if discord.py is unavailable.
+
+        This escapes common Discord markdown characters by prefixing them with a
+        backslash. It does not attempt to implement the full behaviour of
+        :func:`discord.utils.escape_markdown` but provides enough safety for
+        user generated content.
+
+        Parameters
+        ----------
+        text: str
+            Text to escape.
+        as_needed: bool
+            Present for API compatibility; ignored.
+        ignore_links: bool
+            Present for API compatibility; ignored.
+        """
+
+        return _MARKDOWN_RE.sub(r"\\\1", text)
+
+
+def escape_markdown(text: str) -> str:
+    """Escape Discord flavoured markdown in *text*.
+
+    This thin wrapper delegates to :func:`discord.utils.escape_markdown` when
+    available and falls back to a local implementation otherwise.
+    """
+
+    return _escape_markdown(text)
+
 
 def is_similar(a, b, threshold=0.8):
     return difflib.SequenceMatcher(None, a, b).ratio() > threshold
@@ -112,7 +147,7 @@ def strSplitValueName(args_str: str):
             quantity = num
             item_name = " ".join(parts[1:]).strip()
 
-    return quantity, item_name
+    return quantity, escape_markdown(item_name)
 
 
 def getTimeRant(ai_opt_in_users):
@@ -154,6 +189,7 @@ def getTimeRant(ai_opt_in_users):
 
 
 __all__ = [
+    "escape_markdown",
     "is_similar",
     "howLongAgo",
     "strip_broken_graphemes",

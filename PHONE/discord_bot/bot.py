@@ -20,7 +20,7 @@ from urllib.parse import urljoin
 import functools
 
 from .context import create_fake_context
-from .utils import is_similar, killExcessTags, getTimeRant
+from .utils import escape_markdown, is_similar, killExcessTags, getTimeRant
 
 bby_lounge = 1388782896084422788
 bby_spam = 1156683242087387206
@@ -293,10 +293,12 @@ class BABYBOT_DISCORD(commands.Bot):
     def save_opt_in_users(self): self._save_json(self.opt_in_path, self.AIoptInUsers, "_SAVE_OPTIN")
 
     def getNickname(self, author):
-        if not author: return "someone"
+        if not author:
+            return "someone"
         user_key = str(author).lower()
         mem = self.userMemory.get(user_key, {})
-        return mem.get("nickname") or mem.get("display_name") or str(author)
+        name = mem.get("nickname") or mem.get("display_name") or str(author)
+        return escape_markdown(name)
 
     def formatMessage(self, user, text): return f"{self.getNickname(user)}: {text}"
     
