@@ -530,6 +530,90 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return word1, word2, val.item()
         return None
 
+    def createFakeWordFromVector(self, word: str, top_n: int = 5) -> str:
+        """Blend nearby tokens to craft a fake but plausible word.
+
+        Parameters
+        ----------
+        word: str
+            Seed word to base the new word on.
+        top_n: int, optional
+            Number of neighbours to sample when constructing the fake word.
+
+        Returns
+        -------
+        str
+            Newly minted token assembled from parts of similar tokens. If no
+            suitable blend is found, the original ``word`` is returned.
+        """
+
+        # Encode the input word and grab its embedding vector
+        unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
+        token_ids = [tid for tid in self.bot.librarian.tokenizer.encode(word) if tid != unk_id]
+        if not token_ids:
+            return word
+
+        embed = self.bot.babyLLM.embed.e_weights
+        base_vec = embed[token_ids].mean(dim=0)
+
+        # Fetch related tokens using the existing brain connection helper
+        raw_connections = self._get_similar_tokens(base_vec, token_ids, top_n * 3)
+        token_pattern = re.compile(r"\[([^\]]+)\]")
+        related = []
+        for item in raw_connections:
+            match = token_pattern.search(item)
+            if not match:
+                continue
+            tok = match.group(1)
+            if tok == self.bot.librarian.unkToken:
+                continue
+            if tok in related:
+                continue
+            related.append(tok)
+
+        long_tokens = [t for t in related if len(t) >= 3]
+        short_tokens = [t for t in related if len(t) < 3]
+
+        vocab = self.bot.librarian.tokenToIndex
+        candidates: list[str] = []
+
+        for i in range(len(long_tokens)):
+            for j in range(i + 1, len(long_tokens)):
+                a, b = long_tokens[i], long_tokens[j]
+                split_a = max(1, len(a) // 2)
+                split_b = len(b) // 2
+                base = a[:split_a] + b[split_b:]
+                if base not in vocab:
+                    candidates.append(base)
+                for s in short_tokens:
+                    if s:
+                        prefix = s + base
+                        suffix = base + s
+                        if prefix not in vocab:
+                            candidates.append(prefix)
+                        if suffix not in vocab:
+                            candidates.append(suffix)
+
+        if not candidates:
+            for t in long_tokens + short_tokens:
+                if t not in vocab:
+                    return t
+            return word
+
+        best_word = word
+        best_sim = -1.0
+        for cand in candidates:
+            cand_ids = [tid for tid in self.bot.librarian.tokenizer.encode(cand) if tid != unk_id]
+            if not cand_ids:
+                continue
+            cand_vec = embed[cand_ids].mean(dim=0)
+            sim = torch.nn.functional.cosine_similarity(base_vec.unsqueeze(0), cand_vec.unsqueeze(0)).item()
+            if sim > best_sim:
+                best_sim = sim
+                best_word = cand
+
+        return best_word
+
     # --------*-- BOT COMMANDS --*--------
     @commands.command(name='bbyteach', aliases=['bteach', 'btx'])
     async def bbyteach(self, ctx, key: str, *, value: str, debug_str=""):
