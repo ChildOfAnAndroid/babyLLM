@@ -721,7 +721,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         associations = self._get_brain_connections(word)
         if associations:
-            reply = f"hmm... i connect {word} with: {', '.join(associations)}"
+            reply = f"hmm... i connect {word} with:\n{associations}"
         else:
             reply = f"i don't really connect {word} with anything yet..."
 
@@ -2967,7 +2967,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if brain_assocs:
                 embed.add_field(
                     name="brain connects",
-                    value=", ".join(brain_assocs),
+                    value=brain_assocs,
                     inline=False,
                 )
 
