@@ -425,35 +425,34 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         existing_ids = [fact.get("id", 0) for fact in self.bot.bbyfacts.values() if isinstance(fact, dict) and "id" in fact]
         return max(*existing_ids, 0) + 1
 
-    def _get_brain_connections(self, words: str, top_k: int = 5) -> str:
-        words = words.strip().lower().split()
-        if not words: return "i connect nothing to... the input you just gave me >:("
+    def _get_brain_connections(self, text: str, top_k: int = 5) -> str:
+        text = text.strip().lower()
+        token_ids = self.bot.librarian.tokenizer.encode(text)
+        if not token_ids:
+            return "i connect nothing to... the input you just gave me >:("
 
         unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
         embed = self.bot.babyLLM.embed.e_weights
 
         all_outputs = []
         valid_vectors = []
+        tokens = [self.bot.librarian.indexToToken.get(tid, self.bot.librarian.unkToken) for tid in token_ids]
 
-        # Individual word vectors + associations
-        for word in words:
-            token_ids = self.bot.librarian.tokenizer.encode(word)
-            valid_ids = [tid for tid in token_ids if tid != unk_id]
-            if not valid_ids:
-                all_outputs.append(f"wtf is {word}?")
+        for tid, tok in zip(token_ids, tokens):
+            if tid == unk_id:
+                all_outputs.append(f"wtf is {tok}?")
                 continue
 
-            vec = embed[valid_ids].mean(dim=0)
+            vec = embed[tid]
             valid_vectors.append(vec)
-            connections = self._get_similar_tokens(vec, valid_ids, top_k)
-            all_outputs.append(f"[{word}] → " + ", ".join(connections))
+            connections = self._get_similar_tokens(vec, [tid], top_k)
+            tidy = self.bot.tutor.tidy_token(tok) if hasattr(self.bot, 'tutor') and hasattr(self.bot.tutor, 'tidy_token') else tok
+            all_outputs.append(f"[{tidy}] → " + ", ".join(connections))
 
-        # Blended vector (only if more than one word)
         if len(valid_vectors) > 1:
             combo_vec = torch.stack(valid_vectors).mean(dim=0)
-            combo_ids = sum([self.bot.librarian.tokenizer.encode(w) for w in words], [])
-            blend = self._get_similar_tokens(combo_vec, combo_ids, top_k)
-            combo_label = " + ".join(words)
+            blend = self._get_similar_tokens(combo_vec, token_ids, top_k)
+            combo_label = " + ".join([self.bot.tutor.tidy_token(t) if hasattr(self.bot, 'tutor') and hasattr(self.bot.tutor, 'tidy_token') else t for t in tokens])
             all_outputs.append(f"[{combo_label}] → " + ", ".join(blend))
         elif not valid_vectors:
             all_outputs.append("i literally cannot parse any of this shit hahaha im sorry :(")
@@ -920,17 +919,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, "\n".join(reply_lines))
 
     @commands.command(name='bbyconnect', aliases=['bconnect', 'bbyassoc', 'bassoc'])
-    async def bbyconnect(self, ctx, *, word: str):
-        """tell you what words i associate with another word in my brain"""
-        word = (word or "").strip().lower()
-        if not word:
+    async def bbyconnect(self, ctx, *, text: str):
+        """tell you what tokens i associate with some text in my brain"""
+        text = (text or "").strip().lower()
+        if not text:
             return await self.bot._discord_reply(ctx, "you gotta give me a word to think about!")
 
-        associations = self._get_brain_connections(word)
+        associations = self._get_brain_connections(text)
         if associations:
-            reply = f"hmm... i connect {word} with:\n{associations}"
+            reply = f"hmm... i connect {text} with:\n{associations}"
         else:
-            reply = f"i don't really connect {word} with anything yet..."
+            reply = f"i don't really connect {text} with anything yet..."
 
         await self.bot._discord_reply(ctx, reply)
 
@@ -3198,16 +3197,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             traceback.print_exc()
             await self.bot._discord_reply(ctx, "i tried to show it but i had some error :(")
 
-    @commands.command(name='bbytoken', aliases=['btoken', 'bbytok'])
-    async def bbytoken(self, ctx: commands.Context, *tokens: str):
+    @commands.command(name='bbytoken', aliases=['btoken', 'bbytok', 'tokeninvestigator'])
+    async def bbytoken(self, ctx: commands.Context, *, text: str | None = None):
         """Investigate usage stats for one or more tokens."""
-        if not tokens:
+        if not text:
             return await self.bot._discord_reply(ctx, "give me a token to investigate :(")
 
         tutor = self.bot.tutor
+        token_ids = self.bot.librarian.tokenizer.encode(text)
+        tokens = [self.bot.librarian.indexToToken.get(tid, self.bot.librarian.unkToken) for tid in token_ids]
         lines = []
-        for raw_tok in tokens:
-            tok = raw_tok
+        for tok in tokens:
             bot_count = tutor.tokenCounts.get(tok, 0)
             user_count = self.bot.opt_in_token_usage.get(tok, 0)
             tidy = tutor.tidy_token(tok) if hasattr(tutor, 'tidy_token') else tok
