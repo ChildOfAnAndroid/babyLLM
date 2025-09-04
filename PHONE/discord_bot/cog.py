@@ -446,16 +446,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             vec = embed[valid_ids].mean(dim=0)
             valid_vectors.append(vec)
             connections = self._get_similar_tokens(vec, valid_ids, top_k)
-            all_outputs.append(f"{word} → " + ", ".join(connections))
+            all_outputs.append(f"[{word}] → " + ", ".join(connections))
 
-        # Blended vector
-        if valid_vectors:
+        # Blended vector (only if more than one word)
+        if len(valid_vectors) > 1:
             combo_vec = torch.stack(valid_vectors).mean(dim=0)
             combo_ids = sum([self.bot.librarian.tokenizer.encode(w) for w in words], [])
             blend = self._get_similar_tokens(combo_vec, combo_ids, top_k)
             combo_label = " + ".join(words)
-            all_outputs.append(f"{combo_label} → " + ", ".join(blend))
-        else:
+            all_outputs.append(f"[{combo_label}] → " + ", ".join(blend))
+        elif not valid_vectors:
             all_outputs.append("i literally cannot parse any of this shit hahaha im sorry :(")
 
         return "\n".join(all_outputs)
@@ -468,13 +468,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             top_vals, top_idx = torch.topk(sims, top_k + len(exclude_ids))
 
         associations = []
+        seen_tokens = set()
         for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
             if idx in exclude_ids:
                 continue
-            token_str = self.bot.librarian.decodeIDs([idx]).strip()
+            token_str = self.bot.librarian.decodeIDs([idx])
             if token_str == self.bot.librarian.unkToken or not token_str:
                 continue
-            associations.append(f"{token_str} ({val:.2f})")
+            if token_str in seen_tokens:
+                continue
+            seen_tokens.add(token_str)
+
+            display = f"[{token_str}]"
+            if val >= 0.20:
+                display = f"**{display}**"
+            elif val < 0.15:
+                display = f"~~{display}~~"
+            associations.append(f"{display} ({val:.2f})")
             if len(associations) >= top_k:
                 break
         return associations
