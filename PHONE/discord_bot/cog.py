@@ -424,50 +424,59 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         existing_ids = [fact.get("id", 0) for fact in self.bot.bbyfacts.values() if isinstance(fact, dict) and "id" in fact]
         return max(*existing_ids, 0) + 1
 
-    def _get_brain_connections(self, text: str, top_k: int = 5) -> str:
-        word = (text or "").strip().lower()
-        if not word:
-            return "no word given..."
-
-        token_ids = self.bot.librarian.tokenizer.encode(word)
-        if not token_ids:
-            return f"hmm... i don’t really know {word} yet."
+    def _get_brain_connections(self, words: str, top_k: int = 5) -> str:
+        words = words.strip().lower().split()
+        if not words: return "i connect nothing to... the input you just gave me >:("
 
         unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
-        valid_ids = [tid for tid in token_ids if tid != unk_id]
-        if not valid_ids:
-            return f"hmm... i don’t really know {word} yet."
+        embed = self.bot.babyLLM.embed.e_weights
 
+        all_outputs = []
+        valid_vectors = []
+
+        # Individual word vectors + associations
+        for word in words:
+            token_ids = self.bot.librarian.tokenizer.encode(word)
+            valid_ids = [tid for tid in token_ids if tid != unk_id]
+            if not valid_ids:
+                all_outputs.append(f"wtf is {word}?")
+                continue
+
+            vec = embed[valid_ids].mean(dim=0)
+            valid_vectors.append(vec)
+            connections = self._get_similar_tokens(vec, valid_ids, top_k)
+            all_outputs.append(f"{word} → " + ", ".join(connections))
+
+        # Blended vector
+        if valid_vectors:
+            combo_vec = torch.stack(valid_vectors).mean(dim=0)
+            combo_ids = sum([self.bot.librarian.tokenizer.encode(w) for w in words], [])
+            blend = self._get_similar_tokens(combo_vec, combo_ids, top_k)
+            combo_label = " + ".join(words)
+            all_outputs.append(f"{combo_label} → " + ", ".join(blend))
+        else:
+            all_outputs.append("i literally cannot parse any of this shit hahaha im sorry :(")
+
+        return "\n".join(all_outputs)
+
+
+    def _get_similar_tokens(self, vec: torch.Tensor, exclude_ids: list[int], top_k: int) -> list[str]:
+        embed = self.bot.babyLLM.embed.e_weights
         with torch.no_grad():
-            target_vec = self.bot.babyLLM.embed.e_weights[valid_ids].mean(dim=0)
-            all_vecs = self.bot.babyLLM.embed.e_weights
-            sims = torch.nn.functional.cosine_similarity(all_vecs, target_vec.unsqueeze(0), dim=1)
-            top_vals, top_idx = torch.topk(sims, top_k + len(valid_ids))
+            sims = torch.nn.functional.cosine_similarity(embed, vec.unsqueeze(0), dim=1)
+            top_vals, top_idx = torch.topk(sims, top_k + len(exclude_ids))
 
         associations = []
-        strengths = []
-
         for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
-            if idx in valid_ids:
+            if idx in exclude_ids:
                 continue
             token_str = self.bot.librarian.decodeIDs([idx]).strip()
             if token_str == self.bot.librarian.unkToken or not token_str:
                 continue
             associations.append(f"{token_str} ({val:.2f})")
-            strengths.append(val)
             if len(associations) >= top_k:
                 break
-
-        if not associations:
-            return f"hmm... i don’t really know {word} yet."
-
-        max_strength = max(strengths)
-        if max_strength >= 0.15:
-            intro = f"hmm... i connect {word} with:"
-        else:
-            intro = f"hmm... i sorta connect {word} with:"
-
-        return intro + " " + ", ".join(associations)
+        return associations
 
     # --------*-- BOT COMMANDS --*--------
     @commands.command(name='bbyteach', aliases=['bteach', 'btx'])
