@@ -489,6 +489,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 break
         return associations
 
+    def _blend_guess(self, word: str, top_k: int = 10) -> str:
+        token_ids = self.bot.librarian.tokenizer.encode(word.lower())
+        unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
+        valid_ids = [tid for tid in token_ids if tid != unk_id]
+        if not valid_ids:
+            return "???"
+        embed = self.bot.babyLLM.embed.e_weights
+        vec = embed[valid_ids].mean(dim=0)
+        similar = self._get_similar_tokens(vec, valid_ids, top_k)
+        parts = [s.split()[0] for s in similar][:len(valid_ids)]
+        if not parts:
+            return "???"
+        return "".join(parts)
+
     def _get_random_strong_pair(self, min_similarity: float = 0.9, max_attempts: int = 50):
         """Return a pair of token strings with cosine similarity >= ``min_similarity``.
 
@@ -657,6 +671,41 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"that's {cool_word}, tbh! {learn_phrase} {key} {meaning_word2} {value}. "
         )
         self.bot._buffer_add(varied_line)
+
+    async def _trigger_bbywtf(self, word: str, ctx=None, channel=None):
+        word = (word or "").strip().lower()
+        if not word:
+            return
+        if word in self.bot.bbyfacts:
+            fact = self.bot.bbyfacts.get(word, {})
+            known = f"i already know {word}! it's {fact.get('value', '')}".strip()
+            if ctx:
+                await self.bot._discord_reply(ctx, known)
+            elif channel:
+                await self.bot._discord_send(channel=channel, message_content=known, is_reply=False)
+            return
+
+        associations = self._get_brain_connections(word)
+        guess_word = self._blend_guess(word)
+        msg = f"{word} ??? 😰 ... {guess_word} ???"
+        if associations:
+            msg += f"\n{associations}"
+        if ctx:
+            sent = await self.bot._discord_reply(ctx, msg)
+        else:
+            sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
+        if sent:
+            self.bot.pending_wtf[sent.id] = {'word': word, 'guess': guess_word, 'guess_saved': False}
+
+    @commands.command(name='bbywtf')
+    async def bbywtf(self, ctx, *, word: str = None):
+        word = (word or "").strip().lower()
+        if not word:
+            return await self.bot._discord_reply(ctx, "you gotta give me a word to think about!")
+        await self._trigger_bbywtf(word, ctx=ctx)
+
+    async def trigger_bbywtf_auto(self, channel, word: str):
+        await self._trigger_bbywtf(word, channel=channel)
 
     @commands.command(name='bbywhatis', aliases=['bwhatis', 'bwi'])
     async def bbywhatis(self, ctx, *, key: str = None):

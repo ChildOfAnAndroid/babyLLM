@@ -70,6 +70,12 @@ class BABYBOT_DISCORD(commands.Bot):
         self.current_bestie, self.bestie_score = None, 0.0
         self.inventory = {}
 
+        # --- bbywtf game state ---
+        self.pending_wtf = {}
+        self.word_usage = Counter()
+        self.wtf_threshold = 30
+        self.wtf_reacts = ["💡", "😳", "💀", "🤔", "😂", "🙀"]
+
         self.buffer = json.load(open(chatBufferFilepath, "r")) if os.path.exists(chatBufferFilepath) else []
 
         self.user_data_path = bbyUserDataPath
@@ -291,6 +297,21 @@ class BABYBOT_DISCORD(commands.Bot):
 
     def save_bbyfacts(self): self._save_json(self.bbyfacts_path, self.bbyfacts, "_SAVE_BBYFACTS", ensure_ascii = False)
     def save_opt_in_users(self): self._save_json(self.opt_in_path, self.AIoptInUsers, "_SAVE_OPTIN")
+
+    async def handle_wtf_reply(self, message, data):
+        word = data.get('word')
+        guess = data.get('guess')
+        definition = message.clean_content.strip()
+        author = str(message.author.name).lower()
+        try:
+            await message.add_reaction(random.choice(self.wtf_reacts))
+        except discord.errors.Forbidden:
+            pass
+        if word and word not in self.bbyfacts:
+            await self.cog._set_bbyfact(key=word, value=definition, author=author, timestamp=time.time(), debug_str="[BBYWTF]")
+        if guess and not data.get('guess_saved') and guess not in self.bbyfacts:
+            await self.cog._set_bbyfact(key=guess, value=f"bby's guess for {word}", author=self.babyName.lower(), timestamp=time.time(), debug_str="[BBYWTF_GUESS]")
+            data['guess_saved'] = True
 
     def getNickname(self, author):
         if not author:
@@ -913,7 +934,20 @@ class BABYBOT_DISCORD(commands.Bot):
             #if is_opted_in or is_command: await self.web_post_say(text=message.content, platform='discord', user_id=snowflake, handle=handle, display_name=display_name, is_command=is_command)
         except Exception as e: print(f"[SYNC][on_message] {e}")
 
+        if message.reference and message.reference.message_id in self.pending_wtf:
+            await self.handle_wtf_reply(message, self.pending_wtf[message.reference.message_id])
+
         if message.author == self.user: return
+
+        if not message.content.startswith(self.command_prefix):
+            for w in re.findall(r'\b[a-z]{3,}\b', message.clean_content.lower()):
+                if w in self.bbyfacts: continue
+                self.word_usage[w] += 1
+                if self.word_usage[w] >= self.wtf_threshold:
+                    cog = self.get_cog('BBYCOG') or self.cog
+                    if cog:
+                        await cog.trigger_bbywtf_auto(channel=message.channel, word=w)
+                    self.word_usage[w] = float('-inf')
 
         # --- UK Timezone Setup & Daily Reset Logic ---
         mem["message_count"] += 1.0
