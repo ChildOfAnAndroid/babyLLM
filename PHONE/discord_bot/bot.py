@@ -828,7 +828,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
 
     async def on_message(self, message):
-        content = message.content
+        content = message.clean_content
         author = str(message.author.name).lower()
         print(f"\n[Message] From {author}: {content}")
         if author in self.temp_not_opt: return
@@ -1046,7 +1046,7 @@ class BABYBOT_DISCORD(commands.Bot):
             if message.author != self.user:
                 return
             author_key = str(self.user.name).lower()
-            content = message.content or ""
+            content = message.clean_content or ""
             if not content.strip():
                 return
             buffer_line = content if author_key == self.last_logged_author else self.formatMessage(self.babyName, content)
