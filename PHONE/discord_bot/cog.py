@@ -475,10 +475,28 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if rank <= 20:  reply += "damn, top 20! "
         reply += f"that got rank {rank_str}! :) i gave you {int(awardNumber)} of them, and so the world's only allowed {int(num_produced-(int(awardNumber)))} more!"
         await self.bot._discord_reply(ctx, reply, to_buffer=False)
-        narrator_line_1 = self.bot.formatMessage(author, f"hey bby, did you know that {key} means {value}?")
-        narrator_line_2 = self.bot.formatMessage(self.bot.babyName.lower(), f"haha, really? that's a nice way to explain it! thanks for teaching me.")
-        if self.bot._buffer_add(narrator_line_1): self.bot.last_logged_author = author
-        if self.bot._buffer_add(narrator_line_2): self.bot.last_logged_author = self.bot.babyName.lower()
+        narrator_line_1 = self.bot.formatMessage(
+            author,
+            random.choice([
+                f"hey bby, did you know that {key} means {value}?",
+                f"psst! {key} is {value}, thought you'd like to know!",
+                f"yo bby, apparently {key} equals {value}.",
+                f"huh, {key} ends up meaning {value} after all!",
+            ]),
+        )
+        narrator_line_2 = self.bot.formatMessage(
+            self.bot.babyName.lower(),
+            random.choice([
+                "haha, really? that's a nice way to explain it! thanks for teaching me.",
+                "wow, that's a fresh fact! appreciate the lesson.",
+                "neat! i'll keep that in mind, thanks for the tip.",
+                "cool beans, i'll write that down!",
+            ]),
+        )
+        if self.bot._buffer_add(narrator_line_1):
+            self.bot.last_logged_author = author
+        if self.bot._buffer_add(narrator_line_2):
+            self.bot.last_logged_author = self.bot.babyName.lower()
 
         opener = random.choice([
             "soo...",
@@ -486,6 +504,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "guess what,",
             "wow,",
             "you know,",
+            "listen,",
+            "hey,",
+            "oi,",
         ])
         teller = random.choice([
             "is telling me",
@@ -493,6 +514,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "reckons",
             "tells me",
             "explains",
+            "shares",
+            "points out",
+            "notes",
         ])
         meaning_word1 = random.choice([
             "means",
@@ -500,6 +524,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "stands for",
             "represents",
             "signifies",
+            "defines",
+            "refers to",
+            "equals",
         ])
         meaning_word2 = random.choice([
             "means",
@@ -507,6 +534,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "stands for",
             "represents",
             "signifies",
+            "defines",
+            "refers to",
+            "equals",
         ])
         cool_word = random.choice([
             "pretty cool",
@@ -514,6 +544,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "pretty awesome",
             "rather interesting",
             "super cool",
+            "quite fascinating",
+            "mega rad",
+            "astonishing",
+            "heckin' neat",
         ])
         learn_phrase = random.choice([
             "i think that they just taught me that",
@@ -521,6 +555,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "now i know that",
             "i just learned that",
             "they've taught me that",
+            "i'll remember that",
+            "that's stored in my brain now",
+            "i'm writing that down",
+            "putting that in my journal",
         ])
         varied_line = (
             f"{opener} {self.bot.getNickname(author)} {teller} that {key} {meaning_word1} {value}... "
