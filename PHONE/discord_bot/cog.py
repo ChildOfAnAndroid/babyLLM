@@ -654,6 +654,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply += "... actually that's fucking insane! "
             incrementTeach *= 42069.69
         if incrementTeach > 4200.69: incrementTeach = incrementTeach * 0.075
+        uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in f"{key} {value}")
+        incrementTeach = self.bot.apply_fave_bonus(incrementTeach, uses_fave)
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
@@ -790,6 +792,68 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     async def trigger_bbywtf_auto(self, channel, word: str):
         await self._trigger_bbywtf(word, channel=channel)
+
+    async def _start_translate_game(self, ctx=None, channel=None):
+        if self.bot.translate_game:
+            if ctx:
+                await self.bot._discord_reply(ctx, "there's already a game running!")
+            return
+        if not self.bot.bbyfacts:
+            if ctx:
+                await self.bot._discord_reply(ctx, "i don't know any words yet :(")
+            return
+        correct = random.choice(list(self.bot.bbyfacts.keys()))
+        fake = self.createFakeWordFromVector(correct)
+        msg = f"is {fake} a real thing?"
+        if ctx:
+            sent = await self.bot._discord_reply(ctx, msg)
+        else:
+            sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
+        if sent:
+            self.bot.translate_game = {
+                "channel_id": sent.channel.id,
+                "message_id": sent.id,
+                "correct": correct,
+                "fake": fake,
+                "guesses": {}
+            }
+            delay = random.randint(60, 120)
+            self.bot.translate_game["task"] = self.bot.loop.create_task(self._finish_translate_game(sent.channel, delay))
+
+    async def _finish_translate_game(self, channel, delay):
+        await asyncio.sleep(delay)
+        game = self.bot.translate_game
+        if not game:
+            return
+        correct = game["correct"]
+        guesses = game["guesses"]
+        winners = [u for u, g in guesses.items() if g == correct]
+        if winners:
+            win_text = ", ".join(self.bot.getNickname(w) for w in winners)
+            await self.bot._discord_send(channel=channel, message_content=f"it was **{correct}**! gg {win_text}", is_reply=False)
+            for user in winners:
+                guess = guesses[user]
+                amount = self.bot.apply_fave_bonus(5.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
+                self.bot.updateBBY(user, amount)
+                mem = self.bot.userMemory[user]
+                mem["translate_wins"] = mem.get("translate_wins", 0) + 1
+        else:
+            await self.bot._discord_send(channel=channel, message_content=f"no one got it! it was **{correct}**.", is_reply=False)
+        for user, guess in guesses.items():
+            if user not in winners:
+                amount = self.bot.apply_fave_bonus(-2.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
+                self.bot.updateBBY(user, amount)
+                mem = self.bot.userMemory[user]
+                mem["translate_losses"] = mem.get("translate_losses", 0) + 1
+        self.bot._save_user_data()
+        self.bot.translate_game = None
+
+    @commands.command(name='bbytranslate', aliases=['btranslate'])
+    async def bbytranslate(self, ctx):
+        await self._start_translate_game(ctx=ctx)
+
+    async def trigger_bbytranslate_auto(self, channel):
+        await self._start_translate_game(channel=channel)
 
     @commands.command(name='bbywhatis', aliases=['bwhatis', 'bwi'])
     async def bbywhatis(self, ctx, *, key: str = None):

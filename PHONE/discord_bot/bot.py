@@ -76,6 +76,14 @@ class BABYBOT_DISCORD(commands.Bot):
         self.wtf_threshold = 30
         self.wtf_reacts = ["💡", "😳", "💀", "🤔", "😂", "🙀"]
 
+        # --- bbytranslate game state ---
+        self.translate_game = None
+        self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
+
+        # --- favourite token tracking ---
+        self.babyFaveToken = ""
+        self.baby_state_path = os.path.join(SCRIPT_DIR, "babyState.json")
+
         self.buffer = json.load(open(chatBufferFilepath, "r")) if os.path.exists(chatBufferFilepath) else []
 
         self.user_data_path = bbyUserDataPath
@@ -87,7 +95,9 @@ class BABYBOT_DISCORD(commands.Bot):
                     "wins": 0.0, "losses": 0.0, "draws": 0.0,
                     "last_seen": time.time(), "message_count": 0.0, "loyalty": 1,
                     "last_message_words": set(), "creative_combo": 1, "spammer": 1,
-                    "inventory": {}, "favourites": [], "next_talk_milestone": 50}
+                    "inventory": {}, "favourites": [], "next_talk_milestone": 50,
+                    "translate_wins": 0, "translate_losses": 0,
+                    "fave_token_usage": 0}
 
         if os.path.exists(self.user_data_path):
             print(f"[BABYBOT_DISCORD__INIT__] {self.user_data_path} LOADING FROM PATH... ")
@@ -108,6 +118,7 @@ class BABYBOT_DISCORD(commands.Bot):
         self.idle_task = self.training_worker = None
         self.web_task = None
         self.training_queue = asyncio.Queue()
+        self._load_baby_state()
 
     async def setup_bot(self):
         from .cog import babyBot_DISCORD_COG
@@ -125,6 +136,34 @@ class BABYBOT_DISCORD(commands.Bot):
         print(f"[{label}] saving {label}... ")
         with open(path, "w", encoding="utf-8") as f: json.dump(data, f, indent = 2, **dump_kwargs)
         print(f"[{label}] {label} saved! ")
+
+    def _load_baby_state(self):
+        if os.path.exists(self.baby_state_path):
+            try:
+                with open(self.baby_state_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.babyFaveToken = data.get("babyFaveToken", "")
+            except Exception:
+                self.babyFaveToken = ""
+        else:
+            self.babyFaveToken = ""
+
+    def _save_baby_state(self):
+        try:
+            data = {}
+            if os.path.exists(self.baby_state_path):
+                with open(self.baby_state_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            data["babyFaveToken"] = self.babyFaveToken
+            with open(self.baby_state_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"could not write to {self.baby_state_path}: {e}")
+
+    def apply_fave_bonus(self, amount, used):
+        if not used or not self.babyFaveToken:
+            return amount
+        return amount * 2 if amount > 0 else amount * 0.5
     
     async def bby_web_watcher(self):
         print("[BBY_WEB_WATCHER] bby brain alert...")
@@ -863,8 +902,13 @@ class BABYBOT_DISCORD(commands.Bot):
             else: message_for_buffer = self.formatMessage(author, content)
             if self._buffer_add(message_for_buffer): self.last_logged_author = author
 
+        used_fave_token = bool(self.babyFaveToken and self.babyFaveToken in content.lower())
         mem = self.userMemory[author]
         mem["display_name"] = message.author.display_name.lower()
+        if used_fave_token:
+            mem["fave_token_usage"] = mem.get("fave_token_usage", 0) + 1
+            try: await message.add_reaction("❤️")
+            except discord.errors.Forbidden: pass
         if isinstance(mem.get('last_message_words'), list): mem['last_message_words'] = set(mem['last_message_words'])
         current_words = set(re.findall(r'\b\w{3,}\b', content.lower()))
         if len(current_words) > 1:
@@ -876,6 +920,7 @@ class BABYBOT_DISCORD(commands.Bot):
             if similarity < 0.5:
                 mem["creative_combo"] = mem.get("creative_combo", 1) + 1
                 combo_bonus = 0.05 * mem["creative_combo"]
+                combo_bonus = self.apply_fave_bonus(combo_bonus, used_fave_token)
                 self.updateBBY(author, combo_bonus)
                 print(f"[CreativeCombo] {author:<15}: Combo UP to x{mem['creative_combo']}! +ᛒ{combo_bonus:.2f}")
                 if mem["creative_combo"] in [10, 42.0, 69, 420, 690, 840, 4200, 6969, 42069, 69420, 420420]:
@@ -890,6 +935,7 @@ class BABYBOT_DISCORD(commands.Bot):
             else:
                 mem["spammer"] = mem.get("spammer", 1) + 1
                 spam_bonus = -0.05 * mem["spammer"]
+                spam_bonus = self.apply_fave_bonus(spam_bonus, used_fave_token)
                 self.updateBBY(author, spam_bonus)
                 if mem["spammer"] in [10, 42.0, 69, 420, 690, 840, 4200, 6969, 42069, 69420, 420420]:
                     try: await self._discord_spam(f"{self.getNickname(author)} hit x{mem['spammer']} spam! {random.choice(self.faveEmotes)}")
@@ -938,6 +984,9 @@ class BABYBOT_DISCORD(commands.Bot):
             await self.handle_wtf_reply(message, self.pending_wtf[message.reference.message_id])
 
         if message.author == self.user: return
+
+        if self.translate_game and message.channel.id == self.translate_game.get("channel_id") and not content.startswith(self.command_prefix):
+            self.translate_game["guesses"][author] = content.strip().lower()
 
         if not message.content.startswith(self.command_prefix):
             for w in re.findall(r'\b[a-z]{3,}\b', message.clean_content.lower()):
@@ -1114,6 +1163,14 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"\n\nnot enough tokens ({token_count}) for training. skipping.\n\n")
             return
 
+        # update favourite token based on this training batch
+        try:
+            most_common_id, _ = Counter(tokensToLibrarian).most_common(1)[0]
+            self.babyFaveToken = self.librarian.decodeIDs([most_common_id]).strip()
+            self._save_baby_state()
+        except Exception:
+            pass
+
         trainingNum = random.randint(1, 100+self.idles)
         trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = trainingNum, _stride = trainingDataStride, _tokens = tokensToLibrarian)
         self.babyLLM.train()
@@ -1136,6 +1193,12 @@ class BABYBOT_DISCORD(commands.Bot):
             self.random2 = random.random()
             self.random3 = random.random()
             self.random4 = random.random()
+
+            if time.time() >= self.next_translate_time and not self.translate_game and self.cog:
+                channel = self.get_channel(self.discordChannel)
+                if channel:
+                    await self.cog.trigger_bbytranslate_auto(channel)
+                self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
             
             await self.decay_BBY()
             print(f"decayed bby")
