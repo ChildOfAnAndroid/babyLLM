@@ -445,15 +445,28 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
             vec = embed[tid]
             valid_vectors.append(vec)
-            connections = self._get_similar_tokens(vec, [tid], top_k)
+            connections_raw = self._get_similar_tokens(vec, [tid], top_k)
+            connections = [f"*{escape_markdown(c)}*" for c in connections_raw]
             tidy = self.bot.tutor.tidy_token(tok) if hasattr(self.bot, 'tutor') and hasattr(self.bot.tutor, 'tidy_token') else tok
-            all_outputs.append(f"[{tidy}] → " + ", ".join(connections))
+            all_outputs.append(
+                f"when i think of {escape_markdown(tidy)}, i also think about " + ", ".join(connections)
+            )
 
         if len(valid_vectors) > 1:
             combo_vec = torch.stack(valid_vectors).mean(dim=0)
-            blend = self._get_similar_tokens(combo_vec, token_ids, top_k)
-            combo_label = " + ".join([self.bot.tutor.tidy_token(t) if hasattr(self.bot, 'tutor') and hasattr(self.bot.tutor, 'tidy_token') else t for t in tokens])
-            all_outputs.append(f"[{combo_label}] → " + ", ".join(blend))
+            blend_raw = self._get_similar_tokens(combo_vec, token_ids, top_k)
+            blend = [f"*{escape_markdown(c)}*" for c in blend_raw]
+            combo_label = " + ".join(
+                [
+                    self.bot.tutor.tidy_token(t)
+                    if hasattr(self.bot, "tutor") and hasattr(self.bot.tutor, "tidy_token")
+                    else t
+                    for t in tokens
+                ]
+            )
+            all_outputs.append(
+                f"together {escape_markdown(combo_label)} makes me think about " + ", ".join(blend)
+            )
         elif not valid_vectors:
             all_outputs.append("i literally cannot parse any of this shit hahaha im sorry :(")
 
@@ -464,11 +477,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed = self.bot.babyLLM.embed.e_weights
         with torch.no_grad():
             sims = torch.nn.functional.cosine_similarity(embed, vec.unsqueeze(0), dim=1)
-            top_vals, top_idx = torch.topk(sims, top_k + len(exclude_ids))
+            _, top_idx = torch.topk(sims, top_k + len(exclude_ids))
 
-        associations = []
+        associations: list[str] = []
         seen_tokens = set()
-        for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
+        for idx in top_idx.tolist():
             if idx in exclude_ids:
                 continue
             token_str = self.bot.librarian.decodeIDs([idx])
@@ -477,13 +490,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if token_str in seen_tokens:
                 continue
             seen_tokens.add(token_str)
-
-            display = f"[{token_str}]"
-            if val >= 0.20:
-                display = f"**{display}**"
-            elif val < 0.15:
-                display = f"~~{display}~~"
-            associations.append(f"{display} ({val:.2f})")
+            associations.append(token_str)
             if len(associations) >= top_k:
                 break
         return associations
@@ -497,7 +504,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed = self.bot.babyLLM.embed.e_weights
         vec = embed[valid_ids].mean(dim=0)
         similar = self._get_similar_tokens(vec, valid_ids, top_k)
-        parts = [s.split()[0] for s in similar][:len(valid_ids)]
+        parts = similar[:len(valid_ids)]
         if not parts:
             return "???"
         return "".join(parts)
@@ -557,13 +564,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # Fetch related tokens using the existing brain connection helper
         raw_connections = self._get_similar_tokens(base_vec, token_ids, top_n * 3)
-        token_pattern = re.compile(r"\[([^\]]+)\]")
-        related = []
-        for item in raw_connections:
-            match = token_pattern.search(item)
-            if not match:
-                continue
-            tok = match.group(1)
+        related: list[str] = []
+        for tok in raw_connections:
             if tok == self.bot.librarian.unkToken:
                 continue
             if tok in related:
@@ -3217,7 +3219,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"total perfect {tutor.totalTokenPerfectRate:.2f}%",
                 f"runs {tutor.totalRuns}",
             ]
-            line = f"{escape_markdown(tidy)} → bby {bot_count:.0f}x, opt-ins {user_count:.0f}x | " + "; ".join(stats_bits)
+            line = (
+                f"for *{escape_markdown(tidy)}*, i've used it {bot_count:.0f} times and opt-ins {user_count:.0f} times; "
+                + ", ".join(stats_bits)
+            )
             lines.append(line)
 
         await self.bot._discord_reply(ctx, "\n".join(lines))
