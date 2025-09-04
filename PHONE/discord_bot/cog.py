@@ -424,25 +424,19 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         existing_ids = [fact.get("id", 0) for fact in self.bot.bbyfacts.values() if isinstance(fact, dict) and "id" in fact]
         return max(*existing_ids, 0) + 1
 
-    def _get_brain_connections(self, text: str, top_k: int = 5) -> list[str]:
-        """Return up to ``top_k`` token strings most associated with ``text``.
-
-        Handles multi-token inputs by averaging their embeddings and
-        skipping any unknown tokens. Results exclude tokens that appear
-        in the original text.
-        """
+    def _get_brain_connections(self, text: str, top_k: int = 5) -> str:
         word = (text or "").strip().lower()
         if not word:
-            return []
+            return "no word given..."
 
         token_ids = self.bot.librarian.tokenizer.encode(word)
         if not token_ids:
-            return []
+            return f"hmm... i don’t really know {word} yet."
 
         unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
         valid_ids = [tid for tid in token_ids if tid != unk_id]
         if not valid_ids:
-            return []
+            return f"hmm... i don’t really know {word} yet."
 
         with torch.no_grad():
             target_vec = self.bot.babyLLM.embed.e_weights[valid_ids].mean(dim=0)
@@ -451,16 +445,29 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             top_vals, top_idx = torch.topk(sims, top_k + len(valid_ids))
 
         associations = []
+        strengths = []
+
         for idx, val in zip(top_idx.tolist(), top_vals.tolist()):
             if idx in valid_ids:
                 continue
             token_str = self.bot.librarian.decodeIDs([idx]).strip()
-            if token_str == self.bot.librarian.unkToken:
+            if token_str == self.bot.librarian.unkToken or not token_str:
                 continue
             associations.append(f"{token_str} ({val:.2f})")
+            strengths.append(val)
             if len(associations) >= top_k:
                 break
-        return associations
+
+        if not associations:
+            return f"hmm... i don’t really know {word} yet."
+
+        max_strength = max(strengths)
+        if max_strength >= 0.15:
+            intro = f"hmm... i connect {word} with:"
+        else:
+            intro = f"hmm... i sorta connect {word} with:"
+
+        return intro + " " + ", ".join(associations)
 
     # --------*-- BOT COMMANDS --*--------
     @commands.command(name='bbyteach', aliases=['bteach', 'btx'])
