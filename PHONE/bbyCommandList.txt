@@ -3,6 +3,7 @@
 !aioptin — lets your chats affect babys training (but he won't respond unless you use !bby)
 !aioptout — don't let your messages be saved to training data anymore (ask charis if you want them all DELETED too)
 !aioptcheck — check whether you're opted in
+!bbylink — show two random very strongly connected words
 
 colours:
     namedColours = {

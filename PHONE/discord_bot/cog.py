@@ -478,6 +478,33 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 break
         return associations
 
+    def _get_random_strong_pair(self, min_similarity: float = 0.9, max_attempts: int = 50):
+        """Return a pair of token strings with cosine similarity >= ``min_similarity``.
+
+        Randomly samples tokens from the vocabulary until a sufficiently
+        similar partner is found or ``max_attempts`` is reached. Returns
+        ``None`` if no pair meets the threshold.
+        """
+        all_vecs = self.bot.babyLLM.embed.e_weights
+        vocab_size = all_vecs.size(0)
+        unk_token = self.bot.librarian.unkToken
+
+        for _ in range(max_attempts):
+            idx1 = random.randrange(vocab_size)
+            with torch.no_grad():
+                vec1 = all_vecs[idx1]
+                sims = torch.nn.functional.cosine_similarity(all_vecs, vec1.unsqueeze(0), dim=1)
+                sims[idx1] = -1.0  # exclude self
+                val, idx2 = torch.max(sims, dim=0)
+            if val.item() < min_similarity:
+                continue
+            word1 = self.bot.librarian.decodeIDs([idx1]).strip()
+            word2 = self.bot.librarian.decodeIDs([idx2.item()]).strip()
+            if unk_token in (word1, word2):
+                continue
+            return word1, word2, val.item()
+        return None
+
     # --------*-- BOT COMMANDS --*--------
     @commands.command(name='bbyteach', aliases=['bteach', 'btx'])
     async def bbyteach(self, ctx, key: str, *, value: str, debug_str=""):
@@ -698,6 +725,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply = f"i don't really connect {word} with anything yet..."
 
         await self.bot._discord_reply(ctx, reply)
+
+    @commands.command(name='bbylink', aliases=['blink', 'bbond'])
+    async def bbylink(self, ctx):
+        """show two random very strongly connected words"""
+        result = self._get_random_strong_pair()
+        if result:
+            w1, w2, sim = result
+            await self.bot._discord_reply(ctx, f"hmm... {w1} and {w2} feel super connected ({sim:.2f})")
+        else:
+            await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
 
     @commands.command(name='bbyfite', aliases=['bfite', 'bfte'])
     async def bbyfite(self, ctx, *, member_name: str = None):
