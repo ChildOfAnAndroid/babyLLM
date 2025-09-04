@@ -1,10 +1,10 @@
 {
-  "R": 100,
-  "G": 98,
-  "B": 193,
-  "cerebralLoad": 0.03366102650761604,
-  "dreamIntensity": 0.5396373808171071,
-  "memoryFlux": 0.07815223932266235,
-  "learningStability": 0.21502776963370213,
+  "R": 104,
+  "G": 102,
+  "B": 192,
+  "cerebralLoad": 0.033883124589920044,
+  "dreamIntensity": 0.5997061419487002,
+  "memoryFlux": 0.10499268770217896,
+  "learningStability": 0.22030514359474207,
   "correct": 0.0
 }

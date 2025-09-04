@@ -1027,7 +1027,37 @@ class BABYBOT_DISCORD(commands.Bot):
                 return
         await self.process_commands(message)
 
-    async def background_training_loop(self): 
+    async def on_raw_reaction_add(self, payload):
+        try:
+            if payload.user_id == self.user.id:
+                return
+            channel = self.get_channel(payload.channel_id)
+            if channel is None:
+                try:
+                    channel = await self.fetch_channel(payload.channel_id)
+                except Exception:
+                    return
+            try:
+                message = await channel.fetch_message(payload.message_id)
+            except Exception:
+                return
+            if message.author != self.user:
+                return
+            author_key = str(self.user.name).lower()
+            content = message.content or ""
+            if not content.strip():
+                return
+            buffer_line = content if author_key == self.last_logged_author else self.formatMessage(self.babyName, content)
+            if self._buffer_add(buffer_line):
+                self.last_logged_author = author_key
+                with open(discordLogPath, "a", encoding="utf-8") as f:
+                    f.write(f"\n---\n{buffer_line}")
+                if self.training_queue.qsize() < 20:
+                    await self.training_queue.put({"type": "chat", "text": "\n".join(self.buffer)})
+        except Exception as e:
+            print(f"[on_raw_reaction_add] {e}")
+
+    async def background_training_loop(self):
         print(f"\n\nTraining worker started!\n\n")
         while True:
             try:
