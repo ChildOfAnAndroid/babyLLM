@@ -117,7 +117,8 @@ class MEMORY(nn.Module):
             gateLogits = gateLogits.view(4, numNeurons)
             #self.gateLogitsBuf.copy_(gateLogits.detach())  # ??? SUS ??? keep detached version for logging
             if debugPrints: ʕっʘ‿ʘʔっ("clamp gatelayer2 -> gateLogits")
-            with torch.no_grad(): gateLogits = gateLogits.clamp(-30, 30)
+            # clamp extreme values while preserving gradient flow
+            gateLogits = gateLogits.clamp(-30, 30)
 
             # softmax across sources (dim=0), sum to 1 per neuron
             if debugPrints: ʕっʘ‿ʘʔっ("softmax gateLogits")
