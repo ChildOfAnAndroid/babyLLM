@@ -1063,38 +1063,59 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         pairs = self._get_top_strong_pairs(10)
 
         tutor = getattr(self.bot, "tutor", None)
-        token_table = "i don't know what words i use most yet :("
+
+        embed = discord.Embed(title="my special interests rn")
+
         if tutor and getattr(tutor, "tokenCounts", None):
             total_bot = sum(tutor.tokenCounts.values())
-            top_tokens = sorted(tutor.tokenCounts.items(), key=lambda x: x[1], reverse=True)[:10]
-            header = f"{'#':>2} | {'token':<15} | {'count':>5} | {'%':>5}"
-            lines = [header, "-" * len(header)]
+            top_tokens = sorted(
+                tutor.tokenCounts.items(), key=lambda x: x[1], reverse=True
+            )[:10]
+            token_lines = []
             for i, (tok, cnt) in enumerate(top_tokens, 1):
                 name = tutor.tidy_token(tok) if hasattr(tutor, "tidy_token") else tok
                 pct = cnt / total_bot * 100 if total_bot else 0
-                lines.append(f"{i:>2} | {name:<15} | {cnt:>5} | {pct:5.2f}")
-            token_table = "top tokens i say:\n```\n" + "\n".join(lines) + "\n```"
+                token_lines.append(f"{i}. {name} - {cnt} ({pct:.2f}%)")
+            embed.add_field(
+                name="top tokens i say",
+                value="\n".join(token_lines),
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="top tokens i say",
+                value="i don't know what words i use most yet :(",
+                inline=False,
+            )
 
-        link_table = "i couldn't find a strong connection right now :("
         if pairs:
             total_bot = sum(tutor.tokenCounts.values()) if tutor else 0
-            total_user = sum(self.bot.opt_in_token_usage.values()) if hasattr(self.bot, "opt_in_token_usage") else 0
-            header = (
-                f"{'#':>2} | {'token1':<12} | {'me%':>5} | {'opt%':>5} | "
-                f"{'token2':<12} | {'me%':>5} | {'opt%':>5} | {'sim':>5}"
+            total_user = (
+                sum(self.bot.opt_in_token_usage.values())
+                if hasattr(self.bot, "opt_in_token_usage")
+                else 0
             )
-            lines = [header, "-" * len(header)]
-            for i, (w1, w2, sim) in enumerate(pairs, 1):
+            link_lines = []
+            for w1, w2, sim in pairs:
                 t1, b1, u1 = self._format_token_usage(w1, total_bot, total_user)
                 t2, b2, u2 = self._format_token_usage(w2, total_bot, total_user)
-                lines.append(
-                    f"{i:>2} | {t1:<12} | {b1:5.2f} | {u1:5.2f} | "
-                    f"{t2:<12} | {b2:5.2f} | {u2:5.2f} | {sim:5.2f}"
+                link_lines.append(
+                    f"{t1} ({b1:.2f}% bby/{u1:.2f}% ppl) ↔ "
+                    f"{t2} ({b2:.2f}% bby/{u2:.2f}% ppl) [{sim:.2f}]"
                 )
-            link_table = "strongest links:\n```\n" + "\n".join(lines) + "\n```"
+            embed.add_field(
+                name="strongest links",
+                value="\n".join(link_lines),
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="strongest links",
+                value="i couldn't find a strong connection right now :(",
+                inline=False,
+            )
 
-        reply = f"my special interests rn:\n{token_table}\n{link_table}"
-        await self.bot._discord_reply(ctx, reply)
+        await self.bot._discord_reply(ctx, embed=embed)
 
     @commands.command(name='bbyfite', aliases=['bfite', 'bfte'])
     async def bbyfite(self, ctx, *, member_name: str = None):
