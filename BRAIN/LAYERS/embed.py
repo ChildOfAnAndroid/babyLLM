@@ -79,7 +79,13 @@ class EMBED(nn.Module):
                 ###self.stats["1E_1_pixelEmbed_mean"] = self.pixelEmbed.weight.mean().item()###
                 #self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
                 #self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
-                self.stats["1E_1_posEmbWeight_norm"] = self.posEmbedding.weight.norm().item()
+                # positional embedding weights contain one vector per position and the
+                # Frobenius norm grows with the number of positions.  Use the mean L2
+                # norm of the individual positional vectors so the value reflects the
+                # typical magnitude of a single position embedding rather than the
+                # entire matrix.
+                pos_emb_row_norm = self.posEmbedding.weight.norm(dim=1).mean().item()
+                self.stats["1E_1_posEmbWeight_norm"] = pos_emb_row_norm
                 self.stats["1E_1_posEmbWeight_mean"] = self.posEmbedding.weight.mean().item()
 
                 #dimMean = self.e_weights.detach().clone().mean(dim = 0)
