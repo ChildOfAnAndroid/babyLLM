@@ -1014,7 +1014,7 @@ class TUTOR:
         try:
             os.makedirs(os.path.dirname(topTokensFilePath), exist_ok=True)
             with open(topTokensFilePath, "w", encoding="utf-8") as f:
-                json.dump(self.tokenCounts, f, indent=2)
+                json.dump(dict(self.tokenCounts), f, indent=2)
         except Exception as e:
             print(f"could not write to {topTokensFilePath}: {e}")
 
