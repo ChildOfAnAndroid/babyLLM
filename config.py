@@ -144,6 +144,7 @@ perfectionistMaxRetries = 2
 inferenceOutputNumTokens = 40
 
 skipPixels = False
+embedDropoutProb = 0.1
 
 """memoryLayer"""
 memoryLengthGOAL = 3

@@ -26,6 +26,7 @@ class EMBED(nn.Module):
 
         self.maxPosLen = 2048
         self.posEmbedding = nn.Embedding(self.maxPosLen, embedDimension, device = self.device)
+        self.dropout = nn.Dropout(p=embedDropoutProb)
 
     """looks up and returns the embedding vector for a specific token index"""
     @whocalled
@@ -49,6 +50,7 @@ class EMBED(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
             #self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
             self.embedFinal = self.embedVector + self.embedNormed # direct passthrough instead of scaling cause he abuses them lol, -0.005 scale... wtf is that!?
+            self.embedFinal = self.dropout(self.embedFinal)
             clamp_param(self.weightsScale, -10, 10)
             clamp_param(self.normScale, -10, 10)
             return self.embedFinal # E3 -> N??

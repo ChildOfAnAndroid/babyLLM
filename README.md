@@ -55,6 +55,7 @@ Embed Layer
 - Converts babyLLMs input into tokens (LIBRARIAN)
 - Then converts those tokens into embeddings.
 - It also contains a positional encoding embedding, and an embedding for it to predict pixel colours from. (experimental addition to allow it to explore it's own 'interior state' via an RGB encoding)
+- Applies a small dropout to the combined embedding to encourage more robust representations.
 
 Neuron Layer
 - Outputs a single number for each input token, iterated by numNeurons
