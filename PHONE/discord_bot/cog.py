@@ -451,7 +451,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed = self.bot.babyLLM.embed.e_weights  # [vocab, dim]
         lines: list[str] = []
         token_vectors = []
-        min_score = 0.09
+        min_score = 0.1
 
         # per-token
         for tid in valid_ids:
