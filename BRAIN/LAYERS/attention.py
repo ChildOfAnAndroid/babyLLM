@@ -52,13 +52,17 @@ class GATED_MHA(nn.Module):
             gated = gate * attn_out
             out = self.norm(_embeds + gated)
 
-            # collect stats
+            # collect stats (normalise by sequence length so values don't grow with
+            # longer inputs)
+            token_norm = attn_out.norm(dim=-1).mean().item()
+            gated_norm = gated.norm(dim=-1).mean().item()
+            final_norm = out.norm(dim=-1).mean().item()
             self.stats = {
-                "5A_0_attnOut_norm": attn_out.norm().item(),
+                "5A_0_attnOut_norm": token_norm,
                 "5A_0_attnOut_mean": attn_out.mean().item(),
-                "5A_1_gated_norm": gated.norm().item(),
+                "5A_1_gated_norm": gated_norm,
                 "5A_1_gated_mean": gated.mean().item(),
-                "5A_x_final_norm": out.norm().item(),
+                "5A_x_final_norm": final_norm,
                 "5A_x_final_mean": out.mean().item(),
                 "5A_gateScale": gate.item(),
             }
