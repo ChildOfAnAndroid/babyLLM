@@ -827,13 +827,13 @@ class BABYLLM(nn.Module):
                 self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
                 self.interneuronNetwork.temperature = self.temperature
                 print(f"loading model from path: {filePath}") 
-                self.load_state_dict(torch.load(filePath), strict = saveStrict)
+                self.load_state_dict(torch.load(filePath, map_location=self.device), strict = saveStrict)
                 # try loading optimizer separately
                 if hasattr(self, "optimizer"):
                     optimPath = filePath + ".optim"
                     if os.path.exists(optimPath):
                         try:
-                            self.optimizer.load_state_dict(torch.load(optimPath))
+                            self.optimizer.load_state_dict(torch.load(optimPath, map_location=self.device))
                             for state in self.optimizer.state.values():
                                 for k, v in state.items():
                                     if isinstance(v, torch.Tensor):
