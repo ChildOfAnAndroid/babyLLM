@@ -2,6 +2,7 @@ from __future__ import annotations
 import torch
 import os
 import json
+import gc
 from typing import Iterable, Tuple, Callable, Any
 
 try: from config import debugPrints as _debug_enabled
@@ -49,10 +50,23 @@ def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bo
         f.write(new_content)
     return True
 
+def empty_mps_cache() -> None:
+    """Work around delayed memory release on Apple MPS backend.
+
+    ``torch.mps.empty_cache`` alone may not promptly free memory because
+    kernels execute asynchronously and Python's GC can hold references.
+    Synchronising and running a GC cycle helps avoid memory spikes.
+    """
+    if torch.backends.mps.is_available():
+        gc.collect()
+        torch.mps.synchronize()
+        torch.mps.empty_cache()
+
 __all__ = [
     "get_grad_stats",
     "clamp_param",
     "debug_print",
     "register_grad_hooks",
     "save_json_if_changed",
+    "empty_mps_cache",
 ]

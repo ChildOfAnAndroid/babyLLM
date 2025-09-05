@@ -18,7 +18,7 @@ from secret import *
 from phone.babyBot import BABYBOT_TWITCH
 from phone.babyBot_discord import *
 from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, printStartLogs, append_to_files
-from helpers import get_grad_stats
+from helpers import get_grad_stats, empty_mps_cache
 
 sys.excepthook = handle_exception
 warnings.simplefilter("default") # show all warnings (PyTorch hides some by default)
@@ -170,7 +170,7 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
             babyLLM.saveModel(_newStartIndex = newStartIndex, _trainingStepCounter = step, _totalAvgLoss = totalAvgLoss, _first = first)
             print("\nuhh... i'm confused, but i saved anyway!")
         if modelDevice.type == 'mps':
-            torch.mps.empty_cache()
+            empty_mps_cache()
             print(f"cache emptied")
         exit(8)
 
