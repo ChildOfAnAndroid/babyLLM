@@ -14,7 +14,7 @@ import math
 import json
 import asyncio
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
-from helpers import get_grad_stats
+from helpers import get_grad_stats, empty_mps_cache
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
@@ -276,7 +276,6 @@ class TUTOR:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥TRAINING STEP♥")                    
                         self.predictedTokenIndices, self.logitSeq = self.trainStep(_inputTokenIndices = self.inputTokenIndices, _targetTokenIndexSeq = self.targetTokenIndexSeq, _BACKWARDwobbleLoss = None)
                         self.totalTurnAttempts += 1
-                        #torch.mps.empty_cache() # this is done within training step
 
                         """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                         
@@ -395,7 +394,7 @@ class TUTOR:
                             if self.totalTurns % 250 == 0 and self.totalTurns > 0:
                                 print("HELLO I'M THIS CUTE!!!")
                                 self.saveFreqActions()
-                                torch.mps.empty_cache()
+                                empty_mps_cache()
                                 return self.totalLoss / self.totalTurns, self.totalTurns, self.perfectionistPassRate, self.learningRateGOAL
 
                     self.totalTurnAttempts = 0
@@ -731,7 +730,7 @@ class TUTOR:
             except RuntimeError as e:
                 print("TUTOR.trainStep.backward failed!", e)
                 self.model.optimizer.zero_grad(set_to_none=True)
-                torch.mps.empty_cache()
+                empty_mps_cache()
                 return [], []
 
             if profiler: print(prof.key_averages().table())
@@ -755,7 +754,7 @@ class TUTOR:
 
             if self.device.type == 'mps':
                 if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
-                torch.mps.empty_cache()
+                empty_mps_cache()
 
             #del inputTensor, logits, BACKWARDloss, buffer
 
@@ -1640,7 +1639,7 @@ class TUTOR:
             except Exception as e_start_turn:
                 if debugPrints: ʕっʘ‿ʘʔっ(f"ERROR INSIDE startTurnActions: {e_start_turn}")
                 self.model.optimizer.zero_grad(set_to_none=True)
-                torch.mps.empty_cache()
+                empty_mps_cache()
                 return False
 
             # train step
@@ -1657,7 +1656,7 @@ class TUTOR:
             except Exception as e_train_step:
                 print(f"ERROR in trainStep: {e_train_step}")
                 self.model.optimizer.zero_grad(set_to_none=True)
-                torch.mps.empty_cache()
+                empty_mps_cache()
                 return False
 
             if not self.predictedTokenIndices:
@@ -1673,7 +1672,7 @@ class TUTOR:
             except Exception as e_collect_stats:
                 if debugPrints: print(f"ERROR in collectTurnStats: {e_collect_stats}")
                 self.model.optimizer.zero_grad(set_to_none=True)
-                torch.mps.empty_cache()
+                empty_mps_cache()
                 return False
             
             if showStats:
