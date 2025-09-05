@@ -15,7 +15,7 @@ import traceback
 from collections import defaultdict
 import time
 from phone.discord_bot.shoutouts import get_shoutout_prompts
-from .command_utils import get_status_line
+from .command_utils import get_status_line, get_thought_line
 
 defaultEye = 5
 dedEye = 2
@@ -753,6 +753,11 @@ class BABYBOT_TWITCH(commands.Bot):
     @commands.command(name="bbystatus")
     async def bbystatus(self, ctx):
         line = get_status_line(self)
+        await ctx.reply(line[:499])
+
+    @commands.command(name="bbythought")
+    async def bbythought(self, ctx):
+        line = get_thought_line(self)
         await ctx.reply(line[:499])
 
     @commands.command(name="bbyrant")

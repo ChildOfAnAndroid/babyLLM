@@ -1,14 +1,20 @@
-import random
 import re
 
 ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
-def strip_ansi(text: str) -> str: return ansi_escape.sub('', text)
+
+def strip_ansi(text: str) -> str:
+    return ansi_escape.sub('', text)
+
 
 def get_status_line(bot) -> str:
-    return random.choice([
-        f"top tokens: {strip_ansi(bot.tutor.topTokens_forBot)}",
-        f"current thought: {bot.tutor.decodedTokenIndices}",
-    ])
+    """Return the bot's current top tokens."""
+    return f"top tokens: {strip_ansi(bot.tutor.topTokens_forBot)}"
 
-__all__ = ["strip_ansi", "get_status_line"]
+
+def get_thought_line(bot) -> str:
+    """Return the bot's current decoded thought."""
+    return f"current thought: {bot.tutor.decodedTokenIndices}"
+
+
+__all__ = ["strip_ansi", "get_status_line", "get_thought_line"]

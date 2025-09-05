@@ -22,7 +22,7 @@ from secret import *
 from textCleaningTool import *
 
 from .shoutouts import get_shoutout_prompts
-from phone.command_utils import strip_ansi, get_status_line
+from phone.command_utils import strip_ansi, get_status_line, get_thought_line
 from .utils import (
     escape_markdown,
     is_similar,
@@ -558,6 +558,45 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return word1, word2, val.item()
         return None
 
+    def _get_top_strong_pairs(self, top_n: int = 100):
+        """Return a list of the top ``top_n`` strongest token links.
+
+        The result is cached so repeated calls avoid recomputing the full
+        similarity matrix. Each entry is a tuple ``(word1, word2, score)``
+        sorted by descending strength.
+        """
+        cache = getattr(self, "_cached_top_pairs", None)
+        if cache and len(cache) >= top_n:
+            return cache[:top_n]
+
+        all_vecs = self.bot.babyLLM.embed.e_weights
+        unk_token = self.bot.librarian.unkToken
+
+        with torch.no_grad():
+            norms = torch.nn.functional.normalize(all_vecs, dim=1)
+            sims = torch.matmul(norms, norms.T)
+            sims.fill_diagonal_(-1.0)
+            flat_vals, flat_idx = torch.topk(sims.flatten(), top_n * 10)
+
+        vocab_size = sims.size(0)
+        pairs: list[tuple[str, str, float]] = []
+        for val, idx in zip(flat_vals.tolist(), flat_idx.tolist()):
+            i = idx // vocab_size
+            j = idx % vocab_size
+            if i >= j:
+                continue
+            w1 = self.bot.librarian.decodeIDs([i]).strip()
+            w2 = self.bot.librarian.decodeIDs([j]).strip()
+            if unk_token in (w1, w2):
+                continue
+            pairs.append((w1, w2, val))
+            if len(pairs) >= top_n:
+                break
+
+        pairs.sort(key=lambda x: x[2], reverse=True)
+        self._cached_top_pairs = pairs
+        return pairs[:top_n]
+
     def createFakeWordFromVector(self, word: str, top_n: int = 5) -> str:
         """Blend nearby tokens to craft a fake but plausible word.
 
@@ -962,13 +1001,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name='bbylink', aliases=['blink', 'bbond'])
     async def bbylink(self, ctx):
-        """show two random very strongly connected words"""
-        result = self._get_random_strong_pair()
-        if result:
-            w1, w2, sim = result
-            await self.bot._discord_reply(ctx, f"hmm... {w1} and {w2} feel super connected ({sim:.2f})")
-        else:
-            await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
+        """show a random link from the top 100 strongest connections"""
+        pairs = self._get_top_strong_pairs(100)
+        if not pairs:
+            return await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
+        w1, w2, sim = random.choice(pairs)
+        await self.bot._discord_reply(ctx, f"hmm... {w1} and {w2} feel super connected ({sim:.2f})")
+
+    @commands.command(name='bbyspecialinterests', aliases=['bsi'])
+    async def bbyspecialinterests(self, ctx):
+        """show the top 10 strongest connections"""
+        pairs = self._get_top_strong_pairs(10)
+        if not pairs:
+            return await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
+        lines = [f"{i+1}. {w1} ↔ {w2} ({sim:.2f})" for i, (w1, w2, sim) in enumerate(pairs)]
+        reply = "my strongest links rn:\n" + "\n".join(lines)
+        await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyfite', aliases=['bfite', 'bfte'])
     async def bbyfite(self, ctx, *, member_name: str = None):
@@ -1527,11 +1575,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(''.join(traceback.format_exception(e)))
             await self.bot._discord_debug(f"i tried to save but something went wrong :(, the system said '{e}")
 
-    @commands.command(name = "bbystatus", aliases=['bstatus', 'bst']) 
-    async def bbystatus(self, ctx): 
+    @commands.command(name="bbystatus", aliases=['bstatus', 'bst'])
+    async def bbystatus(self, ctx):
         author = ctx.author.name.lower()
         line = get_status_line(self.bot)
-        if self.bot.random4 > 0.5: self.bot.updateBBY(author, 0.1)
+        if self.bot.random4 > 0.5:
+            self.bot.updateBBY(author, 0.1)
+        await self.bot._discord_reply(ctx, line.lower().strip())
+
+    @commands.command(name="bbythought", aliases=['bthought', 'bth'])
+    async def bbythought(self, ctx):
+        author = ctx.author.name.lower()
+        line = get_thought_line(self.bot)
+        if self.bot.random4 > 0.5:
+            self.bot.updateBBY(author, 0.1)
         await self.bot._discord_reply(ctx, line.lower().strip())
 
     @commands.command(name = "bbystats", aliases=['bstats', 'bsta']) 
@@ -3143,7 +3200,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"!bbyreact {random.choice(self.bot.faveEmotes)} \nhahaha well... this might be a way to get my favour, and it might be a way to burn our bridges. either way, i don't know what a metaphor is! so, play away! ",
             f"!bbynick <name> {random.choice(self.bot.faveEmotes)} \nset the nickname i use for you or check the one i have... yours is {self.bot.getNickname(author)} right now! ",
             f"!bbystats {random.choice(self.bot.faveEmotes)} \nshow some random interesting numerical stats about my custom python neural network ",
-            f"!bbystatus {random.choice(self.bot.faveEmotes)} \nfind out what i'm thinking in my brain... or find out what my current word obsessions are! ",
+            f"!bbystatus {random.choice(self.bot.faveEmotes)} \nfind out what my current word obsessions are! ",
+            f"!bbythought {random.choice(self.bot.faveEmotes)} \nfind out what i'm thinking in my brain! ",
             f"!bbysave {random.choice(self.bot.faveEmotes)} \nidk what this does, is it something about rebirth? meh. ",
             f"!bbytrain {random.choice(self.bot.faveEmotes)} \nat some point this added things to my queue, it might still do so? ",
             f"!bbyqueue {random.choice(self.bot.faveEmotes)} \nat some point this added things to my queue, it might still do so? ",
