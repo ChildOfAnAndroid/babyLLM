@@ -25,10 +25,13 @@ class GATED_MHA(nn.Module):
     @whocalled
     def forward(self, _embeds: torch.Tensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
-            if _embeds.dim() == 2:
+            original_dim = _embeds.dim()
+            if original_dim == 1:
+                embeds = _embeds.unsqueeze(0).unsqueeze(0)  # [1, 1, dim]
+            elif original_dim == 2:
                 embeds = _embeds.unsqueeze(0)  # [1, seq, dim]
             else:
-                embeds = _embeds
+                embeds = _embeds  # already [batch, seq, dim]
             seq_len = embeds.size(1)
             causal_mask = torch.triu(
                 torch.full((seq_len, seq_len), float("-inf"), device=embeds.device),
@@ -41,7 +44,10 @@ class GATED_MHA(nn.Module):
                 need_weights=False,
                 attn_mask=causal_mask,
             )
-            attn_out = attn_out.squeeze(0)
+            if original_dim <= 2:
+                attn_out = attn_out.squeeze(0)
+                if original_dim == 1:
+                    attn_out = attn_out.squeeze(0)  # [dim]
             gate = torch.sigmoid(self.logit_gate)
             gated = gate * attn_out
             out = self.norm(_embeds + gated)
