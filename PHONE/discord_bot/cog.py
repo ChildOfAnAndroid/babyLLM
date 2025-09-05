@@ -451,7 +451,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed = self.bot.babyLLM.embed.e_weights  # [vocab, dim]
         lines: list[str] = []
         token_vectors = []
-        min_score = 0.05
+        min_score = 0.075
 
         # per-token
         for tid in valid_ids:
@@ -467,8 +467,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             for candidate, score in raw:
                 if score < min_score: continue
                 cand_disp = escape_markdown(candidate)
-                if score >= 0.15: formatted.append(f"**{cand_disp}**")
-                elif score >= 0.10: formatted.append(f"*{cand_disp}*")
+                if score >= 0.15: formatted.append(f"__**{cand_disp}**__")
+                elif score >= 0.125: formatted.append(f"**{cand_disp}**")
                 else: formatted.append(cand_disp)
 
             lines.append(self._format_conn_line(tok_str, formatted))
@@ -489,8 +489,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             for candidate, score in raw_combo:
                 if score < min_score: continue
                 cand_disp = escape_markdown(candidate)
-                if score >= 0.75: formatted_combo.append(f"**{cand_disp}**")
-                elif score >= 0.50: formatted_combo.append(f"*{cand_disp}*")
+                if score >= 0.15: formatted_combo.append(f"__**{cand_disp}**__")
+                elif score >= 0.125: formatted_combo.append(f"**{cand_disp}**")
                 else: formatted_combo.append(cand_disp)
 
             lines.append(self._format_conn_line(combo_label, formatted_combo))
