@@ -81,7 +81,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self._gallery_cache = {"ts": 0.0, "by_label": {}}
         self._gallery_ttl = 120.0  # seconds
     async def _ensure_gallery_cache(self):
-        """Fetch /api/gallery from childofanandroid.co.uk and cache label->url for a short time."""
+        """Fetch /api/gallery from childofanandroid.co.uk and cache label->url for a short time.
+
+        The API returns both a small ``stamp_url`` and a full sized ``url``.  We want the
+        latter when showing cards in ``!bii`` so that discord embeds display the full
+        illustration.  If the full image is missing we gracefully fall back to the stamp.
+        """
         try:
             now = time.time()
             if (now - self._gallery_cache.get("ts", 0.0)) < self._gallery_ttl and self._gallery_cache.get("by_label"):
@@ -96,7 +101,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     if isinstance(data, list):
                         for item in data:
                             label = (item.get("label") or "").strip().lower()
-                            img_url = item.get("url") or None
+                            # prefer full-size url but fall back to stamp_url if necessary
+                            img_url = item.get("url") or item.get("stamp_url")
                             if label and img_url and label not in by_label:
                                 by_label[label] = img_url
             if by_label:
