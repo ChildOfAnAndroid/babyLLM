@@ -1237,6 +1237,10 @@ class TUTOR:
                     if debugPrints: ʕっʘ‿ʘʔっ("♥if embed_collectStats")
                     self.stats.update(self.model.embed.getEmbedStats())
 
+                if attention_collectStats:
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥if attention_collectStats")
+                    self.stats.update(self.model.attention.getAttentionStats())
+
                 if logit_collectStats:
                     if debugPrints: ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
                     logitStats = self.model.logits.getLogitStats()

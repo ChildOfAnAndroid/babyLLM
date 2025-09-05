@@ -204,13 +204,13 @@ mostImportantStats  =   [
                 "1E_0_vector_norm",                            # IMPORTANT LAYER TRACKER !! (INPUT)
                 #"1E_0_vector_mean",
                    "1E_0_vector_scale",
-            #       "1E_0_embedVector_norm_token",          
-            #       "1E_0_embedVector_norm_neuron",                
+            #       "1E_0_embedVector_norm_token",
+            #       "1E_0_embedVector_norm_neuron",
                    "1E_1_normed_norm",
                    #"1E_1_normed_mean",
-                       "1E_1_normed_scale",  
+                       "1E_1_normed_scale",
             #           "1E_1_embedNormed_norm_token",
-            #           "1E_1_embedNormed_norm_neuron",       
+            #           "1E_1_embedNormed_norm_neuron",
                 "1E_x_final_norm",                             # IMPORTANT LAYER TRACKER !! (EMBEDS)
                 #"1E_x_final_mean",
             #       "1E_x_embedFinal_norm_token",
@@ -219,6 +219,12 @@ mostImportantStats  =   [
             #"1E_1_posEmbWeight_mean",
             "1E_1_pixelEmbed_norm",
             #"1E_1_pixelEmbed_mean",
+
+            # ATTENTION STATS
+                "5A_0_attnOut_norm",
+                "5A_1_gated_norm",
+                "5A_x_final_norm",
+                "5A_gateScale",
 
             # NEURON STATS
             #                                                       "2N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
@@ -565,6 +571,7 @@ static_collectStats = True
 embed_collectStats = True
 token_collectStats = True 
 logit_collectStats = True
+attention_collectStats = True
 n_collectStats = True
 INN_collectStats = True
 memory_collectStats = True
