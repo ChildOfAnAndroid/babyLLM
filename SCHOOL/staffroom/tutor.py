@@ -200,8 +200,6 @@ class TUTOR:
             if debugPrints: ʕっʘ‿ʘʔっ("COUNTERS INIT")
             self.trainingStepCounter = 1
             self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "tokenCount": 0})
-            self.tokenCounts = Counter()
-            self.tokenCounts_dirty = True
             self.latestLossDelta = 0
             self.easyLossDelta = 0
             self.reflectionTrainingPairs = []
