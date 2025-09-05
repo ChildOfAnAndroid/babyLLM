@@ -31,8 +31,8 @@ class MEMORY(nn.Module):
                                 )
 
         # buffers to store memory (outside gradient)
-        self.register_buffer("shortTermMemory", torch.zeros(1, numNeurons))
-        self.register_buffer("longTermMemory", torch.zeros(1, numNeurons))
+        self.register_buffer("shortTermMemory", torch.zeros(1, numNeurons, device=self.device))
+        self.register_buffer("longTermMemory", torch.zeros(1, numNeurons, device=self.device))
 
         # stats
         self.stats = {}
@@ -81,8 +81,8 @@ class MEMORY(nn.Module):
         self.memoryGateNormHistory = []
         self.mixedEmbedNormHistory = []
 
-        self.register_buffer("reducedInputBuf", torch.zeros(1, embedDimension))
-        self.register_buffer("gateLogitsBuf", torch.zeros(4, numNeurons))
+        self.register_buffer("reducedInputBuf", torch.zeros(1, embedDimension, device=self.device))
+        self.register_buffer("gateLogitsBuf", torch.zeros(4, numNeurons, device=self.device))
 
     @whocalled
     def forward(self, _activationsTensor):

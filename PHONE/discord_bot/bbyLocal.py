@@ -11,6 +11,8 @@ import uuid
 import threading
 import random
 
+from helpers import save_json_if_changed
+
 app = Flask(__name__)
 CORS(app)
 
@@ -55,7 +57,7 @@ def state_persister_loop():
         time.sleep(5)
         try:
             with state_lock:
-                with open(STATE_FILE_PATH, 'w') as f: json.dump(babyState, f)
+                save_json_if_changed(STATE_FILE_PATH, babyState)
         except Exception as e: print(f"[ERROR] state_persister_loop: {e}")
 
 def state_reader_loop():
@@ -248,8 +250,7 @@ def set_state():
             if k in allowed:
                 babyState[k] = v
         try:
-            with open(STATE_FILE_PATH, 'w') as f:
-                json.dump(babyState, f)
+            save_json_if_changed(STATE_FILE_PATH, babyState)
         except Exception as e:
             return jsonify(error=f"persist failed: {e}"), 500
     return jsonify(ok=True, state=babyState)

@@ -532,7 +532,7 @@ class TUTOR:
 
                 if debugPrints: ʕっʘ‿ʘʔっ("getResponseFromLogits")
                 predictedTokenIndex = self.model.getResponseFromLogits(logits, _training = True, _totAvgAbsDelta = self.totalAvgAbsDelta)
-                predy = predictedTokenIndex.cpu().item()
+                predy = int(predictedTokenIndex.item())
                 if debugPrints:
                     print("nextToken: ")
                     print(predy, end = "")
@@ -743,13 +743,13 @@ class TUTOR:
             if debugPrints: ʕっʘ‿ʘʔっ("actions after looping")
             self.avgPixelDistTotals        += self.avgPixelDist
             self.totalAvgPixelDist          = self.avgPixelDistTotals / max(1, self.totalTurns)
-            self.stepLossFloat              = BACKWARDloss.detach().cpu().numpy().item() # why lol SUS WHY ?!?
+            self.stepLossFloat              = BACKWARDloss.detach().item()
             self.stats["loss"]              = self.stepLossFloat
-            self.learningRate               = math.exp(self.model.logLR.detach().cpu().item())
-            self.memoryLength               = self.model.memoryLength.detach().cpu().numpy().item()
-            #self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().cpu().item())
-            self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().cpu().numpy().item()
-            self.repetitionPenalty          = self.model.repetitionPenalty.detach().cpu().item()
+            self.learningRate               = math.exp(self.model.logLR.detach().item())
+            self.memoryLength               = self.model.memoryLength.detach().item()
+            #self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().item())
+            self.scheduledSamplingRateFloat = self.scheduledSamplingRate.detach().item()
+            self.repetitionPenalty          = self.model.repetitionPenalty.detach().item()
             #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
             #self.INN_cerebellumMean         = self.model.interneuronNetwork.cerebellum.mean().cpu().item()
 

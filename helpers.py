@@ -1,7 +1,8 @@
 from __future__ import annotations
 import torch
 import os
-from typing import Iterable, Tuple, Callable
+import json
+from typing import Iterable, Tuple, Callable, Any
 
 try: from config import debugPrints as _debug_enabled
 except Exception: _debug_enabled = os.getenv("BABYLLM_DEBUG") == "1"
@@ -26,5 +27,32 @@ def register_grad_hooks(
 ) -> None:
     for name, param in named_params:
         if param.requires_grad: param.register_hook(hook_fn_provider(name))
+_json_cache: dict[str, str] = {}
 
-__all__ = ["get_grad_stats", "clamp_param", "debug_print", "register_grad_hooks"]
+def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bool = False, **dump_kwargs) -> bool:
+    """Write JSON data to *path* only if content differs.
+
+    Returns True if a write occurred, False otherwise.
+    """
+    new_content = json.dumps(data, indent=indent, sort_keys=sort_keys, **dump_kwargs)
+    cached = _json_cache.get(path)
+    if cached is None and os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                cached = f.read()
+        except Exception:
+            cached = None
+    if cached == new_content:
+        return False
+    _json_cache[path] = new_content
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    return True
+
+__all__ = [
+    "get_grad_stats",
+    "clamp_param",
+    "debug_print",
+    "register_grad_hooks",
+    "save_json_if_changed",
+]

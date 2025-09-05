@@ -8,7 +8,7 @@ from config import *
 
 """multi-head self attention with a learnable gate so existing training isn't thrown away"""
 class GATED_MHA(nn.Module):
-    def __init__(self, _counsellor, _num_heads: int = 4, _device = modelDevice):
+    def __init__(self, _counsellor, _num_heads: int = 16, _device = modelDevice):
         super().__init__()
         self.counsellor = _counsellor
         self.device = _device
@@ -18,7 +18,7 @@ class GATED_MHA(nn.Module):
                                           batch_first=True,
                                           device=self.device)
         # start almost closed so behaviour initially matches pre-attention training
-        self.logit_gate = nn.Parameter(torch.tensor(-4.0, device=self.device))
+        self.logit_gate = nn.Parameter(torch.tensor(-16.0, device=self.device))
         self.norm = nn.LayerNorm(embedDimension, device=self.device)
 
     @whocalled

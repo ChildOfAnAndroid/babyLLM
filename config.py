@@ -11,6 +11,9 @@ rollingContextSize = 420
 
 import torch
 modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+# ensure tensors default to the selected device to avoid unintended CPU fallbacks
+if hasattr(torch, "set_default_device"):
+    torch.set_default_device(modelDevice)
 #modelDevice = torch.device("cpu")
 
 #from torch import relu 

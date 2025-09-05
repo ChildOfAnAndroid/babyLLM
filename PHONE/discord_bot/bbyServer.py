@@ -13,6 +13,8 @@ import base64
 from collections import deque
 import array
 
+from helpers import save_json_if_changed
+
 # --- setup ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE_PATH = os.path.join(SCRIPT_DIR, "babyState.json")
@@ -29,10 +31,9 @@ CHAT_HISTORY_FILE_PATH = os.path.join(SCRIPT_DIR, "chatHistory.json")
 # --- unified file saving helpers ---
 
 def _write_json_index(filepath: str, data: list):
-    """Writes a list to a JSON file."""
+    """Writes a list to a JSON file, skipping if unchanged."""
     try:
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+        save_json_if_changed(filepath, data)
     except Exception as e:
         print(f"[ERROR] writing JSON index to {os.path.basename(filepath)}: {e}")
 
@@ -1031,8 +1032,7 @@ def user_say():
             chat_history.pop(0)
 
         try:
-            with open(CHAT_HISTORY_FILE_PATH, 'w', encoding='utf-8') as f:
-                json.dump(chat_history, f)
+            save_json_if_changed(CHAT_HISTORY_FILE_PATH, chat_history)
         except Exception as e:
             print(f"[ERROR] cant save chat history: {e}")
 

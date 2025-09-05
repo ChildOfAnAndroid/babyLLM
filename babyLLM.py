@@ -93,7 +93,7 @@ class BABYLLM(nn.Module):
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory2 = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
-        self.pixelPupil = PIXEL(embedDimension, embedDimension, 3)
+        self.pixelPupil = PIXEL(embedDimension, embedDimension, 3, _device=self.device)
 
         """LEARNABLE LEARNING PARAMETERS"""
         self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device = self.device))
@@ -1011,20 +1011,21 @@ class BABYLLM(nn.Module):
     def getBabyStats(self): return self.stats
     
 class PIXEL(nn.Module):
-    def __init__(self, in_features: int, hidden_features: int, out_features: int = 3, *, output_mode: str = "sigmoid", use_layernorm: bool = True, res_scale_init: float = 0.5,):
+    def __init__(self, in_features: int, hidden_features: int, out_features: int = 3, *, output_mode: str = "sigmoid", use_layernorm: bool = True, res_scale_init: float = 0.5, _device=modelDevice,):
         super().__init__()
-        self.linear1 = nn.Linear(in_features, hidden_features)
+        self.device = _device
+        self.linear1 = nn.Linear(in_features, hidden_features, device=self.device)
         self.gelu    = nn.GELU()
-        self.linear2 = nn.Linear(hidden_features, out_features)
+        self.linear2 = nn.Linear(hidden_features, out_features, device=self.device)
 
         self.use_layernorm = use_layernorm
         if use_layernorm:
-            self.ln = nn.LayerNorm(hidden_features)
+            self.ln = nn.LayerNorm(hidden_features, device=self.device)
 
-        self.alpha = nn.Parameter(torch.tensor(res_scale_init))
-        self.beta  = nn.Parameter(torch.tensor(res_scale_init))
+        self.alpha = nn.Parameter(torch.tensor(res_scale_init, device=self.device))
+        self.beta  = nn.Parameter(torch.tensor(res_scale_init, device=self.device))
 
-        self.register_buffer("inv_sqrt2", torch.tensor(1 / math.sqrt(2)))
+        self.register_buffer("inv_sqrt2", torch.tensor(1 / math.sqrt(2), device=self.device))
 
         assert output_mode in {"sigmoid", "clamp", "raw"}
         self.output_mode = output_mode

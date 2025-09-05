@@ -19,6 +19,8 @@ import aiohttp
 from urllib.parse import urljoin
 import functools
 
+from helpers import save_json_if_changed
+
 from .context import create_fake_context
 from .utils import escape_markdown, is_similar, killExcessTags, getTimeRant
 
@@ -135,8 +137,11 @@ class BABYBOT_DISCORD(commands.Bot):
     
     def _save_json(self, path, data, label, **dump_kwargs):
         print(f"[{label}] saving {label}... ")
-        with open(path, "w", encoding="utf-8") as f: json.dump(data, f, indent = 2, **dump_kwargs)
-        print(f"[{label}] {label} saved! ")
+        written = save_json_if_changed(path, data, **dump_kwargs)
+        if written:
+            print(f"[{label}] {label} saved! ")
+        else:
+            print(f"[{label}] no changes detected; skipped")
 
     def _load_baby_state(self):
         if os.path.exists(self.baby_state_path):
