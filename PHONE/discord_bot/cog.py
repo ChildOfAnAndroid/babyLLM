@@ -38,6 +38,11 @@ from .utils import (
 if TYPE_CHECKING:
     from .bot import BABYBOT_DISCORD
 
+def _tok_display(tok: str, max_len: int = 18) -> str:
+    if not tok: return "EMPTY"
+    s = tok if len(tok) <= max_len else (tok[:max_len-1] + ".")
+    return escape_markdown(s)
+
 class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     def __init__(self, bot: 'BABYBOT_DISCORD'):
         self.bot = bot
@@ -446,7 +451,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed = self.bot.babyLLM.embed.e_weights  # [vocab, dim]
         lines: list[str] = []
         token_vectors = []
-        min_score = 0.11  # filter super-weak stuff
+        min_score = 0.05
 
         # per-token
         for tid in valid_ids:
@@ -462,8 +467,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             for candidate, score in raw:
                 if score < min_score: continue
                 cand_disp = escape_markdown(candidate)
-                if score >= 0.2: formatted.append(f"**{cand_disp}**")
-                elif score >= 0.15: formatted.append(f"*{cand_disp}*")
+                if score >= 0.15: formatted.append(f"**{cand_disp}**")
+                elif score >= 0.10: formatted.append(f"*{cand_disp}*")
                 else: formatted.append(cand_disp)
 
             lines.append(self._format_conn_line(tok_str, formatted))
@@ -1028,7 +1033,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         await self.bot._discord_reply(ctx, "\n".join(reply_lines))
 
-    @commands.command(name='bbyconnect', aliases=['bconnect', 'bbyassoc', 'bassoc'])
+    @commands.command(name='bbyconnect', aliases=['bconnect', 'bbyassoc', 'bassoc', 'bc', 'bcon'])
     async def bbyconnect(self, ctx, *, text: str):
         """tell you what tokens i associate with some text in my brain"""
         text = (text or "").strip().lower()
@@ -1043,10 +1048,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         await self.bot._discord_reply(ctx, reply)
 
-    @commands.command(name='bbylink', aliases=['blink', 'bbond'])
+    @commands.command(name='bbylink', aliases=['blink', 'bbond', 'blnk'])
     async def bbylink(self, ctx):
-        """show a random link from the top 100 strongest connections"""
-        pairs = self._get_top_strong_pairs(100)
+        """show a random link from the top 69 strongest connections"""
+        pairs = self._get_top_strong_pairs(69)
         if not pairs:
             return await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
 
@@ -1054,68 +1059,50 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         t1, _, _ = self._format_token_usage(w1)
         t2, _, _ = self._format_token_usage(w2)
 
-        msg = f"hmm... {t1} and {t2} feel super connected ({sim:.2f})"
+        msg = f"hmm... {t1} and {t2} are a decent couple ({sim:.2f})"
         await self.bot._discord_reply(ctx, msg)
 
-    @commands.command(name='bbyspecialinterest', aliases=['bsi', 'bbyspecialinterests'])
+    @commands.command(name="bbyspecialinterest", aliases=["bsi", "bbyspecialinterests"])
     async def bbyspecialinterest(self, ctx):
-        """show my most used tokens and the top 10 strongest links"""
-        pairs = self._get_top_strong_pairs(10)
-
+        """show my most used tokens and the top 10 strongest links (compact embed)"""
+        pairs = self._get_top_strong_pairs(9)  # [(w1, w2, sim), ...]
         tutor = getattr(self.bot, "tutor", None)
+        token_counts = getattr(tutor, "tokenCounts", {}) if tutor else {}
+        total_bot = sum(token_counts.values())
 
-        embed = discord.Embed(title="my special interests rn")
+        embed = discord.Embed(title="my special interests rn", colour=discord.Colour.blurple())
 
-        if tutor and getattr(tutor, "tokenCounts", None):
-            total_bot = sum(tutor.tokenCounts.values())
-            top_tokens = sorted(
-                tutor.tokenCounts.items(), key=lambda x: x[1], reverse=True
-            )[:10]
-            token_lines = []
-            for i, (tok, cnt) in enumerate(top_tokens, 1):
+        # ---- TOP TOKENS (inline fields) ----
+        if token_counts:
+            top_tokens = sorted(token_counts.items(), key=lambda x: x[1], reverse=True)[:9]
+            for tok, cnt in top_tokens:
                 name = tutor.tidy_token(tok) if hasattr(tutor, "tidy_token") else tok
-                pct = cnt / total_bot * 100 if total_bot else 0
-                token_lines.append(f"{i}. {name} - {cnt} ({pct:.2f}%)")
-            embed.add_field(
-                name="top tokens i say",
-                value="\n".join(token_lines),
-                inline=False,
-            )
+                name = _tok_display(name, 9)
+                pct = (100.0 * cnt / total_bot) if total_bot else 0.0
+                # numbers only; short; fits in a small field
+                value = f"{cnt:,} • {pct:.1f}%"
+                embed.add_field(name=name, value=value, inline=True)
         else:
-            embed.add_field(
-                name="top tokens i say",
-                value="i don't know what words i use most yet :(",
-                inline=False,
-            )
+            embed.add_field(name="top tokens i say", value="no token usage stats yet.", inline=False)
 
+        # ---- STRONGEST LINKS (inline fields) ----
         if pairs:
-            total_bot = sum(tutor.tokenCounts.values()) if tutor else 0
-            total_user = (
-                sum(self.bot.opt_in_token_usage.values())
-                if hasattr(self.bot, "opt_in_token_usage")
-                else 0
-            )
-            link_lines = []
-            for w1, w2, sim in pairs:
-                t1, b1, u1 = self._format_token_usage(w1, total_bot, total_user)
-                t2, b2, u2 = self._format_token_usage(w2, total_bot, total_user)
-                link_lines.append(
-                    f"{t1} ({b1:.2f}% bby/{u1:.2f}% ppl) ↔ "
-                    f"{t2} ({b2:.2f}% bby/{u2:.2f}% ppl) [{sim:.2f}]"
-                )
-            embed.add_field(
-                name="strongest links",
-                value="\n".join(link_lines),
-                inline=False,
-            )
+            # small header row (optional)
+            embed.add_field(name="\u200b", value="**strongest links**", inline=False)
+            for w1, w2, sim in pairs[:9]:
+                a = tutor.tidy_token(w1) if hasattr(tutor, "tidy_token") else w1
+                b = tutor.tidy_token(w2) if hasattr(tutor, "tidy_token") else w2
+                name = f"{_tok_display(a, 12)} & {_tok_display(b, 12)}"
+                value = f"{sim:.2f} ({sim*100:.1f}%)"
+                embed.add_field(name=name, value=value, inline=True)
         else:
-            embed.add_field(
-                name="strongest links",
-                value="i couldn't find a strong connection right now :(",
-                inline=False,
-            )
+            embed.add_field(name="strongest links", value="i couldn't find a strong connection right now :(", inline=False)
 
-        await self.bot._discord_reply(ctx, embed=embed)
+        # optional footer context
+        if total_bot:
+            embed.set_footer(text=f"count base: {total_bot:,} tokens")
+
+        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command(name='bbyfite', aliases=['bfite', 'bfte'])
     async def bbyfite(self, ctx, *, member_name: str = None):
