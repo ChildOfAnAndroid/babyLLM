@@ -989,7 +989,7 @@ class TUTOR:
                 _totalTokenCount = self.tokenCounts)
  
     def tidy_token(self, tok):
-        return tok.replace("Ġ", " ").replace("Ċ", "\n").strip()
+        return tok.replace("Ġ", " ").replace("Ċ", "\n")
 
     def update_top_tokens(self):
         delimiter = self.calligraphist.S_apply("dim", ", ")

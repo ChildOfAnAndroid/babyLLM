@@ -102,7 +102,8 @@ class LIBRARIAN:
         
     def decodeIDs(self, _ids):
         with self.v_counsellor.infodump("decodeIDs") as ʕっʘ‿ʘʔっ:
-            decoded = self.tokenizer.decode(_ids).lstrip()
+            decoded = self.tokenizer.decode(_ids)
+            # keep leading spaces so tokens reflect their true form (e.g. " charis")
             if debugPrints:
                 print(f"decoding: {_ids}")
                 print(f"decoded: {decoded}")
