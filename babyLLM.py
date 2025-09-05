@@ -87,7 +87,7 @@ class BABYLLM(nn.Module):
 
         """CEREBRAL LAYERS // brain"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
-        self.attention = GATED_MHA(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
+        self.attention = GATED_MHA(_counsellor = self.counsellor, _device = self.device)
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)

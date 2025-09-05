@@ -130,7 +130,6 @@ discordLogPath = f"SHKAIRA/statistics/LOGS/chat/discordLog_{date}.txt"
 
 """--- VOCAB --- (see master config)"""
 
-
 """--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
 
 
