@@ -18,6 +18,7 @@ from brain.LAYERS.embed import EMBED
 from brain.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
 from brain.LAYERS.logits import LOGITS
 from brain.LAYERS.memory import MEMORY
+from brain.LAYERS.attention import GATED_MHA
 #from brain.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
@@ -86,6 +87,7 @@ class BABYLLM(nn.Module):
 
         """CEREBRAL LAYERS // brain"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
+        self.attention = GATED_MHA(_counsellor = self.counsellor, _device = self.device)
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
@@ -201,6 +203,7 @@ class BABYLLM(nn.Module):
             else:
                 inputEmbeds = tokenEmbed
             self.latestTokenEmbed = inputEmbeds
+            inputEmbeds = self.attention(inputEmbeds)
             debug_print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
             if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
