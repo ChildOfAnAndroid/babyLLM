@@ -48,6 +48,7 @@ class TUTOR:
         self.trainingLogFreq_A          = _trainingLogFreq_A
         self.learningRateGOAL           = _learningRateGOAL
         self.tokenCounts = Counter()
+        self.tokenCounts_dirty = False
         self.topTokens_str = ""
         self.topTokens_forBot = ""
         self.training_resume_state      = {}
@@ -200,6 +201,7 @@ class TUTOR:
             self.trainingStepCounter = 1
             self.stats = Counter({"loss": 0, "gradNorm": 0, "logitMin": 0, "logitMax": 0, "tokenCount": 0})
             self.tokenCounts = Counter()
+            self.tokenCounts_dirty = True
             self.latestLossDelta = 0
             self.easyLossDelta = 0
             self.reflectionTrainingPairs = []
@@ -296,6 +298,7 @@ class TUTOR:
                             if self.totalTurns % refreshRollingTokenTotalsWhen == 0 and self.totalTurns > 0:
                                 if debugPrints: ʕっʘ‿ʘʔっ("♥refresh rolling token totals")
                                 self.tokenCounts = Counter({k: v * 0.95 for k, v in self.tokenCounts.items()})
+                                self.tokenCounts_dirty = True
                                 #self.model.rollingTokenTotals = Counter({k: v * 0.95 for k, v in self.model.rollingTokenTotals.items()})
                                 self.model.rollingTokenTotals_tensor.mul_(0.95)
 
@@ -993,12 +996,13 @@ class TUTOR:
 
     def update_top_tokens(self):
         delimiter = self.calligraphist.S_apply("dim", ", ")
+        top_pairs = list(self.tokenCounts.most_common(50))
         self.topTokens_str = ": " + delimiter.join([
             self.calligraphist.S_apply("dim", f"{k}({v:.1f})")
-            for k, v in self.tokenCounts.most_common(50)
+            for k, v in top_pairs
         ])
         self.topTokens_forBot = ": " + delimiter.join(
-            f"{self.tidy_token(k)}" for k, v in self.tokenCounts.most_common(100)
+            f"{self.tidy_token(k)}({v:.1f})" for k, v in top_pairs
         )
 
     def load_token_counts(self):
@@ -1009,12 +1013,16 @@ class TUTOR:
         except FileNotFoundError:
             self.tokenCounts = Counter()
         self.update_top_tokens()
+        self.tokenCounts_dirty = False
 
     def save_token_counts(self):
+        if not self.tokenCounts_dirty:
+            return
         try:
             os.makedirs(os.path.dirname(topTokensFilePath), exist_ok=True)
             with open(topTokensFilePath, "w", encoding="utf-8") as f:
-                json.dump(dict(self.tokenCounts), f, indent=2)
+                json.dump(dict(self.tokenCounts), f)
+            self.tokenCounts_dirty = False
         except Exception as e:
             print(f"could not write to {topTokensFilePath}: {e}")
 
@@ -1031,7 +1039,8 @@ class TUTOR:
             #topGuess_str = "topGuess: " + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}") for k, v in self.model.rollingTokenTotals.most_common(50)]) + "]"
             #topTokens_str = "[" + f"{self.calligraphist.S_apply("dim", ", ")}".join([self.calligraphist.S_apply("dim", f"{k}({v:.0f})") for k, v in self.tokenCounts.most_common(20)]) + "]"
             self.update_top_tokens()
-            self.save_token_counts()
+            if _frequency >= trainingLogFreq_B and self.tokenCounts_dirty:
+                self.save_token_counts()
 
             #self.stats.update(self.ʕっෆ‿ෆʔっ) # SUSSY BUSSY !!!!!!!!!!!!!!!!!!!
             #fullStats = dict(self.stats)
@@ -1137,8 +1146,9 @@ class TUTOR:
 
             self.stringStats["boldPerfects"] = boldPerfects
 
-            if self.guessedTokenSeq: 
+            if self.guessedTokenSeq:
                 self.tokenCounts.update(self.guessedTokenSeq)
+                self.tokenCounts_dirty = True
 
             if debugPrints: ʕっʘ‿ʘʔっ("SCRIBE.maybeCommentOnGuess")
             if self.totalTurns > printFreq:

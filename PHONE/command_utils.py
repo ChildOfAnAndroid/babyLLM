@@ -9,6 +9,7 @@ def strip_ansi(text: str) -> str:
 
 def get_status_line(bot) -> str:
     """Return the bot's current top tokens."""
+    bot.tutor.update_top_tokens()
     return f"top tokens: {strip_ansi(bot.tutor.topTokens_forBot)}"
 
 
