@@ -675,7 +675,12 @@ class BABYLLM(nn.Module):
                 distortion_strength = torch.tensor(self.dreamIntensity * 0.02).clamp(0.0, 0.1).item()
                 vocab_size = base_probs.shape[-1]
                 num_to_distort = int(vocab_size * 0.05)
-                dream_indices = torch.randperm(vocab_size, device=self.device)[:num_to_distort]
+                if self.device.type == "mps":
+                    # torch.randperm is not implemented on the MPS backend.
+                    # Generate the permutation on CPU and move it to the target device.
+                    dream_indices = torch.randperm(vocab_size, device="cpu")[:num_to_distort].to(self.device)
+                else:
+                    dream_indices = torch.randperm(vocab_size, device=self.device)[:num_to_distort]
                 dream_boost = torch.zeros_like(base_probs)
                 dream_boost.scatter_(1, dream_indices.unsqueeze(0), distortion_strength)
                 
