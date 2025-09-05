@@ -18,12 +18,12 @@ def test_group_stats_order():
     calli = S_OUTPUT(DummyCounsellor())
     stats = {
         '1E_0_vector_norm': 1.0,
-        '5A_0_attnOut_norm': 2.0,
-        '2N_1_normedInput_norm': 3.0,
-        '3INN_cerebellumMean': 4.0,
-        '4A_memory_4M_0_rawActs_norm': 5.0,
-        '4B_memory2_4M_0_rawActs_norm': 6.0,
-        '6L_logitMax': 7.0,
+        '2A_0_attnOut_norm': 2.0,
+        '3N_1_normedInput_norm': 3.0,
+        '4INN_cerebellumMean': 4.0,
+        '5M_memory_4M_0_rawActs_norm': 5.0,
+        '6M_memory2_4M_0_rawActs_norm': 6.0,
+        '7L_logitMax': 7.0,
     }
     grouped = calli.groupStatsBySection(stats)
     labels = [label for label, _ in grouped]

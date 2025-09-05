@@ -155,35 +155,35 @@ class NEURON(nn.Module):
                 if len(self.rawOutputHistory) >= self.numTokensPerStep:
                     if debugPrints: ʕっʘ‿ʘʔっ("if len >= windowMAX, add to self.stats")
                     self.stats = {
-                        "2N_0_rawInput_norm": sum(self.rawInputNormHistory) / len(self.rawInputNormHistory),
-                        "2N_0_rawInput_mean": sum(self.rawInputHistory) / len(self.rawInputHistory),
-                        #"2N_0_rawInput_norm_token": sum(self.rawInputHistory_tokens) / len(self.rawInputHistory_tokens),
-                        #"2N_0_rawInput_norm_neuron": sum(self.rawInputHistory_neurons) / len(self.rawInputHistory_neurons),
+                        "3N_0_rawInput_norm": sum(self.rawInputNormHistory) / len(self.rawInputNormHistory),
+                        "3N_0_rawInput_mean": sum(self.rawInputHistory) / len(self.rawInputHistory),
+                        #"3N_0_rawInput_norm_token": sum(self.rawInputHistory_tokens) / len(self.rawInputHistory_tokens),
+                        #"3N_0_rawInput_norm_neuron": sum(self.rawInputHistory_neurons) / len(self.rawInputHistory_neurons),
 
-                        #"2N_1_normedInput_norm": sum(self.normedInputNormHistory) / len(self.normedInputNormHistory),
-                        #"2N_1_normedInput_mean": sum(self.normedInputHistory) / len(self.normedInputHistory),
-                        #"2N_1_normedInput_norm_token": sum(self.normedInputHistory_tokens) / len(self.normedInputHistory_tokens),
-                        #"2N_1_normedInput_norm_neuron": sum(self.normedInputHistory_neurons) / len(self.normedInputHistory_neurons),
+                        #"3N_1_normedInput_norm": sum(self.normedInputNormHistory) / len(self.normedInputNormHistory),
+                        #"3N_1_normedInput_mean": sum(self.normedInputHistory) / len(self.normedInputHistory),
+                        #"3N_1_normedInput_norm_token": sum(self.normedInputHistory_tokens) / len(self.normedInputHistory_tokens),
+                        #"3N_1_normedInput_norm_neuron": sum(self.normedInputHistory_neurons) / len(self.normedInputHistory_neurons),
 
-                        #"2N_2_rawOutput_norm": sum(self.rawOutputNormHistory) / len(self.rawOutputNormHistory),
-                        #"2N_2_rawOutput_mean": sum(self.rawOutputHistory) / len(self.rawOutputHistory),
-                        #"2N_2_rawOutput_norm_token": sum(self.rawOutputHistory_tokens) / len(self.rawOutputHistory_tokens),
-                        #"2N_2_rawOutput_norm_neuron": sum(self.rawOutputHistory_neurons) / len(self.rawOutputHistory_neurons),
+                        #"3N_2_rawOutput_norm": sum(self.rawOutputNormHistory) / len(self.rawOutputNormHistory),
+                        #"3N_2_rawOutput_mean": sum(self.rawOutputHistory) / len(self.rawOutputHistory),
+                        #"3N_2_rawOutput_norm_token": sum(self.rawOutputHistory_tokens) / len(self.rawOutputHistory_tokens),
+                        #"3N_2_rawOutput_norm_neuron": sum(self.rawOutputHistory_neurons) / len(self.rawOutputHistory_neurons),
 
-                        "2N_x_actOut_norm": sum(self.activatedOutputNormHistory) / len(self.activatedOutputNormHistory),
-                        "2N_x_actOut_mean": sum(self.activatedOutputHistory) / len(self.activatedOutputHistory),
-                        #"2N_x_actOut_norm_token": sum(self.activatedOutputHistory_tokens) / len(self.activatedOutputHistory_tokens),
-                        #"2N_x_actOut_norm_neuron": sum(self.activatedOutputHistory_neurons) / len(self.activatedOutputHistory_neurons),
+                        "3N_x_actOut_norm": sum(self.activatedOutputNormHistory) / len(self.activatedOutputNormHistory),
+                        "3N_x_actOut_mean": sum(self.activatedOutputHistory) / len(self.activatedOutputHistory),
+                        #"3N_x_actOut_norm_token": sum(self.activatedOutputHistory_tokens) / len(self.activatedOutputHistory_tokens),
+                        #"3N_x_actOut_norm_neuron": sum(self.activatedOutputHistory_neurons) / len(self.activatedOutputHistory_neurons),
 
-                        #"2N_x_actOut_std_token": sum(self.activatedOutputHistory_std_token) / len(self.activatedOutputHistory_std_token),
-                        #"2N_x_actOut_std_neuron": sum(self.activatedOutputHistory_std_neuron) / len(self.activatedOutputHistory_std_neuron),
-                        #"2N_x_actOut_saturation": sum(self.activatedOutputHistory_saturation) / len(self.activatedOutputHistory_saturation),
-                        #"2N_x_actOut_min": sum(self.activatedOutputHistory_min) / len(self.activatedOutputHistory_min),
-                        #"2N_x_actOut_max": sum(self.activatedOutputHistory_max) / len(self.activatedOutputHistory_max),
+                        #"3N_x_actOut_std_token": sum(self.activatedOutputHistory_std_token) / len(self.activatedOutputHistory_std_token),
+                        #"3N_x_actOut_std_neuron": sum(self.activatedOutputHistory_std_neuron) / len(self.activatedOutputHistory_std_neuron),
+                        #"3N_x_actOut_saturation": sum(self.activatedOutputHistory_saturation) / len(self.activatedOutputHistory_saturation),
+                        #"3N_x_actOut_min": sum(self.activatedOutputHistory_min) / len(self.activatedOutputHistory_min),
+                        #"3N_x_actOut_max": sum(self.activatedOutputHistory_max) / len(self.activatedOutputHistory_max),
 
-                        #"2N_x_normedOutput_norm": sum(self.normedOutputHistory) / len(self.normedOutputHistory),
-                        #"2N_x_normedOutput_norm_token": sum(self.normedOutputHistory_tokens) / len(self.normedOutputHistory_tokens),
-                        #"2N_x_normedOutput_norm_neuron": sum(self.normedOutputHistory_neurons) / len(self.normedOutputHistory_neurons),
+                        #"3N_x_normedOutput_norm": sum(self.normedOutputHistory) / len(self.normedOutputHistory),
+                        #"3N_x_normedOutput_norm_token": sum(self.normedOutputHistory_tokens) / len(self.normedOutputHistory_tokens),
+                        #"3N_x_normedOutput_norm_neuron": sum(self.normedOutputHistory_neurons) / len(self.normedOutputHistory_neurons),
                         }
 
                     if debugPrints: ʕっʘ‿ʘʔっ("clear stats")
@@ -404,15 +404,15 @@ class INTERNEURON_NETWORK(nn.Module):
             if len(self.combHistory) >= self.numTokensPerStep:
                 if debugPrints: ʕっʘ‿ʘʔっ("add to self.stats")
                 self.stats = {
-                    "3INN_0_rawActs_norm": sum(self.activationsHistory) / len(self.activationsHistory),
-                    #"3INN_0_rawActs_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
-                    #"3INN_0_rawActs_norm_neuron": sum(self.activationsHistory_neuron) / len(self.activationsHistory_neuron),
-                    #"3INN_2_combinedActs_norm": sum(self.combHistory) / len(self.combHistory),
-                    #"3INN_2_combinedActs_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
-                    "3INN_x_refinedActs_norm": sum(self.refHistory) / len(self.refHistory),
-                    #"3INN_3_refinedActs_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
-                    "3INN_windowSizesMean": floatWindowSizes.mean().item(),
-                    "3INN_windowEntropy": self.windowSizeEntropy
+                    "4INN_0_rawActs_norm": sum(self.activationsHistory) / len(self.activationsHistory),
+                    #"4INN_0_rawActs_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
+                    #"4INN_0_rawActs_norm_neuron": sum(self.activationsHistory_neuron) / len(self.activationsHistory_neuron),
+                    #"4INN_2_combinedActs_norm": sum(self.combHistory) / len(self.combHistory),
+                    #"4INN_2_combinedActs_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
+                    "4INN_x_refinedActs_norm": sum(self.refHistory) / len(self.refHistory),
+                    #"4INN_3_refinedActs_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
+                    "4INN_windowSizesMean": floatWindowSizes.mean().item(),
+                    "4INN_windowEntropy": self.windowSizeEntropy
                 }
                 if debugPrints: print(f"{self.stats}")
 
@@ -465,32 +465,32 @@ class INTERNEURON_NETWORK(nn.Module):
                 '''with torch.no_grad():
                     if n_weightStats:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥n_weightStats")
-                        self.stats["2N_weightMean"] = self.neurons.n_weights.mean().item()
-                        self.stats["2N_weightStd"] = self.neurons.n_weights.std().item()
-                        self.stats["2N_weightMin"] = self.neurons.n_weights.min().item()
-                        self.stats["2N_weightMax"] = self.neurons.n_weights.max().item()
-                        if debugPrints: print(f"neuron weight mean: {self.stats["2N_weightMean"]} std: {self.stats["2N_weightStd"]} min: {self.stats["2N_weightMin"]} max: {self.stats["2N_weightMax"]}")
+                        self.stats["3N_weightMean"] = self.neurons.n_weights.mean().item()
+                        self.stats["3N_weightStd"] = self.neurons.n_weights.std().item()
+                        self.stats["3N_weightMin"] = self.neurons.n_weights.min().item()
+                        self.stats["3N_weightMax"] = self.neurons.n_weights.max().item()
+                        if debugPrints: print(f"neuron weight mean: {self.stats["3N_weightMean"]} std: {self.stats["3N_weightStd"]} min: {self.stats["3N_weightMin"]} max: {self.stats["3N_weightMax"]}")
                     
                     if n_weightNormStats:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥n_weightNormStats")
                         self.n_weightNorm = torch.norm(self.neurons.n_weights.detach(), dim = 1)
-                        self.stats["2N_weightNormMean"] = self.n_weightNorm.mean().item()
-                        self.stats["2N_weightNormMin"] = self.n_weightNorm.min().item()
-                        self.stats["2N_weightNormMax"] = self.n_weightNorm.max().item()
-                        if debugPrints: print(f"neuron weightNorm: {self.n_weightNorm} mean: {self.stats["2N_weightNormMean"]} min: {self.stats["2N_weightNormMax"]} max: {self.stats["2N_weightNormMin"]}")
+                        self.stats["3N_weightNormMean"] = self.n_weightNorm.mean().item()
+                        self.stats["3N_weightNormMin"] = self.n_weightNorm.min().item()
+                        self.stats["3N_weightNormMax"] = self.n_weightNorm.max().item()
+                        if debugPrints: print(f"neuron weightNorm: {self.n_weightNorm} mean: {self.stats["3N_weightNormMean"]} min: {self.stats["3N_weightNormMax"]} max: {self.stats["3N_weightNormMin"]}")
 
                     if n_biasesStats:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥n_biasesStats")                    
-                        self.stats["2N_biasesMean"] = self.neurons.n_biases.mean().item()
-                        self.stats["2N_biasesStd"] = self.neurons.n_biases.std().item()
-                        self.stats["2N_biasesMin"] = self.neurons.n_biases.min().item()
-                        self.stats["2N_biasesMax"] = self.neurons.n_biases.max().item()
-                        if debugPrints: print(f"neuron biases mean: {self.stats["2N_biasesMean"]} std: {self.stats["2N_biasesStd"]} min: {self.stats["2N_biasesMin"]} max: {self.stats["2N_biasesMax"]}")
+                        self.stats["3N_biasesMean"] = self.neurons.n_biases.mean().item()
+                        self.stats["3N_biasesStd"] = self.neurons.n_biases.std().item()
+                        self.stats["3N_biasesMin"] = self.neurons.n_biases.min().item()
+                        self.stats["3N_biasesMax"] = self.neurons.n_biases.max().item()
+                        if debugPrints: print(f"neuron biases mean: {self.stats["3N_biasesMean"]} std: {self.stats["3N_biasesStd"]} min: {self.stats["3N_biasesMin"]} max: {self.stats["3N_biasesMax"]}")
 
                     if n_sparsityStat:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥getSparsityStat")
-                        self.stats["2N_sparsity"] = (self.neurons.n_weights.abs() < 1e-5).float().mean().item()
-                        if debugPrints: print(f"neuron sparsity: {self.stats["2N_sparsity"]}")'''
+                        self.stats["3N_sparsity"] = (self.neurons.n_weights.abs() < 1e-5).float().mean().item()
+                        if debugPrints: print(f"neuron sparsity: {self.stats["3N_sparsity"]}")'''
 
                 if INN_cerebellumStats:
                     if debugPrints: ʕっʘ‿ʘʔっ("♥getCerebellumStats")
@@ -510,7 +510,7 @@ class INTERNEURON_NETWORK(nn.Module):
                             self.stats[f"INN_cerebellum_W{int(w)}"] = raw.item()
                             self.stats[f"INN_cerebellum_W{int(w)}_softMax"] = soft.item()
                             self.stats[f"INN_cerebellum_W{int(w)}_tensor"] = tensor.item()
-                        #if debugPrints: print(f"cerebellum: {self.cerebellum}, soft: {self.cerebellumSoft} mean: {self.stats['3INN_cerebellumMean']} std: {self.stats['3INN_cerebellumStd']}")
+                        #if debugPrints: print(f"cerebellum: {self.cerebellum}, soft: {self.cerebellumSoft} mean: {self.stats['4INN_cerebellumMean']} std: {self.stats['4INN_cerebellumStd']}")
                         if debugPrints: ʕっʘ‿ʘʔっ("♥cerebellumString")
                         INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.floatWindowSizes_used, windowTensor = self.windowTensor_used, per_window_style = True)
                         if debugPrints: print(f"{INN_cerebellum_str}")

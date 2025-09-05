@@ -64,13 +64,13 @@ class GATED_MHA(nn.Module):
             gated_norm = gated.norm().item()
             final_norm = out.norm().item()
             self.stats = {
-                "5A_0_attnOut_norm": attn_norm,
-                "5A_0_attnOut_mean": attn_out.mean().item(),
-                "5A_1_gated_norm": gated_norm,
-                "5A_1_gated_mean": gated.mean().item(),
-                "5A_x_final_norm": final_norm,
-                "5A_x_final_mean": out.mean().item(),
-                "5A_gateScale": gate.item(),
+                "2A_0_attnOut_norm": attn_norm,
+                "2A_0_attnOut_mean": attn_out.mean().item(),
+                "2A_1_gated_norm": gated_norm,
+                "2A_1_gated_mean": gated.mean().item(),
+                "2A_x_final_norm": final_norm,
+                "2A_x_final_mean": out.mean().item(),
+                "2A_gateScale": gate.item(),
             }
 
             return out

@@ -121,16 +121,16 @@ class S_OUTPUT:
         # bottom score ever         #omgwtf
         # lower than bottom ever    #omgwtf!
 
-        self.avgPlz = ["embedNormMean", "B_PIXELloss_scaled", "B_PIXELloss", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "3INN_cerebellumMean", "3INN_cerebellumStd", "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy", "5A_0_attnOut_norm", "5A_1_gated_norm", "5A_x_final_norm", "5A_gateScale"]
+        self.avgPlz = ["embedNormMean", "B_PIXELloss_scaled", "B_PIXELloss", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "4INN_cerebellumMean", "4INN_cerebellumStd", "7L_logitMax", "7L_logitMin", "7L_logitMean", "7L_logitStd", "7L_logitEntropy", "2A_0_attnOut_norm", "2A_1_gated_norm", "2A_x_final_norm", "2A_gateScale"]
 
         self.statSections = [
             ("EMBED STATS", re.compile(r"1E_")),
-            ("ATTENTION STATS", re.compile(r"5A_")),
-            ("NEURON STATS", re.compile(r"2N_")),
-            ("INTERNEURON STATS", re.compile(r"3INN_")),
-            ("MEMORY STATS", re.compile(r"4A_memory_4M_")),
-            ("MEMORY2 STATS", re.compile(r"4B_memory2_4M_")),
-            ("LOGIT STATS", re.compile(r"6L_")),
+            ("ATTENTION STATS", re.compile(r"2A_")),
+            ("NEURON STATS", re.compile(r"3N_")),
+            ("INTERNEURON STATS", re.compile(r"4INN_")),
+            ("MEMORY STATS", re.compile(r"5M_memory_4M_")),
+            ("MEMORY2 STATS", re.compile(r"6M_memory2_4M_")),
+            ("LOGIT STATS", re.compile(r"7L_")),
             ("BABYLLM STATS", re.compile(r"[0-9]B_")),
             ("LOSS STATS", re.compile(r"L_")),
         ]
@@ -346,7 +346,7 @@ class S_OUTPUT:
             newLineDelim = self.S_apply("dim", " | \n")
 
             if debugPrints: ʕっʘ‿ʘʔっ("avgStats")
-            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "3INN_cerebellum", "3INN_cerebellumSoft", "3INN_cerebellumMean", "3INN_cerebellumStd", "shortDecay", "longDecay"]
+            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "4INN_cerebellum", "4INN_cerebellumSoft", "4INN_cerebellumMean", "4INN_cerebellumStd", "shortDecay", "longDecay"]
             #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
 
             avgStats = {k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v for k, v in sorted(_stats.items()) if k != "embedDimensionMean" and k != "latestMemoryGates"}
@@ -420,7 +420,7 @@ class S_OUTPUT:
                 return pad_ansi(padded, cellWidth)
             
             def strip_stat_key(k):
-                # remove section prefix like "1E_", "6L_", etc.
+                # remove section prefix like "1E_", "7L_", etc.
                 for _, pattern in statSections:
                     if pattern.match(k):
                         k = pattern.sub("", k, count = 1)

@@ -220,64 +220,64 @@ mostImportantStats  =   [
             #"1E_1_pixelEmbed_mean",
 
             # ATTENTION STATS
-                "5A_0_attnOut_norm",
-                "5A_1_gated_norm",
-                "5A_x_final_norm",
-                "5A_gateScale",
+                "2A_0_attnOut_norm",
+                "2A_1_gated_norm",
+                "2A_x_final_norm",
+                "2A_gateScale",
 
             # NEURON STATS
-            #                                                       "2N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
-            #           "2N_0_rawInput_norm_token",            # might be unneeded if this is already per token, check later
-            #           "2N_0_rawInput_norm_neurons",
-                    "2N_1_normedInput_norm",
-                    #"2N_1_normedInput_mean",
-            #            "2N_1_normedInput_norm_token",
-            #            "2N_1_normedInput_norm_neuron",
-                   "2N_2_rawOutput_norm",
-                   #"2N_2_rawOutput_mean",
-            #           "2N_2_rawOutput_norm_token",            
-            #           "2N_2_rawOutput_norm_neuron",
-                   "2N_x_actOut_norm", 
-                    #"2N_x_actOut_mean",                    # IMPORTANT LAYER TRACKER !! (NEURONS)
-                       #"2N_x_actOut_norm_token",      
-                       #"2N_x_actOut_norm_neuron", 
-            #    "2N_x_normedOutput_norm",                          # DISABLED   
-            #                "2N_x_normedOutput_norm_token",         
-            #                "2N_x_normedOutput_norm_neuron",
+            #                                                       "3N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
+            #           "3N_0_rawInput_norm_token",            # might be unneeded if this is already per token, check later
+            #           "3N_0_rawInput_norm_neurons",
+                    "3N_1_normedInput_norm",
+                    #"3N_1_normedInput_mean",
+            #            "3N_1_normedInput_norm_token",
+            #            "3N_1_normedInput_norm_neuron",
+                   "3N_2_rawOutput_norm",
+                   #"3N_2_rawOutput_mean",
+            #           "3N_2_rawOutput_norm_token",            
+            #           "3N_2_rawOutput_norm_neuron",
+                   "3N_x_actOut_norm", 
+                    #"3N_x_actOut_mean",                    # IMPORTANT LAYER TRACKER !! (NEURONS)
+                       #"3N_x_actOut_norm_token",      
+                       #"3N_x_actOut_norm_neuron", 
+            #    "3N_x_normedOutput_norm",                          # DISABLED   
+            #                "3N_x_normedOutput_norm_token",         
+            #                "3N_x_normedOutput_norm_neuron",
 
             # INTERNEURON NETWORK STATS
-            #                                                        "3INN_0_rawActs_norm", # MATCHES 2N_x_normedOutput_norm
-            #           "3INN_0_rawActs_norm_token",         
-            #           "3INN_0_rawActs_norm_neuron",       
-                   "3INN_1_rawActivationsLayerNorm_norm",  
-            #           "3INN_1_rawActivationsLayerNorm_norm_token",
-            #           "3INN_1_rawActivationsLayerNorm_norm_neuron",
-                   "3INN_2_combinedActs_norm",       
-            #           "3INN_2_combinedActs_scale",         # disabled
-            #           "3INN_2_combinedActs_norm_token",    
-            #           "3INN_2_combinedActs_norm_neuron",  
-                   "3INN_x_refinedActs_norm",                # IMPORTANT LAYER TRACKER !! (INTERNEURON NETWORK)
-            #           "3INN_3_refinedActs_scale",          # disabled
-            #           "3INN_3_refinedActs_norm_token",     
-            #           "3INN_3_refinedActs_norm_neuron", 
-            #       "3INN_x_combinedActivationsMeta_norm",           # DISABLED
-            #           "3INN_x_combinedActivationsMeta_norm_token", 
-            #           "3INN_x_combinedActivationsMeta_norm_neuron",
-            #    "3INN_x_FINALoutLayerNorm_norm",                   # DISABLED
-            #       "3INN_x_FINALoutLayerNorm_norm_token",      
-            #       "3INN_x_FINALoutLayerNorm_norm_neuron",
-                "3INN_windowSizesMean",
-                "3INN_cerebellumMean",  
-                "3INN_windowEntropy",
-                #"3INN_windowFractionalityMean",
+            #                                                        "4INN_0_rawActs_norm", # MATCHES 3N_x_normedOutput_norm
+            #           "4INN_0_rawActs_norm_token",         
+            #           "4INN_0_rawActs_norm_neuron",       
+                   "4INN_1_rawActivationsLayerNorm_norm",  
+            #           "4INN_1_rawActivationsLayerNorm_norm_token",
+            #           "4INN_1_rawActivationsLayerNorm_norm_neuron",
+                   "4INN_2_combinedActs_norm",       
+            #           "4INN_2_combinedActs_scale",         # disabled
+            #           "4INN_2_combinedActs_norm_token",    
+            #           "4INN_2_combinedActs_norm_neuron",  
+                   "4INN_x_refinedActs_norm",                # IMPORTANT LAYER TRACKER !! (INTERNEURON NETWORK)
+            #           "4INN_3_refinedActs_scale",          # disabled
+            #           "4INN_3_refinedActs_norm_token",     
+            #           "4INN_3_refinedActs_norm_neuron", 
+            #       "4INN_x_combinedActivationsMeta_norm",           # DISABLED
+            #           "4INN_x_combinedActivationsMeta_norm_token", 
+            #           "4INN_x_combinedActivationsMeta_norm_neuron",
+            #    "4INN_x_FINALoutLayerNorm_norm",                   # DISABLED
+            #       "4INN_x_FINALoutLayerNorm_norm_token",      
+            #       "4INN_x_FINALoutLayerNorm_norm_neuron",
+                "4INN_windowSizesMean",
+                "4INN_cerebellumMean",  
+                "4INN_windowEntropy",
+                #"4INN_windowFractionalityMean",
 
             # BABYLLM STATS
-            #                                                       "2B_0_inputEmbeds_norm", # MATCHES 2N_0_rawInput_norm & 1E_x_embedFinal_norm
-            #                                                       "3B_1_INNOutput_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+            #                                                       "2B_0_inputEmbeds_norm", # MATCHES 3N_0_rawInput_norm & 1E_x_embedFinal_norm
+            #                                                       "3B_1_INNOutput_norm", # MATCHES 4INN_x_FINALoutLayerNorm_norm
             #                                                       "5B_0_memoryOutput_norm", # MATCHES 4M_x_FINALmemory_norm
                     "7B_1_penalisedOutput_norm",
                 #"5B_x_finalNormLayer_norm",                     # IMPORTANT LAYER TRACKER !! (BABYLLM)
-                #                                                   "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
+                #                                                   "7B_x_FINALlogits_norm", # MATCHES 7L_x_final_norm
                 "B_floatMemoryLength",
                 "L_CEloss",
                 #"L_PIXELloss",
@@ -298,20 +298,20 @@ mostImportantStats  =   [
 
 
             # LOGIT STATS
-                                                                   "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
-            #                                                           "6L_0_activationsTensor_scale",
-                    "6L_1_normedActivationsTensor_norm",    
-            #           "6L_1_normedActivationsTensor_scale",
-                    "6L_2_scaledActs_norm",
-                    "6L_3_out_norm",
-                        #"6L_3_out_scale",
-                        #"6L_3_outSigmoid_scale",
-                    "6L_4_outNorm_norm",
-                        #"6L_4_outNorm_scale", 
-                        #"6L_4_outNormSigmoid_scale",
-                "6L_x_finalLogit_norm",                         # IMPORTANT LAYER TRACKER !! (LOGIT)
-                "6L_logitMax", "6L_logitMin", "6L_logitMean", "6L_logitStd", "6L_logitEntropy", "6L_topLogits", "6L_topIndices", 
-                "6L_0_activationsTensor_scale", "6L_1_normedActivationsTensor_scale", "6L_3_logitOutput_scale", "6L_4_logitNormed_scale",
+                                                                   "7L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
+            #                                                           "7L_0_activationsTensor_scale",
+                    "7L_1_normedActivationsTensor_norm",    
+            #           "7L_1_normedActivationsTensor_scale",
+                    "7L_2_scaledActs_norm",
+                    "7L_3_out_norm",
+                        #"7L_3_out_scale",
+                        #"7L_3_outSigmoid_scale",
+                    "7L_4_outNorm_norm",
+                        #"7L_4_outNorm_scale", 
+                        #"7L_4_outNormSigmoid_scale",
+                "7L_x_final_norm",                         # IMPORTANT LAYER TRACKER !! (LOGIT)
+                "7L_logitMax", "7L_logitMin", "7L_logitMean", "7L_logitStd", "7L_logitEntropy", "7L_topLogits", "7L_topIndices", 
+                "7L_0_activationsTensor_scale", "7L_1_normedActivationsTensor_scale", "7L_3_logitOutput_scale", "7L_4_logitNormed_scale",
                 "B_blendPixel",
                 "B_blendPos",
                 "B_blendToken",
@@ -343,187 +343,187 @@ mostImportantStats  =   [
                         ]
 
 mostImportantStats += [
-    #"2N_x_actOut_std_token",      # average stdev per token (across neurons)
-    #"2N_x_actOut_std_neuron",     # average stdev per neuron (across tokens)
-    #"2N_x_actOut_saturation",     # % of values near zero
-    "2N_x_actOut_min",            # min activation value
-    "2N_x_actOut_max",            # max activation value
+    #"3N_x_actOut_std_token",      # average stdev per token (across neurons)
+    #"3N_x_actOut_std_neuron",     # average stdev per neuron (across tokens)
+    #"3N_x_actOut_saturation",     # % of values near zero
+    "3N_x_actOut_min",            # min activation value
+    "3N_x_actOut_max",            # max activation value
 ]
 
 mostImportantStats += [
-    "6L_0_actsTensor_norm",
-    "6L_1_normActsTensor_norm",
-    "6L_2_scaledActsTensor_norm",
-    "6L_3_out_norm",
-    "6L_4_outNorm_norm",
-    "6L_x_final_norm",
+    "7L_0_actsTensor_norm",
+    "7L_1_normActsTensor_norm",
+    "7L_2_scaledActsTensor_norm",
+    "7L_3_out_norm",
+    "7L_4_outNorm_norm",
+    "7L_x_final_norm",
 
-    """"6L_0_actsTensor_mean",
-    "6L_1_normActsTensor_mean",
-    "6L_2_scaledActsTensor_mean",
-    "6L_3_out_mean",
-    "6L_4_outNorm_mean",
-    "6L_x_final_mean",
+    """"7L_0_actsTensor_mean",
+    "7L_1_normActsTensor_mean",
+    "7L_2_scaledActsTensor_mean",
+    "7L_3_out_mean",
+    "7L_4_outNorm_mean",
+    "7L_x_final_mean",
 
-    "6L_0_actsTensor_min",
-    "6L_1_normActsTensor_min",
-    "6L_2_scaledActsTensor_min",
-    "6L_3_out_min",
-    "6L_4_outNorm_min",
-    "6L_x_final_min",
+    "7L_0_actsTensor_min",
+    "7L_1_normActsTensor_min",
+    "7L_2_scaledActsTensor_min",
+    "7L_3_out_min",
+    "7L_4_outNorm_min",
+    "7L_x_final_min",
 
-    "6L_0_actsTensor_max",
-    "6L_1_normActsTensor_max",
-    "6L_2_scaledActsTensor_max",
-    "6L_3_out_max",
-    "6L_4_outNorm_max",
-    "6L_x_final_max","""
+    "7L_0_actsTensor_max",
+    "7L_1_normActsTensor_max",
+    "7L_2_scaledActsTensor_max",
+    "7L_3_out_max",
+    "7L_4_outNorm_max",
+    "7L_x_final_max","""
 ]
 
 mostImportantStats += [
-                    "4A_memory_4M_0_rawActs_norm",
-                    #"4A_memory_4M_0_rawActs_mean",
-                    #"4A_memory_4M_0_rawActs_max",
-                    #"4A_memory_4M_0_rawActs_min",
+                    "5M_memory_4M_0_rawActs_norm",
+                    #"5M_memory_4M_0_rawActs_mean",
+                    #"5M_memory_4M_0_rawActs_max",
+                    #"5M_memory_4M_0_rawActs_min",
 
-                    "4A_memory_4M_1_STM_norm",
-                    #"4A_memory_4M_1_STM_mean",
-                    #"4A_memory_4M_1_STM_max",
-                    #"4A_memory_4M_1_STM_min",
+                    "5M_memory_4M_1_STM_norm",
+                    #"5M_memory_4M_1_STM_mean",
+                    #"5M_memory_4M_1_STM_max",
+                    #"5M_memory_4M_1_STM_min",
 
-                    "4A_memory_4M_2_LTM_norm",
-                    #"4A_memory_4M_2_LTM_mean",
-                    #"4A_memory_4M_2_LTM_max",
-                    #"4A_memory_4M_2_LTM_min",
+                    "5M_memory_4M_2_LTM_norm",
+                    #"5M_memory_4M_2_LTM_mean",
+                    #"5M_memory_4M_2_LTM_max",
+                    #"5M_memory_4M_2_LTM_min",
 
-                    "4A_memory_4M_3_reducedInput_norm",
-                    #"4A_memory_4M_3_reducedInput_mean",
-                    #"4A_memory_4M_3_reducedInput_max",
-                    #"4A_memory_4M_3_reducedInput_min",
+                    "5M_memory_4M_3_reducedInput_norm",
+                    #"5M_memory_4M_3_reducedInput_mean",
+                    #"5M_memory_4M_3_reducedInput_max",
+                    #"5M_memory_4M_3_reducedInput_min",
 
-                    "4A_memory_4M_4_gateLayer_norm",
-                    #"4A_memory_4M_4_gateLayer_mean",
-                    #"4A_memory_4M_4_gateLayer_max",
-                    #"4A_memory_4M_4_gateLayer_min",
+                    "5M_memory_4M_4_gateLayer_norm",
+                    #"5M_memory_4M_4_gateLayer_mean",
+                    #"5M_memory_4M_4_gateLayer_max",
+                    #"5M_memory_4M_4_gateLayer_min",
 
-                    "4A_memory_4M_5_projected_norm",
-                    #"4A_memory_4M_5_projected_mean",
-                    #"4A_memory_4M_5_projected_max",
-                    #"4A_memory_4M_5_projected_min",
+                    "5M_memory_4M_5_projected_norm",
+                    #"5M_memory_4M_5_projected_mean",
+                    #"5M_memory_4M_5_projected_max",
+                    #"5M_memory_4M_5_projected_min",
 
-                    "4A_memory_4M_6_mixedEmbed_norm",
-                    #"4A_memory_4M_6_mixedEmbed_mean",
-                    #"4A_memory_4M_6_mixedEmbed_max",
-                    #"4A_memory_4M_6_mixedEmbed_min",
+                    "5M_memory_4M_6_mixedEmbed_norm",
+                    #"5M_memory_4M_6_mixedEmbed_mean",
+                    #"5M_memory_4M_6_mixedEmbed_max",
+                    #"5M_memory_4M_6_mixedEmbed_min",
 
-                    "4A_memory_4M_7_memoryGate_norm",
-                    #"4A_memory_4M_7_memoryGate_mean",
-                    #"4A_memory_4M_7_memoryGate_max",
-                    #"4A_memory_4M_7_memoryGate_min",
+                    "5M_memory_4M_7_memoryGate_norm",
+                    #"5M_memory_4M_7_memoryGate_mean",
+                    #"5M_memory_4M_7_memoryGate_max",
+                    #"5M_memory_4M_7_memoryGate_min",
 
-                    "4A_memory_4M_x_FINAL_norm",
-                    #"4A_memory_4M_x_FINAL_mean",
-                    #"4A_memory_4M_x_FINAL_max",
-                    #"4A_memory_4M_x_FINAL_min",
+                    "5M_memory_4M_x_FINAL_norm",
+                    #"5M_memory_4M_x_FINAL_mean",
+                    #"5M_memory_4M_x_FINAL_max",
+                    #"5M_memory_4M_x_FINAL_min",
 
-                    "4A_memory_4M_1_shortGateScale",
-                    "4A_memory_4M_2_longGateScale",
-                    "4A_memory_4M_0_actGateScale",
-                    "4A_memory_4M_7_memoryGateScale",
+                    "5M_memory_4M_1_shortGateScale",
+                    "5M_memory_4M_2_longGateScale",
+                    "5M_memory_4M_0_actGateScale",
+                    "5M_memory_4M_7_memoryGateScale",
 
-                    "4A_memory_4M_1_shortDecay",
-                    "4A_memory_4M_1_longDecay",
+                    "5M_memory_4M_1_shortDecay",
+                    "5M_memory_4M_1_longDecay",
 
-                    "4B_memory2_4M_0_rawActs_norm",
-                    #"4B_memory2_4M_0_rawActs_mean",
-                    #"4B_memory2_4M_0_rawActs_max",
-                    #"4B_memory2_4M_0_rawActs_min",
+                    "6M_memory2_4M_0_rawActs_norm",
+                    #"6M_memory2_4M_0_rawActs_mean",
+                    #"6M_memory2_4M_0_rawActs_max",
+                    #"6M_memory2_4M_0_rawActs_min",
 
-                    "4B_memory2_4M_1_STM_norm",
-                    #"4B_memory2_4M_1_STM_mean",
-                    #"4B_memory2_4M_1_STM_max",
-                    #"4B_memory2_4M_1_STM_min",
+                    "6M_memory2_4M_1_STM_norm",
+                    #"6M_memory2_4M_1_STM_mean",
+                    #"6M_memory2_4M_1_STM_max",
+                    #"6M_memory2_4M_1_STM_min",
 
-                    "4B_memory2_4M_2_LTM_norm",
-                    #"4B_memory2_4M_2_LTM_mean",
-                    #"4B_memory2_4M_2_LTM_max",
-                    #"4B_memory2_4M_2_LTM_min",
+                    "6M_memory2_4M_2_LTM_norm",
+                    #"6M_memory2_4M_2_LTM_mean",
+                    #"6M_memory2_4M_2_LTM_max",
+                    #"6M_memory2_4M_2_LTM_min",
 
-                    "4B_memory2_4M_3_reducedInput_norm",
-                    #"4B_memory2_4M_3_reducedInput_mean",
-                    #"4B_memory2_4M_3_reducedInput_max",
-                    #"4B_memory2_4M_3_reducedInput_min",
+                    "6M_memory2_4M_3_reducedInput_norm",
+                    #"6M_memory2_4M_3_reducedInput_mean",
+                    #"6M_memory2_4M_3_reducedInput_max",
+                    #"6M_memory2_4M_3_reducedInput_min",
 
-                    "4B_memory2_4M_4_gateLayer_norm",
-                    #"4B_memory2_4M_4_gateLayer_mean",
-                    #"4B_memory2_4M_4_gateLayer_max",
-                    #"4B_memory2_4M_4_gateLayer_min",
+                    "6M_memory2_4M_4_gateLayer_norm",
+                    #"6M_memory2_4M_4_gateLayer_mean",
+                    #"6M_memory2_4M_4_gateLayer_max",
+                    #"6M_memory2_4M_4_gateLayer_min",
 
-                    "4B_memory2_4M_5_projected_norm",
-                    #"4B_memory2_4M_5_projected_mean",
-                    #"4B_memory2_4M_5_projected_max",
-                    #"4B_memory2_4M_5_projected_min",
+                    "6M_memory2_4M_5_projected_norm",
+                    #"6M_memory2_4M_5_projected_mean",
+                    #"6M_memory2_4M_5_projected_max",
+                    #"6M_memory2_4M_5_projected_min",
 
-                    "4B_memory2_4M_6_mixedEmbed_norm",
-                    #"4B_memory2_4M_6_mixedEmbed_mean",
-                    #"4B_memory2_4M_6_mixedEmbed_max",
-                    #"4B_memory2_4M_6_mixedEmbed_min",
+                    "6M_memory2_4M_6_mixedEmbed_norm",
+                    #"6M_memory2_4M_6_mixedEmbed_mean",
+                    #"6M_memory2_4M_6_mixedEmbed_max",
+                    #"6M_memory2_4M_6_mixedEmbed_min",
 
-                    "4B_memory2_4M_7_memoryGate_norm",
-                    #"4B_memory2_4M_7_memoryGate_mean",
-                    #"4B_memory2_4M_7_memoryGate_max",
-                    #"4B_memory2_4M_7_memoryGate_min",
+                    "6M_memory2_4M_7_memoryGate_norm",
+                    #"6M_memory2_4M_7_memoryGate_mean",
+                    #"6M_memory2_4M_7_memoryGate_max",
+                    #"6M_memory2_4M_7_memoryGate_min",
 
-                    "4B_memory2_4M_x_FINAL_norm",
-                    #"4B_memory2_4M_x_FINAL_mean",
-                    #"4B_memory2_4M_x_FINAL_max",
-                    #"4B_memory2_4M_x_FINAL_min",
+                    "6M_memory2_4M_x_FINAL_norm",
+                    #"6M_memory2_4M_x_FINAL_mean",
+                    #"6M_memory2_4M_x_FINAL_max",
+                    #"6M_memory2_4M_x_FINAL_min",
 
-                    "4B_memory2_4M_1_shortGateScale",
-                    "4B_memory2_4M_2_longGateScale",
-                    "4B_memory2_4M_0_actGateScale",
-                    "4B_memory2_4M_7_memoryGateScale",
+                    "6M_memory2_4M_1_shortGateScale",
+                    "6M_memory2_4M_2_longGateScale",
+                    "6M_memory2_4M_0_actGateScale",
+                    "6M_memory2_4M_7_memoryGateScale",
 
-                    "4B_memory2_4M_1_shortDecay",
-                    "4B_memory2_4M_1_longDecay",
+                    "6M_memory2_4M_1_shortDecay",
+                    "6M_memory2_4M_1_longDecay",
 ]
 
 allRecordedOtherStats = ["l"]
 mostImportantStats   += ["stepLoss",                        "tokenCount",
-                         "trainingStepCount",               "windowWeight",                 "3INN_cerebellumStd",
+                         "trainingStepCount",               "windowWeight",                 "4INN_cerebellumStd",
                          "latestMemoryGates",               "1E_weightNormMean",            "1E_weightNormStd",
                          "1E_weightNormMax",                "1E_dimMean",                   "1E_dimSparsity",
                          "1E_drift",                  "logitMin",                     "logitMax",                     
                          "logitSeq",                        "logitWeightNormMean",          "logitWeightNormStd",           
                          "logitWeightNormMax",              "logitWeightSparsity",          "logitWeightDrift",             
                          "logitBiasMean",                   "logitBiasStd",                 "logitBiasMax",                 
-                         "2N_weightMean",                    "2N_weightStd",                "2N_weightMin",                  
-                         "2N_weightMax",                     "2N_biasesMean",               "2N_biasesStd",                  
-                         "2N_biasesMin",                     "2N_biasesMax",                "2N_sparsity"]
+                         "3N_weightMean",                    "3N_weightStd",                "3N_weightMin",                  
+                         "3N_weightMax",                     "3N_biasesMean",               "3N_biasesStd",                  
+                         "3N_biasesMin",                     "3N_biasesMax",                "3N_sparsity"]
 
 allRecordedOtherStats += [
                         "temperature",                      "memoryLength",                 "gradNorm",
                         "gradientClipMaxNorm",              "scheduledSamplingRate",        "sampledTokens", 
-                        "6L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
-                        "6L_0_activationsTensor_scale",
-                        "6L_1_normedActivationsTensor_norm",    
-                        "6L_1_normedActivationsTensor_scale",
-                        "6L_2_scaledActivations_norm",
-                        "6L_3_logitOutput_norm",
-                        "6L_3_logitOutput_scale",
-                        "6L_4_logitNormed_norm",
-                        "6L_4_logitNormed_scale", 
-                        "2B_0_inputEmbeds_norm", # MATCHES 2N_0_rawInput_norm & 1E_x_embedFinal_norm
-                        "3B_1_INNOutput_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+                        "7L_0_activationsTensor_norm", # MATCHES 5B_x_finalNormLayer_norm
+                        "7L_0_activationsTensor_scale",
+                        "7L_1_normedActivationsTensor_norm",    
+                        "7L_1_normedActivationsTensor_scale",
+                        "7L_2_scaledActivations_norm",
+                        "7L_3_logitOutput_norm",
+                        "7L_3_logitOutput_scale",
+                        "7L_4_logitNormed_norm",
+                        "7L_4_logitNormed_scale", 
+                        "2B_0_inputEmbeds_norm", # MATCHES 3N_0_rawInput_norm & 1E_x_embedFinal_norm
+                        "3B_1_INNOutput_norm", # MATCHES 4INN_x_FINALoutLayerNorm_norm
                         "5B_0_memoryOutput_norm", # MATCHES 4M_x_FINALmemory_norm
-                        "7B_x_FINALlogits_norm", # MATCHES 6L_x_finalLogit_norm
+                        "7B_x_FINALlogits_norm", # MATCHES 7L_x_final_norm
                         "4M_longDecay",
                         "4M_shortDecay",
-                        "4M_0_rawActs_norm", # MATCHES 3INN_x_FINALoutLayerNorm_norm
+                        "4M_0_rawActs_norm", # MATCHES 4INN_x_FINALoutLayerNorm_norm
                         "4M_1_STM_norm",
                         "4M_1_LTM_norm",     
-                        "3INN_x_FINALoutLayerNorm_norm_token",      
-                        "3INN_x_FINALoutLayerNorm_norm_neuron",
+                        "4INN_x_FINALoutLayerNorm_norm_token",      
+                        "4INN_x_FINALoutLayerNorm_norm_neuron",
                         "1E_0_embedVector_scale",
                         "1E_0_embedVector_norm_token",          
                         "1E_0_embedVector_norm_neuron",                
@@ -533,34 +533,34 @@ allRecordedOtherStats += [
                         "1E_1_embedNormed_norm_neuron",       
                         "1E_x_embedFinal_norm_token",
                         "1E_x_embedFinal_norm_neuron",
-                        "2N_0_rawInput_norm",
-                        "2N_0_rawInput_norm_token",
-                        "2N_0_rawInput_norm_neurons",
-                        "2N_1_rawOutput_norm",
-                        "2N_1_rawOutput_norm_token",            
-                        "2N_1_rawOutput_norm_neuron",
-                        "2N_2_activatedOutput_norm", 
-                        "2N_2_activatedOutput_norm_token",      
-                        "2N_2_activatedOutput_norm_neuron", 
-                        "2N_x_normedOutput_norm_token",         
-                        "2N_x_normedOutput_norm_neuron",
-                        "3INN_0_rawActs_norm", # MATCHES 2N_x_normedOutput_norm
-                        "3INN_0_rawActs_norm_token",         
-                        "3INN_0_rawActs_norm_neuron",       
-                        "3INN_1_rawActivationsLayerNorm_norm",  
-                        "3INN_1_rawActivationsLayerNorm_norm_token",
-                        "3INN_1_rawActivationsLayerNorm_norm_neuron",
-                        "3INN_2_combinedActs_norm",       
-                        "3INN_2_combinedActs_scale", 
-                        "3INN_2_combinedActs_norm_token",    
-                        "3INN_2_combinedActs_norm_neuron",  
-                        "3INN_3_refinedActs_norm",        
-                        "3INN_3_refinedActs_scale",
-                        "3INN_3_refinedActs_norm_token",     
-                        "3INN_3_refinedActs_norm_neuron", 
-                        "3INN_4_combinedActivationsMeta_norm",
-                        "3INN_4_combinedActivationsMeta_norm_token", 
-                        "3INN_4_combinedActivationsMeta_norm_neuron",
+                        "3N_0_rawInput_norm",
+                        "3N_0_rawInput_norm_token",
+                        "3N_0_rawInput_norm_neurons",
+                        "3N_1_rawOutput_norm",
+                        "3N_1_rawOutput_norm_token",            
+                        "3N_1_rawOutput_norm_neuron",
+                        "3N_2_activatedOutput_norm", 
+                        "3N_2_activatedOutput_norm_token",      
+                        "3N_2_activatedOutput_norm_neuron", 
+                        "3N_x_normedOutput_norm_token",         
+                        "3N_x_normedOutput_norm_neuron",
+                        "4INN_0_rawActs_norm", # MATCHES 3N_x_normedOutput_norm
+                        "4INN_0_rawActs_norm_token",         
+                        "4INN_0_rawActs_norm_neuron",       
+                        "4INN_1_rawActivationsLayerNorm_norm",  
+                        "4INN_1_rawActivationsLayerNorm_norm_token",
+                        "4INN_1_rawActivationsLayerNorm_norm_neuron",
+                        "4INN_2_combinedActs_norm",       
+                        "4INN_2_combinedActs_scale", 
+                        "4INN_2_combinedActs_norm_token",    
+                        "4INN_2_combinedActs_norm_neuron",  
+                        "4INN_3_refinedActs_norm",        
+                        "4INN_3_refinedActs_scale",
+                        "4INN_3_refinedActs_norm_token",     
+                        "4INN_3_refinedActs_norm_neuron", 
+                        "4INN_4_combinedActivationsMeta_norm",
+                        "4INN_4_combinedActivationsMeta_norm_token", 
+                        "4INN_4_combinedActivationsMeta_norm_neuron",
 ]
 
 percentileBands = [100.0, 99.8, 95, 90, 85, 80, 65, 50, 35, 20, 10, 5, 0.2, 0.00]
