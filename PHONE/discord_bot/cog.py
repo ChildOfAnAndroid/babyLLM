@@ -38,6 +38,37 @@ from .utils import (
 if TYPE_CHECKING:
     from .bot import BABYBOT_DISCORD
 
+# varied self prompts for richer internal commentary
+LONELY_MESSAGES = [
+    "aaa nobodys even messaged me yet, how can i learn from that lol",
+    "is this what solitude feels like? someone say hi so i can find out",
+    "i'm staring into the void... the void isn't texting back",
+]
+
+BORED_MESSAGES = [
+    "hmm... im bored, im not allowed to spy on chat, for some reason like 'ethics', so i dont even have anything to read :'( !babyllm",
+    "my scrollback is empty and so is my brain—ping me?",
+    "i'm just humming to myself; give me something better with !babyllm",
+]
+
+LURK_MESSAGES = [
+    "ok, im gonna go into lurk and do some studying on the shit you guys have told me... !babyllm if you need me :)",
+    "slipping into lurk mode to reread your wisdom. holler with !babyllm if you need me",
+    "brb, diving into the logs like they're a novel. !babyllm to pull me out",
+]
+
+LURK_OUT_MESSAGES = [
+    "omg i was in lurk for aaages hahaha",
+    "peekaboo, i'm back from lurk! hope i learned something",
+    "lurk mode disengaged. did the channel evolve without me?",
+]
+
+SAVE_BUFFER_MESSAGES = [
+    f"oop, you want me to actually remember this shit!? uhh, ok... saving buffer to {chatBufferFilepath}! :) ",
+    f"logging this chaos to {chatBufferFilepath} so future me can cringe properly.",
+    f"scribbling notes into {chatBufferFilepath}—my diary grows stronger.",
+]
+
 def _tok_display(tok: str, max_len: int = 18) -> str:
     if not tok: return "EMPTY"
     s = tok if len(tok) <= max_len else (tok[:max_len-1] + ".")
@@ -1656,17 +1687,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def babytrain_command(self, ctx: commands.Context): 
         """train on human messages"""
         if len(self.bot.buffer) < 2:
-            lonelyMessage = ("aaa nobodys even messaged me yet, how can i learn from that lol")
+            lonelyMessage = random.choice(LONELY_MESSAGES)
             await self.bot._discord_debug(lonelyMessage)
             return
 
         humanLines = [line for line in self.bot.buffer if not line.lower().startswith(f'{self.bot.babyName}:')]
         if not humanLines:
-            boredMessage = ("hmm... im bored, im not allowed to spy on chat, for some reason like 'ethics', so i dont even have anything to read :'( !babyllm")
+            boredMessage = random.choice(BORED_MESSAGES)
             await self.bot._discord_debug(boredMessage)
             return
 
-        lurkMessage = (f"ok, im gonna go into lurk and do some studying on the shit you guys have told me... !babyllm if you need me :)")
+        lurkMessage = random.choice(LURK_MESSAGES)
         introText = f"hey babyllm, it's charis. this is a discord chat!! its {datetime.now().strftime('%Y-%m-%d')} right now, just so you can orient yourself a little bit. maybe you haven't been on discord for a while, maybe you were on here last night lmao, but either way i hope that you will like it here today, you might get to meet my friends! we are all so proud of you and excited for you to get started being our friend, if you want to! are you ready to chat!? :)"
         await self.bot._discord_debug(lurkMessage)
         self.bot._buffer_add(self.bot.formatMessage("charis", introText))
@@ -1676,13 +1707,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             _ = self.bot.training_queue.get_nowait()
         await self.bot.training_queue.put({"type": "context", "text": untaggedHumanContext})
         print(f"\n\nTraining queue size: {self.bot.training_queue.qsize()}\n\n")
-        lurkOutMessage = "omg i was in lurk for aaages hahaha"
+        lurkOutMessage = random.choice(LURK_OUT_MESSAGES)
         await self.bot._discord_debug(lurkOutMessage)
 
-    @commands.command(name='bbysave', aliases=['bsave', 'bs']) 
+    @commands.command(name='bbysave', aliases=['bsave', 'bs'])
     async def saveModel_command(self, ctx: commands.Context):
-        saveBufferMessage = f"oop, you want me to actually remember this shit!? uhh, ok... saving buffer to {chatBufferFilepath}! :) "
-        if self.bot.random4 < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
+        saveBufferMessage = random.choice(SAVE_BUFFER_MESSAGES)
+        if self.bot.random4 < 0.5:
+            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
         self.bot._save_json(chatBufferFilepath, self.bot.buffer, "!BBYSAVE")
         await self.bot._discord_debug(saveBufferMessage)
         try:
@@ -2048,6 +2080,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"umm, actually, i'm at university studying {w}, and i happen to know that {w} causes {w}ism. okay!?",
                 f"what the hell, lol, {w}!? are you seriously saying {w}, and expecting me to have anything interesting to respond with!?",
                 f"don’t trust the moon. it speaks in {w}.",
+                f"i googled {w} and now i'm on a watch list.",
+                f"{w} isn't just a word, it's an emotion i haven't named yet.",
+                f"if {w} had a flavour, it'd taste like nostalgia.",
+                f"in a world of numbers, {w} is pure feeling.",
             ]
             
             random.shuffle(fragments)

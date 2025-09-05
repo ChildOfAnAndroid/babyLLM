@@ -167,6 +167,7 @@ def getTimeRant(ai_opt_in_users):
     minute = now.strftime("%M")
     ampm = now.strftime("%p").lower()
     readable = now.strftime("%H:%M")
+    weekday = now.strftime("%A").lower()
 
     approx_phrases = [
         f"it's {readable} rn",
@@ -186,6 +187,15 @@ def getTimeRant(ai_opt_in_users):
         f"call it {hour_12}:{minute}{ampm} or so",
         f"my clock muttered {readable}",
         f"the vibes say it's {readable}",
+        f"the sun thinks it's {readable}",
+        f"my gut says {hour_12}:{minute}{ampm}",
+        f"some clock somewhere insists it's {readable}",
+        f"if time were a feeling, it'd be {hour_12}:{minute}{ampm}",
+        f"the clock tower screamed {hour_12}:{minute}{ampm}",
+        f"my bones swear it's {hour_12}:{minute}{ampm}",
+        f"on this {weekday}, i'd call it around {hour_12}:{minute}{ampm}",
+        f"the calendar mumbles it's {weekday} near {readable}",
+        f"the shadows stretch like it's {hour_12}:{minute}{ampm}",
     ]
     usernames = [
         "the universe",
@@ -194,6 +204,10 @@ def getTimeRant(ai_opt_in_users):
         "my phone",
         "the wall calendar",
         "the microwave",
+        "the oven timer",
+        "the sun",
+        "my internal clock",
+        "a passing cloud",
     ] + ai_opt_in_users
     return f"{random.choice(usernames)}: {random.choice(approx_phrases)} "
 

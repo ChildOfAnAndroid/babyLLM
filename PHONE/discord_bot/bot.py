@@ -1098,7 +1098,13 @@ class BABYBOT_DISCORD(commands.Bot):
             if is_opted_in_user or is_random_spam_chance or (message.author.bot and not message.content.startswith(self.command_prefix)):
                 print(f"[Channel Trigger] Matched in #{message.channel.name} (Opt-in or Random Spam)")
                 self.idles = round(self.idles * 0.5)
-                if is_random_spam_chance and not is_opted_in_user: self._buffer_add(f"the void: baby, you just saw this message and you have... something to say about it.")
+                if is_random_spam_chance and not is_opted_in_user:
+                    void_prompts = [
+                        "the void: a message drifts past... anything to say?",
+                        "the void: you spot that message, baby. any thoughts?",
+                        "the void: that message pokes at your circuits; respond?",
+                    ]
+                    self._buffer_add(random.choice(void_prompts))
                 ctx = await self.get_context(message)
                 cog = self.get_cog("BBYCOG")
                 if not cog: return
@@ -1243,7 +1249,15 @@ class BABYBOT_DISCORD(commands.Bot):
                 if (now - self.lastInteraction > self.idleTrainSeconds):
                     self.idles += 1
                     stats_short = self.tutor.makeStatsPrompt(include_prefix=False)
-                    idle_msg = self.formatMessage(self.babyName, f"it's been {int(self.idles * self.idleTrainSeconds)} seconds since anyone had a chat with me. {stats_short}")
+                    idle_seconds = int(self.idles * self.idleTrainSeconds)
+                    idle_templates = [
+                        "it's been {secs} seconds since anyone chatted with me. {stats}",
+                        "after {secs}s of silence, i'm still thinking... {stats}",
+                        "i've waited {secs} seconds for company. {stats}",
+                        "for {secs} seconds the world is quiet; here's how i'm doing: {stats}",
+                    ]
+                    idle_text = random.choice(idle_templates).format(secs=idle_seconds, stats=stats_short)
+                    idle_msg = self.formatMessage(self.babyName, idle_text)
                     self._buffer_add(idle_msg)
                     self.lastInteraction = time.time()
                     if len(self.buffer) >= self.N:
