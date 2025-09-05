@@ -522,6 +522,34 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 break
         return associations
 
+    def _brain_similar_words(self, text: str, top_k: int = 5) -> list[str]:
+        """Return a few tokens the model associates with ``text``."""
+        text = (text or "").strip().lower()
+        if not text:
+            return []
+        token_ids = self.bot.librarian.tokenizer.encode(text)
+        unk = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
+        valid_ids = [tid for tid in token_ids if tid != unk]
+        if not valid_ids:
+            return []
+        embed = self.bot.babyLLM.embed.e_weights
+        vec = embed[valid_ids].mean(dim=0)
+        return self._get_similar_tokens(vec, valid_ids, top_k)
+
+    def _add_brain_thought(self, subject: str, similar_tokens: list[str]):
+        """Add a self-talk line about ``subject`` to the buffer."""
+        if not similar_tokens:
+            return
+        tokens_str = ", ".join(similar_tokens[:3])
+        templates = [
+            "i just checked my brain and {subject} feels like {tokens}...",
+            "thinking about {subject} makes me whisper {tokens}",
+            "neurons say {subject} reminds me of {tokens}",
+        ]
+        thought = random.choice(templates).format(subject=subject, tokens=tokens_str)
+        buffer_entry = self.bot.formatMessage(self.bot.babyName, thought)
+        self.bot._buffer_add(buffer_entry)
+
     def _blend_guess(self, word: str, top_k: int = 10) -> str:
         token_ids = self.bot.librarian.tokenizer.encode(word.lower())
         unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
@@ -887,6 +915,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         associations = self._get_brain_connections(word)
         guess_word = self._blend_guess(word)
+        similar = self._brain_similar_words(word)
         msg = f"{word} ??? 😰 ... {guess_word} ???"
         if associations:
             msg += f"\n{associations}"
@@ -896,6 +925,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
         if sent:
             self.bot.pending_wtf[sent.id] = {'word': word, 'guess': guess_word, 'guess_saved': False}
+            self._add_brain_thought(word, similar)
 
     @commands.command(name='bbywtf')
     async def bbywtf(self, ctx, *, word: str = None):
@@ -1047,6 +1077,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply = f"i don't really connect {text} with anything yet..."
 
         await self.bot._discord_reply(ctx, reply)
+        similar = self._brain_similar_words(text)
+        self._add_brain_thought(text, similar)
 
     @commands.command(name='bbylink', aliases=['blink', 'bbond', 'blnk'])
     async def bbylink(self, ctx):
@@ -3337,6 +3369,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
             # --- brain connections
             brain_assocs = self._get_brain_connections(item_name)
+            brain_similar = self._brain_similar_words(item_name)
 
             # --- embed
             embed = discord.Embed(
@@ -3384,8 +3417,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"but it looks like it's worth about ᛒ{effective_cost:.0f} right now, and {top_holder_str} is hoarding a lot of them... "
                 f"i wonder why... "
             )
-            try: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, narrative))
-            except Exception: pass
+            try:
+                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, narrative))
+                self._add_brain_thought(item_name, brain_similar)
+            except Exception:
+                pass
 
             await self.bot._discord_reply(ctx, embed=embed)
         except Exception:
