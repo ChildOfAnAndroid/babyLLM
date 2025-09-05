@@ -29,7 +29,13 @@ class GATED_MHA(nn.Module):
                 embeds = _embeds.unsqueeze(0)  # [1, seq, dim]
             else:
                 embeds = _embeds
-            attn_out, _ = self.attn(embeds, embeds, embeds, need_weights=False)
+            attn_out, _ = self.attn(
+                embeds,
+                embeds,
+                embeds,
+                need_weights=False,
+                is_causal=True,
+            )
             attn_out = attn_out.squeeze(0)
             gate = torch.sigmoid(self.logit_gate)
             gated = gate * attn_out
