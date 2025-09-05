@@ -82,8 +82,13 @@ class NEURON(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("computeBatchedDotProduct+bias") # Compute batched dot product + bias: (batch_size, num_neurons)
             #rawOutput = torch.matmul(normedInput, self.n_weights.T) + self.n_biases  # shape: (seq_len, numNeurons)
-            scale = math.sqrt(embedDimension)
-            rawOutput = (torch.matmul(normedInput, self.n_weights.T) + self.n_biases) / scale # new fancy clamping attempt bdsm idfk nipple clamps its 12 noon help me
+            # Use a tensor for scaling to avoid implicit device placement issues on MPS.
+            # Creating the scale directly on the target device prevents placeholder
+            # allocations that can trigger runtime errors when performing division on
+            # Metal backends.
+            scale_value = math.sqrt(embedDimension)
+            scale = torch.tensor(scale_value, device=normedInput.device)
+            rawOutput = (torch.matmul(normedInput, self.n_weights.T) + self.n_biases) / scale
 
             if debugPrints: ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
             #activated = activationFunction(rawOutput)
