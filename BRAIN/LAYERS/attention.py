@@ -2,6 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # GATED MULTI-HEAD ATTENTION LAYER // brain/LAYERS/attention.py
 
+import math
 import torch
 import torch.nn as nn
 from config import *
@@ -44,6 +45,11 @@ class GATED_MHA(nn.Module):
                 need_weights=False,
                 attn_mask=causal_mask,
             )
+            # embeddings are scaled by sqrt(embedDimension) in the embed layer
+            # which causes the raw attention output to grow very large.  Counter
+            # this by normalising with the same scale (and sequence length) so
+            # the attention statistics remain comparable to other layers.
+            attn_out = attn_out / math.sqrt(embedDimension * seq_len)
             if original_dim <= 2:
                 attn_out = attn_out.squeeze(0)
                 if original_dim == 1:
