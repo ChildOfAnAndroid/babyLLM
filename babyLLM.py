@@ -187,7 +187,8 @@ class BABYLLM(nn.Module):
             tokenEmbed = self.embed(_tokenIndex = _inputSeq)
             seq_len = tokenEmbed.shape[0]
             pos_indices = torch.arange(seq_len, device = tokenEmbed.device)
-            posEmbed = self.embed.posEmbedding(pos_indices)  # [seq_len, embed_dim]
+            posEmbed = self.embed.posEmbedding(pos_indices)
+            posEmbed = self.embed.posDropout(posEmbed * self.embed.scale)  # [seq_len, embed_dim]
             if not skipPixels and (_pixel is not None):
                 rgbEmbed = self.embed(_pixel = _pixel)
                 debug_print("tokenEmbed:", tokenEmbed.shape)

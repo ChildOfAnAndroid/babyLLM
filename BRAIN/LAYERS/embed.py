@@ -2,6 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # EMBEDDING LAYER // brain/LAYERS/embed.py
 
+import math
 import torch
 import torch.nn as nn
 from config import *
@@ -27,6 +28,8 @@ class EMBED(nn.Module):
         self.maxPosLen = 2048
         self.posEmbedding = nn.Embedding(self.maxPosLen, embedDimension, device = self.device)
         self.dropout = nn.Dropout(p=embedDropoutProb)
+        self.posDropout = nn.Dropout(p=embedDropoutProb)
+        self.scale = math.sqrt(embedDimension)
 
     """looks up and returns the embedding vector for a specific token index"""
     @whocalled
@@ -44,12 +47,13 @@ class EMBED(nn.Module):
                     raise ValueError(f"Pixel input has wrong shape: {_pixel.shape}")
             else:
                 if debugPrints: ʕっʘ‿ʘʔっ("E0_embedVector") # <- vocab???? base token indexes seem to come in here so... from tutor??
-                self.embedVector = self.e_weights[_tokenIndex] 
+                self.embedVector = self.e_weights[_tokenIndex]
             if debugPrints: ʕっʘ‿ʘʔっ("E1_embedNormed") # <- E1
             self.embedNormed = self.embedNorm(self.embedVector)
             if debugPrints: ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
-            #self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale) 
+            #self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale)
             self.embedFinal = self.embedVector + self.embedNormed # direct passthrough instead of scaling cause he abuses them lol, -0.005 scale... wtf is that!?
+            self.embedFinal = (self.embedFinal * self.scale)
             self.embedFinal = self.dropout(self.embedFinal)
             clamp_param(self.weightsScale, -10, 10)
             clamp_param(self.normScale, -10, 10)
