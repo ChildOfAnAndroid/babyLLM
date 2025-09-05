@@ -29,12 +29,17 @@ class GATED_MHA(nn.Module):
                 embeds = _embeds.unsqueeze(0)  # [1, seq, dim]
             else:
                 embeds = _embeds
+            seq_len = embeds.size(1)
+            causal_mask = torch.triu(
+                torch.full((seq_len, seq_len), float("-inf"), device=embeds.device),
+                diagonal=1,
+            )
             attn_out, _ = self.attn(
                 embeds,
                 embeds,
                 embeds,
                 need_weights=False,
-                is_causal=True,
+                attn_mask=causal_mask,
             )
             attn_out = attn_out.squeeze(0)
             gate = torch.sigmoid(self.logit_gate)
@@ -43,18 +48,18 @@ class GATED_MHA(nn.Module):
 
             # collect stats
             self.stats = {
-                "2A_0_attnOut_norm": attn_out.norm().item(),
-                "2A_0_attnOut_mean": attn_out.mean().item(),
-                "2A_1_gated_norm": gated.norm().item(),
-                "2A_1_gated_mean": gated.mean().item(),
-                "2A_x_final_norm": out.norm().item(),
-                "2A_x_final_mean": out.mean().item(),
-                "2A_gateScale": gate.item(),
+                "5A_0_attnOut_norm": attn_out.norm().item(),
+                "5A_0_attnOut_mean": attn_out.mean().item(),
+                "5A_1_gated_norm": gated.norm().item(),
+                "5A_1_gated_mean": gated.mean().item(),
+                "5A_x_final_norm": out.norm().item(),
+                "5A_x_final_mean": out.mean().item(),
+                "5A_gateScale": gate.item(),
             }
 
             return out
 
     @whocalled
-    def getAttnStats(self):
-        with self.counsellor.infodump("getAttnStats") as ʕっʘ‿ʘʔっ:
+    def getAttentionStats(self):
+        with self.counsellor.infodump("getAttentionStats") as ʕっʘ‿ʘʔっ:
             return self.stats
