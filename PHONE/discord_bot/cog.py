@@ -1045,41 +1045,55 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name='bbylink', aliases=['blink', 'bbond'])
     async def bbylink(self, ctx):
-        """show a random link from the top 100 strongest connections with usage stats"""
+        """show a random link from the top 100 strongest connections"""
         pairs = self._get_top_strong_pairs(100)
         if not pairs:
             return await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
 
         w1, w2, sim = random.choice(pairs)
-        total_bot = sum(self.bot.tutor.tokenCounts.values()) if hasattr(self.bot, "tutor") else 0
-        total_user = sum(self.bot.opt_in_token_usage.values()) if hasattr(self.bot, "opt_in_token_usage") else 0
-        t1, b1, u1 = self._format_token_usage(w1, total_bot, total_user)
-        t2, b2, u2 = self._format_token_usage(w2, total_bot, total_user)
+        t1, _, _ = self._format_token_usage(w1)
+        t2, _, _ = self._format_token_usage(w2)
 
-        msg = (
-            f"hmm... {t1} (me {b1:.2f}%, opt {u1:.2f}%) and {t2} (me {b2:.2f}%, opt {u2:.2f}%) "
-            f"feel super connected ({sim:.2f})"
-        )
+        msg = f"hmm... {t1} and {t2} feel super connected ({sim:.2f})"
         await self.bot._discord_reply(ctx, msg)
 
-    @commands.command(name='bbyspecialinterests', aliases=['bsi'])
-    async def bbyspecialinterests(self, ctx):
-        """show the top 10 strongest connections with usage stats"""
+    @commands.command(name='bbyspecialinterest', aliases=['bsi', 'bbyspecialinterests'])
+    async def bbyspecialinterest(self, ctx):
+        """show my most used tokens and the top 10 strongest links"""
         pairs = self._get_top_strong_pairs(10)
-        if not pairs:
-            return await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
 
-        total_bot = sum(self.bot.tutor.tokenCounts.values()) if hasattr(self.bot, "tutor") else 0
-        total_user = sum(self.bot.opt_in_token_usage.values()) if hasattr(self.bot, "opt_in_token_usage") else 0
+        tutor = getattr(self.bot, "tutor", None)
+        token_table = "i don't know what words i use most yet :("
+        if tutor and getattr(tutor, "tokenCounts", None):
+            total_bot = sum(tutor.tokenCounts.values())
+            top_tokens = sorted(tutor.tokenCounts.items(), key=lambda x: x[1], reverse=True)[:10]
+            header = f"{'#':>2} | {'token':<15} | {'count':>5} | {'%':>5}"
+            lines = [header, "-" * len(header)]
+            for i, (tok, cnt) in enumerate(top_tokens, 1):
+                name = tutor.tidy_token(tok) if hasattr(tutor, "tidy_token") else tok
+                pct = cnt / total_bot * 100 if total_bot else 0
+                lines.append(f"{i:>2} | {name:<15} | {cnt:>5} | {pct:5.2f}")
+            token_table = "top tokens i say:\n```\n" + "\n".join(lines) + "\n```"
 
-        def fmt(tok):
-            t, b, u = self._format_token_usage(tok, total_bot, total_user)
-            return f"{t} (me {b:.2f}%, opt {u:.2f}%)"
+        link_table = "i couldn't find a strong connection right now :("
+        if pairs:
+            total_bot = sum(tutor.tokenCounts.values()) if tutor else 0
+            total_user = sum(self.bot.opt_in_token_usage.values()) if hasattr(self.bot, "opt_in_token_usage") else 0
+            header = (
+                f"{'#':>2} | {'token1':<12} | {'me%':>5} | {'opt%':>5} | "
+                f"{'token2':<12} | {'me%':>5} | {'opt%':>5} | {'sim':>5}"
+            )
+            lines = [header, "-" * len(header)]
+            for i, (w1, w2, sim) in enumerate(pairs, 1):
+                t1, b1, u1 = self._format_token_usage(w1, total_bot, total_user)
+                t2, b2, u2 = self._format_token_usage(w2, total_bot, total_user)
+                lines.append(
+                    f"{i:>2} | {t1:<12} | {b1:5.2f} | {u1:5.2f} | "
+                    f"{t2:<12} | {b2:5.2f} | {u2:5.2f} | {sim:5.2f}"
+                )
+            link_table = "strongest links:\n```\n" + "\n".join(lines) + "\n```"
 
-        lines = [
-            f"{i+1}. {fmt(w1)} ↔ {fmt(w2)} ({sim:.2f})" for i, (w1, w2, sim) in enumerate(pairs)
-        ]
-        reply = "my strongest links rn:\n" + "\n".join(lines)
+        reply = f"my special interests rn:\n{token_table}\n{link_table}"
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyfite', aliases=['bfite', 'bfte'])
