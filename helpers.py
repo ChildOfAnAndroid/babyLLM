@@ -3,6 +3,7 @@ import torch
 import os
 import json
 import gc
+import threading
 from typing import Iterable, Tuple, Callable, Any
 
 try: from config import debugPrints as _debug_enabled
@@ -56,10 +57,17 @@ def empty_mps_cache() -> None:
     ``torch.mps.empty_cache`` alone may not promptly free memory because
     kernels execute asynchronously and Python's GC can hold references.
     Synchronising and running a GC cycle helps avoid memory spikes.
+
+    ``torch.mps.synchronize`` must run on the main thread.  When invoked
+    from a worker thread (for example, a ``ThreadPoolExecutor`` used for
+    background generation) it can trigger a Metal assertion:
+    ``-[_MTLCommandBuffer addScheduledHandler:]: failed assertion 'Scheduled handler provided after commit call'``.
+    To avoid crashes we only call ``synchronize`` on the main thread.
     """
     if torch.backends.mps.is_available():
         gc.collect()
-        torch.mps.synchronize()
+        if threading.current_thread() is threading.main_thread():
+            torch.mps.synchronize()
         torch.mps.empty_cache()
 
 __all__ = [
