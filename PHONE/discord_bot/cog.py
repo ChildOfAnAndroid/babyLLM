@@ -834,13 +834,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         incrementTeach = self.bot.apply_fave_bonus(incrementTeach, uses_fave)
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
-        await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
+        # compute supply cap and initial mint before creating the fact
+        num_produced = self._calc_fact_num_produced()
+        raw_award = (self.bot.random4 * self.bot.random3) * (random.uniform(1, (num_produced * self.bot.random2 * self.bot.random))) + 1
+        awardNumber = max(1, int(round(raw_award)))
+        # scale base market cap by minted supply so per-item value starts reasonable
+        base_market_cap = max(1.0, incrementTeach) * max(1, awardNumber)
+        await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=base_market_cap, num_produced=num_produced, debug_str=debug_str)
         reply += (
             f"soo... you're telling me that {key} means {value}? that's pretty cool, tbh! "
             f"{random.choice(self.bot.faveEmotes)} {style_gain(f'+ᛒ{incrementTeach:,.0f}')} for you! \n"
         )
-        num_produced = self._get_fact_num_produced(key)        
-        awardNumber = round((self.bot.random4 * self.bot.random3) * (random.uniform(1, (num_produced * self.bot.random2 * self.bot.random))) + 1)
         awardNumber = await self._award_fact(user = author, fact = key, ctx = ctx, num = awardNumber)
         rank, rank_str = self._get_current_value_rank(key)
         if rank <= 20:  reply += "damn, top 20! "
