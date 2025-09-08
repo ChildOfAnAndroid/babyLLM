@@ -42,7 +42,12 @@ class BABYBOT_DISCORD(commands.Bot):
                  rollingContextSize = rollingContextSize, idleTrainSeconds = 100, N = rollingContextSize - 1):
         
         intents = discord.Intents.all()
-        super().__init__(command_prefix='!', intents = intents)
+        # Add heartbeat_timeout to prevent gateway issues
+        super().__init__(
+            command_prefix='!', 
+            intents=intents,
+            heartbeat_timeout=60.0,  # Increase from default 30s
+        )
         self.cog = None
 
         self.faveEmotes = ("😭", "😤", "🔥", "✨", "❤️", "😡", "😠", "🤬", "💔", "💕", "🦊", "😊", "🎵", "🎶", "🤣", "🙌", "🥰", "🥨", "🥖", "😂", "🤞", "🍜", "🥯", "🌻", "🍞", "😀", 

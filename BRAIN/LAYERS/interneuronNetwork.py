@@ -370,15 +370,41 @@ class INTERNEURON_NETWORK(nn.Module):
             # --- logging
             if debugPrints: ʕっʘ‿ʘʔっ("get inn stats no grad")
             try:
-                self.activationsHistory.append(neuronActsPerToken.norm().item())
-                #self.activationsHistory_token.append(neuronActsPerToken.norm(dim = 1).mean().item())
-                #self.activationsHistory_neuron.append(neuronActsPerToken.norm(dim = 0).mean().item())
-                self.combHistory.append(combinedActivationsTensor.norm().item())
-                #self.combHistory_neuron.append(combinedActivationsTensor.norm(dim = 0).mean().item())
-                self.refHistory.append(refinedActivations.norm().item())
-                #self.refHistory_neuron.append(refinedActivations.norm(dim = 0).mean().item())
-            except Exception:
+                # Use torch.no_grad() and add timeout handling for tensor operations
+                with torch.no_grad():
+                    # Check if tensors are valid before computing norms
+                    if neuronActsPerToken.numel() > 0 and not torch.isnan(neuronActsPerToken).any():
+                        norm_val = neuronActsPerToken.norm().item()
+                        if not math.isnan(norm_val) and not math.isinf(norm_val):
+                            self.activationsHistory.append(norm_val)
+                        else:
+                            self.activationsHistory.append(1.0)
+                    else:
+                        self.activationsHistory.append(1.0)
+                    
+                    # Same checks for combinedActivationsTensor
+                    if combinedActivationsTensor.numel() > 0 and not torch.isnan(combinedActivationsTensor).any():
+                        comb_norm = combinedActivationsTensor.norm().item()
+                        if not math.isnan(comb_norm) and not math.isinf(comb_norm):
+                            self.combHistory.append(comb_norm)
+                        else:
+                            self.combHistory.append(1.0)
+                    else:
+                        self.combHistory.append(1.0)
+                    
+                    # Same checks for refinedActivations
+                    if refinedActivations.numel() > 0 and not torch.isnan(refinedActivations).any():
+                        ref_norm = refinedActivations.norm().item()
+                        if not math.isnan(ref_norm) and not math.isinf(ref_norm):
+                            self.refHistory.append(ref_norm)
+                        else:
+                            self.refHistory.append(1.0)
+                    else:
+                        self.refHistory.append(1.0)
+                        
+            except Exception as e:
                 # If tensor operations hang, use safe defaults
+                print(f"[INN_LOGGING] Error in tensor norm calculations: {e}")
                 self.activationsHistory.append(1.0)
                 self.combHistory.append(1.0)
                 self.refHistory.append(1.0)

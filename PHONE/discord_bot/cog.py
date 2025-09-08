@@ -323,6 +323,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     # --*- FACT HELPERS -*--
     def _generate_response_blocking(self, promptTokenIDs, numTokensToGen):
+        """Synchronous generation method - runs the actual computation"""
         genSeqIDs = list(promptTokenIDs)
         responseSeqId = []
 
@@ -347,6 +348,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         babyllm_text = re.sub(r'  ', r' ', babyllm_text)
 
         return babyllm_text
+
+    async def _generate_response_async(self, promptTokenIDs, numTokensToGen, timeout_seconds=60):
+        """Asynchronous wrapper that runs generation in an executor to prevent blocking"""
+        loop = asyncio.get_event_loop()
+        try:
+            # Add timeout to prevent hanging indefinitely
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen),
+                timeout=timeout_seconds
+            )
+            return result
+        except asyncio.TimeoutError:
+            print(f"[_GENERATE_RESPONSE_ASYNC] Generation timed out after {timeout_seconds} seconds")
+            return "..."  # Return minimal response if timed out
+        except Exception as e:
+            print(f"[_GENERATE_RESPONSE_ASYNC] Error during generation: {e}")
+            return "..."  # Return minimal response on error
 
     def _decay_item_value(self, fact_name: str, decay_percentage: float = 0.0001):
         if fact_name not in self.bot.bbyfacts: return None
@@ -1475,7 +1493,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # Generate a response using the existing generation method
         try:
-            thought = self._generate_response_blocking(prompt_tokens, length)
+            thought = await self._generate_response_async(prompt_tokens, length)
             
             # Clean it up a bit
             thought = thought.strip()
@@ -2076,10 +2094,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 numTokensToGen = max(5, min(numTokensToGen, 800))
 
                 # --- running slow AI code in executor ---
-                loop = asyncio.get_running_loop()
-                blocking_task = functools.partial(self._generate_response_blocking, promptTokenIDs, numTokensToGen)
-
-                babyllm_text = await loop.run_in_executor(None, blocking_task)
+                babyllm_text = await self._generate_response_async(promptTokenIDs, numTokensToGen)
 
             # --- bby no longer typing... ---
             if not babyllm_text.strip():
