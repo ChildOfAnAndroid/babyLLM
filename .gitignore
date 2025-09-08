@@ -1,63 +1,130 @@
-# System & Python cache files
-__pycache__
-__pycache__/*
-*.pyc
+# ===================================
+# CHARIS CAT 2025 - babyLLM .gitignore
+# ===================================
+
+# System Files
 .DS_Store
 **/.DS_Store
-# Archive folders
-archive
-archive*
-archive/*
-SHKAIRA/*
-**/archive
-# Backup during training
-*.pth
-*.pth*
-**/*.pth*
-# Generated
-trainingData.txt
-
-# No need to commit those, they are raw files
-data/CHARIS
+Thumbs.db
 *.tmp
-school/library/trainingData.txt
-school/library/trainingData-.txt
-school/library/TrainingData--.txt
-school/library/trainingData*
-school/library/simpleTraining/lineSortedData.txt
-school/statistics/LOGS/dataArchive/*term-*.txt
-school/library/learning/mhh_ei_for_ai_model.md
-school/statistics/LOGS/chat
-school/library/trainingDataNOW.txt
-brain/soul/*
+*.temp
 
-# IMPORTANT - NEVER COMMIT!!
-secret.py 
-school/library/charisStudies
-# IMPORTANT - NEVER COMMIT!!
-*.aseprite
-brain/bbyBODY.json
-brain/bbyBODYflatnew.gif
-brain/bbyBODYflatold.gif
-brain/bbyEYES_closed.json
-x
-school/statistics/LOGS/training/trainingLog_100.txt
-school/statistics/LOGS/training/trainingLog_100.txt
-/model_parameters
-userNicknames.json
-school/library/logic.txt
-school/library/pt1.txt
-school/library/pt2.txt
-school/library/pt3.txt
-school/library/curriculum.txt
-school/library/f.f.
-school/library/pt4.txt
-school/library/pt5.txt
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# VS Code 
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+*.code-workspace
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Training & Model Files
+*.pth
+*.pth.*
+*.pt
+*.ckpt
+*.safetensors
+model_parameters/
+training_buffer.json
+babyState.json
+bby_request.json
+
+# Generated Data Files
+trainingData.txt
+trainingDataNOW.txt
+trainingData*.txt
+lineSortedData.txt
 similarity_matrix.csv
+
+# JSON State Files
 babyLove.json
 spamLevel.json
+userNicknames.json
+chatHistory.json
+bbybook.json
+
+# Archive & Old Code
+archive/
+archive*/
+**/archive/
+ARCHIVE_*/
+
+# SHKAIRA System (mostly generated)
+SHKAIRA/statistics/
+SHKAIRA/soul/
+SHKAIRA/vocabCache/
+
+# School System Generated
+school/library/trainingData*
+school/library/charisStudies/
+school/library/logic.txt
+school/library/pt*.txt
+school/library/curriculum.txt
+school/library/f.f.
+school/statistics/LOGS/
+
+# Brain System
+brain/soul/
+brain/*.json
+brain/*.gif
+
+# Images & Media
+*.aseprite
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.raw
+
+# Logs
+*.log
+logs/
+
+# Temporary Scripts (auto-generated)
+temp_*.py
+test_*.py
+*_test.py
 migrate.py
 presenceCheck.py
-babyLove.json
-*.raw
-phone/discord_bot/chatHistory.json
+
+# SECRETS - NEVER COMMIT!
+secret.py
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+
+# Mac Specific
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows Specific  
+ehthumbs.db
+Desktop.ini
+
+# Linux Specific
+*~
+.fuse_hidden*
+.nfs*

@@ -1,0 +1,526 @@
+EVIDENCE LIST:
+
+2024/11/18 - POLICE INCIDENT:
+- charis male - princess royal hospital.pdf 
+    - discharge statement from hospital
+- JB_firstLandlordComplaint 
+    - emails between Charis Male and Jayne Brewer
+- MALE Charis 47NC3061524 Initial Details Pros Case.pdf 
+    - details in police case against charis for violence
+- POLICE BWV
+    - BWV
+        - Weeks Matthew EA581-manifest-717009465_WEEKS_MJ _edited_(transcode).mp4
+            - Police body worn video of me being accused of violence and inappropriately restrained whilst trying to get the door shut to be alone, breathe, and calm down from my meltdown (recommended medical technique). This led to my eventual arrest and continued legal case against me.
+
+
+—
+2025/01/19 - POLICE INCIDENT:
+- Claimants Videos
+    - EXIFDATA ANNOTATED.txt 
+        - my analysis of the exifdata
+    - EXIFDATA RAW.txt 
+        - raw terminal output from exif tool, unmodified
+    - NC5  2.mov & NC5 1.mov 
+        - Claimants videos submitted for defence
+- Defendants Videos
+    - audio 
+        - separated audio
+    - PRIVATE - ELODIE BRUISES 
+        - not included but available: proof of the extreme level of police violence done to Élodie that day whilst she was already injured
+    - 1.mp4, 2.mp4 
+        - videos from Charis’ DSLR
+    - 3.MOV, 3b.MOV, 4.MOV, 5.MOV, 6.MOV
+        - videos from Charis’ phone
+    - elophone1.mp4, elophone2.mp4
+        - videos from Élodie’s phone.
+- (CHARIS MALE) MAGNIER Élodie 47NC0154425 IDPC.pdf 
+    - police case against Élodie for violence
+
+
+—
+2025/06/24-25 - PROTEST:
+- Decibel Meter Readings
+    - From the bed: IMG_3603.png, IMG_3604.png, IMG_3605.png
+    - From on top of the amp: IMG_3612.png
+- Facebook Comments
+    - StuartRequestsPublicCallPolice.png
+    - StuartStatesFamilyRunBusiness.png
+    - ResponseToStuart1.png, ResponseToStuart2.png, ResponseToStuart3.png
+- informingPolice.pdf
+    - Me using the Sussex Police website to inform them of the peaceful protest.
+- ROLAND_CUBE15X_ENG.pdf
+    - Manual for the childrens practice guitar amp they state is a PA system
+- IMG_3661.mov
+    - A video of me moving around in the house during the protest, lots can be heard over the music.
+
+
+—
+2025/07/19 - VISIT TO CMC:
+- Claimants Videos
+    - PXL_20250719_152911956.mp4
+        - video from Élodies phone
+    - IMG_6651.MOV, IMG_6652.MOV, IMG_6653.MOV
+        - videos from Charis’ phone
+- transcript.txt
+
+
+—
+All Emails:
+- Charis Male - handwritten disability disclosure and request for out of court solution to CMC.jpg
+- JB_ComplaintAgainstLandlord.pdf
+    - Jayne Brewer and Charis Male
+- JB_ConfirmsLandlordPaul.pdf
+    - Jayne Brewer and Charis Male
+- JB_DetailedDisabilityDisclosure.pdf
+    - Jayne Brewer and Charis Male
+- JB_FirstLandlordComplaint.pdf
+    - Jayne Brewer and Charis Male
+- JB_LeaveNoDepositOption.pdf
+    - Jayne Brewer and Charis Male
+- JB_SecondLandlordComplaint.pdf
+    - Jayne Brewer and Charis Male
+- MSDC_confirmCat1FireHazard.pdf
+    - Mid Sussex District Council and Charis Male
+- NC_denialOfKnowledgeOfDisability.pdf
+    - Natasha Carter and Charis Male
+- Pix_Cottage_HHSRS_Legal_Violations.pdf
+    - Building Regulations Violations & HHSRS Violations
+- PRCCTVDisclosure.pdf
+    - Paul Roberts, Daniel Dickson, Kent Reynolds, Charis Male
+
+
+—
+Door Images:
+- 3rd Feb
+- 19th Jan
+
+
+—
+Medical Evidence:
+- charis male - ambulance crew.pdf 
+    - when i was taken to the Princess Royal Hospital for extreme vomiting, dated 24/03/2025
+- charis male - royal sussex county hospital.pdf
+    - Admission to Brighton Royal Sussex Hospital for Cyclical Vomiting Syndrome symptoms, dated 12/05/2025
+- charis male - pip 1.jpeg, charis male - pip 2.jpeg
+    - PIP Statement of Entitlement, dated 15/07/2025
+
+
+—
+Phone Logs:
+- Contains all accessible phone logs from our devices for the dates mentioned. 
+    - Screenshots from my iPhone that I was using at the time.
+    - Itemised bill from Bouygues Telecom, Élodies french number that I was using due to the police having my phone.
+    - I am unable to get an itemised bill from EE because it costs £2.50 per month and is not retroactive, but I may be able to submit a Subject Access Request. I also was not using this number for the majority of the time, as the police had my phone until after the last incident stated.
+
+
+—
+Tenancy Documents:
+- NDO_to_TDS_agreements_for_Pix_Cottage_-_Pleas.pdf
+    - In process, uncompleted, contains my signature although I do not recall signing it, Endorsement to the Agreement, undated
+- Pix_Cottage_-_Tenancy_Document(s)_-_Please_Si.pdf
+    - Signed tenancy Agreement with the landlord as Paul Roberts, dated 05/11/2024
+    - States “The Tenancy shall start on and include the 04 November 2024 and shall end on and include the 03 November 2025.”
+    - This suggests the tenancy agreement was signed after the date I moved in, and I do not recall signing anything after moving in. Odd.
+- section8form3.pdf
+    - Section 8 form, dated 29/01/2025
+
+—
+
+—
+1. 18/11/24 - police called by one of the Claimant’s employees due to distressed shouting, police arrived.
+
+- Related Documents: 
+    - MALE Charis 47NC3061524 Initial Details Pros Case.pdf:
+        - PC Weeks’ Statement: 
+            - "Stuart Roberts... called police to report a 'domestic incident,' alleging shouting from the flat."
+            - “PC COUVES came out to me a short while later stating that MALE had made no allegations of assault but he wanted to verify with ROBERTS what he heard, Myself and PC COUVES went to speak with ROBERTS again and he confirmed his aforementioned report stating how concerned he was for the female. PC COUVES then went onto arrest MAGNIER for common assault and I assisted in escorting her to the police vehicle.”
+    - charis male - princess royal hospital.pdf:
+        - “Police were called this afternoon after someone became concerned about domestic violence at a property in Cuckfield. Charis' partner has been taken into police custody, and Charis has allegedly punched a police officer. Police were concerned that when they attempted to take her into custody she had seizure like activity and threatened to jump out of the window. Speaking to her in the department this was due to her PTSD, autism, and ADHD and the fact she found todays events extremely triggering. She has now told me that she has no ongoing self harm ideation or plans, and that she would be safe to go back to the Cuckfield property which is the flat she had moved into today with her partner.”
+    - JB_firstLandlordComlaint.pdf:
+        - They do not directly mention what they are upset about, which is presumably the police visits, but send me a confusing email about ‘multiple tenants at the property’ a week or so later. This one confuses me, as I am unsure how he would even be aware that I had a visitor (Élodie, my carer, helping me to settle in) unless he was watching comings and goings on the CCTV system.
+        - I email them stating my concerns  “I’m trying to figure out what has caused the email - has there been a specific issue, or is the landlord just monitoring the flat?”
+        - My concerns are dismissed, and the complaint is eventually rescinded stating “I’ve let Paul know and I believe the concern was that he nor us had heard from you recently but all seems fine.” But, I hadn’t actually ever met the landlord. Although I had no concern with the CCTV video, the phrase ‘heard from’ already struck me as an odd choice - and considering everything that has come to light, it now seems suspicious to me.
+
+- My Position: 
+    - This refers to the incident where my partner, Élodie, was arrested based on a false report from Stuart Roberts (later confirmed to be an employee of the Claimant).
+    - My "distressed shouting" was the beginning of an autistic meltdown and panic caused by nearly falling down the stairs. Élodie had helped me by grabbing my shoulder, which I impulsively responded to with “don’t touch me!” due to my panic and meltdown.
+    - Stuart knocked on our door (already a breach of quiet enjoyment) and was directly told by Élodie that I was having an autistic meltdown. 
+    - Stuart insisted that unless I came downstairs or he was allowed into the property to see me, he would be calling the police. Élodie refused him access to the house, as she knew it was both illegal and would upset me further, explaining further about my anxiety and meltdowns and saying I wasn’t comfortable with strangers.
+    - Stuart then called the police, we left the door open for them and Élodie sat in the window to ensure we could see them coming.
+    - After the police arrived, I explained to them as best I could that Élodie had done nothing wrong and that I was having a meltdown. Because of the fact that Stuart refused to rescind his false accusations, Élodie was arrested.
+    - I also had a seizure triggered by the ignorance of my stated disability needs, the police's presence, and the wrongful arrest of my carer. The police called an ambulance and I was admitted to hospital for a very short period due to seizure-like activity, documents attached.
+    - Élodie was released that same day with no further action, and came back here to sleep and look after me.
+    - My actions were an involuntary manifestation of my disability in a crisis, not "anti-social behaviour”, and I believe that this situation instead shows the start of a clear pattern of discrimination against both me and Élodie.
+
+
+—
+2. 9/12/24 - police called by Defendant, however she refused to answer door, so Claimant gave spare key to the police. Police reference for this incident is: 019391224.
+
+- Related Documents:
+    - JB_firstLandlordComplaint.pdf:
+        - Email from me explaining what happened;
+            - “[Police] told me they had had a dropped call from this location, I politely opened the door and explained to them that it wasn’t me, there was no emergency, and I was just about to take a bath. I told them very clearly I did not need their attendance, was fine, and was incredibly scared i’d get kicked out of my flat if they kept drawing attention to me as my landlord lives downstairs. They then proceeded to slam on my door for over an hour before literally going to speak to the landlord directly and ask to be let into the flat. I believe the landlord at first said no, but the police were so persistent (even after actually seeing me safe and well and confirming there was no emergency), that the landlord eventually let them in after three hours. I was naked in the bath so this wasn’t great and honestly really scared me.”
+            - “I feel a bit unsafe here if the landlord is going to let people into the property, and i’m already nervous enough because he had a go at my friend after I nearly fell down the stairs last week, and called the police on her which resulted in me experiencing quite serious police brutality. I feel quite ‘overlooked’ here when I kind of got this flat specifically for privacy. I have severe social anxiety and being seen by other people is incredibly difficult for me, so I tend to hide during business hours, but I can assure you I am 1000% fine. This place is changing my life for the better after a very stressful and difficult house search, I absolutely adore it here and want to stay for as long as I am possibly allowed to, and I just want to be able to be left alone to live my life without the police being called. Sorry if that email is a bit confusing, the whole situation was to be honest but I want to be as open as possible.”
+    - Phone Logs:
+        - screenshot from old phone, 16:00, call 01273 606006 (St Peters Medical Centre) - [potentially St Peters called the police? Otherwise I have no lead]
+
+- My Position:
+    - I actually did answer the door, told the police that I was fine, I was autistic, and that I was afraid of my landlords retaliation if they remained. I then closed my door. They refused to leave regardless, banging very loudly and scaring me and triggering an eventual autistic meltdown due to the noise.
+    - I tried to take the bath, to calm down, and they were let into the property by my landlord with keys - which is a breach of quiet enjoyment as they should not be letting police into the property unless they have a warrant or there is an emergency.
+    - After seeing me naked in the bath, they were happy that I was safe, and left without making any charge.
+
+
+—
+3. 10/12/24 - Very loud banging on floor (Exhibit NC4).
+- IMPORTANT: I have not been provided with access to Exhibit NC4.
+
+- Related Documents:
+    - JB_secondLandlordComplaint:
+        - Jayne Brewer, 10/12/2024:
+            - ‘I am sorry but I do have to make you aware that I have heard from your landlord this afternoon with a noise/banging disturbance noticed by employees and customers today and whilst I appreciate you feel that you are being watched, the noise was again of concern and not something one would expect during usual any ones usual movements within a property.’
+        - Charis Male, 10/12/2024:
+            - “I find it surprising to have a third complaint from the landlord in such a short time, this doesn't really allay any of my concerns about my right to privacy. It is admittedly a little confusing, as I've received a few emails suggesting that my quietness was worrying the landlord, and now I am being told that I am too loud. These two things seem to contradict and I'm not sure how best to approach it, especially considering that the landlord has already called the police on me at least once.”
+            - “I apologise if the music caused any disturbance to customers, that was certainly not my intention. I had definitely gotten the impression that the landlord found my usual quietness unsettling, so I thought I would settle in a little and do a bit of cleaning to some classic tracks! Again, I apologise if this caused any disruption, and I’ll be more mindful of noise moving forward.”
+        - Charis Male, 11/12/2024:
+            - “As you say concerns of the landlord and tenant should both be discussed, have the problems i’ve had even been addressed? I feel that I may be being unduly monitored by the landlord, which breaches my right to privacy and quiet enjoyment of the property. The landlord has knocked on the door 3+ times without 24 hours notice, and even overreached to the point of calling the police on me AND let them into the property even after I had confirmed I was safe and well. I feel that I am being unreasonably expected to enter into a social relationship with my landlords, and if I had been informed of that at the point of contract I would not have chosen this property due to my severe social anxiety and autism. I feel it may almost be approaching direct disability discrimination.”
+
+- My Position: 
+    - I agree that the banging may have been loud, due to the fact I was moving furniture and dancing, but this was not an act of aggression or antisocial behaviour.
+    - As I communicated to Jayne Brewer (Leaders) on 10th December 2024, the Claimant had expressed concern about my quietness, and I was trying to "settle in" by playing house music and cleaning/hoovering/moving furniture/dancing/singing.
+    - Their conflicting complaints (too quiet vs. too loud) are harassing and unreasonable. My communication to Leaders on 11th December 2024 explicitly stated many of my disabilities directly, and that their actions were "approaching direct disability discrimination."
+
+
+—
+4. 06/01/25 - Police called by Defendant and arrived, however she would not answer the door.
+
+- Relevant Documents:
+    - Phone Logs:
+        - screenshot from old phone, appear to be no calls on that day
+
+- My Position: 
+    - I do not remember this incident.
+
+
+—
+5. 18/01/25 - ambulance called by Defendant, however again the Defendant wouldn’t answer door.
+
+- Relevant Documents:
+    - Phone Logs
+		- screenshot from old phone, 08:14, call 01273 696955 (Royal Sussex County Hospital), to check where we should go for Élodies stitches.
+
+- My Position: 
+    - I do not remember refusing to answer the door.
+    - On the day before, the 17th January, Élodie had a severe accident where she blacked out for half a second, collapsed, and woke up with her left ear cut in half and a lot of blood all over her. Understandably, we were screaming. 
+    - We called the ambulance on the 17th and they arrived, but I cannot find proof of this on my phone anywhere which is confusing.
+    - When the ambulance showed up, I went outside (even though I found this incredibly difficult due to my agoraphobia) and went and found them to direct them to the house. I was having a meltdown and shouting and crying and couldn’t direct them very well, and then walked a few meters away to the bench to cry. They took Élodie to hospital (Princess Royal Hospital) that day and I went with her - they tell us to go see the ENT team in Brighton the next day instead
+    - On the 18th, we both left the property very early to go to Brighton. Élodie was seen, and received multiple stitches in her ear for the injury at Royal Sussex Hospital. We did not return until after dark, I know this because we tried to pick up some medication in Brighton and the hospital pharmacy was already closed (approximately 5:35PM).
+    - It is possible that an ambulance perhaps showed up in our absence, whilst we were at hospital, or that this is incorrectly dated. But I have no proof either way.
+    - Again, this is a real and serious life-threatening medical issue and it is incredibly unfair to classify it as a nuisance.
+
+
+—
+6. 19/01/25 - police called by Defendant, however she would not answer so police broke down door and removed the Defendant’s partner in hand cuffs. (Exhibit NC5).
+
+DEFENDANT CALLED AMBULANCE, AMBULANCE CALLED POLICE.
+
+- Related Documents:
+
+    - (CHARIS MALE) MAGNIER Élodie 47NC0154425 IDPC.pdf:
+        - SUMMARY OF KEY EVIDENCE:
+            - the ambulance called the police, due to them misinterpreting a phone call for mental health support:
+                - “On SUNDAY 19TH JANUARY 2025 police were called to an address in CUCKFIELD, WEST SUSSEX to reports from SECAMB who reported a female called in to report she had pushed her partner”
+            - they gained access to the property, not broke door down:
+                - “PC HISCOCK attended the address with other officers, after some time access was gained to the property.”
+        - STATEMENT OF CD046, PC RICHARD DAVIES:
+            - they entered with a key, not broke the door down:
+                - “We we have arrived on scene I could see an officer talking to someone through the window who appeared to be taking photos. Whilst chatting the person inside had thrown a key out and we have managed to get inside.”
+        - STATEMENT OF EB437, LOUIS HISCOCK:
+            - the ambulance called them out of concern:
+                - “This report was from Secamb, stating they're concern for MALE and her partner I now know to be called Élodie MAGNIER”
+            - previous police discrimination affected how we were treated;
+                - “I was aware from reading previous reports, that MALE and MAGNIER had previously called emergency services which resulted in officers effectively having to force entry, and the two individuals were described as dragging out the process. At this time, i was not satisfied that i had grounds to enter the property”
+            - they were previously aware of issues surrounding my disability needs, and regardless decided to ignore them;
+                - “MALE started to engage via text messages. MALE stated she appreciated police concern, however she was non verbal so couldn't open the door, as she was scared by the banging. After a long engagement of texts, MALE and MAGNIER opened a window where I could see them, however would not verbally engage and only shook or nodding their heads.”
+            - showing active discrimination by suggesting i ‘suddenly’ began speaking, alongside detailing that they did not break the door down:
+                - “I made it clear to MALE and MAGNIER via text messages, and shouting through the window that police would force entry if they did not answer the door. Following this MALE suddenly started talking to myself and colleague through the window, however refused to answer the door. Whilst awaiting TFU unit, i attempted to encourage MALE to open the door, by visibly bringing an enforcer to the door. I then attempted to gain entry myself, using the enforcer about 10 times against the door, however it remained locked shut and appeared to be doing more damage to the door frame and surrounding structure. Just as TFU officers arrived on scene, MALE suddenly agreed to through down a door key to myself so we could gain entry, which she did.”
+            - showing active discrimination against my seizures, suggesting they are false because i was gripping hard (sometimes a symptom of seizures):
+                - “PC POTTS attempted to engage with MAGNIER [sic; MALE], who was supposedly having a seizure however was able to hold to hold onto her phone. After about 5 minutes, MALE left the room with PC POTTS.”
+
+    - Phone Logs:
+        - screenshots from old phone; 
+            - 09:32, Failed Call to 111 - likely to request mental health support due to meltdowns
+            - GAP ?????????
+            - 16:36, call to 01273 470101 (101) 
+                - likely to request the police response be stopped after being informed of it happening by 111.
+            - 18:59, call to 01273 470101 (101) 
+                - likely to enquire about Élodies welfare in custody
+            - 20:27, call to 01444 458166 (Mid Sussex District Council) - want advice as I feel unsafe in my house alone without my carer, with the door unable to open and close properly.
+            - 20:55, call to 01273 470101 (101) 
+                - likely to enquire about Élodies welfare in custody, and what to do about the damaged door
+            - 21:30, call to 01273 470101 (101) -
+                - ikely to enquire about Élodies welfare in custody, and what to do about the damaged door
+            - 21:48, call to 01273 470101 (101) 
+                - likely to update me on Élodies return to the property, and that she is being released with no further action
+            - 22:15 & 22:16, calls to 03330 900 903 
+                - this is potentially the emergency repairs number for Leaders estate agents, about the damaged door
+            - 22:43, call to 01273 470101 (non emergency line for the police) 
+                - likely to enquire about Élodies welfare in custody, and what to do about the damaged door
+            - On the next day, 00:25, call to 01273 470101 (non emergency line for the police) 
+                - likely to enquire about Élodies welfare in custody, and what to do about the damaged door
+
+    - RE NC5; EXIFDATA RAW.txt, EXIFDATA ANNOTATED.txt:
+        - As a programmer, and an audio and video engineer, I investigated the EXIF DATA for the Defendants submitted evidence. 
+        - The data shows unequivocally that the evidence for NC5 (‘NC5 1.mov’ and ‘NC5  2.mov’) has been edited post CCTV feed. Likely on an apple device;
+            - They have their audio channels completely removed, not just muted but disappeared. 
+            - The date that the video was created is ’19/06/2025’ which directly contradicts the hardcoded timestamps of ’19/01/2025’. (other videos show correct creation date)
+            - It has an odd, seemingly cropped resolution often found on mobile devices, and uses different settings to other videos that appear to be from the same angle.
+            - This, in my professional opinion, shows clear tampering of evidence.
+
+    - PTCCTVDisclosure.pdf:
+        - The created timestamp of ’19/06/2025’ also contradicts their disclosure ‘all footage is stored for 3 months then automatically deleted’.
+
+    - 1.mp4, 2.mp4, 3.MOV, 3b.MOV, 4.MOV, 5.MOV, 6.MOV, elophone1.mp4, elophone2.mp4:
+        - Documented video evidence of the entire incident, including;
+            - Me explaining in explicit detail both of our disabilities and needs, that we were safe and well, and throwing the key out.
+            - Documenting police smashing the door with the red metal barricade device, without training.
+            - Documenting our extreme distress as this was occurring, including Élodie becoming almost entirely non-verbal.
+
+    - Outcome Letter for Charis.pdf:
+        - Police directly state that they responded inappropriately to my seizure:
+            - “The service provided by the police was not acceptable. I have identified that officer PC Salter CS044 has made comments to you and in relation to your seizure which on assessment by Sgt Young and myself we have been in agreement that these comments towards you were inappropriate and unnecessary. “
+            - “We apologise that you have been subjected to this unacceptable behaviour from an officer as this falls below the standard expected from them. Whilst police officers are trained to an enhanced medical level, we are not medical professionals and should not make comment on whether a seizure is genuine.”
+            - “PC Salter has been spoken to by Sgt Young regarding their comments to you and they have accepted this fell below his normal professional and behavioural standards. Learning from reflection has been provided to the officer.”
+
+- My Position: 
+    - The Police do not break down the door, but damage it whilst we are stating very clearly out of the window that we are autistic, safe, and do not require police intervention.
+    - The police eventually call for a squad, threatening to call what I heard as the ‘fire and rescue service’ to take off the window, which turned out to be a firearms squad. This wasn’t properly disclosed to me, and they arrive just after we give the original police officers keys to enter the property.
+    - This was a severe incident of police misconduct
+    - My inability to answer was due to a meltdown, and in order to protect myself from the ongoing campaign of police misconduct.
+    - My partner was wrongfully arrested (later released without charge) after police officers physically and verbally abused her (bruising, excessive force, xenophobic comments, refusing solicitor), made inappropriate comments about my seizure being "fake," and forcibly entered my home. 
+    - This was a profoundly traumatic event, directly caused by the police's failure to understand my disability, and their discriminatory actions. 
+    - The damage to my door was a direct result of their actions, especially EB437 Louis Hiscock who tried to break down the door without the correct training or authorisation to do so.
+
+
+—
+NOTE: THE SECTION 8 NOTICE WAS SERVED ON THE 29TH OF JANUARY, RENDERING EVERY INCIDENT AFTER THIS POINT A LITTLE MOOT.
+
+—
+7. 05/02/25 - police called by Defendant, however again refused to open door so police broke door down again to gain entry.
+
+- Relevant Documents:
+    - Phone Logs:
+        - screenshot from old phone, appear to be no calls on that day
+    - Door Images - 3rd Feb:
+        - Details my very temporary duct tape fixing of the door
+
+- My Position: 
+    - I do not remember this incident happening on the 5th of February. I believe it happened on the 2nd or 3rd.
+    - I did not make any calls to the police during this period of time.
+    - I do remember fixing the door with duct tape and white acrylic paint, in a desperate attempt to not affect the Claimants business, on the night of the 3rd February.
+
+
+—
+8. 10/02/25 - Police called by tenant but refused to answer door, the Claimant’s business site blocked for over an hour. The door was broken down beyond repair this time, photo evidence of damage to door in enclosed hereto. (Exhibit NC6). Claimant hired a carpenter to temporarily repair the door, invoice enclosed hereto. (Exhibit NC7).
+
+- Relevant Documents:
+    - Phone Logs:
+        - screenshot from old phone, 16:27, call 0808 2000 247 
+            - (National Domestic Abuse Helpline, so many police officers kept telling me I was a domestic violence victim that I just felt the need to check if they really thought that I was - can this be private please and not part of the defence?)
+    - NC7:
+        - Their carpenter invoice is dated for 17th February.
+    - NC6:
+        - This has no proof of date, so I am unsure when it is from, but it could plausibly be from the 10th.
+
+- My Position: 
+    - I do not remember this incident. I believe it may be attributed to the wrong date.
+
+
+—
+9. 13/02/25 - Ambulance called by Defendant and refused to answer the door. (Exhibit NC8).
+
+- Relevant Documents:
+    - NC8:
+        - Contrary to their statement that I refused to answer the door, I can be seen leaving calmly with ambulance workers in this video.
+    - Phone Logs:
+        - screenshot from old phone, appear to be no calls on that day
+
+- My Position: 
+    - I do not remember this incident. I believe it may be attributed to the wrong date, and matches the 24/03/2025 incident potentially.
+
+
+—
+10. 25/02/25 – The Defendant attack the Claimant’s Personal Facebook, evidence enclosed. (Exhibit NC9).
+
+- Related Documents:
+    - NC9: “THIS is the result of you kicking people out of a flat for having disabilities, and rinsing them for thousands of pounds? i guess im not surprised... it's just the way landlords work.”
+
+- My Position: 
+    - This refers to my comments on Mr Paul Roberts public facebook account, who is stated as my Landlord on my tenancy agreement.
+    - This specific comment is on a picture of him standing next to an expensive yacht. I express my distress and mention the discrimination I was facing from the landlord, directly relating it to my previous experiences with landlords doing the same thing. I apologise for any upset caused, but feel that it was fairly polite considering the topic.
+    - This was a direct and desperate act of protest and public information-sharing, after repeated attempts to communicate and resolve issues directly with the Claimant and Leaders were ignored, and my basic human rights and safety were being violated. 
+    - This is not "attacking" their Facebook; it's exercising my right to free expression about a matter of public concern (disability discrimination).
+    - When I noticed I had been blocked, no further incidents of this behaviour occurred as I respected Mr. Paul Roberts, and any related employees, right to privacy.
+
+
+—
+11. 24/03/25 - Ambulance called and blocked business site for an hour.
+
+- Relevant Documents:
+    - charis male - ambulance crew.pdf:
+        - Logs from the ambulance crew who took me to hospital:
+            - “Referred to SDEC for vomiting to rule out GI bleed Vomiting started on Saturday, persisted over the weekend. 1 episode of coffee ground vomit, no melena. Usually has ondansetron and buccal prochlorperazine at home. Returned from trip to France recently which was stressful and likely triggered vomiting.”
+    - Phone Logs:
+        - screenshot from old phone; 
+            - 11:34, call 999 
+                - due to seeing coffee ground type blood in my vomit after 4 days of Cyclical Vomiting flare up caused by the intense stress of living here.
+            - 12:17, miss a call from 03001231499 (Ambulance Service)
+            - 12:51, incoming call from 03001231499 (Ambulance Service)
+            - 14:43, miss a call from 03001231499 (Ambulance Service)
+            - 14:14, incoming call from 03001231499 (Ambulance Service)
+            - 15:47, miss a call from 03001231499 (Ambulance Service)
+            - 21:08, incoming call from from 07701407032 (a delivery driver)
+                - because we were exhausted from the horrible day and needed food!
+
+- My Position: 
+    - This was for a legitimate medical emergency, where I had a 4 day flare up of my Cyclical Vomiting Syndrome culminating in me vomiting coffee granule blood - an incredibly bad sign for anybody who knows about vomiting.
+    - I was admitted to hospital, treated on a drip for a number of hours, and sent home with a new medication for these incidents.
+    - The Claimant cannot claim "nuisance" from emergency services responding to a medical need, especially given their repeated calls to police for "welfare checks" themselves.
+
+
+—
+12. 02/04/25 - Police called by Defendant and refused to open door. Defendant’s partner hid 100 yards up the road from the police then returned a few hours later.
+
+- Relevant Documents:
+    - Phone Logs:
+        - screenshots from old phone; 
+            - 08:38: call 111 
+                - Élodie was having suicidal thoughts and felt incredibly sick to her stomach
+            - 08:51: miss a call from 03001231499 (Ambulance Service)
+            - 08:51: 08:52, 08:52, 08:54, take a series of short calls from 03001231499 (Ambulance Service)
+            - 08:57: call 03308084407 (HMCTS Service Centre) 
+                - impulsively due to the stress of everything, I mention that we are suicidal and they overreact as they are trained to do
+            - 09:09, 09:10, 09:13, 09:16, 09:18: take a series of short calls from 03308084407 (HMCTS Service Centre) 
+                - these are likely to check if I am ok, and eventually tell me they called the ambulance
+            - 09:25: call 999 
+                - i think this is me trying to cancel an ambulance sent by HMCTS Service Centre
+            - 09:40: appear to receive a call from 03308084407 (HMCTS Service Centre) 
+                - likely to check if I am ok
+            - 10:00: i appear to try and fail to call Élodies mobile
+            - 10:01, 10:03: take two short calls from 03001231499 (Ambulance Service)
+            - 10:05: incoming call from 07536984943 - [potentially a police officer]
+            - 10:41: incoming call from No Caller ID - [potentially a police officer]
+            - 10:46: incoming call from 07536984943 - [potentially a police officer]
+            - 10:47: incoming call from No Caller ID - [potentially a police officer]
+            - 11:00: incoming call from No Caller ID - [potentially a police officer]
+
+- My Position: 
+    - My inability to answer was due to a disability-related shutdown, and out of self protection after prior incidents of police attendance. I had not been informed by my criminal defence lawyer that I had a court date on that day, and I panicked when I saw on an email that a warrant for my arrest had been put out due to my non-attendance. I had not requested police attendance, and did not want it. When I tried to explain this calmly out of my window, it wasn’t believed, and I was replied with “I don’t believe you” when mentioning the broken door or my autism. 
+    - I believe these police officers left without ever entering the property, but I do not fully remember. Élodie believes the same, or that perhaps she went downstairs and spoke with them at the door and they left.
+    - My partner did not "hide”, she went to hospital.
+    - Élodie attempted to attend A&E on 2nd April at approximately 11:45 but came back
+
+
+—
+13. 11/05/25 – The Defendant is heard shouting at partner. (Exhibit NC10).
+
+- Relevant Documents:
+    - NC10: 
+        - This video ‘evidence’ shows somebody from the co-op coming specifically into the car forecourt to shout, at us, “ENOUGH!” and then “I’m calling the police!”. 
+        - I can be heard crying “no, no! pleeeease!” through the window in response, as I really really didn’t want the police again just for having a meltdown.
+        - This is really just more proof that we are being systematically discriminated against for existing as autistic people.
+
+- My Position: 
+    - This refers to a severe autistic meltdown that occurred due to overwhelming stress and my conditions.  My "shouting" was an involuntary manifestation of my disability, triggered largely by the fact that people keep walking up to my window to shout at me, or calling the police on me, or just evicting me etc.
+    - The Claimant's recording of this constitutes illegal surveillance and a severe breach of privacy, especially as audio was captured from inside my flat.
+
+
+—
+14. 20/05/25 – Defendant appears to be wailing whilst departing the property on foot. (Exhibit NC11). A member of the public who works at a Coop opposite the property and Claimant’s business sent an email to the Claimant on the 22 May 2025. The email informed the Claimant that she was able to hear very loud screaming and shouting ‘help me’ for 5 minutes, this was reported to the police. The full email is enclosed hereto. (Exhibit NC12).
+
+- Relevant Documents:
+    - NC11:
+        - First and foremost, the person captured on video leaving the property is not me. It is Élodie, leaving the house at my request, as I am having a severe meltdown which can be heard inside of my house from their undisclosed CCTV microphone.
+    - NC12:
+        - The Claimant's reliance on a third-party report of a medical crisis as "nuisance" is discriminatory, especially considering the contents of said third-party report.
+
+- My Position: 
+    - RE; NC11:
+        - This was a meltdown and, again, an eventual seizure. This was triggered by the profound stress caused by living in this property under surveillance. 
+        - I was in profound distress and echolalically vocalising - a common symptom of both autism and tic disorders. I find it quite offensive that this is described as "wailing" in an official document, when it was clearly a medical incident. 
+        - The recording of this by their surveillance system further aggravates privacy claims, as they could hear me having a medical issue within my own property.
+    - RE; NC12:
+        - Lois states that she/colleagues called the police due not to the meltdown or perceived wailing, but actually because of Élodie’s explanation of the fact that I was having an autistic meltdown seeming “creepy and weird” to her - which is clearly discriminatory. 
+
+
+—
+15. 27/05/25 – Police and ambulance called to property. (Exhibit NC13).
+THIS MAY NOT BE CORRECT I NEED TO DOUBLE  CHECK IT?!??!?!!?!??
+
+- Relevant Documents:
+    - Phone Logs:
+        - screenshot from old phone; 
+            - 19:00, Failed Call To Élodie 
+                - I was worried about her as she had been out for a long time and it was raining and getting dark
+            - 20:02, call to 999 [very short call, likely signal dropped out]
+            - 20:02, call to 999 [very short call, likely signal dropped out]
+            - 20:03, call to 999 
+                - to tell them about my worries for Élodie considering her past episodes of suicidality
+            - 20:55, call to 999 
+                - either to tell them Élodie was safe home now, or to check up on what was happening. I cannot remember precisely.
+
+- My Position: 
+    - This was for a legitimate medical emergency as Élodie had had an episode of her Major Depression and walked into the woods and sat in the rain for a long time, I called 999 as I was incredibly worried for her welfare. This episode was clearly bought on due to the extreme stress of living here, under constant surveillance and bad intentions.
+    - This further demonstrates the pattern of emergency services attendance being for medical needs, not "nuisance."
+
+
+—
+16. 19/07/25 – Forced her way into the Claimant’s car showroom and refused to leave
+
+- Related Documents:
+    - IMG_6651.mov, IMG_6652.mov, IMG_6653.mov, & PXL_20250719_152911956.mp4
+        - show the false accusations made to the police, and the fact that I very clearly did not force my way into the showroom or refuse to leave.
+    - transcript.txt
+
+- My Position: 
+    - This is a gross misrepresentation. As the video evidence and transcript confirm, I entered the showroom (which had open doors, and was not yet closed for business) in a state of extreme distress and terror due to recently received proof of audio surveillance in my bedroom. I was attempting to get immediate clarity and ensure my privacy, referring to Stuart politely as Sir, keeping my physical distance, and not shouting, swearing, or escalating any aggression. When Stuart prevented me from filming into the main office, I did not attempt to enter it, and at this point he accidentally touched me with his stomach and arm. When I politely requested that he didn’t touch me, he proceeded to accuse me of touching him, yelling ‘how dare you!?’ multiple times whilst on the phone to the police, also stating that we were “right in his face” and other false accusations.
+    - I did not "refuse to leave"; I was trying to communicate my profound fear and get them to disable illegal recording. When I was asked if I would leave, I stated “yes” 4 times, whilst being ignored, and this directly led to me experiencing a seizure due to the stress.
+    - The ambulance attended after Stuart called them, and one of them recognised me from a previous medical situation. The ambulance workers stated that I was clearly having a medical episode (mainly extreme concern for my raised heart rate), and they recommended that I spoke to the police about the CCTV as they were extremely concerned. My seizure was an involuntary reaction to a severe privacy invasion, not a refusal to leave a building, and the ambulance crew advocated for me in getting me out of the building safely.
+    - Stuart Roberts's actions during this incident (evading questions, lying, fabricating accusations of me touching him, and giving false statements to the police) are fully documented.
+    - It is interesting that Stuart states that he doesn’t know who I am, and doesn’t know what disabilities I might have, considering this happened after our detailed conversation about these things on facebook.
+    - The police stated on the day that neither party had committed a crime, and left.
+
+
+—
+17. In addition to the events outlined above and those which will be more fully particularised and evidenced by witness statements in due course, the Defendant spent 2 days playing very loud music from a speaker facing out of the property whilst talking through an amplified PA system. In doing so, the Defendant was heard telling the Claimant’s customers to go elsewhere where cars are cheaper.
+
+- Related Documents:
+    - ROLAND_CUBE15X_ENG.pdf:
+        - manual for the low powered guitar amp
+    - IMG_3603.png, IMG_3604.png, IMG_3605.png (from my bed), IMG_3612.png (from directly on top of the amp, hence showing unrealistically loud):
+        - decibel meter readings
+    - IMG_3611.mov:
+        - video of me going downstairs to check the door, showing that the volume is not dangerously loud as u can hear me breathing and touching the door handle over it.
+    - EOP-5821-25-4700-3168 (informingPolice.pdf):
+        - documentation of me informing the police about the protest, they did not respond, in line with their policy of recognising the public’s right to free speech and peaceful protest.
+    - StuartRequestsPublicCallPolice.png:
+        - Stuarts comments online requesting that members of the public call the police on me, showing more intent to misuse the emergency line against me.
+            - “Totally agree Ella, the police have been informed about the situation..it's very antisocial...a call to 101 may help in this instance”
+    - StuartStatesFamilyRunBusiness.png:
+        - Stuart confirms that the company is family run, and that’s why he joined it, further suggesting (alongside their shared surname) that he is a family member of the Claimant.
+            - “I don't usually feel the need to comment on public forums but feel very strongly about this post and your previous post regarding CMC. I was attracted to work at CMC due to its lovely village location and excellent business reputation and had not been disappointed with my decision.it is a lovely family run business with nice people and a great working environment. I was somewhat bemused by what I read in your posts the "2 sides to every story" has never been more true. It is not my place to comment on behalf of the business neither do I intend to share publicly full details of the constant and significant disruption that I have experienced at work since your tenancy. Your actions have had a significant impact on my mental wellbeing as a person who now dreads coming in to work and financially due to your intent on harming the reputation of CMC which has cost me a number of lost sales. ( posting an irrelevant 1 star Google review and causing significant disruption not just the noise heard by all in the last few days.) You and I both know the full truth of what has presided and I have seen first hand on many many occasions what has been going on over the last 6/7 months. Your issues as a tenant are with your landlord and should not impact on my ability to earn a living working and enjoy coming to work at CMC. I feel sorry for all the residents who have been affected by your actions particularly of late causing disruption to their lives, this action feels more than unfair and unjust. There are proper and correct channels to mediate and resolve issues, to seek out and receive support...fb is not the place.”
+    - ResponseToStuart1.png, ResponseToStuart2.png, & ResponseToStuart3.png:
+        - I detail, again, what my disabilities are and why I am doing this. He states that he is sorry that I am disabled. 
+        - Stuart then states that he is not speaking on behalf of the company, but immediately goes on to state that I am maliciously tarnishing the good name of a company by being disabled, discriminated against, and loud about it. Hence speaking on behalf of the company.
+            - “On a personal level I am very sorry to hear of the daily challenges that you have shared on this post. I truly hope that you can get the help and support that you need and know first hand how hard it can be to get the right assistance in this area. I replied as an individual not on behalf of CMC so can not offer any advise on their behalf, I can only give my personal perspective of what I have witnessed on a daily basis as a concerned human being. However, I still fail to understand the necessity to tarnish the good business name of my employer and cause disruption to your neighbours...it appears antagonistic. As before, fb is probably not the best platform for these discussions and I truly hope you are able to find the help that you need.”
+
+- My Position:
+    - I confirm I played 80s music and kpop through a children’s Roland Guitar Amp, which on the second day I attached an SM58 microphone to as a response to the three of them standing outside filming me on a mobile phone (this evidence alone should be proof that I was using a low powered amp as stated).
+    - The amplifier used during the incident in question was a Roland Cube 15X: a 15-watt personal guitar practice amp, marketed to beginner musicians and teenagers. 
+    - Labelling this as a ‘PA system’ misrepresents both its function and intended use. It is not a PA system. It has no full-range speaker, and is incapable of clearly projecting voice audio over any significant distance. It is specifically marketed with functions designed to be quieter to avoid annoying neighbours.
+    - As a sound engineer, I am passionate about preventing hearing damage, so I monitored this protest using a decibel meter and ensured it remained within safe limits for both myself and others.
+    - This was a direct act of protest against the Claimant's ongoing harassment, refusal to address my concerns (including illegal surveillance and property disrepair), and their attempts to illegally evict me. It was a last ditch attempt to avoid court, and avoid having to detail all of the illegal things they had been doing, saving us both a lot of time and money.
+    - As soon as I noticed members of the public upset by this online, I apologised profusely and stopped. 
+    - Stuart continued by requesting that members of the public called the police on me, something he knew would be used to get me evicted. 
+    - There are also comments from their witnesses Helen and Lois, showing that they are hostile witnesses.
+    - It was a visible, non-violent attempt to draw attention to their abusive practices after all other attempts at communication were ignored. Any comments made were part of this protest and were factual (e.g., that i was being evicted for needing ambulances, that CMC needed money to help them evict me, that they were sadly losing out on sales due to ambulance visits, and mentioning that people should always double check prices online.) There were no customers present during any time I used the microphone.
+    - This is not "anti-social behaviour" but a protected act of non-violent protest and self-expression in response to harassment.

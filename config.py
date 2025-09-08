@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM CONFIG FILE // config.py
-# v1.1
+# v80.7
 
 # === Imports ===
 import datetime as CONFIGDATE
@@ -27,10 +27,10 @@ if hasattr(torch, "set_default_device") and modelDevice.type != "mps":
 # modelDevice = torch.device("cpu")  # Force CPU (optional)
 
 # === Debug toggle for call tracing ===
-WHOCALLED_DEBUG = False
+# UNUSED: WHOCALLED_DEBUG = False
 
 def whocalled(func):
-    if WHOCALLED_DEBUG:
+# UNUSED:     if WHOCALLED_DEBUG:
         def inner(*args, **kwargs):
             caller_stack = [frame[0].f_code.co_qualname for frame in inspect.stack()]
             print(f"Calling {func.__qualname__} from: {', '.join(caller_stack)}")

@@ -1,6 +1,6 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# v1.1
+# v32.7
 
 from rich.traceback import install
 #from torch.profiler import profile, record_function, ProfilerActivity
