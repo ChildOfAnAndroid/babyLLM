@@ -334,18 +334,45 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 self.bot.numTokensPerStep = self.bot.chatWindowMAX
 
                 print(f"[_GENERATE_RESPONSE_BLOCKING] Model loaded, window size: {self.bot.numTokensPerStep}")
+                recent_tokens = []  # Keep track of recent tokens for display
                 for i in range(numTokensToGen):
-                    if i % 10 == 0:  # Progress update every 10 tokens
-                        print(f"[_GENERATE_RESPONSE_BLOCKING] Generated {i}/{numTokensToGen} tokens...")
-                    
                     inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
                     inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
                     logits = self.bot.babyLLM.forward(inputTensor)
+                    
+                    # Check for NaN/Inf in logits - CRITICAL SAFETY CHECK!
+                    if torch.isnan(logits).any() or torch.isinf(logits).any():
+                        print(f"[_GENERATE_RESPONSE_BLOCKING] ⚠️  NaN/Inf detected at token {i}! Stopping generation to prevent model corruption.")
+                        print(f"[_GENERATE_RESPONSE_BLOCKING] Generated {i} tokens before numerical instability occurred.")
+                        # Return simple fallback - let user-facing code handle it gracefully
+                        return "..."
+                    
                     totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
                     nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training=True, _totAvgAbsDelta=totAvgAbsDelta)
                     nextTokenID = nextTokenIDTensor.item()
+                    
+                    # Additional safety check on the token ID
+                    if nextTokenID < 0 or nextTokenID >= len(self.bot.librarian.indexToToken):
+                        print(f"[_GENERATE_RESPONSE_BLOCKING] ⚠️  Invalid token ID {nextTokenID} at position {i}! Stopping generation.")
+                        # Return simple fallback
+                        return "..."
+                    
                     genSeqIDs.append(nextTokenID)
                     responseSeqId.append(nextTokenID)
+                    
+                    # Decode the new token and add to recent tokens list
+                    new_token = self.bot.librarian.decodeIDs([nextTokenID]).replace("Ġ", " ")
+                    recent_tokens.append(new_token)
+                    
+                    if i % 10 == 9:  # Show every 10 tokens (when i is 9, 19, 29, etc.)
+                        recent_text = ''.join(recent_tokens[-10:])  # Last 10 tokens
+                        print(f"[_GENERATE_RESPONSE_BLOCKING] Generated {i+1}/{numTokensToGen} tokens: '{recent_text}'")
+                    
+                # Final update to show the last batch if it wasn't exactly divisible by 10
+                if numTokensToGen % 10 != 0:
+                    remaining = numTokensToGen % 10
+                    final_text = ''.join(recent_tokens[-remaining:])
+                    print(f"[_GENERATE_RESPONSE_BLOCKING] Final: Generated {numTokensToGen}/{numTokensToGen} tokens: '{final_text}'")
 
             print(f"[_GENERATE_RESPONSE_BLOCKING] Token generation complete, decoding {len(responseSeqId)} tokens...")
             babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
@@ -2111,13 +2138,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 promptTokenStrings = self.bot.librarian.tokenizeText(promptCleaned)
                 promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
 
-                base_length = len(ctx.message.content)
+                # Extract the actual user input (after "!babyllm ") for length calculation
+                user_input = ctx.message.content
+                if user_input.lower().startswith("!babyllm "):
+                    user_input = user_input[9:]  # Remove "!babyllm " prefix
+                elif user_input.lower().startswith("!bby "):
+                    user_input = user_input[5:]   # Remove "!bby " prefix
+                elif user_input.lower().startswith("!b "):
+                    user_input = user_input[3:]   # Remove "!b " prefix
+                
+                base_length = min(len(user_input), 100)  # Cap base length to prevent massive generations
                 edge = base_length * (0.1 * self.bot.random)
                 edge2 = base_length * (1.9 * self.bot.random2)
                 edgeint = abs(int((edge + edge2) * 0.5))
                 random_offset = random.randint(-edgeint, edgeint)
                 numTokensToGen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.45)
-                numTokensToGen = max(5, min(numTokensToGen, 800))
+                numTokensToGen = max(5, min(numTokensToGen, 100))  # Also reduce the max cap from 800 to 100
 
                 # --- running slow AI code in executor ---
                 babyllm_text = await self._generate_response_async(promptTokenIDs, numTokensToGen)
