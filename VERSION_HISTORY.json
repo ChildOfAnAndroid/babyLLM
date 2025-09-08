@@ -1,102 +1,4 @@
 {
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/BBYBOT/COMMANDS/bby_commands.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/BBYBOT/DISCORD/bby_discord.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/BBYBOT/TWITCH/bby_twitch.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/BBYBOT/UTILS/bby_book.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/BBYBOT/UTILS/bby_users.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/BBYBOT/UTILS/bby_utils.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/body/archive/bbySprite.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/infer.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/talkToYourself.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/tmp.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/upgradeVocabStage1.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "ARCHIVE_OLD_CODE/old_tools/archive_tools/upgradeVocabStage3.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "CONFIG_trainingData.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/letters.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
   "SHKAIRA/notebook/notebook/archive/languageAndLiterature.py": {
     "current_day": "2025-09-08",
     "days_edited": [
@@ -118,54 +20,12 @@
     ],
     "edits_today": 2
   },
-  "SHKAIRA/notebook/notebook/tools/archive/bbbbbb.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/beepy.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/bhgvchfhygv.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/clean_text.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/fix_model.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/geepyrigging.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
   "SHKAIRA/notebook/notebook/tools/archive/geepyversionofshkairamixtral.py": {
     "current_day": "2025-09-08",
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
+    "edits_today": 1
   },
   "SHKAIRA/notebook/notebook/tools/archive/gyyygg.py": {
     "current_day": "2025-09-08",
@@ -193,13 +53,6 @@
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/modelRefit.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
     "edits_today": 1
   },
   "SHKAIRA/notebook/notebook/tools/archive/modelRefit2.py": {
@@ -214,23 +67,16 @@
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
+    "edits_today": 1
   },
   "SHKAIRA/notebook/notebook/tools/archive/moregeepyrigging.py": {
     "current_day": "2025-09-08",
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
+    "edits_today": 1
   },
   "SHKAIRA/notebook/notebook/tools/archive/multiWindowLayer.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 2
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/neuron.py": {
     "current_day": "2025-09-08",
     "days_edited": [
       "2025-09-08"
@@ -242,7 +88,7 @@
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
+    "edits_today": 1
   },
   "SHKAIRA/notebook/notebook/tools/archive/shWHYra.py": {
     "current_day": "2025-09-08",
@@ -272,27 +118,6 @@
     ],
     "edits_today": 2
   },
-  "SHKAIRA/notebook/notebook/tools/archive/tinyAttentionLayer.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/trainingGenerator.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/notebook/tools/archive/trainingHUD.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
   "SHKAIRA/notebook/notebook/tools/archive/trainingHelpers.py": {
     "current_day": "2025-09-08",
     "days_edited": [
@@ -305,7 +130,7 @@
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
+    "edits_today": 1
   },
   "SHKAIRA/notebook/notebook/tools/archive/vocabrewriteattempt.py": {
     "current_day": "2025-09-08",
@@ -313,20 +138,6 @@
       "2025-09-08"
     ],
     "edits_today": 2
-  },
-  "SHKAIRA/notebook/tools/addTotalSteps.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/notebook/tools/genBoi.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
   },
   "SHKAIRA/soul/archive/renameLayersTool.py": {
     "current_day": "2025-09-08",
@@ -341,188 +152,6 @@
       "2025-09-08"
     ],
     "edits_today": 2
-  },
-  "SHKAIRA/statistics/LOGS/training/archive/brainAnalysis.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/statistics/LOGS/training/archive/logEmbedToToken.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/statistics/LOGS/training/archive/logModel.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/vocabCache/upgradeVocabStage2.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "SHKAIRA/vocabCache/vocabDict.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "auto_version_bump.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "babyLLM.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "brain/LAYERS/attention.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "brain/LAYERS/embed.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "brain/LAYERS/interneuronNetwork.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "brain/LAYERS/logits.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "brain/LAYERS/memory.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "clean_version_bump.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "config.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "helpers.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/babyBot.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/babyBot_discord.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/command_utils.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/__init__.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/autonomy.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/bbyLocal.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/bot.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/cog.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/context.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/shoutouts.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "phone/discord_bot/utils.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
   },
   "school/staffroom/HE_IS_SCRIBE.py": {
     "current_day": "2025-09-08",
@@ -557,21 +186,21 @@
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 3
+    "edits_today": 1
   },
   "school/staffroom/calligraphist.py": {
     "current_day": "2025-09-08",
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
+    "edits_today": 1
   },
   "school/staffroom/counsellor.py": {
     "current_day": "2025-09-08",
     "days_edited": [
       "2025-09-08"
     ],
-    "edits_today": 2
+    "edits_today": 1
   },
   "school/staffroom/librarian.py": {
     "current_day": "2025-09-08",
@@ -593,54 +222,5 @@
       "2025-09-08"
     ],
     "edits_today": 2
-  },
-  "secret.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "test_connectivity.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "test_decay_fix.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "textCleaningTool.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "tools/header_version.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "wakeup.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
-  },
-  "wakeupUtils.py": {
-    "current_day": "2025-09-08",
-    "days_edited": [
-      "2025-09-08"
-    ],
-    "edits_today": 1
   }
 }
