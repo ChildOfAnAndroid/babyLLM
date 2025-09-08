@@ -1,9 +1,18 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM 'rawDataFilepaths' // CONFIG_trainingData.py
+# v1.1
+
+# --- imports ---
 import os
 import re
 from datetime import datetime, timedelta
 import random
+from typing import List, Tuple
 
-def add_recent_log_files(base_folder, prefix, dtype, weight, days_back=30):
+
+# --- helpers ---
+def add_recent_log_files(base_folder: str, prefix: str, dtype: str, weight: float, days_back: int = 30) -> None:
     if not os.path.exists(base_folder):
         print(f"[WARN] Path not found: {base_folder}")
         return
@@ -12,7 +21,7 @@ def add_recent_log_files(base_folder, prefix, dtype, weight, days_back=30):
     today = datetime.today()
     cutoff = today - timedelta(days=days_back)
 
-    matched_files = []
+    matched_files: List[Tuple[datetime, str]] = []
     for fname in os.listdir(base_folder):
         match = log_pattern.match(fname)
         if match:
@@ -30,7 +39,7 @@ def add_recent_log_files(base_folder, prefix, dtype, weight, days_back=30):
         print(f"[AUTO-ADD] {dtype}: {full_path} @ {weight} (from {file_date.date()})")
         rawDataFilepaths.append((dtype, full_path, weight))
 
-"""--- TRAINING CONFIG ---"""
+# --- TRAINING CONFIG ---
 trainingDataSliceSize_min = 10000
 trainingDataSliceSize_max = 100000
 
@@ -52,7 +61,7 @@ data2012 = True
 data2011 = True
 data2010 = True
 
-# Build year list
+# build year list
 all_years = list(range(2009, 2026))
 CTD_enabled_years = [y for y in all_years if globals().get(f"data{y}", False)]
 
@@ -61,7 +70,7 @@ shuffle = True
 limit = True
 fileLimit = 10
 
-# chat messages
+# --- chat messages ---
 discord_DATA = True
 discord_DATANum = 0.5
 
@@ -74,14 +83,14 @@ gchatNum = 0.1
 chatgpt = True
 chatgptNum = 0.1
 
-# live messages
+# --- live messages ---
 twitch = True
 twitchNum = 0.1
 
 youtube_live = True
 youtube_liveNum = 0.1
 
-# posts
+# --- posts ---
 youtube_comments = True
 youtube_commentsNum = 0.1
 
@@ -91,18 +100,18 @@ redditNum = 0.1
 livejournal = True
 livejournalNum = 0.1
 
-# emails
+# --- emails ---
 charis23februles = True
 charis23februlesNum = 0.01
 
-# writing
+# --- writing ---
 eloMouse = True
 eloMouseNum = 0.1
 
 notes = True
 notesNum = 0.1
 
-# babyBot chat logs
+# --- babyBot chat logs ---
 babyBot_twitch = True
 babyBot_twitchNum = 0.0001
 babyBot_twitchDays = 20
@@ -111,20 +120,20 @@ babyBot_discord_DATA = True
 babyBot_discord_DATANum = 0.0001
 babyBot_discord_DATADays = 20
 
-# baby data
+# --- baby data ---
 babyData = True
 babyDataNum = 0.01
 
 tenses = True
 tensesNum = 0.01
 
-# babyLLM code
+# --- babyLLM code ---
 code = False
 codeNum = 0.1
 
-rawDataFilepaths = []
+rawDataFilepaths: List[Tuple[str, str, float]] = []
 
-def add_data(CTD_enabled, CTD_years, CTD_basePath, CTD_filenameTemplate, CTD_dtype, CTD_weight):
+def add_data(CTD_enabled: bool, CTD_years: list[int], CTD_basePath: str, CTD_filenameTemplate: str, CTD_dtype: str, CTD_weight: float) -> None:
     if not CTD_enabled: return
     for CTD_year in CTD_years:
         CTD_path = CTD_filenameTemplate.format(CTD_year = CTD_year)
@@ -300,40 +309,45 @@ if limit:
     if shuffle:
         random.shuffle(rawDataFilepaths)
 
-"""rawDataFilepaths = [     # for textCleaningTool.py
-    #-*- CHARIS STUDIES -*-
-    #--- CHAT HISTORY ---
-    ("text", "school/library/charisStudies/essays.txt", 1),     # essays
-    ("text", "school/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
+# for textCleaningTool.py examples (disabled)
+# rawDataFilepaths = [
+#     #-*- CHARIS STUDIES -*-
+#     #--- CHAT HISTORY ---
+#     ("text", "school/library/charisStudies/essays.txt", 1),     # essays
+#     ("text", "school/library/charisStudies/tindieBaby.txt", 1),     # tindie blog posts
+#
+#     #--- MINI TRAINING ---
+#     ("text", "school/library/miniTraining/miniTraining.txt", 0.1),
+#     ("text", "school/library/miniTraining/miniTraining2.txt", 0.1),
+#
+#     #--- BABYLLM CHAT LOGS ---
+#     ("text", chatLogPath_talkToYourself, 0.0001),
+#     ("text", chatLogPath_trainingLog, 0.0001),
+#     ("text", chatLogPath_infer, 0.0001),
+#     ("text", chatLogPath_talkToYourselfComparisons, 0.0001),
+#     ("text", "scribeSays.txt", 0.0001),
+# ]
+# rawDataFilepaths += [
+#     #--- SIMPLE TRAINING ---
+#     ("text", "school/library/simpleTraining/cursed.txt", 0.01),
+#     ("text", "school/library/simpleTraining/geepyGenerated.txt", 0.01),
+#     ("text", "school/library/simpleTraining/sampleshorterwrittenexamples.txt", 0.01),
+#     ("text", "school/library/simpleTraining/shortestwrittenexamples.txt", 0.01),
+#     ("text", "school/library/simpleTraining/shorterwrittenexamples.txt", 0.01),
+#     ("text", "school/library/simpleTraining/longerwrittenexamples.txt", 0.01),
+#     ("text", "school/library/simpleTraining/lineSortedData.txt", 0.01),
+#     ("text", "school/library/simpleTraining/longestwrittenexamples.txt", 0.01),
+#     ("text", "school/library/simpleTraining/mixedwrittenanddefs.txt", 0.01),
+#     ("text", "school/library/simpleTraining/writtenexamples.txt", 0.01),
+#     ("text", "school/library/simpleTraining/variedWrittenExamples.txt", 0.01),
+#     ("text", "school/library/charisStudies/weirdSentences.txt", 0.01),
+#     ("text", "school/library/charisStudies/weirdMixedStuff.txt", 0.01),
+#     ("text", "school/library/simpleTraining/computingKnowledge.txt", 0.01),
+#     ("text", "school/library/miniTraining/why.txt", 0.001),
+#     ("text", "school/library/miniTraining/why2.txt", 0.001),
+#     ("text", "school/library/miniTraining/why3.txt", 0.001),
+#     ("text", "school/library/miniTraining/why4.txt", 0.001),
+# ]
 
-    #--- MINI TRAINING ---
-    ("text", "school/library/miniTraining/miniTraining.txt", 0.1),     # i am happy! i did it! i know it!
-    ("text", "school/library/miniTraining/miniTraining2.txt", 0.1),     # training: i am happy! i did it! i know it!
-
-    #--- BABYLLM CHAT LOGS ---
-    ("text", chatLogPath_talkToYourself, 0.0001),     #  i answer my own previous chat messages
-    ("text", chatLogPath_trainingLog, 0.0001),     # log: 'what am i learning today?'
-    ("text", chatLogPath_infer, 0.0001),     # log: babyLLM infer.py history!
-    ("text", chatLogPath_talkToYourselfComparisons, 0.0001),     # log: comparing babyllms answers to my answers
-    ("text", "scribeSays.txt", 0.0001),
-
-rawDataFilepaths += [
-    #--- SIMPLE TRAINING ---
-    ("text", "school/library/simpleTraining/cursed.txt", 0.01),     # training but chaotic shuffle
-    ("text", "school/library/simpleTraining/geepyGenerated.txt", 0.01),     # weird fake sentences
-    ("text", "school/library/simpleTraining/sampleshorterwrittenexamples.txt", 0.01),     #  training
-    ("text", "school/library/simpleTraining/shortestwrittenexamples.txt", 0.01),     #  training
-    ("text", "school/library/simpleTraining/shorterwrittenexamples.txt", 0.01),     #  training
-    ("text", "school/library/simpleTraining/longerwrittenexamples.txt", 0.01),     #  training
-    ("text", "school/library/simpleTraining/lineSortedData.txt", 0.01),     #  training
-    ("text", "school/library/simpleTraining/longestwrittenexamples.txt", 0.01),     #  training
-    ("text", "school/library/simpleTraining/mixedwrittenanddefs.txt", 0.01),     # training
-    ("text", "school/library/simpleTraining/writtenexamples.txt", 0.01),     #  training
-    ("text", "school/library/simpleTraining/variedWrittenExamples.txt", 0.01),     #  training
-    ("text", "school/library/charisStudies/weirdSentences.txt", 0.01),
-    ("text", "school/library/charisStudies/weirdMixedStuff.txt", 0.01),
-    ("text", "school/library/simpleTraining/computingKnowledge.txt", 0.01),
-    ("text", "school/library/miniTraining/why.txt", 0.001),
-    ("text", "school/library/miniTraining/why2.txt", 0.001),
-    ("text", "school/library/miniTraining/why3.txt", 0.001),
-    ("text", "school/library/miniTraining/why4.txt", 0.001),]"""
+# exported names
+__all__ = ["rawDataFilepaths"]

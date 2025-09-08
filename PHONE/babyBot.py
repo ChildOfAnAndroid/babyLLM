@@ -1,5 +1,7 @@
-# --- bot.py ---
-# babys on twitch!??!!?
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM TWITCH BOT // phone/babyBot.py
+# v1.1
 
 import torch
 import time

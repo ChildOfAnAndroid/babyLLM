@@ -1,6 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
+# v1.1
 
 import random, os
 import torch
@@ -19,6 +20,7 @@ from brain.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
 from brain.LAYERS.logits import LOGITS
 from brain.LAYERS.memory import MEMORY
 from brain.LAYERS.attention import GATED_MHA
+# Creative modules removed
 #from brain.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
@@ -94,6 +96,8 @@ class BABYLLM(nn.Module):
         self.memory2 = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
         self.pixelPupil = PIXEL(embedDimension, embedDimension, 3, _device=self.device)
+        
+        # Creative modules removed
 
         """LEARNABLE LEARNING PARAMETERS"""
         self.repetitionPenalty = nn.Parameter(torch.tensor(1.0, device = self.device))
@@ -227,6 +231,8 @@ class BABYLLM(nn.Module):
                     # --- RESIDUAL B: Bypass the second Memory Layer ---
                     memory2Output = self.memory2.forward(memory2Input) + memory2Input
                     #self.latestMemGates = self.memory.latestMemoryGates
+                
+                # Creative modules removed; skip creative enhancement block entirely
 
                 if debugPrints: ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
                 logitsBeforePenalty = self.logits.forward(memory2Output)
@@ -348,23 +354,33 @@ class BABYLLM(nn.Module):
             tempSoftClamp = (self.CEloss_used * 0.4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             repetitionPenaltySoftClamp = 0.04 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
             
+            # Creative gate regulation removed
+
             loss += lrSoftClamp # use .detach() to avoid .backward()
             self.lrSoftClamp_used = lrSoftClamp
             loss += tempSoftClamp
             self.tempSoftClamp_used = tempSoftClamp
             loss += repetitionPenaltySoftClamp
             self.repPenSoftClamp_used = repetitionPenaltySoftClamp
+
+            
             self.lastLossBaby = loss.item()
             FINALloss = loss
             debug_print(f"{FINALloss} + loss")
 
             if self.lastSoftSample is not None and not skipAuxLoss:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
-                kl_loss = F.kl_div(self.lastSoftSample.log(), target, reduction = 'batchmean')
+                # Clamp to avoid log(0) producing -inf and destabilising KL
+                eps = 1e-8
+                safe_probs = self.lastSoftSample.clamp(min=eps)
+                kl_loss = F.kl_div(safe_probs.log(), target, reduction = 'batchmean')
                 AUXloss_kl = kl_loss * 0.01
                 self.AUXlossKL_used = AUXloss_kl
                 #AUXloss = auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
-                cosSim = F.cosine_similarity(self.lastSoftSample, target)
+                # Ensure cosine similarity is well-defined (avoid zero-norm vectors)
+                safe_probs_norm = safe_probs / safe_probs.norm(dim=-1, keepdim=True).clamp_min(eps)
+                target_norm = target / target.norm(dim=-1, keepdim=True).clamp_min(eps)
+                cosSim = (safe_probs_norm * target_norm).sum(dim=-1)
                 AUXloss_cos = (1.0 - cosSim.mean())
                 self.AUXlossCos_used = AUXloss_cos
                 AUXloss = AUXloss_cos + AUXloss_kl
@@ -381,15 +397,51 @@ class BABYLLM(nn.Module):
                 debug_print(f"{FINALloss} repLoss ({repLoss}) + final")    
 
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
-                if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss")
+                if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss with creative synesthetic enhancement")
                 debug_print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape}), [-1] is {self.latestTokenEmbed[-1]} ({self.latestTokenEmbed[-1].shape})")
                 embedding = self.latestTokenEmbed[-1]
-                predictedRGB = self.pixelPupil(embedding)
+                
+                # Debug tensor shapes before pixelPupil
+                debug_print(f"[DEBUG] About to pass embedding to pixelPupil: shape={embedding.shape}, dtype={embedding.dtype}")
+                debug_print(f"[DEBUG] pixelPupil.linear1 expects input size: {self.pixelPupil.linear1.in_features}")
+                
+                # Ensure embedding is the right shape - should be [embedDimension] for single token
+                # Fix potential batch dimension issues
+                if len(embedding.shape) == 0:
+                    raise RuntimeError(f"Embedding is a scalar! latestTokenEmbed shape: {self.latestTokenEmbed.shape}")
+                elif len(embedding.shape) == 2:
+                    debug_print(f"[DEBUG] Embedding has 2D shape {embedding.shape}, taking mean across sequence dimension")
+                    embedding = embedding.mean(dim=0)  # Average across sequence if needed
+                elif len(embedding.shape) > 2:
+                    debug_print(f"[DEBUG] Embedding has unexpected shape {embedding.shape}, flattening to expected size...")
+                    embedding = embedding.flatten()
+                    if embedding.size(0) != self.pixelPupil.linear1.in_features:
+                        debug_print(f"[DEBUG] Flattened size {embedding.size(0)} doesn't match expected {self.pixelPupil.linear1.in_features}, truncating/padding")
+                        if embedding.size(0) > self.pixelPupil.linear1.in_features:
+                            embedding = embedding[:self.pixelPupil.linear1.in_features]
+                        else:
+                            padding_size = self.pixelPupil.linear1.in_features - embedding.size(0)
+                            embedding = torch.cat([embedding, torch.zeros(padding_size, device=embedding.device)])
+                
+                # Ensure we have the right final shape
+                if embedding.size(0) != self.pixelPupil.linear1.in_features:
+                    raise RuntimeError(f"Embedding final size {embedding.size(0)} doesn't match pixelPupil input size {self.pixelPupil.linear1.in_features}")
+                
+                # Base pixel prediction
+                base_predicted_rgb = self.pixelPupil(embedding)
+                
+                # Synesthetic enhancement removed; use base prediction
+                predictedRGB = base_predicted_rgb
+                if debugPrints: debug_print("Using base pixel prediction (no synesthesia)")
+                
                 self.predPixel = predictedRGB
                 rgbLoss = F.mse_loss(self.predPixel, self.nextPixelTarget)
-                #self.PIXELloss = rgbLoss * torch.sigmoid(loss - rgbLoss)
-                pixelWeight = rgbLoss / (rgbLoss + loss)
-                self.PIXELloss = max(min((pixelWeight * 1), 1),-1)
+                # Weight pixel loss safely; avoid 0/0 when both rgbLoss and loss are ~0
+                eps = 1e-8
+                pixelWeight = rgbLoss / (rgbLoss + loss + eps)
+                if not torch.isfinite(pixelWeight):
+                    pixelWeight = torch.tensor(0.0, device=self.device)
+                self.PIXELloss = max(min((pixelWeight * 1), 1), -1)
                 if debugPrints: self.print_rgb_block(self.pixel, "prompt")
                 if debugPrints: self.print_rgb_block(predictedRGB, "guess")
                 if debugPrints: self.print_rgb_block(self.nextPixelTarget, "truth")
@@ -426,6 +478,10 @@ class BABYLLM(nn.Module):
                 FINALloss += AUXloss
                 debug_print(f"{FINALloss} aux ({AUXloss}) + final")
             debug_print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
+
+            if not torch.isfinite(FINALloss):
+                print("computeLoss produced non-finite FINALloss; resetting to fallback.")
+                FINALloss = torch.tensor(10.0, device=self.device, requires_grad=True)
 
             return FINALloss
     
@@ -661,37 +717,37 @@ class BABYLLM(nn.Module):
                 self.gumBellend += 1
                 debug_print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
                 base_probs = F.softmax(logits_scaled, dim=-1)
+            # Clamp and renormalize to avoid zeros that cause log(0) downstream
+            eps = 1e-8
+            base_probs = torch.nan_to_num(base_probs, nan=0.0)
+            base_probs = base_probs.clamp(min=eps)
+            base_probs = base_probs / base_probs.sum(dim=-1, keepdim=True)
             
             if _training:
                 self.lastSoftSample = base_probs
 
-            # Creativity
+            # Enhanced Creativity with Reasoned Decision Making
             with torch.no_grad():
-                self.memoryFlux = (1 - F.cosine_similarity(self.memory.FINALmemory, self.memory2.FINALmemory)).item()
+                # Existing creativity metrics
+                eps = 1e-8
+                a = self.memory.FINALmemory
+                b = self.memory2.FINALmemory
+                if a.dim() == 2 and a.size(0) > 1:
+                    a = a.mean(dim=0, keepdim=True)
+                if b.dim() == 2 and b.size(0) > 1:
+                    b = b.mean(dim=0, keepdim=True)
+                denom = (a.norm(dim=-1) * b.norm(dim=-1)).clamp_min(eps)
+                cos_val = (a * b).sum(dim=-1) / denom
+                cos_val = torch.nan_to_num(cos_val, nan=0.0)
+                self.memoryFlux = (1 - cos_val).item()
                 self.cerebralLoad = self.interneuronNetwork.cerebellum.std().item()
                 self.learningStability = _totAvgAbsDelta
                 self.dreamIntensity = (self.memoryFlux * 2.0) + (self.cerebralLoad * 5.0) + (self.learningStability * 1.0)
-
-                distortion_strength = torch.tensor(self.dreamIntensity * 0.02).clamp(0.0, 0.1).item()
-                vocab_size = base_probs.shape[-1]
-                num_to_distort = int(vocab_size * 0.05)
-                if self.device.type == "mps":
-                    # torch.randperm is not implemented on the MPS backend.
-                    # Generate the permutation on CPU and move it to the target device.
-                    dream_indices = torch.randperm(vocab_size, device="cpu")[:num_to_distort].to(self.device)
-                else:
-                    dream_indices = torch.randperm(vocab_size, device=self.device)[:num_to_distort]
-                dream_boost = torch.zeros_like(base_probs)
-                dream_boost.scatter_(1, dream_indices.unsqueeze(0), distortion_strength)
                 
-                augmented_probs = base_probs + dream_boost
-                augmented_probs = augmented_probs / augmented_probs.sum(dim=-1, keepdim=True)
-
-                # Dynamic Top-p
+                # Simplified sampling without creative modules
+                augmented_probs = base_probs
                 base_p = 0.92
-                dream_adjustment = - (self.dreamIntensity * 0.05)
-                top_p = torch.tensor(base_p + dream_adjustment).clamp(min=0.85, max=0.99).item()
-
+                top_p = base_p
                 sorted_probs, sorted_indices = torch.sort(augmented_probs, descending=True)
                 cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
                 sorted_indices_to_remove = cumulative_probs > top_p
@@ -1013,7 +1069,9 @@ class BABYLLM(nn.Module):
                     mostImportantStats.append(key)"""
 
     @whocalled
-    def getBabyStats(self): return self.stats
+    def getBabyStats(self): 
+        # Creative modules removed; return core stats only
+        return dict(self.stats)
     
 class PIXEL(nn.Module):
     def __init__(self, in_features: int, hidden_features: int, out_features: int = 3, *, output_mode: str = "sigmoid", use_layernorm: bool = True, res_scale_init: float = 0.5, _device=modelDevice,):

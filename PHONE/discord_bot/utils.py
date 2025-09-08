@@ -1,3 +1,8 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM // phone/discord_bot/utils.py
+# v1.2
+
 import random
 import re
 import time

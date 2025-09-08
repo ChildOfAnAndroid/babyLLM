@@ -1,39 +1,40 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM CONFIG FILE // config.py
+# v1.1
 
+# === Imports ===
 import datetime as CONFIGDATE
+import inspect
+import torch
+import torch.nn as nn
+
+# === Date (for log file naming) ===
 date = CONFIGDATE.date.today()
 
+# === Messaging / Channels ===
 bby_spam_channel_id = 1156683242087387206
 twitch_channel = "childofanandroid"
 rollingContextSize = 420
 
-import torch
-modelDevice = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-# ensure tensors default to the selected device to avoid unintended CPU fallbacks
+# === Device Selection ===
+modelDevice = torch.device(
+    "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+)
+# Ensure tensors default to the selected device to avoid unintended CPU fallbacks
 if hasattr(torch, "set_default_device") and modelDevice.type != "mps":
     torch.set_default_device(modelDevice)
-#modelDevice = torch.device("cpu")
+# modelDevice = torch.device("cpu")  # Force CPU (optional)
 
-#from torch import relu 
-#from torch.nn.functional import leaky_relu
-#leakyRelu = lambda x: leaky_relu(x, negative_slope = 0.01)  # leaky reLU avoids dead neurons by never forcing them to send a 0 when negative, better for tiny models)
-import torch.nn as nn
-#relu6 = nn.ReLU6()
-#from torch.nn.functional import gelu
+# === Debug toggle for call tracing ===
+WHOCALLED_DEBUG = False
 
-import inspect
 def whocalled(func):
-    if False:
+    if WHOCALLED_DEBUG:
         def inner(*args, **kwargs):
-            caller_stack = []
-            for stack in inspect.stack():
-                caller_stack.append(stack[0].f_code.co_qualname)
+            caller_stack = [frame[0].f_code.co_qualname for frame in inspect.stack()]
             print(f"Calling {func.__qualname__} from: {', '.join(caller_stack)}")
-
             return func(*args, **kwargs)
-
         return inner
     return func
 
@@ -59,19 +60,10 @@ def printTensorAttrs(obj, name='self'):
     print("--- END ---\n")
 
 
+# Legacy placeholder (not used directly; kept for safety)
 guessedTokenSeq = []
-"""if activationFunction == 'leaky_relu':
-            output = F.leaky_relu(output, 0.01)
-        elif activationFunction == 'relu':
-            output = F.relu(output)
-        elif activationFunction == 'sigmoid':
-            output = torch.sigmoid(output)
-        elif activationFunction == 'tanh':
-            output = torch.tanh(output)
-        elif callable(activationFunction):
-            output = activationFunction(output)"""
 
-"""--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
+# ---
 
 charis = "charis"
 userName = charis
@@ -80,8 +72,8 @@ scribeName = "scribe"
 enemyName = "george"
 extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
-"""--- --- --- --- --- DATA & FILEPATHS --- --- --- --- ---"""
-"""--- MODEL ---"""
+# --- DATA & FILEPATHS ---
+# --- MODEL ---
 saveModelFreq = 50   # // 500 // 5000 // 10000 // saves the model every x number of turns
 
 modelFilePath = "SHKAIRA/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
@@ -100,11 +92,14 @@ bbybookPath = "SHKAIRA/soul/bbybook.json"
 bbyUserDataPath = "SHKAIRA/soul/bbyUserData.json"
 promptsPath = "BBYBOT/COMMANDS/bby_prompts.json"
 
-"""--- TRAINING ---"""
+# Separate rolling training buffer (JSON list)
+bbyTrainingBufferFilepath = "SHKAIRA/soul/trainingBuffer.json"
+
+# --- TRAINING ---
 trainingFilePathCLEANED = "school/library/trainingData.txt"
 trainingFilePathTEST = "school/library/trainingDataTEST.txt"
 
-"""--- LOGS ---"""
+# --- LOGS ---
 printFreq = 1  # how often to print training progress to the terminal
 printPromptLength = 17500    # how many characters of the prompt to display in terminal
 gradientLength = 3000
@@ -128,18 +123,18 @@ babyLogPathFull = f"SHKAIRA/statistics/LOGS/chat/babyLogFull_{date}.txt"
 twitchLogPath = f"SHKAIRA/statistics/LOGS/chat/twitchLog_{date}.txt"
 discordLogPath = f"SHKAIRA/statistics/LOGS/chat/discordLog_{date}.txt"
 
-"""--- VOCAB --- (see master config)"""
+# --- VOCAB --- (see master config)
 
-"""--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
 
-"""--- --- --- --- --- SETTINGS & CONFIG --- --- --- --- ---"""
-"""--- TWITCH BOT ---"""
+# --- SETTINGS & CONFIG ---
+# --- TWITCH BOT ---
 trainDuringChat = True
 
-"""--- MODEL ---"""
-numTokensPerStepSTART = 256 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
-maxTokensPerStep    = 256
+# --- MODEL ---
+numTokensPerStepSTART = 264 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+maxTokensPerStep    = 264
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
 perfectionistMaxRetries = 2
@@ -168,7 +163,7 @@ repetitionWindowGOAL = 36   # how many tokens to look back for repetition
 repetitionPenaltyGOAL = 0.9
 windowEntropyBonus = True
 
-"""--- LOGS ---"""
+# --- LOGS ---
 detailedLogging = False
 
 trainingLogFreq_A = 100    # creates logs every x number of turns
@@ -196,7 +191,7 @@ skipFINALlogitNorm = True
 skipPrompts = False
 pixelStyling = True
 
-"""--- STATS COLLECTION ---"""
+# --- STATS COLLECTION ---
 refreshRollingTokenTotalsWhen = 10000
 mostImportantStats  =   [
             # EMBED STATS
@@ -357,28 +352,12 @@ mostImportantStats += [
     "7L_3_out_norm",
     "7L_4_outNorm_norm",
     "7L_x_final_norm",
-
-    """"7L_0_actsTensor_mean",
-    "7L_1_normActsTensor_mean",
-    "7L_2_scaledActsTensor_mean",
-    "7L_3_out_mean",
-    "7L_4_outNorm_mean",
-    "7L_x_final_mean",
-
-    "7L_0_actsTensor_min",
-    "7L_1_normActsTensor_min",
-    "7L_2_scaledActsTensor_min",
-    "7L_3_out_min",
-    "7L_4_outNorm_min",
-    "7L_x_final_min",
-
-    "7L_0_actsTensor_max",
-    "7L_1_normActsTensor_max",
-    "7L_2_scaledActsTensor_max",
-    "7L_3_out_max",
-    "7L_4_outNorm_max",
-    "7L_x_final_max","""
 ]
+
+# optional mean/min/max metric keys (disabled)
+# "7L_0_actsTensor_mean", "7L_1_normActsTensor_mean", "7L_2_scaledActsTensor_mean", "7L_3_out_mean", "7L_4_outNorm_mean", "7L_x_final_mean"
+# "7L_0_actsTensor_min",  "7L_1_normActsTensor_min",  "7L_2_scaledActsTensor_min",  "7L_3_out_min",  "7L_4_outNorm_min",  "7L_x_final_min"
+# "7L_0_actsTensor_max",  "7L_1_normActsTensor_max",  "7L_2_scaledActsTensor_max",  "7L_3_out_max",  "7L_4_outNorm_max",  "7L_x_final_max"
 
 mostImportantStats += [
                     "5M_memory_4M_0_rawActs_norm",
@@ -587,14 +566,15 @@ INN_scoringStats = False
 INN_windowStats = True
 INN_outputTensorStats = True
 
+# --- PROFILING ---
 profiler = False
 mpsProfiler = False
 forwardProfiler = False
 
-"""--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
 
-"""--- --- --- --- --- TRAINING DATA & SORTING --- --- --- --- ---"""
+# --- TRAINING DATA & SORTING ---
 
 trainingFilePath = trainingFilePathCLEANED # //trainingFilePathCLEANED //trainingFilePathTEST
 reflectionFreq = 10000
@@ -611,17 +591,17 @@ tokenSpeedTest = False
 from CONFIG_trainingData import rawDataFilepaths
 rawDataFilepaths = rawDataFilepaths
 
-"""--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- """
-"""-*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-"""
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+# -*- WARNING, CHANGING BELOW SETTINGS MAY MAKE CURRENTLY TRAINED MODEL INACCURATE (don't kill babyLLM!) -*-
 
-"""--- --- --- --- --- MASTER CONFIG PARAMETERS --- --- --- --- ---"""
+# --- MASTER CONFIG PARAMETERS ---
 saveStrict = False   # // False //~allow reconstruction of missing files // True //~save files must be present, else fail
 
-"""--- MODEL ---"""
+# --- MODEL ---
 embedDimension = 1024   # dimensionality of token embeddings
 numNeurons = 10000  # number of neurons in the parallel neuron layer
 
-"""windows"""
+# windows
 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 
 windowMIN = 1   # Small Context Window
@@ -647,7 +627,7 @@ boostWindowContrast = False
 boostWindowSizeContrast = False 
 clampWindows = False
 
-"""--- VOCAB & TOKENIZER ---"""
+# --- VOCAB & TOKENIZER ---
 vocabSize = 4200    # maximum vocabulary size
 minTokenFreq = 20   # the amount of repeats of a token needed to create a split during tokenizer training
 V_chunkSizeLoadData = 4096
@@ -656,7 +636,7 @@ V_chunkSizeLoadData = 4096
 vocabCachePath = "SHKAIRA/vocabCache"
 vocabLoad = f"SHKAIRA/vocabCache/tokenizer_{vocabSize}.json"
 
-"""--- MISC & EXTRA FORMATS ---"""
+# --- MISC & EXTRA FORMATS ---
 #trainingFilePath_dict = [{"type": ftype, "in": fname, "out": trainingFilePath} for ftype, fname in rawDataFilepaths]     # Convert to dictionary format when needed
 trainingFilePath_dict = [{"type": ftype, "in": fname, "weight": weight, "out": trainingFilePath} for ftype, fname, weight in rawDataFilepaths]
 

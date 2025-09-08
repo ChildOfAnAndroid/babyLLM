@@ -1,3 +1,8 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM // phone/discord_bot/shoutouts.py
+# v1.2
+
 SHOUTOUT_PROMPTS = [
     "trust me, you need to follow {name}",
     "should i b2b with {name}? yes, obviously i should b2b with {name}. duh.",

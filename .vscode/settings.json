@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.py": "python"
+    },
+    "emeraldwalk.runonsave": {
+        "commands": [
+            {
+                "match": "\\.py$",
+                "cmd": "python3 clean_version_bump.py --clean-bump --root ."
+            }
+        ]
+    }
+}

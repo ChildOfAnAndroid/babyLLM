@@ -1,6 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MEMORY LAYER // brain/LAYERS/memory.py
+# v1.1
 
 import torch
 import torch.nn as nn
@@ -382,17 +383,4 @@ class MEMORY(nn.Module):
             if attr.endswith("History") or attr.endswith("Hist"):
                 setattr(self, attr, [])
 
-if __name__ == "__main__":
-    from school.staffroom.counsellor import COUNSELLOR
-
-    memory = MEMORY(numNeurons = numNeurons)
-
-    test_counsellor = COUNSELLOR("memory_test", _debug=False, _durations=False)
-    memory = MEMORY(_counsellor=test_counsellor, _numTokensPerStep=1)
-
-    print("--- MEMORY TESTING STARTED ---")
-    print("\n--- MEMORY TESTING COMPLETE ---")
-    dummy_input = torch.zeros(1, numNeurons, device=modelDevice)
-    output = memory.forward(dummy_input)
-    print(f"Output shape: {output.shape}")
-    print("--- MEMORY TESTING COMPLETE ---")
+# __main__ test harness removed (vanity)

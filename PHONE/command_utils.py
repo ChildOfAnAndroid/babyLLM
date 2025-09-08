@@ -1,3 +1,8 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM // phone/command_utils.py
+# v1.1
+
 import re
 
 ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')

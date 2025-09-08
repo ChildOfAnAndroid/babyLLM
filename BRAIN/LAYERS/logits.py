@@ -2,6 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # OUTPUT LAYER FOR LOGIT PREDICTION
 # brain/LAYERS/logits.py
+# v1.1
 
 import torch
 import torch.nn as nn
@@ -242,17 +243,4 @@ class LOGITS(nn.Module):
             if attr.endswith("History") or attr.endswith("Hist"):
                 setattr(self, attr, [])
 
-if __name__ == "__main__":
-    TESTlayerActivations = torch.randn(numNeurons)
-
-    logits = LOGITS(numNeurons = numNeurons, vocabSize = vocabSize)
-    logitOutput = logits.forward(TESTlayerActivations)
-
-    print("--- LOGITS TESTING START ---")
-    print(f"Output Layer created with {logits.vocabSize} vocabulary tokens.")
-    print(f"Weight matrix shape: {logits.weights.shape}")
-    print(f"Bias vector shape: {logits.bias.shape}")
-    print(f"Logits (first 100):")
-    print(logitOutput[:10])
-    print(f"Logits Shape: {logitOutput.shape}")
-    print("--- LOGITS TESTING COMPLETE ---")
+# __main__ test harness removed (vanity)

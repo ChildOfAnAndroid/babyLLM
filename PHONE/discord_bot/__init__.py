@@ -1,3 +1,8 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM // phone/discord_bot/__init__.py
+# v1.2
+
 """bbys on discord!"""
 
 from phone.discord_bot.bot import BABYBOT_DISCORD

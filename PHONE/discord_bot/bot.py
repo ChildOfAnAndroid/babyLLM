@@ -1,3 +1,8 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM // phone/discord_bot/bot.py
+# v1.4
+
 import os
 import json
 import torch
@@ -23,6 +28,7 @@ from helpers import save_json_if_changed
 
 from .context import create_fake_context
 from .utils import escape_markdown, is_similar, killExcessTags, getTimeRant
+from .autonomy import AutonomyPlanner
 
 bby_lounge = 1388782896084422788
 bby_spam = 1156683242087387206
@@ -72,15 +78,16 @@ class BABYBOT_DISCORD(commands.Bot):
         self.current_bestie, self.bestie_score = None, 0.0
         self.inventory = {}
 
-        # --- bbywtf game state ---
-        self.pending_wtf = {}
-        self.word_usage = Counter()
-        self.opt_in_token_usage = Counter()
+        # --- unified lexicon game state ---
+        # Multiple concurrent sessions keyed by the prompt message id.
+        # Session schema:
+        # { 'mode': 'wtf'|'translate', 'channel_id': int, 'message_id': int,
+        #   'created_at': float, 'extra': {...}, optional 'task': asyncio.Task }
+        self.lex_sessions = {}
+        self.word_usage = Counter()            # trending unknowns for auto-wtf
+        self.opt_in_token_usage = Counter()    # opted-in user token usage stats
         self.wtf_threshold = 30
         self.wtf_reacts = ["💡", "😳", "💀", "🤔", "😂", "🙀"]
-
-        # --- bbytranslate game state ---
-        self.translate_game = None
         self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
 
         # --- favourite token tracking ---
@@ -88,6 +95,15 @@ class BABYBOT_DISCORD(commands.Bot):
         self.baby_state_path = os.path.join(SCRIPT_DIR, "babyState.json")
 
         self.buffer = json.load(open(chatBufferFilepath, "r")) if os.path.exists(chatBufferFilepath) else []
+
+        # --- Separate rolling training buffer (JSON file)
+        try:
+            self.training_buffer_path = bbyTrainingBufferFilepath
+        except NameError:
+            self.training_buffer_path = os.path.join(SCRIPT_DIR, "training_buffer.json")
+        self.training_buffer: list[str] = []
+        # Keep 2–4x chat buffer; default ~3x
+        self.training_buffer_size = max(64, int(self.rollingContextSize * 3))
 
         self.user_data_path = bbyUserDataPath
         self.bbyfacts_path = bbybookPath
@@ -119,9 +135,18 @@ class BABYBOT_DISCORD(commands.Bot):
         
         self.lastInteraction = time.time()
         self.idle_task = self.training_worker = None
+        self.random_task = None
         self.web_task = None
         self.training_queue = asyncio.Queue()
         self._load_baby_state()
+        # preload training buffer for early enrichment
+        try:
+            self._load_training_buffer()
+        except Exception:
+            pass
+
+        # lightweight stats-guided autonomy planner for idle periods
+        self.autonomy = AutonomyPlanner(self)
 
     async def setup_bot(self):
         from .cog import babyBot_DISCORD_COG
@@ -292,12 +317,87 @@ class BABYBOT_DISCORD(commands.Bot):
         return True
 
     def _buffer_add(self, text_to_add: str):
+        # Normalize excessive blank lines to avoid training with empty paragraphs
+        try:
+            text_to_add = re.sub(r"\n{2,}", "\n", text_to_add)
+        except Exception:
+            pass
         if not self._is_high_quality(text_to_add): return False
         if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in self.buffer[-30:]): return False
         self.buffer.append(text_to_add)
         if len(self.buffer) > self.rollingContextSize: self.buffer.pop(0)
         print(f"[_BUFFER_ADD] added: \"{text_to_add}\"")
+        # also mirror a cleaned line into the separate training buffer for augmentation
+        try:
+            tb_entry = clean_text(text_to_add.lower().strip())
+            self._training_buffer_add(tb_entry)
+        except Exception:
+            pass
         return True
+
+    def _load_training_buffer(self):
+        try:
+            if os.path.exists(self.training_buffer_path):
+                with open(self.training_buffer_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, list):
+                    self.training_buffer = data[-self.training_buffer_size:]
+                else:
+                    self.training_buffer = []
+            else:
+                self.training_buffer = []
+        except Exception:
+            self.training_buffer = []
+
+    def _save_training_buffer(self):
+        try:
+            dirname = os.path.dirname(self.training_buffer_path)
+            if dirname:
+                os.makedirs(dirname, exist_ok=True)
+            self._save_json(
+                self.training_buffer_path,
+                self.training_buffer[-self.training_buffer_size:],
+                "TRAINING_BUFFER",
+            )
+        except Exception:
+            pass
+
+    def _training_buffer_add(self, text_to_add: str) -> bool:
+        """Append a single cleaned line to the separate training buffer JSON.
+
+        Keeps entries compact, dedups against recent, and persists to disk.
+        Returns True if a line was added, else False.
+        """
+        try:
+            if not isinstance(text_to_add, str):
+                return False
+            line = text_to_add.replace("\r\n", "\n").replace("\r", "\n").strip()
+            if not line:
+                return False
+            # length clamp
+            if len(line) > 2000:
+                line = line[:2000]
+            # quality + dedup
+            if not self._is_high_quality(line):
+                return False
+            recent = self.training_buffer[-30:]
+            if any(is_similar(line, old, threshold=0.85) for old in recent):
+                return False
+            self.training_buffer.append(line)
+            if len(self.training_buffer) > self.training_buffer_size:
+                self.training_buffer.pop(0)
+            self._save_training_buffer()
+            # also feed a small rolling token buffer in the librarian (bounded)
+            try:
+                if hasattr(self, "librarian") and self.librarian:
+                    self.librarian.add_training_text(line)
+            except Exception:
+                pass
+            print(f"[_TRAINING_BUFFER_ADD] + {line[:60]}...")
+            return True
+        except Exception as e:
+            print(f"!!!![_TRAINING_BUFFER_ADD] failed: {e}")
+            return False
 
     async def _buffer_clean(self):
         MAX_LINE_DUPLICATES = 2
@@ -890,6 +990,7 @@ class BABYBOT_DISCORD(commands.Bot):
         if self.idle_task is None: self.idle_task = self.loop.create_task(self.idleTrainChecker())
         if self.web_task is None: self.web_task = self.loop.create_task(self.bby_web_watcher())
         if self.training_worker is None: self.training_worker = self.loop.create_task(self.background_training_loop())
+        if self.random_task is None: self.random_task = self.loop.create_task(self.randoms_tick_loop())
         await self._discord_spam(helloMessage)
 
 
@@ -987,13 +1088,26 @@ class BABYBOT_DISCORD(commands.Bot):
             #if is_opted_in or is_command: await self.web_post_say(text=message.content, platform='discord', user_id=snowflake, handle=handle, display_name=display_name, is_command=is_command)
         except Exception as e: print(f"[SYNC][on_message] {e}")
 
-        if message.reference and message.reference.message_id in self.pending_wtf:
-            await self.handle_wtf_reply(message, self.pending_wtf[message.reference.message_id])
+        if message.reference:
+            ref_id = message.reference.message_id
+            sess = self.lex_sessions.get(ref_id)
+            if sess and sess.get('mode') == 'wtf':
+                await self.handle_wtf_reply(message, sess)
 
         if message.author == self.user: return
 
-        if self.translate_game and message.channel.id == self.translate_game.get("channel_id") and not content.startswith(self.command_prefix):
-            self.translate_game["guesses"][author] = content.strip().lower()
+        # If a translate session is active in this channel, record guesses
+        def _latest_translate_session_in_channel(cid: int):
+            candidates = [s for s in self.lex_sessions.values() if s.get('mode') == 'translate' and s.get('channel_id') == cid]
+            if not candidates:
+                return None
+            return max(candidates, key=lambda s: s.get('created_at', 0.0))
+        if not content.startswith(self.command_prefix):
+            tsess = _latest_translate_session_in_channel(message.channel.id)
+            if tsess:
+                extra = tsess.setdefault('extra', {})
+                guesses = extra.setdefault('guesses', {})
+                guesses[author] = content.strip().lower()
 
         if not message.content.startswith(self.command_prefix):
             if is_opted_in:
@@ -1169,9 +1283,32 @@ class BABYBOT_DISCORD(commands.Bot):
                 print(f"exception in background training worker: {e}\n{traceback.format_exc()}")
             await asyncio.sleep(0.05)
 
+    async def randoms_tick_loop(self):
+        """Lightweight 1s ticker that refreshes the bot's randoms.
+
+        Keeps self.random..self.random4 fresh for features that read them often,
+        while heavy idle work remains scheduled by idleTrainChecker every
+        self.idleTrainSeconds.
+        """
+        print("[RANDOMS_TICK] started (1s updates)")
+        while True:
+            try:
+                self.random = random.random()
+                self.random2 = random.random()
+                self.random3 = random.random()
+                self.random4 = random.random()
+            except Exception as e:
+                print(f"[RANDOMS_TICK] error: {e}")
+            await asyncio.sleep(1.0)
+
     async def _train_on_item(self, item): 
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
-        text = "\n".join(item["text"]) if isinstance(item["text"], list) else item["text"]
+        # Build chat and training sources
+        chat_text = "\n".join(item["text"]) if isinstance(item.get("text"), list) else item.get("text", "")
+        training_text = "\n".join(self.training_buffer[-self.N:]) if getattr(self, "training_buffer", None) else ""
+        # 50/50 selection between chat vs training (fallback to chat if empty)
+        use_training = (random.random() < 0.5) and bool(training_text)
+        text = training_text if use_training else chat_text
         textCLEAN = clean_text(text)
         tokensToLibrarian = self.librarian.tokenizeText(textCLEAN)
         token_count = len(tokensToLibrarian)
@@ -1194,6 +1331,13 @@ class BABYBOT_DISCORD(commands.Bot):
             None,
             lambda: self.tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = 1, _startIndex = 1)
         )
+        # If we trained from the training buffer, drop the oldest entry
+        try:
+            if use_training and self.training_buffer:
+                self.training_buffer.pop(0)
+                self._save_training_buffer()
+        except Exception:
+            pass
         stats_prompt = self.tutor.makeStatsPrompt()
         training_note = self.formatMessage(self.babyName, f"i've just had a lesson on {token_count} tokens. {stats_prompt}")
         self._buffer_add(training_note)
@@ -1210,11 +1354,14 @@ class BABYBOT_DISCORD(commands.Bot):
             self.random3 = random.random()
             self.random4 = random.random()
 
-            if time.time() >= self.next_translate_time and not self.translate_game and self.cog:
-                channel = self.get_channel(self.discordChannel)
-                if channel:
-                    await self.cog.trigger_bbytranslate_auto(channel)
-                self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
+            if time.time() >= self.next_translate_time and self.cog:
+                # Only auto-start if no active translate sessions exist anywhere
+                any_active_translate = any(s.get('mode') == 'translate' for s in self.lex_sessions.values())
+                if not any_active_translate:
+                    channel = self.get_channel(self.discordChannel)
+                    if channel:
+                        await self.cog.trigger_bbytranslate_auto(channel)
+                        self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
             
             await self.decay_BBY()
             print(f"decayed bby")
@@ -1270,10 +1417,21 @@ class BABYBOT_DISCORD(commands.Bot):
                         self.buffer = self.buffer[-self.N:]
                     
                     if self.training_queue.qsize() < 10:
-                        with open(trainingFilePathCLEANED, "r", encoding = "utf-8") as f:
-                            training_data_contents = f.read().strip().lower()
-                        fullContext = random.choice([training_data_contents, "\n".join(self.buffer)])
+                        # Prefer augmented buffer (chat + training buffer), occasionally fall back to raw corpus
+                        aug_context = "\n".join(self.buffer)
+                        if getattr(self, "training_buffer", None):
+                            aug_context = f"{aug_context}\n" + "\n".join(self.training_buffer[-self.N:])
+                        try:
+                            with open(trainingFilePathCLEANED, "r", encoding = "utf-8") as f:
+                                training_data_contents = f.read().strip().lower()
+                        except Exception:
+                            training_data_contents = ""
+                        fullContext = random.choice([aug_context, training_data_contents or aug_context])
                         await self.training_queue.put({"type": "context", "text": fullContext[:10000]})
+
+                # opportunistic, stats-guided autonomous micro‑training
+                if hasattr(self, "autonomy") and self.autonomy:
+                    await self.autonomy.maybe_act()
 
             except Exception as e:
                 print(f"\n\nERROR in idleTrainChecker: {e}\n{traceback.format_exc()}\n\n")

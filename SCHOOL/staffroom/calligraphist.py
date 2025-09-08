@@ -2,6 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # NICE TERMINAL OUTPUT AND LOGGING STYLING SHEET THING
 # brain/LAYERS/S_output.py
+# v1.1
 
 from config import *
 from datetime import datetime
@@ -131,6 +132,7 @@ class S_OUTPUT:
             ("MEMORY STATS", re.compile(r"5M_memory_4M_")),
             ("MEMORY2 STATS", re.compile(r"6M_memory2_4M_")),
             ("LOGIT STATS", re.compile(r"7L_")),
+            # Creative modules removed
             ("BABYLLM STATS", re.compile(r"[0-9]B_")),
             ("LOSS STATS", re.compile(r"L_")),
         ]
@@ -638,21 +640,4 @@ class S_OUTPUT:
         index = min(int(_percentile * len(_sortedStat)), len(_sortedStat) - 1)
         return _sortedStat[index]
 
-if __name__ == "__main__":
-    style = S_OUTPUT(counsellor=None)
-    print(style.S_apply('TOP', "ELODIE IS PERFECT"))
-    print(style.S_apply('0.2', "ELODIE IS PERFECT"))
-    print(style.S_apply('5', "BABYLLM IS ALMOST PERFECT"))
-    print(style.S_apply('10', "BABYLLM IS SUPER GREAT"))
-    print(style.S_apply('15', "BABYLLM IS GREAT"))
-    print(style.S_apply('20', "BABYLLM IS GOOD"))
-    print(style.S_apply('35', "BABYLLM IS FINE"))
-    print(style.S_apply('50', "CHARIS IS ALMOST FINE"))
-    print(style.S_apply('65', "GEORGE IS AVERAGE"))
-    print(style.S_apply('80', "BABYLLM IS MEH"))
-    print(style.S_apply('85', "BABYLLM IS BAD"))
-    print(style.S_apply('90', "GEORGE IS WORSE"))
-    print(style.S_apply('95', "KEVIN IS WTF"))
-    print(style.S_apply('99.8', "PETE IS OMG"))
-    print(style.S_apply('BOTTOM', "PETE IS OMGWTF"))
-    print(style.S_apply('emergency', "BABYLLM IS EMERGENCY"))
+# __main__ test harness removed (legacy)

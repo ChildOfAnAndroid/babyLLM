@@ -2,6 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # INTERNEURON NETWORK & NEURONS
 # brain/LAYERS/interneuronNetwork.py
+# v1.2
 
 import torch
 import torch.nn as nn
@@ -531,18 +532,4 @@ class INTERNEURON_NETWORK(nn.Module):
             if attr.endswith("History") or attr.endswith("Hist"):
                 setattr(self, attr, [])
 
-if __name__ == "__main__":
-    interneuronNetwork = INTERNEURON_NETWORK()
-
-    TESTinputSeq = torch.randn(window1, embedDimension)
-    TESTinputEmbeds = TESTinputSeq
-
-    meanActivationsTensor = interneuronNetwork.forward(TESTinputEmbeds)
-
-    print("--- INTERNEURON NETWORK TESTING START ---")
-    print(f"parallel neuron layer created with {interneuronNetwork.numNeurons} neurons.")
-    print(f"inputs per neuron (embed dimension): {interneuronNetwork.embedDimension}")
-    print(f"output activations (first 10):")
-    print(meanActivationsTensor[:10])
-    print(f"output activations shape: {meanActivationsTensor.shape}")
-    print("\n--- INTERNEURON NETWORK TESTING COMPLETED ---")
+# __main__ test harness removed (vanity)

@@ -1,3 +1,9 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM HELPERS // helpers.py
+# v1.1
+
+# --- imports ---
 from __future__ import annotations
 import torch
 import os
@@ -6,9 +12,12 @@ import gc
 import threading
 from typing import Iterable, Tuple, Callable, Any
 
-try: from config import debugPrints as _debug_enabled
-except Exception: _debug_enabled = os.getenv("BABYLLM_DEBUG") == "1"
+try:
+    from config import debugPrints as _debug_enabled
+except Exception:
+    _debug_enabled = os.getenv("BABYLLM_DEBUG") == "1"
 
+# --- gradient utilities ---
 def get_grad_stats(grad: torch.Tensor) -> dict:
     return {
         "shape": tuple(grad.shape),
@@ -18,19 +27,26 @@ def get_grad_stats(grad: torch.Tensor) -> dict:
         "sparsity": 1.0 - (grad.count_nonzero().item() / grad.numel()),
     }
 def clamp_param(param: torch.Tensor, min_val: float, max_val: float) -> None:
-    with torch.no_grad(): param.data.clamp_(min_val, max_val)
+    with torch.no_grad():
+        param.data.clamp_(min_val, max_val)
 
+# --- logging utilities ---
 def debug_print(*args, **kwargs) -> None:
     if _debug_enabled: print(*args, **kwargs)
 
+# --- hook utilities ---
 def register_grad_hooks(
     named_params: Iterable[Tuple[str, torch.Tensor]],
     hook_fn_provider: Callable[[str], Callable[[torch.Tensor], None]],
 ) -> None:
     for name, param in named_params:
-        if param.requires_grad: param.register_hook(hook_fn_provider(name))
+        if param.requires_grad:
+            param.register_hook(hook_fn_provider(name))
 _json_cache: dict[str, str] = {}
 
+_json_cache: dict[str, str] = {}
+
+# --- file utilities ---
 def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bool = False, **dump_kwargs) -> bool:
     """Write JSON data to *path* only if content differs.
 
@@ -51,6 +67,7 @@ def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bo
         f.write(new_content)
     return True
 
+# --- mps utilities ---
 def empty_mps_cache() -> None:
     """Work around delayed memory release on Apple MPS backend.
 
@@ -70,11 +87,26 @@ def empty_mps_cache() -> None:
             torch.mps.synchronize()
         torch.mps.empty_cache()
 
+# --- json utilities ---
+def load_json_if_exists(path: str, default: Any = None) -> Any:
+    """Load JSON from path if it exists and is valid; otherwise return default.
+
+    Avoids raising on missing files or decode errors.
+    """
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
 __all__ = [
     "get_grad_stats",
     "clamp_param",
     "debug_print",
     "register_grad_hooks",
     "save_json_if_changed",
+    "load_json_if_exists",
     "empty_mps_cache",
 ]

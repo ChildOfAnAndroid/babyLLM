@@ -1,3 +1,8 @@
+# CHARIS CAT 2025
+# --- ʕっʘ‿ʘʔっ --- 
+# BABYLLM // phone/discord_bot/cog.py
+# v1.4
+
 import os
 import asyncio
 import random
@@ -103,6 +108,28 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             label = (item.get("label") or "").strip().lower()
                             # prefer full-size url but fall back to stamp_url if necessary
                             img_url = item.get("url") or item.get("stamp_url")
+
+                            # If we only have a stamp URL, try to derive the full image by stripping ".stamp"
+                            if (not item.get("url")) and item.get("stamp_url"):
+                                suf = ".stamp.png"
+                                if isinstance(img_url, str) and img_url.endswith(suf):
+                                    img_url = img_url[: -len(suf)] + ".png"
+
+                            # Normalize any accidental stamp path that slipped into url
+                            if isinstance(img_url, str) and img_url.endswith(".stamp.png"):
+                                img_url = img_url.replace(".stamp.png", ".png")
+
+                            # Normalize site path: ensure direct file endpoint (for Discord to fetch the raw image)
+                            # If a '/gallery/<file>' page path ever appears, convert it to '/api/gallery/file/<file>'
+                            if isinstance(img_url, str) and "/gallery/" in img_url and "/api/gallery/file/" not in img_url:
+                                try:
+                                    base = "https://childofanandroid.co.uk"
+                                    file_part = img_url.split("/gallery/")[-1]
+                                    if file_part:
+                                        img_url = f"{base}/api/gallery/file/{file_part}"
+                                except Exception:
+                                    pass
+
                             if label and img_url and label not in by_label:
                                 by_label[label] = img_url
             if by_label:
@@ -146,17 +173,34 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not name:
             return None, None
         
-        clean_name = name.lower().lstrip('@')
+        clean_name = (name or '').strip().lower().lstrip('@')
+        # handle classic tag format username#1234
+        tag_user, tag_discrim = None, None
+        if '#' in clean_name:
+            parts = clean_name.split('#', 1)
+            if len(parts) == 2 and parts[0] and parts[1]:
+                tag_user, tag_discrim = parts[0], parts[1]
         
         # Check mentions first
         if ctx.message.mentions:
             return ctx.message.mentions[0], ctx.message.mentions[0].name.lower()
             
         # Then find in guild
-        member = discord.utils.find(
-            lambda m: m.name.lower() == clean_name or m.display_name.lower() == clean_name,
-            getattr(ctx.guild, 'members', [])
-        )
+        def _matches(m: discord.Member) -> bool:
+            if tag_user and tag_discrim:
+                discr = getattr(m, 'discriminator', None)
+                if discr and m.name.lower() == tag_user and str(discr) == tag_discrim:
+                    return True
+            if m.name.lower() == clean_name:
+                return True
+            if m.display_name.lower() == clean_name:
+                return True
+            global_name = getattr(m, 'global_name', None)
+            if global_name and str(global_name).lower() == clean_name:
+                return True
+            return False
+
+        member = discord.utils.find(_matches, getattr(ctx.guild, 'members', []))
         
         if member:
             return member, member.name.lower()
@@ -344,7 +388,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return base
 
     def _get_fact_value(self, fact = None):
-        return self._get_fact_value_cursed(fact) / max(1, self._get_fact_total_world(fact))
+        """Market value that decays gently with supply.
+        Previously used 1/total which halves value at 2 in-world (and stays there with low caps).
+        Use sqrt supply to soften the drop and avoid immediate 1/2 effects.
+        """
+        base = self._get_fact_value_cursed(fact)
+        total = max(1.0, float(self._get_fact_total_world(fact)))
+        return base / math.sqrt(total)
     
     def _calc_fact_num_produced(self):
         base_users = len(self.bot.userMemory)
@@ -591,14 +641,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         token_ids = self.bot.librarian.tokenizer.encode(word.lower())
         unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
         valid_ids = [tid for tid in token_ids if tid != unk_id]
-        if not valid_ids:
-            return "???"
+        if not valid_ids: return "???"
         embed = self.bot.babyLLM.embed.e_weights
         vec = embed[valid_ids].mean(dim=0)
         similar = self._get_similar_tokens(vec, valid_ids, top_k)
         parts = similar[:len(valid_ids)]
-        if not parts:
-            return "???"
+        if not parts: return "???"
         return "".join(parts)
 
     def _get_random_strong_pair(self, min_similarity: float = 0.9, max_attempts: int = 50):
@@ -820,31 +868,42 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         totalBBY = sum(abs(score) for _, score in fullBestieboard)
         incrementTeach = (totalBBY / max(1, math.sqrt(totalBBY))) * self.bot.random4 * (1 - (BBY / max(1, totalBBY)))
         incrementTeach += 1
-        if self.bot.random > 0.6:
+        if self.bot.random > 0.42:
+            reply += "o"
+            incrementTeach *= 42
+        if self.bot.random2 > 0.75:
+            reply += "o"
+            incrementTeach *= 42
+        if self.bot.random3 > 0.3:
             reply += "oh, "
-            incrementTeach *= 100
-        if self.bot.random3 > 0.85:
+            incrementTeach *= 5
+        if self.bot.random4 > 0.3:
+            reply += "oh? "
+            incrementTeach *= 5
+        if self.bot.random > 0.69:
+            reply += "nice! "
+            incrementTeach *= 69
+        if self.bot.random2 > 0.85:
             reply += "that's a cool fact! "
             incrementTeach *= 1000
-        if self.bot.random2 > 0.99995:
+        if self.bot.random3 > 0.99995:
             reply += "... actually that's fucking insane! "
             incrementTeach *= 42069.69
+        if self.bot.random4 > 0.1:
+            reply += "soo... "
+            incrementTeach *= 3
         if incrementTeach > 4200.69: incrementTeach = incrementTeach * 0.075
         uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in f"{key} {value}")
         incrementTeach = self.bot.apply_fave_bonus(incrementTeach, uses_fave)
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
-        # compute supply cap and initial mint before creating the fact
-        num_produced = self._calc_fact_num_produced()
-        raw_award = (self.bot.random4 * self.bot.random3) * (random.uniform(1, (num_produced * self.bot.random2 * self.bot.random))) + 1
-        awardNumber = max(1, int(round(raw_award)))
-        # scale base market cap by minted supply so per-item value starts reasonable
-        base_market_cap = max(1.0, incrementTeach) * max(1, awardNumber)
-        await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=base_market_cap, num_produced=num_produced, debug_str=debug_str)
+        await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
         reply += (
             f"soo... you're telling me that {key} means {value}? that's pretty cool, tbh! "
             f"{random.choice(self.bot.faveEmotes)} {style_gain(f'+ᛒ{incrementTeach:,.0f}')} for you! \n"
         )
+        num_produced = self._get_fact_num_produced(key)        
+        awardNumber = round((self.bot.random4 * self.bot.random3) * (random.uniform(1, (num_produced * self.bot.random2 * self.bot.random))) + 1)
         awardNumber = await self._award_fact(user = author, fact = key, ctx = ctx, num = awardNumber)
         rank, rank_str = self._get_current_value_rank(key)
         if rank <= 20:  reply += "damn, top 20! "
@@ -943,87 +1002,95 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     async def _trigger_bbywtf(self, word: str, ctx=None, channel=None):
         word = (word or "").strip().lower()
-        if not word:
-            return
+        if not word: return
         if word in self.bot.bbyfacts:
             fact = self.bot.bbyfacts.get(word, {})
             known = f"i already know {word}! it's {fact.get('value', '')}".strip()
-            if ctx:
-                await self.bot._discord_reply(ctx, known)
-            elif channel:
-                await self.bot._discord_send(channel=channel, message_content=known, is_reply=False)
+            await self.bot._discord_spam(channel=channel, message_content=known, is_reply=False)
             return
 
         associations = self._get_brain_connections(word)
         guess_word = self._blend_guess(word)
         similar = self._brain_similar_words(word)
         msg = f"{word} ??? 😰 ... {guess_word} ???"
-        if associations:
-            msg += f"\n{associations}"
-        if ctx:
-            sent = await self.bot._discord_reply(ctx, msg)
-        else:
-            sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
+        if associations: msg += f"\n{associations}"
+        if ctx: sent = await self.bot._discord_reply(ctx, msg)
+        else: sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
         if sent:
-            self.bot.pending_wtf[sent.id] = {'word': word, 'guess': guess_word, 'guess_saved': False}
+            self.bot.lex_sessions[sent.id] = {
+                'mode': 'wtf',
+                'channel_id': sent.channel.id,
+                'message_id': sent.id,
+                'created_at': time.time(),
+                'word': word,
+                'guess': guess_word,
+                'guess_saved': False,
+            }
             self._add_brain_thought(word, similar)
 
     @commands.command(name='bbywtf')
     async def bbywtf(self, ctx, *, word: str = None):
         word = (word or "").strip().lower()
-        if not word:
-            return await self.bot._discord_reply(ctx, "you gotta give me a word to think about!")
+        if not word: return await self.bot._discord_reply(ctx, "ikr!")
         await self._trigger_bbywtf(word, ctx=ctx)
 
-    async def trigger_bbywtf_auto(self, channel, word: str):
-        await self._trigger_bbywtf(word, channel=channel)
+    async def trigger_bbywtf_auto(self, channel, word: str): await self._trigger_bbywtf(word, channel=channel)
 
     async def _start_translate_game(self, ctx=None, channel=None):
-        if self.bot.translate_game:
+        # prevent multiple concurrent translate games per channel
+        if channel is None and ctx is not None:
+            channel = ctx.channel
+        if channel is None:
+            return
+        active_here = [s for s in self.bot.lex_sessions.values() if s.get('mode') == 'translate' and s.get('channel_id') == channel.id]
+        if active_here:
             if ctx:
                 await self.bot._discord_reply(ctx, "there's already a game running!")
             return
         if not self.bot.bbyfacts:
-            if ctx:
-                await self.bot._discord_reply(ctx, "i don't know any words yet :(")
+            if ctx: await self.bot._discord_reply(ctx, "i don't know any words yet :(")
             return
         correct = random.choice(list(self.bot.bbyfacts.keys()))
         fake = self.createFakeWordFromVector(correct)
         msg = f"is {fake} a real thing?"
-        if ctx:
-            sent = await self.bot._discord_reply(ctx, msg)
-        else:
-            sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
+        if ctx: sent = await self.bot._discord_reply(ctx, msg)
+        else: sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
         if sent:
-            self.bot.translate_game = {
-                "channel_id": sent.channel.id,
-                "message_id": sent.id,
-                "correct": correct,
-                "fake": fake,
-                "guesses": {}
+            session = {
+                'mode': 'translate',
+                'channel_id': sent.channel.id,
+                'message_id': sent.id,
+                'created_at': time.time(),
+                'extra': {
+                    'correct': correct,
+                    'fake': fake,
+                    'guesses': {},
+                },
             }
+            self.bot.lex_sessions[sent.id] = session
             delay = random.randint(60, 120)
-            self.bot.translate_game["task"] = self.bot.loop.create_task(self._finish_translate_game(sent.channel, delay))
+            task = self.bot.loop.create_task(self._finish_translate_game(sent.channel, delay, sent.id))
+            session['task'] = task
 
-    async def _finish_translate_game(self, channel, delay):
+    async def _finish_translate_game(self, channel, delay, message_id):
         await asyncio.sleep(delay)
-        game = self.bot.translate_game
-        if not game:
+        session = self.bot.lex_sessions.get(message_id)
+        if not session or session.get('mode') != 'translate':
             return
-        correct = game["correct"]
-        guesses = game["guesses"]
+        extra = session.get('extra', {})
+        correct = extra.get("correct")
+        guesses = extra.get("guesses", {})
         winners = [u for u, g in guesses.items() if g == correct]
         if winners:
             win_text = ", ".join(self.bot.getNickname(w) for w in winners)
-            await self.bot._discord_send(channel=channel, message_content=f"it was **{correct}**! gg {win_text}", is_reply=False)
+            await self.bot._discord_send(channel=channel, message_content=f"it was **{correct}**! nice one {win_text} lol", is_reply=False)
             for user in winners:
                 guess = guesses[user]
                 amount = self.bot.apply_fave_bonus(5.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
                 self.bot.updateBBY(user, amount)
                 mem = self.bot.userMemory[user]
                 mem["translate_wins"] = mem.get("translate_wins", 0) + 1
-        else:
-            await self.bot._discord_send(channel=channel, message_content=f"no one got it! it was **{correct}**.", is_reply=False)
+        else: await self.bot._discord_send(channel=channel, message_content=f"aaaa sorry, was that a hard one?! it was **{correct}**.", is_reply=False)
         for user, guess in guesses.items():
             if user not in winners:
                 amount = self.bot.apply_fave_bonus(-2.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
@@ -1031,14 +1098,63 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 mem = self.bot.userMemory[user]
                 mem["translate_losses"] = mem.get("translate_losses", 0) + 1
         self.bot._save_user_data()
-        self.bot.translate_game = None
+        # end session
+        self.bot.lex_sessions.pop(message_id, None)
 
     @commands.command(name='bbytranslate', aliases=['btranslate'])
-    async def bbytranslate(self, ctx):
-        await self._start_translate_game(ctx=ctx)
+    async def bbytranslate(self, ctx): await self._start_translate_game(ctx=ctx)
+    async def trigger_bbytranslate_auto(self, channel): await self._start_translate_game(channel=channel)
 
-    async def trigger_bbytranslate_auto(self, channel):
-        await self._start_translate_game(channel=channel)
+    @commands.command(name='bbylex', aliases=['blex'])
+    async def bbylex(self, ctx, *, arg: str = None):
+        """Unified word game: combines bbywtf and bbytranslate.
+
+        Usage examples:
+        - `!bbylex wtf <word>`: Ask the room to define a word (was `!bbywtf`).
+        - `!bbylex <word>`: Same as above (shortcut for wtf mode).
+        - `!bbylex translate`: Start the real-vs-fake word round (was `!bbytranslate`).
+        - `!bbylex`: Auto-pick: if there's a hot unknown word, run wtf; otherwise translate.
+        """
+
+        # No args: auto-pick a mode based on recent unknown token usage
+        if arg is None or not str(arg).strip():
+            try:
+                # Prefer a "hot" unknown word if any are trending
+                word_counts = getattr(self.bot, 'word_usage', {})
+                # pick the word with the highest positive count that isn't known yet
+                cand = None
+                if word_counts:
+                    # sort by count, descending
+                    for w, c in sorted(word_counts.items(), key=lambda kv: kv[1], reverse=True):
+                        if c > 0 and isinstance(w, str) and w not in self.bot.bbyfacts:
+                            cand = w
+                            break
+                if cand:
+                    return await self._trigger_bbywtf(cand, ctx=ctx)
+            except Exception:
+                pass
+            # fallback: start a translate game
+            return await self._start_translate_game(ctx=ctx)
+
+        # With args: route to the appropriate submode
+        arg = str(arg).strip()
+        lower = arg.lower()
+
+        # explicit translate
+        if lower in {"translate", "trans", "tr", "t"}:
+            return await self._start_translate_game(ctx=ctx)
+
+        # explicit wtf / whatis / define
+        prefixes = ("wtf ", "what is ", "whatis ", "define ", "def ", "explain ")
+        for p in prefixes:
+            if lower.startswith(p):
+                word = lower[len(p):].strip()
+                if not word:
+                    return await self.bot._discord_reply(ctx, "give me a word to ponder! <3")
+                return await self._trigger_bbywtf(word, ctx=ctx)
+
+        # default: treat the whole arg as the word for wtf-mode
+        return await self._trigger_bbywtf(lower, ctx=ctx)
 
     @commands.command(name='bbywhatis', aliases=['bwhatis', 'bwi'])
     async def bbywhatis(self, ctx, *, key: str = None):
@@ -1336,28 +1452,33 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name="bbybag", aliases=['bbyinventory', 'binventory', 'bbag', 'bbybagfull', 'bbyinventoryfull', 'binventoryfull', 'bbagfull' ])
-    async def bbybag(self, ctx, member: discord.Member = None):
-        """Shows your inventory, or another user's... or even the bot's! Use the *full* aliases to see everything."""
+    async def bbybag(self, ctx, *, member_name: str = None):
+        """Shows your inventory, or another user's... or even the bot's! Accepts @mention, username, or nickname. Use the *full* aliases to see everything."""
         full_aliases = {'bbybagfull', 'bbyinventoryfull', 'binventoryfull', 'bbagfull'}
         show_all = ctx.invoked_with in full_aliases
         target_nic = ""
         inventory = {}
         user_favourites = []
 
-        if member is None:
-            member = ctx.author
-            target_nic = self.bot.getNickname(member.name.lower())
-            user_mem = self.bot.userMemory[member.name.lower()]
+        if member_name is None or not member_name.strip():
+            author_id = ctx.author.name.lower()
+            target_nic = self.bot.getNickname(author_id)
+            user_mem = self.bot.userMemory.get(author_id, {})
             inventory = user_mem.get("inventory", {})
             user_favourites = user_mem.get("favourites", [])
-        elif member.id == self.bot.user.id:
-            target_nic = "my"
-            inventory = self.bot.inventory
         else:
-            target_nic = f"{self.bot.getNickname(member.name.lower())}"
-            user_mem = self.bot.userMemory[member.name.lower()]
-            inventory = user_mem.get("inventory", {})
-            user_favourites = user_mem.get("favourites", [])
+            # resolve from mention/username/nickname
+            target_member, target_id = await self._find_member_or_user_id(ctx, member_name)
+            if target_member and target_member.id == self.bot.user.id:
+                target_nic = "my"
+                inventory = self.bot.inventory
+            else:
+                if target_id not in self.bot.userMemory:
+                    return await self.bot._discord_reply(ctx, f"i don't know who {escape_markdown(member_name)} is... have they even talked yet? lol")
+                target_nic = f"{self.bot.getNickname(target_id)}"
+                user_mem = self.bot.userMemory[target_id]
+                inventory = user_mem.get("inventory", {})
+                user_favourites = user_mem.get("favourites", [])
 
         if not inventory:
             reply_text = f"{target_nic} bag empty :( "
@@ -1372,7 +1493,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 item_lines.append(f"{fave_marker}{item} (x{count})")
             inventory_string = "\n".join(item_lines)
             reply = f"hoarde of {target_nic}: \n{inventory_string}\n"
-            if member == ctx.author:
+            if member_name is None:
                 reply += "\nfeed me an item with !bbyfeed [num] <item> "
         else:
             sorted_items = sorted(inventory.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -1381,17 +1502,26 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             for i, (key, count) in enumerate(top_items, 1):
                 fave_marker = "⭐ " if key in user_favourites else ""
                 reply += f"> {fave_marker}{key:<25} x{count}\n"
-            if member == ctx.author:
+            if member_name is None:
                 reply += "\nsee full bag with !bbybagfull, feed me with !bbyfeed [num] <item>, gift with !bbygift @user [num] <item> or !bbyfave <item> to save to your favourites :) "
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbygift", aliases=['bgiveitem', 'bgift', 'bbygive'])
     @commands.cooldown(1, 1, commands.BucketType.user)
-    async def bbygift(self, ctx, member: discord.Member, *, item_args: str = ""):
+    async def bbygift(self, ctx, member_name: str, *, item_args: str = ""):
         """Gives an item from your inventory to another user. Use a number for quantity.
-        e.g. !bbygift @user 5 my_item"""
+        Accepts @mention, username, or nickname. e.g. !bbygift @user 5 my_item"""
         giver_id = ctx.author.name.lower()
-        receiver_id = member.name.lower()
+        # resolve receiver from mention/username/nickname
+        target_member, receiver_id = await self._find_member_or_user_id(ctx, member_name)
+        if not receiver_id:
+            await self.bot._discord_reply(ctx, f"i couldn't find who '{escape_markdown(member_name)}' is...")
+            self.bbygift.reset_cooldown(ctx)
+            return
+        if receiver_id not in self.bot.userMemory:
+            await self.bot._discord_reply(ctx, f"i haven't met {escape_markdown(member_name)} yet! they need to chat first so i can get to know them xoxo")
+            self.bbygift.reset_cooldown(ctx)
+            return
         if giver_id == receiver_id:
             await self.bot._discord_reply(ctx, "i wish that worked too lol")
             self.bbygift.reset_cooldown(ctx)
@@ -1462,8 +1592,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbygift_error(self, ctx, error):
         if isinstance(error, commands.CommandOnCooldown):
             await self.bot._discord_reply(ctx, f"aaaaaa no more!!!! wait {error.retry_after:.0f}s! ")
-        elif isinstance(error, (commands.MissingRequiredArgument, commands.MemberNotFound)):
-            await self.bot._discord_reply(ctx, "use dis like: !bbygift @username [quantity] <item name> (or leave item blank for random!)")
+        elif isinstance(error, (commands.MissingRequiredArgument,)):
+            await self.bot._discord_reply(ctx, "use dis like: !bbygift @user|username|nickname [quantity] <item name> (or leave item blank for random!)")
         else:
             print(f"Error in bbygift: {error}")
             await self.bot._discord_reply(ctx, f"Something went wrong: {error}")
@@ -2216,7 +2346,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
             reply = "the weakest links have been located "
             reply += random.choice(["lol", "... uh oh", ", uh oh stinky", "! prepare the laser!", "... this is awkward", ", baby saw this", "... oh fuck no", "! ur in trouble now!", "- low vibez only xoxo"]) + " "
-            reply += f"{random.choice(self.bot.faveEmotes)} \n\n"
+            # single newline to avoid inserting blank lines into the training buffer
+            reply += f"{random.choice(self.bot.faveEmotes)} \n"
 
             for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1):
                 reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=True)
@@ -2649,9 +2780,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(''.join(traceback.format_exception(e)))
 
     @commands.command(name = "bbybook_sign", aliases=['bbysig', 'bsig', 'bbysign', 'bsign'])
-    async def bs_sign(self, ctx, member: discord.Member, *, message: str):
+    async def bs_sign(self, ctx, member_name: str, *, message: str):
         author_name = ctx.author.name.lower()
-        target_name = member.name.lower()
+        # resolve target from mention/username/nickname
+        member_obj, target_name = await self._find_member_or_user_id(ctx, member_name)
+        if not target_name:
+            return await self.bot._discord_reply(ctx, f"i couldn't find who '{escape_markdown(member_name)}' is...")
+        if target_name not in self.bot.userMemory:
+            return await self.bot._discord_reply(ctx, f"i haven't met {escape_markdown(member_name)} yet! tell them to say hi first :) ")
         
         if len(message) > 200:
             await self.bot._discord_reply(ctx, "ur message is too long :( 200 characters tops i'm afraid!")
@@ -2665,7 +2801,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.userMemory[target_name]["bbybook"].append((author_name, message))
         self.bot._save_user_data()
         
-        await self.bot._discord_reply(ctx, f"u signed {member.display_name}'s bbybook! aww :) {random.choice(self.bot.faveEmotes)}")
+        display = member_obj.display_name if member_obj else self.bot.getNickname(target_name)
+        await self.bot._discord_reply(ctx, f"u signed {display}'s bbybook! aww :) {random.choice(self.bot.faveEmotes)}")
 
     @commands.command(name='bbysminks', aliases=['sminks', 'bbycheers', 'bbysmink', 'bsmink'])
     async def bbysminks(self, ctx):
@@ -2726,9 +2863,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name = "bbyhug", aliases=['bhug', 'bbyhugs', 'bhugs'])
     @commands.cooldown(1, 1, commands.BucketType.user) 
-    async def bbyhug(self, ctx, member: discord.Member):
+    async def bbyhug(self, ctx, *, member_name: str):
         hugger_id = ctx.author.name.lower()
-        hugged_id = member.name.lower()
+        # resolve hugged from mention/username/nickname
+        target_member, hugged_id = await self._find_member_or_user_id(ctx, member_name)
+        if not hugged_id:
+            return await self.bot._discord_reply(ctx, f"who are you hugging? i couldn't find '{escape_markdown(member_name)}'")
+        if hugged_id not in self.bot.userMemory:
+            return await self.bot._discord_reply(ctx, f"i haven't met {escape_markdown(member_name)} yet! tell them to say hi first :) ")
 
         if hugger_id == hugged_id:
             await self.bot._discord_reply(ctx, "you hugged urself! nice?")
@@ -2764,7 +2906,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if isinstance(error, commands.CommandOnCooldown):
             await self.bot._discord_reply(ctx, f"too much squish!!! try again in {error.retry_after:.0f} seconds.")
         elif isinstance(error, commands.MissingRequiredArgument):
-            await self.bot._discord_reply(ctx, "who are you hugging? !bbyhug @username")
+            await self.bot._discord_reply(ctx, "who are you hugging? !bbyhug @user|username|nickname")
         else:
             print(f"Error in bbyhug: {error}")
 
@@ -3083,12 +3225,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbyinfo", aliases=['binfo', 'bi'])
-    async def bbyinfo(self, ctx, *, member: discord.Member = None):
-        """Displays everything bbyllm knows about a user."""
-        if member is None: member = ctx.author
-        target_id = member.name.lower()
+    async def bbyinfo(self, ctx, *, member_name: str = None):
+        """Displays everything bbyllm knows about a user. Accepts @mention, username, or nickname."""
+        if not member_name:
+            member_obj = ctx.author
+            target_id = ctx.author.name.lower()
+        else:
+            member_obj, target_id = await self._find_member_or_user_id(ctx, member_name)
+            if not target_id:
+                return await self.bot._discord_reply(ctx, f"i don't know who {escape_markdown(member_name)} is... have they even talked yet? lol")
         target_nic = self.bot.getNickname(target_id)
-        if target_id not in self.bot.userMemory: return await self.bot._discord_reply(ctx, f"i don't know who {member.display_name} is... have they even talked yet? lol")
+        if target_id not in self.bot.userMemory: return await self.bot._discord_reply(ctx, f"i don't know who {target_nic} is... have they even talked yet? lol")
         if target_id not in self.bot.AIoptInUsers: return await self.bot._discord_reply(ctx, f"i can't tell you much - they've not opted in! (!bbyoptin)")
 
         mem = self.bot.userMemory[target_id]
@@ -3145,7 +3292,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             color = embed_color,
             timestamp = datetime.now(pytz.utc)
         )
-        embed.set_thumbnail(url = member.display_avatar.url)
+        try:
+            if member_obj is not None and getattr(member_obj, 'display_avatar', None):
+                embed.set_thumbnail(url = member_obj.display_avatar.url)
+        except Exception:
+            pass
         embed.set_footer(text = "information is power... or whatever...")
         
         embed.add_field(
@@ -3439,7 +3590,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 value=(
                     f"base cost: `ᛒ{original_cost:,.2f}`\n"
                     f"current cost: `ᛒ{effective_cost:,.2f}`\n"
-                    f"(base / total)"
+                    f"(base / √total)"
                 ),
                 inline=True
             )
