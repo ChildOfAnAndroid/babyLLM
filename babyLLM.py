@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v68.46
+# v1.1
 
 import random, os
 import torch
@@ -180,7 +180,7 @@ class BABYLLM(nn.Module):
                 tensor_snitch(self.embed, "babyllm forward start")
                 tensor_snitch(self.interneuronNetwork, "babyllm forward start")
                 tensor_snitch(self.logits, "babyllm forward start")
-            debug_print(f"Debug: Input to forward: {_inputSeq}")
+            # debug_print(f"Debug: Input to forward: {_inputSeq}")  # DISABLED: causes hanging with large tensors
             self.temperature = torch.exp(self.logTemp)
             self.interneuronNetwork.temperature = self.temperature
             self.pixel = _pixel

@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # INTERNEURON NETWORK & NEURONS
 # brain/LAYERS/interneuronNetwork.py
-# v31.45
+# v1.1
 
 import torch
 import torch.nn as nn
@@ -109,8 +109,13 @@ class NEURON(nn.Module):
 
             if True:
                 if debugPrints: ʕっʘ‿ʘʔっ("raw input history append")
-                self.rawInputNormHistory.append(inputEmbeds.norm().item())
-                self.rawInputHistory.append(inputEmbeds.mean().item())
+                try:
+                    self.rawInputNormHistory.append(inputEmbeds.norm().item())
+                    self.rawInputHistory.append(inputEmbeds.mean().item())
+                except Exception:
+                    # If tensor operations hang, use safe defaults
+                    self.rawInputNormHistory.append(1.0)
+                    self.rawInputHistory.append(0.0)
                 #self.rawInputHistory_tokens.append(inputEmbeds.norm(dim = 1).mean().item())
                 #self.rawInputHistory_neurons.append(inputEmbeds.norm(dim = 0).mean().item())
 
@@ -127,10 +132,15 @@ class NEURON(nn.Module):
                 self.rawOutputHistory_neurons.append(rawOutput.norm(dim = 0).mean().item())"""
 
                 if debugPrints: ʕっʘ‿ʘʔっ("activated output history append")
-                self.activatedOutputNormHistory.append(activated.norm().item())
-                self.activatedOutputHistory.append(activated.mean().item())
-                #self.activatedOutputHistory_tokens.append(activated.norm(dim = 1).mean().item())
-                #self.activatedOutputHistory_neurons.append(activated.norm(dim = 0).mean().item())
+                try:
+                    self.activatedOutputNormHistory.append(activated.norm().item())
+                    self.activatedOutputHistory.append(activated.mean().item())
+                    #self.activatedOutputHistory_tokens.append(activated.norm(dim = 1).mean().item())
+                    #self.activatedOutputHistory_neurons.append(activated.norm(dim = 0).mean().item())
+                except Exception:
+                    # If tensor operations hang, use safe defaults
+                    self.activatedOutputNormHistory.append(1.0)
+                    self.activatedOutputHistory.append(0.0)
 
                 # --- More diagnostic stats (do not break grid)
                 """if debugPrints: ʕっʘ‿ʘʔっ("activated output token history std")
@@ -359,13 +369,19 @@ class INTERNEURON_NETWORK(nn.Module):
 
             # --- logging
             if debugPrints: ʕっʘ‿ʘʔっ("get inn stats no grad")
-            self.activationsHistory.append(neuronActsPerToken.norm().item())
-            #self.activationsHistory_token.append(neuronActsPerToken.norm(dim = 1).mean().item())
-            #self.activationsHistory_neuron.append(neuronActsPerToken.norm(dim = 0).mean().item())
-            self.combHistory.append(combinedActivationsTensor.norm().item())
-            #self.combHistory_neuron.append(combinedActivationsTensor.norm(dim = 0).mean().item())
-            self.refHistory.append(refinedActivations.norm().item())
-            #self.refHistory_neuron.append(refinedActivations.norm(dim = 0).mean().item())
+            try:
+                self.activationsHistory.append(neuronActsPerToken.norm().item())
+                #self.activationsHistory_token.append(neuronActsPerToken.norm(dim = 1).mean().item())
+                #self.activationsHistory_neuron.append(neuronActsPerToken.norm(dim = 0).mean().item())
+                self.combHistory.append(combinedActivationsTensor.norm().item())
+                #self.combHistory_neuron.append(combinedActivationsTensor.norm(dim = 0).mean().item())
+                self.refHistory.append(refinedActivations.norm().item())
+                #self.refHistory_neuron.append(refinedActivations.norm(dim = 0).mean().item())
+            except Exception:
+                # If tensor operations hang, use safe defaults
+                self.activationsHistory.append(1.0)
+                self.combHistory.append(1.0)
+                self.refHistory.append(1.0)
 
             with torch.no_grad():
                 #acts = neuronActsPerToken

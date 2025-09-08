@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v12.45
+# v1.1
 
 import os
 import asyncio
@@ -44,15 +44,17 @@ if TYPE_CHECKING:
     from .bot import BABYBOT_DISCORD
 
 def track_command(func):
-    """Decorator to track command usage"""
+    """Decorator to track command usage - now works with fake contexts too!"""
     @functools.wraps(func)
     async def wrapper(self, ctx, *args, **kwargs):
-        command_name = ctx.command.name if ctx.command else func.__name__
-        author = ctx.author.name if ctx.author else "unknown"
         try:
+            # Both real and fake contexts now have command.name and author.name
+            command_name = ctx.command.name
+            author = ctx.author.name
             self.bot.track_command_usage(command_name, author)
         except Exception as e:
-            print(f"[TRACK_COMMAND] Error tracking {command_name}: {e}")
+            print(f"[TRACK_COMMAND] Error tracking command: {e}")
+        
         return await func(self, ctx, *args, **kwargs)
     return wrapper
 
@@ -1374,88 +1376,151 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         msg = f"hmm... {t1} and {t2} are a decent couple ({sim:.2f})"
         await self.bot._discord_reply(ctx, msg)
 
-    @commands.command(name='bbychain', aliases=['bchain', 'bbyassocchain', 'bassocchain'])
-    async def bbyassocchain(self, ctx, *, start_word: str = None):
-        """Follow word associations to see where my brain wanders!"""
+    @commands.command(name='bbyvomit', aliases=['bvomit', 'bv'])
+    @track_command
+    async def bbyvomit(self, ctx, start_word: str = None):
+        """Raw token vomit - spams tokens until it can't associate anymore!
+        Usage: !bbyvomit [word]
+        """
         author = ctx.author.name.lower()
         
         if not start_word:
-            # Pick a random starting word from bbyfacts or strong connections
+            # Pick a random starting word from bbyfacts
             if self.bot.bbyfacts:
                 start_word = random.choice(list(self.bot.bbyfacts.keys()))
             else:
-                return await self.bot._discord_reply(ctx, "i need a starting word! try !bbychain <word>")
+                return await self.bot._discord_reply(ctx, "i need a starting word! try !bbyvomit <word> or teach me some facts first with !bbyteach")
         
         start_word = start_word.strip().lower()
         chain = [start_word]
         current_word = start_word
         
-        # Follow associations for 5-8 steps
-        chain_length = random.randint(5, 8)
-        
-        for step in range(chain_length):
-            # Get brain connections for current word
-            connections = self._get_brain_connections(current_word, max_results=10)
-            if not connections:
-                break
-                
-            # Extract connected words from the brain connections string
-            # This is a bit hacky but works with the existing _get_brain_connections format
-            import re
-            connected_words = re.findall(r'\b\w{3,}\b', connections.lower())
+        # Keep going until we can't find any more connections
+        while True:
+            # Just use similar words directly - same as bbyconnect logic
+            similar_tokens = self._brain_similar_words(current_word, top_k=10)
             
-            if not connected_words:
-                break
-                
-            # Brain-influenced choice - more cerebral load = more unexpected jumps!
-            choice_random = self.bot.get_brain_influence(random.random(), influence_strength=0.4)
-            if choice_random > 0.8:
-                # High brain activity = pick something more unexpected
-                next_word = random.choice(connected_words[-3:]) if len(connected_words) > 3 else random.choice(connected_words)
+            if not similar_tokens:
+                # If no similar tokens, try making a fake word
+                fake_word = self.createFakeWordFromVector(current_word, top_n=5)
+                if fake_word != current_word and fake_word not in chain:
+                    chain.append(fake_word)
+                    current_word = fake_word
+                    continue
+                else:
+                    # Can't find anything more - stop here
+                    break
+            
+            # Pick next token from similar ones, avoiding loops
+            available_tokens = [t for t in similar_tokens if t not in chain]
+            if not available_tokens:
+                # Try from all similar tokens, maybe allow some repeats
+                if len(chain) > 20:  # If we've got a good chain, stop
+                    break
+                # Otherwise pick from similar even if it creates a loop
+                next_word = random.choice(similar_tokens)
             else:
-                # Low brain activity = pick strongest connection
-                next_word = connected_words[0] if connected_words else current_word
+                # Brain-influenced choice
+                choice_random = self.bot.get_brain_influence(random.random(), influence_strength=0.4)
+                if choice_random > 0.8 and len(available_tokens) > 3:
+                    # High brain activity = pick something more unexpected from end
+                    next_word = random.choice(available_tokens[-3:])
+                else:
+                    # Low brain activity = pick from front (strongest connections)
+                    next_word = available_tokens[0]
             
-            if next_word in chain:  # Avoid loops
-                break
-                
             chain.append(next_word)
             current_word = next_word
+            
+            # Safety limit to prevent infinite spam
+            if len(chain) >= 100:
+                break
         
-        if len(chain) < 2:
-            return await self.bot._discord_reply(ctx, f"sorry, i couldn't find any associations for '{start_word}'...")
+        # Output: bold start word then raw token flow
+        vomit = f"**{start_word}**" + "".join(chain[1:])
         
-        # Create a nice embed showing the association chain
-        embed = discord.Embed(
-            title="🧠 Brain Association Chain",
-            description=f"starting from **{start_word}**, my brain wandered like this:",
-            colour=self.bot.get_brain_color()
-        )
+        await self.bot._discord_reply(ctx, vomit)
         
-        # Format the chain with arrows
-        chain_display = " → ".join(f"**{word}**" for word in chain)
-        embed.add_field(
-            name="Thought Path",
-            value=chain_display,
-            inline=False
-        )
-        
-        # Add some brain stats flavor
-        try:
-            cerebral = getattr(self.bot.babyLLM, "cerebralLoad", 0.0) or 0.0
-            flux = getattr(self.bot.babyLLM, "memoryFlux", 0.0) or 0.0
-            brain_state = f"cerebral load: {cerebral:.3f} | memory flux: {flux:.3f}"
-            embed.set_footer(text=f"chain length: {len(chain)} steps | {brain_state}")
-        except:
-            embed.set_footer(text=f"chain length: {len(chain)} steps")
-        
-        await self.bot._discord_reply(ctx, embed=embed)
-        
-        # Small reward and buffer the final word
+        # Small reward
         self.bot.updateBBY(author, 0.5)
-        final_thought = f"went from {start_word} all the way to {chain[-1]}... weird how brains work"
-        if self.bot.random > 0.7:
-            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, final_thought))
+
+    @commands.command(name='bbythink', aliases=['bthink'])
+    @track_command
+    async def bbythink(self, ctx, start_word: str = None, length: int = None):
+        """Generate an actual rant/thought from a word using babyLLM inference!
+        Usage: !bbythink [word] [length]
+        """
+        author = ctx.author.name.lower()
+        
+        if not start_word:
+            # Pick a random starting word from bbyfacts
+            if self.bot.bbyfacts:
+                start_word = random.choice(list(self.bot.bbyfacts.keys()))
+            else:
+                return await self.bot._discord_reply(ctx, "i need a starting word! try !bbythink <word> or teach me some facts first with !bbyteach")
+        
+        start_word = start_word.strip().lower()
+        
+        # Set length - default to a nice rant length
+        if length is None:
+            length = random.randint(20, 50)
+        else:
+            length = max(5, min(42069, length))  # Clamp between 5-42069 for maximum epic rants
+        
+        # Just use the word as the prompt - let babyLLM generate after it
+        prompt = start_word
+        
+        # Tokenize the prompt
+        prompt_tokens = self.bot.librarian.tokenizer.encode(prompt)
+        
+        # Generate a response using the existing generation method
+        try:
+            thought = self._generate_response_blocking(prompt_tokens, length)
+            
+            # Clean it up a bit
+            thought = thought.strip()
+            if not thought:
+                thought = "..."
+            
+            # Format nicely - bold word then whatever babyLLM generated
+            final_thought = f"**{start_word}** {thought}"
+            
+            await self.bot._discord_reply(ctx, final_thought)
+            
+            # Bigger reward for actual thinking
+            self.bot.updateBBY(author, 2.0)
+            
+        except Exception as e:
+            await self.bot._discord_reply(ctx, f"brain error while thinking about {start_word}... {str(e)[:50]}")
+
+    @commands.command(name='bbyspam', aliases=['bspam', 'bbyassocchain', 'bassocchain'])
+    @track_command
+    async def bbyspam(self, ctx, mode: str = "vomit", *, args: str = ""):
+        """Spam command router - calls bbyvomit or bbythink
+        Usage: 
+        - !bbyspam vomit [word] - raw token vomit (default)
+        - !bbyspam think [word] [length] - actual inference rant
+        """
+        mode = mode.lower().strip()
+        
+        if mode in ["think", "rant", "infer"]:
+            # Parse think arguments
+            parts = args.split() if args else []
+            word = parts[0] if parts else None
+            length = None
+            if len(parts) > 1 and parts[1].isdigit():
+                length = int(parts[1])
+            
+            await self.bbythink(ctx, word, length)
+            
+        else:
+            # Default to vomit mode, treat mode as the word if it's not "vomit"
+            if mode != "vomit":
+                word = mode  # mode is actually the word
+            else:
+                word = args.split()[0] if args else None
+            
+            await self.bbyvomit(ctx, word)
 
     @commands.command(name="bbyspecialinterest", aliases=["bsi", "bbyspecialinterests"])
     async def bbyspecialinterest(self, ctx):
@@ -2281,7 +2346,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 monthly_facts.append((fact_name, teacher, fact_timestamp))
         
         if not monthly_teachers:
-            await self.bot._discord_reply(ctx, "no one has taught me anything this month yet! be the first with !bbyteach <word> <definition>")
+            await self.bot._discord_reply(ctx, "wow. no one has taught me anything this month yet. >:( be the first with !bbyteach <word> <definition>")
             return
         
         # Sort by number of facts taught
@@ -2289,13 +2354,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # Create award embed with brain colors!
         embed = discord.Embed(
-            title="🏆 Monthly Tutor Awards 🏆",
-            description=f"Teaching leaderboard for {current_date.strftime('%B %Y')}",
+            title="🏆 BEST NONSENSE TUTOR 🏆",
+            description=f"worst paid teachers of {current_date.strftime('%B %Y')}",
             color=self.bot.get_brain_color()
         )
         
         # Add top 5 teachers
-        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+        medals = ["1", "2", "3", "4", "5"]
         leaderboard = []
         
         for i, (teacher, count) in enumerate(sorted_teachers[:5]):
@@ -2930,7 +2995,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         return command_message, bbyreact_text
 
-    @commands.command(name = "bbyspamlevel", aliases=['bspamlevel', 'bspam', 'bbyspam', 'bsp']) 
+    @commands.command(name = "bbyspamlevel", aliases=['bspamlevel',]) 
     async def bbyspamlevel(self, ctx): 
         try:
             author = ctx.author.name.lower()

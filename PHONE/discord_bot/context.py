@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/context.py
-# v4.44
+# v1.1
 
 from types import SimpleNamespace
 
@@ -34,6 +34,7 @@ def create_fake_context(user_text: str, author: str = 'kevinonline420'):
     fake_guild = SimpleNamespace(id=0, members=[], get_member=lambda id: None, fetch_member=lambda id: None)
     fake_author = SimpleNamespace(name=author, id=0, display_name=author, bot=False)
     fake_message = FakeMessage(user_text, fake_author, channel=fake_channel, guild=fake_guild, mentions=[])
+    fake_command = SimpleNamespace(name='babyllm')  # Make it look like a babyllm command from web
     
     fake_context = SimpleNamespace(
         author=fake_author,
@@ -42,6 +43,7 @@ def create_fake_context(user_text: str, author: str = 'kevinonline420'):
         reply=fake_reply_func,
         typing=lambda: FakeTyping(),
         channel=fake_channel,
+        command=fake_command,  # Now the fake context has a command attribute!
     )
 
     return fake_context, lambda: captured_reply

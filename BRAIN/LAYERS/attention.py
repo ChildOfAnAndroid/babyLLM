@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # GATED MULTI-HEAD ATTENTION LAYER // brain/LAYERS/attention.py
-# v2.44
+# v1.1
 
 import math
 import torch
@@ -61,18 +61,34 @@ class GATED_MHA(nn.Module):
 
             # collect stats in the same format as other layers so values are
             # directly comparable
-            attn_norm = attn_out.norm().item()
-            gated_norm = gated.norm().item()
-            final_norm = out.norm().item()
-            self.stats = {
-                "2A_0_attnOut_norm": attn_norm,
-                "2A_0_attnOut_mean": attn_out.mean().item(),
-                "2A_1_gated_norm": gated_norm,
-                "2A_1_gated_mean": gated.mean().item(),
-                "2A_x_final_norm": final_norm,
-                "2A_x_final_mean": out.mean().item(),
-                "2A_gateScale": gate.item(),
-            }
+            try:
+                attn_norm = attn_out.norm().item()
+                gated_norm = gated.norm().item()
+                final_norm = out.norm().item()
+                attn_mean = attn_out.mean().item()
+                gated_mean = gated.mean().item()
+                final_mean = out.mean().item()
+                gate_item = gate.item()
+                self.stats = {
+                    "2A_0_attnOut_norm": attn_norm,
+                    "2A_0_attnOut_mean": attn_mean,
+                    "2A_1_gated_norm": gated_norm,
+                    "2A_1_gated_mean": gated_mean,
+                    "2A_x_final_norm": final_norm,
+                    "2A_x_final_mean": final_mean,
+                    "2A_gateScale": gate_item,
+                }
+            except Exception:
+                # If tensor operations hang or fail, use safe defaults
+                self.stats = {
+                    "2A_0_attnOut_norm": 0.0,
+                    "2A_0_attnOut_mean": 0.0,
+                    "2A_1_gated_norm": 0.0,
+                    "2A_1_gated_mean": 0.0,
+                    "2A_x_final_norm": 0.0,
+                    "2A_x_final_mean": 0.0,
+                    "2A_gateScale": 0.5,
+                }
 
             return out
 

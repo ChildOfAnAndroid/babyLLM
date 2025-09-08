@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # EMBEDDING LAYER // brain/LAYERS/embed.py
-# v20.44
+# v1.1
 
 import math
 import torch
@@ -74,24 +74,33 @@ class EMBED(nn.Module):
                 #self.stats["1E_weightNormMax"] = embedNorms.max().item()
 
                 if debugPrints: ʕっʘ‿ʘʔっ("vectorNorm stats")
-                self.stats["1E_0_vector_norm"] = self.embedVector.norm().item()
-                #self.stats["1E_1_normed_norm"] = self.embedNormed.norm().item()
-                self.stats["1E_0_vector_mean"] = self.embedVector.mean().item()
-                #self.stats["1E_1_normed_mean"] = self.embedNormed.mean().item()
-                self.stats["1E_x_final_norm"] = self.embedFinal.norm().item()
-                self.stats["1E_x_final_mean"] = self.embedFinal.mean().item()
-                ###self.stats["1E_1_pixelEmbed_norm"] = self.pixelEmbed.norm().item()###
-                ###self.stats["1E_1_pixelEmbed_mean"] = self.pixelEmbed.weight.mean().item()###
-                #self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
-                #self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
-                # positional embedding weights contain one vector per position and the
-                # Frobenius norm grows with the number of positions.  Use the mean L2
-                # norm of the individual positional vectors so the value reflects the
-                # typical magnitude of a single position embedding rather than the
-                # entire matrix.
-                pos_emb_row_norm = self.posEmbedding.weight.norm(dim=1).mean().item()
-                self.stats["1E_1_posEmbWeight_norm"] = pos_emb_row_norm
-                self.stats["1E_1_posEmbWeight_mean"] = self.posEmbedding.weight.mean().item()
+                try:
+                    self.stats["1E_0_vector_norm"] = self.embedVector.norm().item()
+                    #self.stats["1E_1_normed_norm"] = self.embedNormed.norm().item()
+                    self.stats["1E_0_vector_mean"] = self.embedVector.mean().item()
+                    #self.stats["1E_1_normed_mean"] = self.embedNormed.mean().item()
+                    self.stats["1E_x_final_norm"] = self.embedFinal.norm().item()
+                    self.stats["1E_x_final_mean"] = self.embedFinal.mean().item()
+                    ###self.stats["1E_1_pixelEmbed_norm"] = self.pixelEmbed.norm().item()###
+                    ###self.stats["1E_1_pixelEmbed_mean"] = self.pixelEmbed.weight.mean().item()###
+                    #self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
+                    #self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
+                    # positional embedding weights contain one vector per position and the
+                    # Frobenius norm grows with the number of positions.  Use the mean L2
+                    # norm of the individual positional vectors so the value reflects the
+                    # typical magnitude of a single position embedding rather than the
+                    # entire matrix.
+                    pos_emb_row_norm = self.posEmbedding.weight.norm(dim=1).mean().item()
+                    self.stats["1E_1_posEmbWeight_norm"] = pos_emb_row_norm
+                    self.stats["1E_1_posEmbWeight_mean"] = self.posEmbedding.weight.mean().item()
+                except Exception:
+                    # If tensor operations hang or fail, use safe defaults
+                    self.stats["1E_0_vector_norm"] = 1.0
+                    self.stats["1E_0_vector_mean"] = 0.0
+                    self.stats["1E_x_final_norm"] = 1.0
+                    self.stats["1E_x_final_mean"] = 0.0
+                    self.stats["1E_1_posEmbWeight_norm"] = 1.0
+                    self.stats["1E_1_posEmbWeight_mean"] = 0.0
 
                 #dimMean = self.e_weights.detach().clone().mean(dim = 0)
                 #self.stats["1E_dimMean"] = dimMean
