@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # NICE TERMINAL OUTPUT AND LOGGING STYLING SHEET THING
 # brain/LAYERS/S_output.py
-# v36.4
+# v36.44
 
 from config import *
 from datetime import datetime

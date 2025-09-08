@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
-# v9.4
+# v9.45
 
 import os
 import json
@@ -114,7 +114,11 @@ class BABYBOT_DISCORD(commands.Bot):
                     "last_message_words": set(), "creative_combo": 1, "spammer": 1,
                     "inventory": {}, "favourites": [], "next_talk_milestone": 50,
                     "translate_wins": 0, "translate_losses": 0,
-                    "fave_token_usage": 0}
+                    "fave_token_usage": 0, "command_usage": {}}
+
+        # Global command statistics tracking
+        self.command_stats_path = os.path.join(SCRIPT_DIR, "command_stats.json")
+        self.command_stats = self._json_load(self.command_stats_path, default_type={})
 
         if os.path.exists(self.user_data_path):
             print(f"[BABYBOT_DISCORD__INIT__] {self.user_data_path} LOADING FROM PATH... ")
@@ -522,6 +526,79 @@ class BABYBOT_DISCORD(commands.Bot):
     def getBBY(self, author):
         return round(self.userMemory.get(str(author).lower(), {}).get("BBY", 0.0), 4)
 
+    def get_brain_color(self):
+        """Get Discord colour based on babyLLM's current brain state (RGB values)"""
+        try:
+            # Get RGB values from babyState or defaults
+            with open(self.baby_state_path, 'r') as f:
+                state = json.load(f)
+            r = int(state.get("R", 133))
+            g = int(state.get("G", 239)) 
+            b = int(state.get("B", 238))
+            # Convert to Discord colour
+            return discord.Color.from_rgb(r, g, b)
+        except Exception:
+            # Fallback to baby blue if can't read state
+            return discord.Color.from_rgb(133, 239, 238)
+    
+    def get_brain_influence(self, base_random, influence_strength=0.3):
+        """Modify randomness based on brain state - more cerebralLoad = more chaos!"""
+        try:
+            cerebral = getattr(self.babyLLM, "cerebralLoad", 0.0) or 0.0
+            memory_flux = getattr(self.babyLLM, "memoryFlux", 0.0) or 0.0
+            
+            # High cerebral load makes things more chaotic/unpredictable
+            chaos_factor = cerebral * influence_strength
+            # Memory flux adds oscillation
+            flux_factor = memory_flux * influence_strength * 0.5
+            
+            # Modify the base random with brain influence
+            influenced = base_random + (chaos_factor * (random.random() - 0.5)) + (flux_factor * math.sin(time.time()))
+            return max(0.0, min(1.0, influenced))  # Keep in [0,1] range
+        except Exception:
+            return base_random
+
+    def track_command_usage(self, command_name: str, author: str):
+        """Track command usage globally and per-user"""
+        try:
+            # Global stats
+            if command_name not in self.command_stats:
+                self.command_stats[command_name] = {"total_uses": 0, "unique_users": set()}
+            self.command_stats[command_name]["total_uses"] += 1
+            if isinstance(self.command_stats[command_name]["unique_users"], set):
+                self.command_stats[command_name]["unique_users"].add(author.lower())
+            else:
+                # Convert old format if needed
+                self.command_stats[command_name]["unique_users"] = set([author.lower()])
+            
+            # User stats
+            user_mem = self.userMemory[author.lower()]
+            if "command_usage" not in user_mem:
+                user_mem["command_usage"] = {}
+            user_mem["command_usage"][command_name] = user_mem["command_usage"].get(command_name, 0) + 1
+            
+            # Save stats periodically (every 10th command)
+            if sum(data["total_uses"] for data in self.command_stats.values()) % 10 == 0:
+                self._save_command_stats()
+                self._save_user_data()
+                
+        except Exception as e:
+            print(f"[TRACK_COMMAND_USAGE] Error: {e}")
+
+    def _save_command_stats(self):
+        """Save command statistics with set conversion"""
+        try:
+            # Convert sets to lists for JSON serialization
+            stats_to_save = {}
+            for cmd, data in self.command_stats.items():
+                stats_to_save[cmd] = {
+                    "total_uses": data["total_uses"],
+                    "unique_users": list(data["unique_users"]) if isinstance(data["unique_users"], set) else data["unique_users"]
+                }
+            self._save_json(self.command_stats_path, stats_to_save, "_SAVE_COMMAND_STATS")
+        except Exception as e:
+            print(f"[_SAVE_COMMAND_STATS] Error: {e}")
+
     async def decay_BBY(self):
         BASE_DECAY_RATE_DAILY, LOYALTY_DECAY_PROTECTION = 0.01, 0.95
         WEALTH_TAX_BASE_RATE_DAILY, WEALTH_TAX_MULTIPLIER = 0.0420, 4206.420
@@ -530,9 +607,12 @@ class BABYBOT_DISCORD(commands.Bot):
         SHARE_OF_VOICE_INFLUENCE, HEARTBEAT_MIN, HEARTBEAT_MAX = 0.069, -0.000420, 0.00420
         DECAY_FLOOR = -69696969.69
         SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
-        interval_multiplier = SECONDS_PER_INTERVAL / 10.0
+        ORIGINAL_INTERVAL_SECONDS = 10.0  # The original interval that all rates were tuned for
+        interval_multiplier = SECONDS_PER_INTERVAL / ORIGINAL_INTERVAL_SECONDS
+        DECAY_FLOOR *= interval_multiplier
         
         print(f"\n--- decay + bonus stats at {datetime.now().strftime('%H:%M:%S')} ---")
+        print(f"Interval: {SECONDS_PER_INTERVAL}s, Multiplier: {interval_multiplier:.2f}x (vs original {ORIGINAL_INTERVAL_SECONDS}s)")
         active_users = {u: m for u, m in self.userMemory.items() if "BBY" in m}
         if not active_users: return
 
@@ -980,7 +1060,9 @@ class BABYBOT_DISCORD(commands.Bot):
         self.same = 0
         print(f"startup bestie is: {self.current_bestie or 'I AM ALONE, I ONLY LOVE MYSELF'}")
         print(f"startup rival is: {self.current_rival or 'I AM ALONE, I ONLY LOVE MYSELF'}")
-        if self.random2 > 0.85:
+        # Brain-influenced chance to mention bestie - higher cerebral load = more social!
+        brain_influenced_random = self.get_brain_influence(self.random2, influence_strength=0.2)
+        if brain_influenced_random > 0.85:
             helloMessage += f" where's {self.getNickname(self.current_bestie)} at?"
         if not self.cog: await self.setup_bot()
         self._buffer_add(self.formatMessage(self.babyName, helloMessage))
@@ -1173,7 +1255,16 @@ class BABYBOT_DISCORD(commands.Bot):
                     await self.cog._set_bbyfact(key = nickname, author = author, value = f"{nickname} had their {event_key}")
                 else:
                     fact = self.bbyfacts[nickname]
-                    fact["value"] += f", came by again on {today_key}"
+                    # Use visit counter instead of appending text
+                    if "visit_count" not in fact:
+                        fact["visit_count"] = 1
+                    fact["visit_count"] += 1
+                    # Update the base value to reflect total visits, not append every date
+                    if fact["visit_count"] == 2:
+                        fact["value"] = f"{nickname} has visited {fact['visit_count']} times total"
+                    elif fact["visit_count"] > 2:
+                        fact["value"] = f"{nickname} has visited {fact['visit_count']} times total"
+                    
                     original_bonus = fact.get("teach_bonus", 420.00)
                     fact["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * (self.random4 + self.random2)) * 0.011)
 
@@ -1282,21 +1373,36 @@ class BABYBOT_DISCORD(commands.Bot):
             await asyncio.sleep(0.05)
 
     async def randoms_tick_loop(self):
-        """Lightweight 1s ticker that refreshes the bot's randoms.
+        """Lightweight 1s ticker that refreshes the bot's randoms with brain influence!
 
-        Keeps self.random..self.random4 fresh for features that read them often,
-        while heavy idle work remains scheduled by idleTrainChecker every
-        self.idleTrainSeconds.
+        Keeps self.random..self.random4 fresh for features that read them often.
+        Now influenced by cerebralLoad and memoryFlux for more dynamic behaviour!
+        Higher brain activity = more unpredictable responses and reactions.
         """
-        print("[RANDOMS_TICK] started (1s updates)")
+        print("[RANDOMS_TICK] started (1s updates with brain influence)")
         while True:
             try:
+                # Generate base randoms
+                base_random = random.random()
+                base_random2 = random.random() 
+                base_random3 = random.random()
+                base_random4 = random.random()
+                
+                # Apply brain influence with random strength between 0.0-0.4
+                influence_strength = random.random() * 0.4
+                
+                self.random = self.get_brain_influence(base_random, influence_strength)
+                self.random2 = self.get_brain_influence(base_random2, influence_strength)
+                self.random3 = self.get_brain_influence(base_random3, influence_strength)
+                self.random4 = self.get_brain_influence(base_random4, influence_strength)
+                
+            except Exception as e:
+                print(f"[RANDOMS_TICK] error: {e}")
+                # Fallback to basic randoms on error
                 self.random = random.random()
                 self.random2 = random.random()
                 self.random3 = random.random()
                 self.random4 = random.random()
-            except Exception as e:
-                print(f"[RANDOMS_TICK] error: {e}")
             await asyncio.sleep(1.0)
 
     async def _train_on_item(self, item): 
@@ -1347,10 +1453,17 @@ class BABYBOT_DISCORD(commands.Bot):
         while trainDuringChat:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
-            self.random = random.random()
-            self.random2 = random.random()
-            self.random3 = random.random()
-            self.random4 = random.random()
+            # Apply brain influence to randoms here too
+            base_random = random.random()
+            base_random2 = random.random()
+            base_random3 = random.random()
+            base_random4 = random.random()
+            influence_strength = random.random() * 0.4
+            
+            self.random = self.get_brain_influence(base_random, influence_strength)
+            self.random2 = self.get_brain_influence(base_random2, influence_strength)
+            self.random3 = self.get_brain_influence(base_random3, influence_strength)
+            self.random4 = self.get_brain_influence(base_random4, influence_strength)
 
             if time.time() >= self.next_translate_time and self.cog:
                 # Only auto-start if no active translate sessions exist anywhere

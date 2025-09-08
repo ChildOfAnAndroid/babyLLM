@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # OUTPUT LAYER FOR LOGIT PREDICTION
 # brain/LAYERS/logits.py
-# v19.4
+# v19.44
 
 import torch
 import torch.nn as nn

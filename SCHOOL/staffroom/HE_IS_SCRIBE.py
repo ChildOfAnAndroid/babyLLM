@@ -1,7 +1,7 @@
 # CHARIS CAT 2025 
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # SCRIBE MODULE // school/staffroom/HE_IS_SCRIBE.py
-# v17.4
+# v17.44
 
 import random
 import time

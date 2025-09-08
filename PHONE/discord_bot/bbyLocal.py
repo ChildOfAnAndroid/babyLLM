@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bbyLocal.py
-# v4.4
+# v4.44
 
 # bby_brain_server.py
 # RUN THIS ON YOUR LOCAL MACBOOK.
@@ -103,6 +103,7 @@ def state_reader_loop():
                         with state_lock:
                             if babyState.get("isSpeaking", False): updates.pop("mouth", None)
                             babyState.update(updates)
+                            babyState["lastUpdated"] = time.time()  # Track when we last got fresh data
                             if "R" in updates: targetColour["R"] = updates["R"]
                             if "G" in updates: targetColour["G"] = updates["G"]
                             if "B" in updates: targetColour["B"] = updates["B"]
@@ -288,6 +289,31 @@ def set_state():
 def get_state():
     with state_lock:
         return jsonify(babyState)
+
+@app.get("/api/babystate")
+def get_babystate_cors():
+    """CORS-enabled babyState endpoint for website integration"""
+    with state_lock:
+        # Add staleness info
+        current_time = time.time()
+        last_updated = babyState.get("lastUpdated", 0)
+        timestamp = babyState.get("timestamp", 0)
+        
+        response_data = {
+            **babyState,
+            "meta": {
+                "dataAge": current_time - timestamp if timestamp else None,
+                "lastSeenAge": current_time - last_updated if last_updated else None,
+                "isStale": (current_time - timestamp) > 30 if timestamp else True,
+                "serverTime": current_time
+            }
+        }
+        
+        response = jsonify(response_data)
+        response.headers.add('Access-Control-Allow-Origin', '*')  # Allow website access
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response
 
 @app.get("/api/bbybook")
 def get_bbybook():

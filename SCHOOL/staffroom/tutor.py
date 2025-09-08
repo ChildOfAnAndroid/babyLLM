@@ -2,9 +2,9 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v53.4
+# v53.44
 
-import random, os
+import random, os, time
 from collections import Counter, defaultdict
 import torch
 from config import *
@@ -604,6 +604,7 @@ class TUTOR:
                             MF = self.model.memoryFlux
                             LS = self.totalAvgAbsDelta
                         babyState = {
+                            "timestamp": time.time(),
                             "R": r,
                             "G": g,
                             "B": b, 
@@ -613,8 +614,12 @@ class TUTOR:
                             "learningStability": LS,
                             "correct": JSONtokenCorrect,
                         }
-                        with open(babyStateFilePath, 'w') as f:
+                        # Atomic write using temporary file
+                        import tempfile
+                        temp_path = babyStateFilePath + ".tmp"
+                        with open(temp_path, 'w') as f:
                             json.dump(babyState, f, indent = 2)
+                        os.replace(temp_path, babyStateFilePath)  # Atomic on Unix
                     except Exception as e:
                         print(f"could not write to {babyStateFilePath}: {e}")
 

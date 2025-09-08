@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v12.4
+# v12.45
 
 import os
 import asyncio
@@ -43,6 +43,19 @@ from .utils import (
 if TYPE_CHECKING:
     from .bot import BABYBOT_DISCORD
 
+def track_command(func):
+    """Decorator to track command usage"""
+    @functools.wraps(func)
+    async def wrapper(self, ctx, *args, **kwargs):
+        command_name = ctx.command.name if ctx.command else func.__name__
+        author = ctx.author.name if ctx.author else "unknown"
+        try:
+            self.bot.track_command_usage(command_name, author)
+        except Exception as e:
+            print(f"[TRACK_COMMAND] Error tracking {command_name}: {e}")
+        return await func(self, ctx, *args, **kwargs)
+    return wrapper
+
 # varied self prompts for richer internal commentary
 LONELY_MESSAGES = [
     "aaa nobodys even messaged me yet, how can i learn from that lol",
@@ -71,7 +84,7 @@ LURK_OUT_MESSAGES = [
 SAVE_BUFFER_MESSAGES = [
     f"oop, you want me to actually remember this shit!? uhh, ok... saving buffer to {chatBufferFilepath}! :) ",
     f"logging this chaos to {chatBufferFilepath} so future me can cringe properly.",
-    f"scribbling notes into {chatBufferFilepath}—my diary grows stronger.",
+    f"scribbling notes into {chatBufferFilepath} - my diary grows stronger.",
 ]
 
 def _tok_display(tok: str, max_len: int = 18) -> str:
@@ -840,6 +853,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     # --------*-- BOT COMMANDS --*--------
     @commands.command(name='bbyteach', aliases=['bteach', 'btx'])
+    @track_command
     async def bbyteach(self, ctx, key: str, *, value: str, debug_str=""):
         author = ctx.author.name.lower()
         key = key.lower().strip()
@@ -868,25 +882,30 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         totalBBY = sum(abs(score) for _, score in fullBestieboard)
         incrementTeach = (totalBBY / max(1, math.sqrt(totalBBY))) * self.bot.random4 * (1 - (BBY / max(1, totalBBY)))
         incrementTeach += 1
-        if self.bot.random > 0.42:
+        
+        # Brain-influenced reactions - higher cerebral load = more enthusiastic responses!
+        brain_excitement = self.bot.get_brain_influence(self.bot.random, influence_strength=0.3)
+        brain_enthusiasm = self.bot.get_brain_influence(self.bot.random2, influence_strength=0.4)
+        
+        if brain_excitement > 0.42:
             reply += "o"
             incrementTeach *= 42
-        if self.bot.random2 > 0.75:
+        if brain_enthusiasm > 0.75:
             reply += "o"
             incrementTeach *= 42
-        if self.bot.random3 > 0.3:
+        if self.bot.get_brain_influence(self.bot.random3, 0.2) > 0.3:
             reply += "oh, "
             incrementTeach *= 5
-        if self.bot.random4 > 0.3:
+        if self.bot.get_brain_influence(self.bot.random4, 0.2) > 0.3:
             reply += "oh? "
             incrementTeach *= 5
-        if self.bot.random > 0.69:
+        if brain_excitement > 0.69:
             reply += "nice! "
             incrementTeach *= 69
-        if self.bot.random2 > 0.85:
+        if brain_enthusiasm > 0.85:
             reply += "that's a cool fact! "
             incrementTeach *= 1000
-        if self.bot.random3 > 0.99995:
+        if self.bot.get_brain_influence(self.bot.random3, 0.5) > 0.99995:  # More chaos with high brain activity
             reply += "... actually that's fucking insane! "
             incrementTeach *= 42069.69
         if self.bot.random4 > 0.1:
@@ -899,7 +918,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
         reply += (
-            f"soo... you're telling me that {key} means {value}? that's pretty cool, tbh! "
+            f"you're telling me that {key} means {value}? that's pretty cool, tbh! "
             f"{random.choice(self.bot.faveEmotes)} {style_gain(f'+ᛒ{incrementTeach:,.0f}')} for you! \n"
         )
         num_produced = self._get_fact_num_produced(key)        
@@ -941,16 +960,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "listen,",
             "hey,",
             "oi,",
+            "ok,",
+            "alright,",
+            "right, ",
+            "huh,",
+            "ah,",
+            "oh damn,",
+            "lmao,",
         ])
         teller = random.choice([
             "is telling me",
             "says",
-            "reckons",
+            "thinks",
             "tells me",
             "explains",
             "shares",
             "points out",
             "notes",
+            "teaches",
+            "informs me",
+            "reminds me",
+            "lets me know"
         ])
         meaning_word1 = random.choice([
             "means",
@@ -961,6 +991,43 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "defines",
             "refers to",
             "equals",
+            "indicates",
+            "translates to",
+            "conveys",
+            "suggests",
+            "implies",
+            "is like",
+            "kinda is",
+            "pretty much is",
+            "basically is",
+            "essentially is",
+            "literally is",
+            "straight up is",
+            "actually is",
+            "truly is",
+            "really is",
+            "definitely is",
+            "absolutely is",
+            "surely is",
+            "undoubtedly is",
+            "unquestionably is",
+            "positively is",
+            "certainly is",
+            "clearly is",
+            "obviously is",
+            "evidently is",
+            "distinctly is",
+            "inherently is",
+            "intrinsically is",
+            "fundamentally is",
+            "essentially is",
+            "basically is",
+            "ultimately is",
+            "naturally is",
+            "ordinarily is",
+            "normally is",
+            "typically is",
+            "generally is",
         ])
         meaning_word2 = random.choice([
             "means",
@@ -971,28 +1038,84 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "defines",
             "refers to",
             "equals",
+            "indicates",
+            "translates to",
+            "conveys",
+            "suggests",
+            "implies",
+            "is like",
+            "kinda is",
+            "pretty much is",
+            "basically is",
+            "essentially is",
+            "literally is",
+            "straight up is",
+            "actually is",
+            "truly is",
+            "really is",
+            "definitely is",
+            "absolutely is",
+            "surely is",
+            "undoubtedly is",
+            "unquestionably is",
+            "positively is",
+            "certainly is",
+            "clearly is",
+            "obviously is",
+            "evidently is",
+            "distinctly is",
+            "inherently is",
+            "intrinsically is",
+            "fundamentally is",
+            "essentially is",
+            "basically is",
+            "ultimately is",
+            "naturally is",
+            "ordinarily is",
+            "normally is",
+            "typically is",
+            "generally is",
         ])
         cool_word = random.choice([
             "pretty cool",
-            "kinda neat",
+            "really cool",
+            "kinda nice",
             "pretty awesome",
-            "rather interesting",
+            "really awesome",
+            "kinda awesome",
+            "super awesome",
+            "quite interesting",
+            "the best",
+            "honestly wild",
+            "heckin cool",
+            "freakin awesome",
             "super cool",
             "quite fascinating",
-            "mega rad",
-            "astonishing",
-            "heckin' neat",
+            "the fuckin best",
+            "honestly crazy",
+            "heckin coooool",
+            "fuckin awesome",
+            "sick",
+            "amazing",
+            "lit",
+            "fire",
         ])
         learn_phrase = random.choice([
-            "i think that they just taught me that",
-            "guess that teaches me that",
+            "i think they just taught me that",
+            "i guess that teaches me that",
             "now i know that",
+            "damn, i guess that",
+            "i see now that",
+            "i never realised that",
             "i just learned that",
             "they've taught me that",
             "i'll remember that",
             "that's stored in my brain now",
             "i'm writing that down",
             "putting that in my journal",
+            "that's going in my notes",
+            "i'll definitely remember that",
+            "it's a good point, that",
         ])
         varied_line = (
             f"{opener} {self.bot.getNickname(author)} {teller} that {key} {meaning_word1} {value}... "
@@ -1251,6 +1374,89 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         msg = f"hmm... {t1} and {t2} are a decent couple ({sim:.2f})"
         await self.bot._discord_reply(ctx, msg)
 
+    @commands.command(name='bbychain', aliases=['bchain', 'bbyassocchain', 'bassocchain'])
+    async def bbyassocchain(self, ctx, *, start_word: str = None):
+        """Follow word associations to see where my brain wanders!"""
+        author = ctx.author.name.lower()
+        
+        if not start_word:
+            # Pick a random starting word from bbyfacts or strong connections
+            if self.bot.bbyfacts:
+                start_word = random.choice(list(self.bot.bbyfacts.keys()))
+            else:
+                return await self.bot._discord_reply(ctx, "i need a starting word! try !bbychain <word>")
+        
+        start_word = start_word.strip().lower()
+        chain = [start_word]
+        current_word = start_word
+        
+        # Follow associations for 5-8 steps
+        chain_length = random.randint(5, 8)
+        
+        for step in range(chain_length):
+            # Get brain connections for current word
+            connections = self._get_brain_connections(current_word, max_results=10)
+            if not connections:
+                break
+                
+            # Extract connected words from the brain connections string
+            # This is a bit hacky but works with the existing _get_brain_connections format
+            import re
+            connected_words = re.findall(r'\b\w{3,}\b', connections.lower())
+            
+            if not connected_words:
+                break
+                
+            # Brain-influenced choice - more cerebral load = more unexpected jumps!
+            choice_random = self.bot.get_brain_influence(random.random(), influence_strength=0.4)
+            if choice_random > 0.8:
+                # High brain activity = pick something more unexpected
+                next_word = random.choice(connected_words[-3:]) if len(connected_words) > 3 else random.choice(connected_words)
+            else:
+                # Low brain activity = pick strongest connection
+                next_word = connected_words[0] if connected_words else current_word
+            
+            if next_word in chain:  # Avoid loops
+                break
+                
+            chain.append(next_word)
+            current_word = next_word
+        
+        if len(chain) < 2:
+            return await self.bot._discord_reply(ctx, f"sorry, i couldn't find any associations for '{start_word}'...")
+        
+        # Create a nice embed showing the association chain
+        embed = discord.Embed(
+            title="🧠 Brain Association Chain",
+            description=f"starting from **{start_word}**, my brain wandered like this:",
+            colour=self.bot.get_brain_color()
+        )
+        
+        # Format the chain with arrows
+        chain_display = " → ".join(f"**{word}**" for word in chain)
+        embed.add_field(
+            name="Thought Path",
+            value=chain_display,
+            inline=False
+        )
+        
+        # Add some brain stats flavor
+        try:
+            cerebral = getattr(self.bot.babyLLM, "cerebralLoad", 0.0) or 0.0
+            flux = getattr(self.bot.babyLLM, "memoryFlux", 0.0) or 0.0
+            brain_state = f"cerebral load: {cerebral:.3f} | memory flux: {flux:.3f}"
+            embed.set_footer(text=f"chain length: {len(chain)} steps | {brain_state}")
+        except:
+            embed.set_footer(text=f"chain length: {len(chain)} steps")
+        
+        await self.bot._discord_reply(ctx, embed=embed)
+        
+        # Small reward and buffer the final word
+        self.bot.updateBBY(author, 0.5)
+        final_thought = f"went from {start_word} all the way to {chain[-1]}... weird how brains work"
+        if self.bot.random > 0.7:
+            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, final_thought))
+
     @commands.command(name="bbyspecialinterest", aliases=["bsi", "bbyspecialinterests"])
     async def bbyspecialinterest(self, ctx):
         """show my most used tokens and the top 10 strongest links (compact embed)"""
@@ -1259,7 +1465,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         token_counts = getattr(tutor, "tokenCounts", {}) if tutor else {}
         total_bot = sum(token_counts.values())
 
-        embed = discord.Embed(title="my special interests rn", colour=discord.Colour.blurple())
+        embed = discord.Embed(title="my special interests rn", colour=self.bot.get_brain_color())
 
         # ---- TOP TOKENS (inline fields) ----
         if token_counts:
@@ -1598,6 +1804,121 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(f"Error in bbygift: {error}")
             await self.bot._discord_reply(ctx, f"Something went wrong: {error}")
 
+    @commands.command(name='bbysimilar', aliases=['bsimilar', 'bbymatch', 'bmatch'])
+    async def bbysimilar(self, ctx, *, member_name: str = None):
+        """Find users with similar item collections or interests to you or another user!"""
+        author = ctx.author.name.lower()
+        
+        # Determine target user
+        target_member, target_user = None, author
+        if member_name:
+            target_member, target_user = await self._find_member_or_user_id(ctx, member_name)
+            if not target_user:
+                return await self.bot._discord_reply(ctx, f"couldn't find user '{member_name}'")
+        
+        target_user = target_user.lower()
+        target_memory = self.bot.userMemory.get(target_user, {})
+        target_inventory = target_memory.get("inventory", {})
+        target_nickname = self.bot.getNickname(target_user)
+        
+        if not target_inventory:
+            return await self.bot._discord_reply(ctx, f"{target_nickname} doesn't have any items to compare against!")
+        
+        # Calculate similarity with other users
+        similarities = []
+        target_items = set(target_inventory.keys())
+        target_total = sum(target_inventory.values())
+        
+        for other_user, other_memory in self.bot.userMemory.items():
+            if other_user == target_user:
+                continue
+                
+            other_inventory = other_memory.get("inventory", {})
+            if not other_inventory:
+                continue
+                
+            other_items = set(other_inventory.keys())
+            other_total = sum(other_inventory.values())
+            
+            # Jaccard similarity for items
+            intersection = len(target_items.intersection(other_items))
+            union = len(target_items.union(other_items))
+            jaccard = intersection / union if union > 0 else 0
+            
+            # Weighted similarity considering quantities
+            shared_value = 0
+            for item in target_items.intersection(other_items):
+                target_count = target_inventory[item]
+                other_count = other_inventory[item]
+                # Use minimum count as shared value
+                shared_value += min(target_count, other_count)
+            
+            weight_similarity = shared_value / max(target_total, other_total) if max(target_total, other_total) > 0 else 0
+            
+            # Combined similarity score
+            combined_score = (jaccard * 0.4) + (weight_similarity * 0.6)
+            
+            # Also consider BBY score similarity for fun
+            target_bby = target_memory.get("BBY", 0)
+            other_bby = other_memory.get("BBY", 0)
+            bby_diff = abs(target_bby - other_bby)
+            bby_similarity = max(0, 1 - (bby_diff / 1000))  # Normalize BBY difference
+            
+            final_score = (combined_score * 0.8) + (bby_similarity * 0.2)
+            
+            if final_score > 0.05:  # Only show meaningful similarities
+                similarities.append((other_user, final_score, intersection, jaccard, weight_similarity))
+        
+        if not similarities:
+            return await self.bot._discord_reply(ctx, f"couldn't find anyone with items similar to {target_nickname}... they're unique!")
+        
+        # Sort by similarity
+        similarities.sort(key=lambda x: x[1], reverse=True)
+        
+        # Create embed
+        embed = discord.Embed(
+            title=f"👯 Users Similar to {target_nickname}",
+            description=f"based on item collections and vibes",
+            color=self.bot.get_brain_color()
+        )
+        
+        # Show top 5 most similar users
+        similar_list = []
+        for i, (other_user, score, shared_count, jaccard, weight_sim) in enumerate(similarities[:5]):
+            other_nickname = self.bot.getNickname(other_user)
+            percentage = int(score * 100)
+            similar_list.append(f"**{other_nickname}** - {percentage}% similar ({shared_count} shared items)")
+        
+        embed.add_field(
+            name="Most Similar Users",
+            value="\n".join(similar_list) if similar_list else "No similar users found",
+            inline=False
+        )
+        
+        # Show what they have in common with top match
+        if similarities:
+            top_match_user = similarities[0][0]
+            top_match_memory = self.bot.userMemory.get(top_match_user, {})
+            top_match_inventory = top_match_memory.get("inventory", {})
+            
+            common_items = []
+            for item in target_items.intersection(set(top_match_inventory.keys())):
+                target_count = target_inventory[item]
+                other_count = top_match_inventory[item]
+                common_items.append(f"{item} ({target_count} vs {other_count})")
+            
+            if common_items:
+                embed.add_field(
+                    name=f"Shared Items with {self.bot.getNickname(top_match_user)}",
+                    value=", ".join(common_items[:10]),
+                    inline=False
+                )
+        
+        embed.set_footer(text=f"Found {len(similarities)} similar users out of {len(self.bot.userMemory)} total")
+        
+        await self.bot._discord_reply(ctx, embed=embed)
+        self.bot.updateBBY(author, 0.5)
+
     @commands.command(name='bbyoptin', aliases=['boptin']) 
     async def bbyoptin_command(self, ctx: commands.Context): 
         author = ctx.author.name.lower()
@@ -1651,6 +1972,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await asyncio.sleep(0.5)  # fuck u rate limits
 
     @commands.command(name='babyllm', aliases=['bby', 'bbyllm', 'b'])
+    @track_command
     async def babyllm_command(self, ctx: commands.Context):
         babyllm_message = None 
         babyllm_text = ""
@@ -1936,6 +2258,145 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         await self.bot._discord_reply(ctx, line.lower().strip())
         if self.bot.random > 0.5: self.bot._buffer_add(self.bot.formatMessage(author, line.lower().strip()))
+
+    @commands.command(name="bbytutor", aliases=['btutor', 'btutors', 'bbyteachers'])
+    async def bbytutor_awards(self, ctx):
+        """Show monthly teaching awards - who taught the most facts this month!"""
+        author = ctx.author.name.lower()
+        now = time.time()
+        
+        # Get this month's start timestamp (1st day at 00:00)
+        current_date = datetime.now()
+        month_start = datetime(current_date.year, current_date.month, 1).timestamp()
+        
+        # Count facts taught this month by each user
+        monthly_teachers = defaultdict(int)
+        monthly_facts = []
+        
+        for fact_name, fact_data in self.bot.bbyfacts.items():
+            fact_timestamp = fact_data.get('timestamp', 0)
+            if fact_timestamp >= month_start:
+                teacher = fact_data.get('author', 'unknown')
+                monthly_teachers[teacher] += 1
+                monthly_facts.append((fact_name, teacher, fact_timestamp))
+        
+        if not monthly_teachers:
+            await self.bot._discord_reply(ctx, "no one has taught me anything this month yet! be the first with !bbyteach <word> <definition>")
+            return
+        
+        # Sort by number of facts taught
+        sorted_teachers = sorted(monthly_teachers.items(), key=lambda x: x[1], reverse=True)
+        
+        # Create award embed with brain colors!
+        embed = discord.Embed(
+            title="🏆 Monthly Tutor Awards 🏆",
+            description=f"Teaching leaderboard for {current_date.strftime('%B %Y')}",
+            color=self.bot.get_brain_color()
+        )
+        
+        # Add top 5 teachers
+        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+        leaderboard = []
+        
+        for i, (teacher, count) in enumerate(sorted_teachers[:5]):
+            medal = medals[i] if i < len(medals) else f"{i+1}️⃣"
+            nickname = self.bot.getNickname(teacher)
+            leaderboard.append(f"{medal} **{nickname}** - {count} facts taught")
+        
+        embed.add_field(
+            name="Top Teachers This Month",
+            value="\n".join(leaderboard) if leaderboard else "No teachers yet!",
+            inline=False
+        )
+        
+        # Recent teaching activity
+        recent_facts = sorted(monthly_facts, key=lambda x: x[2], reverse=True)[:5]
+        if recent_facts:
+            recent_text = []
+            for fact_name, teacher, timestamp in recent_facts:
+                nickname = self.bot.getNickname(teacher)
+                time_ago = howLongAgo(timestamp)
+                recent_text.append(f"• **{fact_name}** by {nickname} ({time_ago})")
+            
+            embed.add_field(
+                name="Recent Teaching Activity",
+                value="\n".join(recent_text),
+                inline=False
+            )
+        
+        # Stats
+        total_facts = len(monthly_facts)
+        unique_teachers = len(monthly_teachers)
+        embed.set_footer(text=f"Total: {total_facts} facts taught by {unique_teachers} teachers this month!")
+        
+        await self.bot._discord_reply(ctx, embed=embed)
+        
+        # Small BBY reward for checking awards
+        if self.bot.random > 0.7:
+            self.bot.updateBBY(author, 1.0)
+
+    @commands.command(name="bbycommands", aliases=['bcommands', 'bby-stats', 'bcommand-stats'])
+    @track_command
+    async def bbycommands_stats(self, ctx):
+        """Show most popular commands - now in proper British English!"""
+        author = ctx.author.name.lower()
+        
+        # Get global command stats
+        if not self.bot.command_stats:
+            await self.bot._discord_reply(ctx, "no command statistics yet! start using some commands!")
+            return
+        
+        # Sort by total usage
+        popular_commands = sorted(
+            [(cmd, data["total_uses"], len(data["unique_users"]) if isinstance(data["unique_users"], (list, set)) else 0) 
+             for cmd, data in self.bot.command_stats.items()], 
+            key=lambda x: x[1], reverse=True
+        )
+        
+        embed = discord.Embed(
+            title="🎯 Command Popularity Stats",
+            description="most popular commands across all users",
+            colour=self.bot.get_brain_color()
+        )
+        
+        if popular_commands:
+            top_commands = []
+            for i, (cmd, total, unique) in enumerate(popular_commands[:10]):
+                if i < 3:
+                    medals = ["🥇", "🥈", "🥉"]
+                    medal = medals[i]
+                else:
+                    medal = f"{i+1}."
+                top_commands.append(f"{medal} `!{cmd}` - {total} uses by {unique} users")
+            
+            embed.add_field(
+                name="Top Commands",
+                value="\n".join(top_commands),
+                inline=False
+            )
+        
+        # User's personal stats
+        user_mem = self.bot.userMemory.get(author, {})
+        user_commands = user_mem.get("command_usage", {})
+        if user_commands:
+            personal_top = sorted(user_commands.items(), key=lambda x: x[1], reverse=True)[:5]
+            personal_text = []
+            for cmd, uses in personal_top:
+                personal_text.append(f"• `!{cmd}` - {uses} times")
+            
+            embed.add_field(
+                name=f"Your Favourites, {self.bot.getNickname(author)}",
+                value="\n".join(personal_text),
+                inline=False
+            )
+        
+        total_commands = sum(data["total_uses"] for data in self.bot.command_stats.values())
+        embed.set_footer(text=f"Total commands used: {total_commands}")
+        
+        await self.bot._discord_reply(ctx, embed=embed)
+        
+        if self.bot.random > 0.6:
+            self.bot.updateBBY(author, 0.5)
 
     @commands.command(name = "bbyjudge", aliases=['bjudge', 'bj']) 
     async def bbyjudge(self, ctx): 
@@ -3258,10 +3719,33 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         spammer = mem.get("spammer", 1)
         timezone = mem.get("timezone", "Not Set")
         opt_in_status = "✅" if target_id in self.bot.AIoptInUsers else "❌"
-        embed_color = discord.Color.default()
-        if BBY > 1000: embed_color = discord.Color.gold()
-        elif BBY > 0: embed_color = discord.Color.green()
-        elif BBY < 0: embed_color = discord.Color.red()
+        
+        # Use brain colors with BBY influence
+        embed_color = self.bot.get_brain_color()
+        
+        # Slightly modify based on BBY for visual feedback, but keep brain colors as base
+        if BBY > 1000:
+            # Add gold tint to brain color
+            try:
+                r, g, b = embed_color.r, embed_color.g, embed_color.b
+                embed_color = discord.Color.from_rgb(
+                    min(255, r + 30),  # Add golden tint
+                    min(255, g + 20),
+                    max(0, b - 10)
+                )
+            except:
+                embed_color = discord.Color.gold()
+        elif BBY < -1000:
+            # Add darker tint to brain color for negative scores
+            try:
+                r, g, b = embed_color.r, embed_color.g, embed_color.b
+                embed_color = discord.Color.from_rgb(
+                    max(0, r - 50),  # Darken the brain color
+                    max(0, g - 50),
+                    max(0, b - 50)
+                )
+            except:
+                embed_color = discord.Color.dark_red()
 
         facts_taught = [f"{k}" for k, v in self.bot.bbyfacts.items() if v.get('author', '').lower() == target_id]
         facts_summary = f"taught me {len(facts_taught)} things."
@@ -3462,6 +3946,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyhelp', aliases=['bh', 'bhelp']) 
+    @track_command
     async def bbyhelp(self, ctx): 
         author = ctx.author.name.lower()
         self.bot.updateBBY(author, 0.1)
@@ -3572,7 +4057,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             embed = discord.Embed(
                 title=f"{item_name.lower().strip()}",
                 description=f"*{item_data.get('value', 'nothing found...')}*",
-                color=discord.Color.random()
+                color=self.bot.get_brain_color()  # Use brain-based RGB color!
             )
             embed.set_footer(text=f"item number {iid} was taught by {original_author}, {created_ago}.")
 
