@@ -1,10 +1,10 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# v32.7
+# v1.1
 
 from rich.traceback import install
 #from torch.profiler import profile, record_function, ProfilerActivity
-import sys, traceback, warnings, torch, os, random
+import sys, warnings, torch, random
 from datetime import datetime
 import time
 
@@ -18,7 +18,7 @@ from config import *
 from secret import *
 from phone.babyBot import BABYBOT_TWITCH
 from phone.babyBot_discord import *
-from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, printStartLogs, append_to_files
+from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, append_to_files
 from helpers import get_grad_stats, empty_mps_cache
 
 sys.excepthook = handle_exception

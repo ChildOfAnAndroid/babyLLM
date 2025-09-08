@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM TEXT CLEANING TOOL // textCleaningTool.py
-# v28.6
+# v1.1
 
 import os, re, json, csv, random
 from html import unescape

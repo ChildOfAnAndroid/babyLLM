@@ -2,13 +2,11 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v1.1
+# v1.2
 
-import random, sys, os
+import random, os
 from collections import Counter, defaultdict
-from datetime import datetime
 import torch
-import torch.nn.functional as F
 from config import *
 import numpy as np
 import math

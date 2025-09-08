@@ -1,13 +1,12 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM CONFIG FILE // config.py
-# v80.7
+# v1.1
 
 # === Imports ===
 import datetime as CONFIGDATE
 import inspect
 import torch
-import torch.nn as nn
 
 # === Date (for log file naming) ===
 date = CONFIGDATE.date.today()
@@ -30,12 +29,12 @@ if hasattr(torch, "set_default_device") and modelDevice.type != "mps":
 # UNUSED: WHOCALLED_DEBUG = False
 
 def whocalled(func):
-# UNUSED:     if WHOCALLED_DEBUG:
-        def inner(*args, **kwargs):
-            caller_stack = [frame[0].f_code.co_qualname for frame in inspect.stack()]
-            print(f"Calling {func.__qualname__} from: {', '.join(caller_stack)}")
-            return func(*args, **kwargs)
-        return inner
+    # UNUSED: if WHOCALLED_DEBUG:
+    #     def inner(*args, **kwargs):
+    #         caller_stack = [frame[0].f_code.co_qualname for frame in inspect.stack()]
+    #         print(f"Calling {func.__qualname__} from: {', '.join(caller_stack)}")
+    #         return func(*args, **kwargs)
+    #     return inner
     return func
 
 def printTensorAttrs(obj, name='self'):

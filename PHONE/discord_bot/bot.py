@@ -5,7 +5,6 @@
 
 import os
 import json
-import torch
 import time
 import asyncio
 import discord
@@ -22,7 +21,6 @@ from datetime import datetime, timedelta
 import math
 import aiohttp
 from urllib.parse import urljoin
-import functools
 
 from helpers import save_json_if_changed
 

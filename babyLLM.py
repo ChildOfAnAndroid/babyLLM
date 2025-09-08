@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v67.6
+# v1.1
 
 import random, os
 import torch
@@ -9,10 +9,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim 
 from adan_pytorch import Adan
-import torch.optim.lr_scheduler
-import torch_optimizer
 import math
-from collections import Counter
 from sophia.sophia import SophiaG
 
 from brain.LAYERS.embed import EMBED
