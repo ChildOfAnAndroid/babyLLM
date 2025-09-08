@@ -1,12 +1,12 @@
 {
   "babyllm": {
-    "total_uses": 10,
+    "total_uses": 12,
     "unique_users": [
       "charis"
     ]
   },
   "bbyteach": {
-    "total_uses": 1,
+    "total_uses": 13,
     "unique_users": [
       "childofanandroid"
     ]
@@ -18,13 +18,13 @@
     ]
   },
   "bbythink": {
-    "total_uses": 6,
+    "total_uses": 11,
     "unique_users": [
       "childofanandroid"
     ]
   },
   "bbyvomit": {
-    "total_uses": 1,
+    "total_uses": 2,
     "unique_users": [
       "childofanandroid"
     ]

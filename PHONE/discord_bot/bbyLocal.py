@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bbyLocal.py
-# v1.1
+# v1.5
 
 # bby_brain_server.py
 # RUN THIS ON YOUR LOCAL MACBOOK.

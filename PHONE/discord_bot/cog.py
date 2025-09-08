@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v1.1
+# v1.5
 
 import os
 import asyncio
@@ -324,47 +324,58 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     # --*- FACT HELPERS -*--
     def _generate_response_blocking(self, promptTokenIDs, numTokensToGen):
         """Synchronous generation method - runs the actual computation"""
+        print(f"[_GENERATE_RESPONSE_BLOCKING] Starting with {len(promptTokenIDs)} prompt tokens, generating {numTokensToGen} tokens")
         genSeqIDs = list(promptTokenIDs)
         responseSeqId = []
 
-        with torch.no_grad():
-            self.bot.babyLLM.eval()
-            self.bot.numTokensPerStep = self.bot.chatWindowMAX
+        try:
+            with torch.no_grad():
+                self.bot.babyLLM.eval()
+                self.bot.numTokensPerStep = self.bot.chatWindowMAX
 
-            print(f"[_GENERATE_RESPONSE_BLOCKING] Generating {numTokensToGen} tokens in an executor thread...")
-            for _ in range(numTokensToGen):
-                inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
-                inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
-                logits = self.bot.babyLLM.forward(inputTensor)
-                totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
-                nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training=True, _totAvgAbsDelta=totAvgAbsDelta)
-                nextTokenID = nextTokenIDTensor.item()
-                genSeqIDs.append(nextTokenID)
-                responseSeqId.append(nextTokenID)
+                print(f"[_GENERATE_RESPONSE_BLOCKING] Model loaded, window size: {self.bot.numTokensPerStep}")
+                for i in range(numTokensToGen):
+                    if i % 10 == 0:  # Progress update every 10 tokens
+                        print(f"[_GENERATE_RESPONSE_BLOCKING] Generated {i}/{numTokensToGen} tokens...")
+                    
+                    inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
+                    inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
+                    logits = self.bot.babyLLM.forward(inputTensor)
+                    totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
+                    nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training=True, _totAvgAbsDelta=totAvgAbsDelta)
+                    nextTokenID = nextTokenIDTensor.item()
+                    genSeqIDs.append(nextTokenID)
+                    responseSeqId.append(nextTokenID)
 
-        babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
-        babyllm_text = clean_baby_output(babyllm_text)
-        babyllm_text = re.sub(r'\n([^\n]{0,8})(?=\n|\Z)', r' \1', babyllm_text)
-        babyllm_text = re.sub(r'  ', r' ', babyllm_text)
+            print(f"[_GENERATE_RESPONSE_BLOCKING] Token generation complete, decoding {len(responseSeqId)} tokens...")
+            babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
+            babyllm_text = clean_baby_output(babyllm_text)
+            babyllm_text = re.sub(r'\n([^\n]{0,8})(?=\n|\Z)', r' \1', babyllm_text)
+            babyllm_text = re.sub(r'  ', r' ', babyllm_text)
 
-        return babyllm_text
+            print(f"[_GENERATE_RESPONSE_BLOCKING] Generation successful: '{babyllm_text[:100]}...'")
+            return babyllm_text
+            
+        except Exception as e:
+            print(f"[_GENERATE_RESPONSE_BLOCKING] Error during generation: {e}")
+            import traceback
+            traceback.print_exc()
+            return "generation error occurred"
 
-    async def _generate_response_async(self, promptTokenIDs, numTokensToGen, timeout_seconds=60):
+    async def _generate_response_async(self, promptTokenIDs, numTokensToGen):
         """Asynchronous wrapper that runs generation in an executor to prevent blocking"""
         loop = asyncio.get_event_loop()
+        print(f"[_GENERATE_RESPONSE_ASYNC] Starting generation: {len(promptTokenIDs)} prompt tokens -> {numTokensToGen} new tokens")
         try:
-            # Add timeout to prevent hanging indefinitely
-            result = await asyncio.wait_for(
-                loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen),
-                timeout=timeout_seconds
-            )
+            # No timeout - let it run as long as needed, but in executor to prevent Discord blocking
+            result = await loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen)
+            print(f"[_GENERATE_RESPONSE_ASYNC] Generation completed successfully: {len(result)} characters")
             return result
-        except asyncio.TimeoutError:
-            print(f"[_GENERATE_RESPONSE_ASYNC] Generation timed out after {timeout_seconds} seconds")
-            return "..."  # Return minimal response if timed out
         except Exception as e:
             print(f"[_GENERATE_RESPONSE_ASYNC] Error during generation: {e}")
-            return "..."  # Return minimal response on error
+            import traceback
+            traceback.print_exc()
+            return "..."  # Simple fallback - let calling functions handle user-facing errors
 
     def _decay_item_value(self, fact_name: str, decay_percentage: float = 0.0001):
         if fact_name not in self.bot.bbyfacts: return None
@@ -1497,8 +1508,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
             # Clean it up a bit
             thought = thought.strip()
-            if not thought:
-                thought = "..."
+            if not thought or thought == "...":
+                # Check if it's a generation error
+                if thought == "...":
+                    reason = "thinking process crashed"
+                    brokeMessage = f"i broke :( why would u do this to me, @{author}!"
+                    brokeMessage2 = f"@{author}! you just made the system say '{reason}' >:("
+                    if self.bot.random2 > 0.5: 
+                        self.bot.updateBBY(author, -1000)
+                    await self.bot._discord_reply(ctx, brokeMessage)
+                    await self.bot._discord_reply(ctx, brokeMessage2)
+                    if self.bot.random > 0.5: 
+                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
+                    if self.bot.random2 > 0.5: 
+                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
+                    return
+                else:
+                    thought = "..."
             
             # Format nicely - bold word then whatever babyLLM generated
             final_thought = f"**{start_word}** {thought}"
@@ -2095,6 +2121,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
                 # --- running slow AI code in executor ---
                 babyllm_text = await self._generate_response_async(promptTokenIDs, numTokensToGen)
+                
+                # Check if generation failed
+                if babyllm_text == "...":
+                    import traceback
+                    reason = "generation failed mysteriously"  # We can't get the actual exception here
+                    brokeMessage = f"i broke :( why would u do this to me, @{author}!"
+                    brokeMessage2 = f"@{author}! you just made the system say '{reason}' >:("
+                    if self.bot.random2 > 0.5: 
+                        self.bot.updateBBY(author, -1000)
+                    await self.bot._discord_reply(ctx, brokeMessage)
+                    await self.bot._discord_reply(ctx, brokeMessage2)
+                    if self.bot.random > 0.5: 
+                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
+                    if self.bot.random2 > 0.5: 
+                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
+                    return
 
             # --- bby no longer typing... ---
             if not babyllm_text.strip():
@@ -2770,9 +2812,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             random.shuffle(fragments)
             seed = "\n".join(fragments[:20])  # tweak number for length
             self.bot._buffer_add(self.bot.formatMessage(author, seed))
-            print(f"\n\nadded internal rant. buffer now {len(self.bot.buffer)} messages long.\n\n")
+            print(f"\n\n[BBYRANT] Added internal rant. Buffer now {len(self.bot.buffer)} messages long.")
+            print(f"[BBYRANT] Seed length: {len(seed)} characters")
+            print(f"[BBYRANT] Truncated seed length: {len(seed[:1990])} characters")
 
             ctx.message.content = "!babyllm " + seed[:1990]
+            print(f"[BBYRANT] Calling babyllm_command with modified content...")
             await self.babyllm_command(ctx)
 
         except Exception as e:
