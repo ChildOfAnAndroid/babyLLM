@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# v1.1
+# v1.5
 
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
@@ -8,8 +8,8 @@
 
 """
 Auto version bump wrapper script that runs on file save.
-This script automatically increments version numbers using the daycount system:
-- vYYYYMMDD.N.0 where YYYYMMDD is the date and N is the edit count for that day
+This script automatically increments version numbers using the clean version system:
+- vX.Y where X = number of unique days edited, Y = edits on current day
 """
 
 import sys
@@ -17,20 +17,20 @@ import subprocess
 from pathlib import Path
 
 def main():
-    """Run the daycount bump command"""
+    """Run the clean version bump command"""
     script_dir = Path(__file__).parent
-    header_version_script = script_dir / "tools" / "header_version.py"
+    clean_version_script = script_dir / "clean_version_bump.py"
     
-    if not header_version_script.exists():
-        print(f"Error: {header_version_script} not found!")
+    if not clean_version_script.exists():
+        print(f"Error: {clean_version_script} not found!")
         return 1
     
     try:
-        # Run the daycount bump command
+        # Run the clean version bump command
         result = subprocess.run([
             sys.executable,
-            str(header_version_script),
-            "--daycount-bump",
+            str(clean_version_script),
+            "--clean-bump",
             "--root",
             str(script_dir)
         ], capture_output=True, text=True)

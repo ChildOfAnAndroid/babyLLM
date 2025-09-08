@@ -23,6 +23,24 @@
             "problemMatcher": []
         },
         {
+            "label": "Auto Version Bump (Quick)",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "auto_version_bump.py"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Initialize All File Headers",
             "type": "shell",
             "command": "python3",
