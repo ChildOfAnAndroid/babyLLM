@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v1.2
+# v1.1
 
 import random, os, time
 from collections import Counter, defaultdict
@@ -510,21 +510,7 @@ class TUTOR:
                 else:
                     self.pixelNow = None
                 if debugPrints: ʕっʘ‿ʘʔっ("FORWARD")
-                # Apply proper windowing to prevent tensor size mismatches
-                # Take only the last numTokensPerStep tokens for the forward pass
-                input_window_start = max(0, len(inputSeqPredictions) - self.numTokensPerStep)
-                windowed_sequence = inputSeqPredictions[input_window_start:]
-                
-                # Update buffer with windowed sequence
-                buffer_len = len(windowed_sequence)
-                if buffer_len <= self.numTokensPerStep:
-                    buffer[:buffer_len] = torch.as_tensor(windowed_sequence, device=self.device)
-                    inputTensor = buffer[:buffer_len]
-                else:
-                    # This should not happen with proper windowing, but handle it gracefully
-                    print(f"[TUTOR] Warning: windowed sequence length {buffer_len} exceeds buffer size {self.numTokensPerStep}")
-                    inputTensor = torch.as_tensor(windowed_sequence[-self.numTokensPerStep:], device=self.device)
-                
+                inputTensor = buffer[:len(inputSeqPredictions)] # slices input to only keep relevant part
                 try:
                     if forwardProfiler: 
                         with torch.profiler.profile(record_shapes = True) as prof:
