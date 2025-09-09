@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
-# v1.4
+# v2.180
 
 import os
 import json
@@ -15,7 +15,7 @@ from config import *
 from secret import *
 from textCleaningTool import *
 import traceback
-import random
+import random as pyrandom
 import pytz
 from datetime import datetime, timedelta
 import math
@@ -558,7 +558,7 @@ class BABYBOT_DISCORD(commands.Bot):
             flux_factor = memory_flux * influence_strength * 0.5
             
             # Modify the base random with brain influence
-            influenced = base_random + (chaos_factor * (random.random() - 0.5)) + (flux_factor * math.sin(time.time()))
+            influenced = base_random + (chaos_factor * (pyrandom.random() - 0.5)) + (flux_factor * math.sin(time.time()))
             return max(0.0, min(1.0, influenced))  # Keep in [0,1] range
         except Exception:
             return base_random
@@ -1378,36 +1378,36 @@ class BABYBOT_DISCORD(commands.Bot):
             await asyncio.sleep(0.05)
 
     async def randoms_tick_loop(self):
-        """Lightweight 1s ticker that refreshes the bot's randoms with brain influence!
+        """
+        Lightweight 1s ticker that refreshes the bot's randoms with brain influence.
 
-        Keeps self.random..self.random4 fresh for features that read them often.
-        Now influenced by cerebralLoad and memoryFlux for more dynamic behaviour!
-        Higher brain activity = more unpredictable responses and reactions.
+        Intended to be run as a background task; updates four instance attributes
+        (`self.random`, `self.random2`, `self.random3`, `self.random4`) for use elsewhere
+        in the bot. These values are influenced by cerebralLoad and memoryFlux for more
+        dynamic behaviour. Higher brain activity = more unpredictable responses and reactions.
         """
         print("[RANDOMS_TICK] started (1s updates with brain influence)")
         while True:
             try:
                 # Generate base randoms
-                base_random = random.random()
-                base_random2 = random.random() 
-                base_random3 = random.random()
-                base_random4 = random.random()
+                base_random = pyrandom.random()
+                base_random2 = pyrandom.random() 
+                base_random3 = pyrandom.random()
+                base_random4 = pyrandom.random()
                 
-                # Apply brain influence with random strength between 0.0-0.4
-                influence_strength = random.random() * 0.4
-                
-                self.random = self.get_brain_influence(base_random, influence_strength)
-                self.random2 = self.get_brain_influence(base_random2, influence_strength)
-                self.random3 = self.get_brain_influence(base_random3, influence_strength)
-                self.random4 = self.get_brain_influence(base_random4, influence_strength)
+                # Apply brain influence with independent random strength for each value
+                self.random = self.get_brain_influence(base_random, pyrandom.random() * 0.4)
+                self.random2 = self.get_brain_influence(base_random2, pyrandom.random() * 0.4)
+                self.random3 = self.get_brain_influence(base_random3, pyrandom.random() * 0.4)
+                self.random4 = self.get_brain_influence(base_random4, pyrandom.random() * 0.4)
                 
             except Exception as e:
                 print(f"[RANDOMS_TICK] error: {e}")
                 # Fallback to basic randoms on error
-                self.random = random.random()
-                self.random2 = random.random()
-                self.random3 = random.random()
-                self.random4 = random.random()
+                self.random = pyrandom.random()
+                self.random2 = pyrandom.random()
+                self.random3 = pyrandom.random()
+                self.random4 = pyrandom.random()
             await asyncio.sleep(1.0)
 
     async def _train_on_item(self, item): 
@@ -1433,7 +1433,7 @@ class BABYBOT_DISCORD(commands.Bot):
         except Exception:
             pass
 
-        trainingNum = random.randint(1, 100+self.idles)
+        trainingNum = pyrandom.randint(1, 100+self.idles)
         trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = trainingNum, _stride = trainingDataStride, _tokens = tokensToLibrarian)
         self.babyLLM.train()
         await self.loop.run_in_executor(
@@ -1459,11 +1459,11 @@ class BABYBOT_DISCORD(commands.Bot):
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             # Apply brain influence to randoms here too
-            base_random = random.random()
-            base_random2 = random.random()
-            base_random3 = random.random()
-            base_random4 = random.random()
-            influence_strength = random.random() * 0.4
+            base_random = pyrandom.random()
+            base_random2 = pyrandom.random()
+            base_random3 = pyrandom.random()
+            base_random4 = pyrandom.random()
+            influence_strength = pyrandom.random() * 0.4
             
             self.random = self.get_brain_influence(base_random, influence_strength)
             self.random2 = self.get_brain_influence(base_random2, influence_strength)
@@ -1507,7 +1507,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
                 await self._buffer_clean()
 
-                if now - self.lastClockAnnounce > random.randint(60, 36000):
+                if now - self.lastClockAnnounce > pyrandom.randint(60, 36000):
                     self.lastClockAnnounce = now
                     clock_line = getTimeRant(self.AIoptInUsers)
                     self._buffer_add(clock_line)
@@ -1524,7 +1524,7 @@ class BABYBOT_DISCORD(commands.Bot):
                         "i've waited {secs} seconds for company. {stats}",
                         "for {secs} seconds the world is quiet; here's how i'm doing: {stats}",
                     ]
-                    idle_text = random.choice(idle_templates).format(secs=idle_seconds, stats=stats_short)
+                    idle_text = pyrandom.choice(idle_templates).format(secs=idle_seconds, stats=stats_short)
                     idle_msg = self.formatMessage(self.babyName, idle_text)
                     self._buffer_add(idle_msg)
                     self.lastInteraction = time.time()
@@ -1542,7 +1542,7 @@ class BABYBOT_DISCORD(commands.Bot):
                                 training_data_contents = f.read().strip().lower()
                         except Exception:
                             training_data_contents = ""
-                        fullContext = random.choice([aug_context, training_data_contents or aug_context])
+                        fullContext = pyrandom.choice([aug_context, training_data_contents or aug_context])
                         await self.training_queue.put({"type": "context", "text": fullContext[:10000]})
 
                 # opportunistic, stats-guided autonomous micro‑training

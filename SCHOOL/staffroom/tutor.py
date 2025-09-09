@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v1.5
+# v2.180
 
 import random, os, time
 from collections import Counter, defaultdict
@@ -280,7 +280,7 @@ class TUTOR:
                         
                         if debugPrints: ʕっʘ‿ʘʔっ("♥collectTurnStats")
                         self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
-                        self.latestLossDelta = self.stepLossFloat - self.averageRecentLoss
+                        # latestLossDelta is already calculated in trainStep with proper rolling average
                         absdelta = abs(self.latestLossDelta)
                         if debugPrints: ʕっʘ‿ʘʔっ("♥self.pixelNow")
                         self.pixelNow = torch.tensor([self.totalTokenPerfectRate, self.totalAvgAbsDelta, self.perfectionistPassRate,], device = self.device)
@@ -719,7 +719,22 @@ class TUTOR:
             else: 
                 if debugPrints: print("TUTOR.trainStep.backward - loss is not NaN or Inf:", BACKWARDloss)
                 self.totalLoss += BACKWARDloss.item()
-                self.latestLossDelta = BACKWARDloss.item() - self.averageRecentLoss
+                
+                # Update rolling average loss with exponential decay (alpha = 0.1 for smoother averaging)
+                current_loss = BACKWARDloss.item()
+                if self.averageRecentLoss == 0:  # First step initialization
+                    self.averageRecentLoss = current_loss
+                    if debugPrints: print(f"[DELTA FIX] Initialized averageRecentLoss to {current_loss:.4f}")
+                else:
+                    alpha = 0.1  # Learning rate for exponential moving average
+                    old_avg = self.averageRecentLoss
+                    self.averageRecentLoss = (1 - alpha) * self.averageRecentLoss + alpha * current_loss
+                    if debugPrints and self.totalTurns % 100 == 0: 
+                        print(f"[DELTA FIX] Updated averageRecentLoss: {old_avg:.4f} -> {self.averageRecentLoss:.4f}")
+                
+                self.latestLossDelta = current_loss - self.averageRecentLoss
+                if debugPrints and self.totalTurns % 100 == 0:
+                    print(f"[DELTA FIX] Delta = {current_loss:.4f} - {self.averageRecentLoss:.4f} = {self.latestLossDelta:.4f}")
                 
             try:
                 self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
@@ -1115,13 +1130,17 @@ class TUTOR:
                     self.bbb += 1
                     if self.bbb % 100 == 0: 
                         print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} {self.bbb}x")
-                self.averageRecentLoss = lossStats[rollB_avgKey]
+                # Only update from logging stats if we haven't established a running average yet
+                if self.totalTurns < 50:  # Allow logging stats to initialize for first 50 turns
+                    self.averageRecentLoss = lossStats[rollB_avgKey]
             if rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (self.trainingLogFreq_A):
                 if debugPrints or True: 
                     self.ccc += 1
                     if self.ccc % 100 == 0: 
                         print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} {self.ccc}x")
-                self.averageRecentLoss = lossStats[rollA_avgKey]
+                # Only update from logging stats if we haven't established a running average yet
+                if self.totalTurns < 50:  # Allow logging stats to initialize for first 50 turns
+                    self.averageRecentLoss = lossStats[rollA_avgKey]
             if False:
                 if rollPrint_avgKey in lossStats and rollPrint_key in lossStats and len(lossStats[rollPrint_key]) >= printFreq:
                     if debugPrints or True: 

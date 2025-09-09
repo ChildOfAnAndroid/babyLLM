@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v1.5
+# v2.180
 
 import os
 import asyncio
@@ -88,6 +88,254 @@ SAVE_BUFFER_MESSAGES = [
     f"logging this chaos to {chatBufferFilepath} so future me can cringe properly.",
     f"scribbling notes into {chatBufferFilepath} - my diary grows stronger.",
 ]
+
+class BabyTextHelpers:
+    """Centralized text generation for bot responses - makes maintenance much easier!"""
+    
+    # Error and not-found messages
+    NOT_FOUND_MESSAGES = [
+        "i haven't met {name} yet! they need to chat first so i can get to know them xoxo",
+        "who is {name}?? i can't see them...",
+        "i don't know who {name} is... have they even talked yet? lol",
+        "i couldn't find who '{name}' is...",
+        "couldn't find user '{name}'",
+    ]
+    
+    # Success and positive messages
+    SUCCESS_MESSAGES = [
+        "aww!! {emote}",
+        "that's so sweet! {emote}",
+        "yay! {emote}",
+        "omg yes! {emote}",
+        "fuck yeah! {emote}",
+    ]
+    
+    # Teaching and learning messages
+    TEACH_RESPONSES = [
+        "you're telling me that {key} means {value}? that's pretty cool, tbh!",
+        "ooh, so {key} is {value}? neat!",
+        "ah right, {key} = {value}! got it!",
+        "thanks for teaching me that {key} means {value}!",
+    ]
+    
+    LEARN_CONFIRMATIONS = [
+        "haha, really? that's a nice way to explain it! thanks for teaching me.",
+        "wow, that's a fresh fact! appreciate the lesson.",
+        "neat! i'll keep that in mind, thanks for the tip.",
+        "cool beans, i'll write that down!",
+    ]
+    
+    # Gambling and game messages
+    GAMBLING_WINS = [
+        "holy shit you won! {emote}",
+        "omg winner! {emote}",
+        "fuck yeah, you did it! {emote}",
+        "aaaaa you're so lucky! {emote}",
+    ]
+    
+    GAMBLING_LOSSES = [
+        "oof, better luck next time! {emote}",
+        "aww, that's rough {emote}",
+        "rip your points lol {emote}",
+        "the house always wins! {emote}",
+    ]
+    
+    # Fight outcome messages
+    FIGHT_VICTORIES = [
+        "{winner} absolutely demolished {loser}!",
+        "{winner} sent {loser} to the shadow realm!",
+        "{winner} made {loser} cry! (probably)",
+        "{winner} is too powerful for {loser}!",
+    ]
+    
+    FIGHT_DEFEATS = [
+        "{winner} barely survived against {loser}!",
+        "{winner} got lucky against {loser}!",
+        "{winner} won by the skin of their teeth!",
+    ]
+    
+    # Generic positive exclamations
+    POSITIVE_EXCLAMATIONS = [
+        "yay!",
+        "woo!",
+        "nice!",
+        "sweet!",
+        "awesome!",
+        "hell yeah!",
+        "fuck yeah!",
+        "omg yes!",
+        "let's gooo!",
+    ]
+    
+    # Generic confused/questioning
+    CONFUSED_RESPONSES = [
+        "huh?",
+        "what?",
+        "eh?",
+        "sorry?",
+        "come again?",
+        "... what?",
+        "i'm confused lol",
+    ]
+    
+    # BBY/currency related
+    BBY_GAIN_MESSAGES = [
+        "here's {amount} for you!",
+        "take {amount}!",
+        "enjoy your {amount}!",
+        "you earned {amount}!",
+        "{amount} coming your way!",
+    ]
+    
+    BBY_LOSS_MESSAGES = [
+        "rip {amount} lol",
+        "bye bye {amount}!",
+        "there goes {amount}...",
+        "ouch, lost {amount}!",
+        "{amount} vanished!",
+    ]
+    
+    # Gambling specific messages
+    CONSOLATION_MESSAGES = [
+        "... don't look at me like that... fine. take a consolation prize of {amount} {emote}",
+        "ugh, you look so sad... here, have {amount} to cheer up {emote}",
+        "ok ok, i feel bad for you. here's {amount} {emote}",
+        "stop giving me those eyes! take {amount} and go {emote}",
+    ]
+    
+    GAMBLING_BONUS_MESSAGES = [
+        "i just dropped you a bonus of {amount}, your total is now ᛒ{total} {emote}",
+        "bonus time! +{amount}, bringing you to ᛒ{total} {emote}",
+        "surprise! here's {amount} extra, now you have ᛒ{total} {emote}",
+    ]
+    
+    GAMBLING_DOUBLE_BONUS_MESSAGES = [
+        "i just dropped you (another!) bonus of {amount}, your total is now ᛒ{total} {emote}",
+        "omg another bonus! +{amount}, you're at ᛒ{total} now {emote}",
+        "wait there's more! +{amount}, total: ᛒ{total} {emote}",
+    ]
+    
+    # Error/validation messages
+    ERROR_MESSAGES = [
+        "umm... you only have {current} {item}, you can't give {requested} away...",
+        "brr i can't read that... please use numbers!",
+        "it's gotta be a number between {min} and {max}, hmm... try something like {example}?",
+        "hmm... what can i give you for a negative amount... a fucking slap. lmaoooo",
+        "nope! can't do that!",
+        "that doesn't work...",
+    ]
+    
+    # Contemplative/thinking messages  
+    THINKING_MESSAGES = [
+        "hmm... {thought}",
+        "ah... {thought}",
+        "well... {thought}",
+        "i guess... {thought}",
+        "hm. {thought}",
+    ]
+    
+    @staticmethod
+    def get_random_message(message_list, varied_random_func, **kwargs):
+        """Get a random message from a list and format with kwargs"""
+        message = varied_random_func.choice(message_list)
+        if kwargs:
+            return message.format(**kwargs)
+        return message
+    
+    @staticmethod
+    def get_not_found_message(name, varied_random_func):
+        """Get a random 'user not found' message"""
+        return BabyTextHelpers.get_random_message(
+            BabyTextHelpers.NOT_FOUND_MESSAGES, 
+            varied_random_func, 
+            name=name
+        )
+    
+    @staticmethod
+    def get_success_message(emote, varied_random_func):
+        """Get a random success message with emote"""
+        return BabyTextHelpers.get_random_message(
+            BabyTextHelpers.SUCCESS_MESSAGES,
+            varied_random_func,
+            emote=emote
+        )
+    
+    @staticmethod
+    def get_teach_response(key, value, varied_random_func):
+        """Get a random teaching response"""
+        return BabyTextHelpers.get_random_message(
+            BabyTextHelpers.TEACH_RESPONSES,
+            varied_random_func,
+            key=key,
+            value=value
+        )
+    
+    @staticmethod
+    def get_bby_message(amount, is_gain, varied_random_func):
+        """Get a random BBY gain/loss message"""
+        messages = BabyTextHelpers.BBY_GAIN_MESSAGES if is_gain else BabyTextHelpers.BBY_LOSS_MESSAGES
+        return BabyTextHelpers.get_random_message(
+            messages,
+            varied_random_func,
+            amount=amount
+        )
+    
+    @staticmethod
+    def get_consolation_message(amount, emote, varied_random_func):
+        """Get a random consolation message for gambling losses"""
+        return BabyTextHelpers.get_random_message(
+            BabyTextHelpers.CONSOLATION_MESSAGES,
+            varied_random_func,
+            amount=amount,
+            emote=emote
+        )
+    
+    @staticmethod
+    def get_gambling_bonus_message(amount, total, emote, varied_random_func):
+        """Get a random gambling bonus message"""
+        return BabyTextHelpers.get_random_message(
+            BabyTextHelpers.GAMBLING_BONUS_MESSAGES,
+            varied_random_func,
+            amount=amount,
+            total=total,
+            emote=emote
+        )
+    
+    @staticmethod
+    def get_gambling_double_bonus_message(amount, total, emote, varied_random_func):
+        """Get a random double gambling bonus message"""
+        return BabyTextHelpers.get_random_message(
+            BabyTextHelpers.GAMBLING_DOUBLE_BONUS_MESSAGES,
+            varied_random_func,
+            amount=amount,
+            total=total,
+            emote=emote
+        )
+    
+    @staticmethod
+    def get_error_message(error_type="generic", varied_random_func=None, **kwargs):
+        """Get a random error message - can be specific or generic"""
+        rng = varied_random_func or random
+        
+        if error_type == "insufficient_quantity":
+            return f"umm... you only have {kwargs.get('current', 0)} {kwargs.get('item', 'items')}, you can't give {kwargs.get('requested', 0)} away..."
+        elif error_type == "invalid_number":
+            return "brr i can't read that... please use numbers!"
+        elif error_type == "range_validation":
+            min_val = kwargs.get('min', '0.0')
+            max_val = kwargs.get('max', '1.0') 
+            example = kwargs.get('example', '0.69')
+            return f"it's gotta be a number between {min_val} and {max_val}, hmm... try something like {example}?"
+        elif error_type == "negative_amount":
+            return "hmm... what can i give you for a negative amount... a fucking slap. lmaoooo"
+        else:
+            return rng.choice(BabyTextHelpers.ERROR_MESSAGES)
+    
+    @staticmethod
+    def get_thinking_message(thought, varied_random_func=None):
+        """Get a random thinking/contemplative message"""
+        rng = varied_random_func or random
+        return rng.choice(BabyTextHelpers.THINKING_MESSAGES).format(thought=thought)
 
 def _tok_display(tok: str, max_len: int = 18) -> str:
     if not tok: return "EMPTY"
@@ -243,7 +491,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if spammer > 1: line += f"🧌x{spammer:.0f}"
         line += "\n"
 
-        emote = random.choice(self.bot.faveEmotes)
+        emote = self.get_varied_choice().choice(self.bot.faveEmotes)
         if is_rivals: line += f"{emote} they have ᛒ{bby_score:,.0f}, hogging {current_bby_holding:.0%} of everyone elses points! \n"
         else: line += f"{emote} ᛒ{bby_score:,.2f}, {current_bby_holding:.0%} of the total ᛒ{total_bby:,.2f}! \n"
 
@@ -291,7 +539,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             }
             if not spendable_items:
                 return quantity, None, f"aa you dont have {quantity} of anything you can give away!!! :( "
-            item_name = random.choice(list(spendable_items.keys()))
+            item_name = self.get_varied_choice().choice(list(spendable_items.keys()))
         
         return quantity, item_name.lower().strip(), None
 
@@ -450,7 +698,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         base = self._get_fact_value_base(fact)
         
-        if "cursed" in (fact or "").lower() and self.bot.random4 < 0.75:
+        if "cursed" in (fact or "").lower() and self.get_varied_random() < 0.75:
             cursed = -abs(base) if base > 0 else base
             self.bot.bbyfacts[fact]['teach_bonus'] = cursed
             print(f"[_GET_FACT_VALUE_CURSED] {fact} bonus flipped to {cursed}")
@@ -469,11 +717,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     
     def _calc_fact_num_produced(self):
         base_users = len(self.bot.userMemory)
-        chaos = (self.bot.random + self.bot.random2 + self.bot.random3) * random.uniform(0.4, 100.0)
+        chaos = (self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * self.get_varied_random().uniform(0.4, 100.0)
         base_factor = math.log(base_users + 2, 2)
-        if self.bot.random4 > 0.999: return random.randint(1, 7)
-        if self.bot.random3 > 0.95: return int((base_factor * chaos) * random.uniform(5, 30))
-        return int((base_factor * chaos) * random.uniform(2, 6))
+        if self.get_varied_random() > 0.999: return self.get_varied_random().randint(1, 7)
+        if self.get_varied_random() > 0.95: return int((base_factor * chaos) * self.get_varied_random().uniform(5, 30))
+        return int((base_factor * chaos) * self.get_varied_random().uniform(2, 6))
 
     def _get_fact_num_produced(self, fact = None): 
         return self.bot.bbyfacts.get(fact, {}).get("num_produced", 2.0) 
@@ -528,9 +776,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if loser_inventory:
                 possible_items = [item for item in loser_inventory if loser_inventory[item] > 0]
                 if possible_items:
-                    stolen_item = random.choice(possible_items)
+                    stolen_item = self.get_varied_choice().choice(possible_items)
                     # decay its value
-                    decay_percentage = 0.01 * (self.bot.random2+self.bot.random)
+                    decay_percentage = 0.01 * (self.get_varied_random()+self.get_varied_random())
                     self._decay_item_value(stolen_item, decay_percentage=decay_percentage)
                     # Remove from loser
                     loser_inventory[stolen_item] -= 1
@@ -563,9 +811,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_debug(f"{debug_str}[_SET_BBYFACT] CREATED KEY: **{key}**, VALUE: {value:<20}, AUTHOR: {author}, BASE VALUE: {teach_bonus}, NUM PRODUCED: {num_produced}, ID: {id}")
 
     def _set_bbyfact_errors(self, key, value, author, teach_bonus, num_produced, id, debug_str=""): 
-        return (key or random.choice(self.bot.errorKeys), 
-                value or random.choice(self.bot.errorValues), 
-                author or random.choice(self.bot.errorAuthors), 
+        return (key or self.get_varied_choice().choice(self.bot.errorKeys), 
+                value or self.get_varied_choice().choice(self.bot.errorValues), 
+                author or self.get_varied_choice().choice(self.bot.errorAuthors), 
                 teach_bonus or 420,
                 num_produced or self._calc_fact_num_produced(),
                 id or self._get_next_bbyfact_id(),
@@ -582,7 +830,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     def _get_bbyfact(self, key): return self.bot.bbyfacts.get(key, {})
 
     def _get_bbyfact_random(self):
-        fact_title = random.choice(list(self.bot.bbyfacts.keys()))
+        fact_title = self.get_varied_choice().choice(list(self.bot.bbyfacts.keys()))
         fact_data = self.bot.bbyfacts.get(fact_title, {})
         return fact_title, fact_data
     
@@ -704,7 +952,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "thinking about {subject} makes me whisper {tokens}",
             "neurons say {subject} reminds me of {tokens}",
         ]
-        thought = random.choice(templates).format(subject=subject, tokens=tokens_str)
+        thought = self.get_varied_choice().choice(templates).format(subject=subject, tokens=tokens_str)
         buffer_entry = self.bot.formatMessage(self.bot.babyName, thought)
         self.bot._buffer_add(buffer_entry)
 
@@ -909,6 +1157,63 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         return best_word
 
+    def get_varied_random(self):
+        """Get a random float value from one of the four random generators"""
+        import random as rand_mod
+        randoms = [self.bot.random, self.bot.random2, self.bot.random3, self.bot.random4]
+        return rand_mod.choice(randoms)
+    
+    def get_varied_choice(self):
+        """Get a choice function that uses varied randomness"""
+        import random as rand_mod
+        randoms = [self.get_varied_random(), self.get_varied_random(), self.get_varied_random(), self.get_varied_random()]
+        chosen_seed = rand_mod.choice(randoms)
+        
+        # Create a simple wrapper that uses the chosen random value to influence selection
+        class VariedRandom:
+            def __init__(self, seed_val):
+                self.seed_val = seed_val
+            
+            def choice(self, seq):
+                if not seq:
+                    return None
+                # Use the seed value to influence the selection
+                idx = int((self.seed_val * len(seq)) % len(seq))
+                return seq[idx]
+        
+        return VariedRandom(chosen_seed)
+
+    def get_random_friend_pool(self, ctx):
+        """Get top 10 bbyfriends plus message sender for random name selection"""
+        try:
+            # Get sender name
+            sender_name = ctx.author.name.lower()
+            
+            # Get top friends from userMemory by BBY amount
+            user_bby_list = []
+            for user_id, user_data in self.bot.userMemory.items():
+                bby_amount = user_data.get("BBY", 0)
+                if bby_amount > 0 and user_id != sender_name:  # Exclude sender for now
+                    user_bby_list.append((user_id, bby_amount))
+            
+            # Sort by BBY amount (descending) and take top 10
+            user_bby_list.sort(key=lambda x: x[1], reverse=True)
+            top_friends = [user_id for user_id, _ in user_bby_list[:10]]
+            
+            # Add sender to the pool
+            friend_pool = top_friends + [sender_name]
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            friend_pool = [x for x in friend_pool if not (x in seen or seen.add(x))]
+            
+            return friend_pool if friend_pool else [sender_name]
+            
+        except Exception as e:
+            print(f"[get_random_friend_pool] Error: {e}")
+            # Fallback to just sender
+            return [ctx.author.name.lower()]
+
     # --------*-- BOT COMMANDS --*--------
     @commands.command(name='bbyteach', aliases=['bteach', 'btx'])
     @track_command
@@ -918,7 +1223,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         reply = ""
 
         if not key: return await self.bot._discord_reply(ctx, "oh woww! nothing!? hot.")
-            
 
         if key in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[key]
@@ -938,12 +1242,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         fullBestieboard = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items() if abs(m["BBY"]) >= 1.0], key=lambda x: x[1], reverse=True)
         BBY = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
         totalBBY = sum(abs(score) for _, score in fullBestieboard)
-        incrementTeach = (totalBBY / max(1, math.sqrt(totalBBY))) * self.bot.random4 * (1 - (BBY / max(1, totalBBY)))
+        incrementTeach = (totalBBY / max(1, math.sqrt(totalBBY))) * self.get_varied_random() * (1 - (BBY / max(1, totalBBY)))
         incrementTeach += 1
         
         # Brain-influenced reactions - higher cerebral load = more enthusiastic responses!
-        brain_excitement = self.bot.get_brain_influence(self.bot.random, influence_strength=0.3)
-        brain_enthusiasm = self.bot.get_brain_influence(self.bot.random2, influence_strength=0.4)
+        brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
+        brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
         
         if brain_excitement > 0.42:
             reply += "o"
@@ -951,10 +1255,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if brain_enthusiasm > 0.75:
             reply += "o"
             incrementTeach *= 42
-        if self.bot.get_brain_influence(self.bot.random3, 0.2) > 0.3:
+        if self.bot.get_brain_influence(self.get_varied_random(), 0.2) > 0.3:
             reply += "oh, "
             incrementTeach *= 5
-        if self.bot.get_brain_influence(self.bot.random4, 0.2) > 0.3:
+        if self.bot.get_brain_influence(self.get_varied_random(), 0.2) > 0.3:
             reply += "oh? "
             incrementTeach *= 5
         if brain_excitement > 0.69:
@@ -963,10 +1267,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if brain_enthusiasm > 0.85:
             reply += "that's a cool fact! "
             incrementTeach *= 1000
-        if self.bot.get_brain_influence(self.bot.random3, 0.5) > 0.99995:  # More chaos with high brain activity
+        if self.bot.get_brain_influence(self.get_varied_random(), 0.5) > 0.99995:  # More chaos with high brain activity
             reply += "... actually that's fucking insane! "
             incrementTeach *= 42069.69
-        if self.bot.random4 > 0.1:
+        if self.get_varied_random() > 0.1:
             reply += "soo... "
             incrementTeach *= 3
         if incrementTeach > 4200.69: incrementTeach = incrementTeach * 0.075
@@ -976,11 +1280,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
         reply += (
-            f"you're telling me that {key} means {value}? that's pretty cool, tbh! "
-            f"{random.choice(self.bot.faveEmotes)} {style_gain(f'+ᛒ{incrementTeach:,.0f}')} for you! \n"
+            f"{BabyTextHelpers.get_teach_response(key, value, self.get_varied_choice())} "
+            f"{self.get_varied_choice().choice(self.bot.faveEmotes)} {style_gain(f'+ᛒ{incrementTeach:,.0f}')} for you! \n"
         )
-        num_produced = self._get_fact_num_produced(key)        
-        awardNumber = round((self.bot.random4 * self.bot.random3) * (random.uniform(1, (num_produced * self.bot.random2 * self.bot.random))) + 1)
+        num_produced = self._get_fact_num_produced(key)
+        awardNumber = round((self.get_varied_random() * self.get_varied_random()) * (self.get_varied_random().uniform(1, (num_produced * self.get_varied_random() * self.get_varied_random()))) + 1)
         awardNumber = await self._award_fact(user = author, fact = key, ctx = ctx, num = awardNumber)
         rank, rank_str = self._get_current_value_rank(key)
         if rank <= 20:  reply += "damn, top 20! "
@@ -988,7 +1292,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply, to_buffer=False)
         narrator_line_1 = self.bot.formatMessage(
             author,
-            random.choice([
+            self.get_varied_choice().choice([
                 f"hey bby, did you know that {key} means {value}?",
                 f"psst! {key} is {value}, thought you'd like to know!",
                 f"yo bby, apparently {key} equals {value}.",
@@ -997,7 +1301,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
         narrator_line_2 = self.bot.formatMessage(
             self.bot.babyName.lower(),
-            random.choice([
+            self.get_varied_choice().choice([
                 "haha, really? that's a nice way to explain it! thanks for teaching me.",
                 "wow, that's a fresh fact! appreciate the lesson.",
                 "neat! i'll keep that in mind, thanks for the tip.",
@@ -1009,7 +1313,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if self.bot._buffer_add(narrator_line_2):
             self.bot.last_logged_author = self.bot.babyName.lower()
 
-        opener = random.choice([
+        opener = self.get_varied_choice().choice([
             "soo...",
             "oh!",
             "guess what,",
@@ -1026,7 +1330,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "oh damn,",
             "lmao,",
         ])
-        teller = random.choice([
+        teller = self.get_varied_choice().choice([
             "is telling me",
             "says",
             "thinks",
@@ -1040,7 +1344,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "reminds me",
             "lets me know"
         ])
-        meaning_word1 = random.choice([
+        meaning_word1 = self.get_varied_choice().choice([
             "means",
             "is",
             "stands for",
@@ -1087,7 +1391,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "typically is",
             "generally is",
         ])
-        meaning_word2 = random.choice([
+        meaning_word2 = self.get_varied_choice().choice([
             "means",
             "is",
             "stands for",
@@ -1134,7 +1438,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "typically is",
             "generally is",
         ])
-        cool_word = random.choice([
+        cool_word = self.get_varied_choice().choice([
             "pretty cool",
             "really cool",
             "kinda nice",
@@ -1158,7 +1462,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "lit",
             "fire",
         ])
-        learn_phrase = random.choice([
+        learn_phrase = self.get_varied_choice().choice([
             "i think they just taught me that",
             "i guess that teaches me that",
             "now i know that",
@@ -1187,7 +1491,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if word in self.bot.bbyfacts:
             fact = self.bot.bbyfacts.get(word, {})
             known = f"i already know {word}! it's {fact.get('value', '')}".strip()
-            await self.bot._discord_spam(channel=channel, message_content=known, is_reply=False)
+            if ctx: await self.bot._discord_reply(ctx, known)
+            else: await self.bot._discord_send(channel=channel, message_content=known, is_reply=False)
             return
 
         associations = self._get_brain_connections(word)
@@ -1223,17 +1528,33 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             channel = ctx.channel
         if channel is None:
             return
-        active_here = [s for s in self.bot.lex_sessions.values() if s.get('mode') == 'translate' and s.get('channel_id') == channel.id]
-        if active_here:
-            if ctx:
-                await self.bot._discord_reply(ctx, "there's already a game running!")
-            return
+        
+        # Clean up stale sessions first
+        stale_sessions = []
+        for session_id, session in self.bot.lex_sessions.items():
+            if session.get('mode') == 'translate' and session.get('channel_id') == channel.id:
+                # Check if the message still exists - if not, it's stale
+                try:
+                    await channel.fetch_message(session_id)
+                except:
+                    # Message doesn't exist anymore, mark for cleanup
+                    stale_sessions.append(session_id)
+        
+        # Remove stale sessions
+        for session_id in stale_sessions:
+            self.bot.lex_sessions.pop(session_id, None)
+        
+        # Allow multiple games - removed "already running" check
         if not self.bot.bbyfacts:
             if ctx: await self.bot._discord_reply(ctx, "i don't know any words yet :(")
             return
-        correct = random.choice(list(self.bot.bbyfacts.keys()))
+        correct = self.get_varied_choice().choice(list(self.bot.bbyfacts.keys()))
         fake = self.createFakeWordFromVector(correct)
-        msg = f"is {fake} a real thing?"
+        fake2 = self.createFakeWordFromVector(fake)
+        fake3 = self.createFakeWordFromVector(fake2)
+        options = [correct, fake, fake2, fake3]
+        random.shuffle(options)
+        msg = f"{options[1]}, {options[2]}, {options[3]}, or {options[0]}?"
         if ctx: sent = await self.bot._discord_reply(ctx, msg)
         else: sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
         if sent:
@@ -1249,12 +1570,42 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 },
             }
             self.bot.lex_sessions[sent.id] = session
-            delay = random.randint(60, 120)
-            task = self.bot.loop.create_task(self._finish_translate_game(sent.channel, delay, sent.id))
+            # Start inactivity-based timer instead of fixed timer
+            task = self.bot.loop.create_task(self._monitor_translate_game(sent.channel, sent.id))
             session['task'] = task
 
-    async def _finish_translate_game(self, channel, delay, message_id):
-        await asyncio.sleep(delay)
+    async def _monitor_translate_game(self, channel, message_id):
+        """Monitor game for inactivity and end when no new guesses for a while"""
+        inactivity_delay = 5  # seconds of inactivity before ending
+        check_interval = 1     # check every 1 second
+
+        last_guess_count = 0
+        inactive_time = 0
+        
+        while True:
+            await asyncio.sleep(check_interval)
+            
+            session = self.bot.lex_sessions.get(message_id)
+            if not session or session.get('mode') != 'translate':
+                return  # Game already ended
+                
+            extra = session.get('extra', {})
+            current_guess_count = len(extra.get('guesses', {}))
+            
+            if current_guess_count > last_guess_count:
+                # New guess received, reset inactivity timer
+                last_guess_count = current_guess_count
+                inactive_time = 0
+            else:
+                # No new guesses, increment inactivity time
+                inactive_time += check_interval
+                
+            # End game if inactive for too long
+            if inactive_time >= inactivity_delay:
+                await self._finish_translate_game(channel, message_id)
+                return
+
+    async def _finish_translate_game(self, channel, message_id):
         session = self.bot.lex_sessions.get(message_id)
         if not session or session.get('mode') != 'translate':
             return
@@ -1263,18 +1614,55 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         guesses = extra.get("guesses", {})
         winners = [u for u, g in guesses.items() if g == correct]
         if winners:
-            win_text = ", ".join(self.bot.getNickname(w) for w in winners)
-            await self.bot._discord_send(channel=channel, message_content=f"it was **{correct}**! nice one {win_text} lol", is_reply=False)
+            # Calculate amounts and build winner display
+            winner_details = []
             for user in winners:
                 guess = guesses[user]
-                amount = self.bot.apply_fave_bonus(5.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
+                
+                # Brain-influenced excitement system like bbyteach!
+                brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
+                brain_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.6)
+                brain_generosity = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
+                
+                # Base amount starts at 69
+                amount = 69.0
+                
+                # Progressive excitement multipliers
+                if brain_excitement > 0.3:
+                    amount *= (42 * self.get_varied_random())
+                if brain_chaos > 0.5:
+                    amount *= (169 * self.get_varied_random())
+                if brain_generosity > 0.42:
+                    amount *= (420 * self.get_varied_random())
+                if brain_excitement > 0.69:
+                    amount *= (6969 * self.get_varied_random())
+                if brain_chaos > 0.85:
+                    amount *= (42069 * self.get_varied_random())
+                if brain_generosity > 0.95:
+                    amount *= (6942000 * self.get_varied_random())
+                if self.bot.get_brain_influence(self.get_varied_random(), 0.8) > 0.999:  # Ultra rare!
+                    amount *= (16909696.9 * self.get_varied_random())
+
+                # Add some base randomness
+                amount *= (1 + self.get_varied_random() * 9)  # 1x to 10x multiplier
+                
+                # Apply bonuses
+                amount = self.bot.apply_fave_bonus(amount, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
+                amount *= self._get_fact_value(correct)
+                
+                nickname = self.bot.getNickname(user)
+                winner_details.append(f"{nickname} (+{amount:.1f} BBY)")
                 self.bot.updateBBY(user, amount)
                 mem = self.bot.userMemory[user]
                 mem["translate_wins"] = mem.get("translate_wins", 0) + 1
+            
+            win_text = ', '.join(winner_details)
+            await self.bot._discord_send(channel=channel, message_content=f"it was **{correct}**! nice one {win_text} lol", is_reply=False)
         else: await self.bot._discord_send(channel=channel, message_content=f"aaaa sorry, was that a hard one?! it was **{correct}**.", is_reply=False)
         for user, guess in guesses.items():
             if user not in winners:
-                amount = self.bot.apply_fave_bonus(-2.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
+                amount = self.bot.apply_fave_bonus(-20.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
+                amount *= ((self.random + self.random2 + self.random3 + self.random4) * 0.69) * ((self.random + self.random2 + self.random3 + self.random4) * 4.2) * self._get_fact_value(correct)
                 self.bot.updateBBY(user, amount)
                 mem = self.bot.userMemory[user]
                 mem["translate_losses"] = mem.get("translate_losses", 0) + 1
@@ -1285,6 +1673,25 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='bbytranslate', aliases=['btranslate'])
     async def bbytranslate(self, ctx): await self._start_translate_game(ctx=ctx)
     async def trigger_bbytranslate_auto(self, channel): await self._start_translate_game(channel=channel)
+
+    @commands.command(name='bbydebugclear')
+    async def bbydebugclear(self, ctx):
+        """Clear stale game sessions for this channel"""
+        channel = ctx.channel
+        cleared = 0
+        stale_sessions = []
+        for session_id, session in self.bot.lex_sessions.items():
+            if session.get('channel_id') == channel.id:
+                try:
+                    await channel.fetch_message(session_id)
+                except:
+                    stale_sessions.append(session_id)
+        
+        for session_id in stale_sessions:
+            self.bot.lex_sessions.pop(session_id, None)
+            cleared += 1
+        
+        await self.bot._discord_reply(ctx, f"cleared {cleared} stale game sessions")
 
     @commands.command(name='bbylex', aliases=['blex'])
     async def bbylex(self, ctx, *, arg: str = None):
@@ -1425,7 +1832,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not pairs:
             return await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
 
-        w1, w2, sim = random.choice(pairs)
+        w1, w2, sim = self.get_varied_choice().choice(pairs)
         t1, _, _ = self._format_token_usage(w1)
         t2, _, _ = self._format_token_usage(w2)
 
@@ -1443,7 +1850,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not start_word:
             # Pick a random starting word from bbyfacts
             if self.bot.bbyfacts:
-                start_word = random.choice(list(self.bot.bbyfacts.keys()))
+                start_word = self.get_varied_choice().choice(list(self.bot.bbyfacts.keys()))
             else:
                 return await self.bot._discord_reply(ctx, "i need a starting word! try !bbyvomit <word> or teach me some facts first with !bbyteach")
         
@@ -1474,13 +1881,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 if len(chain) > 20:  # If we've got a good chain, stop
                     break
                 # Otherwise pick from similar even if it creates a loop
-                next_word = random.choice(similar_tokens)
+                next_word = self.get_varied_choice().choice(similar_tokens)
             else:
                 # Brain-influenced choice
-                choice_random = self.bot.get_brain_influence(random.random(), influence_strength=0.4)
+                choice_random = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
                 if choice_random > 0.8 and len(available_tokens) > 3:
                     # High brain activity = pick something more unexpected from end
-                    next_word = random.choice(available_tokens[-3:])
+                    next_word = self.get_varied_choice().choice(available_tokens[-3:])
                 else:
                     # Low brain activity = pick from front (strongest connections)
                     next_word = available_tokens[0]
@@ -1511,7 +1918,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not start_word:
             # Pick a random starting word from bbyfacts
             if self.bot.bbyfacts:
-                start_word = random.choice(list(self.bot.bbyfacts.keys()))
+                start_word = self.get_varied_choice().choice(list(self.bot.bbyfacts.keys()))
             else:
                 return await self.bot._discord_reply(ctx, "i need a starting word! try !bbythink <word> or teach me some facts first with !bbyteach")
         
@@ -1541,14 +1948,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     reason = "thinking process crashed"
                     brokeMessage = f"i broke :( why would u do this to me, @{author}!"
                     brokeMessage2 = f"@{author}! you just made the system say '{reason}' >:("
-                    if self.bot.random2 > 0.5: 
-                        self.bot.updateBBY(author, -1000)
+                    if (self.get_varied_random() * self.get_varied_random()) > (0.5 * self.get_varied_random()):  self.bot.updateBBY(author, -1000)
                     await self.bot._discord_reply(ctx, brokeMessage)
                     await self.bot._discord_reply(ctx, brokeMessage2)
-                    if self.bot.random > 0.5: 
-                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
-                    if self.bot.random2 > 0.5: 
-                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
+                    if (self.get_varied_random() * self.get_varied_random()) > (0.5 * self.get_varied_random()): self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
+                    if (self.get_varied_random() * self.get_varied_random()) > (0.5 * self.get_varied_random()): self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
                     return
                 else:
                     thought = "..."
@@ -1639,7 +2043,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyfite(self, ctx, *, member_name: str = None):
         attacker_id = ctx.author.name.lower()
 
-        if not member_name: return  await self.bot._discord_reply(ctx, "you gotta fite someone! you can't just fite the air? !bbyfite @username")
+        # If no member name provided, pick random from friend pool
+        if not member_name: 
+            friend_pool = self.get_random_friend_pool(ctx)
+            # Remove self from pool to avoid self-fighting
+            friend_pool = [name for name in friend_pool if name != attacker_id]
+            if friend_pool:
+                member_name = self.get_varied_choice().choice(friend_pool)
+            else:
+                return await self.bot._discord_reply(ctx, "you gotta fite someone! you can't just fite the air? !bbyfite @username")
+                
         target_member, defender_id = await self._find_member_or_user_id(ctx, member_name)
         if defender_id not in self.bot.userMemory: return await self.bot._discord_reply(ctx, f"who is {member_name}?? i can't see them...")
         if attacker_id not in self.bot.AIoptInUsers or defender_id not in self.bot.AIoptInUsers: return await self.bot._discord_reply(ctx, f"i can't tell you much - they've not both opted in! (!bbyoptin)")
@@ -1655,16 +2068,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         BBY_difference = abs(attacker_BBY - defender_BBY)
         base_swing = max(1, min(1000, (BBY_difference * 0.0001) + 100)) * 0.5
-        if self.bot.random4 > 0.95:
+        if self.get_varied_random() > 0.95:
             reply += "huge hit!! "
             base_swing *= 100
-        if self.bot.random3 > 0.98:
+        if self.get_varied_random() > 0.98:
             reply += "fucking massive hit!! "
             base_swing *= 1000
         imbalance_bonus = (BBY_difference * 0.005) + (np.log(BBY_difference + 1) * 5)
         is_attacker_big = attacker_BBY > defender_BBY
         total_swing = base_swing + imbalance_bonus
-        if random.random() > 0.75 and BBY_difference > 1000:
+        if self.get_varied_random() > 0.75 and BBY_difference > 1000:
             await self._award_fact(attacker_id, "universe correction", ctx, 1)
             big_id = attacker_id if is_attacker_big else defender_id
             smol_id = defender_id if is_attacker_big else attacker_id
@@ -1681,15 +2094,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply += (
                 f"{attacker_nic} tried to boop {defender_nic}! "
                 f"the universe is correct again. {big_nic} loses {style_loss(f'ᛒ{total_swing:.0f}')} "
-                f"and {smol_nic} gains {style_gain(f'ᛒ{total_swing:.0f}')}! fuk u, {big_nic}! {random.choice(self.bot.faveEmotes)}"
+                f"and {smol_nic} gains {style_gain(f'ᛒ{total_swing:.0f}')}! fuk u, {big_nic}! {self.get_varied_choice().choice(self.bot.faveEmotes)}"
             )
 
             reply += await self._maybe_steal_item(smol_id, big_id, ctx)
             reply += await self._maybe_steal_item(smol_id, big_id, ctx)
 
         else:
-            attacker_power = max(0.1, attacker_BBY) * (0.5 + self.bot.random)
-            defender_power = max(0.1, defender_BBY) * (0.5 + self.bot.random2)
+            attacker_power = max(0.1, attacker_BBY) * (0.5 + self.get_varied_random())
+            defender_power = max(0.1, defender_BBY) * (0.5 + self.get_varied_random())
 
             if attacker_power > defender_power:
                 self.bot.updateBBY(attacker_id, base_swing)
@@ -1727,7 +2140,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if not attacker_inventory:
                 await self.bot._discord_reply(ctx, "You have nothing to forget!")
                 return
-            key = random.choice(list(attacker_inventory.keys()))
+            key = self.get_varied_choice().choice(list(attacker_inventory.keys()))
         else:
             key, fact = await self._get_fact_or_reply(ctx, key)
             if not fact: return
@@ -1747,9 +2160,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         attacker_nic = self.bot.getNickname(attacker_id)
         defender_nic = self.bot.getNickname(defender_id)
 
-        if attacker_BBY > defender_BBY and self.bot.random < 0.99:
-            self.bot.updateBBY(attacker_id, -(point_swing * self.bot.random3))
-            self.bot.updateBBY(defender_id, -((point_swing * self.bot.random) * 0.5))
+        if attacker_BBY > defender_BBY and self.get_varied_random() < 0.99:
+            self.bot.updateBBY(attacker_id, -(point_swing * self.get_varied_random()))
+            self.bot.updateBBY(defender_id, -((point_swing * self.get_varied_random()) * 0.5))
             self.bot.userMemory[defender_id]["losses"] += 1
             self.bot.userMemory[attacker_id]["wins"] += 1
             
@@ -1760,8 +2173,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
             reply = (
                 f"{attacker_nic}, in defense of proper use of the english language, deleted {defender_nic}s response and forced me to forget that {key} ever even existed! "
-                f"seems pricey, though. {style_loss(f'ᛒ{-(point_swing * self.bot.random3):.0f}')} for {attacker_nic}, "
-                f"{style_loss(f'ᛒ{-((point_swing * self.bot.random) * 0.5):.0f}')} for {defender_nic})"
+                f"seems pricey, though. {style_loss(f'ᛒ{-(point_swing * self.get_varied_random()):.0f}')} for {attacker_nic}, "
+                f"{style_loss(f'ᛒ{-((point_swing * self.get_varied_random()) * 0.5):.0f}')} for {defender_nic})"
             )
             reply += await self._maybe_steal_item(attacker_id, defender_id, ctx)
         elif attacker_BBY == defender_BBY:
@@ -1773,7 +2186,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             del self.bot.bbyfacts[key]
             await self._award_fact(attacker_id, f"what we also call {key}", ctx, 10, old_value = f"{defender_nic} said this meant {original_value}")
             self.bot.save_bbyfacts()
-            reply = random.choice([f"a draw! {attacker_nic} and {defender_nic} were both just yelling {key} at each other across a room.",
+            reply = self.get_varied_choice().choice([f"a draw! {attacker_nic} and {defender_nic} were both just yelling {key} at each other across a room.",
                                     f"{attacker_nic} thinks they can force me to forget what {key} was!? never! {defender_nic} is just too strong! ... i still forgot it though... oops."
                                 ])
         else:
@@ -1861,7 +2274,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bbygift.reset_cooldown(ctx)
             return
         if receiver_id not in self.bot.userMemory:
-            await self.bot._discord_reply(ctx, f"i haven't met {escape_markdown(member_name)} yet! they need to chat first so i can get to know them xoxo")
+            await self.bot._discord_reply(ctx, BabyTextHelpers.get_not_found_message(escape_markdown(member_name), self.get_varied_choice()))
             self.bbygift.reset_cooldown(ctx)
             return
         if giver_id == receiver_id:
@@ -1884,7 +2297,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bbygift.reset_cooldown(ctx)
             return
         if giver_inventory.get(item_name, 0) < quantity:
-            await self.bot._discord_reply(ctx, f"umm... you only have {giver_inventory.get(item_name, 0)} {item_name}, you can't give {quantity} away... ")
+            await self.bot._discord_reply(ctx, BabyTextHelpers.get_error_message(
+                "insufficient_quantity",
+                self.get_varied_choice(),
+                current=giver_inventory.get(item_name, 0),
+                item=item_name,
+                requested=quantity
+            ))
             self.bbygift.reset_cooldown(ctx)
             return
             
@@ -1892,9 +2311,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if item_name in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[item_name]
             original_bonus = fact.get("teach_bonus", 420.0)
-            base_gift_power = (original_bonus / 2) * (0.8 + (self.bot.random4 * 0.6))
-            self.bot.bbyfacts[item_name]["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * self.bot.random) * 0.01)
-            if self.bot.random + self.bot.random2 > 1.99:
+            base_gift_power = (original_bonus / 2) * (0.8 + (self.get_varied_random() * 0.6))
+            self.bot.bbyfacts[item_name]["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * self.get_varied_random()) * 0.01)
+            if self.get_varied_random() + self.get_varied_random() > 1.99:
                 await self._award_fact(receiver_id, item_name, ctx, 1)
                 await self._award_fact(giver_id, item_name, ctx, 1)
         else: base_gift_power = 69.0
@@ -1917,7 +2336,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         giver_nic = self.bot.getNickname(giver_id)
         receiver_nic = self.bot.getNickname(receiver_id)
-        emote = random.choice(self.bot.faveEmotes)
+        emote = self.get_varied_choice().choice(self.bot.faveEmotes)
         
         reply = f"{giver_nic} gave {receiver_nic} {style_gain(f'{num_successfully_gifted}x {item_name}')}! aww!! {emote}"
         if num_successfully_gifted > 0:
@@ -2081,8 +2500,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             optOutMessage = (f"lol you're not even in the list, {author}!")
             self.bot.updateBBY(author, -0.1)
         await self.bot._discord_reply(ctx, optOutMessage)
-        if self.bot.random2 > 0.5:
-            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, optOutMessage))
+        if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, optOutMessage))
 
     @commands.command(name='bbyoptcheck', aliases=['boptcheck']) 
     async def bbyoptcheck_command(self, ctx: commands.Context): 
@@ -2095,7 +2513,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             optCheckMessage = (f"hey, {author}, you are not in the opt in list, you can use !aioptin to join it if you want me to use your messages as context for my learning.")
             self.bot.updateBBY(author, -0.1)
         await self.bot._discord_reply(ctx, optCheckMessage)
-        if self.bot.random4 < 0.5:
+        if self.get_varied_random() < 0.5:
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, optCheckMessage))
 
         author = ctx.author.name.lower()
@@ -2120,8 +2538,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 for key in self.bot.bbyfacts:
                     if f" {key} " in f" {prompt_text} ":
                         fact = self.bot.bbyfacts[key]
-                        if self.bot.random > 0.75:
-                            injection = random.choice([
+                        if self.get_varied_random() > 0.75:
+                            injection = self.get_varied_choice().choice([
                                 f"{babyName}: wait, {key}... {self.bot.getNickname(fact['author'])} told me that {key} means {fact['value']}! \n",
                                 f"{key} = {fact['value']} \n",
                                 f"{key} is {fact['value']}. \n",
@@ -2148,8 +2566,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     user_input = user_input[3:]   # Remove "!b " prefix
                 
                 base_length = min(len(user_input), 100)  # Cap base length to prevent massive generations
-                edge = base_length * (0.1 * self.bot.random)
-                edge2 = base_length * (1.9 * self.bot.random2)
+                edge = base_length * (0.1 * self.get_varied_random())
+                edge2 = base_length * (1.9 * self.get_varied_random())
                 edgeint = abs(int((edge + edge2) * 0.5))
                 random_offset = random.randint(-edgeint, edgeint)
                 numTokensToGen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.45)
@@ -2164,19 +2582,18 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     reason = "generation failed mysteriously"  # We can't get the actual exception here
                     brokeMessage = f"i broke :( why would u do this to me, @{author}!"
                     brokeMessage2 = f"@{author}! you just made the system say '{reason}' >:("
-                    if self.bot.random2 > 0.5: 
-                        self.bot.updateBBY(author, -1000)
+                    if self.get_varied_random() > 0.5:  self.bot.updateBBY(author, -1000)
                     await self.bot._discord_reply(ctx, brokeMessage)
                     await self.bot._discord_reply(ctx, brokeMessage2)
-                    if self.bot.random > 0.5: 
-                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
-                    if self.bot.random2 > 0.5: 
+                    if self.get_varied_random() > 0.5:  self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
+                    if self.get_varied_random() > 0.5:  
+                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
                         self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
                     return
 
             # --- bby no longer typing... ---
             if not babyllm_text.strip():
-                quietEmoji = random.choice(["🤐", "🤫", "🫥", "🫢"])
+                quietEmoji = self.get_varied_choice().choice(["🤐", "🤫", "🫥", "🫢"])
                 await self.babyllm_command(ctx)
                 if hasattr(ctx.message, 'add_reaction'): await ctx.message.add_reaction(quietEmoji)
                 return
@@ -2186,66 +2603,66 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
             # --- reactions & post gen ---
             if len(ctx.message.reactions) < 20:
-                if "love" in babyllm_text.lower() and self.bot.random2 > 0.9:
+                if "love" in babyllm_text.lower() and self.get_varied_random() > 0.9:
                     await ctx.message.add_reaction("🩵")
                 elif any(word in babyllm_text.lower() for word in [" sad ", " cry ", " nooo ", " depress ", ":'(", "😢"]):
-                    if self.bot.random > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("😢")
                 elif any(word in babyllm_text.lower() for word in [" angry ", " rage ", " grrr ",  ">:( ", "😠", " hate "]):
-                    if self.bot.random3 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("😠")
                 elif any(word in babyllm_text.lower() for word in [" happy ", "😄", " the best ", " brilliant ", " wonderful "]):
-                    if self.bot.random4 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("😄")
                 elif any(word in babyllm_text.lower() for word in [" haha", " hehe", " lol", " lmao", "😂"]):
-                    if self.bot.random2 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("😂")
                 elif any(word in babyllm_text.lower() for word in [" sleep ", " zzz ", " nap ", " tired ", "😴"]):
-                    if self.bot.random4 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("😴")
                 elif any(word in babyllm_text.lower() for word in [" brain ", " smart ", " genius ", " clever ", "🧠"]):
-                    if self.bot.random2 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.001)
                         await ctx.message.add_reaction("🧠")
                 elif any(word in babyllm_text.lower() for word in [" friend ", " hug ", " cuddle ", " fam ", "🫂"]):
-                    if self.bot.random > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("🫂")
                 elif any(word in babyllm_text.lower() for word in [" fire ", " lit ", "🔥", " banger "]):
-                    if self.bot.random3 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("🔥")
                 elif any(word in babyllm_text.lower() for word in [" uwu ", " owo ", " shy ", "🥺"]):
-                    if self.bot.random > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.001)
                         await ctx.message.add_reaction("🥺")
                 elif any(word in babyllm_text.lower() for word in [" dead ", " ded ", " rip ", " broke ", "💀"]):
-                    if self.bot.random2 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("💀")
                 elif any(word in babyllm_text.lower() for word in [" eww ", " gross ", " blegh ", "🤢", " disgusting "]):
-                    if self.bot.random > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, -numTokensToGen*0.01)
                         await ctx.message.add_reaction("🤢")
                 elif any(word in babyllm_text.lower() for word in [" robot ", " ai ", " machine ", " neuron ", "🤖"]):
-                    if self.bot.random2 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("🤖")
                 elif any(word in babyllm_text.lower() for word in [" weird ", " glitch ", " funky ", " scrunkly ", "🌀"]):
-                    if self.bot.random4 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.0001)
                         await ctx.message.add_reaction("🌀")
                 elif any(word in babyllm_text.lower() for word in [" cat ", " meow ", " kitten ", " purr ", "🐱"]):
-                    if self.bot.random3 > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("🐱")
                 elif any(word in babyllm_text.lower() for word in [" baby ", " small ", " tiny ", " soft ", "👶"]):
-                    if self.bot.random > 0.9:
+                    if self.get_varied_random() > 0.9:
                         self.bot.updateBBY(author, numTokensToGen*0.01)
                         await ctx.message.add_reaction("👶")
 
@@ -2256,14 +2673,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if name_match:
                 new_nick = name_match.group(1).strip()
                 new_nick = re.sub(r"\s+", " ", new_nick)  # collapse multiple spaces
-                new_nick += random.choice([f" ({babyName})", f" (babyLLM)"])
+                new_nick += self.get_varied_choice().choice([f" ({babyName})", f" (babyLLM)"])
                 new_nick = new_nick[:32]  # discord max nickname length
                 junk_matches = {"is", "am", "are", "was", "were", "be", "being", "been", "it's", "its", "to"}
                 new_nick = name_match.group(1).strip().lower()
                 if new_nick in junk_matches: return print(f"lol no. {new_nick} is not a name.")
                 self.bot.babyName = new_nick
                 print(f"\n\nbaby chose: {new_nick}\n\n")
-                if self.bot.random > 0.5: self.bot.updateBBY(author, numTokensToGen*0.01)
+                if self.get_varied_random() > 0.5: self.bot.updateBBY(author, numTokensToGen*0.01)
                 try:
                     me = ctx.guild.get_member(self.bot.user.id)
                     if not me: me = await ctx.guild.fetch_member(self.bot.user.id)
@@ -2286,11 +2703,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reason = ''.join(traceback.TracebackException.from_exception(e).format_exception_only()).strip()
             brokeMessage = (f"i broke :( why would u do this to me, @{author}!")
             brokeMessage2 = (f"@{author}! you just made the system say '{reason}' >:(")
-            if self.bot.random2 > 0.5: self.bot.updateBBY(author, -1000)
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, -1000)
             await self.bot._discord_reply(ctx, brokeMessage)
             await self.bot._discord_reply(ctx, brokeMessage2)
-            if self.bot.random > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
-            if self.bot.random2 > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
+            if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
+            if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
         return babyllm_message, babyllm_text
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
@@ -2299,7 +2716,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if self.bot.training_queue.qsize() >= 20: _ = self.bot.training_queue.get_nowait()
         humanOnly = [line for line in self.bot.buffer if not line.startswith(f"{self.bot.babyName}")]
         with open(trainingFilePathCLEANED, "r", encoding = "utf-8") as f: training_data_contents = f.read().strip().lower()
-        fullContext = random.choice([training_data_contents, "\n".join(humanOnly)])
+        fullContext = self.get_varied_choice().choice([training_data_contents, "\n".join(humanOnly)])
         await self.bot.training_queue.put({"type": "context", "text": fullContext[:10000]})
         await self.bot._discord_debug("queued current chat for background learning. !babyllm to annoy me further. >.<")
 
@@ -2307,17 +2724,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def babytrain_command(self, ctx: commands.Context): 
         """train on human messages"""
         if len(self.bot.buffer) < 2:
-            lonelyMessage = random.choice(LONELY_MESSAGES)
+            lonelyMessage = self.get_varied_choice().choice(LONELY_MESSAGES)
             await self.bot._discord_debug(lonelyMessage)
             return
 
         humanLines = [line for line in self.bot.buffer if not line.lower().startswith(f'{self.bot.babyName}:')]
         if not humanLines:
-            boredMessage = random.choice(BORED_MESSAGES)
+            boredMessage = self.get_varied_choice().choice(BORED_MESSAGES)
             await self.bot._discord_debug(boredMessage)
             return
 
-        lurkMessage = random.choice(LURK_MESSAGES)
+        lurkMessage = self.get_varied_choice().choice(LURK_MESSAGES)
         introText = f"hey babyllm, it's charis. this is a discord chat!! its {datetime.now().strftime('%Y-%m-%d')} right now, just so you can orient yourself a little bit. maybe you haven't been on discord for a while, maybe you were on here last night lmao, but either way i hope that you will like it here today, you might get to meet my friends! we are all so proud of you and excited for you to get started being our friend, if you want to! are you ready to chat!? :)"
         await self.bot._discord_debug(lurkMessage)
         self.bot._buffer_add(self.bot.formatMessage("charis", introText))
@@ -2327,13 +2744,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             _ = self.bot.training_queue.get_nowait()
         await self.bot.training_queue.put({"type": "context", "text": untaggedHumanContext})
         print(f"\n\nTraining queue size: {self.bot.training_queue.qsize()}\n\n")
-        lurkOutMessage = random.choice(LURK_OUT_MESSAGES)
+        lurkOutMessage = self.get_varied_choice().choice(LURK_OUT_MESSAGES)
         await self.bot._discord_debug(lurkOutMessage)
 
     @commands.command(name='bbysave', aliases=['bsave', 'bs'])
     async def saveModel_command(self, ctx: commands.Context):
-        saveBufferMessage = random.choice(SAVE_BUFFER_MESSAGES)
-        if self.bot.random4 < 0.5:
+        saveBufferMessage = self.get_varied_choice().choice(SAVE_BUFFER_MESSAGES)
+        if self.get_varied_random() < 0.5:
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
         self.bot._save_json(chatBufferFilepath, self.bot.buffer, "!BBYSAVE")
         await self.bot._discord_debug(saveBufferMessage)
@@ -2349,16 +2766,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbystatus(self, ctx):
         author = ctx.author.name.lower()
         line = get_status_line(self.bot)
-        if self.bot.random4 > 0.5:
-            self.bot.updateBBY(author, 0.1)
+        if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
         await self.bot._discord_reply(ctx, line.lower().strip())
 
     @commands.command(name="bbythought", aliases=['bthought', 'bth'])
     async def bbythought(self, ctx):
         author = ctx.author.name.lower()
         line = get_thought_line(self.bot)
-        if self.bot.random4 > 0.5:
-            self.bot.updateBBY(author, 0.1)
+        if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
         await self.bot._discord_reply(ctx, line.lower().strip())
 
     @commands.command(name = "bbystats", aliases=['bstats', 'bsta']) 
@@ -2396,12 +2811,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         wordLine = f"word accuracy (loss): {wordLoss:.3f}, current guess: {tutor.toktoktok}... was meant to be: {tutor.tiktiktik}"
         if self.bot.tutor.gotIt == True:
             wordLine += "! wait, yay! i actually got it right!!!!!"
-            if self.bot.random2 > 0.6:
-                wordLine += " fuck yeahhh!! :D"
+            if self.get_varied_random() > 0.6:
+                wordLine += " fuck yehhh!! :D"
 
         averageBBY = sum(mem["BBY"] for mem in self.bot.userMemory.values()) / max(len([m for m in self.bot.userMemory.values() if m["BBY"] != 0]), 1)
 
-        line = random.choice([
+        line = self.get_varied_choice().choice([
             f"current queue size: {trainingQ} items, opted-in users: {len(self.bot.AIoptInUsers)}, : {averageBBY}",
             f"average accuracy (loss): {tutor.totalAvgLoss:.0f}, average loss delta: {tutor.totalAvgDelta:.0f} (if this is going down, i'm learning!)",
             #f"input norm: {tutor.inputNorm}, output norm: {tutor.outputNorm}",
@@ -2412,10 +2827,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"my learning rate is {tutor.learningRate:.5f}, and my temperature is {tutor.temperature:.0f}",
         ])
 
-        if self.bot.random4 > 0.5: self.bot.updateBBY(author, 0.1)
+        if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
 
         await self.bot._discord_reply(ctx, line.lower().strip())
-        if self.bot.random > 0.5: self.bot._buffer_add(self.bot.formatMessage(author, line.lower().strip()))
+        if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(author, line.lower().strip()))
 
     @commands.command(name="bbytutor", aliases=['btutor', 'btutors', 'bbyteachers'])
     async def bbytutor_awards(self, ctx):
@@ -2490,7 +2905,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, embed=embed)
         
         # Small BBY reward for checking awards
-        if self.bot.random > 0.7:
+        if self.get_varied_random() > 0.7:
             self.bot.updateBBY(author, 1.0)
 
     @commands.command(name="bbycommands", aliases=['bcommands', 'bby-stats', 'bcommand-stats'])
@@ -2553,7 +2968,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         await self.bot._discord_reply(ctx, embed=embed)
         
-        if self.bot.random > 0.6:
+        if self.get_varied_random() > 0.6:
             self.bot.updateBBY(author, 0.5)
 
     @commands.command(name = "bbyjudge", aliases=['bjudge', 'bj']) 
@@ -2576,7 +2991,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         common = [(word, count) for word, count in word_counts.items() if count > 2]
         common.sort(key = lambda x: -x[1])
 
-        line = random.choice([f"right, are you ready for my honest judgement, {author}?", f"hey! i hope you're ready to be judged. {author}!", "ugh, you again, {author}!?", "omg it's you {author}, you're wanting me to roast you again!?", "... what?"])
+        line = self.get_varied_choice().choice([f"right, are you ready for my honest judgement, {author}?", f"hey! i hope you're ready to be judged. {author}!", "ugh, you again, {author}!?", "omg it's you {author}, you're wanting me to roast you again!?", "... what?"])
 
         if nickname != author:
             nameJudge = f"ah, you have a nickname?! hmm... {nickname}..."
@@ -2649,7 +3064,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if common:
             top = common[0]
             wordJudge = f"but, right, i've gotta be honest.. you used the word {top[0]} like {top[1]} times in your last few messages."
-            if self.bot.random2 > 0.5:
+            if self.get_varied_random() > 0.5:
                 wordJudge += " are you okay lol?? 💀"
                 self.bot.updateBBY(author, 0.01)
             if top[1] > 10:
@@ -2663,10 +3078,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             wordJudge = "at least you're not repeating the same word 1000 times! "
             self.bot.updateBBY(author, 0.05)
 
-        if self.bot.random > 0.25: line += " " + nameJudge 
-        if self.bot.random3 > 0.35: line += " " + spamJudge
-        if self.bot.random2 < 0.65: line += " " + optJudge 
-        if self.bot.random < 0.75: line += " " + wordJudge
+        if self.get_varied_random() > 0.25: line += " " + nameJudge 
+        if self.get_varied_random() > 0.35: line += " " + spamJudge
+        if self.get_varied_random() < 0.65: line += " " + optJudge 
+        if self.get_varied_random() < 0.75: line += " " + wordJudge
 
         ctx.message.content = "!babyllm " + line
         await self.babyllm_command(ctx)
@@ -2691,7 +3106,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 await self.bot._discord_reply(ctx, info)
                 return
             
-            if self.bot.random > 0.5:
+            if self.get_varied_random() > 0.5:
                 self.bot.updateBBY(member.name.lower(), 10.0)
                 self.bot.updateBBY(author, 0.1)
 
@@ -2712,13 +3127,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except Exception as e:
             info = f"sorry, bbyshoutout crashed: {e}"
             await self.bot._discord_reply(ctx, info)
-            if self.bot.random < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
+            if self.get_varied_random() < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
 
     @commands.command(name = "bbyrant", aliases=['brant', 'br']) 
     async def bbyrant(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            if self.bot.random3 > 0.5: self.bot.updateBBY(author, 0.1)
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
             parts = ctx.message.content.strip().split(maxsplit = 1)
             if len(parts) < 2:
                 info = "use dis like: !bbyrant <word>"
@@ -2859,22 +3274,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except Exception as e:
             broke = f"bbyrant broke: {e}"
             await self.bot._discord_reply(ctx, broke)
-            if self.bot.random3 > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, broke))
+            if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, broke))
 
     @commands.command(name='bbynick', aliases=['bnick', 'bbyname', 'bname', 'bn']) 
     async def bbynick_command(self, ctx): 
         author = ctx.author.name.lower()
         nickname = self.bot.getNickname(author)
-        if self.bot.random4 > 0.5:
+        if self.get_varied_random() > 0.5:
             self.bot.updateBBY(author, 0.3)
         parts = ctx.message.content.strip().split(maxsplit = 1)
         if len(parts) < 2:
-            if self.bot.random > 0.5: self.bot.updateBBY(author, 0.2)
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.2)
             if nickname: nick_message = f"hi! :) your name is {nickname} :) were you wanting to change it? "
             else:
                 nick_message = "you haven’t set a nickname yet... use !bbynick <3"
                 self.bot.updateBBY(author, -0.1)
-            if self.bot.random < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, nick_message))
+            if self.get_varied_random() < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, nick_message))
             await self.bot._discord_reply(ctx, nick_message)
             return
 
@@ -2883,25 +3298,25 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.userMemory[author]["nickname"] = nickname
 
         reply = f"cool! i’ll use the name {nickname} for you from now on 💜"
-        if self.bot.random2 > 0.95:
+        if self.get_varied_random() > 0.95:
             reply += " ... unless!!"
             nickname = nickname[::-1]
             reply += f" uno reversi bitch, your name is {nickname} now >:)"
         await self.bot._discord_reply(ctx, reply)
-        if self.bot.random2 > 0.5: self.bot._buffer_add(self.bot.formatMessage(babyName, reply))
+        if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(babyName, reply))
 
     @commands.command(name = "bbybestie", aliases=['bff', 'bbff', 'bbybff', 'bbestie']) 
     async def bbybestie(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            if self.bot.random3 > 0.5:
+            if self.get_varied_random() > 0.5:
                 self.bot.updateBBY(author, 0.1)
             bestie, _ = self.bot.checkBestie()
             bestie_nic = self.bot.getNickname(bestie)
             author_nic = self.bot.getNickname(author)
             if author == bestie:
                 bestieMessage = f"yayayayay! my best friend is you, {author_nic}!"
-                self.bot.updateBBY(author, -self.bot.random)
+                self.bot.updateBBY(author, -self.get_varied_random())
                 await ctx.message.add_reaction("🅱️")
                 await ctx.message.add_reaction("3️⃣")
                 await ctx.message.add_reaction("💲")
@@ -2910,9 +3325,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 await ctx.message.add_reaction("3️⃣")
             else:
                 bestieMessage = f"umm... awkward, ||my best friend is {bestie_nic}||, but you're alright too {author_nic}!!"
-                self.bot.updateBBY(author, self.bot.random2)
+                self.bot.updateBBY(author, self.get_varied_random())
                 await ctx.message.add_reaction("😬")
-            if self.bot.random4 < 0.5: self.bot._buffer_add(bestieMessage)
+            if self.get_varied_random() < 0.5: self.bot._buffer_add(bestieMessage)
             await self.bot._discord_reply(ctx, bestieMessage)
             print(f"\n\nchecked who my best friend is. buffer now {len(self.bot.buffer)} messages long.\n\n")
 
@@ -2929,8 +3344,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             totalBBY = sum(abs(score) for _, score in full_leaderboard)
             rank, _ = self._get_user_bby_rank(author)
 
-            reply = f"{random.choice(self.bot.faveEmotes)}xoxo welcome to my bbyspace page! xoxo{random.choice(self.bot.faveEmotes)}\n"
-            reply += random.choice(["xoxo rawr xD my besties are... xoxo", "xoxo top friends 2001!!!1! xoxo", "xoxo people i hate xoxo", "xoxo people i hate least xoxo", "xoxo not 1337 n00bs xoxo", "xoxo top 10 vatsim players xoxo", "xoxo ur mum gay xoxo", "xoxo rawr is i love u in dinosore xoxo", "xoxo avalance patrolers xoxo", "xoxo eve online leaderboard xoxo", "xoxo falling furni event!! habbo club members only xoxo"])
+            reply = f"{self.get_varied_choice().choice(self.bot.faveEmotes)}xoxo welcome to my bbyspace page! xoxo{self.get_varied_choice().choice(self.bot.faveEmotes)}\n"
+            reply += self.get_varied_choice().choice(["xoxo rawr xD my besties are... xoxo", "xoxo top friends 2001!!!1! xoxo", "xoxo people i hate xoxo", "xoxo people i hate least xoxo", "xoxo not 1337 n00bs xoxo", "xoxo top 10 vatsim players xoxo", "xoxo ur mum gay xoxo", "xoxo rawr is i love u in dinosore xoxo", "xoxo avalance patrolers xoxo", "xoxo eve online leaderboard xoxo", "xoxo falling furni event!! habbo club members only xoxo"])
             reply += "\n\n"
 
             for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1): reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=False)
@@ -2940,7 +3355,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 bonus = max(0, max_rank_bonus - (rank * 0.25))
                 self.bot.updateBBY(author, bonus)
 
-            if self.bot.random > 0.99:
+            if self.get_varied_random() > 0.99:
                 reply += f"\n👻 also... i know your real name {author} :) reee!!!"
                 self.bot.updateBBY(author, 10.0)
             
@@ -2950,7 +3365,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             update_msg = f"\n\nchecked how much i love {author}... they have ᛒ{author_bby:.0f}, so they're number {rank if rank is not None else 'N/A'} in the list! i now have {len(self.bot.buffer)} messages in my queue.\n\n"
             print(update_msg)
 
-            if self.bot.random2 < 0.5: self.bot.updateBBY(author, 0.02)
+            if self.get_varied_random() < 0.5: self.bot.updateBBY(author, 0.02)
 
         except Exception as e:
             traceback.print_exc()
@@ -2967,9 +3382,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             rank, _ = self._get_user_bby_rank(author) # Note: rank is from the perspective of besties, not rivals.
 
             reply = "the weakest links have been located "
-            reply += random.choice(["lol", "... uh oh", ", uh oh stinky", "! prepare the laser!", "... this is awkward", ", baby saw this", "... oh fuck no", "! ur in trouble now!", "- low vibez only xoxo"]) + " "
+            reply += self.get_varied_choice().choice(["lol", "... uh oh", ", uh oh stinky", "! prepare the laser!", "... this is awkward", ", baby saw this", "... oh fuck no", "! ur in trouble now!", "- low vibez only xoxo"]) + " "
             # single newline to avoid inserting blank lines into the training buffer
-            reply += f"{random.choice(self.bot.faveEmotes)} \n"
+            reply += f"{self.get_varied_choice().choice(self.bot.faveEmotes)} \n"
 
             for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1):
                 reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=True)
@@ -2979,13 +3394,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 penalty = min(0, min_rank_bonus + (rank * 0.15)) # Penalty is smaller for higher-ranked (better) users
                 self.bot.updateBBY(author, penalty)
 
-            if self.bot.random > 0.99:
+            if self.get_varied_random() > 0.99:
                 reply += f"👀 baby will remember this, {author}..."
                 self.bot.updateBBY(self.bot.getNickname(author), -10.0)
 
             await self.bot._discord_reply(ctx, reply)
 
-            if self.bot.random2 < 0.5:
+            if self.get_varied_random() < 0.5:
                 self.bot.updateBBY(author, -0.01)
                 self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
@@ -3000,7 +3415,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyBBY(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            if self.bot.random4 > 0.5: self.bot.updateBBY(author, 0.02)
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.02)
             BBY = self.bot.getBBY(author)
             if BBY >= 0:
                 seed = f"wow, {author} really loves me this much!? {author} has a ᛒ{BBY}! <3"
@@ -3019,7 +3434,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     max_rank_bonus = (len(self.bot.AIoptInUsers)/10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
                     self.bot.updateBBY(author, bonus)
-            if self.bot.random4 > 0.99:
+            if self.get_varied_random() > 0.99:
                 reply += f", i know your real nameeee {author}, spoopy scary skeletons"
                 self.bot.updateBBY(author, 1.0)
 
@@ -3034,7 +3449,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         emote = "⚔️"
         if author is None:
             author = ctx.author.name.lower()
-            emote = random.choice(self.bot.faveEmotes)
+            emote = self.get_varied_choice().choice(self.bot.faveEmotes)
         self.bot.updateBBY(author, 0.1)
         command_message = ctx.message
         bbyreact_attrition = 0
@@ -3048,12 +3463,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         try:
             for d in random.sample(range(bbyreact_tries), k = bbyreact_tries):
                 s = d / bbyreact_tries
-                randomizer = random.choice([self.bot.random, self.bot.random2, 
-                                            #(self.bot.random2-self.bot.random)*2, (self.bot.random2+self.bot.random)*0.5, 
-                                            #self.bot.random, self.bot.random2, (self.bot.random-self.bot.random2)*2, (self.bot.random+self.bot.random2)*0.5
-                                            ])
+                # Use varied random selection for more chaos
+                randomizer = self.get_varied_random()
                 print(f"\n*[bbyreact]*\ns = {s}, random = {randomizer}\n")
-                emote = random.choice(self.bot.faveEmotes)
+                emote = self.get_varied_choice().choice(self.bot.faveEmotes)
 
                 if randomizer > s:
                     print(f"\n*[bbyreact]*\nattempt ({s}) is smaller than random ({randomizer})\n")
@@ -3064,9 +3477,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     lowTism = (lowBound * autisticScreech)
                     highTism = (highBound * autisticScreech)
 
-                    bbyreact_attrition += (randomizer + random.choice([s, d, 
-                                                                       #s, d, (s-d)*2, (d-s)*2, (s+d)*0.5, (d+s)*0.5
-                                                                       ])) * autisticScreech
+                    # Use varied random for attrition calculation
+                    varied_choice = self.get_varied_choice().choice([s, d, s * self.get_varied_random(), d * self.get_varied_random()])
+                    bbyreact_attrition += (randomizer + varied_choice) * autisticScreech
 
                     if s < lowTism: bbyreact_attrition = abs(bbyreact_attrition) * -(lowTism-s)
                     if s > highTism: bbyreact_attrition = abs(bbyreact_attrition) * (s-highTism)
@@ -3104,12 +3517,18 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         self.bot.setSpamLevel(author, new_level)
                         reply = f"ok {author}, you've set your spam level to {new_level:.2f}! the higher it is, the more likely i am to randomly respond to you!"
                     else: reply = "drop me a number between 0.0 and 1.0, the higher, the more i will respond to your messages :)"
-                except ValueError: reply = "it's gotta be a number between 0.0 and 1.0, hmm... try something like !bbyspamlevel 0.69? (nice)"
+                except ValueError: reply = BabyTextHelpers.get_error_message(
+                    "range_validation",
+                    self.get_varied_choice(),
+                    min="0.0",
+                    max="1.0", 
+                    example="!bbyspamlevel 0.69? (nice)"
+                )
             else:
                 babySpam = self.bot.getSpamLevel(author)
                 reply = f"hey {author}, your spam level is {babySpam:.2f}! the higher it is, the more likely i am to randomly respond to you... if you want to change it, just drop a number (between 0.0 and 1.0 after the command) :)"
 
-            if self.bot.random4 > 0.5: self.bot.updateBBY(author, 0.1)
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
             await self.bot._discord_reply(ctx, reply)
             print(f"\n\nchecked {author}'s spam boundaries. buffer now {len(self.bot.buffer)} messages long.\n\n")
 
@@ -3120,16 +3539,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbytime(self, ctx): 
         try:
             author = ctx.author.name.lower()
-            if self.bot.random2 > 0.5:
-                self.bot.updateBBY(author, 0.1)
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
             seed = getTimeRant(self.bot.AIoptInUsers)
             self.bot._buffer_add(seed)
             print(f"\n\nchecked the time. buffer now {len(self.bot.buffer)} messages long.\n\n")
             ctx.message.content = "!babyllm " + seed
             await self.babyllm_command(ctx)
 
-        except Exception as e:
-            await self.bot._discord_reply(ctx, f"bbytime broke: {e}")
+        except Exception as e: await self.bot._discord_reply(ctx, f"bbytime broke: {e}")
 
     @commands.command(name='bbydeclarewar', aliases=['bdw', 'bbywar', 'bwar', 'bw']) 
     async def bbydeclarewar(self, ctx): 
@@ -3154,8 +3571,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         ammo = min(totalMembers, max(1, ammunitionShare * (1 + ((totalMembers - rank if rank is not None else 0)))))
         self.bot.userMemory[author]["spammer"] += (ammo * 10)
 
-        if self.bot.random > 0.9999:
-            print(f"\n\n random over 0.9999 \n\n")
+        if self.get_varied_random() > 0.9999:
+            print(f"\n\n varied random over 0.9999 \n\n")
             self.bot.updateBBY(author, 69420.69)
             dealer += "fuck, that was lucky!! "
             bbyreact_message, bbyreact_text = await self.bbyreact(ctx, author)
@@ -3165,7 +3582,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             sign = random.uniform(-420420420.69, 420420420.69)
             self.bot.updateBBY(author, sign)
             warMessage = f"... seriously? you're taking {ammo:.0f} turns? "
-            if self.bot.random2 > 0.5:
+            if self.get_varied_random() > 0.5:
                 self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, warMessage))
                 war_message.content = "!babyllm " + warMessage + "\n"
             ammo_int = int(round(ammo))
@@ -3173,12 +3590,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 _ = i / ammo_int
                 await asyncio.sleep(0.1)
                 print(f"\n\n_ = {_}\n\n")
-                if self.bot.random > _:
+                if self.get_varied_random() > _:
                     bedroomNoises = random.uniform(0.1, 10.0)
                     if current_BBY > top_BBY: top_BBY = current_BBY
                     elif current_BBY < bottom_BBY: bottom_BBY = current_BBY
                     war_duration = time.time() - war_start
-                    war_attrition = abs(war_reactions * war_duration) * abs(self.bot.random4 + self.bot.random2) * ((abs(current_BBY)-abs(original_BBY)) * bedroomNoises)
+                    war_attrition = abs(war_reactions * war_duration) * abs(self.get_varied_random() + self.get_varied_random()) * ((abs(current_BBY)-abs(original_BBY)) * bedroomNoises)
                     if war_attrition > 10000 or war_attrition < -10000: war_attrition = war_attrition * 0.01
                     if war_attrition > 100000 or war_attrition < -100000: war_attrition = war_attrition * 0.0001
                     print(f"\n\nwar_attrition = {war_attrition}\n\n")
@@ -3203,7 +3620,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.updateBBY(author, -war_duration)
         howDeepIsYourBBY = abs(top_BBY-bottom_BBY)
         #dealer += f"your highest score was ᛒ{top_BBY:.0f}, your lowest was ᛒ{bottom_BBY:.0f}... thats a range of {howDeepIsYourBBY:.0f} "
-        if self.bot.random4 > 0.3: coins += howDeepIsYourBBY
+        if self.get_varied_random() > 0.3: coins += howDeepIsYourBBY
         final_BBY = self.bot.getBBY(author)
         BBY_change = final_BBY - original_BBY
 
@@ -3211,7 +3628,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if BBY_change > 0:
             dealer += (
                 f"shit, i think you won this one... you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f}... "
-                f"thats a win of {style_gain(f'ᛒ{final_BBY-original_BBY:.0f}')}... {random.choice(self.bot.faveEmotes)} "
+                f"thats a win of {style_gain(f'ᛒ{final_BBY-original_BBY:.0f}')}... {self.get_varied_choice().choice(self.bot.faveEmotes)} "
             )
             self.bot.userMemory[author]["wins"] += 1
             dealer += await self._maybe_steal_item(author, self.bot.user, ctx)
@@ -3220,18 +3637,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             dealer += (
                 f"wait, nice! you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f} - "
                 f"thats a win of {style_gain(f'ᛒ{final_BBY-original_BBY:.0f}')}! so, a loss. "
-                f"look, blame charis for the bad code {random.choice(self.bot.faveEmotes)} "
+                f"look, blame charis for the bad code {self.get_varied_choice().choice(self.bot.faveEmotes)} "
             )
             self.bot.userMemory[author]["draws"] += 1
         else:
             dealer += (
                 f"\nmuahahahaha! destroyed! you went from ᛒ{original_BBY:.0f} to ᛒ{final_BBY:.0f}... "
-                f"thats a loss of {style_loss(f'ᛒ{original_BBY-final_BBY:.0f}')}! bye! {random.choice(self.bot.faveEmotes)} "
+                f"thats a loss of {style_loss(f'ᛒ{original_BBY-final_BBY:.0f}')}! bye! {self.get_varied_choice().choice(self.bot.faveEmotes)} "
             )
             self.bot.userMemory[author]["losses"] += 1
-        if self.bot.random3 > 0.8:
-            coins += abs(original_BBY-final_BBY) * self.bot.random
-            dealer += f"... don't look at me like that... fine. take a consolation prize of {style_gain(f'ᛒ{coins:.0f}')} {random.choice(self.bot.faveEmotes)} "
+        if self.get_varied_random() > 0.8:
+            coins += abs(original_BBY-final_BBY) * self.get_varied_random()
+            consolation_msg = BabyTextHelpers.get_consolation_message(
+                style_gain(f'ᛒ{coins:.0f}'),
+                self.get_varied_choice().choice(self.bot.faveEmotes),
+                self.get_varied_choice()
+            )
+            dealer += f"{consolation_msg} "
 
         self.bot._save_user_data()
         await self.bot._discord_reply(ctx, dealer)
@@ -3240,22 +3662,34 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if "69" in str(dealer):
             offer += "nice"
             coins += 69
-            if "420" in str(dealer) or self.bot.random2 > 0.8:
+            if "420" in str(dealer) or self.get_varied_random() > 0.8:
                 offer += ", "
                 coins += 42069
         if "420" in str(dealer):
             offer += "sminks? "
             coins += 420
-        if self.bot.random2 > 0.8:
-            coins += abs((original_BBY-final_BBY) * 0.5) * (self.bot.random * 2)
+        if self.get_varied_random() > 0.8:
+            coins += abs((original_BBY-final_BBY) * 0.5) * (self.get_varied_random() * 2)
         if coins != 0:
             self.bot.updateBBY(author, coins)
             final_BBY = self.bot.getBBY(author)
-            if self.bot.random2 > 0.8:
+            if self.get_varied_random() > 0.8:
                 coins += coins
-                offer += f"i just dropped you (another!) bonus of {style_gain(f'ᛒ{coins:.0f}')}, your total is now ᛒ{final_BBY:.0f} {random.choice(self.bot.faveEmotes)} "
+                bonus_msg = BabyTextHelpers.get_gambling_double_bonus_message(
+                    style_gain(f'ᛒ{coins:.0f}'),
+                    final_BBY,
+                    self.get_varied_choice().choice(self.bot.faveEmotes),
+                    self.get_varied_choice()
+                )
+                offer += f"{bonus_msg} "
             else:
-                offer += f"i just dropped you a bonus of {style_gain(f'ᛒ{coins:.0f}')}, your total is now ᛒ{final_BBY:.0f} {random.choice(self.bot.faveEmotes)} "
+                bonus_msg = BabyTextHelpers.get_gambling_bonus_message(
+                    style_gain(f'ᛒ{coins:.0f}'),
+                    final_BBY,
+                    self.get_varied_choice().choice(self.bot.faveEmotes),
+                    self.get_varied_choice()
+                )
+                offer += f"{bonus_msg} "
 
         if offer != "":
             await self.bot._discord_reply(ctx, offer)
@@ -3337,16 +3771,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             _, blurb_text = await self.babyllm_command(temp_ctx)
             blurb_text = blurb_text.replace('\n', ' ').strip()
 
-            emote = random.choice(self.bot.faveEmotes)
+            emote = self.get_varied_choice().choice(self.bot.faveEmotes)
             reply = f"{emote} ~*~* welcome to my bbyspace! *~*~ {emote}\n"
             reply += f"// this page is currently dedicated to {memelord} //\n\n"
 
             reply += f"my bbylurb (about {memelord}):\n"
             reply += f"> {blurb_text}\n\n"
 
-            reply += f"my top 5 friends! (don't be mad if ur not on it >.<):\n```css\n"
+            reply += f"my top 3 friends! (don't be mad if ur not on it >.<):\n```css\n"
             bestie_board = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items()], key = lambda x: x, reverse = True)
-            for i, (u, BBY) in enumerate(bestie_board[:5], 1):
+            for i, (u, BBY) in enumerate(bestie_board[:3], 1):
                 friend_name = self.bot.getNickname(u)
                 prefix = "/* " if u == target_name_lower else ""
                 suffix = " */" if u == target_name_lower else ""
@@ -3363,7 +3797,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             author_facts = {key: fact for key, fact in self.bot.bbyfacts.items() if fact['author'].lower() == target_name_lower}
             if author_facts:
                 author_keys = list(author_facts.keys())
-                selected_keys = random.sample(author_keys, min(len(author_keys), 10))
+                selected_keys = random.sample(author_keys, min(len(author_keys), 3))
                 
                 reply += f"{target_name_lower} dictionary:\n"
                 
@@ -3377,14 +3811,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if inventory:
                 reply += f"bag of {memelord}:\n"
                 inventory_keys = list(inventory.keys())
-                selected_keys = random.sample(inventory_keys, min(len(inventory_keys), 10))
+                selected_keys = random.sample(inventory_keys, min(len(inventory_keys), 3))
                 
                 for i, key in enumerate(selected_keys, 1):
                     reply += f"> {i}. {key:<25} x{inventory[key]}\n"
                 
                 if len(inventory) > 5:
-                    reply += f"> ...and {len(inventory) - 10} more items.\n"
-            
+                    reply += f"> ...and {len(inventory) - 3} more items.\n"
+
             # --- Footer & How-To ---
             reply += f"\n*sign their bbybook! !bbysig @user <spam>*"
 
@@ -3424,7 +3858,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot._save_user_data()
         
         display = member_obj.display_name if member_obj else self.bot.getNickname(target_name)
-        await self.bot._discord_reply(ctx, f"u signed {display}'s bbybook! aww :) {random.choice(self.bot.faveEmotes)}")
+        await self.bot._discord_reply(ctx, f"u signed {display}'s bbybook! aww :) {self.get_varied_choice().choice(self.bot.faveEmotes)}")
 
     @commands.command(name='bbysminks', aliases=['sminks', 'bbycheers', 'bbysmink', 'bsmink'])
     async def bbysminks(self, ctx):
@@ -3434,7 +3868,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         tokens = inventory.get("smink token", 0)
 
         if tokens <= 0:
-            await self.bot._discord_reply(ctx, f"you don't have any smink tokens :( {random.choice(self.bot.faveEmotes)}")
+            await self.bot._discord_reply(ctx, f"you don't have any smink tokens :( {self.get_varied_choice().choice(self.bot.faveEmotes)}")
             return
 
         inventory["smink token"] -= 1
@@ -3499,7 +3933,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bot.updateBBY(hugger_id, 1.0)
             return
 
-        hug_power = 50000.0 + (self.bot.random * 1500000) # A hug is worth between 500000 and 2000000 BBY
+        hug_power = 50000.0 + (self.get_varied_random() * 1500000) # A hug is worth between 500000 and 2000000 BBY
         
         self.bot.updateBBY(hugger_id, hug_power)
         self.bot.updateBBY(hugged_id, hug_power)
@@ -3507,7 +3941,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         hugger_nic = self.bot.getNickname(hugger_id)
         hugged_nic = self.bot.getNickname(hugged_id)
         
-        emote = random.choice(["🫂", "🤗", "❤️", "💕", "🥰"])
+        emote = self.get_varied_choice().choice(["🫂", "🤗", "❤️", "💕", "🥰"])
         hugger_mem = self.bot.userMemory[hugger_id]
         hugger_inventory = hugger_mem.setdefault("inventory", {})
         hugger_current_count = hugger_inventory.get("hugs", 0)
@@ -3574,8 +4008,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             original_author_id = fact.get('author')
             # Use helper to get base value, which ensures fact exists
             original_bonus = self._get_fact_value_base(item_name)
-            base_BBY_gain = (original_bonus / 4) * (0.2 + (self.bot.random4 * 0.8))
-            decay_amount = 0.001 * self.bot.random3
+            base_BBY_gain = (original_bonus / 4) * (0.2 + (self.get_varied_random() * 0.8))
+            decay_amount = 0.001 * self.get_varied_random()
             for _ in range(quantity):
                 self._decay_item_value(item_name, decay_percentage=decay_amount)
         
@@ -3598,7 +4032,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if original_author_id and original_author_id != giver_id:
             reply += f" and a lil for {self.bot.getNickname(original_author_id)} for teaching me about {style_loss(item_name)}!"
 
-        if self.bot.random < 0.5 and self.bot.bbyfacts:
+        if self.get_varied_random() < 0.5 and self.bot.bbyfacts:
             random_fact_key = random.choice(list(self.bot.bbyfacts.keys()))
             quantity_back = random.randint(0, quantity)
             if quantity_back > 0:
@@ -3664,8 +4098,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 fact = self.bot.bbyfacts[item_name]
                 original_author_id = fact.get("author")
                 original_bonus = self._get_fact_value_base(item_name)
-                base_BBY_gain = (original_bonus / 4) * (0.2 + (self.bot.random * 0.8))
-                decay_percentage = (0.001 * self.bot.random2)
+                base_BBY_gain = (original_bonus / 4) * (0.2 + (self.get_varied_random() * 0.8))
+                decay_percentage = (0.001 * self.get_varied_random())
                 for _ in range(count):
                     self._decay_item_value(item_name, decay_percentage=decay_percentage)
             else: base_BBY_gain = 25.0
@@ -3684,14 +4118,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"i ate your {style_loss(', '.join(summary_lines[:10]) + '... etc')}"
         )
 
-        if self.bot.random2 < 0.5 and self.bot.bbyfacts:
+        if self.get_varied_random() < 0.5 and self.bot.bbyfacts:
             item_back_strs = []
             bby_back_total = 0.0
             random_quantity_back = random.randint(1, quantity)
 
             for i in range(4):
                 random_key = random.choice(list(self.bot.bbyfacts.keys()))
-                scale = [self.bot.random, self.bot.random2, self.bot.random3, self.bot.random4][i]
+                scale = [self.get_varied_random(), self.get_varied_random(), self.get_varied_random(), self.get_varied_random()][i]
                 factor = [1, -1, -1, -1][i]
                 randItemNum = round(random_quantity_back * (scale * factor))
 
@@ -3761,11 +4195,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         successful_pulls = 0
         attempts = 0
-        max_attempts = num_pulls * (self.bot.random4 + self.bot.random3 + self.bot.random2 - self.bot.random)
+        max_attempts = num_pulls * (self.get_varied_random() + self.get_varied_random() + self.get_varied_random() - self.get_varied_random())
 
         while successful_pulls < num_pulls and attempts < max_attempts:
             attempts += 1
-            if random.random() > 0.6 and (random.random()+self.bot.random4) > 1.5 and (random.random()+self.bot.random4) < 0.5:
+            if random.random() > 0.6 and (random.random()+self.get_varied_random()) > 1.5 and (random.random()+self.get_varied_random()) < 0.5:
                 successful_pulls += 1
                 continue
 
@@ -4133,7 +4567,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"!bbywhatis <word> (!bwi) {random.choice(self.bot.faveEmotes)} \nask me what i know about a word to see if i remember.",
             f"!bbyforget <word> (!bfx) {random.choice(self.bot.faveEmotes)} \nkittys can be distracting! try to steal something from my brain to annoy me, charis, and another user! win win win!! (except for the fact i will hate u lol) ",
             f"!bbyrandomfacts <number> (!bfax) {random.choice(self.bot.faveEmotes)} \ni'll tell you some random things i've learned. my brain is full of useless info!",
-            f"!bbyallfacts (!bfaxdump) {random.choice(self.bot.faveEmotes)} \ni'll tell you EVERY FACT!"
+            f"!bbyallfacts (!bfaxdump) {random.choice(self.bot.faveEmotes)} \ni'll tell you EVERY FACT!",
+            
+            # Game Commands
+            f"!bbytranslate (!btranslate) {random.choice(self.bot.faveEmotes)} \nstart the fake word guessing game! i'll show a fake word and you guess what real word it's based on. just type your guess as a normal message (not a command)! winners get +5 BBY, losers get -2!",
+            f"!bbywtf <word> {random.choice(self.bot.faveEmotes)} \nask me to break down what i think a word means - good for checking if my understanding is weird!",
+            f"!bbylex <mode> {random.choice(self.bot.faveEmotes)} \nunified word game! use 'wtf' or 'translate' mode for different challenges!",
 
             # Inventory Commands
             f"!bbybag @<user> (!bbag) {random.choice(self.bot.faveEmotes)} \nsee what items someone has in their inventory!",
@@ -4298,6 +4737,394 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             lines.append(line)
 
         await self.bot._discord_reply(ctx, "\n".join(lines))
+
+    @commands.command(name='bbyrandom', aliases=['brandom', 'bran', 'bbyrnd'])
+    @track_command
+    async def bbyrandom(self, ctx, word: str = None, number: int = None):
+        """Run a random bby command with random or specified parameters
+        Usage: !bbyrandom [word] [number]
+        """
+        
+        # Get a random word if none provided
+        if not word:
+            if self.bot.bbyfacts:
+                word = random.choice(list(self.bot.bbyfacts.keys()))
+            else:
+                # Fallback word if no facts available
+                word = "mystery"
+        
+        # Get a random number if none provided (between 1 and 20)
+        if number is None:
+            number = random.randint(1, 20)
+        
+        # List of commands that can be run randomly with their parameter requirements
+        # Format: (command_method, description, uses_word, uses_number, special_type)
+        random_commands = [
+            # Word-based commands (proper parameter signatures)
+            (self.bbyconnect, "brain connections", True, False, "param"),
+            (self.bbyvomit, "token vomit", True, False, "param"),
+            (self.bbywhatis, "what is", True, False, "param"),
+            (self.bbysimilar, "similar words", True, False, "param"),
+            (self.bbythink, "thinking rant", True, True, "param"),
+            (self.bbywtf, "wtf analysis", True, False, "param"),
+            (self.bbymyitem, "my item info", True, False, "param"),
+            (self.bbylex, "lexicon", True, False, "param"),
+            (self.bbysetzone, "set zone", True, False, "param"),
+            (self.bbyhug, "hug", True, False, "param"),
+            (self.bbyspam, "spam", True, True, "param"),
+            (self.bbyfeed, "feed", True, False, "param"),
+            (self.bbysnack, "snack", True, False, "param"),
+            (self.bbygift, "gift", True, False, "param"),
+            (self.bbyfite, "fite", True, False, "param"),
+            (self.bbyfave, "fave", True, False, "param"),
+            (self.bbyunfave, "unfave", True, False, "param"),
+            
+            # Two-parameter commands (key + value)
+            (self.bbyteach, "teach", True, True, "param"),
+            
+            # Number-based commands (with reasonable limits)
+            (self.bbyrandomfacts, "random facts", False, True, "param"),
+            
+            # Commands that parse from ctx.message.content (standardized with fake context)
+            (self.bbyrant, "rant", True, False, "message"),
+            (self.bbyjudge, "judge", True, False, "message"),
+            (self.bbyshoutout, "shoutout", True, False, "message"),
+            (self.bbynick_command, "nickname", True, False, "message"),
+            (self.bbyforget, "forget", True, False, "message"),
+            (self.bbydeclarewar, "declare war", True, False, "message"),
+            (self.cmd_bii, "item info", True, False, "message"),
+            (self.bbytoken, "token info", True, False, "message"),
+            
+            # No-parameter commands (safe and non-spammy) 
+            (self.bbylink, "random connection", False, False, "none"),
+            (self.bbyspecialinterest, "special interests", False, False, "none"),
+            (self.bbystatus, "status", False, False, "none"),
+            (self.bbythought, "current thought", False, False, "none"),
+            (self.bbystats, "stats", False, False, "none"),
+            (self.bbycommands_stats, "command stats", False, False, "none"),
+            (self.bbybestie, "bestie info", False, False, "none"),
+            (self.bbyfriends, "friends list", False, False, "none"),
+            (self.bbyrivals, "rivals list", False, False, "none"),
+            (self.bbyBBY, "BBY love", False, False, "none"),
+            (self.bbytime, "time info", False, False, "none"),
+            (self.bbyspace, "space info", False, False, "none"),
+            (self.bbysminks, "sminks/cheers", False, False, "none"),
+            (self.bbyfaves, "favorites list", False, False, "none"),
+            (self.bbytimer, "timer info", False, False, "none"),
+            (self.bbyface, "avatar/face", False, False, "none"),
+            (self.bbyspamlevel, "spam level", False, False, "none"),
+            (self.bbyreact, "reaction", False, False, "none"),
+            (self.bbyoptcheck_command, "opt check", False, False, "none"),
+            (self.bbyoptin_command, "opt in", False, False, "none"),
+            (self.bbyoptout_command, "opt out", False, False, "none"),
+            
+            # Commands that require specific parameters
+            (self.bbytip, "random tip", True, True, "param"),
+            
+            # Username-based commands that take a word parameter
+            (self.bbybag, "inventory", True, False, "param"),
+            (self.bbydictionary, "dictionary", True, False, "param"),
+            (self.bbyitems, "item market", False, False, "param"),
+            (self.bbytutor_awards, "tutor awards", False, False, "param"),
+            (self.bbytranslate, "translate game", False, False, "param"),
+            (self.bbyinfo, "user info", True, False, "param"),
+            (self.bbyspace, "space info", True, False, "param"),
+            (self.bbyspace, "space info", True, False, "param"),
+            
+            # Excluded: bbyallfacts (too spammy), bbyhelp (too long)
+        ]
+        
+        # Filter commands based on what we have available
+        available_commands = []
+        debug_info = []
+        
+        for cmd_info in random_commands:
+            cmd_method, desc, uses_word, uses_number = cmd_info[:4]
+            special_type = cmd_info[4] if len(cmd_info) > 4 else None
+            
+            try:
+                # Try to get the method name and check if it exists
+                if hasattr(cmd_method, '__name__'):
+                    method_name = cmd_method.__name__
+                elif hasattr(cmd_method, '__func__'):
+                    method_name = cmd_method.__func__.__name__
+                else:
+                    method_name = str(cmd_method)
+                
+                # Check if method exists and add to available commands
+                if hasattr(self, method_name) and callable(getattr(self, method_name)):
+                    available_commands.append((cmd_method, desc, uses_word, uses_number, special_type))
+                    debug_info.append(f"✓ {method_name}")
+                else:
+                    debug_info.append(f"✗ {method_name}")
+                    
+            except Exception as e:
+                debug_info.append(f"ERROR: {str(cmd_method)} - {str(e)}")
+        
+        # If no commands available, show debug info
+        if not available_commands:
+            debug_msg = f"i couldn't find any commands to run randomly :( Debug info:\n" + "\n".join(debug_info[:10])
+            return await self.bot._discord_reply(ctx, debug_msg)
+        
+        # Pick a random command
+        cmd_info = random.choice(available_commands)
+        chosen_cmd, cmd_desc, uses_word, uses_number = cmd_info[:4]
+        special_type = cmd_info[4] if len(cmd_info) > 4 else None
+        
+        try:
+            # Get the command name from the method
+            if hasattr(chosen_cmd, '__name__'):
+                cmd_name = chosen_cmd.__name__
+            elif hasattr(chosen_cmd, '__func__'):
+                cmd_name = chosen_cmd.__func__.__name__
+            else:
+                cmd_name = str(chosen_cmd).split('.')[-1]
+            
+            # Clean up the command name to get the actual command
+            cmd_name = cmd_name.replace('_command', '').replace('_error', '').replace('_awards', '')
+            
+            # Create a message about what we're doing
+            friend_commands = {self.bbygift, self.bbyfite, self.bbybag, self.bbydictionary, 
+                             self.bbyinfo, self.bbyspace, self.bbyhug, self.bbysimilar}
+            
+            params_msg = []
+            if chosen_cmd in friend_commands:
+                # For friend commands, indicate we're using a random friend
+                friend_pool = self.get_random_friend_pool(ctx)
+                if chosen_cmd == self.bbyfite:
+                    # Remove self from pool to avoid self-fighting
+                    friend_pool = [name for name in friend_pool if name != ctx.author.name.lower()]
+                if friend_pool:
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    friend_display = self.bot.getNickname(random_friend)
+                    params_msg.append(f"friend: {friend_display}")
+            elif uses_word:
+                params_msg.append(f"word: {word}")
+            if uses_number:
+                params_msg.append(f"number: {number}")
+            
+            param_str = f" with {', '.join(params_msg)}" if params_msg else ""
+            # Use varied random for emote selection
+            if self.get_varied_random() < 0.7:
+                random_emote = random.choice(self.bot.faveEmotes)
+            else:
+                # Sometimes pick multiple emotes for extra chaos
+                random_emote = " ".join([random.choice(self.bot.faveEmotes) for _ in range(random.randint(1, 3))])
+            await self.bot._discord_reply(ctx, f"{random_emote} randomly running !{cmd_name}{param_str}...")
+            
+            # Handle different command types
+            if special_type == "param":
+                # Commands with proper parameter signatures
+                if chosen_cmd == self.bbyconnect:
+                    await chosen_cmd(ctx, text=word)
+                elif chosen_cmd == self.bbyvomit:
+                    await chosen_cmd(ctx, start_word=word)
+                elif chosen_cmd == self.bbythink:
+                    await chosen_cmd(ctx, start_word=word, length=number)
+                elif chosen_cmd == self.bbywtf:
+                    await chosen_cmd(ctx, word=word)
+                elif chosen_cmd == self.bbyrandomfacts:
+                    await chosen_cmd(ctx, num_facts=number)
+                elif chosen_cmd == self.bbywhatis:
+                    await chosen_cmd(ctx, key=word)
+                elif chosen_cmd == self.bbymyitem:
+                    await chosen_cmd(ctx, key=word)
+                elif chosen_cmd == self.bbysimilar:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    await chosen_cmd(ctx, member_name=random_friend)
+                elif chosen_cmd == self.bbylex:
+                    await chosen_cmd(ctx, arg=word)
+                elif chosen_cmd == self.bbyspam:
+                    # bbyspam takes mode and args parameters
+                    if uses_word and uses_number:
+                        await chosen_cmd(ctx, mode="think", args=f"{word} {number}")
+                    elif uses_word:
+                        await chosen_cmd(ctx, mode="vomit", args=word)
+                    else:
+                        await chosen_cmd(ctx, mode="vomit", args="")
+                elif chosen_cmd == self.bbyfeed:
+                    if uses_word:
+                        await chosen_cmd(ctx, item_args=word)
+                    else:
+                        await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbysnack:
+                    if uses_number:
+                        await chosen_cmd(ctx, quantity_str=str(number))
+                    else:
+                        await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbygift:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    await chosen_cmd(ctx, member_name=random_friend)
+                elif chosen_cmd == self.bbyfite:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    # Remove self from pool to avoid self-fighting
+                    friend_pool = [name for name in friend_pool if name != ctx.author.name.lower()]
+                    if friend_pool:
+                        random_friend = self.get_varied_choice().choice(friend_pool)
+                        await chosen_cmd(ctx, member_name=random_friend)
+                    else:
+                        # Fallback to None if no friends available (will trigger random selection in bbyfite)
+                        await chosen_cmd(ctx, member_name=None)
+                elif chosen_cmd == self.bbyfave:
+                    await chosen_cmd(ctx, item_name=word)
+                elif chosen_cmd == self.bbyunfave:
+                    if uses_word:
+                        await chosen_cmd(ctx, item_name=word)
+                    else:
+                        await chosen_cmd(ctx, item_name="")
+                elif chosen_cmd == self.bbyteach:
+                    if uses_word and uses_number:
+                        # For teach, use word as key and number as value (converted to string)
+                        await chosen_cmd(ctx, key=word, value=str(number))
+                    elif uses_word:
+                        await chosen_cmd(ctx, key=word, value="")
+                    else:
+                        await chosen_cmd(ctx, key="", value="")
+                elif chosen_cmd == self.bbybag:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    await chosen_cmd(ctx, member_name=random_friend)
+                elif chosen_cmd == self.bbydictionary:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    await chosen_cmd(ctx, member_name=random_friend)
+                elif chosen_cmd == self.bbyitems:
+                    await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbytranslate:
+                    await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbytutor_awards:
+                    await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbyinfo:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    await chosen_cmd(ctx, member_name=random_friend)
+                elif chosen_cmd == self.bbyspace:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    await chosen_cmd(ctx, member_name=random_friend)
+                elif chosen_cmd == self.bbyhug:
+                    # Use random friend from pool instead of word parameter
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    random_friend = self.get_varied_choice().choice(friend_pool)
+                    await chosen_cmd(ctx, member_name=random_friend)
+                elif chosen_cmd == self.bbysetzone:
+                    await chosen_cmd(ctx, tz_name=word)
+                elif chosen_cmd == self.bbytip:
+                    # bbytip requires tip_amount_str and optionally quantity_str
+                    if uses_word and uses_number:
+                        await chosen_cmd(ctx, tip_amount_str=str(number), quantity_str=word)
+                    elif uses_number:
+                        await chosen_cmd(ctx, tip_amount_str=str(number))
+                    elif uses_word:
+                        # If only word provided, try to parse it as a number, fallback to "1"
+                        try:
+                            tip_amount = float(word)
+                            await chosen_cmd(ctx, tip_amount_str=str(tip_amount))
+                        except ValueError:
+                            await chosen_cmd(ctx, tip_amount_str="1")
+                    else:
+                        await chosen_cmd(ctx, tip_amount_str="1")
+                else:
+                    # Fallback for param type
+                    if uses_word and uses_number:
+                        await chosen_cmd(ctx, word, number)
+                    elif uses_word:
+                        await chosen_cmd(ctx, word)
+                    elif uses_number:
+                        await chosen_cmd(ctx, number)
+                    else:
+                        await chosen_cmd(ctx)
+                        
+            elif special_type == "message":
+                # Commands that parse from ctx.message.content - we need to create a fake message
+                # Create a more robust fake context that preserves all discord.py attributes
+                
+                # Get the command name from the method
+                if hasattr(chosen_cmd, '__name__'):
+                    cmd_name = chosen_cmd.__name__
+                elif hasattr(chosen_cmd, '__func__'):
+                    cmd_name = chosen_cmd.__func__.__name__
+                else:
+                    cmd_name = str(chosen_cmd).split('.')[-1]
+                
+                # Clean up the command name
+                cmd_name = cmd_name.replace('_command', '').replace('_error', '').replace('_awards', '')
+                
+                # Create fake message content based on what the command expects
+                if uses_word and uses_number:
+                    fake_content = f"!{cmd_name} {word} {number}"
+                elif uses_word:
+                    fake_content = f"!{cmd_name} {word}"
+                elif uses_number:
+                    fake_content = f"!{cmd_name} {number}"
+                else:
+                    fake_content = f"!{cmd_name}"
+                
+                # Create a new context class that inherits from the original but with modified message
+                class FakeContext:
+                    def __init__(self, original_ctx, new_content):
+                        # Copy all attributes from the original context
+                        for attr in dir(original_ctx):
+                            if not attr.startswith('_') and attr != 'message':
+                                try:
+                                    setattr(self, attr, getattr(original_ctx, attr))
+                                except:
+                                    pass
+                        
+                        # Create a fake message with the new content
+                        class FakeMessage:
+                            def __init__(self, original_message, new_content):
+                                # Copy all attributes from original message
+                                for attr in dir(original_message):
+                                    if not attr.startswith('_') and attr != 'content':
+                                        try:
+                                            setattr(self, attr, getattr(original_message, attr))
+                                        except:
+                                            pass
+                                self.content = new_content
+                        
+                        self.message = FakeMessage(original_ctx.message, new_content)
+                        
+                        # Copy important methods and properties
+                        self.bot = original_ctx.bot
+                        self.channel = original_ctx.channel
+                        self.guild = original_ctx.guild
+                        self.author = original_ctx.author
+                        self.prefix = getattr(original_ctx, 'prefix', '!')
+                        self.command = getattr(original_ctx, 'command', None)
+                        self.invoked_with = getattr(original_ctx, 'invoked_with', cmd_name)
+                
+                fake_ctx = FakeContext(ctx, fake_content)
+                
+                # Call the command with the modified context
+                await chosen_cmd(fake_ctx)
+                
+            elif special_type == "none":
+                # No-parameter commands
+                await chosen_cmd(ctx)
+                
+            else:
+                # Fallback - try to call with parameters if they're used
+                if uses_word and uses_number:
+                    await chosen_cmd(ctx, word, number)
+                elif uses_word:
+                    await chosen_cmd(ctx, word)
+                elif uses_number:
+                    await chosen_cmd(ctx, number)
+                else:
+                    await chosen_cmd(ctx)
+                
+        except Exception as e:
+            await self.bot._discord_reply(ctx, f"oops, something went wrong with the random command: {str(e)[:100]}...")
 
 if __name__ == "__main__":
     print("to run this bot, you need to set up all the required components (babyLLM, tutor, etc.) and then run the bot.")

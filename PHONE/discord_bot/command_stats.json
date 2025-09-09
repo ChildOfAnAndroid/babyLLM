@@ -1,6 +1,6 @@
 {
   "babyllm": {
-    "total_uses": 12,
+    "total_uses": 18,
     "unique_users": [
       "charis"
     ]
@@ -25,6 +25,12 @@
   },
   "bbyvomit": {
     "total_uses": 2,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyrandom": {
+    "total_uses": 84,
     "unique_users": [
       "childofanandroid"
     ]
