@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
-# v2.180
+# v1.4
 
 import os
 import json
@@ -610,7 +610,10 @@ class BABYBOT_DISCORD(commands.Bot):
         ACTIVE_BONUS_PER_YEAR, ACTIVE_BONUS_PER_MONTH, ACTIVE_BONUS_PER_WEEK = 42069.69, 6969.69, 4200.0
         ACTIVE_BONUS_PER_DAY, ACTIVE_BONUS_PER_HOUR, ACTIVE_BONUS_PER_MINUTE = 420.0, 69.69, 42.0
         SHARE_OF_VOICE_INFLUENCE, HEARTBEAT_MIN, HEARTBEAT_MAX = 0.069, -0.000420, 0.00420
-        DECAY_FLOOR = -69696969.69
+        
+        # Calculate total money in circulation and set decay floor as total/100
+        total_money_in_circulation = sum(abs(m.get("BBY", 0.0)) for m in self.userMemory.values())
+        DECAY_FLOOR = -(total_money_in_circulation / (self.random * 420)) if total_money_in_circulation > 0 else -69696969.69
         SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
         ORIGINAL_INTERVAL_SECONDS = 10.0  # The original interval that all rates were tuned for
         interval_multiplier = SECONDS_PER_INTERVAL / ORIGINAL_INTERVAL_SECONDS
@@ -1192,7 +1195,11 @@ class BABYBOT_DISCORD(commands.Bot):
             if tsess:
                 extra = tsess.setdefault('extra', {})
                 guesses = extra.setdefault('guesses', {})
-                guesses[author] = content.strip().lower()
+                # Store both the guess and when it was made for time-based scoring
+                guesses[author] = {
+                    'guess': content.strip().lower(),
+                    'timestamp': time.time()
+                }
 
         if not message.content.startswith(self.command_prefix):
             if is_opted_in:

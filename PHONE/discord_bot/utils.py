@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/utils.py
-# v2.180
+# v1.4
 
 import random
 import re
@@ -163,6 +163,39 @@ def style_gain(text: str) -> str:
 def style_loss(text: str) -> str:
     """Format *text* to show a loss using italic markdown."""
     return f"*{text}*"
+
+
+def format_bby_amount(amount: float) -> str:
+    """Format BBY amount consistently with ᛒ symbol and smart number formatting.
+    Shows up to 13 digits before suffix, no decimal places, with comma separators.
+    
+    Examples:
+    - 1,234 -> ᛒ1,234
+    - 123,456,789 -> ᛒ123,456,789
+    - 1,000,000,000 -> ᛒ1,000,000,000
+    - 1,234,567,890,123 -> ᛒ1,234,567,890,123
+    - 12,345,678,901,234 -> ᛒ12,345,678,901k
+    """
+    abs_amount = abs(int(amount))  # Convert to int to remove decimals
+    sign = "-" if amount < 0 else ""
+    
+    if abs_amount < 10000000000000:  # Up to 9,999,999,999,999 (13 digits)
+        # Show full amount with commas, no decimals
+        formatted = f"{sign}{abs_amount:,}"
+    elif abs_amount < 10000000000000000:  # Up to 9,999,999,999,999,999 (show as k)
+        # Show as k with up to 13 digits before k, no decimals
+        k_value = abs_amount // 1000
+        formatted = f"{sign}{k_value:,}k"
+    elif abs_amount < 10000000000000000000:  # Up to 9,999,999,999,999,999,999 (show as m)
+        # Show as m with up to 13 digits before m, no decimals
+        m_value = abs_amount // 1000000
+        formatted = f"{sign}{m_value:,}m"
+    else:  # 10000000000000000000+
+        # Show as b with up to 13 digits before b, no decimals
+        b_value = abs_amount // 1000000000
+        formatted = f"{sign}{b_value:,}b"
+    
+    return f"ᛒ{formatted}"
 
 
 def getTimeRant(ai_opt_in_users):
