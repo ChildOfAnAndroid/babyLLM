@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v1.4
+# v2.25
 
 import os
 import asyncio
@@ -1489,18 +1489,35 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     async def _trigger_bbywtf(self, word: str, ctx=None, channel=None):
         word = (word or "").strip().lower()
-        if not word: return
+        if not word: 
+            # If no word provided, show a random fact (like old bbywhatis behavior)
+            if self.bot.bbyfacts:
+                random_key, fact = self._get_bbyfact_random()
+                teacher_nic = self.bot.getNickname(fact['author'])
+                ago = howLongAgo(fact['timestamp'])
+                reply = f"random fact! {teacher_nic} once told me, {ago} {random_key} is {fact['value']}."
+            else: 
+                reply = "i don't know any facts yet... you could teach me with !bbyteach <key> <thing>"
+            
+            if ctx: await self.bot._discord_reply(ctx, reply)
+            else: await self.bot._discord_send(channel=channel, message_content=reply, is_reply=False)
+            return
+            
         if word in self.bot.bbyfacts:
             fact = self.bot.bbyfacts.get(word, {})
-            known = f"i already know {word}! it's {fact.get('value', '')}".strip()
+            # Enhanced response for known facts (combining bbywhatis style)
+            teacher_nic = self.bot.getNickname(fact['author'])
+            ago = howLongAgo(fact['timestamp'])
+            known = f"oh i know this! {teacher_nic} taught me {ago}... {word} is {fact.get('value', '')}."
             if ctx: await self.bot._discord_reply(ctx, known)
             else: await self.bot._discord_send(channel=channel, message_content=known, is_reply=False)
             return
 
+        # Unknown words get the full brain analysis treatment
         associations = self._get_brain_connections(word)
         guess_word = self._blend_guess(word)
         similar = self._brain_similar_words(word)
-        msg = f"{word} ??? 😰 ... {guess_word} ???"
+        msg = f"{word} ??? 😰 ... {guess_word} ??? \ni'm just a baby, i don't know what {word} is yet... you could teach me with !bbyteach {word} <thing>"
         if associations: msg += f"\n{associations}"
         if ctx: sent = await self.bot._discord_reply(ctx, msg)
         else: sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
@@ -1516,10 +1533,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             }
             self._add_brain_thought(word, similar)
 
-    @commands.command(name='bbywtf')
+    @commands.command(name='bbywtf', aliases=['bbywhatis', 'bwhatis', 'bwi'])
     async def bbywtf(self, ctx, *, word: str = None):
-        word = (word or "").strip().lower()
-        if not word: return await self.bot._discord_reply(ctx, "ikr!")
+        """Ask what something is. Shows known facts or analyzes unknown words with brain connections.
+        Usage: !bbywtf <word> - analyze a word
+        Usage: !bbywtf - show random fact
+        """
         await self._trigger_bbywtf(word, ctx=ctx)
 
     async def trigger_bbywtf_auto(self, channel, word: str): await self._trigger_bbywtf(word, channel=channel)
@@ -1621,7 +1640,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             for user in winners:
                 guess = guesses[user]
                 amount = self.bot.apply_fave_bonus(500.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
-                amount *= ((self.random + self.random2 + self.random3 + self.random4) * 6.9) * ((self.random + self.random2 + self.random3 + self.random4) * 42.0) * self._get_fact_value(correct)
+                amount *= ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 6.9) * ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 42.0) * self._get_fact_value(correct)
                 nickname = self.bot.getNickname(user)
                 winner_details.append(f"{nickname} (+{amount:.1f} BBY)")
                 self.bot.updateBBY(user, amount)
@@ -1634,7 +1653,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         for user, guess in guesses.items():
             if user not in winners:
                 amount = self.bot.apply_fave_bonus(-20.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
-                amount *= ((self.random + self.random2 + self.random3 + self.random4) * 0.69) * ((self.random + self.random2 + self.random3 + self.random4) * 4.2) * self._get_fact_value(correct)
+                amount *= ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 0.69) * ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 4.2) * self._get_fact_value(correct)
                 self.bot.updateBBY(user, amount)
                 mem = self.bot.userMemory[user]
                 mem["translate_losses"] = mem.get("translate_losses", 0) + 1
@@ -1715,26 +1734,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # default: treat the whole arg as the word for wtf-mode
         return await self._trigger_bbywtf(lower, ctx=ctx)
-
-    @commands.command(name='bbywhatis', aliases=['bwhatis', 'bwi'])
-    async def bbywhatis(self, ctx, *, key: str = None):
-        """Asks babyLLM what it knows. If no key, tells a random fact."""
-        if key:
-            key, fact = await self._get_fact_or_reply(ctx, key)
-            if fact:
-                teacher_nic = self.bot.getNickname(fact['author'])
-                ago = howLongAgo(fact['timestamp'])
-                reply = f"oh i know this! {teacher_nic} taught me {ago}... {key} is {fact['value']}."
-            else: reply = f"i'm just a baby, i don't know what {key} is yet... you could teach me with !bbyteach {key} <thing>"
-        else:
-            if self.bot.bbyfacts:
-                random_key, fact = self._get_bbyfact_random()
-                teacher_nic = self.bot.getNickname(fact['author'])
-                ago = howLongAgo(fact['timestamp'])
-                reply = f"random fact! {teacher_nic} once told me, {ago} {random_key} is {fact['value']}."
-            else: reply = "i don't know any facts yet... you could teach me with !bbyteach <key> <thing>"
-
-        await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbymyitem', aliases=['bmyitem', 'bmi'])
     async def bbymyitem(self, ctx, *, key: str = None):
@@ -2153,8 +2152,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             )
             reply += await self._maybe_steal_item(attacker_id, defender_id, ctx)
         elif attacker_BBY == defender_BBY:
-            self.bot.updateBBY(attacker_id, point_swing * (0.1 * (-0.5 + self.random)))
-            self.bot.updateBBY(defender_id, -point_swing * (0.2 * (-0.5 * self.random2)))
+            self.bot.updateBBY(attacker_id, point_swing * (0.1 * (-0.5 + self.get_varied_random())))
+            self.bot.updateBBY(defender_id, -point_swing * (0.2 * (-0.5 * self.get_varied_random())))
             self.bot.userMemory[defender_id]["draws"] += 1
             self.bot.userMemory[attacker_id]["draws"] += 1
             
@@ -3284,111 +3283,127 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
         if self.bot.random2 > 0.5: self.bot._buffer_add(self.bot.formatMessage(babyName, reply))
 
-    @commands.command(name = "bbybestie", aliases=['bff', 'bbff', 'bbybff', 'bbestie']) 
-    async def bbybestie(self, ctx): 
+    @commands.command(name = "bbysocial", aliases=['bff', 'bbff', 'bbybff', 'bbestie', 'bbybestie', 'bf', 'bfriends', 'bbyfriends', 'brivals', 'bri', 'bbyrivals']) 
+    async def bbysocial(self, ctx, view: str = "friends"): 
+        """View social relationships and rankings.
+        Usage:
+        !bbysocial - show friends list (default)
+        !bbysocial friends - show top friends 
+        !bbysocial bestie - show your bestie status
+        !bbysocial rivals - show bottom/rival users
+        """
         try:
             author = ctx.author.name.lower()
-            if self.bot.random3 > 0.5:
-                self.bot.updateBBY(author, 0.1)
-            bestie, _ = self.bot.checkBestie()
-            bestie_nic = self.bot.getNickname(bestie)
-            author_nic = self.bot.getNickname(author)
-            if author == bestie:
-                bestieMessage = f"yayayayay! my best friend is you, {author_nic}!"
-                self.bot.updateBBY(author, -self.bot.random)
-                await ctx.message.add_reaction("🅱️")
-                await ctx.message.add_reaction("3️⃣")
-                await ctx.message.add_reaction("💲")
-                await ctx.message.add_reaction("✝️")
-                await ctx.message.add_reaction("ℹ️")
-                await ctx.message.add_reaction("3️⃣")
-            else:
-                bestieMessage = f"umm... awkward, ||my best friend is {bestie_nic}||, but you're alright too {author_nic}!!"
-                self.bot.updateBBY(author, self.bot.random2)
-                await ctx.message.add_reaction("😬")
-            if self.bot.random4 < 0.5: self.bot._buffer_add(bestieMessage)
-            await self.bot._discord_reply(ctx, bestieMessage)
-            print(f"\n\nchecked who my best friend is. buffer now {len(self.bot.buffer)} messages long.\n\n")
-
-        except Exception as e:
-            await self.bot._discord_reply(ctx, f"bbybestie broke: {e}")
-
-    @commands.command(name = "bbyfriends", aliases=['bf', 'bfriends']) 
-    async def bbyfriends(self, ctx): 
-        try:
-            author = ctx.author.name.lower()
-            full_leaderboard = self._get_bby_leaderboard(reverse=True)
-            if not full_leaderboard:  return await self.bot._discord_reply(ctx, "no one has any BBY yet, this place feels very quiet... for now.")
-
-            totalBBY = sum(abs(score) for _, score in full_leaderboard)
-            rank, _ = self._get_user_bby_rank(author)
-
-            reply = f"{self.get_varied_choice().choice(self.bot.faveEmotes)}xoxo welcome to my bbyspace page! xoxo{self.get_varied_choice().choice(self.bot.faveEmotes)}\n"
-            reply += self.get_varied_choice().choice(["xoxo rawr xD my besties are... xoxo", "xoxo top friends 2001!!!1! xoxo", "xoxo people i hate xoxo", "xoxo people i hate least xoxo", "xoxo not 1337 n00bs xoxo", "xoxo top 10 vatsim players xoxo", "xoxo ur mum gay xoxo", "xoxo rawr is i love u in dinosore xoxo", "xoxo avalance patrolers xoxo", "xoxo eve online leaderboard xoxo", "xoxo falling furni event!! habbo club members only xoxo"])
-            reply += "\n\n"
-
-            for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1): reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=False)
-
-            if rank is not None:
-                max_rank_bonus = (len(self.bot.AIoptInUsers) / 10)
-                bonus = max(0, max_rank_bonus - (rank * 0.25))
-                self.bot.updateBBY(author, bonus)
-
-            if self.bot.random > 0.99:
-                reply += f"\n👻 also... i know your real name {author} :) reee!!!"
-                self.bot.updateBBY(author, 10.0)
             
-            await self.bot._discord_reply(ctx, reply)
-            
-            author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
-            update_msg = f"\n\nchecked how much i love {author}... they have ᛒ{author_bby:.0f}, so they're number {rank if rank is not None else 'N/A'} in the list! i now have {len(self.bot.buffer)} messages in my queue.\n\n"
-            print(update_msg)
+            # Handle old alias commands by inferring view from context
+            command_used = ctx.invoked_with.lower()
+            if command_used in ['bbybestie', 'bbestie', 'bff', 'bbff', 'bbybff']:
+                view = "bestie"
+            elif command_used in ['bbyrivals', 'brivals', 'bri']:
+                view = "rivals"
+            elif command_used in ['bbyfriends', 'bf', 'bfriends']:
+                view = "friends"
+            elif not view or view.lower() in ['friends', 'friend']:
+                view = "friends"
 
-            if self.bot.random2 < 0.5: self.bot.updateBBY(author, 0.02)
+            if view.lower() in ['bestie', 'bff', 'best']:
+                # Original bbybestie logic
+                if self.bot.random3 > 0.5:
+                    self.bot.updateBBY(author, 0.1)
+                bestie, _ = self.bot.checkBestie()
+                bestie_nic = self.bot.getNickname(bestie)
+                author_nic = self.bot.getNickname(author)
+                if author == bestie:
+                    bestieMessage = f"yayayayay! my best friend is you, {author_nic}!"
+                    self.bot.updateBBY(author, -self.bot.random)
+                    await ctx.message.add_reaction("🅱️")
+                    await ctx.message.add_reaction("3️⃣")
+                    await ctx.message.add_reaction("💲")
+                    await ctx.message.add_reaction("✝️")
+                    await ctx.message.add_reaction("ℹ️")
+                    await ctx.message.add_reaction("3️⃣")
+                else:
+                    bestieMessage = f"umm... awkward, ||my best friend is {bestie_nic}||, but you're alright too {author_nic}!!"
+                    self.bot.updateBBY(author, self.bot.random2)
+                    await ctx.message.add_reaction("😬")
+                if self.bot.random4 < 0.5: 
+                    self.bot._buffer_add(bestieMessage)
+                await self.bot._discord_reply(ctx, bestieMessage)
+                print(f"\n\nchecked who my best friend is. buffer now {len(self.bot.buffer)} messages long.\n\n")
+
+            elif view.lower() in ['rivals', 'rival', 'enemies', 'worst']:
+                # Original bbyrivals logic
+                full_leaderboard = self._get_bby_leaderboard(reverse=False)
+                if not full_leaderboard:  
+                    return await self.bot._discord_reply(ctx, "no one has any BBY yet, there are no rivals, only peace... for now.")
+
+                totalBBY = sum(abs(score) for _, score in full_leaderboard)
+                rank, _ = self._get_user_bby_rank(author)
+
+                reply = "the weakest links have been located "
+                reply += self.get_varied_choice().choice(["lol", "... uh oh", ", uh oh stinky", "! prepare the laser!", "... this is awkward", ", baby saw this", "... oh fuck no", "! ur in trouble now!", "- low vibez only xoxo"]) + " "
+                reply += f"{self.get_varied_choice().choice(self.bot.faveEmotes)} \n"
+
+                for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1):
+                    reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=True)
+
+                if rank is not None:
+                    min_rank_bonus = -len(self.bot.AIoptInUsers) / 20
+                    penalty = min(0, min_rank_bonus + (rank * 0.15))
+                    self.bot.updateBBY(author, penalty)
+
+                if self.bot.random > 0.99:
+                    reply += f"� baby will remember this, {author}..."
+                    self.bot.updateBBY(self.bot.getNickname(author), -10.0)
+
+                await self.bot._discord_reply(ctx, reply)
+
+                if self.bot.random2 < 0.5:
+                    self.bot.updateBBY(author, -0.01)
+                    self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
+
+                author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
+                rival_leaderboard = self._get_bby_leaderboard(reverse=False)
+                rival_rank = next((i for i, (u_id, _) in enumerate(rival_leaderboard, 1) if u_id == author), "??")
+                print(f"\n\nchecked {author}'s BBY ({author_bby:.0f}), rival rank #{rival_rank}. buffer now {len(self.bot.buffer)} messages long.\n\n")
+
+            else:  # Default to friends view
+                # Original bbyfriends logic
+                full_leaderboard = self._get_bby_leaderboard(reverse=True)
+                if not full_leaderboard:  
+                    return await self.bot._discord_reply(ctx, "no one has any BBY yet, this place feels very quiet... for now.")
+
+                totalBBY = sum(abs(score) for _, score in full_leaderboard)
+                rank, _ = self._get_user_bby_rank(author)
+
+                reply = f"{self.get_varied_choice().choice(self.bot.faveEmotes)}xoxo welcome to my bbyspace page! xoxo{self.get_varied_choice().choice(self.bot.faveEmotes)}\n"
+                reply += self.get_varied_choice().choice(["xoxo rawr xD my besties are... xoxo", "xoxo top friends 2001!!!1! xoxo", "xoxo people i hate xoxo", "xoxo people i hate least xoxo", "xoxo not 1337 n00bs xoxo", "xoxo top 10 vatsim players xoxo", "xoxo ur mum gay xoxo", "xoxo rawr is i love u in dinosore xoxo", "xoxo avalance patrolers xoxo", "xoxo eve online leaderboard xoxo", "xoxo falling furni event!! habbo club members only xoxo"])
+                reply += "\n\n"
+
+                for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1): 
+                    reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=False)
+
+                if rank is not None:
+                    max_rank_bonus = (len(self.bot.AIoptInUsers) / 10)
+                    bonus = max(0, max_rank_bonus - (rank * 0.25))
+                    self.bot.updateBBY(author, bonus)
+
+                if self.bot.random > 0.99:
+                    reply += f"\n� also... i know your real name {author} :) reee!!!"
+                    self.bot.updateBBY(author, 10.0)
+                
+                await self.bot._discord_reply(ctx, reply)
+                
+                author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
+                update_msg = f"\n\nchecked how much i love {author}... they have ᛒ{author_bby:.0f}, so they're number {rank if rank is not None else 'N/A'} in the list! i now have {len(self.bot.buffer)} messages in my queue.\n\n"
+                print(update_msg)
+
+                if self.bot.random2 < 0.5: 
+                    self.bot.updateBBY(author, 0.02)
 
         except Exception as e:
             traceback.print_exc()
-            await self.bot._discord_reply(ctx, f"bbyfriends broke: {e}")
-
-    @commands.command(name = "bbyrivals", aliases=['brivals', 'bri']) 
-    async def bbyrivals(self, ctx): 
-        try:
-            author = ctx.author.name.lower()
-            full_leaderboard = self._get_bby_leaderboard(reverse=False)
-            if not full_leaderboard:  return await self.bot._discord_reply(ctx, "no one has any BBY yet, there are no rivals, only peace... for now.")
-
-            totalBBY = sum(abs(score) for _, score in full_leaderboard)
-            rank, _ = self._get_user_bby_rank(author) # Note: rank is from the perspective of besties, not rivals.
-
-            reply = "the weakest links have been located "
-            reply += self.get_varied_choice().choice(["lol", "... uh oh", ", uh oh stinky", "! prepare the laser!", "... this is awkward", ", baby saw this", "... oh fuck no", "! ur in trouble now!", "- low vibez only xoxo"]) + " "
-            # single newline to avoid inserting blank lines into the training buffer
-            reply += f"{self.get_varied_choice().choice(self.bot.faveEmotes)} \n"
-
-            for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1):
-                reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=True)
-
-            if rank is not None:
-                min_rank_bonus = -len(self.bot.AIoptInUsers) / 20
-                penalty = min(0, min_rank_bonus + (rank * 0.15)) # Penalty is smaller for higher-ranked (better) users
-                self.bot.updateBBY(author, penalty)
-
-            if self.bot.random > 0.99:
-                reply += f"👀 baby will remember this, {author}..."
-                self.bot.updateBBY(self.bot.getNickname(author), -10.0)
-
-            await self.bot._discord_reply(ctx, reply)
-
-            if self.bot.random2 < 0.5:
-                self.bot.updateBBY(author, -0.01)
-                self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
-
-            author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
-            rival_leaderboard = self._get_bby_leaderboard(reverse=False)
-            rival_rank = next((i for i, (u_id, _) in enumerate(rival_leaderboard, 1) if u_id == author), "??")
-            print(f"\n\nchecked {author}'s BBY ({author_bby:.0f}), rival rank #{rival_rank}. buffer now {len(self.bot.buffer)} messages long.\n\n")
-
-        except Exception as e: await self.bot._discord_reply(ctx, f"bbyrivals broke: {e}")
+            await self.bot._discord_reply(ctx, f"bbysocial broke: {e}")
 
     @commands.command(name = "bbyBBY", aliases=['bl', 'blove', 'bbylove', 'bbby']) 
     async def bbyBBY(self, ctx): 
@@ -4432,94 +4447,121 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot.update_avatar_from_snapshots()
         await self.bot._discord_reply(ctx, "do i look different?")
 
-    @commands.command(name = "bbyfave", aliases=['bbyfav', 'bfave'])
-    async def bbyfave(self, ctx, *, item_name: str):
-        """adds an item to your favourites list, protecting it from being given away."""
+    @commands.command(name = "bbyfaves", aliases=['bbyfavs', 'bfaves', 'bbyfave', 'bbyfav', 'bfave', 'bbyunfave', 'bbyunfav', 'bunfave', 'buf', 'bbyunfaveall', 'bufa', 'bunfaveall'])
+    async def bbyfaves(self, ctx, action: str = "list", *, item_name: str = ""):
+        """Manage your favourite (locked) items. 
+        Usage: 
+        !bbyfaves - show favourites list
+        !bbyfaves add <item> - add item to favourites 
+        !bbyfaves remove <item> - remove item from favourites
+        !bbyfaves clear - remove all favourites
+        """
         author_id = ctx.author.name.lower()
-        item_name = item_name.lower().strip()
-        mem = self.bot.userMemory[author_id]
+        mem = self.bot.userMemory.get(author_id, {})
         inventory = mem.get("inventory", {})
         favourites = mem.get("favourites", [])
         loyalty = mem.get("loyalty", 0.0)
         favouritesLimit = loyalty + 69
-        if item_name not in inventory:
-            await self.bot._discord_reply(ctx, f"umm... {item_name}? i dunno if you actually have that lol ")
-            return
 
-        if item_name in favourites:
-            await self.bot._discord_reply(ctx, f"{item_name}... yep! already in the favourites, i'll keep it safe there :D ")
-            return
+        # Handle old alias commands by inferring action from context
+        command_used = ctx.invoked_with.lower()
+        if command_used in ['bbyfave', 'bbyfav', 'bfave']:
+            action = "add"
+            # For the old commands, the full message becomes the item name
+            if not item_name and hasattr(ctx, 'message'):
+                # Extract item name from message after command
+                message_parts = ctx.message.content.split(None, 1)
+                if len(message_parts) > 1:
+                    item_name = message_parts[1]
+        elif command_used in ['bbyunfave', 'bbyunfav', 'bunfave', 'buf']:
+            action = "remove"
+            if not item_name and hasattr(ctx, 'message'):
+                message_parts = ctx.message.content.split(None, 1)
+                if len(message_parts) > 1:
+                    item_name = message_parts[1]
+        elif command_used in ['bbyunfaveall', 'bufa', 'bunfaveall']:
+            action = "clear"
+        elif not action or action.lower() in ['list', 'show', 'view']:
+            action = "list"
 
-        if len(favourites) >= favouritesLimit:
-            await self.bot._discord_reply(ctx, f"ur limit is {favouritesLimit} faves :( (!bbyunfave) ")
-            return
-            
-        favourites.append(item_name)
-        mem['favourites'] = favourites
-        self.bot._save_user_data()
-        
-        await self.bot._discord_reply(ctx, f"aww you really love {item_name} that much!? that's awesome, i'll keep it safe now :) ")
+        # Handle different actions
+        if action.lower() in ['add', 'fave', 'favorite', 'favourite']:
+            if not item_name:
+                await self.bot._discord_reply(ctx, "what item do you want to add to favourites? use: !bbyfaves add <item>")
+                return
+                
+            item_name = item_name.lower().strip()
+            if item_name not in inventory:
+                await self.bot._discord_reply(ctx, f"umm... {item_name}? i dunno if you actually have that lol ")
+                return
 
-    @commands.command(name = "bbyunfave", aliases=['bbyunfav', 'bunfave', 'buf', 'bbyunfaveall', 'bufa', 'bunfaveall'])
-    async def bbyunfave(self, ctx, *, item_name: str = ""):
-        """Remove an item (or all items) from your favourites list."""
-        author_id = ctx.author.name.lower()
-        mem = self.bot.userMemory.get(author_id, {})
-        favourites = mem.get("favourites", [])
+            if item_name in favourites:
+                await self.bot._discord_reply(ctx, f"{item_name}... yep! already in the favourites, i'll keep it safe there :D ")
+                return
 
-        if not favourites:
-            await self.bot._discord_reply(ctx, "you already hate everything 😐")
-            return
+            if len(favourites) >= favouritesLimit:
+                await self.bot._discord_reply(ctx, f"ur limit is {favouritesLimit} faves :( (!bbyfaves remove <item>) ")
+                return
+                
+            favourites.append(item_name)
+            mem['favourites'] = favourites
+            self.bot._save_user_data()
+            await self.bot._discord_reply(ctx, f"aww you really love {item_name} that much!? that's awesome, i'll keep it safe now :) ")
 
-        item_name = item_name.lower().strip()
+        elif action.lower() in ['remove', 'unfave', 'delete', 'rm']:
+            if not favourites:
+                await self.bot._discord_reply(ctx, "you already hate everything 😐")
+                return
 
-        if item_name in ["", "all", "*", "everything", "EVERYTHING", "all of it", "yeet all"]:
+            if not item_name:
+                await self.bot._discord_reply(ctx, "what item do you want to remove from favourites? use: !bbyfaves remove <item>")
+                return
+                
+            item_name = item_name.lower().strip()
+            if item_name not in favourites:
+                await self.bot._discord_reply(ctx, f"{item_name} wasn't one of ur favourites anyway ")
+                return
+
+            favourites.remove(item_name)
+            mem["favourites"] = favourites
+            self.bot._save_user_data()
+            await self.bot._discord_reply(ctx, f"sorted, {item_name} feels the lack of love <3 lmao ")
+
+        elif action.lower() in ['clear', 'all', '*', 'everything', 'yeet']:
+            if not favourites:
+                await self.bot._discord_reply(ctx, "you already hate everything 😐")
+                return
+                
             mem["favourites"] = []
             self.bot._save_user_data()
             await self.bot._discord_reply(ctx, f"we get it, you hate everything now. :( ")
-            return
 
-        if item_name not in favourites:
-            await self.bot._discord_reply(ctx, f"{item_name} wasn't one of ur favourites anyway ")
-            return
+        else:  # Default to showing list (action == "list" or first time calling)
+            # Clean up favourites first
+            original_fave_count = len(favourites)
+            synced_favourites = [
+                fave for fave in favourites 
+                if isinstance(fave, str) and fave and fave in inventory and inventory[fave] > 0
+            ]
+            removed_count = original_fave_count - len(synced_favourites)
+            if removed_count > 0:
+                mem["favourites"] = synced_favourites
+                self.bot._save_user_data()
+            favourites_to_display = synced_favourites        
+            if not favourites_to_display:
+                reply = "whaaat, i thought you just hated everything lol! theres nothing here, use !bbyfave <item> :)"
+                if removed_count > 0: reply += f"\n\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
+                await self.bot._discord_reply(ctx, reply)
+                return
+            
+            reply = f"your ⭐ favourite items ({len(favourites_to_display)}/{int(favouritesLimit)}):\n"
+            sorted_faves = sorted(favourites_to_display) 
+            for i, item in enumerate(sorted_faves, 1): 
+                reply += f"> {i}. ⭐{item}⭐\n"
+            if removed_count > 0: 
+                reply += f"\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
 
-        favourites.remove(item_name)
-        mem["favourites"] = favourites
-        self.bot._save_user_data()
-        await self.bot._discord_reply(ctx, f"sorted, {item_name} feels the lack of love <3 lmao ")
-
-    @commands.command(name = "bbyfaves", aliases=['bbyfavs', 'bfaves'])
-    async def bbyfaves(self, ctx):
-        """Shows your list of favourite (locked) items."""
-        author_id = ctx.author.name.lower()
-        mem = self.bot.userMemory[author_id]
-        inventory = mem.get("inventory", {}) # Get inventory for the check
-        favourites = mem.get("favourites", [])
-        loyalty = mem.get("loyalty", 0.0)
-        favouritesLimit = loyalty + 69
-        original_fave_count = len(favourites)
-        # This automatically removes None, blank strings, and ghosts of items you no longer own.
-        synced_favourites = [
-            fave for fave in favourites 
-            if isinstance(fave, str) and fave and fave in inventory and inventory[fave] > 0
-        ]
-        removed_count = original_fave_count - len(synced_favourites)
-        if removed_count > 0:
-            mem["favourites"] = synced_favourites
-            self.bot._save_user_data()
-        favourites_to_display = synced_favourites        
-        if not favourites_to_display:
-            reply = "whaaat, i thought you just hated everything lol! theres nothing here, use !bbyfave <item> :)"
-            if removed_count > 0: reply += f"\n\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
             await self.bot._discord_reply(ctx, reply)
-            return
-        
-        reply = f"your ⭐ favourite items ({len(favourites_to_display)}/{int(favouritesLimit)}):\n"
-        sorted_faves = sorted(favourites_to_display) 
-        for i, item in enumerate(sorted_faves, 1): reply += f"> {i}. ⭐{item}⭐\n"
-        if removed_count > 0: reply += f"\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
-
-        await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyhelp', aliases=['bh', 'bhelp']) 
     @track_command
@@ -4545,7 +4587,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
             # Knowledge & Fact Commands
             f"!bbyteach <word> <meaning> (!btx) {random.choice(self.bot.faveEmotes)} \nthe most important command!! teach me what something means, and i'll drop it in your inventory :) ",
-            f"!bbywhatis <word> (!bwi) {random.choice(self.bot.faveEmotes)} \nask me what i know about a word to see if i remember.",
+            f"!bbywtf <word> (!bbywhatis, !bwi) {random.choice(self.bot.faveEmotes)} \nask me what i know about a word, or analyze unknown words with brain connections.",
             f"!bbyforget <word> (!bfx) {random.choice(self.bot.faveEmotes)} \nkittys can be distracting! try to steal something from my brain to annoy me, charis, and another user! win win win!! (except for the fact i will hate u lol) ",
             f"!bbyrandomfacts <number> (!bfax) {random.choice(self.bot.faveEmotes)} \ni'll tell you some random things i've learned. my brain is full of useless info!",
             f"!bbyallfacts (!bfaxdump) {random.choice(self.bot.faveEmotes)} \ni'll tell you EVERY FACT!",
@@ -4744,7 +4786,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # Word-based commands (proper parameter signatures)
             (self.bbyconnect, "brain connections", True, False, "param"),
             (self.bbyvomit, "token vomit", True, False, "param"),
-            (self.bbywhatis, "what is", True, False, "param"),
+            (self.bbywtf, "what is / wtf analysis", True, False, "param"),
             (self.bbysimilar, "similar words", True, False, "param"),
             (self.bbythink, "thinking rant", True, True, "param"),
             (self.bbywtf, "wtf analysis", True, False, "param"),
@@ -4757,8 +4799,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             (self.bbysnack, "snack", True, False, "param"),
             (self.bbygift, "gift", True, False, "param"),
             (self.bbyfite, "fite", True, False, "param"),
-            (self.bbyfave, "fave", True, False, "param"),
-            (self.bbyunfave, "unfave", True, False, "param"),
+            (self.bbyfaves, "manage faves", True, False, "param"),
             
             # Two-parameter commands (key + value)
             (self.bbyteach, "teach", True, True, "param"),
@@ -4783,9 +4824,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             (self.bbythought, "current thought", False, False, "none"),
             (self.bbystats, "stats", False, False, "none"),
             (self.bbycommands_stats, "command stats", False, False, "none"),
-            (self.bbybestie, "bestie info", False, False, "none"),
-            (self.bbyfriends, "friends list", False, False, "none"),
-            (self.bbyrivals, "rivals list", False, False, "none"),
+            (self.bbysocial, "social info", False, False, "none"),
             (self.bbyBBY, "BBY love", False, False, "none"),
             (self.bbytime, "time info", False, False, "none"),
             (self.bbyspace, "space info", False, False, "none"),
@@ -4809,7 +4848,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             (self.bbytutor_awards, "tutor awards", False, False, "param"),
             (self.bbytranslate, "translate game", False, False, "param"),
             (self.bbyinfo, "user info", True, False, "param"),
-            (self.bbyspace, "space info", True, False, "param"),
             (self.bbyspace, "space info", True, False, "param"),
             
             # Excluded: bbyallfacts (too spammy), bbyhelp (too long)
@@ -4906,8 +4944,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     await chosen_cmd(ctx, word=word)
                 elif chosen_cmd == self.bbyrandomfacts:
                     await chosen_cmd(ctx, num_facts=number)
-                elif chosen_cmd == self.bbywhatis:
-                    await chosen_cmd(ctx, key=word)
+                elif chosen_cmd == self.bbywtf:
+                    await chosen_cmd(ctx, word=word)
                 elif chosen_cmd == self.bbymyitem:
                     await chosen_cmd(ctx, key=word)
                 elif chosen_cmd == self.bbysimilar:
@@ -4951,13 +4989,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     else:
                         # Fallback to None if no friends available (will trigger random selection in bbyfite)
                         await chosen_cmd(ctx, member_name=None)
-                elif chosen_cmd == self.bbyfave:
-                    await chosen_cmd(ctx, item_name=word)
-                elif chosen_cmd == self.bbyunfave:
+                elif chosen_cmd == self.bbyfaves:
+                    # bbyfaves handles both fave and unfave actions
                     if uses_word:
-                        await chosen_cmd(ctx, item_name=word)
+                        # Randomly choose between "fave" and "unfave" actions
+                        action = self.get_varied_choice().choice(["fave", "unfave", "list"])
+                        await chosen_cmd(ctx, action=action, item_name=word)
                     else:
-                        await chosen_cmd(ctx, item_name="")
+                        await chosen_cmd(ctx, action="list", item_name="")
                 elif chosen_cmd == self.bbyteach:
                     if uses_word and uses_number:
                         # For teach, use word as key and number as value (converted to string)
