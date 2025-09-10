@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/context.py
-# v2.25
+# v1.11
 
 from types import SimpleNamespace
 
@@ -27,8 +27,12 @@ def create_fake_context(user_text: str, author: str = 'kevinonline420'):
     async def fake_reply_func(content = "", embed=None):
         nonlocal captured_reply
         if content:
-            captured_reply = str(content)
-        return FakeMessage(content, SimpleNamespace(name='babyLLM'))
+            # Ensure we always capture as string, never as object
+            if hasattr(content, 'content'):
+                captured_reply = str(content.content)  # Extract content from message objects
+            else:
+                captured_reply = str(content)
+        return FakeMessage(captured_reply, SimpleNamespace(name='babyLLM'))
 
     fake_channel = SimpleNamespace(name='web_channel', id=0)
     fake_guild = SimpleNamespace(id=0, members=[], get_member=lambda id: None, fetch_member=lambda id: None)

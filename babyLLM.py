@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v2.25
+# v1.11
 
 import random, os
 import torch
@@ -204,6 +204,10 @@ class BABYLLM(nn.Module):
             else:
                 inputEmbeds = tokenEmbed
             self.latestTokenEmbed = inputEmbeds
+            # Ensure latestTokenEmbed has proper dimensions for pixel regression
+            if hasattr(self, "pixelPupil") and len(self.latestTokenEmbed.shape) == 1:
+                # If 1D, ensure it matches expected embedding dimension
+                debug_print(f"[DEBUG] latestTokenEmbed is 1D with shape {self.latestTokenEmbed.shape}")
             inputEmbeds = self.attention(inputEmbeds)
             debug_print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
@@ -395,8 +399,20 @@ class BABYLLM(nn.Module):
 
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
                 if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss with creative synesthetic enhancement")
-                debug_print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape}), [-1] is {self.latestTokenEmbed[-1]} ({self.latestTokenEmbed[-1].shape})")
-                embedding = self.latestTokenEmbed[-1]
+                debug_print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape})")
+                
+                # Handle different tensor shapes properly
+                if len(self.latestTokenEmbed.shape) == 1:
+                    # Already 1D embedding - use directly
+                    embedding = self.latestTokenEmbed
+                elif len(self.latestTokenEmbed.shape) == 2:
+                    # 2D tensor [seq_len, embed_dim] - take the last token
+                    embedding = self.latestTokenEmbed[-1]
+                else:
+                    # Unexpected shape - flatten and take appropriate slice
+                    embedding = self.latestTokenEmbed.flatten()
+                    if embedding.size(0) > self.pixelPupil.linear1.in_features:
+                        embedding = embedding[:self.pixelPupil.linear1.in_features]
                 
                 # Debug tensor shapes before pixelPupil
                 debug_print(f"[DEBUG] About to pass embedding to pixelPupil: shape={embedding.shape}, dtype={embedding.dtype}")
@@ -405,7 +421,7 @@ class BABYLLM(nn.Module):
                 # Ensure embedding is the right shape - should be [embedDimension] for single token
                 # Fix potential batch dimension issues
                 if len(embedding.shape) == 0:
-                    raise RuntimeError(f"Embedding is a scalar! latestTokenEmbed shape: {self.latestTokenEmbed.shape}")
+                    raise RuntimeError(f"Embedding is a scalar! Original latestTokenEmbed shape: {self.latestTokenEmbed.shape}")
                 elif len(embedding.shape) == 2:
                     debug_print(f"[DEBUG] Embedding has 2D shape {embedding.shape}, taking mean across sequence dimension")
                     embedding = embedding.mean(dim=0)  # Average across sequence if needed
@@ -1114,3 +1130,4 @@ class PIXEL(nn.Module):
     
 if __name__ == "__main__":
     exit(0)
+

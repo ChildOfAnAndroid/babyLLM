@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
-# v2.25
+# v1.11
 
 import os
 import json
@@ -88,6 +88,11 @@ class BABYBOT_DISCORD(commands.Bot):
         #   'created_at': float, 'extra': {...}, optional 'task': asyncio.Task }
         self.lex_sessions = {}
         self.word_usage = Counter()            # trending unknowns for auto-wtf
+        
+        # --- Neural token sentiment tracking ---
+        self.recent_positive_tokens = set()   # Token IDs that appeared in positive contexts
+        self.recent_negative_tokens = set()   # Token IDs that appeared in negative contexts
+        self.token_sentiment_decay = 100     # How many messages before token sentiment expires
         self.opt_in_token_usage = Counter()    # opted-in user token usage stats
         self.wtf_threshold = 30
         self.wtf_reacts = ["💡", "😳", "💀", "🤔", "😂", "🙀"]
@@ -202,6 +207,42 @@ class BABYBOT_DISCORD(commands.Bot):
         if not used or not self.babyFaveToken:
             return amount
         return amount * 2 if amount > 0 else amount * 0.5
+
+    def track_token_sentiment(self, message_content: str, is_positive_context: bool):
+        """
+        Track tokens that appear in positive or negative emotional contexts.
+        This builds up the baby's understanding of token emotional associations.
+        """
+        try:
+            if hasattr(self, 'librarian') and self.librarian:
+                # Tokenize the message content
+                token_ids = self.librarian.tokenizeText(message_content.lower())
+                
+                # Add tokens to appropriate sentiment set
+                if is_positive_context:
+                    self.recent_positive_tokens.update(token_ids)
+                    # Remove from negative if it was there (tokens can change context)
+                    self.recent_negative_tokens.difference_update(token_ids)
+                    print(f"[TOKEN_SENTIMENT] Added {len(token_ids)} tokens to positive context")
+                else:
+                    self.recent_negative_tokens.update(token_ids)
+                    # Remove from positive if it was there
+                    self.recent_positive_tokens.difference_update(token_ids)
+                    print(f"[TOKEN_SENTIMENT] Added {len(token_ids)} tokens to negative context")
+                
+                # Decay old sentiment if sets get too large
+                max_tokens = self.token_sentiment_decay * 2  # Allow some growth
+                if len(self.recent_positive_tokens) > max_tokens:
+                    # Keep only the most recent half
+                    tokens_to_keep = list(self.recent_positive_tokens)[-max_tokens//2:]
+                    self.recent_positive_tokens = set(tokens_to_keep)
+                
+                if len(self.recent_negative_tokens) > max_tokens:
+                    tokens_to_keep = list(self.recent_negative_tokens)[-max_tokens//2:]
+                    self.recent_negative_tokens = set(tokens_to_keep)
+                    
+        except Exception as e:
+            print(f"[TOKEN_SENTIMENT] Error: {e}")
     
     async def bby_web_watcher(self):
         print("[BBY_WEB_WATCHER] bby brain alert...")
@@ -236,6 +277,12 @@ class BABYBOT_DISCORD(commands.Bot):
                     
                     _, reply_text = await cog.babyllm_command(fake_ctx)
                     reply_text = get_reply() or "..."
+                    
+                    # Ensure reply_text is always a string, never an object
+                    if hasattr(reply_text, 'content'):
+                        reply_text = str(reply_text.content)
+                    else:
+                        reply_text = str(reply_text) if reply_text else "..."
                     
                     self._buffer_add(self.formatMessage(vue_username, user_text))
                     
@@ -821,6 +868,7 @@ class BABYBOT_DISCORD(commands.Bot):
     def checkRival(self):
         BBYd_users = {u: m["BBY"] for u, m in self.userMemory.items() if "BBY" in m}
         if not BBYd_users: return None, 0
+        # Pick rival based on who's been meanest (lowest BBY = meanest to baby!)
         rival = min(BBYd_users, key = BBYd_users.get)
         return rival, BBYd_users[rival]
     
@@ -1144,6 +1192,32 @@ class BABYBOT_DISCORD(commands.Bot):
                 mem["creative_combo"] -= max(1,((2 * (2 * self.random) + self.random2)))
             mem["last_message_words"] = current_words
 
+        # Track token sentiment based on message context
+        try:
+            # Detect positive context indicators
+            positive_indicators = ['love', 'like', 'awesome', 'great', 'amazing', 'beautiful', 'perfect',
+                                 'wonderful', 'fantastic', 'excellent', 'brilliant', 'nice', 'good',
+                                 'happy', 'joy', 'fun', 'cool', 'sweet', 'cute', 
+                                 'thank', 'thanks', 'appreciate', 'congrats', 'congratulations']
+                                 
+            # Detect negative context indicators  
+            negative_indicators = ['hate', 'awful', 'terrible', 'horrible', 'disgusting', 'ugly',
+                                 'stupid', 'dumb', 'boring', 'waste', 'useless', 'worst', 'gross',
+                                 'annoying', 'broken', 'bad', 'sad', 'angry', 'frustrated', 'sucks']
+            
+            content_lower = content.lower()
+            has_positive = any(indicator in content_lower for indicator in positive_indicators)
+            has_negative = any(indicator in content_lower for indicator in negative_indicators)
+            
+            # Only track if there's a clear emotional context (avoid neutral messages)
+            if has_positive and not has_negative:
+                self.track_token_sentiment(content, is_positive_context=True)
+            elif has_negative and not has_positive:
+                self.track_token_sentiment(content, is_positive_context=False)
+                
+        except Exception as e:
+            print(f"[TOKEN_SENTIMENT] Error in on_message: {e}")
+
         userMessage = self.formatMessage(author, content) if author != self.last_logged_author else content
         self.last_logged_author = author
         print(f"\n[Message] From {author}: {content}")
@@ -1296,7 +1370,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 self.updateBBY(author, 0.01)
                 #self.updateBBY(original_author, 0.1)
                 original_bonus = self.bbyfacts[name]["teach_bonus"]
-                self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.999) + ((original_bonus * (self.random + self.random2 + self.random3 + self.random4) * 0.0011))
+                self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.9999) + ((original_bonus * (self.random + self.random2 + self.random3 + self.random4) * 0.00001))  # Much gentler price increase
                 self.save_bbyfacts()
         in_baby_channel = message.channel.id == bby_spam
         is_bby_mentioned = self.user in message.mentions

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v2.25
+# v1.11
 
 import os
 import asyncio
@@ -39,6 +39,30 @@ from .utils import (
     style_gain,
     style_loss,
 )
+from .ULTIMATE_MASTER_token_sentiment_map import (
+    get_token_sentiment_value, 
+    get_token_description, 
+    analyse_token_sequence,
+    analyze_token_sequence_natural, 
+    get_natural_sentiment_summary,
+    get_master_analyzer
+)
+
+# Import the new comprehensive sentiment system
+try:
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    from VOCABULARY_SENTIMENT_INTEGRATION import (
+        get_enhanced_token_sentiment, 
+        analyze_message_sentiment_enhanced,
+        BabyNeuralSentimentIntegration
+    )
+    ENHANCED_SENTIMENT_AVAILABLE = True
+    print("🧠💫 enhanced sentiment system loaded for discord bot!")
+except ImportError as e:
+    print(f"⚠️ enhanced sentiment system not available: {e}")
+    ENHANCED_SENTIMENT_AVAILABLE = False
 
 if TYPE_CHECKING:
     from .bot import BABYBOT_DISCORD
@@ -90,7 +114,7 @@ SAVE_BUFFER_MESSAGES = [
 ]
 
 class BabyTextHelpers:
-    """Centralized text generation for bot responses - makes maintenance much easier!"""
+    """Centralised text generation for bot responses - makes maintenance much easier!"""
     
     # Error and not-found messages
     NOT_FOUND_MESSAGES = [
@@ -348,6 +372,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # lightweight gallery cache so we don't hammer the site
         self._gallery_cache = {"ts": 0.0, "by_label": {}}
         self._gallery_ttl = 120.0  # seconds
+        
+        # Initialize enhanced sentiment analysis system
+        if ENHANCED_SENTIMENT_AVAILABLE:
+            try:
+                self.enhanced_sentiment = BabyNeuralSentimentIntegration(bot)
+                print("🧠💫 enhanced sentiment system initialized in discord cog!")
+            except Exception as e:
+                print(f"⚠️ failed to initialize enhanced sentiment: {e}")
+                self.enhanced_sentiment = None
+        else:
+            self.enhanced_sentiment = None
     async def _ensure_gallery_cache(self):
         """Fetch /api/gallery from childofanandroid.co.uk and cache label->url for a short time.
 
@@ -665,6 +700,258 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         return None
 
+    def _hoarder_donation_system(self, fact_name: str):
+        """
+        Top hoarders of items donate a small percentage of their BBY to boost item values.
+        Creates a wealth redistribution system where the rich support their favourite items.
+        """
+        try:
+            # Find all users who own this item
+            item_owners = []
+            for user_id, user_data in self.bot.userMemory.items():
+                inventory = user_data.get("inventory", {})
+                item_count = inventory.get(fact_name, 0)
+                if item_count > 0:
+                    user_bby = user_data.get("BBY", 0)
+                    item_owners.append((user_id, item_count, user_bby))
+            
+            if not item_owners:
+                return None, 0
+            
+            # Sort by item count (biggest hoarders first)
+            item_owners.sort(key=lambda x: x[1], reverse=True)
+            
+            # Top 20% of hoarders donate
+            num_donors = max(1, len(item_owners) // 5)
+            top_hoarders = item_owners[:num_donors]
+            
+            total_donation = 0
+            donor_names = []
+            
+            for user_id, item_count, user_bby in top_hoarders:
+                # Donation is 0.1% of their BBY (very small but regular)
+                donation = max(1, user_bby * 0.001)
+                
+                # Take from user, add to item value
+                self.bot.updateBBY(user_id, -donation)
+                if fact_name in self.bot.bbyfacts:
+                    current_value = self.bot.bbyfacts[fact_name].get('teach_bonus', 420.0)
+                    boost = donation * 0.01  # Convert BBY to item value at 1% rate
+                    self.bot.bbyfacts[fact_name]['teach_bonus'] = current_value + boost
+                    
+                total_donation += donation
+                donor_names.append(user_id)
+                print(f"[HOARDER_DONATION] {user_id} (owns {item_count} {fact_name}) donated {donation:.0f} BBY")
+            
+            if total_donation > 0:
+                return f"top {fact_name} hoarders donated to boost its value", total_donation
+                
+        except Exception as e:
+            print(f"[HOARDER_DONATION] Error: {e}")
+            
+        return None, 0
+
+    def _neural_token_sentiment_analysis(self, fact_name: str):
+        """
+        Use baby's COMPLETE vocabulary sentiment system with ALL 4200 tokens.
+        Analyzes tokens using comprehensive emotional categorization with amplifiers and negation.
+        """
+        try:
+            # Try enhanced system first
+            if self.enhanced_sentiment:
+                analysis = self.enhanced_sentiment.analyze_baby_tokens(fact_name)
+                sentiment_score = analysis['sentiment']
+                confidence = analysis['confidence']
+                
+                # Get brain sentiment influence
+                brain_sentiment = 0.0
+                if hasattr(self.bot, 'brain') and hasattr(self.bot.brain, 'sentiment'):
+                    brain_sentiment = self.bot.brain.sentiment
+                
+                # Apply brain influence
+                brain_influenced_sentiment = sentiment_score + (brain_sentiment * 0.1)
+                
+                return {
+                    'base_sentiment': sentiment_score,
+                    'brain_influenced': brain_influenced_sentiment,
+                    'confidence': confidence,
+                    'analysis': analysis['analysis'],
+                    'system': 'enhanced_complete'
+                }, brain_influenced_sentiment
+            
+            else:
+                # Fallback to legacy system
+                # Tokenize using baby's actual tokenizer
+                if hasattr(self.bot, 'librarian') and self.bot.librarian:
+                    item_token_ids = self.bot.librarian.tokenizeText(fact_name.lower())
+                else:
+                    return None, 0.0
+                
+                # Get brain sentiment influence
+                brain_sentiment = 0.0
+                if hasattr(self.bot, 'brain') and hasattr(self.bot.brain, 'sentiment'):
+                    brain_sentiment = self.bot.brain.sentiment
+                
+                # Use legacy sentiment analysis
+                if item_token_ids:
+                    analyzer = get_master_analyzer()
+                    analysis_result = analyzer.analyze_token_sequence(item_token_ids)
+                    sentiment_score = analysis_result['final_sentiment']
+                    amplifier_multiplier = analysis_result['amplifier_multiplier']
+                    coverage = analysis_result['coverage_percent']
+                    
+                    # Process if we found sentiment tokens
+                    if sentiment_score != 0 or coverage > 0:
+                        # Apply brain influence to legacy sentiment
+                        brain_multiplier = 1.0 + (brain_sentiment * 0.3)
+                        final_sentiment = sentiment_score * brain_multiplier
+                        
+                        # Convert to subtle value change (BBY economy operates in billions)
+                        value_change_percent = final_sentiment * 0.0002
+                        
+                        if fact_name in self.bot.bbyfacts:
+                            current_value = self.bot.bbyfacts[fact_name].get('teach_bonus', 420.0)
+                            new_value = max(0.01, current_value * (1.0 + value_change_percent))
+                            self.bot.bbyfacts[fact_name]['teach_bonus'] = new_value
+                            
+                            # Create legacy analysis message
+                            pos_count = len(analysis_result['positive_tokens'])
+                            neg_count = len(analysis_result['negative_tokens'])
+                            amp_count = len(analysis_result['amplifier_tokens'])
+                        
+                        token_summary = f"pos:{pos_count} neg:{neg_count} amp:{amp_count}"
+                        print(f"[NEURAL_ULTIMATE] '{fact_name}' {token_summary} base:{analysis_result['base_sentiment']:.3f} final:{sentiment_score:.3f} -> {value_change_percent:+.6f}% (brain×{brain_multiplier:.2f})")
+                        
+                        # Only announce significant changes
+                        if abs(value_change_percent) > 0.001:
+                            direction = "gained neural value" if value_change_percent > 0 else "lost neural value" 
+                            amplifier_text = f" (amplified {amplifier_multiplier:.1f}x)" if amplifier_multiplier != 1.0 else ""
+                            return f"ultimate token analysis: {fact_name} {direction}{amplifier_text}", value_change_percent
+                            
+        except Exception as e:
+            print(f"[NEURAL_ULTIMATE] Error: {e}")
+            
+        return None, 0
+
+    def _balanced_item_value_movement(self, fact_name: str, interaction_type: str = "neutral", user_id: str = None):
+        """
+        Balanced, slow movement system for teach_bonus values based on:
+        - Market pressure (supply/demand)
+        - Usage patterns
+        - Brain influence  
+        - Economic context
+        - Interaction type (positive/negative)
+        """
+        if fact_name not in self.bot.bbyfacts:
+            return None
+            
+        current_value = self.bot.bbyfacts[fact_name].get('teach_bonus', 420.0)
+        
+        # 1. Calculate market pressure (supply vs demand)
+        total_supply = self._get_fact_total_world(fact_name)
+        total_users = len([u for u in self.bot.userMemory.values() if u.get("inventory", {}).get(fact_name, 0) > 0])
+        
+        # More users owning = higher demand, higher value
+        demand_pressure = min(2.0, max(0.5, total_users / max(1, total_supply * 0.1)))
+        
+        # 2. Brain-influenced market sentiment
+        market_mood = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.2)
+        sentiment_multiplier = 0.95 + (market_mood * 0.1)  # 0.95x to 1.05x
+        
+        # 3. Favourites analysis - items people love get stability and slow growth
+        favourite_users = []
+        favourite_duration_total = 0
+        favourite_multiplier = 1.0
+        
+        for user_id, user_data in self.bot.userMemory.items():
+            user_favs = user_data.get("favourites", [])
+            if fact_name in user_favs:
+                favourite_users.append(user_id)
+                # Calculate how long they've been loyal (rough estimate)
+                loyalty = user_data.get("loyalty", 1)
+                favourite_duration_total += loyalty
+
+        if favourite_users:
+            # More favourites = more stability and subtle growth
+            num_fans = len(favourite_users)
+            avg_loyalty = favourite_duration_total / num_fans
+            
+            # Beloved items get subtle positive pressure and stability
+            favourite_multiplier = 1.0 + (num_fans * 0.001) + (avg_loyalty * 0.0002)  # Very subtle
+            stability_boost = min(0.3, num_fans * 0.05)  # More stable when loved
+        else:
+            stability_boost = 0
+            favourite_multiplier = 1.0
+        
+        # 4. Interaction-based movement (now subtler)
+        interaction_effects = {
+            "mention": 0.00005,     # Very subtle positive (mentioned in chat)
+            "teach": 0.0008,        # Subtle positive (being taught) 
+            "gift": 0.0004,         # Subtle positive (being gifted)
+            "feed": -0.0002,        # Very subtle negative (consumed/used up)
+            "trade": 0.0001,        # Very subtle positive (economic activity)
+            "steal": -0.0003,       # Subtle negative (criminal activity)
+            "decay": -0.00008,      # Very subtle negative (natural decay)
+            "favourite": 0.00002,    # Tiny positive (being favourited)
+            "unfavourite": -0.00005, # Tiny negative (being unfavourited)
+            "neutral": 0.0          # No change
+        }
+        
+        base_change = interaction_effects.get(interaction_type, 0.0)
+        
+        # 5. Economic context - expensive items change slower, favourites even more stable
+        base_stability = max(0.1, min(1.0, 100000 / max(1000, current_value)))
+        stability_factor = base_stability + stability_boost
+        
+        # 6. Random volatility with brain influence (very subtle)
+        volatility = self.get_varied_random() * 0.0003 * (1 + market_mood)  # Max 0.06% random change
+        volatility = volatility if self.get_varied_random() > 0.5 else -volatility
+        
+        # 7. Combine all factors including favourites
+        base_movement = (base_change * demand_pressure * sentiment_multiplier * stability_factor) + volatility
+        total_change_percent = base_movement * favourite_multiplier
+        
+        # 8. Apply bounds - never more than ±0.2% change per interaction (subtler)
+        total_change_percent = max(-0.002, min(0.002, total_change_percent))
+        
+        # 8.5. Apply advanced market mechanisms (rare events)
+        advanced_message = None
+        if self.get_varied_random() > 0.95:  # 5% chance for hoarder donations
+            hoarder_msg, donation_amount = self._hoarder_donation_system(fact_name)
+            if hoarder_msg and self.get_varied_random() > 0.7:  # Sometimes announce quietly
+                advanced_message = hoarder_msg
+                
+        if self.get_varied_random() > 0.90:  # 10% chance for neural analysis
+            neural_msg, sentiment_change = self._neural_token_sentiment_analysis(fact_name)
+            if neural_msg and self.get_varied_random() > 0.8:  # Usually quiet about neural stuff
+                advanced_message = neural_msg
+        
+        # 9. Apply the change
+        new_value = current_value * (1.0 + total_change_percent)
+        
+        # 10. Ensure reasonable bounds (never below 1, never above 1% of current economy size)
+        all_bby = sum(abs(m.get("BBY", 0)) for m in self.bot.userMemory.values())
+        max_value = max(1000000, all_bby * 0.01)  # Max 1% of total economy
+        new_value = max(1.0, min(max_value, new_value))
+        
+        # 11. Update if change is significant (>0.01%)
+        if abs(new_value - current_value) / current_value > 0.0001:
+            self.bot.bbyfacts[fact_name]['teach_bonus'] = new_value
+            change_percent = ((new_value - current_value) / current_value) * 100
+            print(f"[BALANCED_MOVEMENT] '{fact_name}' {interaction_type}: {current_value:.2f} → {new_value:.2f} ({change_percent:+.3f}%)")
+
+            # Return advanced message if we have one, otherwise check for regular alerts
+            if advanced_message:
+                return advanced_message
+            
+            # Very rare market alerts for notable moves (>4.20% and random chance)
+            if abs(change_percent) > 4.20 and user_id and self.get_varied_random() < 0.042:
+                if change_percent > 0: return f"ur {fact_name} worth more now"
+                else: return f"ur {fact_name} worth less now"
+                    
+        # Return advanced message even if no significant value change
+        return advanced_message
+
     def _get_fact_total_user(self, user = None, fact = None):
         return self.bot.userMemory.get(user, {}).get("inventory", {}).get(fact, 0)
 
@@ -688,6 +975,215 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     def _get_fact_total_world(self, fact = None):
         return sum(user_mem.get("inventory", {}).get(fact, 0) for user_mem in self.bot.userMemory.values())
 
+    def _calculate_contextual_bby(self, user_id: str, base_percentage: float = 0.01, 
+                                 economy_weight: float = 0.3, user_weight: float = 0.4, 
+                                 randomness_weight: float = 0.3, is_penalty: bool = False,
+                                 sentiment_text: str = None):
+        """
+        Calculate BBY amount based on economy context with sentiment analysis:
+        - base_percentage: Base % of total economy or user wealth to use
+        - economy_weight: How much total economy size matters (0.3 = 30%)
+        - user_weight: How much user's wealth matters (0.4 = 40%) 
+        - randomness_weight: How much randomness/brain influence matters (0.3 = 30%)
+        - is_penalty: If True, makes it negative and adjusts scaling
+        - sentiment_text: Text to analyze for sentiment influence on amount
+        """
+        try:
+            # Get total economy size
+            all_users = {u: m.get("BBY", 0) for u, m in self.bot.userMemory.items() if "BBY" in m}
+            total_economy = sum(abs(bby) for bby in all_users.values())
+            if total_economy == 0: total_economy = 1000000  # Fallback for empty economy
+            
+            # Get user's current BBY
+            user_bby = abs(self.bot.getBBY(user_id))
+            if user_bby == 0: user_bby = 1000  # Minimum for new users
+            
+            # Calculate sentiment influence if text provided
+            sentiment_multiplier = 1.0
+            sentiment_description = ""
+            if sentiment_text and self.enhanced_sentiment:
+                try:
+                    analysis = self.enhanced_sentiment.analyze_baby_tokens(sentiment_text)
+                    sentiment_score = analysis['sentiment']
+                    
+                    # Convert sentiment to economic multiplier
+                    # Positive sentiment: 0.8x to 1.5x multiplier 
+                    # Negative sentiment: 0.5x to 1.2x multiplier
+                    if sentiment_score > 0:
+                        sentiment_multiplier = 1.0 + (sentiment_score * 0.5)  # Up to 1.5x for max positive
+                        sentiment_description = f" (enhanced by positive sentiment: {sentiment_score:+.3f})"
+                    elif sentiment_score < 0:
+                        sentiment_multiplier = 1.0 + (sentiment_score * 0.5)  # Down to 0.5x for max negative
+                        sentiment_description = f" (dampened by negative sentiment: {sentiment_score:+.3f})"
+                    else:
+                        sentiment_description = " (neutral sentiment)"
+                        
+                    print(f"[SENTIMENT_ECONOMY] '{sentiment_text}' -> {sentiment_score:+.3f} -> {sentiment_multiplier:.2f}x multiplier")
+                except Exception as e:
+                    print(f"[SENTIMENT_ECONOMY] Error analyzing sentiment: {e}")
+            
+            # Calculate components
+            economy_component = total_economy * base_percentage * economy_weight
+            user_component = user_bby * base_percentage * user_weight
+            
+            # Randomness with brain influence
+            brain_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
+            random_multiplier = (0.5 + self.get_varied_random() * 1.5) * (0.5 + brain_chaos * 2.0)  # 0.5x to 4x
+            randomness_component = (economy_component + user_component) * random_multiplier * randomness_weight
+            
+            # Combine all components and apply sentiment
+            total_amount = (economy_component + user_component + randomness_component) * sentiment_multiplier
+            
+            # Penalty adjustments
+            if is_penalty:
+                total_amount = -total_amount
+                # Make penalties hit harder for wealthy users
+                wealth_factor = min(3.0, user_bby / max(1, total_economy / len(all_users)))  # 1x to 3x based on wealth
+                total_amount *= wealth_factor
+            
+            # Reasonable bounds for billion-BBY economy
+            max_amount = total_economy * 0.1  # Never more than 10% of total economy
+            min_amount = -max_amount if is_penalty else 0
+            
+            final_amount = max(min_amount, min(max_amount, total_amount))
+            
+            # Log sentiment influence if significant
+            if sentiment_text and abs(sentiment_multiplier - 1.0) > 0.1:
+                print(f"[SENTIMENT_BBY] {user_id} BBY calculation{sentiment_description}: {final_amount:,.0f}")
+            
+            return final_amount
+            
+        except Exception as e:
+            print(f"[_CALCULATE_CONTEXTUAL_BBY] Error: {e}")
+            # Fallback to reasonable fixed amounts
+            return -1000000 if is_penalty else 100000
+
+    def _chaotic_decay_events(self, user_id: str):
+        """Random chaotic events that cause BBY/fact decay - the universe is cruel!"""
+        brain_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
+        
+        # More chaos = more likely for bad things to happen
+        if brain_chaos > 0.95:  # Ultra rare chaos event
+            penalty = self._calculate_contextual_bby(user_id, base_percentage=0.1, is_penalty=True)
+            self.bot.updateBBY(user_id, penalty)
+            chaos_reasons = [
+                "the universe decided you suck today",
+                "cosmic inflation affected your wallet", 
+                "baby had a nightmare about you",
+                "your vibes were off and the economy noticed",
+                "reality glitched and you lost BBY to the void",
+                "a quantum fluctuation stole your money",
+                "baby's brain briefly forgot you existed"
+            ]
+            reason = self.get_varied_choice().choice(chaos_reasons)
+            print(f"[CHAOS_DECAY] {user_id} lost {penalty:,.0f} BBY: {reason}")
+            return reason, penalty
+            
+        elif brain_chaos > 0.8:  # Fact value decay
+            user_inventory = self.bot.userMemory.get(user_id, {}).get("inventory", {})
+            if user_inventory:
+                cursed_item = self.get_varied_choice().choice(list(user_inventory.keys()))
+                decay_amount = 0.01 + (self.get_varied_random() * 0.05)  # 1-6% decay
+                self._decay_item_value(cursed_item, decay_percentage=decay_amount)
+                print(f"[CHAOS_DECAY] {cursed_item} decayed by {decay_amount*100:.1f}% due to cosmic entropy")
+                return f"cosmic entropy corrupted your {cursed_item}", 0
+                
+        return None, 0
+
+    def _calculate_sentiment_bby_bonus(self, text: str, base_amount: float, user_id: str = None) -> Tuple[float, str]:
+        """
+        Calculate BBY bonus/penalty based on sentiment analysis of text.
+        Returns (bonus_amount, description)
+        """
+        if not self.enhanced_sentiment or not text:
+            return 0.0, ""
+        
+        try:
+            analysis = self.enhanced_sentiment.analyze_baby_tokens(text)
+            sentiment_score = analysis['sentiment']
+            confidence = analysis['confidence']
+            
+            # Only apply significant bonuses/penalties if confidence is reasonable
+            if confidence < 0.3:
+                return 0.0, ""
+            
+            bonus_amount = 0.0
+            description = ""
+            
+            if sentiment_score > 0.3:  # Strong positive sentiment
+                bonus_percentage = min(0.1, sentiment_score * 0.15)  # Up to 10% bonus
+                bonus_amount = base_amount * bonus_percentage
+                description = f"positive vibes bonus: +{bonus_amount:,.0f} bby (sentiment: {sentiment_score:+.3f})"
+                
+            elif sentiment_score < -0.3:  # Strong negative sentiment
+                penalty_percentage = min(0.05, abs(sentiment_score) * 0.1)  # Up to 5% penalty
+                bonus_amount = -base_amount * penalty_percentage  
+                description = f"negative vibes penalty: {bonus_amount:,.0f} bby (sentiment: {sentiment_score:+.3f})"
+                
+            elif abs(sentiment_score) > 0.1:  # Mild sentiment
+                mild_percentage = sentiment_score * 0.02  # Very small effect
+                bonus_amount = base_amount * mild_percentage
+                if abs(bonus_amount) > 100:  # Only mention if significant
+                    mood = "good" if sentiment_score > 0 else "meh"
+                    description = f"{mood} vibes: {bonus_amount:+,.0f} bby"
+            
+            if user_id and bonus_amount != 0:
+                print(f"[SENTIMENT_BBY] {user_id}: '{text[:50]}...' -> {sentiment_score:+.3f} -> {bonus_amount:+,.0f} BBY")
+            
+            return bonus_amount, description
+            
+        except Exception as e:
+            print(f"[SENTIMENT_BBY_BONUS] Error: {e}")
+            return 0.0, ""
+
+    def _social_pressure_decay(self, user_id: str):
+        """Decay based on social dynamics - being unpopular is expensive!"""
+        try:
+            all_users = {u: m.get("BBY", 0) for u, m in self.bot.userMemory.items() if "BBY" in m}
+            user_bby = self.bot.getBBY(user_id)
+            
+            # If you're in bottom 20% of users, social pressure costs you
+            sorted_users = sorted(all_users.items(), key=lambda x: x[1], reverse=True)
+            user_rank = next((i for i, (u, _) in enumerate(sorted_users, 1) if u == user_id), None)
+            
+            if user_rank and user_rank > len(sorted_users) * 0.8:  # Bottom 20%
+                penalty = self._calculate_contextual_bby(user_id, base_percentage=0.02, is_penalty=True)
+                self.bot.updateBBY(user_id, penalty)
+                print(f"[SOCIAL_DECAY] {user_id} (rank #{user_rank}) lost {penalty:,.0f} BBY to social pressure")
+                return f"social anxiety tax (you're rank #{user_rank})", penalty
+                
+        except Exception as e:
+            print(f"[SOCIAL_PRESSURE_DECAY] Error: {e}")
+            
+        return None, 0
+
+    def _item_jealousy_decay(self, user_id: str):
+        """Items get jealous of each other and lose value - drama!"""
+        user_inventory = self.bot.userMemory.get(user_id, {}).get("inventory", {})
+        if len(user_inventory) < 2: return None, 0
+        
+        # Pick two random items to have drama
+        items = list(user_inventory.keys())
+        item1, item2 = self.get_varied_choice().sample(items, 2)
+        
+        value1 = self._get_fact_value(item1)
+        value2 = self._get_fact_value(item2)
+        
+        # Higher value item gets jealous of attention, lower value item gets insecure
+        if value1 > value2:
+            # Expensive item gets jealous
+            self._decay_item_value(item1, decay_percentage=0.02)
+            # Cheap item gets motivated and gains value
+            if item2 in self.bot.bbyfacts:
+                self.bot.bbyfacts[item2]['teach_bonus'] *= 1.01  # 1% boost
+            print(f"[ITEM_DRAMA] {item1} got jealous of attention to {item2}")
+            return f"your {item1} got jealous and lost value", 0
+        else:
+            # Cheap item gets insecure
+            self._decay_item_value(item2, decay_percentage=0.015)
+            print(f"[ITEM_DRAMA] {item2} got insecure next to expensive {item1}")
+            return f"your {item2} felt insecure and lost confidence", 0
+
     def _get_fact_value_base(self, fact = None): 
         if fact not in self.bot.bbyfacts: self._set_bbyfact(key = fact)
         return self.bot.bbyfacts.get(fact, {}).get("teach_bonus", 420.0) 
@@ -707,13 +1203,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return base
 
     def _get_fact_value(self, fact = None):
-        """Market value that decays gently with supply.
-        Previously used 1/total which halves value at 2 in-world (and stays there with low caps).
-        Use sqrt supply to soften the drop and avoid immediate 1/2 effects.
+        """Market value that responds to supply, demand, and trading activity.
+        Now includes realistic market forces instead of just supply-based decay.
         """
         base = self._get_fact_value_cursed(fact)
-        total = max(1.0, float(self._get_fact_total_world(fact)))
-        return base / math.sqrt(total)
+        total_supply = max(1.0, float(self._get_fact_total_world(fact)))
+        
+        # Basic supply/demand with gentler curve than before
+        supply_factor = 1.0 / (1 + math.log(total_supply) * 0.05)  # Even gentler supply impact
+        
+        # Rarity bonus for very limited items
+        max_produced = self._get_fact_num_produced(fact)
+        if total_supply >= max_produced * 0.9:  # 90% of max supply reached
+            scarcity_factor = 1.2  # 20% scarcity bonus
+        else:
+            scarcity_factor = 1.0
+            
+        return base * supply_factor * scarcity_factor
     
     def _calc_fact_num_produced(self):
         base_users = len(self.bot.userMemory)
@@ -1247,40 +1753,47 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         incrementTeach = (totalBBY / max(1, math.sqrt(totalBBY))) * self.bot.random4 * (1 - (BBY / max(1, totalBBY)))
         incrementTeach += 1
         
-        # Brain-influenced reactions - higher cerebral load = more enthusiastic responses!
-        brain_excitement = self.bot.get_brain_influence(self.bot.random, influence_strength=0.3)
-        brain_enthusiasm = self.bot.get_brain_influence(self.bot.random2, influence_strength=0.4)
+        # Brain-influenced reactions - CHAOTIC MULTIPLIERS with varied randomness!
+        brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
+        brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
         
-        if brain_excitement > 0.42:
-            reply += "o"
-            incrementTeach *= 42
-        if brain_enthusiasm > 0.75:
-            reply += "o"
-            incrementTeach *= 42
-        if self.bot.get_brain_influence(self.bot.random3, 0.2) > 0.3:
-            reply += "oh, "
-            incrementTeach *= 5
-        if self.bot.get_brain_influence(self.bot.random4, 0.2) > 0.3:
-            reply += "oh? "
-            incrementTeach *= 5
-        if brain_excitement > 0.69:
-            reply += "nice! "
-            incrementTeach *= 69
-        if brain_enthusiasm > 0.85:
-            reply += "that's a cool fact! "
-            incrementTeach *= 1000
-        if self.bot.get_brain_influence(self.bot.random3, 0.5) > 0.99995:  # More chaos with high brain activity
+        # Restore the beautiful chaos! But now with varied randoms
+        if brain_excitement > 0.42:  # Back to original chaos!
+            reply += "omg! "
+            incrementTeach *= (20 + self.get_varied_random() * 22)  # 20-42x range
+        if brain_enthusiasm > 0.75:  # Frequent enough to be fun
+            reply += "HOLY SHIT! "
+            incrementTeach *= (20 + self.get_varied_random() * 22)  # 20-42x range  
+        if self.bot.get_brain_influence(self.get_varied_random(), 0.2) > 0.3:  # Common chaos
+            reply += "oh wow, "
+            incrementTeach *= (3 + self.get_varied_random() * 4)  # 3-7x range
+        if self.bot.get_brain_influence(self.get_varied_random(), 0.2) > 0.3:  # More chaos!
+            reply += "oh? this is special... "
+            incrementTeach *= (3 + self.get_varied_random() * 4)  # 3-7x range
+        if brain_excitement > 0.69:  # The meme number!
+            reply += "nice! this is legendary! "
+            incrementTeach *= (50 + self.get_varied_random() * 50)  # 50-100x range
+        if brain_enthusiasm > 0.85:  # Less rare, more chaos
+            reply += "that's a REVOLUTIONARY fact! "
+            incrementTeach *= (500 + self.get_varied_random() * 1500)  # 500-2000x range!
+        if self.bot.get_brain_influence(self.get_varied_random(), 0.5) > 0.99995:  # Keep mega rare
             reply += "... actually that's fucking insane! "
-            incrementTeach *= 42069.69
-        if self.bot.random4 > 0.1:
+            incrementTeach *= (10000 + self.get_varied_random() * 50000)  # 10k-60k multiplier!
+        if self.get_varied_random() > 0.1:  # Back to frequent smaller chaos
             reply += "soo... "
-            incrementTeach *= 3
+            incrementTeach *= (2 + self.get_varied_random() * 2)  # 2-4x range
         if incrementTeach > 4200.69: incrementTeach = incrementTeach * 0.075
         uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in f"{key} {value}")
         incrementTeach = self.bot.apply_fave_bonus(incrementTeach, uses_fave)
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
+        
+        # Apply balanced market movement for teaching
+        market_alert = self._balanced_item_value_movement(key, "teach", author)
+        if market_alert:
+            reply += f"({market_alert}) "
+            
         reply += (
             f"{BabyTextHelpers.get_teach_response(key, value, self.get_varied_choice())} "
             f"{self.get_varied_choice().choice(self.bot.faveEmotes)} {style_gain(f'+ᛒ{incrementTeach:,.0f}')} for you! \n"
@@ -1640,9 +2153,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             for user in winners:
                 guess = guesses[user]
                 amount = self.bot.apply_fave_bonus(500.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
-                amount *= ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 6.9) * ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 42.0) * self._get_fact_value(correct)
-                nickname = self.bot.getNickname(user)
-                winner_details.append(f"{nickname} (+{amount:.1f} BBY)")
+                # Rare explosive bonus - only when random values align perfectly
+                if self.get_varied_random() > 0.95 and self.get_varied_random() > 0.95:
+                    amount *= ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 6.9) * ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 42.0) * self._get_fact_value(correct)
+                    nickname = self.bot.getNickname(user)
+                    winner_details.append(f"{nickname} (+{amount:.1f} BBY) 🎆JACKPOT!🎆")
+                else:
+                    # Normal win - more reasonable
+                    amount *= (1 + self.get_varied_random()) * self._get_fact_value(correct) * 0.1
+                    nickname = self.bot.getNickname(user)
+                    winner_details.append(f"{nickname} (+{amount:.1f} BBY)")
                 self.bot.updateBBY(user, amount)
                 mem = self.bot.userMemory[user]
                 mem["translate_wins"] = mem.get("translate_wins", 0) + 1
@@ -1653,7 +2173,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         for user, guess in guesses.items():
             if user not in winners:
                 amount = self.bot.apply_fave_bonus(-20.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
-                amount *= ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 0.69) * ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 4.2) * self._get_fact_value(correct)
+                # More reasonable loss - no massive multipliers on losses
+                amount *= (0.5 + self.get_varied_random() * 0.5) * self._get_fact_value(correct) * 0.01
                 self.bot.updateBBY(user, amount)
                 mem = self.bot.userMemory[user]
                 mem["translate_losses"] = mem.get("translate_losses", 0) + 1
@@ -1734,6 +2255,72 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # default: treat the whole arg as the word for wtf-mode
         return await self._trigger_bbywtf(lower, ctx=ctx)
+
+    @commands.command(name='bbytokens', aliases=['btokens', 'bvocab'])
+    async def bbytokens(self, ctx, *, item: str = None):
+        """Show baby's ultimate master token sentiment system and analyze specific items."""
+        try:
+            analyzer = get_master_analyzer()
+            
+            if item:
+                # Analyze specific item using ultimate master analyzer
+                if hasattr(self.bot, 'librarian') and self.bot.librarian:
+                    token_ids = self.bot.librarian.tokenizeText(item.lower())
+                    if token_ids:
+                        analysis = analyzer.analyze_token_sequence(token_ids)
+                        
+                        reply = f"🧠💫 **ULTIMATE analysis of '{item}':**\n"
+                        reply += f"Token IDs: {token_ids}\n"
+                        reply += f"Base sentiment: {analysis['base_sentiment']:.3f}\n"
+                        reply += f"Final sentiment: {analysis['final_sentiment']:.3f}\n"
+                        reply += f"Amplifier: {analysis['amplifier_multiplier']:.2f}x\n"
+                        reply += f"Coverage: {analysis['coverage_percent']:.1f}%\n\n"
+                        
+                        # Show positive tokens
+                        if analysis['positive_tokens']:
+                            reply += "🟢 **Positive tokens:**\n"
+                            for token in analysis['positive_tokens'][:3]:
+                                reply += f"  {token['id']}: {token['text']} ({token['sentiment']:+.2f})\n"
+                        
+                        # Show negative tokens  
+                        if analysis['negative_tokens']:
+                            reply += "🔴 **Negative tokens:**\n"
+                            for token in analysis['negative_tokens'][:3]:
+                                reply += f"  {token['id']}: {token['text']} ({token['sentiment']:+.2f})\n"
+                        
+                        # Show amplifiers
+                        if analysis['amplifier_tokens']:
+                            reply += "⚡ **Amplifiers:**\n"
+                            for token in analysis['amplifier_tokens']:
+                                reply += f"  {token['id']}: {token['text']} ({token['multiplier']:.2f}x)\n"
+                    else:
+                        reply = f"No tokens found for '{item}'"
+                else:
+                    reply = "Baby's librarian not available!"
+            else:
+                # Show ultimate master summary
+                summary = analyzer.get_sentiment_summary()
+                reply = f"🧠💫 **ULTIMATE MASTER SENTIMENT SYSTEM:**\n"
+                reply += f"Total vocabulary: {summary['total_vocabulary_size']} tokens\n"
+                reply += f"Sentiment mapped: {summary['total_sentiment_tokens']} tokens\n"
+                reply += f"Coverage: {summary['coverage_percentage']:.1f}%\n\n"
+                
+                reply += f"🟢 **POSITIVE CATEGORIES:**\n"
+                reply += f"   Ultra ({summary['ultra_positive']}) | High ({summary['high_positive']})\n"
+                reply += f"   Medium ({summary['medium_positive']}) | Low ({summary['low_positive']})\n\n"
+                
+                reply += f"� **NEGATIVE CATEGORIES:**\n"
+                reply += f"   Ultra ({summary['ultra_negative']}) | High ({summary['high_negative']})\n"
+                reply += f"   Medium ({summary['medium_negative']}) | Low ({summary['low_negative']})\n\n"
+                
+                reply += f"⚡ **AMPLIFIERS:** {summary['amplifier_tokens']} tokens\n\n"
+                reply += f"Use `!btokens <word>` to analyze specific items with the ultimate system!"
+            
+            await self.bot._discord_reply(ctx, reply)
+            
+        except Exception as e:
+            print(f"[BTOKENS_ULTIMATE] Error: {e}")
+            await self.bot._discord_reply(ctx, "Error in ultimate token analysis!")
 
     @commands.command(name='bbymyitem', aliases=['bmyitem', 'bmi'])
     async def bbymyitem(self, ctx, *, key: str = None):
@@ -1875,8 +2462,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         await self.bot._discord_reply(ctx, vomit)
         
-        # Small reward
-        self.bot.updateBBY(author, 0.5)
+        # Contextual reward for vomiting (small entertainment value)
+        vomit_reward = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=False)
+        self.bot.updateBBY(author, vomit_reward)
+        print(f"[BBYVOMIT] {author} got vomit reward: {vomit_reward:,.0f} BBY")
 
     @commands.command(name='bbythink', aliases=['bthink'])
     @track_command
@@ -1920,7 +2509,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     brokeMessage = f"i broke :( why would u do this to me, @{author}!"
                     brokeMessage2 = f"@{author}! you just made the system say '{reason}' >:("
                     if self.bot.random2 > 0.5: 
-                        self.bot.updateBBY(author, -1000)
+                        penalty = self._calculate_contextual_bby(author, base_percentage=0.05, is_penalty=True)
+                        self.bot.updateBBY(author, penalty)  # Contextual penalty for breaking baby's brain!
+                        print(f"[BBYTHINK] {author} broke baby's brain, penalty: {penalty:,.0f} BBY")
                     await self.bot._discord_reply(ctx, brokeMessage)
                     await self.bot._discord_reply(ctx, brokeMessage2)
                     if self.bot.random > 0.5: 
@@ -1936,8 +2527,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
             await self.bot._discord_reply(ctx, final_thought)
             
-            # Bigger reward for actual thinking
-            self.bot.updateBBY(author, 2.0)
+            # Contextual reward for successful thinking
+            thinking_reward = self._calculate_contextual_bby(author, base_percentage=0.005, is_penalty=False)
+            self.bot.updateBBY(author, thinking_reward)
+            print(f"[BBYTHINK] {author} got thinking reward: {thinking_reward:,.0f} BBY")
             
         except Exception as e:
             await self.bot._discord_reply(ctx, f"brain error while thinking about {start_word}... {str(e)[:50]}")
@@ -2040,14 +2633,28 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         attacker_BBY = self.bot.getBBY(attacker_id)
         defender_BBY = self.bot.getBBY(defender_id)
         
-        BBY_difference = abs(attacker_BBY - defender_BBY)
-        base_swing = max(1, min(1000, (BBY_difference * 0.0001) + 100)) * 0.5
-        if self.bot.random4 > 0.95:
+        # More realistic fight economics - percentage-based stakes with billion-BBY appropriate caps
+        max_bet_percentage = 0.15  # Max 15% of wealth at stake
+        min_stake = 1000000  # Minimum stake of 1M BBY for billion-BBY economy
+        max_stake = 500000000  # Maximum stake of 500M BBY per fight (billion-BBY scale)
+        
+        attacker_max_stake = min(max_stake, max(min_stake, attacker_BBY * max_bet_percentage))
+        defender_max_stake = min(max_stake, max(min_stake, defender_BBY * max_bet_percentage))
+        fight_stakes = min(attacker_max_stake, defender_max_stake)
+        
+        # Add some randomness but keep it reasonable
+        base_swing = fight_stakes * (0.8 + self.bot.random * 0.4)  # 80-120% of stakes
+        
+        # Rare big hits - should be special events
+        if self.bot.random4 > 0.98:  # 2% chance instead of 5%
             reply += "huge hit!! "
-            base_swing *= 100
-        if self.bot.random3 > 0.98:
+            base_swing *= 3  # Was 100, now more reasonable
+        if self.bot.random3 > 0.995:  # 0.5% chance instead of 2%
             reply += "fucking massive hit!! "
-            base_swing *= 1000
+            base_swing *= 10  # Was 1000, now more reasonable but still exciting
+        
+        # Calculate wealth imbalance for universe correction mechanic
+        BBY_difference = abs(attacker_BBY - defender_BBY)
         imbalance_bonus = (BBY_difference * 0.005) + (np.log(BBY_difference + 1) * 5)
         is_attacker_big = attacker_BBY > defender_BBY
         total_swing = base_swing + imbalance_bonus
@@ -2301,11 +2908,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         num_refunded = quantity - num_successfully_gifted
         if num_refunded > 0: giver_inventory[item_name] = giver_inventory.get(item_name, 0)
         
-        base_gift_power = self._get_fact_value(item_name) / 2
+        # More realistic gift economics - meaningful but not explosive BBY transfers
+        base_gift_power = self._get_fact_value(item_name)
         total_gift_power = base_gift_power * num_successfully_gifted
         
-        self.bot.updateBBY(giver_id, 0.1 * total_gift_power)
-        self.bot.updateBBY(receiver_id, 0.5 * total_gift_power)
+        # Gift generosity bonus - giver gets social credit, receiver gets value
+        generosity_bonus = min(50000000, total_gift_power * 0.2)  # Cap at 50M BBY for billion-BBY economy
+        gratitude_bonus = min(100000000, total_gift_power * 0.3)   # Cap at 100M BBY for billion-BBY economy
+        
+        # Additional bonus for giving rare/valuable items (but capped)
+        if self._get_fact_total_world(item_name) < 10:  # Rare item bonus
+            rarity_bonus = min(25000000, total_gift_power * 0.1)  # 25M cap for rare item bonus
+            generosity_bonus += rarity_bonus
+            gratitude_bonus += rarity_bonus
+        
+        # Apply sentiment analysis to gift transaction
+        gift_message = ctx.message.content if ctx.message else f"bbygift {member_name} {item_args}"
+        sentiment_bonus_giver, sentiment_desc_giver = self._calculate_sentiment_bby_bonus(gift_message, generosity_bonus, giver_id)
+        sentiment_bonus_receiver, sentiment_desc_receiver = self._calculate_sentiment_bby_bonus(gift_message, gratitude_bonus, receiver_id)
+        
+        self.bot.updateBBY(giver_id, generosity_bonus + sentiment_bonus_giver)
+        self.bot.updateBBY(receiver_id, gratitude_bonus + sentiment_bonus_receiver)
         self.bot._save_user_data()
 
         giver_nic = self.bot.getNickname(giver_id)
@@ -2318,6 +2941,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f" {style_gain(f'ᛒ{0.5 * total_gift_power:,.0f}')} for {receiver_nic},"
                 f" and a lil {style_gain(f'ᛒ{0.1 * total_gift_power:,.0f}')} back to {giver_nic} :)"
             )
+            
+            # Add sentiment bonus descriptions if significant
+            if sentiment_desc_giver and abs(sentiment_bonus_giver) > 1000:
+                reply += f"\n{giver_nic}: {sentiment_desc_giver}"
+            if sentiment_desc_receiver and abs(sentiment_bonus_receiver) > 1000:
+                reply += f"\n{receiver_nic}: {sentiment_desc_receiver}"
+                
         if num_refunded > 0:
             reply += f"\nyou somehow had more than the total allowed... what? um... {style_loss(f'{num_refunded}x')} disappeared into the abyss "
             
@@ -2466,7 +3096,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyoptout_command(self, ctx: commands.Context): 
         author = ctx.author.name.lower()
         if author in self.bot.AIoptInUsers:
-            self.bot.updateBBY(author, -1000.0)
+            self.bot.updateBBY(author, -5000000.0)  # 5M BBY penalty for abandoning baby!
             self.bot.AIoptInUsers.remove(author)
             self.bot.save_opt_in_users()
             optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
@@ -2558,7 +3188,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     brokeMessage = f"i broke :( why would u do this to me, @{author}!"
                     brokeMessage2 = f"@{author}! you just made the system say '{reason}' >:("
                     if self.bot.random2 > 0.5: 
-                        self.bot.updateBBY(author, -1000)
+                        self.bot.updateBBY(author, -10000000)  # 10M BBY penalty for breaking baby's brain!
                     await self.bot._discord_reply(ctx, brokeMessage)
                     await self.bot._discord_reply(ctx, brokeMessage2)
                     if self.bot.random > 0.5: 
@@ -2679,7 +3309,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reason = ''.join(traceback.TracebackException.from_exception(e).format_exception_only()).strip()
             brokeMessage = (f"i broke :( why would u do this to me, @{author}!")
             brokeMessage2 = (f"@{author}! you just made the system say '{reason}' >:(")
-            if self.bot.random2 > 0.5: self.bot.updateBBY(author, -1000)
+            if self.bot.random2 > 0.5: self.bot.updateBBY(author, -10000000)  # 10M BBY penalty for breaking baby!
             await self.bot._discord_reply(ctx, brokeMessage)
             await self.bot._discord_reply(ctx, brokeMessage2)
             if self.bot.random > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
@@ -3324,7 +3954,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     await ctx.message.add_reaction("3️⃣")
                 else:
                     bestieMessage = f"umm... awkward, ||my best friend is {bestie_nic}||, but you're alright too {author_nic}!!"
-                    self.bot.updateBBY(author, self.bot.random2)
+                    # Contextual awkward consolation prize
+                    consolation = self._calculate_contextual_bby(author, base_percentage=0.002, is_penalty=False)
+                    self.bot.updateBBY(author, consolation)
+                    print(f"[BBYSOCIAL] {author} got awkward consolation: {consolation:,.0f} BBY")
                     await ctx.message.add_reaction("😬")
                 if self.bot.random4 < 0.5: 
                     self.bot._buffer_add(bestieMessage)
@@ -3354,12 +3987,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
                 if self.bot.random > 0.99:
                     reply += f"� baby will remember this, {author}..."
-                    self.bot.updateBBY(self.bot.getNickname(author), -10.0)
+                    self.bot.updateBBY(self.bot.getNickname(author), -1000000.0)  # 1M BBY penalty for being mean to baby!
 
                 await self.bot._discord_reply(ctx, reply)
 
                 if self.bot.random2 < 0.5:
-                    self.bot.updateBBY(author, -0.01)
+                    self.bot.updateBBY(author, -10000)  # 10K BBY penalty for checking rivals frequently
                     self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
                 author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
@@ -3397,6 +4030,26 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
                 update_msg = f"\n\nchecked how much i love {author}... they have ᛒ{author_bby:.0f}, so they're number {rank if rank is not None else 'N/A'} in the list! i now have {len(self.bot.buffer)} messages in my queue.\n\n"
                 print(update_msg)
+
+                # Random chance for decay events to trigger (but keep it secretive!)
+                if self.get_varied_random() > 0.98:  # Make much rarer (2% chance)
+                    decay_reason, decay_amount = self._chaotic_decay_events(author)
+                    # Don't always announce it - be secretive!
+                    if decay_reason and self.get_varied_random() > 0.7:  # Only 30% of time announce
+                        await self.bot._discord_reply(ctx, f"hmm... {decay_reason}")
+                elif self.get_varied_random() > 0.97:  # Much rarer (3% chance)  
+                    decay_reason, decay_amount = self._social_pressure_decay(author)
+                    # Usually silent about social pressure
+                elif self.get_varied_random() > 0.96:  # Much rarer (4% chance)
+                    decay_reason, decay_amount = self._item_jealousy_decay(author)
+                    # Usually silent about item drama - keep it mysterious
+
+                # Make positive interactions more obvious to encourage engagement!
+                if self.get_varied_random() > 0.7:  # 30% chance of social bonus
+                    social_bonus = self._calculate_contextual_bby(author, base_percentage=0.003, is_penalty=False)
+                    self.bot.updateBBY(author, social_bonus)
+                    if self.get_varied_random() > 0.8:  # Sometimes mention the bonus
+                        await self.bot._discord_reply(ctx, f"thanks for checking on me! +{social_bonus:,.0f} bby")
 
                 if self.bot.random2 < 0.5: 
                     self.bot.updateBBY(author, 0.02)
@@ -3444,7 +4097,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if author is None:
             author = ctx.author.name.lower()
             emote = self.get_varied_choice().choice(self.bot.faveEmotes)
-        self.bot.updateBBY(author, 0.1)
+        
+        # Contextual reward for using bbyreact - scales with economy!
+        reward = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=False)
+        self.bot.updateBBY(author, reward)
+        print(f"[BBYREACT] {author} got contextual reward: {reward:,.0f} BBY")
+        
+        # Show appreciation for reactions more often (positive reinforcement!)
+        if self.get_varied_random() > 0.85:  # 15% chance of extra appreciation
+            bonus = self._calculate_contextual_bby(author, base_percentage=0.002, is_penalty=False)
+            self.bot.updateBBY(author, bonus)
+        
+        # Anti-spam measures: Too much reacting annoys baby (but be secretive)
+        elif self.get_varied_random() > 0.92:  # Make rarer (8% chance) and mostly silent
+            spam_penalty = self._calculate_contextual_bby(author, base_percentage=0.005, is_penalty=True)
+            self.bot.updateBBY(author, spam_penalty)
+            print(f"[BBYREACT] {author} got spam penalty: {spam_penalty:,.0f} BBY")
+        
         command_message = ctx.message
         bbyreact_attrition = 0
         bbyreact_text = ""
@@ -3464,8 +4133,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
                 if randomizer > s:
                     print(f"\n*[bbyreact]*\nattempt ({s}) is smaller than random ({randomizer})\n")
-                    if randomizer < 0.01: self.bot.updateBBY(author, -420.69 * randomizer)
-                    if randomizer > 0.99: self.bot.updateBBY(author, 420.69 * randomizer)
+                    # Contextual chaos bonuses/penalties
+                    if randomizer < 0.01: 
+                        chaos_penalty = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=True) * randomizer
+                        self.bot.updateBBY(author, chaos_penalty)
+                    if randomizer > 0.99: 
+                        chaos_bonus = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=False) * randomizer
+                        self.bot.updateBBY(author, chaos_bonus)
 
                     autisticScreech = random.uniform(0.99999, 1.00001)
                     lowTism = (lowBound * autisticScreech)
@@ -4005,7 +4679,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # Use helper to get base value, which ensures fact exists
             original_bonus = self._get_fact_value_base(item_name)
             base_BBY_gain = (original_bonus / 4) * (0.2 + (self.bot.random4 * 0.8))
-            decay_amount = 0.001 * self.bot.random3
+            decay_amount = 0.01 * self.get_varied_random()
             for _ in range(quantity):
                 self._decay_item_value(item_name, decay_percentage=decay_amount)
         
@@ -4085,6 +4759,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         items_to_feed = random.sample(spendable_pool, quantity)
         total_BBY_gain = 0.0
         fed_summary = Counter(items_to_feed)
+        fed_alerts = []  # Track market alerts for feeding
 
         for item_name, count in fed_summary.items():
             base_BBY_gain = 0.0
@@ -4093,16 +4768,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if item_name in self.bot.bbyfacts:
                 fact = self.bot.bbyfacts[item_name]
                 original_author_id = fact.get("author")
-                original_bonus = self._get_fact_value_base(item_name)
-                base_BBY_gain = (original_bonus / 4) * (0.2 + (self.bot.random * 0.8))
-                decay_percentage = (0.001 * self.bot.random2)
-                for _ in range(count):
-                    self._decay_item_value(item_name, decay_percentage=decay_percentage)
-            else: base_BBY_gain = 25.0
+                # More realistic feeding rewards - based on item value but reasonable caps for billion-BBY economy
+                item_value = self._get_fact_value(item_name)
+                base_BBY_gain = min(10000000, item_value * 0.3 * (0.5 + (self.bot.random * 0.5)))  # Cap at 10M BBY per item
+                
+                # Balanced market movement for feeding (consumption reduces value)
+                market_alert = self._balanced_item_value_movement(item_name, "feed", author_id)
+                if market_alert and count == 1:  # Only show alert once per item type
+                    fed_alerts.append(market_alert)
+            else: 
+                base_BBY_gain = 10000.0  # Base value for unknown items (10K for billion-BBY scale)
 
             total_BBY_gain += base_BBY_gain * count
 
-            if original_author_id and original_author_id != author_id: self.bot.updateBBY(original_author_id, base_BBY_gain * count * 0.1)
+            # Original creator gets a small royalty (capped)
+            if original_author_id and original_author_id != author_id: 
+                creator_bonus = min(1000000, base_BBY_gain * count * 0.1)  # Cap creator bonus at 100M BBY for billion-BBY scale
+                self.bot.updateBBY(original_author_id, creator_bonus)
 
             inventory[item_name] -= count
             if inventory[item_name] <= 0: del inventory[item_name]
@@ -4145,6 +4827,24 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.save_bbyfacts()
         self.bot._save_user_data()
 
+        # Risk system: Feeding baby can sometimes cause problems!
+        food_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.2)
+        
+        if food_chaos > 0.98:  # 2% chance of food poisoning
+            poisoning_penalty = self._calculate_contextual_bby(author_id, base_percentage=0.03, is_penalty=True)
+            self.bot.updateBBY(author_id, poisoning_penalty)
+            reply += f"\n\nugh... that made me sick"
+            
+        elif food_chaos > 0.95:  # 3% chance of indigestion
+            tummy_ache_penalty = self._calculate_contextual_bby(author_id, base_percentage=0.01, is_penalty=True)
+            self.bot.updateBBY(author_id, tummy_ache_penalty)
+            reply += f"\n\nmy tummy hurts a bit"
+            
+        elif food_chaos < 0.05:  # 5% chance baby is extra grateful - make this more visible since it's positive!
+            gratitude_bonus = self._calculate_contextual_bby(author_id, base_percentage=0.02, is_penalty=False)
+            self.bot.updateBBY(author_id, gratitude_bonus)
+            reply += f"\n\nthat was really good! thanks :) +{gratitude_bonus:,.0f} bby"
+
         await self.bot._discord_reply(ctx, reply)
 
     @bbysnack.error
@@ -4182,7 +4882,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not self.bot.bbyfacts:
             return await self.bot._discord_reply(ctx, "there are no items!! teach me things with !bbyteach to create them ")
 
-        self.bot.updateBBY(customer_id, -total_cost)
+        # Apply sentiment analysis to tip transaction
+        # Use the full message content for sentiment analysis
+        message_text = ctx.message.content if ctx.message else f"bbytip {tip_amount_str} {quantity_str}"
+        sentiment_bonus = 0
+        
+        if self.enhanced_sentiment:
+            try:
+                analysis = self.enhanced_sentiment.analyze_baby_tokens(message_text)
+                sentiment_score = analysis['sentiment']
+                
+                # Give slight bonus/penalty based on sentiment of the tip message
+                if sentiment_score > 0.2:  # Positive sentiment
+                    sentiment_bonus = total_cost * 0.05  # 5% bonus
+                    print(f"[BBY_TIP_SENTIMENT] Positive sentiment bonus: +{sentiment_bonus:,.0f} BBY")
+                elif sentiment_score < -0.2:  # Negative sentiment  
+                    sentiment_bonus = -total_cost * 0.03  # 3% penalty
+                    print(f"[BBY_TIP_SENTIMENT] Negative sentiment penalty: {sentiment_bonus:,.0f} BBY")
+            except Exception as e:
+                print(f"[BBY_TIP_SENTIMENT] Error: {e}")
+
+        self.bot.updateBBY(customer_id, -total_cost + sentiment_bonus)
         
         items_won = defaultdict(int)
         total_value_won = 0.0
@@ -4274,6 +4994,25 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if bottom_list:
             reply += f"bottom 10: \n{bottom_list}"
 
+        # Market volatility: Viewing the market can sometimes cause chaos!
+        market_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
+        author = ctx.author.name.lower()
+        
+        if market_chaos > 0.99:  # Make much rarer (1% chance) and secretive
+            crash_items = self.get_varied_choice().sample(list(self.bot.bbyfacts.keys()), min(5, len(self.bot.bbyfacts)))
+            for item in crash_items:
+                self._decay_item_value(item, decay_percentage=0.05)  # 5% crash
+            crash_penalty = self._calculate_contextual_bby(author, base_percentage=0.02, is_penalty=True)
+            self.bot.updateBBY(author, crash_penalty)
+            # Don't always explain what happened - be mysterious
+            if self.get_varied_random() > 0.5:
+                reply += f"\n\nsomething weird happened to the market..."
+            
+        elif market_chaos > 0.95:  # Much rarer (4% chance) and mostly silent
+            trading_penalty = self._calculate_contextual_bby(author, base_percentage=0.01, is_penalty=True)
+            self.bot.updateBBY(author, trading_penalty)
+            # Usually don't mention it - secretive penalties
+
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbyinfo", aliases=['binfo', 'bi'])
@@ -4306,6 +5045,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         draws = mem.get("draws", 0)
         total_fites = wins + losses
         win_rate = (wins / total_fites * 100) if total_fites > 0 else 0
+        
+        # Neglect tax: If you don't talk to baby much, you lose BBY over time (but secretly)
+        if message_count < 10 and loyalty < 7 and self.get_varied_random() > 0.9:  # Make rarer (10% chance)
+            neglect_penalty = self._calculate_contextual_bby(target_id, base_percentage=0.005, is_penalty=True)
+            self.bot.updateBBY(target_id, neglect_penalty)
+            # Don't show it in status - keep it secret!
+            print(f"[NEGLECT_TAX] {target_id} lost {neglect_penalty:,.0f} BBY for not talking to baby enough")
         creative_combo = mem.get("creative_combo", 1)
         spammer = mem.get("spammer", 1)
         timezone = mem.get("timezone", "Not Set")
@@ -4485,7 +5231,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             action = "list"
 
         # Handle different actions
-        if action.lower() in ['add', 'fave', 'favorite', 'favourite']:
+        if action.lower() in ['add', 'fave', 'favourite', 'favourite']:
             if not item_name:
                 await self.bot._discord_reply(ctx, "what item do you want to add to favourites? use: !bbyfaves add <item>")
                 return
@@ -4804,6 +5550,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # Two-parameter commands (key + value)
             (self.bbyteach, "teach", True, True, "param"),
             
+            # Sentiment analysis commands (enhanced vocabulary system)
+            (self.bby_sentiment_analysis, "sentiment analysis", True, False, "message"),
+            (self.bbytokens_enhanced, "enhanced vocabulary", True, False, "param"),
+            (self.bby_sentiment_economy_demo, "sentiment economics", True, False, "message"),
+            
             # Number-based commands (with reasonable limits)
             (self.bbyrandomfacts, "random facts", False, True, "param"),
             
@@ -4829,7 +5580,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             (self.bbytime, "time info", False, False, "none"),
             (self.bbyspace, "space info", False, False, "none"),
             (self.bbysminks, "sminks/cheers", False, False, "none"),
-            (self.bbyfaves, "favorites list", False, False, "none"),
+            (self.bbyfaves, "favourites list", False, False, "none"),
             (self.bbytimer, "timer info", False, False, "none"),
             (self.bbyface, "avatar/face", False, False, "none"),
             (self.bbyspamlevel, "spam level", False, False, "none"),
@@ -5145,6 +5896,203 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 
         except Exception as e:
             await self.bot._discord_reply(ctx, f"oops, something went wrong with the random command: {str(e)[:100]}...")
+
+    # ==============================================================================
+    # enhanced sentiment analysis commands 
+    
+    @commands.command(name='bbysentiment', aliases=['bsentiment', 'bfeels'])
+    async def bby_sentiment_analysis(self, ctx, *, text: str = None):
+        """Analyze sentiment of any text using baby's complete vocabulary system."""
+        try:
+            if not text:
+                reply = "sentiment analysis helper\n\n"
+                reply += "usage: `!bsentiment <your text here>`\n\n"
+                reply += "i can analyze the emotional tone of any text using:\n"
+                reply += "• complete 4200-token vocabulary coverage\n"
+                reply += "• advanced amplification detection\n"  
+                reply += "• negation handling\n"
+                reply += "• fragment-based analysis for unknown words\n"
+                reply += "• british english commentary (obviously)\n\n"
+                reply += "try: `!bsentiment i absolutely fucking love this brilliant day!`"
+                await self.bot._discord_reply(ctx, reply)
+                return
+                
+            if self.enhanced_sentiment:
+                # Get comprehensive analysis
+                analysis = self.enhanced_sentiment.analyze_baby_tokens(text)
+                
+                # Get natural explanation
+                explanation = self.enhanced_sentiment.get_sentiment_explanation(text, detailed=False)
+                
+                reply = f"sentiment analysis:\n\n"
+                reply += f"text: {text[:100]}{'...' if len(text) > 100 else ''}\n"
+                reply += f"sentiment: {analysis['sentiment']:+.3f} (confidence: {analysis['confidence']:.2f})\n\n"
+                reply += f"baby says: {explanation}\n"
+                
+                # Show token breakdown for detailed analysis
+                if 'token_details' in analysis and len(analysis['token_details']) > 0:
+                    significant_tokens = [t for t in analysis['token_details'] if abs(t['sentiment']) > 0.15]
+                    if significant_tokens:
+                        reply += f"\n**Key emotional tokens:**\n"
+                        for token in significant_tokens[:4]:
+                            sentiment_desc = "positive" if token['sentiment'] > 0 else "negative"
+                            reply += f"  • '{token['token']}': {token['sentiment']:+.2f} ({sentiment_desc})\n"
+                
+            else:
+                # Fallback using legacy system if available
+                try:
+                    fallback_analysis = analyze_message_sentiment_enhanced(text)
+                    reply += f"{fallback_analysis['discord_summary']}\n\n"
+                except:
+                    reply = "sentiment analysis not available - missing required components!"
+            
+            await self.bot._discord_reply(ctx, reply)
+            
+        except Exception as e:
+            print(f"[SENTIMENT_ANALYSIS] error: {e}")
+            await self.bot._discord_reply(ctx, f"couldn't analyze sentiment mate: {e}")
+    
+    @commands.command(name='bbysentimenteconomy', aliases=['bsenteconomy', 'beconomy'])
+    async def bby_sentiment_economy_demo(self, ctx, *, text: str = None):
+        """Demo how sentiment analysis affects bby economy transactions."""
+        author_id = ctx.author.name.lower()
+        
+        try:
+            if not text:
+                reply = "sentiment economy demo\n\n"
+                reply += "usage: `!bsenteconomy <your text here>`\n\n" 
+                reply += "shows how your message sentiment would affect bby transactions:\n"
+                reply += "• positive sentiment = bby bonuses\n"
+                reply += "• negative sentiment = bby penalties\n"
+                reply += "• neutral sentiment = no effect\n\n"
+                reply += "try: `!bsenteconomy i absolutely love this amazing day!`\n"
+                reply += "or: `!bsenteconomy this sucks and i hate everything`"
+                await self.bot._discord_reply(ctx, reply)
+                return
+                
+            if self.enhanced_sentiment:
+                # Analyze sentiment
+                analysis = self.enhanced_sentiment.analyze_baby_tokens(text)
+                sentiment_score = analysis['sentiment']
+                confidence = analysis['confidence']
+                
+                # Calculate economic impacts for different transaction sizes
+                base_amounts = [1000, 10000, 100000, 1000000]  # Different transaction sizes
+                
+                reply = f"sentiment economy impact:\n\n"
+                reply += f"text: {text[:80]}{'...' if len(text) > 80 else ''}\n"
+                reply += f"sentiment: {sentiment_score:+.3f} (confidence: {confidence:.2f})\n"
+                reply += f"analysis: {analysis['analysis']}\n\n"
+                
+                if abs(sentiment_score) > 0.1:
+                    reply += "economic impact examples:\n"
+                    for base_amount in base_amounts:
+                        bonus, desc = self._calculate_sentiment_bby_bonus(text, base_amount, author_id)
+                        if bonus != 0:
+                            percentage = (bonus / base_amount) * 100
+                            reply += f"  ᛒ{base_amount:,} transaction -> {bonus:+,.0f} bby ({percentage:+.1f}%)\n"
+                    
+                    # Show what commands this would affect
+                    reply += f"\naffected commands:\n"
+                    reply += "  • !bbytip - sentiment affects lottery odds\n"
+                    reply += "  • !bbygift - sentiment affects generosity bonuses\n" 
+                    reply += "  • !bbyteach - sentiment influences fact values\n"
+                    reply += "  • all bby transactions use sentiment analysis\n"
+                    
+                    # Give a small demonstration bonus
+                    demo_bonus, demo_desc = self._calculate_sentiment_bby_bonus(text, 5000, author_id)
+                    if demo_bonus != 0:
+                        self.bot.updateBBY(author_id, demo_bonus)
+                        reply += f"\ndemo bonus applied: {demo_desc}"
+                    
+                else:
+                    reply += "neutral sentiment = no economic effect\n"
+                    reply += "try something more emotional for bigger impact!"
+                    
+            else:
+                reply = "enhanced sentiment system not available - economy runs on legacy mode"
+            
+            await self.bot._discord_reply(ctx, reply)
+            
+        except Exception as e:
+            print(f"[SENTIMENT_ECONOMY] error: {e}")
+            await self.bot._discord_reply(ctx, f"couldn't calculate sentiment economics: {e}")
+
+    @commands.command(name='bbytokensenhanced', aliases=['btokensenhanced', 'bvocabenhanced'])
+    async def bbytokens_enhanced(self, ctx, *, item: str = None):
+        """Enhanced version of btokens with complete 4200 vocabulary coverage."""
+        try:
+            if self.enhanced_sentiment:
+                if item:
+                    # Use enhanced system with baby's actual tokenizer
+                    analysis = self.enhanced_sentiment.analyze_baby_tokens(item)
+                    
+                    reply = f"enhanced vocabulary analysis of '{item}':\n"
+                    reply += f"sentiment: {analysis['sentiment']:+.3f} (confidence: {analysis['confidence']:.2f})\n"
+                    reply += f"analysis: {analysis['analysis']}\n\n"
+                    
+                    # Show token breakdown if available
+                    if 'token_details' in analysis and analysis['token_details']:
+                        positive_tokens = [t for t in analysis['token_details'] if t['sentiment'] > 0.1]
+                        negative_tokens = [t for t in analysis['token_details'] if t['sentiment'] < -0.1]
+                        
+                        if positive_tokens:
+                            reply += "positive tokens:\n"
+                            for token in positive_tokens[:3]:
+                                reply += f"  {token['token_id']}: '{token['token']}' ({token['sentiment']:+.3f}) [{token['category']}]\n"
+                        
+                        if negative_tokens:
+                            reply += "negative tokens:\n"  
+                            for token in negative_tokens[:3]:
+                                reply += f"  {token['token_id']}: '{token['token']}' ({token['sentiment']:+.3f}) [{token['category']}]\n"
+                        
+                        # Show total breakdown
+                        reply += f"\ntoken summary: {analysis['positive_tokens']}+ / {analysis['negative_tokens']}- / {analysis['neutral_tokens']}~ tokens"
+                        
+                else:
+                    # Show complete system overview
+                    stats = self.enhanced_sentiment.sentiment_analyzer.get_sentiment_statistics()
+                    
+                    reply = f"enhanced vocabulary sentiment system:\n"
+                    reply += f"total tokens mapped: {stats['total_tokens']}/4200 (100% coverage!)\n"
+                    reply += f"categories: {stats['categories_mapped']}\n\n"
+                    
+                    reply += f"positive tokens: {stats['positive_tokens']}\n"
+                    reply += f"negative tokens: {stats['negative_tokens']}\n"
+                    reply += f"neutral tokens: {stats['neutral_tokens']}\n\n"
+                    
+                    reply += f"amplifiers: {stats['amplifiers_found']}\n"
+                    reply += f"negation tokens: {stats['negation_tokens_found']}\n"
+                    reply += f"fragment mappings: {stats['fragment_mappings']}\n\n"
+                    
+                    reply += f"average sentiment: {stats['average_sentiment']:+.3f}\n"
+                    reply += f"Range: {stats['sentiment_range'][0]:+.2f} to {stats['sentiment_range'][1]:+.2f}\n\n"
+                    
+                    reply += f"🎯 **Top emotional categories:**\n"
+                    top_categories = sorted(stats['category_averages'].items(), key=lambda x: abs(x[1]), reverse=True)[:5]
+                    for cat, avg in top_categories:
+                        reply += f"  • {cat.lower().replace('_', ' ')}: {avg:+.3f}\n"
+                    
+                    reply += f"\nUse `!btokensenhanced <word/phrase>` to analyze anything!"
+            
+            else:
+                reply = "🧠💫 **ENHANCED SENTIMENT SYSTEM NOT AVAILABLE**\n\n"
+                reply += "The complete vocabulary sentiment system needs:\n"
+                reply += "• MASTER_VOCABULARY_SENTIMENT_ANALYZER.py\n"
+                reply += "• VOCABULARY_SENTIMENT_INTEGRATION.py\n"
+                reply += "• COMPLETE_MASTER_VOCABULARY_MAP.py\n\n"
+                reply += "This provides 100% token coverage (all 4200 tokens) with:\n"
+                reply += "• 93 vocabulary categories\n"
+                reply += "• Advanced amplification & negation handling\n"
+                reply += "• Fragment-based sentiment inheritance\n"
+                reply += "• Neural network integration\n\n"
+                reply += "Currently using legacy `!btokens` instead."
+            
+            await self.bot._discord_reply(ctx, reply)
+            
+        except Exception as e:
+            print(f"[BTOKENS_ENHANCED] error: {e}")
+            await self.bot._discord_reply(ctx, f"couldn't analyze enhanced tokens mate: {e}")
 
 if __name__ == "__main__":
     print("to run this bot, you need to set up all the required components (babyLLM, tutor, etc.) and then run the bot.")
