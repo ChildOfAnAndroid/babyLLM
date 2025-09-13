@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # INTERNEURON NETWORK & NEURONS
 # brain/LAYERS/interneuronNetwork.py
-# v1.11
+# v1.2
 
 import torch
 import torch.nn as nn
@@ -278,7 +278,7 @@ class INTERNEURON_NETWORK(nn.Module):
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(_counsellor = self.inn_counsellor, _numTokensPerStep = self.numTokensPerStep)
 
-        self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # THIS WAS THE WINDOW WEIGHTING LAYER
+        self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # Window weighting layer - preserves learned weights when loading
 
         self.windowFractionality = nn.Parameter(torch.full((len(allWindowSizes_new),), -6.0, device = self.device))
 
@@ -345,7 +345,13 @@ class INTERNEURON_NETWORK(nn.Module):
             windowMeanStack = self.stackedWindowMeans(neuronActsPerToken, windowTensor)
 
             if debugPrints: ʕっʘ‿ʘʔっ("softmax weights from cerebellum")
-            sigmoidWeights = torch.sigmoid(self.cerebellum * 10) # squish raw values into [0, 1]
+            # Add small noise during training to break symmetry, but preserve learned weights
+            cerebellum_with_noise = self.cerebellum
+            if self.training:  # Only add noise during training, not inference
+                noise = torch.randn_like(self.cerebellum) * 0.005  # Very weak noise to gently break symmetry
+                cerebellum_with_noise = self.cerebellum + noise
+            
+            sigmoidWeights = torch.sigmoid(cerebellum_with_noise) # reduced from 10 to 2 for better gradient flow
             clamp_param(self.cerebellum, 0.01, 0.99)
             #clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
             self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalize across all windows

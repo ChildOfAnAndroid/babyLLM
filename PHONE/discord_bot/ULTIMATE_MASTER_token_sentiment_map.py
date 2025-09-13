@@ -8,7 +8,7 @@
 # Based on his real 4200 token vocab with exact token IDs
 # THIS IS THE ONE TRUE SENTIMENT MAP!!! 🚀✨
 # v3.0 - ULTIMATE MASTER EDITION
-# v1.11
+# v1.2
 
 import json
 import logging
@@ -173,8 +173,8 @@ AMPLIFIER_TOKENS = {
 # 🔧 ULTIMATE MASTER SENTIMENT ENGINE
 # ==============================================================================
 
-class UltimateMasterSentimentAnalyzer:
-    """The ultimate sentiment analyzer using baby's real neural vocabulary"""
+class UltimateMasterSentimentAnalyser:
+    """The ultimate sentiment analyser using baby's real neural vocabulary"""
     
     def __init__(self):
         self.baby_vocab = load_baby_vocabulary()
@@ -212,9 +212,9 @@ class UltimateMasterSentimentAnalyzer:
             return self.amplifiers[token_id][1]
         return 1.0
     
-    def analyze_token_sequence(self, token_ids: List[int]) -> Dict:
+    def analyse_token_sequence(self, token_ids: List[int]) -> Dict:
         """
-        Analyze sentiment of a token sequence with amplifier support
+        Analyse sentiment of a token sequence with amplifier support
         
         Args:
             token_ids: List of baby's neural network token IDs
@@ -304,34 +304,34 @@ class UltimateMasterSentimentAnalyzer:
 # 🚀 INTEGRATION FUNCTIONS (Backward Compatibility)
 # ==============================================================================
 
-# Global analyzer instance
-_master_analyzer = None
+# Global analyser instance
+_master_analyser = None
 
-def get_master_analyzer():
-    """Get singleton instance of the master analyzer"""
-    global _master_analyzer
-    if _master_analyzer is None:
-        _master_analyzer = UltimateMasterSentimentAnalyzer()
-    return _master_analyzer
+def get_master_analyser():
+    """Get singleton instance of the master analyser"""
+    global _master_analyser
+    if _master_analyser is None:
+        _master_analyser = UltimateMasterSentimentAnalyser()
+    return _master_analyser
 
 def get_token_sentiment_value(token_id: int) -> float:
     """Get sentiment value for a token ID (backward compatibility)"""
-    analyzer = get_master_analyzer()
-    return analyzer.get_token_sentiment(token_id)
+    analyser = get_master_analyser()
+    return analyser.get_token_sentiment(token_id)
 
 def get_token_description(token_id: int) -> str:
     """Get token description (backward compatibility)"""
-    analyzer = get_master_analyzer()
-    sentiment = analyzer.get_token_sentiment(token_id)
-    text = analyzer.get_token_text(token_id)
+    analyser = get_master_analyser()
+    sentiment = analyser.get_token_sentiment(token_id)
+    text = analyser.get_token_text(token_id)
     if sentiment != 0.0:
         return f"{text} (sentiment: {sentiment:+.1f})"
     return f"{text} (neutral)"
 
 def analyse_token_sequence(token_ids: List[int]) -> Tuple[float, List[str]]:
-    """Analyze token sequence (backward compatibility)"""
-    analyzer = get_master_analyzer()
-    result = analyzer.analyze_token_sequence(token_ids)
+    """Analyse token sequence (backward compatibility)"""
+    analyser = get_master_analyser()
+    result = analyser.analyse_token_sequence(token_ids)
     
     # Create token matches list for compatibility
     token_matches = []
@@ -344,26 +344,26 @@ def analyse_token_sequence(token_ids: List[int]) -> Tuple[float, List[str]]:
     
     return result['final_sentiment'], token_matches
 
-def analyze_token_sequence_natural(token_ids: List[int]) -> Dict:
+def analyse_token_sequence_natural(token_ids: List[int]) -> Dict:
     """Natural analysis (backward compatibility)"""
-    analyzer = get_master_analyzer()
-    return analyzer.analyze_token_sequence(token_ids)
+    analyser = get_master_analyser()
+    return analyser.analyse_token_sequence(token_ids)
 
 def get_natural_sentiment_summary() -> Dict:
     """Get summary (backward compatibility)"""
-    analyzer = get_master_analyzer()
-    return analyzer.get_sentiment_summary()
+    analyser = get_master_analyser()
+    return analyser.get_sentiment_summary()
 
 # ==============================================================================
 # 🧪 TESTING & VALIDATION
 # ==============================================================================
 
 if __name__ == "__main__":
-    print("🧠💫 ULTIMATE MASTER SENTIMENT ANALYZER 💫🧠")
+    print("🧠💫 ULTIMATE MASTER SENTIMENT ANALYSER 💫🧠")
     print("=" * 65)
     
-    analyzer = get_master_analyzer()
-    summary = analyzer.get_sentiment_summary()
+    analyser = get_master_analyser()
+    summary = analyser.get_sentiment_summary()
     
     print(f"📊 MASTER SENTIMENT STATISTICS:")
     print(f"   Total Vocabulary: {summary['total_vocabulary_size']} tokens")
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     
     # Test analysis
     test_tokens = [276, 881, 1465, 410]  # love super amazing :)
-    result = analyzer.analyze_token_sequence(test_tokens)
+    result = analyser.analyse_token_sequence(test_tokens)
     
     print(f"🧪 TEST ANALYSIS: {test_tokens}")
     print(f"   Base sentiment: {result['base_sentiment']:.2f}")

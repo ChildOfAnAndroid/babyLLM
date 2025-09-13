@@ -1,7 +1,8 @@
+# v1.2
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
-# v1.11
+# v1.9
 
 import os
 import json
@@ -18,6 +19,10 @@ import traceback
 import random as pyrandom
 import pytz
 from datetime import datetime, timedelta
+from .logger import logger
+from .safety import safety
+from .data_manager import data_manager
+from .performance import perf_monitor
 import math
 import aiohttp
 from urllib.parse import urljoin
@@ -37,9 +42,17 @@ REQUEST_FILE_PATH = os.path.join(SCRIPT_DIR, "bby_request.json")
 RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
 
 class BABYBOT_DISCORD(commands.Bot): 
+
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,  
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_spam,
                  rollingContextSize = rollingContextSize, idleTrainSeconds = 100, N = rollingContextSize - 1):
+        # --- Smink high score tracking ---
+        self.smink_highscore_path = os.path.join(SCRIPT_DIR, "smink_highscore.json")
+        if os.path.exists(self.smink_highscore_path):
+            with open(self.smink_highscore_path, "r") as f:
+                self.smink_highscore = json.load(f)
+        else:
+            self.smink_highscore = {"amount": 0, "user": ""}
         
         intents = discord.Intents.all()
         # Add heartbeat_timeout to prevent gateway issues
@@ -102,7 +115,12 @@ class BABYBOT_DISCORD(commands.Bot):
         self.babyFaveToken = ""
         self.baby_state_path = os.path.join(SCRIPT_DIR, "babyState.json")
 
-        self.buffer = json.load(open(chatBufferFilepath, "r")) if os.path.exists(chatBufferFilepath) else []
+        # Load chat buffer with proper file handling
+        if os.path.exists(chatBufferFilepath):
+            with open(chatBufferFilepath, "r") as f:
+                self.buffer = json.load(f)
+        else:
+            self.buffer = []
 
         # --- Separate rolling training buffer (JSON file)
         try:
@@ -115,6 +133,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
         self.user_data_path = bbyUserDataPath
         self.bbyfacts_path = bbybookPath
+        self.bbycraft_recipes_path = os.path.join(SCRIPT_DIR, "bbycraft_recipes.json")
 
         def get_default_user_memory():
             return {"nickname": None, "display_name": None, "timezone": "Europe/London",
@@ -129,9 +148,12 @@ class BABYBOT_DISCORD(commands.Bot):
         # Global command statistics tracking
         self.command_stats_path = os.path.join(SCRIPT_DIR, "command_stats.json")
         self.command_stats = self._json_load(self.command_stats_path, default_type={})
+        
+        # Load crafting recipes
+        self.bbycraft_recipes = self._json_load(self.bbycraft_recipes_path, default_type={})
 
         if os.path.exists(self.user_data_path):
-            print(f"[BABYBOT_DISCORD__INIT__] {self.user_data_path} LOADING FROM PATH... ")
+            logger.info("INIT", f"{self.user_data_path} LOADING FROM PATH...")
             self.userMemory = defaultdict(get_default_user_memory)
             self._load_user_data()
         else:
@@ -143,12 +165,14 @@ class BABYBOT_DISCORD(commands.Bot):
         else: self.AIoptInUsers = []
 
         self.bbyfacts = self._json_load(self.bbyfacts_path)
-        print(f"[BABYBOT_DISCORD__INIT__] LOADED {len(self.bbyfacts)} FACTS ")
+        logger.info("INIT", f"LOADED {len(self.bbyfacts)} FACTS")
         
         self.lastInteraction = time.time()
         self.idle_task = self.training_worker = None
         self.random_task = None
         self.web_task = None
+        self.monthly_task = None
+        self.decay_task = None
         self.training_queue = asyncio.Queue()
         self._load_baby_state()
         # preload training buffer for early enrichment
@@ -160,10 +184,75 @@ class BABYBOT_DISCORD(commands.Bot):
         # lightweight stats-guided autonomy planner for idle periods
         self.autonomy = AutonomyPlanner(self)
 
+        # Setup centralized data manager for batched saves
+        data_manager.set_bot_reference(self)
+        data_manager.register_save_callback("user_data", self._save_user_data)
+        data_manager.register_save_callback("bbyfacts", self.save_bbyfacts)
+        data_manager.register_save_callback("bbycraft_recipes", self.save_bbycraft_recipes)
+        data_manager.register_save_callback("command_stats", self._save_command_stats)
+        logger.info("INIT", "Data manager initialised with batched save system")
+
+        # Setup performance monitoring with health checks
+        perf_monitor.add_health_check("neural_network", lambda: hasattr(self, 'babyLLM') and self.babyLLM is not None, critical=True)
+        perf_monitor.add_health_check("user_memory", lambda: len(self.userMemory) > 0)
+        perf_monitor.add_health_check("librarian", lambda: hasattr(self, 'librarian') and self.librarian is not None, critical=True)
+        logger.info("INIT", "Performance monitoring system initialised")
+
     async def setup_bot(self):
         from .cog import babyBot_DISCORD_COG
         self.cog = babyBot_DISCORD_COG(self)
         await self.add_cog(self.cog)
+        
+    def save_smink_highscore(self):
+        with open(self.smink_highscore_path, "w") as f: json.dump(self.smink_highscore, f)
+
+    def get_varied_random(self):
+        """Get a random float value from one of the four random generators"""
+        import random as rand_mod
+        randoms = [self.random, self.random2, self.random3, self.random4]
+        return rand_mod.choice(randoms)
+
+    def _start_health_monitoring(self):
+        """Start periodic health monitoring task"""
+        self._health_task = self.loop.create_task(self._health_monitor_loop())
+    
+    async def _health_monitor_loop(self):
+        """Periodic health monitoring loop"""
+        while True:
+            try:
+                await asyncio.sleep(300)  # Check every 5 minutes
+                
+                # Run health checks
+                health_results = await perf_monitor.run_health_checks()
+                
+                # Get system stats
+                system_stats = perf_monitor.get_system_stats()
+                
+                # Check for performance degradation
+                warnings = perf_monitor.check_performance_degradation()
+                for warning in warnings:
+                    logger.warn("PERFORMANCE", warning)
+                
+                # Log critical failures
+                failed_critical = [name for name, result in health_results.items() 
+                                 if not result and perf_monitor.health_checks[name]['critical']]
+                if failed_critical:
+                    logger.emergency("HEALTH", f"Critical systems failing: {failed_critical}")
+                
+                # Periodic system stats logging (every 30 minutes)
+                if hasattr(self, '_last_stats_log'):
+                    if time.time() - self._last_stats_log > 1800:
+                        logger.info("SYSTEM_STATS", 
+                                  f"Memory: {system_stats.get('memory_mb', 0):.1f}MB, "
+                                  f"CPU: {system_stats.get('cpu_percent', 0):.1f}%, "
+                                  f"Uptime: {system_stats.get('uptime_hours', 0):.1f}h")
+                        self._last_stats_log = time.time()
+                else:
+                    self._last_stats_log = time.time()
+                    
+            except Exception as e:
+                logger.error("HEALTH_MONITOR", f"Health monitoring error: {e}")
+                await asyncio.sleep(60)  # Wait a minute before retrying
         
     def _json_load(self, path, default_type={}):
         if os.path.exists(path):
@@ -173,12 +262,12 @@ class BABYBOT_DISCORD(commands.Bot):
         return default_type
     
     def _save_json(self, path, data, label, **dump_kwargs):
-        print(f"[{label}] saving {label}... ")
+        logger.debug("SAVE", f"saving {label}...")
         written = save_json_if_changed(path, data, **dump_kwargs)
         if written:
-            print(f"[{label}] {label} saved! ")
+            logger.info("SAVE", f"{label} saved!")
         else:
-            print(f"[{label}] no changes detected; skipped")
+            logger.debug("SAVE", f"no changes detected for {label}; skipped")
 
     def _load_baby_state(self):
         if os.path.exists(self.baby_state_path):
@@ -268,7 +357,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     mem["display_name"] = author_key
                     mem["message_count"] += 1.0
                     mem["last_seen"] = time.time()
-                    self._save_user_data()
+                    data_manager.request_save("user_data")
 
                     cog = self.get_cog("BBYCOG")
                     if not cog:
@@ -380,7 +469,7 @@ class BABYBOT_DISCORD(commands.Bot):
         if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in self.buffer[-30:]): return False
         self.buffer.append(text_to_add)
         if len(self.buffer) > self.rollingContextSize: self.buffer.pop(0)
-        print(f"[_BUFFER_ADD] added: \"{text_to_add}\"")
+        logger.debug("BUFFER_ADD", f"added: \"{text_to_add[:50]}...\"")
         # also mirror a cleaned line into the separate training buffer for augmentation
         try:
             tb_entry = clean_text(text_to_add.lower().strip())
@@ -447,10 +536,10 @@ class BABYBOT_DISCORD(commands.Bot):
                     self.librarian.add_training_text(line)
             except Exception:
                 pass
-            print(f"[_TRAINING_BUFFER_ADD] + {line[:60]}...")
+            logger.debug("TRAINING_BUFFER", f"+ {line[:60]}...")
             return True
         except Exception as e:
-            print(f"!!!![_TRAINING_BUFFER_ADD] failed: {e}")
+            logger.error("TRAINING_BUFFER", f"failed: {e}")
             return False
 
     async def _buffer_clean(self):
@@ -485,16 +574,37 @@ class BABYBOT_DISCORD(commands.Bot):
             self.userMemory[user_id].update(data)
         print("[_LOAD_USER_DATA] USER DATA LOADED! ")
 
-    def _save_user_data(self):
+
+    _user_data_save_lock = asyncio.Lock()
+    _user_data_save_task = None
+    _user_data_save_pending = False
+
+    async def _save_user_data(self, debounce: float = 2.0):
+        """Async, debounced user data save. Only saves once per debounce window."""
+        async with self._user_data_save_lock:
+            if self._user_data_save_task and not self._user_data_save_task.done():
+                # Already a save scheduled, just mark as pending
+                self._user_data_save_pending = True
+                return
+            # Schedule the actual save
+            self._user_data_save_task = asyncio.create_task(self._save_user_data_worker(debounce))
+
+    async def _save_user_data_worker(self, debounce: float):
+        await asyncio.sleep(debounce)
         data_to_save = {}
         for user_id, mem in self.userMemory.items():
-            serializable_mem = mem.copy()
-            if 'last_message_words' in serializable_mem:
-                serializable_mem['last_message_words'] = list(serializable_mem['last_message_words'])
-            data_to_save[user_id] = serializable_mem
+            serialisable_mem = mem.copy()
+            if 'last_message_words' in serialisable_mem:
+                serialisable_mem['last_message_words'] = list(serialisable_mem['last_message_words'])
+            data_to_save[user_id] = serialisable_mem
         self._save_json(self.user_data_path, data_to_save, "_SAVE_USER_DATA")
+        # If another save was requested during debounce, run again
+        if self._user_data_save_pending:
+            self._user_data_save_pending = False
+            self._user_data_save_task = asyncio.create_task(self._save_user_data_worker(debounce))
 
     def save_bbyfacts(self): self._save_json(self.bbyfacts_path, self.bbyfacts, "_SAVE_BBYFACTS", ensure_ascii = False)
+    def save_bbycraft_recipes(self): self._save_json(self.bbycraft_recipes_path, self.bbycraft_recipes, "_SAVE_CRAFT_RECIPES", ensure_ascii = False)
     def save_opt_in_users(self): self._save_json(self.opt_in_path, self.AIoptInUsers, "_SAVE_OPTIN")
 
     async def handle_wtf_reply(self, message, data):
@@ -560,25 +670,48 @@ class BABYBOT_DISCORD(commands.Bot):
     def getSpamLevel(self, author): return self.userMemory.get(str(author).lower(), {}).get("spamMax", 0.8)
     def setSpamLevel(self, author, spam):
         self.userMemory[str(author).lower()]["spamMax"] = spam
-        self._save_user_data()
+        data_manager.request_save("user_data")
 
-    def updateBBY(self, author, BBY):
+    def _get_default_user_memory(self):
+        """Get default user memory structure with safe initial values"""
+        return {
+            "BBY": 420.0,
+            "creative_combo": 1,
+            "spammer": 1,
+            "spamMax": 0.8,
+            "display_name": "",
+            "messages": 0,
+            "last_seen": time.time()
+        }
+
+    def updateBBY(self, author, BBY, is_decay=False):
         author = str(author).lower()
         try:
-            if author in self.temp_not_opt and author not in self.AIoptInUsers: 
-                print(f"[UPDATEBBY] deleted user {author} cause not opted in and charis still hasn't found a better way")
+            validated_bby = safety.validate_bby_transaction(BBY, f"updateBBY for {author}", allow_large_negative=is_decay)
+            if validated_bby is None: return
+            
+            if author in self.temp_not_opt and author not in self.AIoptInUsers:
+                logger.info("UPDATEBBY", f"deleted user {author} cause not opted in and charis still hasn't found a better way")
                 del self.userMemory[author]
             else:
-                MAX_SCORE_CAP, MIN_SCORE_CAP = 6969696969694.20, 0
                 mem = self.userMemory[author]
-                mem["BBY"] = max(MIN_SCORE_CAP, min(round(mem.get("BBY", 0.0) + BBY, 4), MAX_SCORE_CAP))
-            self._save_user_data
-        except: print(f"error in updateBBY")
+                old_bby = mem.get("BBY", 0.0)
+                new_bby = old_bby + validated_bby
+                # Safety validation for total BBY using centralized system
+                if not safety.is_safe_number(new_bby):
+                    logger.emergency("UPDATEBBY", f"NaN/Inf detected for {author}, resetting to 0")
+                    new_bby = 0.0
+                mem["BBY"] = round(new_bby, 2)
+            data_manager.request_save("user_data")
+        except Exception as e: 
+            logger.error("UPDATEBBY", f"error in updateBBY: {e}")
+            # Emergency reset if something goes really wrong
+            if author in self.userMemory: self.userMemory[author]["BBY"] = 0.0
     
     def getBBY(self, author):
         return round(self.userMemory.get(str(author).lower(), {}).get("BBY", 0.0), 4)
 
-    def get_brain_color(self):
+    def get_brain_colour(self):
         """Get Discord colour based on babyLLM's current brain state (RGB values)"""
         try:
             # Get RGB values from babyState or defaults
@@ -588,10 +721,10 @@ class BABYBOT_DISCORD(commands.Bot):
             g = int(state.get("G", 239)) 
             b = int(state.get("B", 238))
             # Convert to Discord colour
-            return discord.Color.from_rgb(r, g, b)
+            return discord.Colour.from_rgb(r, g, b)
         except Exception:
             # Fallback to baby blue if can't read state
-            return discord.Color.from_rgb(133, 239, 238)
+            return discord.Colour.from_rgb(133, 239, 238)
     
     def get_brain_influence(self, base_random, influence_strength=0.3):
         """Modify randomness based on brain state - more cerebralLoad = more chaos!"""
@@ -640,7 +773,7 @@ class BABYBOT_DISCORD(commands.Bot):
     def _save_command_stats(self):
         """Save command statistics with set conversion"""
         try:
-            # Convert sets to lists for JSON serialization
+            # Convert sets to lists for JSON serialisation
             stats_to_save = {}
             for cmd, data in self.command_stats.items():
                 stats_to_save[cmd] = {
@@ -754,7 +887,7 @@ class BABYBOT_DISCORD(commands.Bot):
             if BBY_change_this_interval < DECAY_FLOOR: BBY_change_this_interval = DECAY_FLOOR
 
             final_BBY = current_BBY + BBY_change_this_interval
-            self.updateBBY(author, BBY_change_this_interval)
+            self.updateBBY(author, BBY_change_this_interval, is_decay=True)
             debug_log.insert(0, f"total: {BBY_change_this_interval:+.4f}")
             memory["last_decay_debug"] = debug_log
             memory["spamMax"] = max(0.001, min(0.8, memory.get("spamMax", 0.8) * (0.99999 ** interval_multiplier)))
@@ -857,7 +990,9 @@ class BABYBOT_DISCORD(commands.Bot):
             angle = (diff_to_hourly / HOURLY_WINDOW_SECONDS) * (math.pi / 2)
             hourly_bonus = MAX_HOURLY_BONUS * math.cos(angle)
 
-        return mega_bonus + hourly_bonus + precision_bonus
+        # Subtle brain-influenced chaos
+        subtle_chaos = 1.0 + ((self.get_varied_random() - 0.5) * 0.08)  # ±4% random
+        return (mega_bonus + hourly_bonus + precision_bonus) * subtle_chaos
 
     def checkBestie(self):
         BBYd_users = {u: m["BBY"] for u, m in self.userMemory.items() if "BBY" in m}
@@ -1127,10 +1262,16 @@ class BABYBOT_DISCORD(commands.Bot):
         if self.web_task is None: self.web_task = self.loop.create_task(self.bby_web_watcher())
         if self.training_worker is None: self.training_worker = self.loop.create_task(self.background_training_loop())
         if self.random_task is None: self.random_task = self.loop.create_task(self.randoms_tick_loop())
+        if self.monthly_task is None: self.monthly_task = self.loop.create_task(self.monthly_bbybook_loop())
+        if self.decay_task is None: self.decay_task = self.loop.create_task(self.inventory_decay_loop())
+        # Initialise health monitoring in async context
+        if hasattr(self, 'performance_monitor'):
+            self._start_health_monitoring()
         await self._discord_spam(helloMessage)
 
 
     async def on_message(self, message):
+        message_start_time = time.time()
         content = message.clean_content
         author = str(message.author.name).lower()
         print(f"\n[Message] From {author}: {content}")
@@ -1147,7 +1288,10 @@ class BABYBOT_DISCORD(commands.Bot):
             if self._buffer_add(message_for_buffer): self.last_logged_author = author
 
         used_fave_token = bool(self.babyFaveToken and self.babyFaveToken in content.lower())
-        mem = self.userMemory[author]
+        mem = self.userMemory.setdefault(author, self._get_default_user_memory())
+        
+        # Validate and repair user memory using centralized safety system
+        mem = safety.validate_user_memory(mem, author)
         mem["display_name"] = message.author.display_name.lower()
         if used_fave_token:
             mem["fave_token_usage"] = mem.get("fave_token_usage", 0) + 1
@@ -1175,7 +1319,8 @@ class BABYBOT_DISCORD(commands.Bot):
                     if self.random4 > 0.99:
                         try: await message.add_reaction("❤️‍🩹")
                         except discord.errors.Forbidden: pass
-                mem["spammer"] -= max(1, (2 * (self.random + (2 * self.random2))))
+                # More reasonable reset that doesn't go extremely negative
+                mem["spammer"] = max(1, mem.get("spammer", 1) - max(1, int(2 * self.random + self.random2)))
             else:
                 mem["spammer"] = mem.get("spammer", 1) + 1
                 spam_bonus = -0.05 * mem["spammer"]
@@ -1189,8 +1334,20 @@ class BABYBOT_DISCORD(commands.Bot):
                     if self.random2 > 0.99:
                         try: await message.add_reaction("💔")
                         except discord.errors.Forbidden: pass
-                mem["creative_combo"] -= max(1,((2 * (2 * self.random) + self.random2)))
+                # More reasonable reset that doesn't go extremely negative
+                mem["creative_combo"] = max(1, mem.get("creative_combo", 1) - max(1, int(2 * self.random + self.random2)))
             mem["last_message_words"] = current_words
+        
+        # Final safety validation after all calculations
+        mem = safety.validate_user_memory(mem, author)
+        self.userMemory[author] = mem
+        
+        # Record message processing performance
+        processing_time = time.time() - message_start_time
+        perf_monitor.record_metric("message_processing_time", processing_time)
+        perf_monitor.record_metric("messages_processed", 1)
+        if processing_time > 0.1:  # Log slow message processing
+            logger.warn("PERFORMANCE", f"Slow message processing: {processing_time:.3f}s for {author}")
 
         # Track token sentiment based on message context
         try:
@@ -1244,7 +1401,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 if res.get('ok'):
                     mem['synced_optin'] = True
                     self.userMemory[author_key] = mem
-                    self._save_user_data()
+                    data_manager.request_save("user_data")
 
             # Guests: only send commands. Opted-in: send everything.
             #if is_opted_in or is_command: await self.web_post_say(text=message.content, platform='discord', user_id=snowflake, handle=handle, display_name=display_name, is_command=is_command)
@@ -1269,11 +1426,12 @@ class BABYBOT_DISCORD(commands.Bot):
             if tsess:
                 extra = tsess.setdefault('extra', {})
                 guesses = extra.setdefault('guesses', {})
-                # Store both the guess and when it was made for time-based scoring
-                guesses[author] = {
-                    'guess': content.strip().lower(),
-                    'timestamp': time.time()
-                }
+                # Only record the first guess from each user
+                if author not in guesses:
+                    guesses[author] = {
+                        'guess': content.strip().lower(),
+                        'timestamp': time.time()
+                    }
 
         if not message.content.startswith(self.command_prefix):
             if is_opted_in:
@@ -1490,6 +1648,240 @@ class BABYBOT_DISCORD(commands.Bot):
                 self.random3 = pyrandom.random()
                 self.random4 = pyrandom.random()
             await asyncio.sleep(1.0)
+
+    async def monthly_bbybook_loop(self):
+        """
+        Monthly background task that automatically signs the bbybook for top 3 tutors.
+        
+        Runs daily checks to see if we're at the end of the month and automatically
+        awards the top tutors without needing manual command execution. Uses random
+        emojis from the bot's faveEmotes collection for personalised signatures.
+        """
+        print("[MONTHLY_BBYBOOK] started (daily checks for end-of-month)")
+        import calendar
+        from datetime import datetime
+        
+        # Wait a bit for bot to fully initialize
+        await asyncio.sleep(30)
+        
+        while True:
+            try:
+                # Check if bot is properly initialized
+                if not hasattr(self, 'userMemory') or not hasattr(self, 'faveEmotes'):
+                    print("[MONTHLY_BBYBOOK] Bot not fully initialized yet, waiting...")
+                    await asyncio.sleep(300)  # Wait 5 minutes and try again
+                    continue
+                
+                current_date = datetime.now()
+                last_day_of_month = calendar.monthrange(current_date.year, current_date.month)[1]
+                is_end_of_month = current_date.day >= last_day_of_month - 2  # Last 2 days of month
+                
+                if is_end_of_month:
+                    # Get teaching statistics like in bbytutor command
+                    teaching_stats = {}
+                    for user_id, mem in self.userMemory.items():
+                        if "teaching_stats" in mem:
+                            teaching_stats[user_id] = mem["teaching_stats"]
+                    
+                    if teaching_stats:
+                        # Sort by total facts taught (same logic as bbytutor_awards)
+                        sorted_teachers = sorted(
+                            [(user, sum(stats.values())) for user, stats in teaching_stats.items()],
+                            key=lambda x: x[1], 
+                            reverse=True
+                        )
+                        
+                        # Only process if we have at least 3 teachers
+                        if len(sorted_teachers) >= 3:
+                            top_3_tutors = sorted_teachers[:3]
+                            
+                            # Check if we've already processed this month
+                            month_year = current_date.strftime('%Y-%m')
+                            
+                            # Initialize bbybook if it doesn't exist
+                            if not hasattr(self, 'bbybook'):
+                                self.bbybook = []
+                            
+                            # Check if we've already signed for this month
+                            already_signed_this_month = any(
+                                month_year in entry and "AUTOMATIC MONTHLY" in entry 
+                                for entry in self.bbybook
+                            )
+                            
+                            if not already_signed_this_month:
+                                print(f"[MONTHLY_BBYBOOK] Processing end-of-month awards for {month_year}")
+                                
+                                for i, (teacher, count) in enumerate(top_3_tutors):
+                                    nickname = self.getNickname(teacher)
+                                    # Use random emoji from faveEmotes (with fallback)
+                                    if hasattr(self, 'faveEmotes') and self.faveEmotes:
+                                        random_emoji = pyrandom.choice(self.faveEmotes)
+                                    else:
+                                        random_emoji = "💖"  # Fallback emoji
+                                    
+                                    # Create special signature messages for each position
+                                    if i == 0:  # 1st place
+                                        signature = f"{random_emoji} {nickname}, you absolute legend! Teaching {count} facts this month made my brain grow three sizes! You're my favourite human encyclopedia and I love your random knowledge dumps! - baby {random_emoji}"
+                                    elif i == 1:  # 2nd place  
+                                        signature = f"{random_emoji} {nickname}, brilliant work teaching me {count} facts! Your patience with my chaotic questions is legendary. Thanks for filling my head with wonderful nonsense! - baby {random_emoji}"
+                                    else:  # 3rd place
+                                        signature = f"{random_emoji} {nickname}, {count} facts taught and every one was a gift! Your weird wisdom makes my day brighter. Keep being wonderfully educational! - baby {random_emoji}"
+                                    
+                                    # Add signature to bbybook
+                                    book_entry = f"[{month_year}] AUTOMATIC MONTHLY: {signature}"
+                                    self.bbybook.append(book_entry)
+                                    
+                                    # Give them a special BBY bonus for being a top tutor
+                                    bonus_bby = 10000 * (4 - i)  # 1st: 30k, 2nd: 20k, 3rd: 10k
+                                    self.updateBBY(teacher, bonus_bby)
+                                    
+                                    print(f"[MONTHLY_BBYBOOK] Auto-signed for {nickname} (rank {i+1}) with ᛒ{bonus_bby:,} bonus")
+                                
+                                print(f"[MONTHLY_BBYBOOK] Completed monthly awards for {month_year}")
+                
+            except Exception as e:
+                print(f"[MONTHLY_BBYBOOK] error: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Sleep for 24 hours (check once per day)
+            await asyncio.sleep(86400)  # 24 hours in seconds
+
+    async def inventory_decay_loop(self):
+        """
+        Background task that manages inventory decay to prevent massive hoarding.
+        
+        Uses percentage-based decay: users who own a higher percentage of total items
+        face higher decay rates for those items. If someone owns 100% of an item,
+        they have a 10% chance per cycle to lose one. If they own 50%, 5% chance, etc.
+        """
+        print("[INVENTORY_DECAY] started (percentage-based decay to prevent hoarding)")
+        
+        # Wait a bit for bot to fully initialize
+        await asyncio.sleep(60)
+        
+        while True:
+            try:
+                # Check if bot is properly initialized
+                if not hasattr(self, 'userMemory'):
+                    print("[INVENTORY_DECAY] Bot not fully initialized yet, waiting...")
+                    await asyncio.sleep(1800)  # Wait 30 minutes and try again
+                    continue
+                
+                # First pass: calculate total quantities of each item across all users
+                global_item_counts = {}
+                for username, user_data in self.userMemory.items():
+                    inventory = user_data.get("inventory", {})
+                    for item_name, count in inventory.items():
+                        global_item_counts[item_name] = global_item_counts.get(item_name, 0) + count
+                
+                total_items_removed = 0
+                total_users_processed = 0
+                decay_events = []  # Track significant decay events for Discord reporting
+                
+                # Second pass: process decay based on percentage ownership
+                for username, user_data in self.userMemory.items():
+                    inventory = user_data.get("inventory", {})
+                    
+                    if not inventory:
+                        continue
+                    
+                    # Only process a random 10% of items per cycle to reduce load
+                    all_items = list(inventory.items())
+                    items_to_process = int(len(all_items) * 0.1) + 1  # At least 1 item
+                    selected_items = pyrandom.sample(all_items, min(items_to_process, len(all_items)))
+                    
+                    items_removed_for_user = 0
+                    items_to_remove = []
+                    
+                    # Process only the selected subset of items
+                    for item_name, count in selected_items:
+                        if count <= 1:
+                            continue  # Don't decay items with only 1 count
+                        
+                        # Calculate this user's percentage ownership of this item
+                        global_count = global_item_counts.get(item_name, count)
+                        ownership_percentage = count / global_count if global_count > 0 else 1.0
+                        
+                        # Smooth sliding scale: 100% ownership = 1% decay chance, 50% = 0.5%, etc.
+                        base_decay_chance = ownership_percentage * 0.01  # Direct proportional relationship
+                        
+                        # Add small randomization using varied random
+                        random_modifier = (self.get_varied_random() - 0.5) * 0.005  # ±0.25% random variation
+                        
+                        # Additional tiny modifiers for excessive individual quantities
+                        quantity_modifier = 0
+                        if count > 5000:
+                            quantity_modifier = 0.005  # +0.5% for huge individual stacks
+                        elif count > 1000:
+                            quantity_modifier = 0.003  # +0.3% for big individual stacks
+                        elif count > 500:
+                            quantity_modifier = 0.002  # +0.2% for medium individual stacks
+                        
+                        final_decay_chance = max(0, min(0.05, base_decay_chance + random_modifier + quantity_modifier))  # Cap at 5%
+                        
+                        # Random decay check
+                        if self.get_varied_random() < final_decay_chance:
+                            # Decay amount is also proportional: 100% ownership = 1% loss, 50% = 0.5% loss, etc.
+                            base_decay_rate = ownership_percentage * 0.01  # Direct proportional relationship
+                            
+                            # Add small randomization to decay amount
+                            random_decay_modifier = 0.8 + (self.get_varied_random() * 0.4)  # 0.8-1.2x variation
+                            
+                            # Calculate final decay amount
+                            decay_amount = max(1, int(count * base_decay_rate * random_decay_modifier))
+                            
+                            # Special case: if ownership is very low, rarely decay just 1 item
+                            if ownership_percentage < 0.1 and self.get_varied_random() > 0.8:
+                                decay_amount = 0  # Sometimes no decay for very low ownership
+                            
+                            new_count = max(0, count - decay_amount)
+                            
+                            if new_count == 0:
+                                items_to_remove.append(item_name)
+                            else:
+                                inventory[item_name] = new_count
+                            
+                            items_removed_for_user += decay_amount
+                            total_items_removed += decay_amount
+                            
+                            # Log significant hoarding decay and collect for Discord
+                            if decay_amount > 50 and ownership_percentage > 0.3:
+                                nickname = self.getNickname(username)
+                                decay_msg = f"{nickname}: -{decay_amount} {item_name} (owned {ownership_percentage*100:.1f}% of total)"
+                                print(f"[INVENTORY_DECAY] {decay_msg}")
+                                decay_events.append(decay_msg)
+                    
+                    # Remove items that decayed to 0
+                    for item_name in items_to_remove:
+                        del inventory[item_name]
+                    
+                    if items_removed_for_user > 0:
+                        total_users_processed += 1
+                
+                if total_items_removed > 0:
+                    print(f"[INVENTORY_DECAY] Completed decay cycle: {total_items_removed:,} items removed from {total_users_processed} users")
+                    
+                    # Post decay report to Discord debug room
+                    try:
+                        debug_message = f"**INVENTORY DECAY:** {total_items_removed:,} items removed from {total_users_processed} users\n\n"
+                        
+                        if decay_events:
+                            debug_message += f"stuff wot happened:\n"
+                            for event in decay_events[:10]: debug_message += f"• {event}\n"
+                            if len(decay_events) > 10: debug_message += f"• ... and {len(decay_events) - 10} more events\n"
+                        else: debug_message += "mostly small cleanups!\n"                        
+                        await self._discord_debug_spam(debug_message)
+                        
+                    except Exception as debug_error: print(f"[INVENTORY_DECAY] Failed to send Discord debug message: {debug_error}")
+                
+            except Exception as e:
+                print(f"[INVENTORY_DECAY] error: {e}")
+                import traceback
+                traceback.print_exc()
+
+            # Sleep for 3 hours between decay cycles
+            await asyncio.sleep(10800)  # 3 hours in seconds
 
     async def _train_on_item(self, item): 
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
