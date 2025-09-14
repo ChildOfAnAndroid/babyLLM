@@ -1,4 +1,4 @@
-# v1.2
+# v2.3
 """
 Centralized data persistence manager for babyLLM
 Handles all save/load operations with batching and error recovery
@@ -6,6 +6,7 @@ Handles all save/load operations with batching and error recovery
 import json
 import asyncio
 import time
+import inspect
 from pathlib import Path
 from typing import Any, Dict, Optional
 from .logger import logger
@@ -58,9 +59,15 @@ class DataManager:
             return False
         
         try:
-            # Call the registered save callback
+            # Call the registered save callback (supports sync or async)
             callback = self._save_callbacks[data_type]
-            callback()
+            if inspect.iscoroutinefunction(callback):
+                asyncio.create_task(callback())
+            else:
+                result = callback()
+                # If a coroutine was returned (bound async method), schedule it
+                if inspect.iscoroutine(result):
+                    asyncio.create_task(result)
             self.last_save_times[data_type] = time.time()
             logger.debug("DATA_SAVE", f"Saved {data_type}")
             return True

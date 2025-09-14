@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # INTERNEURON NETWORK & NEURONS
 # brain/LAYERS/interneuronNetwork.py
-# v1.2
+# v2.3
 
 import torch
 import torch.nn as nn

@@ -1,4 +1,4 @@
-# v1.2
+# v2.3
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -17,6 +17,9 @@ from secret import *
 from textCleaningTool import *
 import traceback
 import random as pyrandom
+import hashlib
+import calendar
+from typing import Optional
 import pytz
 from datetime import datetime, timedelta
 from .logger import logger
@@ -208,9 +211,36 @@ class BABYBOT_DISCORD(commands.Bot):
 
     def get_varied_random(self):
         """Get a random float value from one of the four random generators"""
-        import random as rand_mod
         randoms = [self.random, self.random2, self.random3, self.random4]
-        return rand_mod.choice(randoms)
+        return pyrandom.choice(randoms)
+
+    class _VariedRNG:
+        def __init__(self, seed: int):
+            self._rng = pyrandom.Random(seed)
+
+        def random(self) -> float:
+            return self._rng.random()
+
+        def choice(self, seq):
+            if not seq:
+                return None
+            return self._rng.choice(seq)
+
+    def get_varied_rng(self, *, scope: Optional[str] = None, author: Optional[str] = None) -> "_VariedRNG":
+        """Unified RNG seeded by brain state + optional scope/author.
+
+        - Keeps chaotic feel (brain-influenced), but is consistent within a scope
+          for a short time window so related picks feel coherent.
+        """
+        window = int(time.time() // 5)  # 5-second buckets to keep things lively
+        base = f"{self.random:.9f}|{self.random2:.9f}|{self.random3:.9f}|{self.random4:.9f}|{scope or ''}|{author or ''}|{window}"
+        seed_bytes = hashlib.blake2b(base.encode('utf-8'), digest_size=8).digest()
+        seed = int.from_bytes(seed_bytes, 'big', signed=False)
+        return BABYBOT_DISCORD._VariedRNG(seed)
+
+    def get_varied_choice(self, *, scope: Optional[str] = None, author: Optional[str] = None):
+        """Return an RNG object with choice/random for varied selection within a scope."""
+        return self.get_varied_rng(scope=scope, author=author)
 
     def _start_health_monitoring(self):
         """Start periodic health monitoring task"""
@@ -397,7 +427,7 @@ class BABYBOT_DISCORD(commands.Bot):
     async def _discord_reply(self, ctx, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): return await self._discord_send(ctx = ctx, message_content = message_content, embed = embed, is_reply = True, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_REPLY] -> ")
     async def _discord_spam(self, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): await self._discord_send(channel = self.get_channel(bby_spam), message_content = message_content, embed = embed, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_SPAM] -> ")
     async def _discord_debug(self, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): await self._discord_send(channel = self.get_channel(bby_debug), message_content = message_content, embed = embed, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_DEBUG] -> ")
-    async def _discord_send(self, *, channel=None, ctx=None, message_content="", embed=None, is_reply=True, to_buffer=False, buffer_str=None, debug_label=""):
+    async def _discord_send(self, *, channel=None, ctx=None, message_content="", embed=None, is_reply=True, to_buffer=False, buffer_str=None, debug_label="", dm_overflow: bool = True):
         sent_message = None  # Variable to hold the message object we send/reply with
         try:
             terminal_debug_str = f"{debug_label}[_DISCORD_SEND] SENDING MESSAGE TO "
@@ -415,15 +445,34 @@ class BABYBOT_DISCORD(commands.Bot):
                 terminal_debug_str += "              b] EMBED MESSAGE SENT\n"
             
             elif message_content:
-                for i, chunk in enumerate([message_content[j:j+1990] for j in range(0, len(message_content), 1990)]):
-                    terminal_debug_str += f"              a] SENDING MESSAGE PART {i}...\n"
-                    if ctx and is_reply and i == 0:
-                        # Call the reply function AND store its result
-                        sent_message = await ctx.reply(chunk)
-                        # Your old aiohttp post was here, it's fine that it's gone
+                chunks = [message_content[j:j+1990] for j in range(0, len(message_content), 1990)]
+                if dm_overflow and ctx is not None and len(chunks) > 1:
+                    # Send first chunk to channel/reply, rest via DM if possible
+                    terminal_debug_str += f"              a] SENDING MESSAGE PART 0... (channel)\n"
+                    if is_reply:
+                        sent_message = await ctx.reply(chunks[0])
                     else:
-                        # Call the send function AND store its result
-                        sent_message = await target.send(chunk)
+                        sent_message = await target.send(chunks[0])
+                    try:
+                        user_dm = await ctx.author.create_dm()
+                        for i, chunk in enumerate(chunks[1:], start=1):
+                            terminal_debug_str += f"              a] SENDING MESSAGE PART {i}... (dm)\n"
+                            await user_dm.send(chunk)
+                        # Small notice to channel
+                        notice = "(i sent the rest to your dms)"
+                        await target.send(notice)
+                    except discord.errors.Forbidden:
+                        # fallback: send everything to channel
+                        for i, chunk in enumerate(chunks[1:], start=1):
+                            terminal_debug_str += f"              a] SENDING MESSAGE PART {i}... (fallback channel)\n"
+                            await target.send(chunk)
+                else:
+                    for i, chunk in enumerate(chunks):
+                        terminal_debug_str += f"              a] SENDING MESSAGE PART {i}...\n"
+                        if ctx and is_reply and i == 0:
+                            sent_message = await ctx.reply(chunk)
+                        else:
+                            sent_message = await target.send(chunk)
             
             if to_buffer:
                 terminal_debug_str += "               ] APPENDING MESSAGE TO TRAINING BUFFER...\n"
@@ -764,8 +813,9 @@ class BABYBOT_DISCORD(commands.Bot):
             
             # Save stats periodically (every 10th command)
             if sum(data["total_uses"] for data in self.command_stats.values()) % 10 == 0:
-                self._save_command_stats()
-                self._save_user_data()
+                # Use centralised, batched saver to avoid event-loop spam
+                data_manager.request_save("command_stats")
+                data_manager.request_save("user_data")
                 
         except Exception as e:
             print(f"[TRACK_COMMAND_USAGE] Error: {e}")
@@ -812,6 +862,7 @@ class BABYBOT_DISCORD(commands.Bot):
         total_ranked_users = len(ranked_loyalty)
 
         decay_logs = []
+        per_user_interval_delta = {}
 
         for author, memory in active_users.items():
             debug_log = []
@@ -888,6 +939,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
             final_BBY = current_BBY + BBY_change_this_interval
             self.updateBBY(author, BBY_change_this_interval, is_decay=True)
+            per_user_interval_delta[author] = BBY_change_this_interval
             debug_log.insert(0, f"total: {BBY_change_this_interval:+.4f}")
             memory["last_decay_debug"] = debug_log
             memory["spamMax"] = max(0.001, min(0.8, memory.get("spamMax", 0.8) * (0.99999 ** interval_multiplier)))
@@ -908,13 +960,42 @@ class BABYBOT_DISCORD(commands.Bot):
                 if memory["spammer"] < 0: memory["spammer"] += incrementRandom
                 else: memory["spammer"] -= incrementRandom
 
+        # --- Open Market Operation (world-level balancing) ---
+        try:
+            world_delta = sum(per_user_interval_delta.values())
+            # Target slight deflation per day; keep game spicy but not inflating
+            TARGET_GROWTH_RATE_DAILY = -0.001  # -0.1% per day
+            target_interval_change = (total_money_in_circulation * TARGET_GROWTH_RATE_DAILY) / (SECONDS_PER_DAY / SECONDS_PER_INTERVAL)
+            excess = world_delta - target_interval_change
+            if excess > 0:
+                # Burn from users who had positive gains this interval, proportionally
+                pos_sum = sum(max(0.0, d) for d in per_user_interval_delta.values())
+                if pos_sum <= 0:
+                    pos_sum = sum(max(0.0, self.userMemory.get(u, {}).get("BBY", 0.0)) for u in per_user_interval_delta)
+                if pos_sum > 0:
+                    burn_ratio = min(1.0, excess / pos_sum)
+                    for u, d in per_user_interval_delta.items():
+                        basis = d if d > 0 else 0.0
+                        if basis > 0:
+                            burn = basis * burn_ratio
+                            # Apply additional burn; mark as decay to pass safety
+                            self.updateBBY(u, -burn, is_decay=True)
+                    print(f"[OPEN_MARKET] Burned {excess:.4f} BBY globally to target growth {target_interval_change:.4f}.")
+            # record last-interval stats for commands to show trends
+            self.last_world_bby_delta = world_delta
+            self.last_world_bby_target = target_interval_change
+            self.last_world_bby_burn = max(0.0, excess)
+        except Exception as e:
+            print(f"[OPEN_MARKET] balancing failed: {e}")
+
         decay_logs.sort(key = lambda x: x["new"], reverse = True)
         BOLD, RESET = '\033[1m', '\033[0m'
         for entry in decay_logs:
             result_str = f"{BOLD}{entry['new']:9.2f}{RESET}" if entry["new"] > entry["current"] else f"{entry['new']:9.2f}"
             print(f"{BOLD}{entry['author'].upper():<20}{RESET} {entry['nickname']:<20}: {entry['current']:9.2f} -> {result_str} | " + " | ".join(entry["log"]))
 
-        self._save_user_data()
+        # Debounced save via async worker; avoid blocking this job
+        data_manager.request_save("user_data")
 
         # --- GHOSTIES ---
         ghosts_to_archive = []
@@ -941,7 +1022,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 else:
                     print(f"  -> DIDN'T ARCHIVE {username} BECAUSE THEY'RE ON THE OPT IN LIST ")
             
-            self._save_user_data()
+            data_manager.request_save("user_data")
 
     def calculate_smink_bonus(self, now, is_rival):
         PRECISION_WINDOW_SECONDS = 42      # spike only within +/- 42 seconds of 4:20
@@ -1046,8 +1127,7 @@ class BABYBOT_DISCORD(commands.Bot):
         """Update Discord avatar using the most recent snapshot.
         Prefers the new HTTP API, with a robust 'newest' scorer, and falls back to local files.
         """
-        import aiohttp
-        from datetime import datetime
+        
 
         def _to_epoch(ts_val):
             """Convert various timestamp-like values to a float epoch seconds."""
@@ -1092,7 +1172,7 @@ class BABYBOT_DISCORD(commands.Bot):
             url = meta.get('png_url') or ''
             url_num = 0
             try:
-                import re
+                    
                 nums = [int(n) for n in re.findall(r"(\d{10,})", url)]
                 url_num = max(nums) if nums else 0
             except Exception:
@@ -1454,7 +1534,7 @@ class BABYBOT_DISCORD(commands.Bot):
             milestone_msg = f"i've been chatting with {self.getNickname(author)} loads lately. {stats_short}"
             self._buffer_add(self.formatMessage(self.babyName, milestone_msg))
             mem["next_talk_milestone"] = milestone + 50
-            self._save_user_data()
+            data_manager.request_save("user_data")
         uk_tz = pytz.timezone("Europe/London")
         now_uk = datetime.now(uk_tz)
         day_start_420am = now_uk.replace(hour = 4, minute = 20, second = 0, microsecond = 0)
@@ -1515,8 +1595,8 @@ class BABYBOT_DISCORD(commands.Bot):
                     ctx = await self.get_context(message)
                     self.cog._award_fact(author, nickname, ctx, 1)
 
-            self._save_user_data()
-            self.save_bbyfacts()
+            data_manager.request_save("user_data")
+            data_manager.request_save("bbyfacts")
             await self.update_avatar_from_snapshots()
 
         lower_content = content.lower()
@@ -1529,7 +1609,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 #self.updateBBY(original_author, 0.1)
                 original_bonus = self.bbyfacts[name]["teach_bonus"]
                 self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.9999) + ((original_bonus * (self.random + self.random2 + self.random3 + self.random4) * 0.00001))  # Much gentler price increase
-                self.save_bbyfacts()
+                data_manager.request_save("bbyfacts")
         in_baby_channel = message.channel.id == bby_spam
         is_bby_mentioned = self.user in message.mentions
         main_llm_aliases = {'babyllm', 'bby', 'bbyllm', 'bb', 'bllm', 'b'}
@@ -1658,8 +1738,7 @@ class BABYBOT_DISCORD(commands.Bot):
         emojis from the bot's faveEmotes collection for personalised signatures.
         """
         print("[MONTHLY_BBYBOOK] started (daily checks for end-of-month)")
-        import calendar
-        from datetime import datetime
+        
         
         # Wait a bit for bot to fully initialize
         await asyncio.sleep(30)
@@ -1741,7 +1820,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 
             except Exception as e:
                 print(f"[MONTHLY_BBYBOOK] error: {e}")
-                import traceback
+                
                 traceback.print_exc()
             
             # Sleep for 24 hours (check once per day)
@@ -1877,7 +1956,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 
             except Exception as e:
                 print(f"[INVENTORY_DECAY] error: {e}")
-                import traceback
+                
                 traceback.print_exc()
 
             # Sleep for 3 hours between decay cycles

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v1.2
+# v2.3
 
 import random, os
 import torch
@@ -709,22 +709,31 @@ class BABYLLM(nn.Module):
     @whocalled
     def getResponseFromLogits(self, _logits, _training=False, _totAvgAbsDelta = 0.0):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
+            # Ensure incoming logits are finite
             if not torch.isfinite(_logits).all():
                 _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
 
-            self.temperature = torch.exp(self.logTemp)
-            self.interneuronNetwork.temperature = self.temperature
-            logits_scaled = _logits / self.temperature
+            # Clamp temperature to a safe, non-zero range
+            raw_temp = torch.exp(self.logTemp)
+            safe_temp = raw_temp.clamp(min=0.1, max=5.0)
+            # Keep attrs up-to-date for any downstream consumers
+            self.temperature = safe_temp
+            self.interneuronNetwork.temperature = safe_temp
 
-            if torch.isnan(logits_scaled).any():
-                logits_scaled = torch.nan_to_num(logits_scaled, nan=0.0, posinf=1e3, neginf=-1e3)
+            # Scale logits and sanitize again to avoid inf/NaN after division
+            logits_scaled = _logits / safe_temp
+            logits_scaled = torch.nan_to_num(logits_scaled, nan=0.0, posinf=1e3, neginf=-1e3)
+            # Optional safety clamp to keep within softmax-stable range
+            logits_scaled = logits_scaled.clamp(min=-80.0, max=80.0)
 
             if logits_scaled.dim() == 1:
                 logits_scaled = logits_scaled.unsqueeze(0)
 
-            # Gumbel-Softmax
+            # Gumbel-Softmax (robust to tiny tau)
             try:
-                base_probs = F.gumbel_softmax(logits_scaled, tau=self.temperature, hard=False)
+                tau = float(safe_temp.detach().cpu().item())
+                tau = max(tau, 1e-2)
+                base_probs = F.gumbel_softmax(logits_scaled, tau=tau, hard=False)
                 assert torch.isfinite(base_probs).all(), "gumbelProbs has NaN or Inf!"
             except Exception as e:
                 self.gumBellend += 1
@@ -1130,4 +1139,3 @@ class PIXEL(nn.Module):
     
 if __name__ == "__main__":
     exit(0)
-

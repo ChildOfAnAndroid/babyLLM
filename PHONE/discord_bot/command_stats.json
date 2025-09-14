@@ -1,24 +1,24 @@
 {
   "babyllm": {
-    "total_uses": 65,
+    "total_uses": 70,
     "unique_users": [
       "charis"
     ]
   },
   "bbyteach": {
-    "total_uses": 29,
+    "total_uses": 39,
     "unique_users": [
       "childofanandroid"
     ]
   },
   "bbyspam": {
-    "total_uses": 2,
+    "total_uses": 4,
     "unique_users": [
       "childofanandroid"
     ]
   },
   "bbythink": {
-    "total_uses": 11,
+    "total_uses": 12,
     "unique_users": [
       "childofanandroid"
     ]
@@ -30,7 +30,13 @@
     ]
   },
   "bbyrandom": {
-    "total_uses": 471,
+    "total_uses": 533,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyrant": {
+    "total_uses": 1,
     "unique_users": [
       "childofanandroid"
     ]

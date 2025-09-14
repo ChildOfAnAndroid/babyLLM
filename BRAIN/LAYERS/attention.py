@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # GATED MULTI-HEAD ATTENTION LAYER // brain/LAYERS/attention.py
-# v1.2
+# v2.3
 
 import math
 import torch
@@ -31,8 +31,17 @@ class GATED_MHA(nn.Module):
             elif original_dim == 2: embeds = _embeds.unsqueeze(0)  # [1, seq, dim]
             else: embeds = _embeds  # already [batch, seq, dim]
             seq_len = embeds.size(1)
-            causal_mask = torch.triu(torch.full((seq_len, seq_len), float("-inf"), device=embeds.device), diagonal=1)
-            attn_out, _ = self.attn(embeds, embeds, embeds, need_weights=False, attn_mask=causal_mask,)
+            # Use a boolean causal mask to avoid -inf masking which can
+            # trigger NaNs on some MPS kernels when combined with fp32/16.
+            causal_mask = torch.triu(
+                torch.ones((seq_len, seq_len), dtype=torch.bool, device=embeds.device),
+                diagonal=1,
+            )
+            attn_out, _ = self.attn(
+                embeds, embeds, embeds,
+                need_weights=False,
+                attn_mask=causal_mask,
+            )
             # embeddings are scaled by sqrt(embedDimension) in the embed layer
             # which causes the raw attention output to grow very large.  Counter
             # this by normalising with the same scale (and sequence length) so

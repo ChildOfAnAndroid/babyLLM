@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM HELPERS // helpers.py
-# v1.2
+# v2.3
 
 # --- imports ---
 from __future__ import annotations
