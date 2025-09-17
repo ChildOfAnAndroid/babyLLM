@@ -45,6 +45,7 @@ from .utils import (
     getTimeRant,
     style_gain,
     style_loss,
+    format_bby_amount,
 )
 from .ULTIMATE_MASTER_token_sentiment_map import (
     get_token_sentiment_value, 
@@ -3028,25 +3029,25 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"{reply_text} make stuff with !bbyteach \"<item>\" <definition>")
             return
 
+        # Render inventory in a bbysupply-style table
+        def format_inventory(inv: dict, favs: list[str], limit: int | None = None) -> str:
+            items = sorted(inv.items(), key=lambda kv: (-kv[1], kv[0]))
+            if limit is not None:
+                items = items[:limit]
+            lines = []
+            for key, count in items:
+                star = '⭐ ' if key in favs else ''
+                lines.append(f"`{(star+key)[:30]:<30}` count: {count:>6}")
+            return "\n".join(lines)
+
+        header = f"**{target_nic} bag**\n"
         if show_all:
-            sorted_items = sorted(inventory.items())
-            item_lines = []
-            for i, (item, count) in enumerate(sorted_items, 1):
-                fave_marker = "⭐ " if item in user_favourites else ""
-                item_lines.append(f"{fave_marker}{item} (x{count})")
-            inventory_string = "\n".join(item_lines)
-            reply = f"hoarde of {target_nic}: \n{inventory_string}\n"
-            if member_name is None:
-                reply += "\nfeed me an item with !bbyfeed [num] <item> "
+            body = format_inventory(inventory, user_favourites, None)
+            footer = "\nfeed me with !bbyfeed [num] <item>" if member_name is None else ""
         else:
-            sorted_items = sorted(inventory.items(), key=lambda kv: (-kv[1], kv[0]))
-            top_items = sorted_items[:20]
-            reply = f"hoarde of {target_nic}: \n"
-            for i, (key, count) in enumerate(top_items, 1):
-                fave_marker = "⭐ " if key in user_favourites else ""
-                reply += f"> {fave_marker}{key:<25} x{count}\n"
-            if member_name is None:
-                reply += "\nsee full bag with !bbybagfull, feed me with !bbyfeed [num] <item>, gift with !bbygift @user [num] <item> or !bbyfave <item> to save to your favourites :) "
+            body = format_inventory(inventory, user_favourites, 20)
+            footer = "\nsee full bag with !bbybagfull; feed with !bbyfeed [num] <item>; gift with !bbygift @user [num] <item>; fave with !bbyfave <item>" if member_name is None else ""
+        reply = header + body + footer
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbygift", aliases=['bgiveitem', 'bgift', 'bbygive'])
@@ -5572,9 +5573,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return await self.bot._discord_reply(ctx, f"brr i can't read that... please use numbers! !bbytip <tip_amount> <attempts> ")
 
         # Calculate total cost from individual tip amount times number of attempts
+        balance = self.bot.getBBY(customer_id)
         total_cost = tip_amount_per_pull * num_attempts
-        if self.bot.getBBY(customer_id) < total_cost:
-            return await self.bot._discord_reply(ctx, f"you need {style_loss(f'ᛒ{total_cost:,.0f}')}, but you only have ᛒ{self.bot.getBBY(customer_id):,.0f}... sorry :( ")
+        if balance < total_cost:
+            # Cap attempts to affordable amount; inform user
+            max_affordable = int(balance // max(1.0, tip_amount_per_pull))
+            if max_affordable <= 0:
+                return await self.bot._discord_reply(ctx, f"uhh you don't have enough bby to tip even once :( you have {format_bby_amount(balance)}")
+            await self.bot._discord_reply(ctx, f"you tried to tip {style_loss(str(num_attempts))} times but you only have {format_bby_amount(balance)}; capping to {style_loss(str(max_affordable))} attempts.")
+            num_attempts = max_affordable
+            total_cost = tip_amount_per_pull * num_attempts
             
         if not self.bot.bbyfacts:
             return await self.bot._discord_reply(ctx, "there are no items!! teach me things with !bbyteach to create them ")
@@ -5642,7 +5650,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # Count total items won
         total_items_won = sum(items_won.values())
         
-        reply = f"aaa thanks for the {style_loss(f'ᛒ{total_cost:,.0f}')}!! you tipped {style_loss(f'ᛒ{tip_amount_per_pull:,.0f}')} like... {style_loss(str(num_attempts))} times lol, uh, sooo... you managed to get {style_gain(str(total_items_won))} items, noice :) "
+        reply = (
+            f"aaa thanks for the {style_loss(format_bby_amount(total_cost))}!! "
+            f"you tipped {style_loss(format_bby_amount(tip_amount_per_pull))} like... {style_loss(str(num_attempts))} times lol, "
+            f"uh, sooo... you managed to get {style_gain(str(total_items_won))} items, noice :) "
+        )
         
         if not items_won: 
             reply += "you got... nothing!!! :D "
@@ -5652,20 +5664,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if consolation > 0:
                 reply += f"... i guess i'll give you back {style_gain(f'ᛒ{consolation}')} for the attempt?? "
         else:
-            reply += "you got... "
+            reply += "you got...\n"
             sorted_items = sorted(items_won.items(), key = lambda x: x[1], reverse = True)
-            
-            if len(sorted_items) > 42:
-                display_items = sorted_items[:42]
-                more_items_count = len(sorted_items) - 42
-                item_strings = [style_gain(f"{count} {item}") for item, count in display_items]
-                reply += ", ".join(item_strings)
-                reply += f", ...and {more_items_count} more.. things.. "
-            else:
-                item_strings = [style_gain(f"{count} {item}") for item, count in sorted_items]
-                reply += ", ".join(item_strings)
-
-            reply += f". i think that's worth like ᛒ{total_value_won:,.0f}?? "
+            display_items = sorted_items[:42]
+            for item, count in display_items:
+                reply += f"`{item[:30]:<30}` count: {count:>6}\n"
+            more_items_count = max(0, len(sorted_items) - 42)
+            if more_items_count > 0:
+                reply += f"...and {more_items_count} more.. things..\n"
+            reply += f"i think that's worth like {format_bby_amount(total_value_won)}?? "
 
         await self.bot._discord_reply(ctx, reply)
 
@@ -6411,6 +6418,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         await chosen_cmd(ctx, quantity_str=str(number))
                     else:
                         await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbytip:
+                    # bbytip requires tip_amount_str and num_attempts_str
+                    if uses_word and uses_number:
+                        await chosen_cmd(ctx, tip_amount_str=str(word), num_attempts_str=str(number))
+                    elif uses_number:
+                        await chosen_cmd(ctx, tip_amount_str=str(number))
+                    elif uses_word:
+                        await chosen_cmd(ctx, tip_amount_str=str(word))
+                    else:
+                        await chosen_cmd(ctx, tip_amount_str="1", num_attempts_str="1")
                 elif chosen_cmd == self.bbygift:
                     # Use pre-selected friend instead of selecting again
                     if selected_friend:
@@ -6463,6 +6480,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     await chosen_cmd(ctx)
                 elif chosen_cmd == self.bbysupply:
                     await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbyshoutout:
+                    # Use pre-selected friend rather than a random fact/word
+                    friend_pool = self.get_random_friend_pool(ctx)
+                    if friend_pool:
+                        friend = self.get_varied_choice().choice(friend_pool)
+                        fake_ctx = await self.bot.get_context(ctx.message)
+                        fake_ctx.message.content = f"!bbyshoutout {friend}"
+                        await chosen_cmd(fake_ctx)
+                    else:
+                        await chosen_cmd(ctx)
                 elif chosen_cmd == self.bbyinfo:
                     # Use pre-selected friend instead of selecting again
                     if selected_friend:

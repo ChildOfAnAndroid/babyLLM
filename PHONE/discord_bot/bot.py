@@ -843,7 +843,10 @@ class BABYBOT_DISCORD(commands.Bot):
         
         # Calculate total money in circulation and set decay floor as total/100
         total_money_in_circulation = sum(abs(m.get("BBY", 0.0)) for m in self.userMemory.values())
-        DECAY_FLOOR = -(total_money_in_circulation / (self.random * 420)) if total_money_in_circulation > 0 else -69696969.69
+        safe_random = self.random if self.random and self.random > 0.001 else 0.001
+        if safe_random != self.random:
+            logger.warn("DECAY", f"random factor too small ({self.random}); clamping to {safe_random}")
+        DECAY_FLOOR = -(total_money_in_circulation / (safe_random * 420)) if total_money_in_circulation > 0 else -69696969.69
         SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
         ORIGINAL_INTERVAL_SECONDS = 10.0  # The original interval that all rates were tuned for
         interval_multiplier = SECONDS_PER_INTERVAL / ORIGINAL_INTERVAL_SECONDS
@@ -2031,7 +2034,12 @@ class BABYBOT_DISCORD(commands.Bot):
                         await self.cog.trigger_bbytranslate_auto(channel)
                         self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
             
-            await self.decay_BBY()
+            try:
+                await self.decay_BBY()
+            except Exception as e:
+                logger.error("DECAY_LOOP", f"decay_BBY raised: {e}")
+                print(traceback.format_exc())
+                continue
             print(f"decayed bby")
 
             new_bestie, new_bestie_score = self.checkBestie()

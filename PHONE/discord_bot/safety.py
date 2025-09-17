@@ -133,9 +133,9 @@ class SafetyValidator:
         
         # Different limits based on context - allow larger negative amounts for decay system
         if allow_large_negative:
-            # For decay operations, allow MUCH larger negative values (up to -1e18 BBY)
-            # This allows the decay system's own DECAY_FLOOR calculation to work properly
-            return SafetyValidator.clamp_value(amount, -1e18, 1e18, 0, context)
+            # For decay operations, allow very large magnitudes without clamping.
+            # Still require finite numbers via is_safe_number at the top.
+            return float(amount)
         else:
             # For normal transactions, allow meme values (no clamp, just NaN/Inf check)
             return float(amount)
