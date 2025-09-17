@@ -1,4 +1,4 @@
-# v2.3
+# v3.5
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -16,6 +16,7 @@ from config import *
 from secret import *
 from textCleaningTool import *
 import traceback
+import random
 import random as pyrandom
 import hashlib
 import calendar
@@ -177,6 +178,7 @@ class BABYBOT_DISCORD(commands.Bot):
         self.monthly_task = None
         self.decay_task = None
         self.training_queue = asyncio.Queue()
+        self._refresh_brain_randoms()
         self._load_baby_state()
         # preload training buffer for early enrichment
         try:
@@ -206,6 +208,10 @@ class BABYBOT_DISCORD(commands.Bot):
         self.cog = babyBot_DISCORD_COG(self)
         await self.add_cog(self.cog)
         
+    async def setup_hook(self):
+        await super().setup_hook()
+        self._ensure_random_task()
+
     def save_smink_highscore(self):
         with open(self.smink_highscore_path, "w") as f: json.dump(self.smink_highscore, f)
 
@@ -213,6 +219,51 @@ class BABYBOT_DISCORD(commands.Bot):
         """Get a random float value from one of the four random generators"""
         randoms = [self.random, self.random2, self.random3, self.random4]
         return pyrandom.choice(randoms)
+
+    def _refresh_brain_randoms(self):
+        """Refresh the four brain-influenced random values, with safe fallback."""
+        try:
+            base_values = [pyrandom.random() for _ in range(4)]
+            strengths = [pyrandom.random() * 0.4 for _ in range(4)]
+            influenced = [
+                self.get_brain_influence(base, strength)
+                for base, strength in zip(base_values, strengths)
+            ]
+        except Exception as e:
+            logger.error("RANDOMS", f"brain random refresh failed: {e}")
+            traceback.print_exc()
+            influenced = [pyrandom.random() for _ in range(4)]
+
+        self.random, self.random2, self.random3, self.random4 = influenced
+        return tuple(influenced)
+
+    def _ensure_random_task(self):
+        """Start or restart the 1s random tick background task."""
+        if self.random_task is not None and not self.random_task.done():
+            return
+
+        if not hasattr(self, "loop"):
+            # In very early initialisation fallback to global loop
+            task = asyncio.create_task(self.randoms_tick_loop())
+        else:
+            task = self.loop.create_task(self.randoms_tick_loop())
+        self.random_task = task
+        task.add_done_callback(self._handle_random_task_exit)
+
+    def _handle_random_task_exit(self, task: asyncio.Task):
+        try:
+            task.result()
+            logger.warn("RANDOMS", "random tick loop exited without error; restarting")
+        except asyncio.CancelledError:
+            logger.info("RANDOMS", "random tick loop cancelled")
+        except Exception as e:
+            logger.error("RANDOMS", f"random tick loop crashed: {e}")
+            traceback.print_exc()
+        finally:
+            self.random_task = None
+            # Keep the loop alive unless we were cancelled intentionally
+            if not task.cancelled():
+                self._ensure_random_task()
 
     class _VariedRNG:
         def __init__(self, seed: int):
@@ -1344,7 +1395,7 @@ class BABYBOT_DISCORD(commands.Bot):
         if self.idle_task is None: self.idle_task = self.loop.create_task(self.idleTrainChecker())
         if self.web_task is None: self.web_task = self.loop.create_task(self.bby_web_watcher())
         if self.training_worker is None: self.training_worker = self.loop.create_task(self.background_training_loop())
-        if self.random_task is None: self.random_task = self.loop.create_task(self.randoms_tick_loop())
+        self._ensure_random_task()
         if self.monthly_task is None: self.monthly_task = self.loop.create_task(self.monthly_bbybook_loop())
         if self.decay_task is None: self.decay_task = self.loop.create_task(self.inventory_decay_loop())
         # Initialise health monitoring in async context
@@ -1710,27 +1761,15 @@ class BABYBOT_DISCORD(commands.Bot):
         """
         print("[RANDOMS_TICK] started (1s updates with brain influence)")
         while True:
+            start = time.perf_counter()
             try:
-                # Generate base randoms
-                base_random = pyrandom.random()
-                base_random2 = pyrandom.random() 
-                base_random3 = pyrandom.random()
-                base_random4 = pyrandom.random()
-                
-                # Apply brain influence with independent random strength for each value
-                self.random = self.get_brain_influence(base_random, pyrandom.random() * 0.4)
-                self.random2 = self.get_brain_influence(base_random2, pyrandom.random() * 0.4)
-                self.random3 = self.get_brain_influence(base_random3, pyrandom.random() * 0.4)
-                self.random4 = self.get_brain_influence(base_random4, pyrandom.random() * 0.4)
-                
+                self._refresh_brain_randoms()
             except Exception as e:
                 print(f"[RANDOMS_TICK] error: {e}")
-                # Fallback to basic randoms on error
-                self.random = pyrandom.random()
-                self.random2 = pyrandom.random()
-                self.random3 = pyrandom.random()
-                self.random4 = pyrandom.random()
-            await asyncio.sleep(1.0)
+                self.random, self.random2, self.random3, self.random4 = [pyrandom.random() for _ in range(4)]
+
+            elapsed = time.perf_counter() - start
+            await asyncio.sleep(max(0.0, 1.0 - elapsed))
 
     async def monthly_bbybook_loop(self):
         """
@@ -2014,16 +2053,7 @@ class BABYBOT_DISCORD(commands.Bot):
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             # Apply brain influence to randoms here too
-            base_random = pyrandom.random()
-            base_random2 = pyrandom.random()
-            base_random3 = pyrandom.random()
-            base_random4 = pyrandom.random()
-            influence_strength = pyrandom.random() * 0.4
-            
-            self.random = self.get_brain_influence(base_random, influence_strength)
-            self.random2 = self.get_brain_influence(base_random2, influence_strength)
-            self.random3 = self.get_brain_influence(base_random3, influence_strength)
-            self.random4 = self.get_brain_influence(base_random4, influence_strength)
+            self._refresh_brain_randoms()
 
             if time.time() >= self.next_translate_time and self.cog:
                 # Only auto-start if no active translate sessions exist anywhere

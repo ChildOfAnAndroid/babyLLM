@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM HELPERS // helpers.py
-# v2.3
+# v3.5
 
 # --- imports ---
 from __future__ import annotations
@@ -38,10 +38,12 @@ def debug_print(*args, **kwargs) -> None:
 def register_grad_hooks(
     named_params: Iterable[Tuple[str, torch.Tensor]],
     hook_fn_provider: Callable[[str], Callable[[torch.Tensor], None]],
-) -> None:
+) -> list[torch.utils.hooks.RemovableHandle]:
+    handles: list[torch.utils.hooks.RemovableHandle] = []
     for name, param in named_params:
         if param.requires_grad:
-            param.register_hook(hook_fn_provider(name))
+            handles.append(param.register_hook(hook_fn_provider(name)))
+    return handles
 _json_cache: dict[str, str] = {}
 
 _json_cache: dict[str, str] = {}

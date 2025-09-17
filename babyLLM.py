@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v2.3
+# v3.5
 
 import random, os
 import torch
@@ -21,16 +21,9 @@ from brain.LAYERS.attention import GATED_MHA
 #from brain.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
-from helpers import clamp_param, get_grad_stats, debug_print, register_grad_hooks
+from helpers import clamp_param, get_grad_stats, debug_print
 
-gradient_stats = {}
-
-def save_grad_hook(name):
-    """A hook function that saves the stats of a tensor's gradient."""
-    def hook(grad):
-        if grad is not None:
-            gradient_stats[name] = get_grad_stats(grad)
-    return hook
+GRAD_SNAPSHOT_LIMIT = 8
 
 def log_param_to_length(log_param): return torch.sigmoid((1 - torch.exp(log_param)) * 0.1)
 
@@ -162,13 +155,20 @@ class BABYLLM(nn.Module):
             "longDecay": 0,
         }
 
-        excluded = {
-            "logGradClip",
-            "scheduledSamplingRate",
-            "logits.outputScale",
-            "logits.normOutputScale",
-        }
-        register_grad_hooks(((name, param) for name, param in self.named_parameters() if name not in excluded), save_grad_hook,)
+    def _snapshot_gradients(self, limit: int = GRAD_SNAPSHOT_LIMIT):
+        snapshot = []
+        for name, param in self.named_parameters():
+            grad = getattr(param, "grad", None)
+            if grad is None:
+                continue
+            try:
+                stats = get_grad_stats(grad)
+            except Exception:
+                continue
+            snapshot.append((name, stats))
+            if len(snapshot) >= limit:
+                break
+        return snapshot
 
     @whocalled
     def forward(self, _inputSeq = None, _pixel = None):
@@ -502,6 +502,9 @@ class BABYLLM(nn.Module):
     @whocalled
     def backward(self, _loss, _lossDelta):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
+            collect_grad_stats = (self.totalTurns % 100 == 0)
+            grad_snapshot = None
+
             if debugPrints:
                 tensor_snitch(self, "babyllm backward start")
                 tensor_snitch(self.memory, "babyllm backward start")
@@ -531,28 +534,6 @@ class BABYLLM(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"before = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
                         debug_print("Loss:", _loss.item())
-
-            if self.totalTurns % 100 == 0:
-                grad_log_output = "\n--- Gradient Vitals (before) ---\n"
-                for name, stats in gradient_stats.items():
-                    norm_val = stats['norm']
-                    sparsity_val = stats['sparsity']
-                    mean_val = stats['mean']
-                    std_val = stats['std']
-                    
-                    norm_style = self.calligraphist.S_getStat(f"{name}_norm", norm_val)
-                    sparsity_style = self.calligraphist.S_getStat(f"{name}_sparsity", sparsity_val)
-                    mean_style = self.calligraphist.S_getStat(f"{name}_mean", mean_val)
-                    std_style = self.calligraphist.S_getStat(f"{name}_std", std_val)
-                    
-                    grad_log_output += f"{name:<50} | "
-                    grad_log_output += f"Norm: {self.calligraphist.S_apply(norm_style, f'{norm_val:.12f}')} | "
-                    grad_log_output += f"Sparsity: {self.calligraphist.S_apply(sparsity_style, f'{sparsity_val:.6%}')} | "
-                    grad_log_output += f"Sparsity: {self.calligraphist.S_apply(mean_style, f'{mean_val:.6%}')} | "
-                    grad_log_output += f"Sparsity: {self.calligraphist.S_apply(std_style, f'{std_val:.6%}')}\n"
-                
-                print(grad_log_output)
-                gradient_stats.clear()
 
             if debugPrints: ʕっʘ‿ʘʔっ("loss.backward")
             debug_print(f"windowMAX: {self.numTokensPerStep}")
@@ -585,36 +566,6 @@ class BABYLLM(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
                     
-            if True and self.totalTurns % 100 == 0:# and debugPrints:
-                grad_log_output = "\n--- Gradient Vitals (after) ---\n"
-                for name, stats in gradient_stats.items():
-                    norm_val = stats['norm']
-                    sparsity_val = stats['sparsity']
-                    mean_val = stats['mean']
-                    std_val = stats['std']
-                    
-                    norm_style = self.calligraphist.S_getStat(f"{name}_norm", norm_val)
-                    sparsity_style = self.calligraphist.S_getStat(f"{name}_sparsity", sparsity_val)
-                    mean_style = self.calligraphist.S_getStat(f"{name}_mean", mean_val)
-                    std_style = self.calligraphist.S_getStat(f"{name}_std", std_val)
-                    
-                    grad_log_output += f"{name:<50} | "
-                    grad_log_output += f"norm: {self.calligraphist.S_apply(norm_style, f'{norm_val:.12f}')} | "
-                    grad_log_output += f"sparsity: {self.calligraphist.S_apply(sparsity_style, f'{sparsity_val:.6%}')} | "
-                    grad_log_output += f"mean: {self.calligraphist.S_apply(mean_style, f'{mean_val:.6f}')} | "
-                    grad_log_output += f"std: {self.calligraphist.S_apply(std_style, f'{std_val:.6f}')}\n"
-
-                for name, param in self.named_parameters():
-                    if param.requires_grad:
-                        data = param.data
-                        print(f"{name}: shape={tuple(data.shape)} | "
-                            f"min={data.min().item():.4f} max={data.max().item():.4f} "
-                            f"mean={data.mean().item():.4e} std={data.std().item():.4e} "
-                            f"nonzero%={(data != 0).float().mean().item()*100:.2f}%")
-            
-                print(grad_log_output)
-                gradient_stats.clear()
-
             if debugPrints: ʕっʘ‿ʘʔっ("torch.no_grad")
             with torch.no_grad(): # RESET LEARNABLE PARAMETERS
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
@@ -661,8 +612,13 @@ class BABYLLM(nn.Module):
                 clipValue = (base_clip + adjustment).clamp(min=1.0, max=7.5)
 
             # Now, use the dynamically calculated clipValue
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue.item())
+            total_grad_norm = torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue.item())
             self.gradientClipMaxNorm = clipValue.item() # Update stats
+            if collect_grad_stats:
+                grad_snapshot = self._snapshot_gradients()
+                grad_total_norm = float(total_grad_norm)
+            else:
+                grad_total_norm = None
             if debugPrints: ʕっʘ‿ʘʔっ("optimizer.step")
             self.optimizer.step()  # Update weights
             if debugPrints: ʕっʘ‿ʘʔっ("torch.exp(self.logRepetionWindow)")
@@ -691,6 +647,31 @@ class BABYLLM(nn.Module):
                 }
                 if debugPrints: ʕっʘ‿ʘʔっ("update self.stats with self.backwardStats")
                 self.stats.update(self.backwardStats)
+
+            if collect_grad_stats:
+                if grad_snapshot:
+                    grad_log_output = ["\n--- Gradient Snapshot ---"]
+                    for name, stats in grad_snapshot:
+                        norm_val = stats["norm"]
+                        sparsity_val = stats["sparsity"]
+                        mean_val = stats["mean"]
+                        std_val = stats["std"]
+                        norm_style = self.calligraphist.S_getStat(f"{name}_norm", norm_val)
+                        sparsity_style = self.calligraphist.S_getStat(f"{name}_sparsity", sparsity_val)
+                        mean_style = self.calligraphist.S_getStat(f"{name}_mean", mean_val)
+                        std_style = self.calligraphist.S_getStat(f"{name}_std", std_val)
+                        grad_log_output.append(
+                            f"{name:<50} | "
+                            f"norm: {self.calligraphist.S_apply(norm_style, f'{norm_val:.6f}')} | "
+                            f"sparsity: {self.calligraphist.S_apply(sparsity_style, f'{sparsity_val:.6%}')} | "
+                            f"mean: {self.calligraphist.S_apply(mean_style, f'{mean_val:.6f}')} | "
+                            f"std: {self.calligraphist.S_apply(std_style, f'{std_val:.6f}')}"
+                        )
+                    if grad_total_norm is not None:
+                        grad_log_output.append(f"total grad norm: {grad_total_norm:.6f}")
+                    print("\n".join(grad_log_output))
+                else:
+                    print("\n--- Gradient Snapshot ---\n(no gradients recorded)")
             #self.log_all_learnable_params(prefix="BACKWARD_")
             self.pixelLoss_used = 0
 
