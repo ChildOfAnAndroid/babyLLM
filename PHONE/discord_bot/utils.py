@@ -207,10 +207,19 @@ def getTimeRant(ai_opt_in_users):
     readable = now.strftime("%H:%M")
     weekday = now.strftime("%A").lower()
 
+    # ``hour_12`` can be ``"12"`` around midnight/noon.  When the minute is
+    # above 45 we previously tried to format phrases like ``"nearly 13am"`` by
+    # blindly adding one to the hour.  ``strftime("%I")`` already gives a
+    # 12-hour clock so we need to wrap around instead of overflowing to 13.
+    minute_int = int(minute)
+    hour_12_int = int(hour_12) if hour_12 else 0
+    next_hour_12 = (hour_12_int % 12) + 1 if hour_12_int else 1
+    next_hour_str = str(next_hour_12)
+
     approx_phrases = [
         f"it's {readable} rn",
         f"somewhere around {hour_12}:{minute}{ampm}",
-        f"nearly {int(hour_12)+1 if int(minute) > 45 else hour_12}{ampm}",
+        f"nearly {next_hour_str if minute_int > 45 else hour_12}{ampm}",
         f"just gone {hour_12}:{minute}",
         f"about {hour_12} o’clock",
         f"{readable}, give or take",

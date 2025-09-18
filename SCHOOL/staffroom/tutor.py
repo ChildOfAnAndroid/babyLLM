@@ -4,7 +4,7 @@
 # school/staffroom/tutor.py
 # v2.2
 
-import random, os, time
+import random, os, time, threading
 from collections import Counter, defaultdict
 import torch
 from config import *
@@ -16,9 +16,9 @@ from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from helpers import get_grad_stats, empty_mps_cache
 
 class TUTOR:
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _model_thread_lock,
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _model_thread_lock = None,
                  _numTokensPerStep              = numTokensPerStepSTART,
-                 _first                         = False, 
+                 _first                         = False,
                  _trainingLogFreq_A             = trainingLogFreq_A,
                  _perfectionistPassRateSTART    = perfectionistPassRateSTART,
                  _learningRateGOAL              = learningRateGOAL,
@@ -39,7 +39,11 @@ class TUTOR:
         self.librarian                  = _librarian
         self.device                     = _device
         self.model                      = _model
-        self.model_thread_lock          = _model_thread_lock
+        lock = _model_thread_lock or getattr(_model, "model_thread_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+        setattr(self.model, "model_thread_lock", lock)
+        self.model_thread_lock          = lock
         self.first                      = _first
         self.lastRunLoss                = _lastRunLoss
         self.totalTurnsAwake            = _totalTurnsAwake

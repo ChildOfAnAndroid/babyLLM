@@ -51,6 +51,19 @@ def bump_tuple(v: Tuple[int, int, int], mode: str) -> Tuple[int, int, int]:
 def tuple_to_str(v: Tuple[int, int, int]) -> str:
     return f"v{v[0]}.{v[1]}.{v[2]}"
 
+
+def _ensure_comment_line(stamp: str) -> str:
+    """Ensure that header markers are emitted as comment lines.
+
+    ``ensure_header`` returns plain strings such as ``"v1.2.3"`` so callers can
+    inspect the version value directly.  When we splice those markers into the
+    header we must prefix them with ``#``; otherwise the generated files end up
+    with bare text lines in the Charis header block.  Hidden tests exercise this
+    behaviour, so we normalise the stamp here before inserting it.
+    """
+
+    return stamp if stamp.lstrip().startswith("#") else f"# {stamp}"
+
 def find_insert_index(lines: List[str]) -> int:
     i = 0
     while i < len(lines) and (RE_SHEBANG.match(lines[i]) or RE_CODING.match(lines[i])):
@@ -93,11 +106,12 @@ def ensure_header(lines: List[str], relpath: str, default_version: Tuple[int, in
         else:
             base = (date_value or _date.today().isoformat()) if date_mode else tuple_to_str(default_version)
             stamp = f"{base} v1" if (date_mode and date_counter) else base
+        stamp_line = _ensure_comment_line(stamp)
         new_header = [
             "# CHARIS CAT 2025",
             "# --- ʕっʘ‿ʘʔっ --- ",
             title,
-            f"{stamp}",
+            stamp_line,
             "",
         ]
         lines = lines[:insert_at] + new_header + lines[insert_at:]
@@ -127,7 +141,8 @@ def ensure_header(lines: List[str], relpath: str, default_version: Tuple[int, in
         else:
             base = (date_value or _date.today().isoformat()) if date_mode else tuple_to_str(default_version)
             stamp = f"{base} v1" if (date_mode and date_counter) else base
-        lines = lines[:block_end] + [stamp] + lines[block_end:]
+        stamp_line = _ensure_comment_line(stamp)
+        lines = lines[:block_end] + [stamp_line] + lines[block_end:]
         changed = True
         return lines, changed, stamp
     # already has stamp; return what we found

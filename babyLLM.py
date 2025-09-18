@@ -3,7 +3,7 @@
 # BABYLLM // babyLLM.py
 # v2.2
 
-import random, os
+import random, os, threading
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -33,13 +33,14 @@ def log_param_to_length(log_param): return torch.sigmoid((1 - torch.exp(log_para
 """LOGITS: output layer to generate logits"""
 """it also manages training, loss computation, backpropagation, and response generation."""
 class BABYLLM(nn.Module):
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _numTokensPerStep, _learningRateGOAL = learningRateGOAL, _device = modelDevice, _first = True):
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _numTokensPerStep, _learningRateGOAL = learningRateGOAL, _device = modelDevice, _first = True, _model_thread_lock = None):
         super().__init__()
         self.device = _device
         self.counsellor = _counsellor
         self.calligraphist = _calligraphist
         self.scribe = _scribe
         self.librarian = _librarian
+        self.model_thread_lock = _model_thread_lock or threading.Lock()
         self.numTokensPerStep = _numTokensPerStep
         #self.wobble = _wobble
 
@@ -126,8 +127,14 @@ class BABYLLM(nn.Module):
         #self.optimizer = baseOptim
 
         if optimizerName == "Adan":
-            self.optimizer = Adan(self.parameters(), lr = learningRate, betas=(0.98, 0.92, 0.99), eps = 1e-6, weight_decay = 0.05)
-        if optimizerName == "Sophia":
+            self.optimizer = Adan(
+                self.parameters(),
+                lr=learningRate,
+                betas=(0.98, 0.92, 0.99),
+                eps=1e-6,
+                weight_decay=0.05,
+            )
+        elif optimizerName == "Sophia":
             self.optimizer = SophiaG(self.parameters(), lr=learningRate,  # start slightly lower LR than AdamW, Sophia can be aggressive
             betas=(0.965, 0.99), rho=0.04, weight_decay=0.05)
         else:
