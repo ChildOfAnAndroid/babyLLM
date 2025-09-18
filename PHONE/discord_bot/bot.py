@@ -1,4 +1,4 @@
-# v4.15
+# v4.17
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -6,6 +6,7 @@
 
 import os
 import json
+import threading
 import time
 import asyncio
 import discord
@@ -53,9 +54,10 @@ class BABYBOT_DISCORD(commands.Bot):
 
         # lock protects user dictionaries/file saves
         self._user_data_save_lock = asyncio.Lock()
-        
-        # lock protects the neural network
-        self.model_lock = asyncio.Lock()
+
+        # thread-safe lock for synchronous code.
+        self.model_thread_lock = threading.Lock()
+        self.babyLLM.model_thread_lock = self.model_thread_lock
         
         # --- Smink high score tracking ---
         self.smink_highscore_path = os.path.join(SCRIPT_DIR, "smink_highscore.json")

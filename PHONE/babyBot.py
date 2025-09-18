@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM TWITCH BOT // phone/babyBot.py
-# v4.15
+# v4.17
 
 import torch
 import time

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v4.15
+# v4.17
 
 import random, os
 import torch
@@ -173,148 +173,137 @@ class BABYLLM(nn.Module):
     @whocalled
     def forward(self, _inputSeq = None, _pixel = None):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
-            if debugPrints:
-                tensor_snitch(self, "babyllm forward start")
-                tensor_snitch(self.memory, "babyllm forward start")
-                tensor_snitch(self.memory2, "babyllm forward start")
-                tensor_snitch(self.embed, "babyllm forward start")
-                tensor_snitch(self.interneuronNetwork, "babyllm forward start")
-                tensor_snitch(self.logits, "babyllm forward start")
-            # debug_print(f"Debug: Input to forward: {_inputSeq}")  # DISABLED: causes hanging with large tensors
-            self.temperature = torch.exp(self.logTemp)
-            self.interneuronNetwork.temperature = self.temperature
-            self.pixel = _pixel
+            with self.model_thread_lock:
+                if debugPrints:
+                    tensor_snitch(self, "babyllm forward start")
+                    tensor_snitch(self.memory, "babyllm forward start")
+                    tensor_snitch(self.memory2, "babyllm forward start")
+                    tensor_snitch(self.embed, "babyllm forward start")
+                    tensor_snitch(self.interneuronNetwork, "babyllm forward start")
+                    tensor_snitch(self.logits, "babyllm forward start")
+                self.temperature = torch.exp(self.logTemp)
+                self.interneuronNetwork.temperature = self.temperature
+                self.pixel = _pixel
 
-            if debugPrints: ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
-            #inputEmbeds = self.embed(_inputSeq) # DIRECTLY TAKING A TENSOR NOW
-            tokenEmbed = self.embed(_tokenIndex = _inputSeq)
-            seq_len = tokenEmbed.shape[0]
-            pos_indices = torch.arange(seq_len, device = tokenEmbed.device)
-            posEmbed = self.embed.posEmbedding(pos_indices)
-            posEmbed = self.embed.posDropout(posEmbed * self.embed.scale)  # [seq_len, embed_dim]
-            if not skipPixels and (_pixel is not None):
-                rgbEmbed = self.embed(_pixel = _pixel)
-                debug_print("tokenEmbed:", tokenEmbed.shape)
-                debug_print("posEmbed:", posEmbed.shape)
-                debug_print("rgbEmbed:", rgbEmbed.shape)
-                #blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
-                #inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
-                blend = F.softmax(self.inputBlend, dim = 0)
-                inputEmbeds = blend[0] * tokenEmbed + blend[1] * posEmbed + blend[2] * rgbEmbed
-            else:
-                inputEmbeds = tokenEmbed
-            self.latestTokenEmbed = inputEmbeds
-            # Ensure latestTokenEmbed has proper dimensions for pixel regression
-            if hasattr(self, "pixelPupil") and len(self.latestTokenEmbed.shape) == 1:
-                # If 1D, ensure it matches expected embedding dimension
-                debug_print(f"[DEBUG] latestTokenEmbed is 1D with shape {self.latestTokenEmbed.shape}")
-            inputEmbeds = self.attention(inputEmbeds)
-            debug_print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
+                if debugPrints: ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
+                tokenEmbed = self.embed(_tokenIndex = _inputSeq)
+                seq_len = tokenEmbed.shape[0]
+                pos_indices = torch.arange(seq_len, device = tokenEmbed.device)
+                posEmbed = self.embed.posEmbedding(pos_indices)
+                posEmbed = self.embed.posDropout(posEmbed * self.embed.scale)  # [seq_len, embed_dim]
+                if not skipPixels and (_pixel is not None):
+                    rgbEmbed = self.embed(_pixel = _pixel)
+                    debug_print("tokenEmbed:", tokenEmbed.shape)
+                    debug_print("posEmbed:", posEmbed.shape)
+                    debug_print("rgbEmbed:", rgbEmbed.shape)
+                    #blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
+                    #inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
+                    blend = F.softmax(self.inputBlend, dim = 0)
+                    inputEmbeds = blend[0] * tokenEmbed + blend[1] * posEmbed + blend[2] * rgbEmbed
+                else: inputEmbeds = tokenEmbed
+                self.latestTokenEmbed = inputEmbeds
+                # Ensure latestTokenEmbed has proper dimensions for pixel regression
+                if hasattr(self, "pixelPupil") and len(self.latestTokenEmbed.shape) == 1:
+                    # If 1D, ensure it matches expected embedding dimension
+                    debug_print(f"[DEBUG] latestTokenEmbed is 1D with shape {self.latestTokenEmbed.shape}")
+                inputEmbeds = self.attention(inputEmbeds)
+                debug_print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
-            if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
+                if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
 
-            if True:
-                INNOutput = self.interneuronNetwork.forward(inputEmbeds)
-                debug_print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
-                debug_print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
-                debug_print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
+                if True:
+                    INNOutput = self.interneuronNetwork.forward(inputEmbeds)
+                    debug_print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
+                    debug_print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
+                    debug_print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
 
-                if debugPrints: ʕっʘ‿ʘʔっ("B2: memoryOutput") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
-                if skipMemory:
-                    debug_print("skipping memory layer...")
-                    memoryOutput = INNOutput
-                else:
-                    # --- RESIDUAL A: Pass the raw thought past the first memory layer ---
-                    memoryOutput = self.memory.forward(INNOutput) + INNOutput
+                    if debugPrints: ʕっʘ‿ʘʔっ("B2: memoryOutput") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
+                    if skipMemory:
+                        debug_print("skipping memory layer...")
+                        memoryOutput = INNOutput
+                    else:
+                        # --- RESIDUAL A: pass the raw thought past the first memory layer ---
+                        memoryOutput = self.memory.forward(INNOutput) + INNOutput
 
-                    memory2Input = (INNOutput * 0.5) + (memoryOutput * 0.5)
+                        memory2Input = (INNOutput * 0.5) + (memoryOutput * 0.5)
 
-                    # --- RESIDUAL B: Bypass the second Memory Layer ---
-                    memory2Output = self.memory2.forward(memory2Input) + memory2Input
-                    #self.latestMemGates = self.memory.latestMemoryGates
-                
-                # Creative modules removed; skip creative enhancement block entirely
-
-                if debugPrints: ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
-                logitsBeforePenalty = self.logits.forward(memory2Output)
-                debug_print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
-
-            if False: # standard transformer >:(
-                input_for_transformer = inputEmbeds.unsqueeze(0) 
-                transformer_output = self.transformer_block(input_for_transformer)
-                output_from_brain = transformer_output.squeeze(0)
-
-                logitsBeforePenalty = self.logits.forward(output_from_brain)
-
-            if debugPrints: ʕっʘ‿ʘʔっ("B4: applyRepetitionPenalty to logits")
-            if not torch.isfinite(self.logRepetitionWindow):
-                print("logRepetitionWindow has gone non-finite. Resetting.")
-                self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
-            if self.logRepetitionWindow > math.log(windowMAXSTART):
-                print("logRepetitionWindow is higher than windowMAXSTART. Resetting.")
-                self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
-            penalisedLogits = self.applyRepetitionPenalty(logitsBeforePenalty, _inputSeq)
-            
-            debug_print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
-            debug_print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
-            debug_print("before logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
-            debug_print("before logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
-            if skipFINALlogitNorm:
-                if debugPrints: ʕっʘ‿ʘʔっ("Bx: logits.forward")
-                FINALlogits = penalisedLogits
-            else:
-                FINALlogits = penalisedLogits 
-
-            debug_print("AFTER logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
-            debug_print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
-            debug_print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
-            debug_print("AFTER memory output requires_grad?", self.memory.longTermMemory.requires_grad)
-
-            if True:
-                if debugPrints: ʕっʘ‿ʘʔっ("stats collection!")
-                if _pixel is not None:
-                    blend_vals = blend.detach().cpu().tolist()
-                #self.inputEmbedsHistory.append(inputEmbeds.norm().item())
-                #self.INNOutputHistory.append(INNOutput.norm().item())
-                #self.memoryOutputHistory.append(memoryOutput.norm().item())
-                #self.memory2OutputHistory.append(memory2Output.norm().item())
-                #self.penalisedOutputHistory.append(penalisedLogits.norm().item())
-                self.FINALlogitsHistory.append(FINALlogits.norm().item())
-                if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
-                    self.forwardStats = {
-                        #"2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
-                        #"3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
-                        #"5B_0_memoryOutput_norm": sum(self.memoryOutputHistory) / len(self.memoryOutputHistory),
-                        #"5B_0b_memory2Output_norm": sum(self.memory2OutputHistory) / len(self.memory2OutputHistory),
-                        #"7B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
-                        "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
-                        #"B_blendPixel": self.blendPixel.item(),
-                    }
-                    self.forwardStats["B_blendToken"] = blend_vals[0]
-                    self.forwardStats["B_blendPos"] = blend_vals[1]
-                    self.forwardStats["B_blendPixel"] = blend_vals[2]
-                    debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
-                    self.stats.update(self.forwardStats)
+                        # --- RESIDUAL B: bypass the second Memory Layer ---
+                        memory2Output = self.memory2.forward(memory2Input) + memory2Input
+                        #self.latestMemGates = self.memory.latestMemoryGates
                     
-                    self.inputEmbedsHistory = []
-                    self.INNOutputHistory = []
-                    self.memoryOutputHistory = []
-                    self.memory2OutputHistory = []
-                    self.penalisedOutputHistory = []
-                    self.FINALlogitsHistory = []
-                    self.normalisedHistory = []
+                    if debugPrints: ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
+                    logitsBeforePenalty = self.logits.forward(memory2Output)
+                    debug_print("combinedActivations.requires_grad:", memoryOutput.requires_grad)
 
-            """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
-            #tokenEmbed = self.embed(_tokenIndex = _inputSeq)
-            #self.latestTokenEmbed = tokenEmbed
-            #self.log_all_learnable_params(prefix="FORWARD_")
-            if debugPrints:
-                tensor_snitch(self, "babyllm forward end")
-                tensor_snitch(self.memory, "babyllm forward end")
-                tensor_snitch(self.memory2, "babyllm forward end")
-                tensor_snitch(self.embed, "babyllm forward end")
-                tensor_snitch(self.interneuronNetwork, "babyllm forward end")
-                tensor_snitch(self.logits, "babyllm forward end")
+                if debugPrints: ʕっʘ‿ʘʔっ("B4: applyRepetitionPenalty to logits")
+                if not torch.isfinite(self.logRepetitionWindow):
+                    print("logRepetitionWindow has gone non-finite. Resetting.")
+                    self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
+                if self.logRepetitionWindow > math.log(windowMAXSTART):
+                    print("logRepetitionWindow is higher than windowMAXSTART. Resetting.")
+                    self.logRepetitionWindow.data = torch.tensor(math.log(repetitionWindowGOAL), device = self.device)
+                penalisedLogits = self.applyRepetitionPenalty(logitsBeforePenalty, _inputSeq)
+                
+                debug_print("before memory output requires_grad?", self.memory.longTermMemory.requires_grad)
+                debug_print("before cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
+                debug_print("before logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
+                debug_print("before logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
+                if skipFINALlogitNorm:
+                    if debugPrints: ʕっʘ‿ʘʔっ("Bx: logits.forward")
+                    FINALlogits = penalisedLogits
+                else:
+                    FINALlogits = penalisedLogits 
+
+                debug_print("AFTER logMemoryLength requires_grad?", self.logMemoryLength.requires_grad)
+                debug_print("AFTER logRepetitionWindow requires_grad?", self.logRepetitionWindow.requires_grad)
+                debug_print("AFTER cerebellum requires_grad?", self.interneuronNetwork.cerebellum.requires_grad)
+                debug_print("AFTER memory output requires_grad?", self.memory.longTermMemory.requires_grad)
+
+                if True:
+                    if debugPrints: ʕっʘ‿ʘʔっ("stats collection!")
+                    if _pixel is not None:
+                        blend_vals = blend.detach().cpu().tolist()
+                    #self.inputEmbedsHistory.append(inputEmbeds.norm().item())
+                    #self.INNOutputHistory.append(INNOutput.norm().item())
+                    #self.memoryOutputHistory.append(memoryOutput.norm().item())
+                    #self.memory2OutputHistory.append(memory2Output.norm().item())
+                    #self.penalisedOutputHistory.append(penalisedLogits.norm().item())
+                    self.FINALlogitsHistory.append(FINALlogits.norm().item())
+                    if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
+                        self.forwardStats = {
+                            #"2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
+                            #"3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
+                            #"5B_0_memoryOutput_norm": sum(self.memoryOutputHistory) / len(self.memoryOutputHistory),
+                            #"5B_0b_memory2Output_norm": sum(self.memory2OutputHistory) / len(self.memory2OutputHistory),
+                            #"7B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
+                            "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
+                            #"B_blendPixel": self.blendPixel.item(),
+                        }
+                        self.forwardStats["B_blendToken"] = blend_vals[0]
+                        self.forwardStats["B_blendPos"] = blend_vals[1]
+                        self.forwardStats["B_blendPixel"] = blend_vals[2]
+                        debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
+                        self.stats.update(self.forwardStats)
+                        
+                        self.inputEmbedsHistory = []
+                        self.INNOutputHistory = []
+                        self.memoryOutputHistory = []
+                        self.memory2OutputHistory = []
+                        self.penalisedOutputHistory = []
+                        self.FINALlogitsHistory = []
+                        self.normalisedHistory = []
+
+                """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
+                #tokenEmbed = self.embed(_tokenIndex = _inputSeq)
+                #self.latestTokenEmbed = tokenEmbed
+                #self.log_all_learnable_params(prefix="FORWARD_")
+                if debugPrints:
+                    tensor_snitch(self, "babyllm forward end")
+                    tensor_snitch(self.memory, "babyllm forward end")
+                    tensor_snitch(self.memory2, "babyllm forward end")
+                    tensor_snitch(self.embed, "babyllm forward end")
+                    tensor_snitch(self.interneuronNetwork, "babyllm forward end")
+                    tensor_snitch(self.logits, "babyllm forward end")
             return FINALlogits #, self.latestTokenEmbed
 
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
@@ -600,9 +589,6 @@ class BABYLLM(nn.Module):
                 #self.logLR.data.fill_(self.logLR+0.000001) # increment LR manually (break grid)
 
             if debugPrints: ʕっʘ‿ʘʔっ("clip_grad_norm")
-            #clipValue = 5 #torch.exp(self.logGradClip)
-            #torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = clipValue)
-            #self.gradientClipMaxNorm = clipValue
             with torch.no_grad():
                 base_clip = 5.0
                 sensitivity = 2.5 
@@ -611,16 +597,20 @@ class BABYLLM(nn.Module):
                 adjustment = (lossDelta_tensor * sensitivity)
                 clipValue = (base_clip + adjustment).clamp(min=1.0, max=7.5)
 
-            # Now, use the dynamically calculated clipValue
+            # Clip gradients BEFORE the lock to prevent NaNs
             total_grad_norm = torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue.item())
-            self.gradientClipMaxNorm = clipValue.item() # Update stats
+            self.gradientClipMaxNorm = clipValue.item()
+
+            if debugPrints: ʕっʘ‿ʘʔっ("optimizer.step") # Acquire the lock only for the weight update step
+            with self.model_thread_lock: self.optimizer.step()
+            self.optimizer.zero_grad()
+
             if collect_grad_stats:
                 grad_snapshot = self._snapshot_gradients()
                 grad_total_norm = float(total_grad_norm)
             else:
                 grad_total_norm = None
-            if debugPrints: ʕっʘ‿ʘʔっ("optimizer.step")
-            self.optimizer.step()  # Update weights
+                
             if debugPrints: ʕっʘ‿ʘʔっ("torch.exp(self.logRepetionWindow)")
             repWindow = torch.exp(self.logRepetitionWindow)
             if debugPrints: ʕっʘ‿ʘʔっ("set self.repetitionWindow")

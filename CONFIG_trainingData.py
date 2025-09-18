@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM 'rawDataFilepaths' // CONFIG_trainingData.py
-# v4.15
+# v4.17
 
 # --- imports ---
 import os

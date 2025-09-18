@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v4.15
+# v4.17
 
 import random, os, time
 from collections import Counter, defaultdict
@@ -16,7 +16,7 @@ from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from helpers import get_grad_stats, empty_mps_cache
 
 class TUTOR:
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, 
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _model_lock,
                  _numTokensPerStep              = numTokensPerStepSTART,
                  _first                         = False, 
                  _trainingLogFreq_A             = trainingLogFreq_A,
@@ -39,6 +39,7 @@ class TUTOR:
         self.librarian                  = _librarian
         self.device                     = _device
         self.model                      = _model
+        self.model_lock                 = _model_lock
         self.first                      = _first
         self.lastRunLoss                = _lastRunLoss
         self.totalTurnsAwake            = _totalTurnsAwake
@@ -460,8 +461,6 @@ class TUTOR:
     @whocalled
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss):
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
-            if debugPrints: ʕっʘ‿ʘʔっ("_model.optimizer.zero_grad")
-            self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
             #self.trainingStepCounter   += 1
             self.avgPixelDist = 0
             self.predictedTokenIndices  = []
