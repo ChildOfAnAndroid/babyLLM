@@ -16,7 +16,7 @@ import random
 import traceback
 from collections import defaultdict
 import time
-from phone.discord_bot.shoutouts import get_shoutout_prompts
+from PHONE.discord_bot.shoutouts import get_shoutout_prompts
 from .command_utils import get_status_line, get_thought_line
 
 defaultEye = 5

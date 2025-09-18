@@ -918,15 +918,26 @@ class BABYBOT_DISCORD(commands.Bot):
             # Global stats
             if command_name not in self.command_stats:
                 self.command_stats[command_name] = {"total_uses": 0, "unique_users": set()}
-            self.command_stats[command_name]["total_uses"] += 1
-            if isinstance(self.command_stats[command_name]["unique_users"], set):
-                self.command_stats[command_name]["unique_users"].add(author.lower())
+
+            command_entry = self.command_stats[command_name]
+            command_entry["total_uses"] += 1
+
+            author_lower = author.lower()
+            unique_users = command_entry.get("unique_users")
+
+            if isinstance(unique_users, set):
+                unique_users.add(author_lower)
+            elif isinstance(unique_users, list):
+                # Preserve historical users that were stored as JSON lists
+                unique_users = {str(user).lower() for user in unique_users}
+                unique_users.add(author_lower)
+                command_entry["unique_users"] = unique_users
             else:
-                # Convert old format if needed
-                self.command_stats[command_name]["unique_users"] = set([author.lower()])
-            
+                # Unknown type (e.g. None or str); reset to the current author
+                command_entry["unique_users"] = {author_lower}
+
             # User stats
-            user_mem = self.userMemory[author.lower()]
+            user_mem = self.userMemory[author_lower]
             if "command_usage" not in user_mem:
                 user_mem["command_usage"] = {}
             user_mem["command_usage"][command_name] = user_mem["command_usage"].get(command_name, 0) + 1

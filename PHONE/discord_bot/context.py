@@ -35,7 +35,27 @@ def create_fake_context(user_text: str, author: str = 'kevinonline420'):
         return FakeMessage(captured_reply, SimpleNamespace(name='babyLLM'))
 
     fake_channel = SimpleNamespace(name='web_channel', id=0)
-    fake_guild = SimpleNamespace(id=0, members=[], get_member=lambda id: None, fetch_member=lambda id: None)
+
+    async def _fake_fetch_member(_member_id):
+        """Return ``None`` for guild member fetches in fake contexts.
+
+        The real :meth:`discord.Guild.fetch_member` coroutine is awaited in
+        several places throughout the bot.  The previous synchronous lambda
+        caused ``TypeError: object NoneType can't be used in 'await'
+        expression`` when the fake context (used for web interactions) hit
+        those code paths.  Providing an async stub keeps behaviour aligned with
+        the real API and prevents the crash while still signalling that the
+        member doesn't exist.
+        """
+
+        return None
+
+    fake_guild = SimpleNamespace(
+        id=0,
+        members=[],
+        get_member=lambda member_id: None,
+        fetch_member=_fake_fetch_member,
+    )
     fake_author = SimpleNamespace(name=author, id=0, display_name=author, bot=False)
     fake_message = FakeMessage(user_text, fake_author, channel=fake_channel, guild=fake_guild, mentions=[])
     fake_command = SimpleNamespace(name='babyllm')  # Make it look like a babyllm command from web

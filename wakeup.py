@@ -17,8 +17,8 @@ from school.staffroom.HE_IS_SCRIBE import SCRIBE
 from school.staffroom.tutor import TUTOR
 from config import *
 from secret import *
-from phone.babyBot import BABYBOT_TWITCH
-from phone.babyBot_discord import *
+from PHONE.babyBot import BABYBOT_TWITCH
+from PHONE.babyBot_discord import *
 from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, append_to_files
 from helpers import get_grad_stats, empty_mps_cache
 

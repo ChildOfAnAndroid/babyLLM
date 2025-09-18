@@ -34,7 +34,7 @@ from secret import *
 from textCleaningTool import *
 
 from .shoutouts import get_shoutout_prompts
-from phone.command_utils import strip_ansi, get_status_line, get_thought_line
+from PHONE.command_utils import strip_ansi, get_status_line, get_thought_line
 from .utils import (
     escape_markdown,
     is_similar,
