@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v4.17
+# v1.3
 
 import random, os, time
 from collections import Counter, defaultdict
@@ -16,7 +16,7 @@ from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from helpers import get_grad_stats, empty_mps_cache
 
 class TUTOR:
-    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _model_lock,
+    def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _model_thread_lock,
                  _numTokensPerStep              = numTokensPerStepSTART,
                  _first                         = False, 
                  _trainingLogFreq_A             = trainingLogFreq_A,
@@ -39,7 +39,7 @@ class TUTOR:
         self.librarian                  = _librarian
         self.device                     = _device
         self.model                      = _model
-        self.model_lock                 = _model_lock
+        self.model_thread_lock          = _model_thread_lock
         self.first                      = _first
         self.lastRunLoss                = _lastRunLoss
         self.totalTurnsAwake            = _totalTurnsAwake
@@ -717,8 +717,6 @@ class TUTOR:
                     print(f"[DELTA FIX] Delta = {current_loss:.4f} - {self.averageRecentLoss:.4f} = {self.latestLossDelta:.4f}")
                 
             try:
-                self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 if profiler: 
                     with torch.profiler.profile(record_shapes = True) as prof:
                         self.model.backward(BACKWARDloss, self.latestLossDelta)

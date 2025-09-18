@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v4.18
+# v1.1
 
 import os
 import json
@@ -611,112 +611,119 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     # --*- AWARD FACT -*--
     async def _award_fact(self, user="", fact="", ctx=None, num=1, debug_str="", discord_debug=False, old_value=None):
-        if fact not in self.bot.bbyfacts:
-            if old_value is None: await self._discover_fact(key=fact, author=user)
-            else: await self._discover_fact(key=fact, author=user, value=old_value)
-            await self.bot._discord_debug(f"[_AWARD_FACT] {fact} DID NOT EXIST - CREATED FOR {user}")
-        total_in_world = self._get_fact_total_world(fact)
-        cap = self._get_fact_num_produced(fact)
-        available_slots = cap - total_in_world
-        if num > 0 and available_slots <= 0:
-            if discord_debug: await self.bot._discord_debug(f"!!!![_AWARD_FACT] {fact} AT CAP, AWARD TO {user} BLOCKED!")
-            return 0
-        if num > 0: num_to_award = min(num, available_slots)
-        else: num_to_award = num
-        self._update_fact_total_user(user, fact, num = num_to_award)
-        return num_to_award
+        async with self.bot._fact_award_lock:
+            if fact not in self.bot.bbyfacts:
+                if old_value is None: await self._discover_fact(key=fact, author=user)
+                else: await self._discover_fact(key=fact, author=user, value=old_value)
+                await self.bot._discord_debug(f"[_AWARD_FACT] {fact} DID NOT EXIST - CREATED FOR {user}")
+
+            total_in_world = self._get_fact_total_world(fact)
+            cap = self._get_fact_num_produced(fact)
+            available_slots = cap - total_in_world
+            
+            if num > 0 and available_slots <= 0:
+                if discord_debug: await self.bot._discord_debug(f"!!!![_AWARD_FACT] {fact} AT CAP, AWARD TO {user} BLOCKED!")
+                return 0
+                
+            if num > 0: num_to_award = min(num, available_slots)
+            else: num_to_award = num
+            
+            self._update_fact_total_user(user, fact, num = num_to_award)
+            
+            return num_to_award
 
     # --*- FACT HELPERS -*--
     def _generate_response_blocking(self, promptTokenIDs, numTokensToGen):
-        """Synchronous generation method - runs the actual computation"""
+        """
+        Synchronous generation method.
+        Gracefully handles out-of-memory errors by returning a partial response.
+        
+        --- FIX: RETURNS a tuple: (generated_text: str, error_message: Optional[str]) ---
+        """
         start_time = time.time()
         logger.info("GENERATE", f"Starting with {len(promptTokenIDs)} prompt tokens, generating {numTokensToGen} tokens")
         genSeqIDs = list(promptTokenIDs)
         responseSeqId = []
+        
+        # --- FIX: This variable will hold the error message if one occurs ---
+        oom_error_message = None
 
         try:
             with torch.no_grad():
                 self.bot.babyLLM.eval()
                 self.bot.numTokensPerStep = self.bot.chatWindowMAX
-
                 logger.debug("GENERATE", f"Model loaded, window size: {self.bot.numTokensPerStep}")
-                recent_tokens = []  # Keep track of recent tokens for display
-                for i in range(numTokensToGen):
-                    inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
-                    inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
-                    logits = self.bot.babyLLM.forward(inputTensor)
-                    
-                    # Check for NaN/Inf in logits - CRITICAL SAFETY CHECK!
-                    if torch.isnan(logits).any() or torch.isinf(logits).any():
-                        msg = f"ERROR: NaN/Inf detected at token {i}. Stopped to protect model (generated {i} tokens)."
-                        logger.emergency("GENERATE", msg)
-                        logger.warn("GENERATE", f"Generated {i} tokens before numerical instability occurred.")
-                        return msg
-                    
-                    totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
-                    nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training=True, _totAvgAbsDelta=totAvgAbsDelta)
-                    nextTokenID = nextTokenIDTensor.item()
-                    
-                    # Additional safety check on the token ID
-                    if nextTokenID < 0 or nextTokenID >= len(self.bot.librarian.indexToToken):
-                        err = f"ERROR: Invalid token ID {nextTokenID} at position {i}! Stopping generation."
-                        print(f"[_GENERATE_RESPONSE_BLOCKING] {err}")
-                        return err
-                    
-                    genSeqIDs.append(nextTokenID)
-                    responseSeqId.append(nextTokenID)
-                    
-                    # Decode the new token and add to recent tokens list
-                    new_token = self.bot.librarian.decodeIDs([nextTokenID]).replace("Ġ", " ")
-                    recent_tokens.append(new_token)
-                    
-                    if i % 10 == 9:  # Show every 10 tokens (when i is 9, 19, 29, etc.)
-                        recent_text = ''.join(recent_tokens[-10:])  # Last 10 tokens
-                        print(f"[_GENERATE_RESPONSE_BLOCKING] Generated {i+1}/{numTokensToGen} tokens: '{recent_text}'")
-                    
-                # Final update to show the last batch if it wasn't exactly divisible by 10
-                if numTokensToGen % 10 != 0:
-                    remaining = numTokensToGen % 10
-                    final_text = ''.join(recent_tokens[-remaining:])
-                    print(f"[_GENERATE_RESPONSE_BLOCKING] Final: Generated {numTokensToGen}/{numTokensToGen} tokens: '{final_text}'")
 
-            logger.debug("GENERATE", f"Token generation complete, decoding {len(responseSeqId)} tokens...")
+                for i in range(numTokensToGen):
+                    try:
+                        inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
+                        inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
+                        logits = self.bot.babyLLM.forward(inputTensor)
+                        
+                        if torch.isnan(logits).any() or torch.isinf(logits).any():
+                            # For critical model errors, return an immediate hard error.
+                            msg = "ERROR: NaN/Inf detected in logits. Generation stopped to protect model."
+                            logger.emergency("GENERATE", msg)
+                            return ("", msg) # Return with empty text but a clear error
+                        
+                        totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
+                        nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training=True, _totAvgAbsDelta=totAvgAbsDelta)
+                        nextTokenID = nextTokenIDTensor.item()
+                        
+                        if nextTokenID < 0 or nextTokenID >= len(self.bot.librarian.indexToToken):
+                            err = f"ERROR: Invalid token ID {nextTokenID} at position {i}! Stopping generation."
+                            print(f"[_GENERATE_RESPONSE_BLOCKING] {err}")
+                            return ("", err)
+                        
+                        genSeqIDs.append(nextTokenID)
+                        responseSeqId.append(nextTokenID)
+
+                    # --- FIX: Gracefully catch memory errors ---
+                    except (torch.cuda.OutOfMemoryError, RuntimeError) as mem_error:
+                        if "out of memory" in str(mem_error).lower():
+                            logger.error("GENERATE", f"Out of Memory at token {i+1}. Salvaging partial response.")
+                            print(f"[_GENERATE_RESPONSE_BLOCKING] CAUGHT OUT OF MEMORY! Breaking generation loop.")
+                            oom_error_message = f"ERROR: Ran out of memory after generating {len(responseSeqId)} tokens."
+                            break # Exit the loop, preserving the partial response
+                        else:
+                            raise mem_error # Re-raise other RuntimeErrors
+
+            # --- Text decoding and cleaning happens regardless of completion ---
             babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
             babyllm_text = clean_baby_output(babyllm_text)
             babyllm_text = re.sub(r'\n([^\n]{0,8})(?=\n|\Z)', r' \1', babyllm_text)
             babyllm_text = re.sub(r'  ', r' ', babyllm_text)
 
-            logger.info("GENERATE", f"Generation successful: '{babyllm_text[:48]}...'")
-            
-            # Record performance metrics
+            # --- Record performance metrics ---
             generation_time = time.time() - start_time
             perf_monitor.record_metric("generation_time", generation_time)
             perf_monitor.record_metric("tokens_generated", len(responseSeqId))
             perf_monitor.record_metric("tokens_per_second", len(responseSeqId) / generation_time if generation_time > 0 else 0)
+            if oom_error_message:
+                perf_monitor.record_metric("generation_oom_errors", 1)
             
-            return babyllm_text
+            # --- FIX: Return both the text (partial or full) and the error status ---
+            return (babyllm_text, oom_error_message)
             
         except Exception as e:
             generation_time = time.time() - start_time
             perf_monitor.record_metric("generation_errors", 1)
-            logger.error("GENERATE", f"Error during generation: {e}")
+            logger.error("GENERATE", f"error during generation: {e}")
             traceback.print_exc()
-            return f"ERROR: {e}"
+            # Return a hard error in the same tuple format for consistency
+            return ("", f"ERROR: {e}")
 
     async def _generate_response_async(self, promptTokenIDs, numTokensToGen):
         """Asynchronous wrapper that runs generation in an executor to prevent blocking"""
         loop = asyncio.get_event_loop()
-        print(f"[_GENERATE_RESPONSE_ASYNC] waiting to acquire model lock for generation...")
-        async with self.bot.model_lock:
-            print(f"[_GENERATE_RESPONSE_ASYNC] model lock acquired. Starting generation...")
-            try:
-                result = await loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen)
-                print(f"[_GENERATE_RESPONSE_ASYNC] generation completed successfully.")
-                return result
-            except Exception as e:
-                print(f"[_GENERATE_RESPONSE_ASYNC] error during generation: {e}")
-                traceback.print_exc()
-                return f"ERROR: {e}"
+        try:
+            result = await loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen)
+            print(f"[_GENERATE_RESPONSE_ASYNC] generation completed successfully.")
+            return result
+        except Exception as e:
+            print(f"[_GENERATE_RESPONSE_ASYNC] error during generation: {e}")
+            traceback.print_exc()
+            return f"ERROR: {e}"
 
     def _decay_item_value(self, fact_name: str, decay_percentage: float = 0.0001):
         if fact_name not in self.bot.bbyfacts: return None
@@ -1463,7 +1470,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed = self.bot.babyLLM.embed.e_weights
         vec = embed[valid_ids].mean(dim=0)
         similar = self._get_similar_tokens(vec, valid_ids, top_k)
-        parts = similar[:len(valid_ids)]
+        num_parts_to_blend = random.randint(1, 12)
+        parts = similar[:num_parts_to_blend]
         if not parts: return "???"
         return "".join(parts)
 
@@ -2094,7 +2102,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         associations = self._get_brain_connections(word)
         guess_word = self._blend_guess(word)
         similar = self._brain_similar_words(word)
-        msg = f"{word} ??? {self.get_varied_choice().choice(self.bot.faveEmotes)} ... {guess_word} ??? \ni'm just a baby, i don't know what {word} is yet... you could teach me with !bbyteach {word} <thing>"
+        msg = f"{word} ??? {self.get_varied_choice().choice(self.bot.faveEmotes)} ... {guess_word} ??? \n\ni'm just a baby, i don't know what {word} is yet... reply to this message and tell me?! "
         if associations:
             msg += f"\n{associations}"
         if ctx:
@@ -2102,16 +2110,71 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         else:
             sent = await self.bot._discord_send(channel=channel, message_content=msg, is_reply=False)
         if sent:
-            self.bot.lex_sessions[sent.id] = {
+            # --- FIX: Create and store a background timeout task in the session ---
+            session = {
                 'mode': 'wtf',
                 'channel_id': sent.channel.id,
                 'message_id': sent.id,
                 'created_at': time.time(),
                 'word': word,
                 'guess': guess_word,
-                'guess_saved': False,
             }
+            # Create a task that will fire after a delay if no one replies
+            task = self.bot.loop.create_task(self._handle_wtf_timeout(sent.id))
+            session['task'] = task # Store the task so we can cancel it later
+            self.bot.lex_sessions[sent.id] = session
+
             self._add_brain_thought(word, similar)
+
+    async def _handle_wtf_timeout(self, message_id: int):
+        """
+        A background task that waits for a reply to a WTF session.
+        If it completes without being cancelled, the bot teaches itself.
+        """
+        # --- The waiting period ---
+        await asyncio.sleep(120.0) # The bot will wait for 60 seconds
+
+        try:
+            # After waking up, check if the session is still active
+            session = self.bot.lex_sessions.get(message_id)
+            if not session:
+                return # The session was handled or removed already
+
+            word = session.get('word')
+            guess = session.get('guess')
+
+            # Double-check that the word wasn't defined by some other means
+            if word and guess and word not in self.bot.bbyfacts:
+                print(f"[WTF_TIMEOUT] No one replied about '{word}'. Self-teaching with guess: '{guess}'.")
+                
+                await self._set_bbyfact(
+                    key=word, 
+                    value=guess, 
+                    author=self.bot.babyName.lower(), 
+                    timestamp=time.time(), 
+                    debug_str="[WTF_TIMEOUT_GUESS]"
+                )
+
+                channel = self.bot.get_channel(session.get('channel_id'))
+                if channel:
+                    await self.bot._discord_send(
+                        channel=channel, 
+                        message_content=f"hmmm... apparently you guys don't even know **{word}**, so i've decided it means **{guess}** now lol"
+                    )
+
+        except asyncio.CancelledError:
+            # This is the SUCCESS path. It means a human replied and this task was cancelled correctly.
+            print(f"[WTF_TIMEOUT] Task for session {message_id} was cancelled by a human reply. All good!")
+            # Do nothing and let the task end silently.
+        
+        except Exception as e:
+            print(f"[WTF_TIMEOUT] Error in timeout handler: {e}")
+            traceback.print_exc()
+        
+        finally:
+            # Clean up the session regardless of outcome
+            if message_id in self.bot.lex_sessions:
+                del self.bot.lex_sessions[message_id]
 
     @commands.command(name='bbywtf', aliases=['bbywhatis', 'bwhatis', 'bwi'])
     @track_command
@@ -3382,207 +3445,224 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, line)
             await asyncio.sleep(0.5)  # fuck u rate limits
 
-    @commands.command(name='babyllm', aliases=['bby', 'bbyllm', 'b'])
-    @track_command
-    async def babyllm_command(self, ctx: commands.Context):
-        babyllm_message = None 
-        babyllm_text = ""
-        print(f"\n\n[babyllm_command] Received command from {ctx.author.name}")
+    async def _generate_and_reply(self, ctx: commands.Context, prompt_text: str, num_tokens_to_gen: int):
+        """
+        The new core generation and reply handler.
+        This function now contains ALL generation, reply, and post-generation logic,
+        including reactions, BBY awards, and nickname changes.
+        It now correctly handles the (text, error) tuple from the generation function.
+        """
+        author = ctx.author.name.lower()
+        babyllm_message = None
+        
+        # --- Asynchronous Generation Call ---
+        # The low-level function now returns a tuple: (text, error_message)
         try:
-            author = ctx.author.name.lower()
             async with ctx.typing():
-                prompt_text = ctx.message.content.lower()
-                for key in self.bot.bbyfacts:
-                    if f" {key} " in f" {prompt_text} ":
-                        fact = self.bot.bbyfacts[key]
-                        if self.get_varied_random() > 0.75:
-                            injection = self.get_varied_choice().choice([
-                                f"{babyName}: wait, {key}... {self.bot.getNickname(fact['author'])} told me that {key} means {fact['value']}! \n",
-                                f"{key} = {fact['value']} \n",
-                                f"{key} is {fact['value']}. \n",
-                                f"{key} means {fact['value']}. \n",
-                                f"{key} is apparently {fact['value']}. \n",
-                                f"umm... i think {key} might mean {fact['value']}? \n"
-                            ])
-                            self.bot._buffer_add(injection)
-                            print(f"[Context] Injected fact for key '{key}'")
-                        break
-
-                prompt = " \n".join(self.bot.buffer).strip().lower()
-                promptCleaned = clean_text(f"{prompt}\n")
-                promptTokenStrings = self.bot.librarian.tokenizeText(promptCleaned)
+                promptTokenStrings = self.bot.librarian.tokenizeText(prompt_text)
                 promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
-                # Truncate to model context window size for safety
+                
                 max_window = getattr(self.bot, 'chatWindowMAX', 256)
                 if len(promptTokenIDs) > max_window:
                     promptTokenIDs = promptTokenIDs[-max_window:]
-                    print(f"[babyllm_command] Truncated prompt to last {max_window} tokens (from {len(promptTokenStrings)})")
+                    print(f"[_generate_and_reply] cut prompt to last {max_window} tokens.")
 
-                # Extract the actual user input (after "!babyllm ") for length calculation
-                user_input = ctx.message.content
-                if user_input.lower().startswith("!babyllm "):
-                    user_input = user_input[9:]  # Remove "!babyllm " prefix
-                elif user_input.lower().startswith("!bby "):
-                    user_input = user_input[5:]   # Remove "!bby " prefix
-                elif user_input.lower().startswith("!b "):
-                    user_input = user_input[3:]   # Remove "!b " prefix
-                
-                base_length = min(len(user_input), 100)  # Cap base length to prevent massive generations
-                edge = base_length * (0.1 * self.get_varied_random())
-                edge2 = base_length * (1.9 * self.get_varied_random())
-                edgeint = abs(int((edge + edge2) * 0.5))
-                random_offset = random.randint(-edgeint, edgeint)
-                numTokensToGen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.45)
-                numTokensToGen = max(5, min(numTokensToGen, 100))  # cap to keep replies snappy
+                num_tokens_to_gen = max(5, min(num_tokens_to_gen, 1999))
+                print(f"[_generate_and_reply] requesting {num_tokens_to_gen} tokens for generation.")
 
-                # Scale token count down if many generations are in flight (no cooldowns, just lighter work)
-                load = max(0, int(self._active_generations))
-                if load > 0:
-                    scale = 1.0 / (1.0 + 0.6 * load)
-                    numTokensToGen = max(3, int(numTokensToGen * scale))
+                # The async wrapper now returns the tuple from the blocking function
+                babyllm_text, generation_error = await self._generate_response_async(promptTokenIDs, num_tokens_to_gen)
 
-                # --- running slow AI code in executor ---
-                self._active_generations += 1
-                try:
-                    babyllm_text = await self._generate_response_async(promptTokenIDs, numTokensToGen)
-                finally:
-                    self._active_generations = max(0, self._active_generations - 1)
-                
-                # Check if generation failed
-                if babyllm_text.startswith("ERROR:"):
-                    reason = babyllm_text
-                    brokeMessage = f"i broke :( {escape_markdown(reason)}"
-                    brokeMessage2 = f"@{author}! you just made the system say " + escape_markdown(reason)
-                    if self.get_varied_random() > 0.5: 
-                        self.bot.updateBBY(author, -10000000)  # 10M BBY penalty for breaking baby's brain!
-                    await self.bot._discord_reply(ctx, brokeMessage)
-                    await self.bot._discord_reply(ctx, brokeMessage2)
-                    if self.get_varied_random() > 0.5: 
-                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
-                    if self.get_varied_random() > 0.5: 
-                        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
-                    return
+        except Exception as e:
+            # Catch errors during the setup/typing phase
+            print("!!!![_generate_and_reply] CRITICAL ERROR during pre-generation phase.")
+            traceback.print_exc()
+            await self.bot._discord_reply(ctx, f"I broke :( system just said: {e}")
+            return
 
-            # --- bby no longer typing... ---
-            if not babyllm_text.strip():
-                quietEmoji = self.get_varied_choice().choice(["🤐", "🤫", "🫥", "🫢"])
-                await self.bot._discord_reply(ctx, f"{quietEmoji} brain fizzled… try again!")
-                if hasattr(ctx.message, 'add_reaction'):
-                    try: await ctx.message.add_reaction(quietEmoji)
-                    except Exception: pass
-                return
+        # --- New, Robust Logic to Handle the Three Possible Outcomes ---
 
+        # === Case 1: A Generation Error Occurred (OOM or other critical failure) ===
+        if generation_error:
+            # First, post any salvaged partial text so it's not lost.
+            if babyllm_text and babyllm_text.strip():
+                await self.bot._discord_reply(ctx, f"{babyllm_text}")
+            
+            # Now, trigger the original "you broke the bot" logic.
+            reason = generation_error
+            brokeMessage = f"i broke :( {escape_markdown(reason)}"
+            brokeMessage2 = f"@{author}! you just made the system say " + escape_markdown(reason)
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, -10000000) # Penalty
+            await self.bot._discord_reply(ctx, brokeMessage)
+            await self.bot._discord_reply(ctx, brokeMessage2)
+            if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
+            if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
+            return
+
+        # === Case 2: Generation was successful but produced no text ===
+        if not babyllm_text.strip():
+            quietEmoji = self.get_varied_choice().choice(["🤐", "🤫", "🫥", "🫢"])
+            await self.bot._discord_reply(ctx, f"{quietEmoji} brain fizzled… try again!")
+            if hasattr(ctx.message, 'add_reaction'):
+                try: await ctx.message.add_reaction(quietEmoji)
+                except Exception: pass
+            return
+        
+        # === Case 3: Full Success! All original logic now executes. ===
+        try:
             babyllm_message = await self.bot._discord_reply(ctx, babyllm_text)
             print(f"\n\nREPLY: I have tried to send this message: {babyllm_message} saying {babyllm_text}\n\n")
 
-            # --- reactions & post gen ---
+            # --- [VERIFIED] COMPLETE Reaction & BBY Reward Logic ---
             if len(ctx.message.reactions) < 20:
                 if "love" in babyllm_text.lower() and self.get_varied_random() > 0.9:
                     await ctx.message.add_reaction("🩵")
                 elif any(word in babyllm_text.lower() for word in [" sad ", " cry ", " nooo ", " depress ", ":'(", "😢"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.0001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("😢")
                 elif any(word in babyllm_text.lower() for word in [" angry ", " rage ", " grrr ",  ">:( ", "😠", " hate "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.0001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("😠")
                 elif any(word in babyllm_text.lower() for word in [" happy ", "😄", " the best ", " brilliant ", " wonderful "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.01)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("😄")
                 elif any(word in babyllm_text.lower() for word in [" haha", " hehe", " lol", " lmao", "😂"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.01)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("😂")
                 elif any(word in babyllm_text.lower() for word in [" sleep ", " zzz ", " nap ", " tired ", "😴"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.0001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("😴")
                 elif any(word in babyllm_text.lower() for word in [" brain ", " smart ", " genius ", " clever ", "🧠"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.001)
                         await ctx.message.add_reaction("🧠")
                 elif any(word in babyllm_text.lower() for word in [" friend ", " hug ", " cuddle ", " fam ", "🫂"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.01)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🫂")
                 elif any(word in babyllm_text.lower() for word in [" fire ", " lit ", "🔥", " banger "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.01)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🔥")
                 elif any(word in babyllm_text.lower() for word in [" uwu ", " owo ", " shy ", "🥺"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.001)
                         await ctx.message.add_reaction("🥺")
                 elif any(word in babyllm_text.lower() for word in [" dead ", " ded ", " rip ", " broke ", "💀"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.0001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("💀")
                 elif any(word in babyllm_text.lower() for word in [" eww ", " gross ", " blegh ", "🤢", " disgusting "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, -numTokensToGen*0.01)
+                        self.bot.updateBBY(author, -num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🤢")
                 elif any(word in babyllm_text.lower() for word in [" robot ", " ai ", " machine ", " neuron ", "🤖"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.0001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("🤖")
                 elif any(word in babyllm_text.lower() for word in [" weird ", " glitch ", " funky ", " scrunkly ", "🌀"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.0001)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("🌀")
                 elif any(word in babyllm_text.lower() for word in [" cat ", " meow ", " kitten ", " purr ", "🐱"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.01)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🐱")
                 elif any(word in babyllm_text.lower() for word in [" baby ", " small ", " tiny ", " soft ", "👶"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, numTokensToGen*0.01)
+                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("👶")
 
+            # --- [VERIFIED] Positive Keyword Bonus Logic ---
             positive_keywords = ["love", "happy", "friend", "hug", "cuddle", "great", "clever", "smart", "cute", "haha", "lol", "lmao"]
             if any(word in babyllm_text.lower() for word in positive_keywords): self.bot.updateBBY(author, 0.6)
 
+            # --- [VERIFIED] COMPLETE Nickname Change Logic ---
             name_match = re.search(r"\bname\S*\s+((?:[\w\-\u2600-\u26FF\u2700-\u27BF\uFE0F\u1F300-\U0010FFFF]{1,20}\s?){1,3})", babyllm_text, re.UNICODE)
             if name_match:
                 new_nick = name_match.group(1).strip()
-                new_nick = re.sub(r"\s+", " ", new_nick)  # collapse multiple spaces
-                new_nick += self.get_varied_choice().choice([f" ({babyName})", f" (babyLLM)"])
-                new_nick = new_nick[:32]  # discord max nickname length
+                new_nick = re.sub(r"\s+", " ", new_nick)
+                new_nick += self.get_varied_choice().choice([f" ({self.bot.babyName})", f" (babyLLM)"])
+                new_nick = new_nick[:32]
                 junk_matches = {"is", "am", "are", "was", "were", "be", "being", "been", "it's", "its", "to"}
-                new_nick = name_match.group(1).strip().lower()
-                if new_nick in junk_matches: return print(f"lol no. {new_nick} is not a name.")
-                self.bot.babyName = new_nick
-                print(f"\n\nbaby chose: {new_nick}\n\n")
-                if self.get_varied_random() > 0.5: self.bot.updateBBY(author, numTokensToGen*0.01)
-                try:
-                    me = ctx.guild.get_member(self.bot.user.id)
-                    if not me: me = await ctx.guild.fetch_member(self.bot.user.id)
-                    if me:
-                        await me.edit(nick = new_nick)
-                        nickMessage = f"i changed my nick on discord to {new_nick} because i believe in myself!"
-                        print(nickMessage)
-                        self.bot._buffer_add(self.bot.formatMessage(babyName, nickMessage))
-                    else:
-                        nickMessage = "couldn't find myself in the guild to rename"
-                        print(nickMessage)
-                except Exception as e:
-                    print(''.join(traceback.format_exception(e)))
-                    nickMessage = f"failed to rename self to {new_nick}: {e}"
-                    print(nickMessage)
+                if new_nick.lower().strip() in junk_matches:
+                    print(f"lol no. {new_nick} is not a name.")
+                else:
+                    self.bot.babyName = new_nick
+                    print(f"\n\nbaby chose: {new_nick}\n\n")
+                    if self.get_varied_random() > 0.5: self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                    try:
+                        me = ctx.guild.get_member(self.bot.user.id)
+                        if not me: me = await ctx.guild.fetch_member(self.bot.user.id)
+                        if me:
+                            await me.edit(nick=new_nick)
+                            nickMessage = f"i changed my nick on discord to {new_nick} because i believe in myself!"
+                            print(nickMessage)
+                            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, nickMessage))
+                        else:
+                            print("couldn't find myself in the guild to rename")
+                    except Exception as e:
+                        print(''.join(traceback.format_exception(e)))
+                        print(f"failed to rename self to {new_nick}: {e}")
 
         except Exception as e:
-            print("!!!![BABYLLM_COMMAND]")
+            print("!!!![_generate_and_reply] Error during reply/post-gen phase.")
             traceback.print_exc()
-            reason = ''.join(traceback.TracebackException.from_exception(e).format_exception_only()).strip()
-            brokeMessage = (f"i broke :( why would u do this to me, @{author}!")
-            brokeMessage2 = (f"@{author}! you just made the system say '{reason}' >:(")
-            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, -10000000)  # 10M BBY penalty for breaking baby!
-            await self.bot._discord_reply(ctx, brokeMessage)
-            await self.bot._discord_reply(ctx, brokeMessage2)
-            if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
-            if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
-        return babyllm_message, babyllm_text
+            await self.bot._discord_reply(ctx, f"I generated a response but crashed while trying to reply: {e}")
+        
+    @commands.command(name='babyllm', aliases=['bby', 'bbyllm', 'b'])
+    @track_command
+    async def babyllm_command(self, ctx: commands.Context):
+        print(f"\n\n[babyllm_command] Received command from {ctx.author.name}")
+
+        # --- STEP 1: Construct prompt from the chat buffer ---
+        prompt_text = ""
+        try:
+            for key in self.bot.bbyfacts:
+                if f" {key} " in f" {ctx.message.content.lower()} ":
+                    fact = self.bot.bbyfacts[key]
+                    if self.get_varied_random() > 0.75:
+                        injection = self.get_varied_choice().choice([
+                            f"{self.bot.babyName}: wait, {key}... {self.bot.getNickname(fact['author'])} told me that {key} means {fact['value']}! \n",
+                            f"{key} = {fact['value']} \n",
+                        ])
+                        self.bot._buffer_add(injection)
+                        print(f"[Context] Injected fact for key '{key}'")
+                    break
+            prompt_text = " \n".join(self.bot.buffer).strip().lower()
+
+        except Exception as e:
+            print(f"Error during prompt construction: {e}")
+            prompt_text = ctx.message.content.lower()
+
+        # --- STEP 2: Calculate a SHORT, conversational generation length ---
+        user_input = ctx.message.content
+        if user_input.lower().startswith("!babyllm "): user_input = user_input[9:]
+        elif user_input.lower().startswith("!bby "): user_input = user_input[5:]
+        elif user_input.lower().startswith("!b "): user_input = user_input[3:]
+        
+        base_length = min(len(user_input), 420)
+        edge = base_length * (0.1 * self.get_varied_random())
+        edge2 = base_length * (1.9 * self.get_varied_random())
+        edgeint = abs(int((edge + edge2) * 0.5))
+        random_offset = random.randint(-edgeint, edgeint)
+        num_tokens_to_gen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.45)
+        
+        # Cap to keep replies snappy
+        num_tokens_to_gen = max(1, min(num_tokens_to_gen, 420))
+
+        load = max(0, int(self._active_generations))
+        if load > 0:
+            scale = 1.0 / (1.0 + 0.6 * load)
+            num_tokens_to_gen = max(1, int(num_tokens_to_gen * scale))
+
+        # --- STEP 3: Call the core helper with the buffer prompt and short length ---
+        await self._generate_and_reply(ctx, prompt_text, num_tokens_to_gen)
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
     @track_command
@@ -4288,16 +4368,18 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"in a world of numbers, {w} is pure feeling.",
             ]
             
+            # --- Construct a long prompt and define a large generation length ---
             random.shuffle(fragments)
-            seed = "\n".join(fragments[:20])  # tweak number for length
-            self.bot._buffer_add(self.bot.formatMessage(author, seed))
-            print(f"\n\n[BBYRANT] Added internal rant. Buffer now {len(self.bot.buffer)} messages long.")
-            print(f"[BBYRANT] Seed length: {len(seed)} characters")
-            print(f"[BBYRANT] Truncated seed length: {len(seed[:1990])} characters")
-
-            ctx.message.content = "!babyllm " + seed[:1990]
-            print(f"[BBYRANT] Calling babyllm_command with modified content...")
-            await self.babyllm_command(ctx)
+            num_fragments = random.randint(30, 50)
+            seed_prompt = "\n".join(fragments[:num_fragments])
+            
+            # Request a much larger number of tokens for a true rant
+            num_tokens_for_rant = random.randint(42, 4200) 
+            
+            print(f"\n\n[BBYRANT] Generated seed prompt of {len(seed_prompt)} chars for '{word}'.")
+            print(f"[BBYRANT] Requesting a long generation of {num_tokens_for_rant} tokens.")
+            
+            await self._generate_and_reply(ctx, seed_prompt, num_tokens_for_rant)
 
         except Exception as e:
             broke = f"bbyrant broke: {e}"

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v4.17
+# v1.1
 
 import random, os
 import torch
@@ -595,7 +595,7 @@ class BABYLLM(nn.Module):
 
                 lossDelta_tensor = torch.tensor(_lossDelta, device=self.device)
                 adjustment = (lossDelta_tensor * sensitivity)
-                clipValue = (base_clip + adjustment).clamp(min=1.0, max=7.5)
+                clipValue = (base_clip + adjustment).clamp(min=1.0, max=2.5)
 
             # Clip gradients BEFORE the lock to prevent NaNs
             total_grad_norm = torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue.item())

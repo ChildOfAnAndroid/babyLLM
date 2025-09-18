@@ -1,4 +1,4 @@
-# v4.17
+# v1.1
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -6,7 +6,6 @@
 
 import os
 import json
-import threading
 import time
 import asyncio
 import discord
@@ -52,12 +51,11 @@ class BABYBOT_DISCORD(commands.Bot):
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_spam,
                  rollingContextSize = rollingContextSize, idleTrainSeconds = 100, N = rollingContextSize - 1):
 
+        self.babyLLM, self.tutor, self.librarian, self.scribe, self.calligraphist = babyLLM, tutor, librarian, scribe, calligraphist
+
         # lock protects user dictionaries/file saves
         self._user_data_save_lock = asyncio.Lock()
-
-        # thread-safe lock for synchronous code.
-        self.model_thread_lock = threading.Lock()
-        self.babyLLM.model_thread_lock = self.model_thread_lock
+        self._fact_award_lock = asyncio.Lock()
         
         # --- Smink high score tracking ---
         self.smink_highscore_path = os.path.join(SCRIPT_DIR, "smink_highscore.json")
@@ -93,7 +91,6 @@ class BABYBOT_DISCORD(commands.Bot):
         self.errorValues = ["how did you manage to make this item!?"]
         self.errorAuthors = ["the void", "missingno", "error!", "NaN"]
         
-        self.babyLLM, self.tutor, self.librarian, self.scribe, self.calligraphist = babyLLM, tutor, librarian, scribe, calligraphist
         self.babyName, self.lastClockAnnounce = babyName, 0
         # Bots that are allowed to issue commands to babyllm. Messages from all bots
         # are processed, but only these bots are trusted to run commands.
@@ -769,20 +766,30 @@ class BABYBOT_DISCORD(commands.Bot):
     def save_bbycraft_recipes(self): self._save_json(self.bbycraft_recipes_path, self.bbycraft_recipes, "_SAVE_CRAFT_RECIPES", ensure_ascii = False)
     def save_opt_in_users(self): self._save_json(self.opt_in_path, self.AIoptInUsers, "_SAVE_OPTIN")
 
-    async def handle_wtf_reply(self, message, data):
-        word = data.get('word')
-        guess = data.get('guess')
+    async def handle_wtf_reply(self, message, sess):
+        task = sess.get('task')
+        if task and not task.done(): task.cancel()
+
+        word = sess.get('word')
+        guess = sess.get('guess')
         definition = message.clean_content.strip()
         author = str(message.author.name).lower()
-        try:
-            await message.add_reaction(random.choice(self.wtf_reacts))
-        except discord.errors.Forbidden:
-            pass
+        
+        try: await message.add_reaction(random.choice(self.wtf_reacts))
+        except discord.errors.Forbidden: pass
+            
         if word and word not in self.bbyfacts:
-            await self.cog._set_bbyfact(key=word, value=definition, author=author, timestamp=time.time(), debug_str="[BBYWTF]")
-        if guess and not data.get('guess_saved') and guess not in self.bbyfacts:
-            await self.cog._set_bbyfact(key=guess, value=f"bby's guess for {word}", author=self.babyName.lower(), timestamp=time.time(), debug_str="[BBYWTF_GUESS]")
-            data['guess_saved'] = True
+            await self.cog._set_bbyfact(
+                key=word, 
+                value=definition, 
+                author=author, 
+                timestamp=time.time(), 
+                debug_str="[BBYWTF_REPLY]"
+            )
+        
+        ref_id = message.reference.message_id
+        if ref_id in self.lex_sessions:
+            del self.lex_sessions[ref_id]
 
     def getNickname(self, author):
         if not author:
@@ -2093,15 +2100,10 @@ class BABYBOT_DISCORD(commands.Bot):
         trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = trainingNum, _stride = trainingDataStride, _tokens = tokensToLibrarian)
         self.babyLLM.train()
         
-        # Acquire the lock BEFORE running the synchronous training code in the executor.
-        print("[TRAINING] waiting to acquire model lock...")
-        async with self.model_lock:
-            print("[TRAINING] model lock acquired. starting training step.")
-            await self.loop.run_in_executor(
-                None,
-                lambda: self.tutor.trainModel(_trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1)
-            )
-            print("[TRAINING] model lock released.")
+        await self.loop.run_in_executor(
+            None,
+            lambda: self.tutor.trainModel(_trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1)
+        )
 
         # If we trained from the training buffer, drop the oldest entry
         try:

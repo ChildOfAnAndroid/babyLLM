@@ -1,12 +1,13 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
-# v4.17
+# v1.1
 
 from rich.traceback import install
 #from torch.profiler import profile, record_function, ProfilerActivity
 import sys, warnings, torch, random
 from datetime import datetime
 import time
+import threading
 
 from babyLLM import BABYLLM
 from school.staffroom.counsellor import COUNSELLOR
@@ -64,13 +65,13 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                                                 _first                  = first,
                                                 _learningRateGOAL       = lrGoal,)
 
-            babyLLM.model_lock  = threading.Lock()
+            babyLLM.model_thread_lock  = threading.Lock()
             tutor               = TUTOR     (_counsellor                    = counsellor,
                                                 _calligraphist              = calligraphist, 
                                                 _scribe                     = scribe,
                                                 _librarian                  = librarian, 
                                                 _model                      = babyLLM,
-                                                _model_lock                 = babyLLM.model_thread_lock,
+                                                _model_thread_lock          = babyLLM.model_thread_lock,
                                                 _device                     = modelDevice,
                                                 _numTokensPerStep           = windowMAX,
                                                 _dataStride                 = dataStride,
