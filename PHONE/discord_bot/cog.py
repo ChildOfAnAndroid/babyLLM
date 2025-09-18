@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v3.7
+# v4.14
 
 import os
 import json
@@ -67,9 +67,9 @@ try:
         BabyNeuralSentimentIntegration
     )
     ENHANCED_SENTIMENT_AVAILABLE = True
-    print("🧠💫 enhanced sentiment system loaded for discord bot!")
+    print("enhanced sentiment system loaded for discord bot!")
 except ImportError as e:
-    print(f"⚠️ enhanced sentiment system not available: {e}")
+    print(f"enhanced sentiment system not available: {e}")
     ENHANCED_SENTIMENT_AVAILABLE = False
 
 if TYPE_CHECKING:
@@ -385,9 +385,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if ENHANCED_SENTIMENT_AVAILABLE:
             try:
                 self.enhanced_sentiment = BabyNeuralSentimentIntegration(bot)
-                print("🧠💫 enhanced sentiment system initialised in discord cog!")
+                print("enhanced sentiment system initialised in discord cog!")
             except Exception as e:
-                print(f"⚠️ failed to initialise enhanced sentiment: {e}")
+                print(f"failed to initialise enhanced sentiment: {e}")
                 self.enhanced_sentiment = None
         else:
             self.enhanced_sentiment = None
@@ -706,16 +706,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def _generate_response_async(self, promptTokenIDs, numTokensToGen):
         """Asynchronous wrapper that runs generation in an executor to prevent blocking"""
         loop = asyncio.get_event_loop()
-        print(f"[_GENERATE_RESPONSE_ASYNC] Starting generation: {len(promptTokenIDs)} prompt tokens -> {numTokensToGen} new tokens")
-        try:
-            # No timeout - let it run as long as needed, but in executor to prevent Discord blocking
-            result = await loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen)
-            print(f"[_GENERATE_RESPONSE_ASYNC] Generation completed successfully: {len(result)} characters")
-            return result
-        except Exception as e:
-            print(f"[_GENERATE_RESPONSE_ASYNC] Error during generation: {e}")
-            traceback.print_exc()
-            return f"ERROR: {e}"
+        print(f"[_GENERATE_RESPONSE_ASYNC] waiting to acquire model lock for generation...")
+        async with self.bot.model_lock:
+            print(f"[_GENERATE_RESPONSE_ASYNC] model lock acquired. Starting generation...")
+            try:
+                result = await loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen)
+                print(f"[_GENERATE_RESPONSE_ASYNC] generation completed successfully.")
+                return result
+            except Exception as e:
+                print(f"[_GENERATE_RESPONSE_ASYNC] error during generation: {e}")
+                traceback.print_exc()
+                return f"ERROR: {e}"
 
     def _decay_item_value(self, fact_name: str, decay_percentage: float = 0.0001):
         if fact_name not in self.bot.bbyfacts: return None
@@ -1168,54 +1169,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except Exception as e:
             print(f"[SENTIMENT_BBY_BONUS] Error: {e}")
             return 0.0, ""
-
-    def _social_pressure_decay(self, user_id: str):
-        """Decay based on social dynamics - being unpopular is expensive!"""
-        try:
-            all_users = {u: m.get("BBY", 0) for u, m in self.bot.userMemory.items() if "BBY" in m}
-            user_bby = self.bot.getBBY(user_id)
-            
-            # If you're in bottom 20% of users, social pressure costs you
-            sorted_users = sorted(all_users.items(), key=lambda x: x[1], reverse=True)
-            user_rank = next((i for i, (u, _) in enumerate(sorted_users, 1) if u == user_id), None)
-            
-            if user_rank and user_rank > len(sorted_users) * 0.8:  # Bottom 20%
-                penalty = self._calculate_contextual_bby(user_id, base_percentage=0.02, is_penalty=True)
-                self.bot.updateBBY(user_id, penalty)
-                print(f"[SOCIAL_DECAY] {user_id} (rank #{user_rank}) lost {penalty:,.0f} BBY to social pressure")
-                return f"social anxiety tax (you're rank #{user_rank})", penalty
-                
-        except Exception as e:
-            print(f"[SOCIAL_PRESSURE_DECAY] Error: {e}")
-            
-        return None, 0
-
-    def _item_jealousy_decay(self, user_id: str):
-        """Items get jealous of each other and lose value - drama!"""
-        user_inventory = self.bot.userMemory.get(user_id, {}).get("inventory", {})
-        if len(user_inventory) < 2: return None, 0
-        
-        # Pick two random items to have drama
-        items = list(user_inventory.keys())
-        item1, item2 = self.get_varied_choice().sample(items, 2)
-        
-        value1 = self._get_fact_value(item1)
-        value2 = self._get_fact_value(item2)
-        
-        # Higher value item gets jealous of attention, lower value item gets insecure
-        if value1 > value2:
-            # Expensive item gets jealous
-            self._decay_item_value(item1, decay_percentage=0.02)
-            # Cheap item gets motivated and gains value
-            if item2 in self.bot.bbyfacts:
-                self.bot.bbyfacts[item2]['teach_bonus'] *= 1.01  # 1% boost
-            print(f"[ITEM_DRAMA] {item1} got jealous of attention to {item2}")
-            return f"your {item1} got jealous and lost value", 0
-        else:
-            # Cheap item gets insecure
-            self._decay_item_value(item2, decay_percentage=0.015)
-            print(f"[ITEM_DRAMA] {item2} got insecure next to expensive {item1}")
-            return f"your {item2} felt insecure and lost confidence", 0
 
     def _get_fact_value_base(self, fact = None): 
         if fact not in self.bot.bbyfacts: self._set_bbyfact(key = fact)
@@ -1772,6 +1725,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not key:
             return await self.bot._discord_reply(ctx, "oh woww! nothing!? hot.")
 
+        # Check if the fact already exists
         if key in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[key]
             original_author = fact['author']
@@ -1781,13 +1735,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, reply)
             return
 
+        # Input length validation
         if len(key) > 50:
             await self.bot._discord_debug(f"[_TEACH] KEY LENGTH OVER 50, CANCELLING UPDATE FOR {key} ")
             return await self.bot._discord_reply(ctx, "long af... too long actually... could you keep the thing you're defining under like 50 characters? ")
         if len(value) > 300:
-            await self.bot._discord_debug(f"[_TEACH] DEFINITION LENGTH OVER 200, CANCELLING UPDATE FOR {key} ")
+            await self.bot._discord_debug(f"[_TEACH] DEFINITION LENGTH OVER 300, CANCELLING UPDATE FOR {key} ")
             return await self.bot._discord_reply(ctx, "long af... too long actually... could you keep the description under like 300 characters? ")
 
+        # --- Step 1: Calculate a complex base value (from your new code) ---
         fullBestieboard = [
             (u, m["BBY"])
             for u, m in self.bot.userMemory.items()
@@ -1800,88 +1756,24 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         growth_base = math.sqrt(totalBBY)
         participation = 0.35 + (self.get_varied_random() ** 0.6) * 0.75
-
         base_increment = (growth_base * participation * max(0.05, 1.0 - ownership_share)) + 1
 
-        # Additional jitter from multiple random pools to keep things spicy
         base_entropy = 0.6 + (self.get_varied_random() ** 1.1) * 1.4
         time_tilt = 0.8 + abs(math.sin(time.time() * (0.5 + self.get_varied_random()))) * 0.6
         legacy_noise = 0.5 + random.random() * 1.5
-
         base_increment *= base_entropy * time_tilt * legacy_noise
 
-        if self.get_varied_random() > 0.92:
-            base_increment *= 1.5 + (self.get_varied_random() ** 1.8) * 3.0
-        elif self.get_varied_random() < 0.12:
-            base_increment *= 0.35 + (self.get_varied_random() ** 1.3) * 0.7
-
-        # Determine soft limit: never allow a new teach to exceed 2× the most valuable existing item
-        miqote_baseline = 0.0
-        miqote_fact = self.bot.bbyfacts.get("miqo'te")
-        if isinstance(miqote_fact, dict):
-            try:
-                miqote_baseline = float(miqote_fact.get("teach_bonus", 0.0))
-            except (TypeError, ValueError):
-                miqote_baseline = 0.0
-
-        current_top_value = 0.0
-        for fact in self.bot.bbyfacts.values():
-            if not isinstance(fact, dict):
-                continue
-            try:
-                fact_teach_bonus = float(fact.get("teach_bonus", 0.0))
-            except (TypeError, ValueError):
-                continue
-            if fact_teach_bonus > current_top_value:
-                current_top_value = fact_teach_bonus
-
-        if current_top_value <= 0:
-            current_top_value = miqote_baseline if miqote_baseline > 0 else 420.0
-        max_allowed = max(840.0, current_top_value * 2.0)
-
-        base_random = self.get_varied_random()
-        floor_ratio = (base_random ** 1.5) * 0.2
-        if self.get_varied_random() < 0.08:
-            floor_ratio = 0.0
-
-        ceiling_random = self.get_varied_random()
-        ceiling_ratio = 0.2 + (ceiling_random ** 0.8) * 1.8
-        ceiling_ratio = max(ceiling_ratio, floor_ratio + 0.02)
-
-        ownership_tilt = max(0.05, (1.0 - ownership_share) ** 0.9)
-        floor_ratio *= ownership_tilt
-        ceiling_ratio = min(2.0, ceiling_ratio * (0.75 + ownership_tilt * 0.5))
-
-        dynamic_floor = max(420.0, current_top_value * floor_ratio)
-        floor_fuzz = 0.75 + random.random() * 0.8
-        dynamic_floor *= floor_fuzz
-
-        dynamic_limit = max(
-            dynamic_floor * (1.0 + self.get_varied_random() * 3.5),
-            current_top_value * ceiling_ratio,
-            840.0,
-        )
-
-        limit_noise = 0.8 + random.random() * 0.4
-        dynamic_limit *= limit_noise
-
-        if self.get_varied_random() > 0.985:
-            dynamic_limit = max(dynamic_limit, current_top_value * (2.0 + self.get_varied_random() * 8.0))
-
-        dynamic_limit = min(dynamic_limit, max_allowed * 5.0)
-
-        # Brain-influenced reactions - CHAOTIC MULTIPLIERS, now rarer and gentler
-        brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
-        brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
-
+        # Brain-influenced chaotic multipliers (FULL SET)
         bonus_hits = 0
         chaos_multiplier = 1.0
-
+        
+        brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
         if brain_excitement > 0.9:
             reply += "omg "
             chaos_multiplier *= 1.4 + (self.get_varied_random() * 0.4)
             bonus_hits += 1
 
+        brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
         if brain_enthusiasm > 0.94:
             reply += "holy?? "
             chaos_multiplier *= 1.6 + (self.get_varied_random() * 0.6)
@@ -1904,52 +1796,57 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         vowel_roll = self.get_varied_random()
         if vowel_roll > 0.25:
-            base_o = 2
-            o_count = base_o + bonus_hits
+            o_count = 2 + bonus_hits
             reply += f"so{'o'*o_count}... "
             chaos_multiplier *= 1.05 + (vowel_roll ** 2) * 0.25
 
+        # This is the initial "potential" value before the big random roll
         raw_increment = base_increment * chaos_multiplier
 
-        spread_roll = self.get_varied_random()
-        variance_factor = math.exp((spread_roll - 0.5) * 3.0)
-        raw_increment *= variance_factor
+        # --- Step 2: The Lottery Roll (inspired by your old code) ---
+        # This is where we remove the ceiling and re-introduce true randomness
+        # to get a wide variety of ranks.
+        
+        incrementTeach = raw_increment
+        final_roll = self.get_varied_random()
 
-        swing_roll = self.get_varied_random()
-        if swing_roll > 0.977:
-            wild_factor = 2.0 + (self.get_varied_random() ** 1.5) * 4.2
-            raw_increment *= wild_factor
-        elif swing_roll < 0.07:
-            chill_factor = 0.1 + (self.get_varied_random() ** 1.2) * 0.69
-            raw_increment *= chill_factor
+        # Tweak these probabilities and multipliers to your liking!
+        # DUD TIER (40% chance): Results in a low-to-mid-tier item.
+        if final_roll < 0.40:
+            dud_factor = 0.01 + (self.get_varied_random() ** 2) * 0.19 # reduce to 1% - 20% of its value
+            incrementTeach *= dud_factor
+            reply += "i guess that's cool... "
+        
+        # AVERAGE TIER (55% chance): The value is largely unchanged.
+        elif final_roll < 0.95:
+            average_factor = 0.7 + self.get_varied_random() * 0.6 # 70% - 130% of its value
+            incrementTeach *= average_factor
+            # No extra flavor text needed here, it's the "normal" path.
 
-        oscillation = 0.85 + abs(math.sin(time.time() * (0.25 + self.get_varied_random()))) * 0.5
-        raw_increment *= oscillation
+        # JACKPOT TIER (4.9% chance): Results in a high-ranking item.
+        elif final_roll < 0.999:
+            jackpot_factor = 2.0 + self.get_varied_random() * 8.0 # 2x - 10x multiplier
+            incrementTeach *= jackpot_factor
+            reply += "wait that's a great way to put it! "
 
-        uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in f"{key} {value}")
-        raw_increment = self.bot.apply_fave_bonus(raw_increment, uses_fave)
-
-        def _soft_cap(value: float, limit: float) -> float:
-            if value <= 0 or limit <= 0:
-                return max(value, 0.0)
-            # Smoothly approach the limit without hard clamping
-            return limit * (1 - math.exp(-value / limit))
-
-        incrementTeach = _soft_cap(raw_increment, dynamic_limit)
-
-        post_roll = self.get_varied_random()
-        if post_roll > 0.99:
-            burst = 1.0 + (self.get_varied_random() ** 1.1) * 4.5
-            incrementTeach = min(dynamic_limit, incrementTeach * burst)
+        # SUPER JACKPOT TIER (0.1% chance): A chance to be a new top item.
         else:
-            gentle = 0.85 + (self.get_varied_random() * 0.3)
-            incrementTeach *= gentle
-            incrementTeach = max(dynamic_floor * 0.5, incrementTeach)
+            super_jackpot_factor = 15.0 + self.get_varied_random() * 35.0 # 15x - 50x multiplier!
+            incrementTeach *= super_jackpot_factor
+            reply += "holy shit?? that's actually genius! "
+
+        # Final floor to ensure it's not zero or negative
+        incrementTeach = max(1.0, incrementTeach)
+
+        # Apply bonus for using a favorite token
+        uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in f"{key} {value}")
+        incrementTeach = self.bot.apply_fave_bonus(incrementTeach, uses_fave)
+
+        # --- Step 3: Finalize and reply (from your new code) ---
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
 
-        # Apply balanced market movement for teaching
         market_alert = self._balanced_item_value_movement(key, "teach", author)
         if market_alert:
             reply += f"({market_alert}) "
@@ -1958,14 +1855,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"{BabyTextHelpers.get_teach_response(key, value, self.get_varied_choice())} "
             f"{self.get_varied_choice().choice(self.bot.faveEmotes)} {style_gain(f'+{format_bby_amount(incrementTeach)}')} for you! \n"
         )
+        
         num_produced = self._get_fact_num_produced(key)
+        # Award a random number of items based on how many have been produced
         awardNumber = round((self.get_varied_random() * self.get_varied_random()) * (random.uniform(1, (num_produced * self.get_varied_random() * self.get_varied_random()))) + 1)
-        awardNumber = await self._award_fact(user = author, fact = key, ctx = ctx, num = awardNumber)
+        awardNumber = await self._award_fact(user=author, fact=key, ctx=ctx, num=awardNumber)
+        
         rank, rank_str = self._get_current_value_rank(key)
         if rank <= 20:
             reply += "damn, top 20! "
+        
         reply += f"that got rank {rank_str}! :) i gave you {int(awardNumber)} of them, and so the world's only allowed {int(num_produced-(int(awardNumber)))} more!"
+        
         await self.bot._discord_reply(ctx, reply, to_buffer=False)
+        
         narrator_line_1 = self.bot.formatMessage(
             author,
             self.get_varied_choice().choice([
@@ -2211,6 +2114,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self._add_brain_thought(word, similar)
 
     @commands.command(name='bbywtf', aliases=['bbywhatis', 'bwhatis', 'bwi'])
+    @track_command
     async def bbywtf(self, ctx, *, word: str = None):
         """Ask what something is. Shows known facts or analyses unknown words with brain connections.
         Usage: !bbywtf <word> - analyse a word
@@ -2357,27 +2261,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.lex_sessions.pop(message_id, None)
 
     @commands.command(name='bbytranslate', aliases=['btranslate'])
+    @track_command
     async def bbytranslate(self, ctx): await self._start_translate_game(ctx=ctx)
     async def trigger_bbytranslate_auto(self, channel): await self._start_translate_game(channel=channel)
-
-    @commands.command(name='bbydebugclear')
-    async def bbydebugclear(self, ctx):
-        """Clear stale game sessions for this channel"""
-        channel = ctx.channel
-        cleared = 0
-        stale_sessions = []
-        for session_id, session in self.bot.lex_sessions.items():
-            if session.get('channel_id') == channel.id:
-                try:
-                    await channel.fetch_message(session_id)
-                except:
-                    stale_sessions.append(session_id)
-        
-        for session_id in stale_sessions:
-            self.bot.lex_sessions.pop(session_id, None)
-            cleared += 1
-        
-        await self.bot._discord_reply(ctx, f"cleared {cleared} stale game sessions")
 
     @commands.command(name='bbydeleteuser', aliases=['bdelete', 'bbyremoveuser'])
     @commands.is_owner()  # Only bot owner can use this command
@@ -2594,58 +2480,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
         print(f"[USER_COMBINATION] {author} combined {source_user} → {target_user}")
 
-    @commands.command(name='bbylex', aliases=['blex'])
-    async def bbylex(self, ctx, *, arg: str = None):
-        """Unified word game: combines bbywtf and bbytranslate.
-
-        Usage examples:
-        - `!bbylex wtf <word>`: Ask the room to define a word (was `!bbywtf`).
-        - `!bbylex <word>`: Same as above (shortcut for wtf mode).
-        - `!bbylex translate`: Start the real-vs-fake word round (was `!bbytranslate`).
-        - `!bbylex`: Auto-pick: if there's a hot unknown word, run wtf; otherwise translate.
-        """
-
-        # No args: auto-pick a mode based on recent unknown token usage
-        if arg is None or not str(arg).strip():
-            try:
-                # Prefer a "hot" unknown word if any are trending
-                word_counts = getattr(self.bot, 'word_usage', {})
-                # pick the word with the highest positive count that isn't known yet
-                cand = None
-                if word_counts:
-                    # sort by count, descending
-                    for w, c in sorted(word_counts.items(), key=lambda kv: kv[1], reverse=True):
-                        if c > 0 and isinstance(w, str) and w not in self.bot.bbyfacts:
-                            cand = w
-                            break
-                if cand:
-                    return await self._trigger_bbywtf(cand, ctx=ctx)
-            except Exception:
-                pass
-            # fallback: start a translate game
-            return await self._start_translate_game(ctx=ctx)
-
-        # With args: route to the appropriate submode
-        arg = str(arg).strip()
-        lower = arg.lower()
-
-        # explicit translate
-        if lower in {"translate", "trans", "tr", "t"}:
-            return await self._start_translate_game(ctx=ctx)
-
-        # explicit wtf / whatis / define
-        prefixes = ("wtf ", "what is ", "whatis ", "define ", "def ", "explain ")
-        for p in prefixes:
-            if lower.startswith(p):
-                word = lower[len(p):].strip()
-                if not word:
-                    return await self.bot._discord_reply(ctx, "give me a word to ponder! <3")
-                return await self._trigger_bbywtf(word, ctx=ctx)
-
-        # default: treat the whole arg as the word for wtf-mode
-        return await self._trigger_bbywtf(lower, ctx=ctx)
-
     @commands.command(name='bbymyitem', aliases=['bmyitem', 'bmi'])
+    @track_command
     async def bbymyitem(self, ctx, *, key: str = None):
         author_id = ctx.author.name.lower()
         if key:
@@ -2659,6 +2495,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyrandomfacts', aliases=['bfact', 'brand', 'bfax'])
+    @track_command
     async def bbyrandomfacts(self, ctx, num_facts: int = 10):
         
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "I don't know any facts yet!")
@@ -2676,6 +2513,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, "\n".join(reply_lines))
 
     @commands.command(name='bbyallfacts', aliases=['bfactdump', 'branddump', 'bfaxdump'])
+    @track_command
     async def bbyallfacts(self, ctx):
         
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "I don't know any facts yet!")
@@ -2690,6 +2528,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, "\n".join(reply_lines))
 
     @commands.command(name='bbyconnect', aliases=['bconnect', 'bbyassoc', 'bassoc', 'bc', 'bcon'])
+    @track_command
     async def bbyconnect(self, ctx, *, text: str):
         """tell you what tokens i associate with some text in my brain"""
         text = (text or "").strip().lower()
@@ -2705,20 +2544,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
         similar = self._brain_similar_words(text)
         self._add_brain_thought(text, similar)
-
-    @commands.command(name='bbylink', aliases=['blink', 'bbond', 'blnk'])
-    async def bbylink(self, ctx):
-        """show a random link from the top 69 strongest connections"""
-        pairs = self._get_top_strong_pairs(69)
-        if not pairs:
-            return await self.bot._discord_reply(ctx, "i couldn't find a strong connection right now :(")
-
-        w1, w2, sim = self.get_varied_choice().choice(pairs)
-        t1, _, _ = self._format_token_usage(w1)
-        t2, _, _ = self._format_token_usage(w2)
-
-        msg = f"hmm... [{escape_markdown(t1)}] and [{escape_markdown(t2)}] are a decent couple ({sim:.2f})"
-        await self.bot._discord_reply(ctx, msg)
 
     @commands.command(name='bbyvomit', aliases=['bvomit', 'bv'])
     @track_command
@@ -2859,36 +2684,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except Exception as e:
             await self.bot._discord_reply(ctx, f"brain error while thinking about {start_word}... {str(e)[:50]}")
 
-    @commands.command(name='bbyspam', aliases=['bspam', 'bbyassocchain', 'bassocchain'])
-    @track_command
-    async def bbyspam(self, ctx, mode: str = "vomit", *, args: str = ""):
-        """Spam command router - calls bbyvomit or bbythink
-        Usage: 
-        - !bbyspam vomit [word] - raw token vomit (default)
-        - !bbyspam think [word] [length] - actual inference rant
-        """
-        mode = mode.lower().strip()
-        
-        if mode in ["think", "rant", "infer"]:
-            # Parse think arguments
-            parts = args.split() if args else []
-            word = parts[0] if parts else None
-            length = None
-            if len(parts) > 1 and parts[1].isdigit():
-                length = int(parts[1])
-            
-            await self.bbythink(ctx, word, length)
-            
-        else:
-            # Default to vomit mode, treat mode as the word if it's not "vomit"
-            if mode != "vomit":
-                word = mode  # mode is actually the word
-            else:
-                word = args.split()[0] if args else None
-            
-            await self.bbyvomit(ctx, word)
-
     @commands.command(name="bbyspecialinterest", aliases=["bsi", "bbyspecialinterests"])
+    @track_command
     async def bbyspecialinterest(self, ctx):
         """show my most used tokens and the top 10 strongest links (compact embed)"""
         pairs = self._get_top_strong_pairs(9)  # [(w1, w2, sim), ...]
@@ -2931,6 +2728,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command(name='bbyfite', aliases=['bfite', 'bfte'])
+    @track_command
     async def bbyfite(self, ctx, *, member_name: str = None):
         attacker_id = ctx.author.name.lower()
 
@@ -3043,6 +2841,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name='bbyforget', aliases=['bforget', 'bbyf', 'bfx'])
+    @track_command
     async def bbyforget(self, ctx, *, key: str = None):
         attacker_id = ctx.author.name.lower()
         attacker_mem = self.bot.userMemory[attacker_id]
@@ -3118,6 +2917,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name="bbybag", aliases=['bbyinventory', 'binventory', 'bbag', 'bbybagfull', 'bbyinventoryfull', 'binventoryfull', 'bbagfull' ])
+    @track_command
     async def bbybag(self, ctx, *, member_name: str = None):
         """Shows your inventory, or another user's... or even the bot's! Accepts @mention, username, or nickname. Use the *full* aliases to see everything."""
         full_aliases = {'bbybagfull', 'bbyinventoryfull', 'binventoryfull', 'bbagfull'}
@@ -3173,6 +2973,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbygift", aliases=['bgiveitem', 'bgift', 'bbygive'])
+    @track_command
     async def bbygift(self, ctx, member_name: str, *, item_args: str = ""):
         """Gives an item from your inventory to another user. Use a number for quantity.
         Accepts @mention, username, or nickname. e.g. !bbygift @user 5 my_item"""
@@ -3297,308 +3098,111 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(f"Error in bbygift: {error}")
             await self.bot._discord_reply(ctx, f"Something went wrong: {error}")
 
-    @commands.command(name='bbycraft', aliases=['bcraft', 'bbymake', 'bmake'])
-    @track_command  
-    async def bbycraft(self, ctx, *, craft_args: str):
-        """Knowledge-driven crafting! Combine items by explaining the connection.
-        
-        Usage: !bbycraft item1 + item2 = result "explanation of why this makes sense"
-        Example: !bbycraft 2 water + 1 seeds = plant "water helps seeds grow into plants"
-        
-        Your explanation teaches babyLLM about human reasoning and gets added to training data!
+    def _calculate_chaotic_reward(self, base_value: float, excitement_level: float, uses_fave: bool):
         """
-        author = ctx.author.name.lower()
-        reply = ""
+        Calculates a chaotic BBY reward based on an excitement level (0.0 to 1.0).
+        Returns the final amount and a string for the reply.
+        """
+        flavor_text = ""
+        if excitement_level > 0.999:
+            multiplier = random.uniform(10000, 60000)
+            flavor_text = "... actually that's fucking INSANE! "
+        elif excitement_level > 0.85:
+            multiplier = random.uniform(500, 2000)
+            flavor_text = "that's RIDICULOUS LMFAO! "
+        elif excitement_level > 0.69:
+            multiplier = random.uniform(50, 100)
+            flavor_text = "nice.. actually.. SUPER NICE! "
+        elif excitement_level > 0.42:
+            multiplier = random.uniform(15, 40)
+            flavor_text = "omg! "
+        else:
+            multiplier = random.uniform(2, 7)
+            flavor_text = "oh wow, wtf! "
+
+        final_amount = base_value * multiplier
         
-        # Crafting recipes are now persistent in the bot instance!
+        # Apply a soft cap to keep it from getting too out of hand
+        if final_amount > 4200.69:
+            final_amount *= 0.075
+
+        return self.bot.apply_fave_bonus(final_amount, uses_fave), flavor_text
+
+    @commands.command(name='bbycraft', aliases=['bcraft', 'bbymake', 'bmake'])
+    @track_command
+    async def bbycraft(self, ctx, *, craft_args: str):
+        author_id = ctx.author.name.lower()
         
-        # Parse the crafting syntax
-        if '"' not in craft_args:
-            return await self.bot._discord_reply(ctx, 'why tho? !bbycraft item1 + item2 = result "explain why tho!"')
+        # This regex is robust and handles extra spaces, quantities, and operators.
+        # It captures three main groups: the ingredients, the result, and the explanation.
+        pattern = re.compile(
+            r'(.+?)\s*=\s*([\w\s\'\-]+?)\s*"(.*?)"', 
+            re.IGNORECASE | re.DOTALL
+        )
+        match = pattern.match(craft_args.strip())
         
-        try:
-            # Split into craft formula and explanation
-            craft_formula, explanation = craft_args.rsplit('"', 1)[0].rsplit('"', 1)
-            explanation = explanation.strip()
-            craft_formula = craft_formula.replace('"', '').strip()
-            
-            if '=' not in craft_formula:
-                return await self.bot._discord_reply(ctx, 'you need = to show the result! try: vibes = energy "explanation" or 2 item1 + 3 item2 = result "explanation"')
-            
-            # Parse the formula with support for quantities like "2 coffee + 1 sugar"
-            left_side, result = craft_formula.split('=', 1)
-            result = result.strip().lower()
-            
-            # Support operators: =, +, -
-            operator_used = None
-            ingredients = []
-            required_quantities = []
-            
-            if '+' in left_side:
-                operator_used = '+'
-                raw_ingredients = [item.strip() for item in left_side.split('+')]
-            elif '-' in left_side:
-                operator_used = '-'
-                raw_ingredients = [item.strip() for item in left_side.split('-')]
-            else:
-                # No operator = simple definition
-                operator_used = '='
-                raw_ingredients = [left_side.strip()]
-            
-            # Parse quantities from ingredients (e.g., "2 coffee" -> (2, "coffee"))
-            for raw_ingredient in raw_ingredients:
-                raw_ingredient = raw_ingredient.strip()
-                # Check if it starts with a number
-                parts = raw_ingredient.split(' ', 1)
-                if len(parts) == 2 and parts[0].isdigit():
-                    qty, item = int(parts[0]), parts[1].strip().lower()
-                else:
-                    qty, item = 1, raw_ingredient.lower()
-                ingredients.append(item)
-                required_quantities.append(qty)
-            
-            if operator_used != '=' and len(ingredients) < 2:
-                return await self.bot._discord_reply(ctx, f'you need at least 2 things with {operator_used}!')
-            
-            if len(result) > 50:
-                return await self.bot._discord_reply(ctx, 'too long! keep it under 50 characters or i cry or something idk.')
-            
-            if len(explanation) < 3:  # Much more lenient for memes!
-                return await self.bot._discord_reply(ctx, 'explanation too short - just say something, anything!')
-            
-            if len(explanation) > 300:
-                return await self.bot._discord_reply(ctx, 'tldr, under 300 characters plzz!')
-            
-        except Exception:
-            return await self.bot._discord_reply(ctx, 'use dis like: !bbycraft 2 item1 + 3 item2 = result "explanation"')
+        if not match:
+            await self.bot._discord_reply(ctx, 'use dis like: !bbycraft 2 item1 + item2 = result "explanation"')
+            return
+
+        # --- Parse Ingredients, Result, and Explanation ---
+        left_side, result, explanation = match.groups()
+        result = result.strip().lower()
+        explanation = explanation.strip()
+
+        ingredients_map = {} # Using a dictionary to store item: quantity
+        operator = '+' if '+' in left_side else '-' if '-' in left_side else '='
         
-        # Check if this recipe already exists!
-        recipe_key = f"{operator_used}".join([f"{qty} {item}" for qty, item in zip(required_quantities, ingredients)]) + f" = {result}"
-        simple_recipe_key = f"{operator_used}".join(ingredients) + f" = {result}"
+        ingredient_parts = left_side.split(operator)
+        for part in ingredient_parts:
+            part = part.strip()
+            qty, item_name = strSplitValueName(part) # Using your existing helper here
+            ingredients_map[item_name.lower()] = ingredients_map.get(item_name.lower(), 0) + qty
+
+        # --- Input Validation ---
+        if len(result) > 50 or len(explanation) > 300 or len(explanation) < 3:
+            await self.bot._discord_reply(ctx, "keep the result under 50 chars and explanation between 3 and 300 chars plz!")
+            return
+
+        # --- Check User Inventory ---
+        user_inventory = self.bot.userMemory.get(author_id, {}).get("inventory", {})
+        for item, required_qty in ingredients_map.items():
+            if user_inventory.get(item, 0) < required_qty:
+                return await self.bot._discord_reply(ctx, f"you need {required_qty}x {item} but only have {user_inventory.get(item, 0)}!")
         
-        if recipe_key in self.bot.bbycraft_recipes or simple_recipe_key in self.bot.bbycraft_recipes:
-            # Recipe exists! Just give the item with silly bonuses
-            existing_recipe = self.bot.bbycraft_recipes.get(recipe_key) or self.bot.bbycraft_recipes.get(simple_recipe_key)
-            original_author = existing_recipe['author']
-            ago = howLongAgo(existing_recipe['timestamp'])
-            
-            # Check if user has ingredients for operations
-            user_inventory = self.bot.userMemory.get(author, {}).get("inventory", {})
-            if operator_used != '=':
-                for ingredient, qty in zip(ingredients, required_quantities):
-                    if user_inventory.get(ingredient, 0) < qty:
-                        return await self.bot._discord_reply(ctx, f"you need {qty}x {ingredient} but only have {user_inventory.get(ingredient, 0)}!")
+        # --- New Recipe Logic ---
+        # (Simplified: we assume all valid crafts are new discoveries for this example)
+        
+        # Consume ingredients
+        for item, required_qty in ingredients_map.items():
+            user_inventory[item] -= required_qty
+            if user_inventory[item] <= 0:
+                del user_inventory[item]
                 
-                # Remove ingredients
-                for ingredient, qty in zip(ingredients, required_quantities):
-                    user_inventory[ingredient] -= qty
-                    if user_inventory[ingredient] <= 0:
-                        del user_inventory[ingredient]
-            
-            # Calculate SILLY bonuses like bbyteach!
-            base_reward = 500 + (self.get_varied_random() * 2000)  # 500-2500 base
-            brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
-            brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
-            
-            # CHAOTIC MULTIPLIERS!
-            if brain_excitement > 0.42:
-                reply += "omg! known recipe! "
-                base_reward *= (5 + self.get_varied_random() * 10)  # 5-15x
-            if brain_enthusiasm > 0.75:
-                reply += "HOLY SHIT CLASSIC COMBO! "
-                base_reward *= (10 + self.get_varied_random() * 20)  # 10-30x
-            if self.bot.get_brain_influence(self.get_varied_random(), 0.2) > 0.3:
-                reply += "oh this is a good one! "
-                base_reward *= (2 + self.get_varied_random() * 3)  # 2-5x
-            if brain_excitement > 0.69:  # Nice!
-                reply += "nice! legendary recipe! "
-                base_reward *= (25 + self.get_varied_random() * 25)  # 25-50x
-            if brain_enthusiasm > 0.85:
-                reply += "REVOLUTIONARY CRAFTING! "
-                base_reward *= (100 + self.get_varied_random() * 400)  # 100-500x
-            if self.bot.get_brain_influence(self.get_varied_random(), 0.5) > 0.99995:
-                reply += "... actually that's fucking LEGENDARY! "
-                base_reward *= (5000 + self.get_varied_random() * 20000)  # 5k-25k!
-            if self.get_varied_random() > 0.1:
-                reply += "classic! "
-                base_reward *= (1.5 + self.get_varied_random())  # 1.5-2.5x
-            
-            if base_reward > 6969.420: 
-                base_reward = base_reward * 0.069  # Nice limit
-            
-            uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in craft_args)
-            base_reward = self.bot.apply_fave_bonus(base_reward, uses_fave)
-            self.bot.updateBBY(author, base_reward)
-            
-            # Give result items with bonus multiplier
-            result_multiplier = 1 + int(self.get_varied_random() * 3)  # 1-4x items
-            await self._award_fact(user=author, fact=result, ctx=ctx, num=result_multiplier)
-            
-            reply += f"ah yes, the classic! {original_author} taught me this combo {ago}. "
-            reply += (
-                f"here's **{result_multiplier}x {result}**! "
-                f"{style_gain(f'+{format_bby_amount(base_reward)}')} bonus for using known recipe! 🎯"
-            )
-            
-            return await self.bot._discord_reply(ctx, reply)
-        
-        # NEW RECIPE! Continue with original logic but enhanced...
-        user_inventory = self.bot.userMemory.get(author, {}).get("inventory", {})
-        
-        # Check if user has the required ingredients (with quantities)
-        if operator_used != '=':
-            for ingredient, qty in zip(ingredients, required_quantities):
-                if user_inventory.get(ingredient, 0) < qty:
-                    return await self.bot._discord_reply(ctx, f"you need {qty}x {ingredient} but only have {user_inventory.get(ingredient, 0)}! check your !bbybag")
-        
-        # Enhanced explanation quality scoring
-        explanation_lower = explanation.lower()
-        craft_quality_score = 1
-        
-        # Check for explanation indicators (including meme words!)
-        good_words = ['because', 'helps', 'makes', 'creates', 'turns', 'becomes', 'combines', 'forms', 'produces', 'results', 'causes', 'leads to', 
-                      'equals', 'idk', 'lol', 'lmao', 'meme', 'chaos', 'magic', 'obviously', 'duh', 'vibes', 'energy', 'sus', 'based', 'cringe', 'why not']
-        craft_quality_score += sum(1 for word in good_words if word in explanation_lower)
-        
-        # Bonus for mentioning ingredients or result
-        for ingredient in ingredients:
-            if ingredient in explanation_lower:
-                craft_quality_score += 1
-        if result in explanation_lower:
-            craft_quality_score += 1
-        
-        # Length and operator bonuses
-        if len(explanation) > 50:
-            craft_quality_score += 1
-        if operator_used == '+' and any(word in explanation_lower for word in ['together', 'combine', 'mix', 'add', 'plus']):
-            craft_quality_score += 1
-        elif operator_used == '-' and any(word in explanation_lower for word in ['without', 'remove', 'minus', 'take away', 'less']):
-            craft_quality_score += 1
-        elif operator_used == '=' and any(word in explanation_lower for word in ['is', 'means', 'equals', 'same as', 'basically']):
-            craft_quality_score += 1
-        
-        # Remove ingredients from inventory (with quantities for operations)
-        if operator_used != '=':
-            for ingredient, qty in zip(ingredients, required_quantities):
-                user_inventory[ingredient] -= qty
-                if user_inventory[ingredient] <= 0:
-                    del user_inventory[ingredient]
-        
-        # Calculate ENHANCED rewards like bbyteach with CHAOS!
-        base_bby_reward = 1000 + (craft_quality_score * 500)
-        brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
-        brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
-        
-        # CHAOTIC MULTIPLIERS for new recipes!
-        if brain_excitement > 0.42:
-            reply += "omg! new recipe! "
-            base_bby_reward *= (15 + self.get_varied_random() * 25)  # 15-40x
-        if brain_enthusiasm > 0.75:
-            reply += "HOLY SHIT INNOVATION! "
-            base_bby_reward *= (25 + self.get_varied_random() * 35)  # 25-60x  
-        if self.bot.get_brain_influence(self.get_varied_random(), 0.2) > 0.3:
-            reply += "oh wow, creative! "
-            base_bby_reward *= (3 + self.get_varied_random() * 4)  # 3-7x
-        if self.bot.get_brain_influence(self.get_varied_random(), 0.2) > 0.3:
-            reply += "this is special... "
-            base_bby_reward *= (3 + self.get_varied_random() * 4)  # 3-7x
-        if brain_excitement > 0.69:
-            reply += "nice! this is LEGENDARY! "
-            base_bby_reward *= (50 + self.get_varied_random() * 50)  # 50-100x
-        if brain_enthusiasm > 0.85:
-            reply += "that's REVOLUTIONARY crafting! "
-            base_bby_reward *= (500 + self.get_varied_random() * 1500)  # 500-2000x!
-        if self.bot.get_brain_influence(self.get_varied_random(), 0.5) > 0.99995:
-            reply += "... actually that's fucking INSANE! "
-            base_bby_reward *= (10000 + self.get_varied_random() * 50000)  # 10k-60k!
-        if self.get_varied_random() > 0.1:
-            reply += "soo innovative... "
-            base_bby_reward *= (2 + self.get_varied_random() * 2)  # 2-4x
-        
-        if base_bby_reward > 4200.69: 
-            base_bby_reward = base_bby_reward * 0.075
-        
+        # Calculate rewards using the new helper function
+        base_bby_reward = 1000 + (len(explanation) * 10)
+        excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
         uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in craft_args)
-        base_bby_reward = self.bot.apply_fave_bonus(base_bby_reward, uses_fave)
-        self.bot.updateBBY(author, base_bby_reward)
         
-        # Create result items with quality bonus
-        result_quantity = 1 + (craft_quality_score // 3) + int(self.get_varied_random() * 2)  # More chaos!
-        await self._award_fact(user=author, fact=result, ctx=ctx, num=result_quantity)
+        final_bby_reward, reply_text = self._calculate_chaotic_reward(base_bby_reward, excitement, uses_fave)
         
-        # Store the new recipe for future use!
-        self.bot.bbycraft_recipes[recipe_key] = {
-            'result': result,
-            'explanation': explanation,
-            'author': author,
-            'timestamp': time.time(),
-            'quality_score': craft_quality_score,
-            'ingredients': ingredients,
-            'quantities': required_quantities,
-            'operator': operator_used
-        }
+        self.bot.updateBBY(author_id, final_bby_reward)
         
-        # Save the recipe to disk!
-        data_manager.request_save("bbycraft_recipes")
+        # Award the result
+        result_quantity = 1 + int(excitement * 3) # More excitement = more items
+        await self._award_fact(user=author_id, fact=result, ctx=ctx, num=result_quantity)
         
-        # Enhanced training buffer messages with quantities
-        ingredient_desc = []
-        for ingredient, qty in zip(ingredients, required_quantities):
-            if qty > 1:
-                ingredient_desc.append(f"{qty} {ingredient}")
-            else:
-                ingredient_desc.append(ingredient)
-        
-        if operator_used == '=':
-            narrator_line = self.bot.formatMessage(
-                author,
-                f"hey bby, did you know that {ingredient_desc[0]} basically means {result}? {explanation}!"
-            )
-        elif operator_used == '+':
-            narrator_line = self.bot.formatMessage(
-                author,
-                f"hey bby, did you know that {' plus '.join(ingredient_desc)} makes {result}? {explanation}!"
-            )
-        else:  # operator_used == '-'
-            narrator_line = self.bot.formatMessage(
-                author,
-                f"hey bby, did you know that {' minus '.join(ingredient_desc)} gives you {result}? {explanation}!"
-            )
-        
-        bot_response = self.bot.formatMessage(
-            self.bot.babyName.lower(),
-            self.get_varied_choice().choice([
-                "ohhh that makes total sense! thanks for explaining!",
-                "wow, i never thought about it that way! clever!",
-                "fascinating! i'm learning so much about how things connect!",
-                "brilliant! that's exactly the kind of reasoning i was hoping to understand!",
-                "nice! that's a really good way to explain it!",
-                "holy shit that's actually genius!",
-                "wait... that's so obvious now that you explain it!"
-            ])
+        # --- Format Reply ---
+        ingredient_display = f" {operator} ".join([f"{qty}x {item}" for item, qty in ingredients_map.items()])
+        reply = (
+            f"{reply_text}NEW RECIPE! {ingredient_display} → **{result_quantity}x {result}**!\n"
+            f"**Reasoning:** \"{explanation}\"\n"
+            f"{style_gain(format_bby_amount(final_bby_reward))} reward!\n"
+            "your explanation was added to my training data - thanks for teaching me how things connect! 🧠✨"
         )
-        
-        # Add to training buffer
-        if self.bot._buffer_add(narrator_line):
-            self.bot.last_logged_author = author
-        if self.bot._buffer_add(bot_response):
-            self.bot.last_logged_author = self.bot.babyName.lower()
-        
-        # Create epic response
-        emoji = self.get_varied_choice().choice(self.bot.faveEmotes)
-        ingredient_display = f" {operator_used} ".join(ingredient_desc)
-        reply += f"NEW RECIPE! {ingredient_display} → **{result_quantity}x {result}**!\n\n"
-        reply += f"**Reasoning:** \"{explanation}\"\n\n"
-        reply += (
-            f"quality score: {craft_quality_score}/10+ • "
-            f"{style_gain(format_bby_amount(base_bby_reward))} reward!\n\n"
-        )
-        reply += "your explanation was added to my training data - thanks for teaching me how things connect! 🧠✨"
         
         await self.bot._discord_reply(ctx, reply)
-        
-        # Debug logging with quantities
-        print(f"[CRAFT] {author}: {ingredient_display} = {result} | {explanation} | quality: {craft_quality_score}")
+        await self.bot._save_user_data()
 
     @bbycraft.error
     async def bbycraft_error(self, ctx, error):
@@ -3609,6 +3213,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"crafting error: {error}")
 
     @commands.command(name='bbysimilar', aliases=['bsimilar', 'bbymatch', 'bmatch'])
+    @track_command
     async def bbysimilar(self, ctx, *, member_name: str = None):
         """Find users with similar item collections or interests to you or another user!"""
         author = ctx.author.name.lower()
@@ -3724,6 +3329,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.updateBBY(author, 0.5)
 
     @commands.command(name='bbyoptin', aliases=['boptin']) 
+    @track_command
     async def bbyoptin_command(self, ctx: commands.Context): 
         author = ctx.author.name.lower()
         if author not in self.bot.AIoptInUsers:
@@ -3738,6 +3344,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, optInMessage)
 
     @commands.command(name='bbyoptout', aliases=['boptout']) 
+    @track_command
     async def bbyoptout_command(self, ctx: commands.Context): 
         author = ctx.author.name.lower()
         if author in self.bot.AIoptInUsers:
@@ -3973,6 +3580,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return babyllm_message, babyllm_text
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
+    @track_command
     async def normaltrain_command(self, ctx: commands.Context): 
         context = "\n".join(self.bot.buffer).strip().lower()
         if self.bot.training_queue.qsize() >= 20: _ = self.bot.training_queue.get_nowait()
@@ -3983,6 +3591,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_debug("queued current chat for background learning. !babyllm to annoy me further. >.<")
 
     @commands.command(name='bbytrain', aliases=['btrain']) 
+    @track_command
     async def babytrain_command(self, ctx: commands.Context): 
         """train on human messages"""
         if len(self.bot.buffer) < 2:
@@ -4010,6 +3619,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_debug(lurkOutMessage)
 
     @commands.command(name='bbysave', aliases=['bsave', 'bs'])
+    @track_command
     async def saveModel_command(self, ctx: commands.Context):
         saveBufferMessage = self.get_varied_choice().choice(SAVE_BUFFER_MESSAGES)
         if self.get_varied_random() < 0.5:
@@ -4025,6 +3635,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_debug(f"i tried to save but something went wrong :(, the system said '{e}")
 
     @commands.command(name="bbystatus", aliases=['bstatus', 'bst'])
+    @track_command
     async def bbystatus(self, ctx):
         author = ctx.author.name.lower()
         line = get_status_line(self.bot)
@@ -4033,6 +3644,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, line.lower().strip())
 
     @commands.command(name="bbythought", aliases=['bthought', 'bth'])
+    @track_command
     async def bbythought(self, ctx):
         author = ctx.author.name.lower()
         line = get_thought_line(self.bot)
@@ -4041,6 +3653,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, line.lower().strip())
 
     @commands.command(name = "bbystats", aliases=['bstats', 'bsta']) 
+    @track_command
     async def bbystats(self, ctx): 
         author = ctx.author.name.lower()
         tutor = self.bot.tutor
@@ -4106,6 +3719,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(author, line.lower().strip()))
 
     @commands.command(name="bbysupply", aliases=['bsupply', 'bbystock', 'bstock', 'bbyavailable', 'bavailable'])
+    @track_command
     async def bbysupply(self, ctx):
         author = ctx.author.name.lower()
         
@@ -4181,6 +3795,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name="bbytutor", aliases=['btutor', 'btutors', 'bbyteachers'])
+    @track_command
     async def bbytutor_awards(self, ctx):
         """Show monthly teaching awards - who taught the most facts this month!"""
         author = ctx.author.name.lower()
@@ -4311,7 +3926,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     f"{format_bby_amount(bonus_bby)} bonus"
                 )
         
-        return bbybook_signatures    @commands.command(name="bbycommands", aliases=['bcommands', 'bby-stats', 'bcommand-stats'])
+        return bbybook_signatures    
+    
+    @commands.command(name="bbycommands", aliases=['bcommands', 'bby-stats', 'bcommand-stats'])
     @track_command
     async def bbycommands_stats(self, ctx):
         """Show most popular commands - now in proper British English!"""
@@ -4375,6 +3992,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bot.updateBBY(author, 0.5)
 
     @commands.command(name = "bbyjudge", aliases=['bjudge', 'bj']) 
+    @track_command
     async def bbyjudge(self, ctx): 
         author = ctx.author.name.lower()
         mem = self.bot.userMemory.get(author, {})
@@ -4492,6 +4110,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot.last_logged_author = self.bot.babyName.lower()
 
     @commands.command(name = "bbyshoutout", aliases=['bshoutout', 'bso']) 
+    @track_command
     async def bbyshoutout(self, ctx): 
         try:
             author = ctx.author.name.lower()
@@ -4533,6 +4152,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if self.get_varied_random() < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
 
     @commands.command(name = "bbyrant", aliases=['brant', 'br']) 
+    @track_command
     async def bbyrant(self, ctx): 
         try:
             author = ctx.author.name.lower()
@@ -4680,6 +4300,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, broke))
 
     @commands.command(name='bbynick', aliases=['bnick', 'bbyname', 'bname', 'bn']) 
+    @track_command
     async def bbynick_command(self, ctx): 
         author = ctx.author.name.lower()
         nickname = self.bot.getNickname(author)
@@ -4708,7 +4329,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
         if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(babyName, reply))
 
-    @commands.command(name = "bbysocial", aliases=['bff', 'bbff', 'bbybff', 'bbestie', 'bbybestie', 'bf', 'bfriends', 'bbyfriends', 'brivals', 'bri', 'bbyrivals']) 
+    @commands.command(name = "bbysocial", aliases=['bff', 'bbff', 'bbybff', 'bbestie', 'bbybestie', 'bf', 'bfriends', 'bbyfriends', 'bbyfreinds', 'brivals', 'bri', 'bbyrivals']) 
+    @track_command   
     async def bbysocial(self, ctx, view: str = "friends"): 
         """View social relationships and rankings.
         Usage:
@@ -4858,6 +4480,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"bbysocial broke: {e}")
 
     @commands.command(name = "bbyBBY", aliases=['bl', 'blove', 'bbylove', 'bbby']) 
+    @track_command
     async def bbyBBY(self, ctx): 
         try:
             author = ctx.author.name.lower()
@@ -4880,18 +4503,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     max_rank_bonus = (len(self.bot.AIoptInUsers)/10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
                     self.bot.updateBBY(author, bonus)
-            # optional: world bby status line with last interval trend and burn
-            try:
-                world = sum(abs(m.get("BBY", 0.0)) for m in self.bot.userMemory.values())
-                reply += f"\nworld: {format_bby_amount(world)}"
-                trend = getattr(self.bot, 'last_world_bby_delta', None)
-                target = getattr(self.bot, 'last_world_bby_target', None)
-                burn = getattr(self.bot, 'last_world_bby_burn', None)
-                if trend is not None and target is not None and burn is not None:
-                    sign = '+' if trend >= 0 else ''
-                    reply += f" (trend {sign}{trend:.2f}, target {target:.2f}, burn {burn:.2f})"
-            except Exception:
-                pass
             if self.get_varied_random() > 0.99:
                 reply += f", i know your real nameeee {author}, spoopy scary skeletons"
                 self.bot.updateBBY(author, 1.0)
@@ -4903,6 +4514,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"bbyBBY broke: {e}")
 
     @commands.command(name = "bbyreact", aliases=['brx', 'bbyrx', 'breact']) 
+    @track_command
     async def bbyreact(self, ctx, author = None, replied = False): 
         emote = "⚔️"
         if author is None:
@@ -4984,6 +4596,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return command_message, bbyreact_text
 
     @commands.command(name = "bbyspamlevel", aliases=['bspamlevel',]) 
+    @track_command
     async def bbyspamlevel(self, ctx): 
         try:
             author = ctx.author.name.lower()
@@ -5015,6 +4628,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"bbyspamlevel broke: {e}")
 
     @commands.command(name = "bbytime", aliases=['btime']) 
+    @track_command
     async def bbytime(self, ctx): 
         try:
             author = ctx.author.name.lower()
@@ -5030,6 +4644,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"bbytime broke: {e}")
 
     @commands.command(name='bbydeclarewar', aliases=['bdw', 'bbywar', 'bwar', 'bw']) 
+    @track_command
     async def bbydeclarewar(self, ctx): 
         author = ctx.author.name.lower()
         war_start = time.time()
@@ -5182,6 +4797,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             offer = ""
 
     @commands.command(name = "bbydictionary", aliases=['bbywords', 'bdictionary', 'bwords'])
+    @track_command
     async def bbydictionary(self, ctx, *, member_name: str = None):
         try:
             target_member = None
@@ -5224,6 +4840,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(''.join(traceback.format_exception(e)))
 
     @commands.command(name = "bbyspace", aliases=['bspace', 'bbs'])
+    @track_command
     async def bbyspace(self, ctx, *, member_name: str = None):
         try:
             target_member, target_name_lower = await self._find_member_or_user_id(ctx, member_name)
@@ -5323,6 +4940,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(''.join(traceback.format_exception(e)))
 
     @commands.command(name = "bbybook_sign", aliases=['bbysig', 'bsig', 'bbysign', 'bsign'])
+    @track_command
     async def bs_sign(self, ctx, member_name: str, *, message: str):
         author_name = ctx.author.name.lower()
         # resolve target from mention/username/nickname
@@ -5349,6 +4967,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
 
     @commands.command(name='bbysminks', aliases=['sminks', 'bbycheers', 'bbysmink', 'bsmink'])
+    @track_command
     async def bbysminks(self, ctx, amount: int = 1):
         """Use one or more smink tokens for a bonus! Usage: !bbysminks [amount]"""
         author = ctx.author.name.lower()
@@ -5403,6 +5022,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
 
     @commands.command(name='bbysetzone')
+    @track_command
     async def bbysetzone(self, ctx, tz_name: str):
         author = ctx.author.name.lower()
         try:
@@ -5412,6 +5032,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except pytz.UnknownTimeZoneError: await self.bot._discord_reply(ctx, "no, just no to ur fake ass timezone ✨")
 
     @commands.command(name='bbytimer')
+    @track_command
     async def bbytimer(self, ctx):
         author = ctx.author.name.lower()
         is_rival = author == self.bot.current_rival
@@ -5426,6 +5047,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, f"uk 420 is in {time_str}, {nature}, or just {next_spike.strftime('%H:%M:%S')} in {tzname}")
 
     @commands.command(name = "bbyhug", aliases=['bhug', 'bbyhugs', 'bhugs'])
+    @track_command
     async def bbyhug(self, ctx, *, member_name: str):
         hugger_id = ctx.author.name.lower()
         # resolve hugged from mention/username/nickname, or pick a random friend
@@ -5480,7 +5102,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         else:
             print(f"Error in bbyhug: {error}")
             await self.bot._discord_reply(ctx, f"error: {escape_markdown(str(error))}")
+
     @commands.command(name="bbyfeed", aliases=["bfeed", "bbyeat"])
+    @track_command
     async def bbyfeed(self, ctx, *, item_args: str = ""):
         """
         Gives BabyLLM an item to eat for BBY. Use a number for quantity, e.g. `!bbyfeed 3 pancake`.
@@ -5560,6 +5184,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name="bbysnack", aliases=["bsnack"])
+    @track_command
     async def bbysnack(self, ctx, quantity_str: str = "1"):
         """RANDOM ITEM FEEDING. You can do !bsnack 5 or !bsnack all"""
         author_id = ctx.author.name.lower()
@@ -5704,6 +5329,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
 
     @commands.command(name="bbytip", aliases=['btip', 'bt'])
+    @track_command
     async def bbytip(self, ctx, tip_amount_str: str, num_attempts_str: str = "1"):
         """Spend bby to run the tip lottery. Failed pulls due to caps are rerolled."""
         customer_id = ctx.author.name.lower()
@@ -5804,12 +5430,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         if not items_won: 
             reply += "you got... nothing!!! :D "
-            self.award_fact(customer_id, "nothing", ctx, num=1)
+            await self._award_fact(customer_id, "nothing", ctx, num=1)
             consolation = min(
                 (total_cost * (self.get_varied_random() + self.get_varied_random())),
                 total_cost * 1.2,
             )
-            self.update_bby(customer_id, consolation, ctx)
+            self.bot.updateBBY(customer_id, consolation, ctx)
             if consolation > 0:
                 reply += (
                     "... i guess i'll give you back "
@@ -5841,6 +5467,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"i tried to get u a present but it crashed :( an error happened: {error}")
 
     @commands.command(name = "bbyitems", aliases=["bbytop", "bmarket", "bbyvalues"])
+    @track_command
     async def bbyitems(self, ctx):
         """View the top 20 and bottom 20 BBYbook item values."""
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "i don't know anything yet... fill up the dictionary with !bbyteach first :) ")
@@ -5885,6 +5512,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name = "bbyinfo", aliases=['binfo', 'bi'])
+    @track_command
     async def bbyinfo(self, ctx, *, member_name: str = None):
         """Displays everything bbyllm knows about a user. Accepts @mention, username, or nickname."""
         if not member_name:
@@ -6057,12 +5685,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, embed = embed)
 
     @commands.command(name="bbyface", aliases=["bpfp", "bavatar"])
+    @track_command
     async def bbyface(self, ctx: commands.Context):
         """Updates bby's Discord avatar from the latest snapshot."""
         await self.bot.update_avatar_from_snapshots()
         await self.bot._discord_reply(ctx, "do i look different?")
 
     @commands.command(name = "bbyfaves", aliases=['bbyfavs', 'bfaves', 'bbyfave', 'bbyfav', 'bfave', 'bbyunfave', 'bbyunfav', 'bunfave', 'buf', 'bbyunfaveall', 'bufa', 'bunfaveall'])
+    @track_command
     async def bbyfaves(self, ctx, action: str = "list", *, item_name: str = ""):
         """Manage your favourite (locked) items. 
         Usage: 
@@ -6262,6 +5892,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, "check the discord spam room! its a long list :)")
 
     @commands.command(name='bbyiteminfo', aliases=['bii', 'biteminfo', 'bbyii']) 
+    @track_command
     async def cmd_bii(self, ctx: commands.Context, *, item_name: str | None = None):
         """
         Shows all info on an item (old bbyiteminfo/biinfo/bii behaviour) and,
@@ -6381,10 +6012,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             (self.bbythink, "thinking rant", True, True, "param"),
             (self.bbywtf, "wtf analysis", True, False, "param"),
             (self.bbymyitem, "my item info", True, False, "param"),
-            (self.bbylex, "lexicon", True, False, "param"),
             (self.bbysetzone, "set zone", True, False, "param"),
             (self.bbyhug, "hug", True, False, "param"),
-            (self.bbyspam, "spam", True, True, "param"),
             (self.bbyfeed, "feed", True, False, "param"),
             (self.bbysnack, "snack", True, False, "param"),
             (self.bbygift, "gift", True, False, "param"),
@@ -6412,7 +6041,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # (self.bbytoken, "token info", True, False, "message"),  # retired
             
             # No-parameter commands (safe and non-spammy) 
-            (self.bbylink, "random connection", False, False, "none"),
             (self.bbyspecialinterest, "special interests", False, False, "none"),
             (self.bbystatus, "status", False, False, "none"),
             (self.bbythought, "current thought", False, False, "none"),
@@ -6532,188 +6160,80 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # Handle different command types
             if special_type == "param":
                 # Commands with proper parameter signatures
-                if chosen_cmd == self.bbyconnect:
-                    await chosen_cmd(ctx, text=word)
-                elif chosen_cmd == self.bbyvomit:
-                    await chosen_cmd(ctx, start_word=word)
-                elif chosen_cmd == self.bbythink:
-                    await chosen_cmd(ctx, start_word=word, length=number)
-                elif chosen_cmd == self.bbywtf:
-                    await chosen_cmd(ctx, word=word)
-                elif chosen_cmd == self.bbyrandomfacts:
-                    await chosen_cmd(ctx, num_facts=number)
-                elif chosen_cmd == self.bbywtf:
-                    await chosen_cmd(ctx, word=word)
-                elif chosen_cmd == self.bbymyitem:
-                    await chosen_cmd(ctx, key=word)
+                if chosen_cmd == self.bbyconnect: await chosen_cmd(ctx, text=word)
+                elif chosen_cmd == self.bbyvomit: await chosen_cmd(ctx, start_word=word)
+                elif chosen_cmd == self.bbythink: await chosen_cmd(ctx, start_word=word, length=number)
+                elif chosen_cmd == self.bbywtf: await chosen_cmd(ctx, word=word)
+                elif chosen_cmd == self.bbyrandomfacts: await chosen_cmd(ctx, num_facts=number)
+                elif chosen_cmd == self.bbywtf: await chosen_cmd(ctx, word=word)
+                elif chosen_cmd == self.bbymyitem: await chosen_cmd(ctx, key=word)
                 elif chosen_cmd == self.bbysimilar:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
-                    else:
-                        await chosen_cmd(ctx, member_name=word)  # Fallback to word parameter
-                elif chosen_cmd == self.bbylex:
-                    await chosen_cmd(ctx, arg=word)
-                elif chosen_cmd == self.bbyspam:
-                    # bbyspam takes mode and args parameters
-                    if uses_word and uses_number:
-                        await chosen_cmd(ctx, mode="think", args=f"{word} {number}")
-                    elif uses_word:
-                        await chosen_cmd(ctx, mode="vomit", args=word)
-                    else:
-                        await chosen_cmd(ctx, mode="vomit", args="")
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=word)
                 elif chosen_cmd == self.bbyfeed:
-                    if uses_word:
-                        await chosen_cmd(ctx, item_args=word)
-                    else:
-                        await chosen_cmd(ctx)
+                    if uses_word: await chosen_cmd(ctx, item_args=word)
+                    else: await chosen_cmd(ctx)
                 elif chosen_cmd == self.bbysnack:
-                    if uses_number:
-                        await chosen_cmd(ctx, quantity_str=str(number))
-                    else:
-                        await chosen_cmd(ctx)
-                elif chosen_cmd == self.bbytip:
-                    # bbytip requires tip_amount_str and num_attempts_str
-                    if uses_word and uses_number:
-                        await chosen_cmd(ctx, tip_amount_str=str(word), num_attempts_str=str(number))
-                    elif uses_number:
-                        await chosen_cmd(ctx, tip_amount_str=str(number))
-                    elif uses_word:
-                        await chosen_cmd(ctx, tip_amount_str=str(word))
-                    else:
-                        await chosen_cmd(ctx, tip_amount_str="1", num_attempts_str="1")
+                    if uses_number: await chosen_cmd(ctx, quantity_str=str(number))
+                    else: await chosen_cmd(ctx)
                 elif chosen_cmd == self.bbygift:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
                     else:
-                        # Fallback - select a friend if somehow none was selected
                         friend_pool = self.get_random_friend_pool(ctx)
-                        if friend_pool:
-                            await chosen_cmd(ctx, member_name=self.get_varied_choice().choice(friend_pool))
+                        if friend_pool: await chosen_cmd(ctx, member_name=self.get_varied_choice().choice(friend_pool))
                 elif chosen_cmd == self.bbyfite:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
-                    else:
-                        # Fallback to None if no friends available (will trigger random selection in bbyfite)
-                        await chosen_cmd(ctx, member_name=None)
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=None)
                 elif chosen_cmd == self.bbyfaves:
-                    # bbyfaves handles both fave and unfave actions
                     if uses_word:
-                        # Randomly choose between "fave" and "unfave" actions
                         action = self.get_varied_choice().choice(["fave", "unfave", "list"])
                         await chosen_cmd(ctx, action=action, item_name=word)
-                    else:
-                        await chosen_cmd(ctx, action="list", item_name="")
+                    else: await chosen_cmd(ctx, action="list", item_name="")
                 elif chosen_cmd == self.bbyteach:
-                    if uses_word and uses_number:
-                        # For teach, use word as key and number as value (converted to string)
-                        await chosen_cmd(ctx, key=word, value=str(number))
-                    elif uses_word:
-                        await chosen_cmd(ctx, key=word, value="")
-                    else:
-                        await chosen_cmd(ctx, key="", value="")
+                    if uses_word and uses_number: await chosen_cmd(ctx, key=word, value=str(number))
+                    elif uses_word: await chosen_cmd(ctx, key=word, value="")
+                    else: await chosen_cmd(ctx, key="", value="")
                 elif chosen_cmd == self.bbybag:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
-                    else:
-                        await chosen_cmd(ctx, member_name=word)  # Fallback to word
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
                 elif chosen_cmd == self.bbydictionary:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
-                    else:
-                        await chosen_cmd(ctx, member_name=word)  # Fallback to word
-                elif chosen_cmd == self.bbyitems:
-                    await chosen_cmd(ctx)
-                elif chosen_cmd == self.bbytranslate:
-                    await chosen_cmd(ctx)
-                elif chosen_cmd == self.bbytutor_awards:
-                    await chosen_cmd(ctx)
-                elif chosen_cmd == self.bbysupply:
-                    await chosen_cmd(ctx)
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
+                elif chosen_cmd == self.bbyitems: await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbytranslate: await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbytutor_awards: await chosen_cmd(ctx)
+                elif chosen_cmd == self.bbysupply: await chosen_cmd(ctx)
                 elif chosen_cmd == self.bbyshoutout:
-                    # Use pre-selected friend rather than a random fact/word
-                    friend_pool = self.get_random_friend_pool(ctx)
-                    if friend_pool:
-                        friend = self.get_varied_choice().choice(friend_pool)
-                        fake_ctx = await self.bot.get_context(ctx.message)
-                        fake_ctx.message.content = f"!bbyshoutout {friend}"
-                        await chosen_cmd(fake_ctx)
-                    else:
-                        await chosen_cmd(ctx)
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
                 elif chosen_cmd == self.bbyinfo:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
-                    else:
-                        await chosen_cmd(ctx, member_name=word)  # Fallback to word
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
                 elif chosen_cmd == self.bbyspace:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
-                    else:
-                        await chosen_cmd(ctx, member_name=word)  # Fallback to word
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
                 elif chosen_cmd == self.bbyhug:
-                    # Use pre-selected friend instead of selecting again
-                    if selected_friend:
-                        await chosen_cmd(ctx, member_name=selected_friend)
-                    else:
-                        await chosen_cmd(ctx, member_name=word)  # Fallback to word
-                elif chosen_cmd == self.bbysetzone:
-                    await chosen_cmd(ctx, tz_name=word)
+                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
+                    else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
+                elif chosen_cmd == self.bbysetzone: await chosen_cmd(ctx, tz_name=word)
                 elif chosen_cmd == self.bbytip:
-                    # bbytip requires tip_amount_str and optionally quantity_str
-                    if uses_word and uses_number:
-                        await chosen_cmd(ctx, tip_amount_str=str(number), quantity_str=word)
-                    elif uses_number:
-                        await chosen_cmd(ctx, tip_amount_str=str(number))
-                    elif uses_word:
-                        # If only word provided, try to parse it as a number, fallback to "1"
-                        try:
-                            tip_amount = float(word)
-                            await chosen_cmd(ctx, tip_amount_str=str(tip_amount))
-                        except ValueError:
-                            await chosen_cmd(ctx, tip_amount_str="1")
-                    else:
+                    try:
+                        tip_amount = float(word)
+                        await chosen_cmd(ctx, tip_amount_str=str(tip_amount))
+                    except ValueError:
                         await chosen_cmd(ctx, tip_amount_str="1")
-                else:
-                    # Fallback for param type
-                    if uses_word and uses_number:
-                        await chosen_cmd(ctx, word, number)
-                    elif uses_word:
-                        await chosen_cmd(ctx, word)
-                    elif uses_number:
-                        await chosen_cmd(ctx, number)
-                    else:
-                        await chosen_cmd(ctx)
                         
             elif special_type == "message":
-                # Commands that parse from ctx.message.content - we need to create a fake message
-                # Create a more robust fake context that preserves all discord.py attributes
+                if hasattr(chosen_cmd, '__name__'): cmd_name = chosen_cmd.__name__
+                elif hasattr(chosen_cmd, '__func__'): cmd_name = chosen_cmd.__func__.__name__
+                else: cmd_name = str(chosen_cmd).split('.')[-1]
                 
-                # Get the command name from the method
-                if hasattr(chosen_cmd, '__name__'):
-                    cmd_name = chosen_cmd.__name__
-                elif hasattr(chosen_cmd, '__func__'):
-                    cmd_name = chosen_cmd.__func__.__name__
-                else:
-                    cmd_name = str(chosen_cmd).split('.')[-1]
-                
-                # Clean up the command name
                 cmd_name = cmd_name.replace('_command', '').replace('_error', '').replace('_awards', '')
                 
-                # Create fake message content based on what the command expects
-                if uses_word and uses_number:
-                    fake_content = f"!{cmd_name} {word} {number}"
-                elif uses_word:
-                    fake_content = f"!{cmd_name} {word}"
-                elif uses_number:
-                    fake_content = f"!{cmd_name} {number}"
-                else:
-                    fake_content = f"!{cmd_name}"
+                if uses_word and uses_number: fake_content = f"!{cmd_name} {word} {number}"
+                elif uses_word: fake_content = f"!{cmd_name} {word}"
+                elif uses_number: fake_content = f"!{cmd_name} {number}"
+                else: fake_content = f"!{cmd_name}"
                 
                 # Create a new context class that inherits from the original but with modified message
                 class FakeContext:
@@ -6754,28 +6274,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 # Call the command with the modified context
                 await chosen_cmd(fake_ctx)
                 
-            elif special_type == "none":
-                # No-parameter commands
-                await chosen_cmd(ctx)
+            elif special_type == "none": await chosen_cmd(ctx)
                 
             else:
-                # Fallback - try to call with parameters if they're used
-                if uses_word and uses_number:
-                    await chosen_cmd(ctx, word, number)
-                elif uses_word:
-                    await chosen_cmd(ctx, word)
-                elif uses_number:
-                    await chosen_cmd(ctx, number)
-                else:
-                    await chosen_cmd(ctx)
+                if uses_word and uses_number: await chosen_cmd(ctx, word, number)
+                elif uses_word: await chosen_cmd(ctx, word)
+                elif uses_number: await chosen_cmd(ctx, number)
+                else: await chosen_cmd(ctx)
                 
-        except Exception as e:
-            await self.bot._discord_reply(ctx, f"oops, something went wrong with the random command: {str(e)[:100]}...")
+        except Exception as e: await self.bot._discord_reply(ctx, f"oops, something went wrong with the random command: {str(e)[:100]}...")
 
     # ==============================================================================
     # enhanced sentiment analysis commands 
     
     @commands.command(name='bbysentiment', aliases=['bsentiment', 'bfeels'])
+    @track_command
     async def bby_sentiment_analysis(self, ctx, *, text: str = None):
         """Analyse sentiment of any text using baby's complete vocabulary system."""
         try:
@@ -6826,74 +6339,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except Exception as e:
             print(f"[SENTIMENT_ANALYSIS] error: {e}")
             await self.bot._discord_reply(ctx, f"couldn't analyse sentiment mate: {e}")
-    
-    @commands.command(name='bbysentimenteconomy', aliases=['bsenteconomy', 'beconomy'])
-    async def bby_sentiment_economy_demo(self, ctx, *, text: str = None):
-        """Demo how sentiment analysis affects bby economy transactions."""
-        author_id = ctx.author.name.lower()
-        
-        try:
-            if not text:
-                reply = "sentiment economy demo\n\n"
-                reply += "usage: `!bsenteconomy <your text here>`\n\n" 
-                reply += "shows how your message sentiment would affect bby transactions:\n"
-                reply += "• positive sentiment = bby bonuses\n"
-                reply += "• negative sentiment = bby penalties\n"
-                reply += "• neutral sentiment = no effect\n\n"
-                reply += "try: `!bsenteconomy i absolutely love this amazing day!`\n"
-                reply += "or: `!bsenteconomy this sucks and i hate everything`"
-                await self.bot._discord_reply(ctx, reply)
-                return
-                
-            if self.enhanced_sentiment:
-                # Analyse sentiment
-                analysis = self.enhanced_sentiment.analyse_baby_tokens(text)
-                sentiment_score = analysis['sentiment']
-                confidence = analysis['confidence']
-                
-                # Calculate economic impacts for different transaction sizes
-                base_amounts = [1000, 10000, 100000, 1000000]  # Different transaction sizes
-                
-                reply = f"sentiment economy impact:\n\n"
-                reply += f"text: {text[:80]}{'...' if len(text) > 80 else ''}\n"
-                reply += f"sentiment: {sentiment_score:+.3f} (confidence: {confidence:.2f})\n"
-                reply += f"analysis: {analysis['analysis']}\n\n"
-                
-                if abs(sentiment_score) > 0.1:
-                    reply += "economic impact examples:\n"
-                    for base_amount in base_amounts:
-                        bonus, desc = self._calculate_sentiment_bby_bonus(text, base_amount, author_id)
-                        if bonus != 0:
-                            percentage = (bonus / base_amount) * 100
-                            reply += f"  ᛒ{base_amount:,} transaction -> {bonus:+,.0f} bby ({percentage:+.1f}%)\n"
-                    
-                    # Show what commands this would affect
-                    reply += f"\naffected commands:\n"
-                    reply += "  • !bbytip - sentiment affects lottery odds\n"
-                    reply += "  • !bbygift - sentiment affects generosity bonuses\n" 
-                    reply += "  • !bbyteach - sentiment influences fact values\n"
-                    reply += "  • all bby transactions use sentiment analysis\n"
-                    
-                    # Give a small demonstration bonus
-                    demo_bonus, demo_desc = self._calculate_sentiment_bby_bonus(text, 5000, author_id)
-                    if demo_bonus != 0:
-                        self.bot.updateBBY(author_id, demo_bonus)
-                        reply += f"\ndemo bonus applied: {demo_desc}"
-                    
-                else:
-                    reply += "neutral sentiment = no economic effect\n"
-                    reply += "try something more emotional for bigger impact!"
-                    
-            else:
-                reply = "enhanced sentiment system not available - economy runs on legacy mode"
-            
-            await self.bot._discord_reply(ctx, reply)
-            
-        except Exception as e:
-            print(f"[SENTIMENT_ECONOMY] error: {e}")
-            await self.bot._discord_reply(ctx, f"couldn't calculate sentiment economics: {e}")
 
     @commands.command(name='bbytokensenhanced', aliases=['btokensenhanced', 'bvocabenhanced'])
+    @track_command
     async def bbytokens_enhanced(self, ctx, *, item: str = None):
         """Enhanced version of btokens with complete 4200 vocabulary coverage."""
         try:

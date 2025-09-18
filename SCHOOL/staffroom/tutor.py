@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v3.7
+# v4.13
 
 import random, os, time
 from collections import Counter, defaultdict
@@ -660,15 +660,10 @@ class TUTOR:
                     self.tokenLevelLosses.append(stepLoss.item())
                     if debugPrints: print(f"self.tokenLevelLosses = {self.tokenLevelLosses}")
 
-                #if j + 1 < self.numTokensPerStep:
-                    #pixelNext = self.getPixelForStep(j + 1)
-
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
             if not skipPixels:
-                #self.rgbBar = f"PROM: {self.rgbPromptBar}\nPRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
                 self.rgbBar = f"PRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
-                #print(self.stringStats["rgbBar"])
 
             triesInfluence = 0.0005 
             triesLossModifier = (1 + (self.totalTries - 1)/10)
@@ -689,11 +684,6 @@ class TUTOR:
             BACKWARDloss = BACKWARDloss * BACKWARDtriesMod * BACKWARDperfMod
             BACKWARDloss = BACKWARDloss + pixelDistLoss
 
-            #entropyBonus = getattr(self.model.interneuronNetwork, "entropyBonus", 0.0)
-            #entropyPenalty = 0.01 * entropyBonus
-            #BACKWARDloss -= entropyPenalty
-            #self.entropyLoss_used = entropyPenalty
-
             if windowEntropyBonus:
                 WEloss = BACKWARDloss
                 # entropy above the minimum
@@ -704,15 +694,6 @@ class TUTOR:
                 meanPenalty = self.model.interneuronNetwork.meanPenalty
                 WEloss -= 0.0050 * meanPenalty
                 BACKWARDloss = WEloss
-                #if hasattr(self.model.interneuronNetwork, "entropyBonus"):
-                #    entropyLoss = -0.01 * max(self.model.interneuronNetwork.entropyBonus, 0.02) # MUST BE NEGATIVE!
-                #    BACKWARDloss = BACKWARDloss + entropyLoss
-                #    self.entropyLoss_used = entropyLoss
-
-                #if hasattr(self.model.interneuronNetwork, "windowSizeEntropy"):
-                #    entropySizeLoss = -0.1 * max(self.model.interneuronNetwork.windowSizeEntropy, 0.2) # MUST BE NEGATIVE!
-                #    BACKWARDloss = BACKWARDloss + entropySizeLoss
-                #    self.entropySizeLoss_used = entropySizeLoss
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
                 return [], []
@@ -738,6 +719,7 @@ class TUTOR:
                 
             try:
                 self.model.optimizer.zero_grad() # clears gradients last step - needed before any backward
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 if profiler: 
                     with torch.profiler.profile(record_shapes = True) as prof:
                         self.model.backward(BACKWARDloss, self.latestLossDelta)
@@ -753,10 +735,6 @@ class TUTOR:
                 return [], []
 
             if profiler: print(prof.key_averages().table())
-            
-            if debugPrints: ʕっʘ‿ʘʔっ("clip_grad_norm") # DONE IN BABYLLM!!
-            #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm = 1)
-            #self.model.optimizer.step()
 
             if debugPrints: ʕっʘ‿ʘʔっ("actions after looping")
             self.avgPixelDistTotals        += self.avgPixelDist

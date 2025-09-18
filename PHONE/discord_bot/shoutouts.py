@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/shoutouts.py
-# v3.7
+# v4.13
 
 SHOUTOUT_PROMPTS = [
     "trust me, you need to follow {name}",

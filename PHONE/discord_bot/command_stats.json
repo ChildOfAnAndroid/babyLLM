@@ -1,14 +1,15 @@
 {
   "babyllm": {
-    "total_uses": 74,
+    "total_uses": 79,
     "unique_users": [
       "charis"
     ]
   },
   "bbyteach": {
-    "total_uses": 48,
+    "total_uses": 62,
     "unique_users": [
-      "childofanandroid"
+      "childofanandroid",
+      "chaosshadowwolf"
     ]
   },
   "bbyspam": {
@@ -18,19 +19,19 @@
     ]
   },
   "bbythink": {
-    "total_uses": 12,
+    "total_uses": 13,
     "unique_users": [
       "childofanandroid"
     ]
   },
   "bbyvomit": {
-    "total_uses": 2,
+    "total_uses": 5,
     "unique_users": [
       "childofanandroid"
     ]
   },
   "bbyrandom": {
-    "total_uses": 668,
+    "total_uses": 823,
     "unique_users": [
       "childofanandroid"
     ]
@@ -39,6 +40,80 @@
     "total_uses": 2,
     "unique_users": [
       "childofanandroid"
+    ]
+  },
+  "bbycommands": {
+    "total_uses": 5,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyinfo": {
+    "total_uses": 2,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbysocial": {
+    "total_uses": 5,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyjudge": {
+    "total_uses": 2,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbymyitem": {
+    "total_uses": 3,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbytimer": {
+    "total_uses": 1,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbysminks": {
+    "total_uses": 67,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyfeed": {
+    "total_uses": 1,
+    "unique_users": [
+      "chaosshadowwolf"
+    ]
+  },
+  "bbyconnect": {
+    "total_uses": 16,
+    "unique_users": [
+      "childofanandroid",
+      "chaosshadowwolf"
+    ]
+  },
+  "bbyfite": {
+    "total_uses": 1,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyiteminfo": {
+    "total_uses": 1,
+    "unique_users": [
+      "chaosshadowwolf"
+    ]
+  },
+  "bbytranslate": {
+    "total_uses": 18,
+    "unique_users": [
+      "childofanandroid",
+      "chaosshadowwolf"
     ]
   }
 }

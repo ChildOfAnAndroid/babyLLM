@@ -1,4 +1,4 @@
-# v3.7
+# v4.13
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -50,6 +50,13 @@ class BABYBOT_DISCORD(commands.Bot):
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,  
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_spam,
                  rollingContextSize = rollingContextSize, idleTrainSeconds = 100, N = rollingContextSize - 1):
+
+        # lock protects user dictionaries/file saves
+        self._user_data_save_lock = asyncio.Lock()
+        
+        # lock protects the neural network
+        self.model_lock = asyncio.Lock()
+        
         # --- Smink high score tracking ---
         self.smink_highscore_path = os.path.join(SCRIPT_DIR, "smink_highscore.json")
         if os.path.exists(self.smink_highscore_path):
@@ -2083,10 +2090,17 @@ class BABYBOT_DISCORD(commands.Bot):
         trainingNum = pyrandom.randint(1, 100+self.idles)
         trainingDataPairs = self.librarian.genTrainingData(_windowMAX = windowMAXSTART, _trainingDataPairNumber = trainingNum, _stride = trainingDataStride, _tokens = tokensToLibrarian)
         self.babyLLM.train()
-        await self.loop.run_in_executor(
-            None,
-            lambda: self.tutor.trainModel(_trainingDataPairs = trainingDataPairs, _epochs = 1, _startIndex = 1)
-        )
+        
+        # Acquire the lock BEFORE running the synchronous training code in the executor.
+        print("[TRAINING] waiting to acquire model lock...")
+        async with self.model_lock:
+            print("[TRAINING] model lock acquired. starting training step.")
+            await self.loop.run_in_executor(
+                None,
+                lambda: self.tutor.trainModel(_trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1)
+            )
+            print("[TRAINING] model lock released.")
+
         # If we trained from the training buffer, drop the oldest entry
         try:
             if use_training and self.training_buffer:
