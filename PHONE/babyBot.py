@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM TWITCH BOT // phone/babyBot.py
-# v2.2
+# v1.2
 
 import torch
 import time
@@ -380,9 +380,12 @@ class BABYBOT_TWITCH(commands.Bot):
                     inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice)
                     #inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice).unsqueeze(0)
 
-                    logits = self.babyLLM.forward(inputTensor)
                     totAvgAbsDelta = self.tutor.totalAvgAbsDelta
-                    nextTokenIDTensor = self.babyLLM.getResponseFromLogits(logits, _training = True, _totAvgAbsDelta = totAvgAbsDelta)
+                    logits, nextTokenIDTensor = self.babyLLM.forward_and_sample(
+                        inputTensor,
+                        _training=True,
+                        _totAvgAbsDelta=totAvgAbsDelta,
+                    )
                     nextTokenID = nextTokenIDTensor.item()
 
                     genSeqIDs.append(nextTokenID)

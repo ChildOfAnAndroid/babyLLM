@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v2.2
+# v1.3
 
 import random, os, time, threading
 from collections import Counter, defaultdict
@@ -517,10 +517,19 @@ class TUTOR:
                 try:
                     if forwardProfiler: 
                         with torch.profiler.profile(record_shapes = True) as prof:
-                            logits = self.model.forward(inputTensor, _pixel = self.pixelNow)
-
+                            logits, predictedTokenIndex = self.model.forward_and_sample(
+                                inputTensor,
+                                _pixel=self.pixelNow,
+                                _training=True,
+                                _totAvgAbsDelta=self.totalAvgAbsDelta,
+                            )
                     else:
-                        logits = self.model.forward(inputTensor, _pixel = self.pixelNow)
+                        logits, predictedTokenIndex = self.model.forward_and_sample(
+                            inputTensor,
+                            _pixel=self.pixelNow,
+                            _training=True,
+                            _totAvgAbsDelta=self.totalAvgAbsDelta,
+                        )
                 except RuntimeError as e:
                     print("TUTOR.trainStep.forward failed!", e)
                     return [], []
@@ -532,7 +541,6 @@ class TUTOR:
                 if forwardProfiler: print(prof.key_averages().table())
 
                 if debugPrints: ʕっʘ‿ʘʔっ("getResponseFromLogits")
-                predictedTokenIndex = self.model.getResponseFromLogits(logits, _training = True, _totAvgAbsDelta = self.totalAvgAbsDelta)
                 predy = int(predictedTokenIndex.item())
                 if debugPrints:
                     print("nextToken: ")

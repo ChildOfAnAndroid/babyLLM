@@ -5,7 +5,7 @@
 # BABYLLM // VOCABULARY_SENTIMENT_INTEGRATION.py
 # 🧠💫 INTEGRATION LAYER FOR BABY'S NEURAL SENTIMENT ANALYSIS 💫🧠
 # Bridges the complete vocabulary sentiment system with baby's neural network
-# v2.2
+# v1.1
 
 from typing import Dict, List, Tuple, Optional
 from MASTER_VOCABULARY_SENTIMENT_ANALYZER import MasterVocabularySentimentAnalyzer

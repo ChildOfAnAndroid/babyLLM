@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM HELPERS // helpers.py
-# v2.2
+# v1.3
 
 # --- imports ---
 from __future__ import annotations
@@ -44,9 +44,10 @@ def register_grad_hooks(
         if param.requires_grad:
             handles.append(param.register_hook(hook_fn_provider(name)))
     return handles
-_json_cache: dict[str, str] = {}
 
+# --- json cache ---
 _json_cache: dict[str, str] = {}
+_json_cache_lock = threading.Lock()
 
 # --- file utilities ---
 def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bool = False, **dump_kwargs) -> bool:
@@ -55,19 +56,20 @@ def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bo
     Returns True if a write occurred, False otherwise.
     """
     new_content = json.dumps(data, indent=indent, sort_keys=sort_keys, **dump_kwargs)
-    cached = _json_cache.get(path)
-    if cached is None and os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                cached = f.read()
-        except Exception:
-            cached = None
-    if cached == new_content:
-        return False
-    _json_cache[path] = new_content
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(new_content)
-    return True
+    with _json_cache_lock:
+        cached = _json_cache.get(path)
+        if cached is None and os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    cached = f.read()
+            except Exception:
+                cached = None
+        if cached == new_content:
+            return False
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        _json_cache[path] = new_content
+        return True
 
 # --- mps utilities ---
 def empty_mps_cache() -> None:

@@ -1,9 +1,10 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v2.2
+# v2.6
 
 import random, os, threading
+from contextlib import nullcontext
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -178,9 +179,10 @@ class BABYLLM(nn.Module):
         return snapshot
 
     @whocalled
-    def forward(self, _inputSeq = None, _pixel = None):
+    def forward(self, _inputSeq = None, _pixel = None, _use_lock: bool = True):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
-            with self.model_thread_lock:
+            lock_ctx = self.model_thread_lock if _use_lock else nullcontext()
+            with lock_ctx:
                 if debugPrints:
                     tensor_snitch(self, "babyllm forward start")
                     tensor_snitch(self.memory, "babyllm forward start")
@@ -685,39 +687,42 @@ class BABYLLM(nn.Module):
                 tensor_snitch(self.logits, "babyllm backward end")
 
     @whocalled
-    def getResponseFromLogits(self, _logits, _training=False, _totAvgAbsDelta = 0.0):
+    def getResponseFromLogits(self, _logits, _training=False, _totAvgAbsDelta = 0.0, _use_lock: bool = True):
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
-            # Ensure incoming logits are finite
-            if not torch.isfinite(_logits).all():
-                _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
+            lock_ctx = self.model_thread_lock if _use_lock else nullcontext()
+            with lock_ctx:
+                # Ensure incoming logits are finite
+                if not torch.isfinite(_logits).all():
+                    _logits = torch.nan_to_num(_logits, nan=0.0, posinf=1e3, neginf=-1e3)
 
-            # Clamp temperature to a safe, non-zero range
-            raw_temp = torch.exp(self.logTemp)
-            safe_temp = raw_temp.clamp(min=0.1, max=5.0)
-            # Keep attrs up-to-date for any downstream consumers
-            self.temperature = safe_temp
-            self.interneuronNetwork.temperature = safe_temp
+                # Clamp temperature to a safe, non-zero range
+                raw_temp = torch.exp(self.logTemp)
+                safe_temp = raw_temp.clamp(min=0.1, max=5.0)
+                # Keep attrs up-to-date for any downstream consumers
+                self.temperature = safe_temp
+                self.interneuronNetwork.temperature = safe_temp
 
-            # Scale logits and sanitize again to avoid inf/NaN after division
-            logits_scaled = _logits / safe_temp
-            logits_scaled = torch.nan_to_num(logits_scaled, nan=0.0, posinf=1e3, neginf=-1e3)
-            # Optional safety clamp to keep within softmax-stable range
-            logits_scaled = logits_scaled.clamp(min=-80.0, max=80.0)
+                # Scale logits and sanitize again to avoid inf/NaN after division
+                logits_scaled = _logits / safe_temp
+                logits_scaled = torch.nan_to_num(logits_scaled, nan=0.0, posinf=1e3, neginf=-1e3)
+                # Optional safety clamp to keep within softmax-stable range
+                logits_scaled = logits_scaled.clamp(min=-80.0, max=80.0)
 
-            if logits_scaled.dim() == 1:
-                logits_scaled = logits_scaled.unsqueeze(0)
+                if logits_scaled.dim() == 1:
+                    logits_scaled = logits_scaled.unsqueeze(0)
 
-            # Gumbel-Softmax (robust to tiny tau)
-            try:
-                tau = float(safe_temp.detach().cpu().item())
-                tau = max(tau, 1e-2)
-                base_probs = F.gumbel_softmax(logits_scaled, tau=tau, hard=False)
-                assert torch.isfinite(base_probs).all(), "gumbelProbs has NaN or Inf!"
-            except Exception as e:
-                self.gumBellend += 1
-                debug_print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
-                base_probs = F.softmax(logits_scaled, dim=-1)
-            # Clamp and renormalize to avoid zeros that cause log(0) downstream
+                # Gumbel-Softmax (robust to tiny tau)
+                try:
+                    tau = float(safe_temp.detach().cpu().item())
+                    tau = max(tau, 1e-2)
+                    base_probs = F.gumbel_softmax(logits_scaled, tau=tau, hard=False)
+                    assert torch.isfinite(base_probs).all(), "gumbelProbs has NaN or Inf!"
+                except Exception as e:
+                    self.gumBellend += 1
+                    debug_print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
+                    base_probs = F.softmax(logits_scaled, dim=-1)
+                # Clamp and renormalize to avoid zeros that cause log(0) downstream
+
             eps = 1e-8
             base_probs = torch.nan_to_num(base_probs, nan=0.0)
             base_probs = base_probs.clamp(min=eps)
@@ -725,53 +730,64 @@ class BABYLLM(nn.Module):
             
             if _training:
                 self.lastSoftSample = base_probs
+                with torch.no_grad():
+                    # Existing creativity metrics
+                    eps = 1e-8
+                    a = self.memory.FINALmemory
+                    b = self.memory2.FINALmemory
+                    if a.dim() == 2 and a.size(0) > 1:
+                        a = a.mean(dim=0, keepdim=True)
+                    if b.dim() == 2 and b.size(0) > 1:
+                        b = b.mean(dim=0, keepdim=True)
+                    denom = (a.norm(dim=-1) * b.norm(dim=-1)).clamp_min(eps)
+                    cos_val = (a * b).sum(dim=-1) / denom
+                    cos_val = torch.nan_to_num(cos_val, nan=0.0)
+                    self.memoryFlux = (1 - cos_val).item()
+                    self.cerebralLoad = self.interneuronNetwork.cerebellum.std().item()
+                    self.learningStability = _totAvgAbsDelta
+                    self.dreamIntensity = (self.memoryFlux * 2.0) + (self.cerebralLoad * 5.0) + (self.learningStability * 1.0)
 
-            # Enhanced Creativity with Reasoned Decision Making
-            with torch.no_grad():
-                # Existing creativity metrics
-                eps = 1e-8
-                a = self.memory.FINALmemory
-                b = self.memory2.FINALmemory
-                if a.dim() == 2 and a.size(0) > 1:
-                    a = a.mean(dim=0, keepdim=True)
-                if b.dim() == 2 and b.size(0) > 1:
-                    b = b.mean(dim=0, keepdim=True)
-                denom = (a.norm(dim=-1) * b.norm(dim=-1)).clamp_min(eps)
-                cos_val = (a * b).sum(dim=-1) / denom
-                cos_val = torch.nan_to_num(cos_val, nan=0.0)
-                self.memoryFlux = (1 - cos_val).item()
-                self.cerebralLoad = self.interneuronNetwork.cerebellum.std().item()
-                self.learningStability = _totAvgAbsDelta
-                self.dreamIntensity = (self.memoryFlux * 2.0) + (self.cerebralLoad * 5.0) + (self.learningStability * 1.0)
-                
-                # Simplified sampling without creative modules
-                augmented_probs = base_probs
-                base_p = 0.92
-                top_p = base_p
-                sorted_probs, sorted_indices = torch.sort(augmented_probs, descending=True)
-                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-                sorted_indices_to_remove = cumulative_probs > top_p
-                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-                sorted_indices_to_remove[..., 0] = 0
-                indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-                augmented_probs[indices_to_remove] = 0
-                
-                if _training:
-                    # take the argmax from the *augmented* distribution - can still influence the training choice
-                    responseFromLogits = augmented_probs.argmax(dim=1, keepdim=True)
-                else:
-                    if torch.sum(augmented_probs) > 0:
-                        responseFromLogits = torch.multinomial(augmented_probs, num_samples=1)
+                    # Simplified sampling without creative modules
+                    augmented_probs = base_probs
+                    base_p = 0.92
+                    top_p = base_p
+                    sorted_probs, sorted_indices = torch.sort(augmented_probs, descending=True)
+                    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+                    sorted_indices_to_remove = cumulative_probs > top_p
+                    sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                    sorted_indices_to_remove[..., 0] = 0
+                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                    augmented_probs[indices_to_remove] = 0
+
+                    if _training:
+                        # take the argmax from the *augmented* distribution - can still influence the training choice
+                        responseFromLogits = augmented_probs.argmax(dim=1, keepdim=True)
                     else:
-                        responseFromLogits = torch.topk(base_probs, 1).indices
+                        if torch.sum(augmented_probs) > 0:
+                            responseFromLogits = torch.multinomial(augmented_probs, num_samples=1)
+                        else:
+                            responseFromLogits = torch.topk(base_probs, 1).indices
 
-            repWindow = torch.exp(self.logRepetitionWindow).item()
-            effective_repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)
-            self.recentGeneratedTokens.append(responseFromLogits.item())
-            if len(self.recentGeneratedTokens) > int(effective_repWindow):
-                self.recentGeneratedTokens.pop(0)
+                repWindow = torch.exp(self.logRepetitionWindow).item()
+                effective_repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)
+                self.recentGeneratedTokens.append(responseFromLogits.item())
+                if len(self.recentGeneratedTokens) > int(effective_repWindow):
+                    self.recentGeneratedTokens.pop(0)
 
-            return responseFromLogits
+                return responseFromLogits
+
+    def forward_and_sample(self, _inputSeq, _pixel=None, _training=False, _totAvgAbsDelta=0.0):
+        """Run ``forward`` and ``getResponseFromLogits`` while holding the model lock once."""
+
+        with self.model_thread_lock:
+            logits = self.forward(_inputSeq, _pixel=_pixel, _use_lock=False)
+            response = self.getResponseFromLogits(
+                logits,
+                _training=_training,
+                _totAvgAbsDelta=_totAvgAbsDelta,
+                _use_lock=False,
+            )
+        return logits, response
             
     @whocalled    
     def applyRepetitionPenalty(self, _logits, _contextTokens = None):
@@ -827,11 +843,8 @@ class BABYLLM(nn.Module):
     def getNextToken(self, _inputSeq):  
         with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ(f"unpack logits from self.forward{_inputSeq}")
-            logits, *_ = self.forward(_inputSeq) # unpacks the first value of the tuple and ignores the rest
-            if debugPrints: ʕっʘ‿ʘʔっ("get next token")
-            nextToken = self.getResponseFromLogits(logits, _training = True)
-            if debugPrints: 
-                print("nextToken: ")
+            logits, nextToken = self.forward_and_sample(_inputSeq, _training=True)
+            if debugPrints: print("nextToken: ")
             print(f"{nextToken}")
             return nextToken
 
@@ -948,8 +961,7 @@ class BABYLLM(nn.Module):
                 # The context window is the last `numTokensPerStep` tokens
                 input_ids = gen_token_ids[-self.numTokensPerStep:]
                 input_tensor = torch.tensor(input_ids, dtype=torch.long, device=self.device)
-                logits = self.forward(input_tensor)
-                next_token_tensor = self.getResponseFromLogits(logits, _training=False)
+                logits, next_token_tensor = self.forward_and_sample(input_tensor, _training=False)
                 next_token_id = next_token_tensor.item()
                 gen_token_ids.append(next_token_id)
                 response_ids.append(next_token_id)

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v2.2
+# v1.4
 
 import os
 import json
@@ -679,7 +679,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     try:
                         inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
                         inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
-                        logits = self.bot.babyLLM.forward(inputTensor)
+                        logits, nextTokenIDTensor = self.bot.babyLLM.forward_and_sample(
+                            inputTensor,
+                            _training=True,
+                            _totAvgAbsDelta=self.bot.tutor.totalAvgAbsDelta,
+                        )
                         
                         if torch.isnan(logits).any() or torch.isinf(logits).any():
                             # For critical model errors, return an immediate hard error.
@@ -687,8 +691,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             logger.emergency("GENERATE", msg)
                             return ("", msg) # Return with empty text but a clear error
                         
-                        totAvgAbsDelta = self.bot.tutor.totalAvgAbsDelta
-                        nextTokenIDTensor = self.bot.babyLLM.getResponseFromLogits(logits, _training=True, _totAvgAbsDelta=totAvgAbsDelta)
                         nextTokenID = nextTokenIDTensor.item()
                         
                         if nextTokenID < 0 or nextTokenID >= len(self.bot.librarian.indexToToken):
@@ -3667,7 +3669,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         elif user_input.lower().startswith("!bby "): user_input = user_input[5:]
         elif user_input.lower().startswith("!b "): user_input = user_input[3:]
         
-        base_length = min(len(user_input), 420)
+        base_length = min(len(user_input), 120)
         edge = base_length * (0.1 * self.get_varied_random())
         edge2 = base_length * (1.9 * self.get_varied_random())
         edgeint = abs(int((edge + edge2) * 0.5))
@@ -3675,7 +3677,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         num_tokens_to_gen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.45)
         
         # Cap to keep replies snappy
-        num_tokens_to_gen = max(1, min(num_tokens_to_gen, 420))
+        num_tokens_to_gen = max(1, min(num_tokens_to_gen, 120))
 
         load = max(0, int(self._active_generations))
         if load > 0:
@@ -4391,13 +4393,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
             # --- Construct a long prompt and define a large generation length ---
             random.shuffle(fragments)
-            num_fragments = random.randint(30, 50)
+            num_fragments = random.randint(10, 30)
             seed_prompt = "\n".join(fragments[:num_fragments])
             
-            # Request a much larger number of tokens for a true rant
-            num_tokens_for_rant = random.randint(42, 4200) 
-            
-            print(f"\n\n[BBYRANT] Generated seed prompt of {len(seed_prompt)} chars for '{word}'.")
+            len_seed_token_approx = len(seed_prompt) * 0.25
+            num_tokens_for_rant = self.get_varied_choice((len_seed_token_approx * self.get_varied_random), (len_seed_token_approx * (self.get_varied_random + self.get_varied_random)))
+
+            print(f"\n\n[BBYRANT] Generated seed prompt of {len_seed_token_approx * 4} chars for '{word}'.")
             print(f"[BBYRANT] Requesting a long generation of {num_tokens_for_rant} tokens.")
             
             await self._generate_and_reply(ctx, seed_prompt, num_tokens_for_rant)

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # EMBEDDING LAYER // brain/LAYERS/embed.py
-# v2.2
+# v1.1
 
 import math
 import torch

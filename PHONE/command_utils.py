@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/command_utils.py
-# v2.2
+# v1.1
 
 import re
 
