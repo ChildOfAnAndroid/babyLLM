@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v1.1
+# v2.1
 
 import os
 import json
@@ -34,7 +34,7 @@ from secret import *
 from textCleaningTool import *
 
 from .shoutouts import get_shoutout_prompts
-from PHONE.command_utils import strip_ansi, get_status_line, get_thought_line
+from phone.command_utils import strip_ansi, get_status_line, get_thought_line
 from .utils import (
     escape_markdown,
     is_similar,
@@ -609,8 +609,29 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 itemTotals[item_name] += count
         return itemTotals
 
+    async def _get_available_items(self) -> Dict[str, int]:
+        """
+        Scans all facts and returns a dictionary of items that can still be awarded.
+        Key: item_name, Value: number of available slots.
+        """
+        available = {}
+        for fact_name, data in self.bot.bbyfacts.items():
+            if not isinstance(data, dict): continue
+            
+            total_in_world = self._get_fact_total_world(fact_name)
+            cap = self._get_fact_num_produced(fact_name)
+            available_slots = cap - total_in_world
+            
+            if available_slots > 0:
+                available[fact_name] = available_slots
+        return available
+
     # --*- AWARD FACT -*--
-    async def _award_fact(self, user="", fact="", ctx=None, num=1, debug_str="", discord_debug=False, old_value=None):
+    async def _award_fact(self, user="", fact="", ctx=None, num=1, debug_str="", discord_debug=False, old_value=None) -> Tuple[bool, int, str]:
+        """
+        Awards a fact atomically and returns a detailed status tuple.
+        Returns: (Success: bool, AwardedCount: int, Reason: str)
+        """
         async with self.bot._fact_award_lock:
             if fact not in self.bot.bbyfacts:
                 if old_value is None: await self._discover_fact(key=fact, author=user)
@@ -623,14 +644,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
             if num > 0 and available_slots <= 0:
                 if discord_debug: await self.bot._discord_debug(f"!!!![_AWARD_FACT] {fact} AT CAP, AWARD TO {user} BLOCKED!")
-                return 0
-                
-            if num > 0: num_to_award = min(num, available_slots)
-            else: num_to_award = num
+                return (False, 0, "ITEM_AT_CAP") # Richer failure reason
+
+            num_to_award = min(num, available_slots) if num > 0 else num
             
-            self._update_fact_total_user(user, fact, num = num_to_award)
+            # 2. WRITE
+            self._update_fact_total_user(user, fact, num=num_to_award)
             
-            return num_to_award
+            return (True, num_to_award, "SUCCESS") # Success!
 
     # --*- FACT HELPERS -*--
     def _generate_response_blocking(self, promptTokenIDs, numTokensToGen):
@@ -5418,24 +5439,31 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name="bbytip", aliases=['btip', 'bt'])
     @track_command
     async def bbytip(self, ctx, tip_amount_str: str, num_attempts_str: str = "1"):
-        """Spend bby to run the tip lottery. Failed pulls due to caps are rerolled."""
+        """Spend bby to run the tip lottery. Now with efficient pre-checks and better feedback."""
         customer_id = ctx.author.name.lower()
+        
+        # --- [VERIFIED] Initial Setup and Input Validation ---
         try:
             tip_amount_per_pull = float(tip_amount_str)
             num_attempts = int(num_attempts_str)
             if tip_amount_per_pull <= 0 or num_attempts <= 0:
                 await self.bot._discord_reply(ctx, "hmm... what can i give you for a negative amount... a fucking slap. lmaoooo")
-                return await self._award_fact(customer_id, "a fucking slap", ctx, num = 1)
+                asyncio.create_task(self._award_fact(customer_id, "a fucking slap", ctx, num = 1))
+                return
             if num_attempts > 420690:
                 return await self.bot._discord_reply(ctx, "jesus christ lmfao be reasonable xD less than 420690 plz ")
         except ValueError:
             return await self.bot._discord_reply(ctx, f"brr i can't read that... please use numbers! !bbytip <tip_amount> <attempts> ")
 
-        # Calculate total cost from individual tip amount times number of attempts
+        # --- [NEW & IMPROVED] Pre-check available items FIRST ---
+        available_items = await self._get_available_items()
+        if not available_items:
+            return await self.bot._discord_reply(ctx, "omg there are no items left in the world to win! teach me things with !bbyteach to create more.")
+
+        # --- [VERIFIED] Balance Check and Cost Calculation ---
         balance = self.bot.getBBY(customer_id)
         total_cost = tip_amount_per_pull * num_attempts
         if balance < total_cost:
-            # Cap attempts to affordable amount; inform user
             max_affordable = int(balance // max(1.0, tip_amount_per_pull))
             if max_affordable <= 0:
                 return await self.bot._discord_reply(ctx, f"uhh you don't have enough bby to tip even once :( you have {format_bby_amount(balance)}")
@@ -5443,70 +5471,77 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             num_attempts = max_affordable
             total_cost = tip_amount_per_pull * num_attempts
             
-        if not self.bot.bbyfacts:
-            return await self.bot._discord_reply(ctx, "there are no items!! teach me things with !bbyteach to create them ")
-
-        # Apply sentiment analysis to tip transaction
-        # Use the full message content for sentiment analysis
+        # --- [VERIFIED] BBY Deduction and Sentiment Bonus ---
         message_text = ctx.message.content if ctx.message else f"bbytip {tip_amount_str} {num_attempts_str}"
         sentiment_bonus = 0
-        
         if self.enhanced_sentiment:
             try:
                 analysis = self.enhanced_sentiment.analyse_baby_tokens(message_text)
                 sentiment_score = analysis['sentiment']
-                
-                # Give slight bonus/penalty based on sentiment of the tip message
-                if sentiment_score > 0.2:  # Positive sentiment
-                    sentiment_bonus = total_cost * 0.05  # 5% bonus
+                if sentiment_score > 0.2:
+                    sentiment_bonus = total_cost * 0.05
                     print(f"[BBY_TIP_SENTIMENT] Positive sentiment bonus: +{sentiment_bonus:,.0f} BBY")
-                elif sentiment_score < -0.2:  # Negative sentiment  
-                    sentiment_bonus = -total_cost * 0.03  # 3% penalty
+                elif sentiment_score < -0.2:
+                    sentiment_bonus = -total_cost * 0.03
                     print(f"[BBY_TIP_SENTIMENT] Negative sentiment penalty: {sentiment_bonus:,.0f} BBY")
             except Exception as e:
                 print(f"[BBY_TIP_SENTIMENT] Error: {e}")
-
         self.bot.updateBBY(customer_id, -total_cost + sentiment_bonus)
         
+        # --- [NEW & IMPROVED] Smarter Lottery Logic ---
         items_won = defaultdict(int)
         total_value_won = 0.0
+        reroll_notices = []
         
-        market_values = {name: self._get_fact_value(name) for name in self.bot.bbyfacts}
-        
-        successful_pulls = 0
-        attempts = 0
-        # Give some buffer attempts in case items hit caps, but keep it reasonable
-        max_attempts = ((num_attempts * self.get_varied_random()) * (10 * self.get_varied_random())) * self.get_varied_random()  # Simple 3x buffer for failed attempts due to caps
+        market_values = {name: self._get_fact_value(name) for name in available_items}
 
-        while successful_pulls < num_attempts and attempts < max_attempts:
-            attempts += 1
-            if random.random() > 0.6 and (random.random()+self.get_varied_random()) > 1.5 and (random.random()+self.get_varied_random()) < 0.5:
-                successful_pulls += 1
-                continue
+        current_attempts = num_attempts
+        i = 0
+        while i < current_attempts:
+            i += 1
+            
+            if not available_items: # Break early if all items have been exhausted
+                break
 
+            # The lottery now ONLY considers items we know are available.
             weighted_items = []
             for item_name, value in market_values.items():
+                if item_name not in available_items: continue
                 target_value = tip_amount_per_pull * random.uniform(0.1, 2.0)
                 value_diff = abs(value - target_value)
                 weight = 1 / (value_diff + 100.0)
                 weighted_items.append((item_name, weight))
 
-            total_weight = sum(w for _, w in weighted_items)
-            if total_weight <= 0: continue
+            if not weighted_items: continue
 
+            total_weight = sum(w for _, w in weighted_items)
             pick = random.uniform(0, total_weight)
             cumulative = 0
+            chosen_item = weighted_items[-1][0]
             for item_name, weight in weighted_items:
                 cumulative += weight
                 if pick <= cumulative:
-                    was_awarded = await self._award_fact(customer_id, item_name, ctx, num = 1)
-                    if was_awarded:
-                        items_won[item_name] += 1
-                        total_value_won += market_values.get(item_name, 0.0)
-                        successful_pulls += 1
+                    chosen_item = item_name
                     break
+            
+            # Use the new transactional award function
+            success, awarded_count, reason = await self._award_fact(customer_id, chosen_item, ctx, num=1)
+
+            if success:
+                items_won[chosen_item] += awarded_count
+                total_value_won += market_values.get(chosen_item, 0.0)
+                
+                # Update our local list of available items for this run
+                available_items[chosen_item] -= 1
+                if available_items[chosen_item] <= 0:
+                    del available_items[chosen_item]
+            else:
+                if reason == "ITEM_AT_CAP":
+                    if len(reroll_notices) < 3:
+                        reroll_notices.append(f"*(...tried to get you a **{chosen_item}** but it was just claimed! rerolling...)*")
+                    current_attempts += 1 # Add one more attempt to the loop counter
         
-        # Count total items won
+        # --- [VERIFIED] Complete Reply Logic ---
         total_items_won = sum(items_won.values())
         
         reply = (
@@ -5515,21 +5550,24 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"uh, sooo... you managed to get {style_gain(str(total_items_won))} items, noice :) "
         )
         
+        if reroll_notices:
+            reply += "\n" + "\n".join(reroll_notices)
+
         if not items_won: 
-            reply += "you got... nothing!!! :D "
-            await self._award_fact(customer_id, "nothing", ctx, num=1)
+            reply += "\nyou got... nothing!!! :D "
+            asyncio.create_task(self._award_fact(customer_id, "nothing", ctx, num=1))
             consolation = min(
                 (total_cost * (self.get_varied_random() + self.get_varied_random())),
                 total_cost * 1.2,
             )
-            self.bot.updateBBY(customer_id, consolation, ctx)
+            self.bot.updateBBY(customer_id, consolation)
             if consolation > 0:
                 reply += (
                     "... i guess i'll give you back "
                     f"{style_gain(format_bby_amount(consolation))} for the attempt?? "
                 )
         else:
-            reply += "you got...\n"
+            reply += "\nyou got...\n"
             sorted_items = sorted(items_won.items(), key=lambda x: (-x[1], x[0]))
             item_lines = []
             for item_name, count in sorted_items:

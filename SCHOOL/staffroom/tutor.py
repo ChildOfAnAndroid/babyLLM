@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v1.3
+# v2.1
 
 import random, os, time
 from collections import Counter, defaultdict

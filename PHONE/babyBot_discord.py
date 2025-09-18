@@ -1,10 +1,10 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM DISCORD BOT FACADE // phone/babyBot_discord.py
-# v1.1
+# v2.1
 
-from PHONE.discord_bot.bot import BABYBOT_DISCORD
-from PHONE.discord_bot.cog import babyBot_DISCORD_COG
+from phone.discord_bot.bot import BABYBOT_DISCORD
+from phone.discord_bot.cog import babyBot_DISCORD_COG
 from config import modelDevice
 
 def run_discord_bot(babyLLM, tutor, librarian, scribe, calligraphist, token):

@@ -7,7 +7,7 @@
 # EVERY SINGLE TOKEN IN BABY'S 4200 VOCABULARY - NO TOKEN LEFT BEHIND!
 # This is the ULTIMATE vocabulary archaeology project
 # v1.0 - FOUNDATION SYSTEM
-# v1.1
+# v2.1
 
 import json
 import logging

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM CONFIG FILE // config.py
-# v1.1
+# v2.1
 
 # === Imports ===
 import datetime as CONFIGDATE
@@ -58,6 +58,9 @@ def printTensorAttrs(obj, name='self'):
             print(f"{name}.{attr}: <error accessing attribute: {e}>")
     print("--- END ---\n")
 
+# Alias for tensor_snitch used in babyLLM.py
+def tensor_snitch(obj, message):
+    printTensorAttrs(obj, message)
 
 # Legacy placeholder (not used directly; kept for safety)
 guessedTokenSeq = []

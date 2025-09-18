@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM TWITCH BOT // phone/babyBot.py
-# v1.1
+# v2.1
 
 import torch
 import time
@@ -16,7 +16,7 @@ import random
 import traceback
 from collections import defaultdict
 import time
-from PHONE.discord_bot.shoutouts import get_shoutout_prompts
+from phone.discord_bot.shoutouts import get_shoutout_prompts
 from .command_utils import get_status_line, get_thought_line
 
 defaultEye = 5
