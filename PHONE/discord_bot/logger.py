@@ -1,4 +1,4 @@
-# v3.5
+# v3.7
 """
 Centralized logging system for babyLLM Discord bot
 Replaces scattered print statements with structured logging

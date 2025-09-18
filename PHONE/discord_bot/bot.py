@@ -1,4 +1,4 @@
-# v3.5
+# v3.7
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -95,6 +95,7 @@ class BABYBOT_DISCORD(commands.Bot):
         self.last_logged_author, self.idleTrainSeconds, self.N = None, idleTrainSeconds, N
         self.chatWindowMAX, self.dataStride = windowMAXSTART, round(windowMAXSTART * 0.1)
         self.idles, self.random, self.random2, self.random3, self.random4 = 0, 0.0, 0.0, 0.0, 0.0
+        self._varied_rng_nonce = 0
         self.current_bestie, self.bestie_score = None, 0.0
         self.inventory = {}
 
@@ -216,9 +217,34 @@ class BABYBOT_DISCORD(commands.Bot):
         with open(self.smink_highscore_path, "w") as f: json.dump(self.smink_highscore, f)
 
     def get_varied_random(self):
-        """Get a random float value from one of the four random generators"""
-        randoms = [self.random, self.random2, self.random3, self.random4]
-        return pyrandom.choice(randoms)
+        """Brain-influenced random draw with per-call jitter to avoid identical streaks."""
+        if not any((self.random, self.random2, self.random3, self.random4)):
+            self._refresh_brain_randoms()
+
+        slots = [self.random, self.random2, self.random3, self.random4]
+        slot_index = pyrandom.randrange(len(slots))
+        base = slots[slot_index] or pyrandom.random()
+
+        influenced = self.get_brain_influence(base, influence_strength=0.35)
+        jitter_primary = pyrandom.random()
+        jitter_secondary = (time.perf_counter() % 1.0)
+
+        blended = (influenced * 0.5) + (jitter_primary * 0.35) + (jitter_secondary * 0.15)
+        blended = max(0.0, min(1.0, blended))
+
+        if abs(blended - base) < 1e-6:
+            blended = max(0.0, min(1.0, blended + (pyrandom.random() - 0.5) * 0.02))
+
+        if slot_index == 0:
+            self.random = blended
+        elif slot_index == 1:
+            self.random2 = blended
+        elif slot_index == 2:
+            self.random3 = blended
+        else:
+            self.random4 = blended
+
+        return blended
 
     def _refresh_brain_randoms(self):
         """Refresh the four brain-influenced random values, with safe fallback."""
@@ -270,12 +296,33 @@ class BABYBOT_DISCORD(commands.Bot):
             self._rng = pyrandom.Random(seed)
 
         def random(self) -> float:
-            return self._rng.random()
+            base = self._rng.random()
+            jitter_primary = pyrandom.random()
+            jitter_secondary = (time.perf_counter() % 1.0)
+            value = (base * 0.55) + (jitter_primary * 0.3) + (jitter_secondary * 0.15)
+            value = max(0.0, min(1.0, value))
+            if abs(value - base) < 1e-6:
+                value = max(0.0, min(1.0, value + (pyrandom.random() - 0.5) * 0.02))
+            return value
 
         def choice(self, seq):
             if not seq:
                 return None
-            return self._rng.choice(seq)
+            rand_val = self.random()
+            index = min(int(rand_val * len(seq)), len(seq) - 1)
+            return seq[index]
+
+        def sample(self, population, k):
+            if not population or k <= 0:
+                return []
+            items = list(population)
+            k = min(k, len(items))
+            result = []
+            for _ in range(k):
+                rand_val = self.random()
+                idx = min(int(rand_val * len(items)), len(items) - 1)
+                result.append(items.pop(idx))
+            return result
 
     def get_varied_rng(self, *, scope: Optional[str] = None, author: Optional[str] = None) -> "_VariedRNG":
         """Unified RNG seeded by brain state + optional scope/author.
@@ -284,7 +331,13 @@ class BABYBOT_DISCORD(commands.Bot):
           for a short time window so related picks feel coherent.
         """
         window = int(time.time() // 5)  # 5-second buckets to keep things lively
-        base = f"{self.random:.9f}|{self.random2:.9f}|{self.random3:.9f}|{self.random4:.9f}|{scope or ''}|{author or ''}|{window}"
+        self._varied_rng_nonce = (self._varied_rng_nonce + 1) % 1_000_000_000
+        nonce = self._varied_rng_nonce
+        jitter = pyrandom.random()
+        base = (
+            f"{self.random:.9f}|{self.random2:.9f}|{self.random3:.9f}|{self.random4:.9f}|"
+            f"{scope or ''}|{author or ''}|{window}|{nonce}|{jitter:.9f}"
+        )
         seed_bytes = hashlib.blake2b(base.encode('utf-8'), digest_size=8).digest()
         seed = int.from_bytes(seed_bytes, 'big', signed=False)
         return BABYBOT_DISCORD._VariedRNG(seed)

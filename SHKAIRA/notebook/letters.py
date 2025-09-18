@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // SHKAIRA/notebook/letters.py
-# v3.5
+# v3.7
 
 
 
