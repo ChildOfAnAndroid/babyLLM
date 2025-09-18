@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM DISCORD BOT FACADE // phone/babyBot_discord.py
-# v4.13
+# v4.14
 
 from phone.discord_bot.bot import BABYBOT_DISCORD
 from phone.discord_bot.cog import babyBot_DISCORD_COG

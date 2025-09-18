@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v4.14
+# v4.15
 
 import os
 import json
@@ -3412,6 +3412,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 promptCleaned = clean_text(f"{prompt}\n")
                 promptTokenStrings = self.bot.librarian.tokenizeText(promptCleaned)
                 promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
+                # Truncate to model context window size for safety
+                max_window = getattr(self.bot, 'chatWindowMAX', 256)
+                if len(promptTokenIDs) > max_window:
+                    promptTokenIDs = promptTokenIDs[-max_window:]
+                    print(f"[babyllm_command] Truncated prompt to last {max_window} tokens (from {len(promptTokenStrings)})")
 
                 # Extract the actual user input (after "!babyllm ") for length calculation
                 user_input = ctx.message.content
