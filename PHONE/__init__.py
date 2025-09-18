@@ -1,4 +1,4 @@
-# v2.1
+# v2.2
 """Top-level package for the BABYLLM phone integrations.
 
 The project historically imported modules via a lower-case
