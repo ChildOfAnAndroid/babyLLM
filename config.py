@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM CONFIG FILE // config.py
-# v2.7
+# v1.3
 
 # === Imports ===
 import datetime as CONFIGDATE

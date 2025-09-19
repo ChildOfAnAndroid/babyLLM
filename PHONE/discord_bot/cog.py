@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v1.4
+# v1.2
 
 import os
 import json
@@ -13,6 +13,7 @@ import math
 import functools
 import calendar
 import discord
+from typing import Dict
 from discord.ext import commands
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MEMORY LAYER // brain/LAYERS/memory.py
-# v1.1
+# v1.2
 
 import torch
 import torch.nn as nn
@@ -85,6 +85,56 @@ class MEMORY(nn.Module):
         self.register_buffer("reducedInputBuf", torch.zeros(1, embedDimension, device=self.device))
         self.register_buffer("gateLogitsBuf", torch.zeros(4, numNeurons, device=self.device))
 
+    def _reset_history_buffers(self):
+        """Clear history buffers once stats have been aggregated."""
+        history_attrs = [
+            "shortGateScaleHistory",
+            "longGateScaleHistory",
+            "activationsGateScaleHistory",
+            "gateLayer2History",
+            "gateLayer2MaxHistory",
+            "gateLayer2MinHistory",
+            "reducedInputHistory",
+            "reducedInputMaxHistory",
+            "reducedInputMinHistory",
+            "rawActivationsHistory",
+            "rawActivationsMaxHistory",
+            "rawActivationsMinHistory",
+            "shortTermMemoryHistory",
+            "shortTermMemoryMaxHistory",
+            "shortTermMemoryMinHistory",
+            "longTermMemoryHistory",
+            "longTermMemoryMaxHistory",
+            "longTermMemoryMinHistory",
+            "FINALmemoryHistory",
+            "FINALmemoryMaxHistory",
+            "FINALmemoryMinHistory",
+            "memGateScaleHistory",
+            "projectedMemoryHistory",
+            "projectedMemoryMaxHistory",
+            "projectedMemoryMinHistory",
+            "memoryGateHistory",
+            "memoryGateMaxHistory",
+            "memoryGateMinHistory",
+            "mixedEmbedHistory",
+            "mixedEmbedMaxHistory",
+            "mixedEmbedMinHistory",
+            "gateLayer2NormHistory",
+            "reducedInputNormHistory",
+            "rawActivationsNormHistory",
+            "shortTermMemoryNormHistory",
+            "longTermMemoryNormHistory",
+            "FINALmemoryNormHistory",
+            "projectedMemoryNormHistory",
+            "memoryGateNormHistory",
+            "mixedEmbedNormHistory",
+        ]
+
+        for attr in history_attrs:
+            history = getattr(self, attr, None)
+            if isinstance(history, list):
+                history.clear()
+
     @whocalled
     def forward(self, _activationsTensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
@@ -159,10 +209,10 @@ class MEMORY(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("shortGateScale stats")
             self.shortGateScaleHistory.append(shortGateScale.mean().item()) # 1
             self.short_used = shortGateScale.mean().item()
-            self.shortDecay_used = shortDecay
+            self.shortDecay_used = shortDecay.detach().item()
             self.longGateScaleHistory.append(longGateScale.mean().item()) # 2
             self.long_used = longGateScale.mean().item()
-            self.longDecay_used = longDecay
+            self.longDecay_used = longDecay.detach().item()
             self.activationsGateScaleHistory.append(actGateScale.mean().item()) # 0
             self.act_used = actGateScale.mean().item()
             self.memGateScaleHistory.append(memGateScale.mean().item()) # 7
@@ -281,51 +331,7 @@ class MEMORY(nn.Module):
                     "4M_1_longDecay": statLongDecay,
                 }
 
-                """if debugPrints: ʕっʘ‿ʘʔっ("clear stats")
-                self.shortGateScaleHistory = []
-                self.longGateScaleHistory = []
-                self.activationsGateScaleHistory = []
-                self.gateLayer2History = []
-                self.gateLayer2MaxHistory = []
-                self.gateLayer2MinHistory = []
-                self.reducedInputHistory = []
-                self.reducedInputMaxHistory = []
-                self.reducedInputMinHistory = []
-
-                self.rawActivationsHistory = []
-                self.rawActivationsMaxHistory = []
-                self.rawActivationsMinHistory = []
-                self.shortTermMemoryHistory = []
-                self.shortTermMemoryMaxHistory = []
-                self.shortTermMemoryMinHistory = []
-                self.longTermMemoryHistory = []
-                self.longTermMemoryMaxHistory = []
-                self.longTermMemoryMinHistory = []
-                self.FINALmemoryHistory = []
-                self.FINALmemoryMaxHistory = []
-                self.FINALmemoryMinHistory = []
-
-                self.memGateScaleHistory = []
-                self.projectedMemoryHistory = []
-                self.projectedMemoryMaxHistory = []
-                self.projectedMemoryMinHistory = []
-                self.memoryGateHistory = []
-                self.memoryGateMaxHistory = []
-                self.memoryGateMinHistory = []
-                self.mixedEmbedHistory = []
-                self.mixedEmbedMaxHistory = []
-                self.mixedEmbedMinHistory = []
-                self.gateLayer2NormHistory = []
-                self.reducedInputNormHistory = []
-
-                self.rawActivationsNormHistory = []
-                self.shortTermMemoryNormHistory = []
-                self.longTermMemoryNormHistory = []
-                self.FINALmemoryNormHistory = []
-
-                self.projectedMemoryNormHistory = []
-                self.memoryGateNormHistory = []
-                self.mixedEmbedNormHistory = []"""
+            self._reset_history_buffers()
 
             if debugPrints: ʕっʘ‿ʘʔっ("store computed memories for after backward")
             self.newShort = newShort
@@ -337,21 +343,19 @@ class MEMORY(nn.Module):
     @whocalled
     def updateMemoryBuffers(self):
         with self.counsellor.infodump("updateMemoryBuffers") as ʕっʘ‿ʘʔっ:
+            new_short = getattr(self, "newShort", None)
+            new_long = getattr(self, "newLong", None)
             with torch.no_grad():
-                if getattr(self, "newShort", None) is not None:
+                if new_short is not None:
                     if debugPrints: ʕっʘ‿ʘʔっ("self.shortTermMemory.copy_")
-                    self.shortTermMemory.copy_(self.newShort.detach())
-                if getattr(self, "newLong", None) is not None:
+                    self.shortTermMemory.copy_(new_short.detach())
+                if new_long is not None:
                     if debugPrints: ʕっʘ‿ʘʔっ("self.longTermMemory.copy_")
-                    self.longTermMemory.copy_(self.newLong.detach())
+                    self.longTermMemory.copy_(new_long.detach())
 
-                # free graph memory
-                #self.longTermDecay += 0.1
-                #self.shortTermDecay -= 0.001
-                # POTENTIALLY CAUSES OF TENSOR + NONE TWITCHBOT ERROR:
-                #self.newShort = None
-                #self.newLong = None
-                #self.activationsTensor = None
+            self.newShort = None
+            self.newLong = None
+            if hasattr(self, "activationsTensor"): self.activationsTensor = None
 
     @whocalled
     def resetMemory(self, _memoryLength):

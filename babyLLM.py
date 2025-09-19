@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v2.6
+# v1.3
 
 import random, os, threading
 from contextlib import nullcontext
@@ -278,7 +278,7 @@ class BABYLLM(nn.Module):
                     #self.memory2OutputHistory.append(memory2Output.norm().item())
                     #self.penalisedOutputHistory.append(penalisedLogits.norm().item())
                     self.FINALlogitsHistory.append(FINALlogits.norm().item())
-                    if len(self.inputEmbedsHistory) >= self.numTokensPerStep:
+                    if len(self.FINALlogitsHistory) >= self.numTokensPerStep:
                         self.forwardStats = {
                             #"2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
                             #"3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
