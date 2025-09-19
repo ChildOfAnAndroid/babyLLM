@@ -1888,16 +1888,55 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"{self.get_varied_choice().choice(self.bot.faveEmotes)} {style_gain(f'+{format_bby_amount(incrementTeach)}')} for you! \n"
         )
         
-        num_produced = self._get_fact_num_produced(key)
+        num_produced_cap = self._get_fact_num_produced(key)
         # Award a random number of items based on how many have been produced
-        awardNumber = round((self.get_varied_random() * self.get_varied_random()) * (random.uniform(1, (num_produced * self.get_varied_random() * self.get_varied_random()))) + 1)
-        awardNumber = await self._award_fact(user=author, fact=key, ctx=ctx, num=awardNumber)
-        
+        requested_awards = round(
+            (self.get_varied_random() * self.get_varied_random())
+            * (
+                random.uniform(
+                    1,
+                    (
+                        num_produced_cap
+                        * self.get_varied_random()
+                        * self.get_varied_random()
+                    ),
+                )
+            )
+            + 1
+        )
+        success, awarded_count, award_reason = await self._award_fact(
+            user=author,
+            fact=key,
+            ctx=ctx,
+            num=requested_awards,
+        )
+        remaining_supply = max(
+            0,
+            num_produced_cap - self._get_fact_total_world(key)
+        )
+
         rank, rank_str = self._get_current_value_rank(key)
         if rank <= 20:
             reply += "damn, top 20! "
-        
-        reply += f"that got rank {rank_str}! :) i gave you {int(awardNumber)} of them, and so the world's only allowed {int(num_produced-(int(awardNumber)))} more!"
+
+        if success:
+            if awarded_count < requested_awards:
+                reply += (
+                    f"that got rank {rank_str}! :) i could only hand you {int(awarded_count)} "
+                    f"(i tried for {int(requested_awards)} lol) and so the world's only allowed "
+                    f"{int(remaining_supply)} more!"
+                )
+            else:
+                reply += (
+                    f"that got rank {rank_str}! :) i gave you {int(awarded_count)} of them, "
+                    f"and so the world's only allowed {int(remaining_supply)} more!"
+                )
+        else:
+            friendly_reason = (award_reason or "???").replace('_', ' ').lower()
+            reply += (
+                f"that got rank {rank_str}! :) but it's totally capped out right now so i couldn't hand any out "
+                f"({friendly_reason})."
+            )
         
         await self.bot._discord_reply(ctx, reply, to_buffer=False)
         
@@ -3126,9 +3165,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         giver_inventory[item_name] -= quantity
         if giver_inventory[item_name] <= 0: del giver_inventory[item_name]
 
-        num_successfully_gifted = await self._award_fact(user=receiver_id, fact=item_name, ctx=ctx, num=quantity)
+        success, num_successfully_gifted, award_reason = await self._award_fact(
+            user=receiver_id,
+            fact=item_name,
+            ctx=ctx,
+            num=quantity,
+        )
         num_refunded = quantity - num_successfully_gifted
-        if num_refunded > 0: giver_inventory[item_name] = giver_inventory.get(item_name, 0)
+        if num_refunded > 0:
+            giver_inventory[item_name] = giver_inventory.get(item_name, 0) + num_refunded
         
         # More realistic gift economics - meaningful but not explosive BBY transfers
         base_gift_power = self._get_fact_value(item_name)
@@ -3156,7 +3201,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         giver_nic = self.bot.getNickname(giver_id)
         receiver_nic = self.bot.getNickname(receiver_id)
         emote = self.get_varied_choice().choice(self.bot.faveEmotes)
-        
+        failure_reason_text = (award_reason or "???").replace('_', ' ').lower() if not success else ""
+
         reply = f"{giver_nic} gave {receiver_nic} {style_gain(f'{num_successfully_gifted}x {item_name}')}! aww!! {emote}"
         if num_successfully_gifted > 0:
             reply += (
@@ -3171,7 +3217,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 reply += f"\n{receiver_nic}: {sentiment_desc_receiver}"
                 
         if num_refunded > 0:
-            reply += f"\nyou somehow had more than the total allowed... what? um... {style_loss(f'{num_refunded}x')} disappeared into the abyss "
+            reason_suffix = f" ({failure_reason_text})" if failure_reason_text else ""
+            reply += (
+                f"\nyou somehow had more than the total allowed... what? um... "
+                f"{style_loss(f'{num_refunded}x')} disappeared into the abyss{reason_suffix} "
+            )
             
         await self.bot._discord_reply(ctx, reply)
 
@@ -3469,6 +3519,28 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, line)
             await asyncio.sleep(0.5)  # fuck u rate limits
 
+    def _ensure_baby_prompt_suffix(self, prompt_text: str) -> str:
+        """Ensure the prompt ends with the bot's own speaker tag."""
+        if prompt_text is None:
+            prompt_text = ""
+
+        stripped = prompt_text.rstrip()
+        baby_prefix = f"{self.bot.babyName.lower()}:"
+        baby_prefix_with_space = f"{baby_prefix} "
+
+        if not stripped:
+            return baby_prefix_with_space
+
+        lowered = stripped.lower()
+
+        if lowered.endswith(baby_prefix):
+            return stripped + ("" if stripped.endswith(" ") else " ")
+
+        if lowered.endswith(baby_prefix_with_space):
+            return stripped
+
+        return f"{stripped}\n{baby_prefix_with_space}"
+
     async def _generate_and_reply(self, ctx: commands.Context, prompt_text: str, num_tokens_to_gen: int):
         """
         The new core generation and reply handler.
@@ -3483,6 +3555,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # The low-level function now returns a tuple: (text, error_message)
         try:
             async with ctx.typing():
+                prompt_text = self._ensure_baby_prompt_suffix(prompt_text)
                 promptTokenStrings = self.bot.librarian.tokenizeText(prompt_text)
                 promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
                 
@@ -5284,9 +5357,18 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             random_fact_key = random.choice(list(self.bot.bbyfacts.keys()))
             quantity_back = random.randint(0, quantity)
             if quantity_back > 0:
-                awarded_back = await self._award_fact(giver_id, random_fact_key, ctx, quantity_back)
-                if awarded_back > 0:
-                    item_back_str = f"{awarded_back}x {random_fact_key}" if awarded_back > 1 else f"a {random_fact_key}"
+                success, awarded_back, _ = await self._award_fact(
+                    giver_id,
+                    random_fact_key,
+                    ctx,
+                    quantity_back,
+                )
+                if success and awarded_back > 0:
+                    item_back_str = (
+                        f"{awarded_back}x {random_fact_key}"
+                        if awarded_back > 1
+                        else f"a {random_fact_key}"
+                    )
                     reply += f"\n\ni was waiting to give you {style_gain(item_back_str)} anyway! "
             else:
                 reply += "\n\n(i was gonna give you something back but i ate it instead lol oops)"
@@ -5386,8 +5468,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 randItemNum = round(random_quantity_back * (scale * factor))
 
                 if randItemNum > 0:
-                    actual_awarded = await self._award_fact(author_id, random_key, ctx, randItemNum)
-                    if actual_awarded > 0:
+                    success, actual_awarded, _ = await self._award_fact(
+                        author_id,
+                        random_key,
+                        ctx,
+                        randItemNum,
+                    )
+                    if success and actual_awarded > 0:
                         item_back_strs.append(f"{actual_awarded} {random_key}")
                         bby_back_total += actual_awarded * self._get_fact_value(random_key)
 
