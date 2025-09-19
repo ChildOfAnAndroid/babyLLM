@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/context.py
-# v1.6
+# v1.7
 
 from types import SimpleNamespace
 

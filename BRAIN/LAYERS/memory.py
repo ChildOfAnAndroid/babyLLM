@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MEMORY LAYER // brain/LAYERS/memory.py
-# v1.6
+# v1.7
 
 import torch
 import torch.nn as nn

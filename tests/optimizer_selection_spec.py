@@ -1,4 +1,4 @@
-# v1.6
+# v1.7
 import importlib
 import sys
 import threading
