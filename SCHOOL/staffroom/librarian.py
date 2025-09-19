@@ -314,43 +314,56 @@ class LIBRARIAN:
         """Incrementally iterate items of a top-level JSON array without loading all.
 
         Yields each parsed JSON value. Designed for arrays of strings but works
-        for generic JSON values. Keeps the internal buffer bounded.
+        for generic JSON values. Keeps the internal buffer bounded while
+        avoiding costly string copies on every element.
         """
-        dec = json.JSONDecoder()
+        decoder = json.JSONDecoder()
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             buf = ""
+            pos = 0
             in_array = False
             while True:
                 chunk = f.read(65536)
                 if not chunk:
                     break
+                if pos:
+                    buf = buf[pos:]
+                    pos = 0
                 buf += chunk
                 while True:
                     if not in_array:
-                        i = buf.find("[")
-                        if i == -1:
+                        idx = buf.find("[", pos)
+                        if idx == -1:
                             # keep a small tail to catch '[' spanning chunks
                             buf = buf[-2:]
+                            pos = 0
                             break
                         in_array = True
-                        buf = buf[i + 1:]
-                    # skip whitespace and commas
-                    m = re.match(r"\s*(,)?\s*", buf)
-                    if m:
-                        buf = buf[m.end():]
-                    if not buf:
+                        pos = idx + 1
+                    # skip whitespace
+                    length = len(buf)
+                    while pos < length and buf[pos].isspace():
+                        pos += 1
+                    if pos >= length:
                         break
-                    if buf[0] == ']':
+                    if buf[pos] == ',':
+                        pos += 1
+                        continue
+                    if buf[pos] == ']':
                         return
                     try:
-                        val, idx = dec.raw_decode(buf)
+                        value, next_pos = decoder.raw_decode(buf, pos)
                     except json.JSONDecodeError:
-                        # Need more data; trim buffer growth
-                        if len(buf) > 1_000_000:
+                        # Need more data; trim buffer growth if necessary
+                        if length - pos > 1_000_000:
                             buf = buf[-4096:]
+                            pos = 0
                         break
-                    yield val
-                    buf = buf[idx:]
+                    yield value
+                    pos = next_pos
+                    if pos > 32768:
+                        buf = buf[pos:]
+                        pos = 0
 
     def _load_json_array_windowed(self, path: str, *, max_chars: int, strategy: str, soft: bool = False) -> str | None:
         """Load a window from a JSON array of strings without full load.

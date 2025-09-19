@@ -1310,7 +1310,16 @@ class TUTOR:
     @whocalled
     def collectAllTimeStats(self):
         for _statKey, _value in self.stats.items():
-            if not isinstance(_value, (int, float)):
+            if isinstance(_value, torch.Tensor):
+                if _value.numel() == 1:
+                    _value = _value.detach().item()
+                else:
+                    if debugPrints and _statKey == "loss":
+                        print(f"{_statKey} value is : {_value}, {_statKey} value type is {type(_value)}")
+                    continue  # skip non-scalar tensors to avoid holding graphs
+            elif isinstance(_value, np.generic):
+                _value = float(_value)
+            elif not isinstance(_value, (int, float)):
                 if debugPrints and _statKey == "loss":
                     print(f"{_statKey} value is : {_value}, {_statKey} value type is {type(_value)}")
                 continue  # skip strings, tensors, weird stuff

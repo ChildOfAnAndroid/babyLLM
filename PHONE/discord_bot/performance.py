@@ -6,6 +6,7 @@ Tracks system health and performance metrics
 import time
 import psutil
 import asyncio
+import itertools
 from collections import defaultdict, deque
 from typing import Dict, List, Optional
 from .logger import logger
@@ -29,11 +30,20 @@ class PerformanceMonitor:
     
     def get_metric_average(self, metric_name: str, last_n: int = 100) -> Optional[float]:
         """Get average of last N metric values"""
-        if metric_name not in self.metrics or not self.metrics[metric_name]:
+        metric_history = self.metrics.get(metric_name)
+        if not metric_history:
             return None
-        
-        recent_values = list(self.metrics[metric_name])[-last_n:]
-        return sum(val for _, val in recent_values) / len(recent_values)
+
+        total = 0.0
+        count = 0
+        for _, value in itertools.islice(reversed(metric_history), last_n):
+            total += value
+            count += 1
+
+        if count == 0:
+            return None
+
+        return total / count
     
     def add_health_check(self, name: str, check_func, critical: bool = False):
         """Add a health check function"""

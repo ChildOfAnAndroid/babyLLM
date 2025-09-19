@@ -184,7 +184,7 @@ class AutonomyPlanner:
         # opportunistically enqueue a compact context that includes the fresh lines
         if (used_lines or related) and sig.get("queue_len", 0) < 8 and hasattr(self.bot, "training_queue"):
             try:
-                tail = "\n".join([m for m in self.bot.buffer[-64:]])
+                tail = "\n".join(list(self.bot.buffer)[-64:])
                 compact_lines = used_lines + related
                 compact = tail + "\n" + "\n".join(compact_lines)
                 await self.bot.training_queue.put({"type": "context", "text": compact[-8000:]})
@@ -198,7 +198,7 @@ class AutonomyPlanner:
     # --- related snippet mining ---
     def _get_context_text(self, max_lines: int = 32) -> str:
         try:
-            tail = self.bot.buffer[-max_lines:]
+            tail = list(self.bot.buffer)[-max_lines:]
             return "\n".join(tail)
         except Exception:
             return ""

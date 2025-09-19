@@ -11,7 +11,7 @@ import asyncio
 import discord
 from discord.ext import commands
 import re
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from config import *
 from secret import *
 from textCleaningTool import *
@@ -129,18 +129,24 @@ class BABYBOT_DISCORD(commands.Bot):
         # Load chat buffer with proper file handling
         if os.path.exists(chatBufferFilepath):
             with open(chatBufferFilepath, "r") as f:
-                self.buffer = json.load(f)
+                loaded_buffer = json.load(f)
+            if not isinstance(loaded_buffer, list):
+                loaded_buffer = list(loaded_buffer) if loaded_buffer is not None else []
+            self.buffer = deque(
+                loaded_buffer[-self.rollingContextSize :],
+                maxlen=self.rollingContextSize,
+            )
         else:
-            self.buffer = []
+            self.buffer = deque(maxlen=self.rollingContextSize)
 
         # --- Separate rolling training buffer (JSON file)
         try:
             self.training_buffer_path = bbyTrainingBufferFilepath
         except NameError:
             self.training_buffer_path = os.path.join(SCRIPT_DIR, "training_buffer.json")
-        self.training_buffer: list[str] = []
         # Keep 2–4x chat buffer; default ~3x
         self.training_buffer_size = max(64, int(self.rollingContextSize * 3))
+        self.training_buffer: deque[str] = deque(maxlen=self.training_buffer_size)
 
         self.user_data_path = bbyUserDataPath
         self.bbyfacts_path = bbybookPath
@@ -403,7 +409,11 @@ class BABYBOT_DISCORD(commands.Bot):
     
     def _save_json(self, path, data, label, **dump_kwargs):
         logger.debug("SAVE", f"saving {label}...")
-        written = save_json_if_changed(path, data, **dump_kwargs)
+        if isinstance(data, deque):
+            serialisable = list(data)
+        else:
+            serialisable = data
+        written = save_json_if_changed(path, serialisable, **dump_kwargs)
         if written:
             logger.info("SAVE", f"{label} saved!")
         else:
@@ -625,9 +635,12 @@ class BABYBOT_DISCORD(commands.Bot):
         except Exception:
             pass
         if not self._is_high_quality(text_to_add): return False
-        if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in self.buffer[-30:]): return False
+        recent_lines = list(self.buffer)[-30:]
+        if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in recent_lines):
+            return False
         self.buffer.append(text_to_add)
-        if len(self.buffer) > self.rollingContextSize: self.buffer.pop(0)
+        if len(self.buffer) > self.rollingContextSize:
+            self.buffer.popleft()
         logger.debug("BUFFER_ADD", f"added: \"{text_to_add[:50]}...\"")
         # also mirror a cleaned line into the separate training buffer for augmentation
         try:
@@ -642,14 +655,16 @@ class BABYBOT_DISCORD(commands.Bot):
             if os.path.exists(self.training_buffer_path):
                 with open(self.training_buffer_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                if isinstance(data, list):
-                    self.training_buffer = data[-self.training_buffer_size:]
-                else:
-                    self.training_buffer = []
+                if not isinstance(data, list):
+                    data = list(data) if data is not None else []
+                self.training_buffer = deque(
+                    data[-self.training_buffer_size :],
+                    maxlen=self.training_buffer_size,
+                )
             else:
-                self.training_buffer = []
+                self.training_buffer = deque(maxlen=self.training_buffer_size)
         except Exception:
-            self.training_buffer = []
+            self.training_buffer = deque(maxlen=self.training_buffer_size)
 
     def _save_training_buffer(self):
         try:
@@ -658,7 +673,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 os.makedirs(dirname, exist_ok=True)
             self._save_json(
                 self.training_buffer_path,
-                self.training_buffer[-self.training_buffer_size:],
+                list(self.training_buffer)[-self.training_buffer_size :],
                 "TRAINING_BUFFER",
             )
         except Exception:
@@ -682,12 +697,12 @@ class BABYBOT_DISCORD(commands.Bot):
             # quality + dedup
             if not self._is_high_quality(line):
                 return False
-            recent = self.training_buffer[-30:]
+            recent = list(self.training_buffer)[-30:]
             if any(is_similar(line, old, threshold=0.85) for old in recent):
                 return False
             self.training_buffer.append(line)
             if len(self.training_buffer) > self.training_buffer_size:
-                self.training_buffer.pop(0)
+                self.training_buffer.popleft()
             self._save_training_buffer()
             # also feed a small rolling token buffer in the librarian (bounded)
             try:
@@ -703,25 +718,28 @@ class BABYBOT_DISCORD(commands.Bot):
 
     async def _buffer_clean(self):
         MAX_LINE_DUPLICATES = 2
-        line_counts = Counter(self.buffer)
+        buffer_list = list(self.buffer)
+        line_counts = Counter(buffer_list)
         cleaned_count = 0
-        for i in range(len(self.buffer) - 1, -1, -1):
-            line = self.buffer[i]
+        for i in range(len(buffer_list) - 1, -1, -1):
+            line = buffer_list[i]
             if line_counts[line] > MAX_LINE_DUPLICATES:
-                del self.buffer[i]
+                del buffer_list[i]
                 line_counts[line] -= 1
                 cleaned_count += 1
 
         seen = []
-        for i in range(len(self.buffer) - 1, -1, -1):
-            line = self.buffer[i]
+        for i in range(len(buffer_list) - 1, -1, -1):
+            line = buffer_list[i]
             if any(is_similar(line, other) for other in seen):
-                del self.buffer[i]
+                del buffer_list[i]
                 cleaned_count += 1
-            else: seen.append(line)
+            else:
+                seen.append(line)
 
-        self.buffer = killExcessTags(self.buffer)
-                
+        cleaned_buffer = killExcessTags(buffer_list)
+        self.buffer = deque(cleaned_buffer, maxlen=self.rollingContextSize)
+
         if cleaned_count > 0:
             print(f"[_BUFFER_CLEAN] CLEANED {cleaned_count} DUPLICATE BUFFER LINES ")
             self._save_json(chatBufferFilepath, self.buffer, "_BUFFER_CLEAN")
@@ -1594,7 +1612,8 @@ class BABYBOT_DISCORD(commands.Bot):
         print(f"\n[Message] From {author}: {content}")
 
         with open(discordLogPath, 'a', encoding='utf-8') as f: f.write(f"\n---\n{userMessage}")
-        if len(self.buffer) > self.rollingContextSize: self.buffer.pop(0)
+        if len(self.buffer) > self.rollingContextSize:
+            self.buffer.popleft()
         if self.training_queue.qsize() < 20: await self.training_queue.put({"type": "chat", "text": "\n".join(self.buffer)})
 
         # --- Sync Discord activity to the web server (privacy rules)
@@ -2088,9 +2107,14 @@ class BABYBOT_DISCORD(commands.Bot):
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
         # Build chat and training sources
         chat_text = "\n".join(item["text"]) if isinstance(item.get("text"), list) else item.get("text", "")
-        training_text = "\n".join(self.training_buffer[-self.N:]) if getattr(self, "training_buffer", None) else ""
+        training_tail = (
+            list(self.training_buffer)[-self.N:]
+            if getattr(self, "training_buffer", None)
+            else []
+        )
+        training_text = "\n".join(training_tail)
         # 50/50 selection between chat vs training (fallback to chat if empty)
-        use_training = (random.random() < 0.5) and bool(training_text)
+        use_training = (random.random() < 0.5) and bool(training_tail)
         text = training_text if use_training else chat_text
         textCLEAN = clean_text(text)
         tokensToLibrarian = self.librarian.tokenizeText(textCLEAN)
@@ -2119,7 +2143,7 @@ class BABYBOT_DISCORD(commands.Bot):
         # If we trained from the training buffer, drop the oldest entry
         try:
             if use_training and self.training_buffer:
-                self.training_buffer.pop(0)
+                self.training_buffer.popleft()
                 self._save_training_buffer()
         except Exception:
             pass
@@ -2183,7 +2207,8 @@ class BABYBOT_DISCORD(commands.Bot):
                     self.lastClockAnnounce = now
                     clock_line = getTimeRant(self.AIoptInUsers)
                     self._buffer_add(clock_line)
-                    if len(self.buffer) > self.rollingContextSize: self.buffer.pop(0)
+                    if len(self.buffer) > self.rollingContextSize:
+                        self.buffer.popleft()
                     print(f"[IDLETRAINCHECKER] BABYLLM CHECKED THE TIME: {clock_line}")
 
                 if (now - self.lastInteraction > self.idleTrainSeconds):
@@ -2202,13 +2227,16 @@ class BABYBOT_DISCORD(commands.Bot):
                     self.lastInteraction = time.time()
                     if len(self.buffer) >= self.N:
                         self._save_json(chatBufferFilepath, self.buffer, "IDLETRAINCHECKER")
-                        self.buffer = self.buffer[-self.N:]
+                        recent_buffer = list(self.buffer)[-self.N:]
+                        self.buffer = deque(recent_buffer, maxlen=self.rollingContextSize)
                     
                     if self.training_queue.qsize() < 10:
                         # Prefer augmented buffer (chat + training buffer), occasionally fall back to raw corpus
                         aug_context = "\n".join(self.buffer)
                         if getattr(self, "training_buffer", None):
-                            aug_context = f"{aug_context}\n" + "\n".join(self.training_buffer[-self.N:])
+                            training_tail = list(self.training_buffer)[-self.N:]
+                            if training_tail:
+                                aug_context = f"{aug_context}\n" + "\n".join(training_tail)
                         try:
                             with open(trainingFilePathCLEANED, "r", encoding = "utf-8") as f:
                                 training_data_contents = f.read().strip().lower()

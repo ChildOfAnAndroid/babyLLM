@@ -8,6 +8,7 @@ from __future__ import annotations
 import torch
 import os
 import json
+import hashlib
 from collections import OrderedDict
 import gc
 import threading
@@ -47,16 +48,30 @@ def register_grad_hooks(
     return handles
 
 # --- json cache ---
-_json_cache: "OrderedDict[str, str]" = OrderedDict()
+_json_cache: "OrderedDict[str, tuple[int, bytes]]" = OrderedDict()
 _json_cache_lock = threading.Lock()
 _JSON_CACHE_MAX_ENTRIES = 32
 
-def _json_cache_store(path: str, content: str) -> None:
-    """Store *content* for *path* while keeping the cache bounded."""
+def _json_cache_store(path: str, fingerprint: tuple[int, bytes]) -> None:
+    """Store a fingerprint for *path* while keeping the cache bounded.
 
-    _json_cache[path] = content
+    Persisting the full JSON payload in memory caused large transient
+    allocations to accumulate when many different files were written.  The
+    cache only needs to know whether two serialisations are identical, so we
+    keep a compact `(length, digest)` tuple instead of the raw string.  This
+    keeps memory usage predictable regardless of the size or number of files
+    touched by the caller.
+    """
+
+    _json_cache[path] = fingerprint
     _json_cache.move_to_end(path)
     while len(_json_cache) > _JSON_CACHE_MAX_ENTRIES: _json_cache.popitem(last=False)
+
+
+def _json_fingerprint(content: str) -> tuple[int, bytes]:
+    data = content.encode("utf-8")
+    digest = hashlib.blake2b(data, digest_size=16).digest()
+    return (len(data), digest)
 
 
 # --- file utilities ---
@@ -70,18 +85,24 @@ def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bo
     if parent: os.makedirs(parent, exist_ok=True)
 
     new_content = json.dumps(data, indent=indent, sort_keys=sort_keys, **dump_kwargs)
+    new_fp = _json_fingerprint(new_content)
     with _json_cache_lock:
-        cached = _json_cache.get(path)
-        if cached is not None: _json_cache.move_to_end(path)
+        cached_fp = _json_cache.get(path)
+        if cached_fp is not None:
+            _json_cache.move_to_end(path)
         elif os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    cached = f.read()
-            except Exception: cached = None
-            else: _json_cache_store(path, cached)
-        if cached == new_content: return False
+                    existing = f.read()
+            except Exception:
+                cached_fp = None
+            else:
+                cached_fp = _json_fingerprint(existing)
+                _json_cache_store(path, cached_fp)
+        if cached_fp == new_fp:
+            return False
         with open(path, "w", encoding="utf-8") as f: f.write(new_content)
-        _json_cache_store(path, new_content)
+        _json_cache_store(path, new_fp)
         return True
 
 # --- mps utilities ---

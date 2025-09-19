@@ -217,7 +217,10 @@ class BABYLLM(nn.Module):
                     blend = F.softmax(self.inputBlend, dim = 0)
                     inputEmbeds = blend[0] * tokenEmbed + blend[1] * posEmbed + blend[2] * rgbEmbed
                 else: inputEmbeds = tokenEmbed
-                self.latestTokenEmbed = inputEmbeds
+                token_embed_for_pixel = inputEmbeds
+                # Store a detached copy so we don't hold on to the autograd graph between
+                # forward passes (this was causing a memory leak when pixels were skipped).
+                self.latestTokenEmbed = token_embed_for_pixel.detach()
                 # Ensure latestTokenEmbed has proper dimensions for pixel regression
                 if hasattr(self, "pixelPupil") and len(self.latestTokenEmbed.shape) == 1:
                     # If 1D, ensure it matches expected embedding dimension
@@ -418,15 +421,15 @@ class BABYLLM(nn.Module):
                 debug_print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape})")
                 
                 # Handle different tensor shapes properly
-                if len(self.latestTokenEmbed.shape) == 1:
+                if len(token_embed_for_pixel.shape) == 1:
                     # Already 1D embedding - use directly
-                    embedding = self.latestTokenEmbed
-                elif len(self.latestTokenEmbed.shape) == 2:
+                    embedding = token_embed_for_pixel
+                elif len(token_embed_for_pixel.shape) == 2:
                     # 2D tensor [seq_len, embed_dim] - take the last token
-                    embedding = self.latestTokenEmbed[-1]
+                    embedding = token_embed_for_pixel[-1]
                 else:
                     # Unexpected shape - flatten and take appropriate slice
-                    embedding = self.latestTokenEmbed.flatten()
+                    embedding = token_embed_for_pixel.flatten()
                     if embedding.size(0) > self.pixelPupil.linear1.in_features:
                         embedding = embedding[:self.pixelPupil.linear1.in_features]
                 
