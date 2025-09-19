@@ -59,6 +59,11 @@ class BABYLLM(nn.Module):
         self.gumBellend = 0
         self.pixelLoss_used = 0
         self.PIXELloss = 0
+        self.CEloss_used = 0.0
+        self.lrSoftClamp_used = 0.0
+        self.tempSoftClamp_used = 0.0
+        self.repPenSoftClamp_used = 0.0
+        self.repLoss_used = 0.0
         self.targetTokenFromTutor = None
 
         self.stats = {}
@@ -78,6 +83,8 @@ class BABYLLM(nn.Module):
         self.learningStability = 0.0
         self.AUXlossCos_used = 0.0
         self.AUXlossKL_used = 0.0
+        self.lastSoftSample = None
+        self._lastSoftSample_for_loss = None
 
         """CEREBRAL LAYERS // brain"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
@@ -270,7 +277,8 @@ class BABYLLM(nn.Module):
 
                 if True:
                     if debugPrints: ʕっʘ‿ʘʔっ("stats collection!")
-                    if _pixel is not None:
+                    blend_vals = None
+                    if (not skipPixels) and (_pixel is not None):
                         blend_vals = blend.detach().cpu().tolist()
                     #self.inputEmbedsHistory.append(inputEmbeds.norm().item())
                     #self.INNOutputHistory.append(INNOutput.norm().item())
@@ -288,10 +296,11 @@ class BABYLLM(nn.Module):
                             "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
                             #"B_blendPixel": self.blendPixel.item(),
                         }
-                        self.forwardStats["B_blendToken"] = blend_vals[0]
-                        self.forwardStats["B_blendPos"] = blend_vals[1]
-                        self.forwardStats["B_blendPixel"] = blend_vals[2]
-                        debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
+                        if blend_vals is not None:
+                            self.forwardStats["B_blendToken"] = blend_vals[0]
+                            self.forwardStats["B_blendPos"] = blend_vals[1]
+                            self.forwardStats["B_blendPixel"] = blend_vals[2]
+                            debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
                         self.stats.update(self.forwardStats)
                         
                         self.inputEmbedsHistory = []
@@ -335,7 +344,8 @@ class BABYLLM(nn.Module):
             
             if debugPrints: ʕっʘ‿ʘʔっ("cross Entropy Loss")
             loss = F.cross_entropy(_logits, targetTensor)
-            self.CEloss_used = loss
+            loss_value = loss.detach().item()
+            self.CEloss_used = loss_value
 
             if not torch.isfinite(loss):
                 print("NaN/Inf loss detected — logits:", _logits)
@@ -350,50 +360,58 @@ class BABYLLM(nn.Module):
             # regulate the learned LR, temperature, repetition penalty (etc) towards target values
             lrSoftClamp = 0.0015 * (self.logLR - math.log(learningRateGOAL)).pow(2)
             #lrSoftClamp = (self.totalAvgAbsDelta ** 1.5) * (self.logLR - math.log(self.learningRateGOAL)).pow(2)
-            tempSoftClamp = (self.CEloss_used * 0.4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
+            tempSoftClamp = (loss_value * 0.4) * (self.logTemp - math.log(temperatureGOAL)).pow(2)
             repetitionPenaltySoftClamp = 0.04 * (self.repetitionPenalty - repetitionPenaltyGOAL).pow(2)
-            
+
             # Creative gate regulation removed
 
             loss += lrSoftClamp # use .detach() to avoid .backward()
-            self.lrSoftClamp_used = lrSoftClamp
+            self.lrSoftClamp_used = lrSoftClamp.detach().item()
             loss += tempSoftClamp
-            self.tempSoftClamp_used = tempSoftClamp
+            self.tempSoftClamp_used = tempSoftClamp.detach().item()
             loss += repetitionPenaltySoftClamp
-            self.repPenSoftClamp_used = repetitionPenaltySoftClamp
+            self.repPenSoftClamp_used = repetitionPenaltySoftClamp.detach().item()
 
             
             self.lastLossBaby = loss.item()
             FINALloss = loss
             debug_print(f"{FINALloss} + loss")
 
-            if self.lastSoftSample is not None and not skipAuxLoss:
+            soft_sample = getattr(self, "_lastSoftSample_for_loss", None)
+            if soft_sample is None:
+                soft_sample = self.lastSoftSample
+
+            if soft_sample is not None and not skipAuxLoss:
                 target = F.one_hot(targetTensor, num_classes = _logits.shape[1]).float()
                 # Clamp to avoid log(0) producing -inf and destabilising KL
                 eps = 1e-8
-                safe_probs = self.lastSoftSample.clamp(min=eps)
+                safe_probs = soft_sample.clamp(min=eps)
                 kl_loss = F.kl_div(safe_probs.log(), target, reduction = 'batchmean')
                 AUXloss_kl = kl_loss * 0.01
-                self.AUXlossKL_used = AUXloss_kl
+                self.AUXlossKL_used = AUXloss_kl.detach().item()
                 #AUXloss = auxLoss * torch.sigmoid(loss - auxLoss) # low weight for anti-dominatrix
                 # Ensure cosine similarity is well-defined (avoid zero-norm vectors)
                 safe_probs_norm = safe_probs / safe_probs.norm(dim=-1, keepdim=True).clamp_min(eps)
                 target_norm = target / target.norm(dim=-1, keepdim=True).clamp_min(eps)
                 cosSim = (safe_probs_norm * target_norm).sum(dim=-1)
                 AUXloss_cos = (1.0 - cosSim.mean())
-                self.AUXlossCos_used = AUXloss_cos
+                self.AUXlossCos_used = AUXloss_cos.detach().item()
                 AUXloss = AUXloss_cos + AUXloss_kl
                 debug_print(f"{AUXloss} + aux")
             else:
+                self.AUXlossKL_used = 0.0
+                self.AUXlossCos_used = 0.0
                 AUXloss = 0
 
-            if self.lastSoftSample is not None:
-                token_freqs = self.lastSoftSample.mean(dim = 0)
+            if soft_sample is not None:
+                token_freqs = soft_sample.mean(dim = 0)
                 repLoss_raw = (token_freqs**2).mean()
                 repLoss = repLoss_raw * 100.0
-                self.repLoss_used = repLoss
-                FINALloss += repLoss    
-                debug_print(f"{FINALloss} repLoss ({repLoss}) + final")    
+                self.repLoss_used = repLoss.detach().item()
+                FINALloss += repLoss
+                debug_print(f"{FINALloss} repLoss ({repLoss}) + final")
+            else:
+                self.repLoss_used = 0.0
 
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
                 if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss with creative synesthetic enhancement")
@@ -482,13 +500,18 @@ class BABYLLM(nn.Module):
                 self.pixelLoss_used = (self.PIXELloss * 0.5)
                 debug_print(f"{FINALloss} pixel + final")
 
-            if self.lastSoftSample is not None and not skipAuxLoss: 
+            if soft_sample is not None and not skipAuxLoss:
                 if torch.isnan(AUXloss) or not torch.isfinite(AUXloss):
                     print(f"AUXloss contains NaN!")
                     AUXloss = torch.tensor(0.0, device = self.device)
                 FINALloss += AUXloss
                 debug_print(f"{FINALloss} aux ({AUXloss}) + final")
             debug_print(f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}")
+
+            # Drop references to the computation graph so successive calls do not accumulate memory.
+            self._lastSoftSample_for_loss = None
+            if soft_sample is not None:
+                self.lastSoftSample = soft_sample.detach()
 
             if not torch.isfinite(FINALloss):
                 print("computeLoss produced non-finite FINALloss; resetting to fallback.")
@@ -729,7 +752,8 @@ class BABYLLM(nn.Module):
             base_probs = base_probs / base_probs.sum(dim=-1, keepdim=True)
             
             if _training:
-                self.lastSoftSample = base_probs
+                self._lastSoftSample_for_loss = base_probs
+                self.lastSoftSample = base_probs.detach()
                 with torch.no_grad():
                     # Existing creativity metrics
                     eps = 1e-8

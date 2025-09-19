@@ -4,7 +4,7 @@
 # brain/LAYERS/vocab.py
 # v1.1
 
-from collections import Counter
+from collections import Counter, deque
 from config import *
 from transformers import PreTrainedTokenizerFast
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers, ByteLevelBPETokenizer
@@ -56,8 +56,8 @@ class LIBRARIAN:
         # during autonomy; keep bounded to prevent memory growth
         self._file_token_cache: dict[str, list[str]] = {}
         # rolling dynamic tokens from live training buffer (bounded)
-        self._dynamic_tokens: list[str] = []
         self._dynamic_tokens_max = 20000  # ~lightweight ring buffer
+        self._dynamic_tokens: deque[str] = deque(maxlen=self._dynamic_tokens_max)
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
 
@@ -464,11 +464,6 @@ class LIBRARIAN:
             if not toks:
                 return 0
             self._dynamic_tokens.extend(toks)
-            # Clamp to ring buffer size
-            if len(self._dynamic_tokens) > self._dynamic_tokens_max:
-                overflow = len(self._dynamic_tokens) - self._dynamic_tokens_max
-                if overflow > 0:
-                    del self._dynamic_tokens[:overflow]
             return len(toks)
         except Exception:
             return 0

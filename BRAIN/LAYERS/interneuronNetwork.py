@@ -163,7 +163,8 @@ class NEURON(nn.Module):
                 #self.normedOutputHistory_tokens.append(normed.norm(dim = 1).mean().item())
                 #self.normedOutputHistory_neurons.append(normed.norm(dim = 0).mean().item())"""
 
-                if len(self.rawOutputHistory) >= self.numTokensPerStep:
+                history_length = len(self.activatedOutputHistory)
+                if history_length >= self.numTokensPerStep:
                     if debugPrints: ʕっʘ‿ʘʔっ("if len >= windowMAX, add to self.stats")
                     self.stats = {
                         "3N_0_rawInput_norm": sum(self.rawInputNormHistory) / len(self.rawInputNormHistory),
