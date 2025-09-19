@@ -1,13 +1,14 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM HELPERS // helpers.py
-# v1.2
+# v1.1
 
 # --- imports ---
 from __future__ import annotations
 import torch
 import os
 import json
+from collections import OrderedDict
 import gc
 import threading
 from typing import Iterable, Tuple, Callable, Any
@@ -46,8 +47,17 @@ def register_grad_hooks(
     return handles
 
 # --- json cache ---
-_json_cache: dict[str, str] = {}
+_json_cache: "OrderedDict[str, str]" = OrderedDict()
 _json_cache_lock = threading.Lock()
+_JSON_CACHE_MAX_ENTRIES = 32
+
+def _json_cache_store(path: str, content: str) -> None:
+    """Store *content* for *path* while keeping the cache bounded."""
+
+    _json_cache[path] = content
+    _json_cache.move_to_end(path)
+    while len(_json_cache) > _JSON_CACHE_MAX_ENTRIES: _json_cache.popitem(last=False)
+
 
 # --- file utilities ---
 def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bool = False, **dump_kwargs) -> bool:
@@ -58,17 +68,16 @@ def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bo
     new_content = json.dumps(data, indent=indent, sort_keys=sort_keys, **dump_kwargs)
     with _json_cache_lock:
         cached = _json_cache.get(path)
-        if cached is None and os.path.exists(path):
+        if cached is not None: _json_cache.move_to_end(path)
+        elif os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     cached = f.read()
-            except Exception:
-                cached = None
-        if cached == new_content:
-            return False
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(new_content)
-        _json_cache[path] = new_content
+            except Exception: cached = None
+            else: _json_cache_store(path, cached)
+        if cached == new_content: return False
+        with open(path, "w", encoding="utf-8") as f: f.write(new_content)
+        _json_cache_store(path, new_content)
         return True
 
 # --- mps utilities ---

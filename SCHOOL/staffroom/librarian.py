@@ -487,6 +487,8 @@ class LIBRARIAN:
 
             end = len(tokens) - _windowMAX
 
+            token_lookup = self.tokenToIndex
+
             i = _startIndex
             while count < _trainingDataPairNumber and i < len(tokens) - _windowMAX:
                 if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
@@ -495,7 +497,7 @@ class LIBRARIAN:
                 if len(target) < _windowMAX:
                     i += int(_stride)
                     continue
-                if all(t in self.vocabList for t in inputSeq + target):
+                if all(t in token_lookup for t in inputSeq + target):
                     yield (inputSeq, target)
                     count += 1
                     if count % 1000 == 0:

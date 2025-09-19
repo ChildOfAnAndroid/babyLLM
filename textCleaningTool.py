@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM TEXT CLEANING TOOL // textCleaningTool.py
-# v1.3
+# v1.1
 
 import os, re, json, csv, random
 from html import unescape
@@ -77,10 +77,20 @@ for canonical, variants in _CONTRACTION_VARIATION_DATA.items():
 # This ensures that longer phrases like "too long; didn't read" are matched before
 # shorter components like "didn't".
 _sorted_variants_for_regex = sorted(VARIANT_TO_CANONICAL.keys(), key=len, reverse=True)
-_RANDOM_REPLACEMENT_REGEXES = []
-for variant_str in _sorted_variants_for_regex:
-    # Use re.escape to properly handle any special regex characters in the variant string
-    _RANDOM_REPLACEMENT_REGEXES.append(re.compile(r'\b' + re.escape(variant_str) + r'\b', re.IGNORECASE))
+_combined_variant_pattern = re.compile(
+    r'\b(?:' + "|".join(re.escape(v) for v in _sorted_variants_for_regex) + r')\b',
+    re.IGNORECASE,
+)
+
+def _random_variant_replacer(match):
+    matched_text_lower = match.group(0).lower()
+    canonical_form = VARIANT_TO_CANONICAL.get(matched_text_lower)
+    if canonical_form:
+        variants = _CONTRACTION_VARIATION_DATA.get(canonical_form)
+        if variants:
+            return random.choice(variants)
+    # Fallback: return original text if we somehow cannot resolve the canonical form
+    return match.group(0)
 
 def apply_random_variations(text):
     """
@@ -88,19 +98,7 @@ def apply_random_variations(text):
     Iterates through pre-compiled regexes (longest first) and replaces matches
     with a randomly chosen variant from its canonical group.
     """
-    current_text = text
-    # Iterate over the pre-compiled regex patterns.
-    # The `sub` method with a function allows for dynamic replacement.
-    for variant_regex in _RANDOM_REPLACEMENT_REGEXES:
-        def replacer(match):
-            matched_text_lower = match.group(0).lower()
-            canonical_form = VARIANT_TO_CANONICAL.get(matched_text_lower)
-            if canonical_form and canonical_form in _CONTRACTION_VARIATION_DATA:
-                return random.choice(_CONTRACTION_VARIATION_DATA[canonical_form])
-            return match.group(0) # Fallback: return original match if not found (shouldn't happen with correct maps)
-
-        current_text = variant_regex.sub(replacer, current_text)
-    return current_text
+    return _combined_variant_pattern.sub(_random_variant_replacer, text)
 
 
 # (re.compile(r'[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]', '', text)

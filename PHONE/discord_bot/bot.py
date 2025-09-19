@@ -1,4 +1,4 @@
-# v1.2
+# v1.1
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py

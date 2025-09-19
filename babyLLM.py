@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v1.3
+# v1.1
 
 import random, os, threading
 from contextlib import nullcontext
@@ -799,8 +799,12 @@ class BABYLLM(nn.Module):
                 if debugPrints: ʕっʘ‿ʘʔっ("using context tokens for repetition penalty")
                 recentTokens = _contextTokens[-int(self.numTokensPerStep):].detach()
                 recentTokens = recentTokens.to(self.device)
+                if recentTokens.dtype != torch.long:
+                    recentTokens = recentTokens.long()
+                recentTokens = recentTokens.reshape(-1)
             else:
-                recentTokens = torch.tensor(self.recentGeneratedTokens, device = self.device)
+                recentTokens = torch.tensor(self.recentGeneratedTokens, device=self.device, dtype=torch.long)
+                recentTokens = recentTokens.reshape(-1)
 
             if debugPrints: ʕっʘ‿ʘʔっ("repWindow = torch.exp(self.logRepetitionWindow)")
             repWindow = torch.exp(self.logRepetitionWindow)
@@ -814,7 +818,8 @@ class BABYLLM(nn.Module):
 
             if isinstance(recentTokens, list):
                 if debugPrints: ʕっʘ‿ʘʔっ("recentTokens list -> tensor")
-                recentTokens = torch.tensor(recentTokens, device = self.device)
+                recentTokens = torch.tensor(recentTokens, device=self.device, dtype=torch.long)
+                recentTokens = recentTokens.reshape(-1)
             if debugPrints: ʕっʘ‿ʘʔっ("vocabSize = _logits.shape[1]")
             vocabSize = _logits.shape[1]
 
@@ -828,10 +833,11 @@ class BABYLLM(nn.Module):
             relative_position_in_window = distance_from_window_start / repWindow
             softMask = torch.clamp(relative_position_in_window, 0.0, 1.0)
 
-            if debugPrints: ʕっʘ‿ʘʔっ("oneHots")
-            oneHots = F.one_hot(recentTokens, num_classes = vocabSize).float()
-            if debugPrints: ʕっʘ‿ʘʔっ("weightedFreqs = (oneHots.T @ softMask).view(1, -1)")
-            weightedFreqs = (oneHots.T @ softMask).view(1, -1)
+            if debugPrints: ʕっʘ‿ʘʔっ("computing weighted frequencies")
+            softMask = softMask.to(dtype=_logits.dtype)
+            weightedFreqs = torch.zeros(vocabSize, device=_logits.device, dtype=_logits.dtype)
+            if recentTokens.numel() > 0: weightedFreqs.index_add_(0, recentTokens, softMask)
+            weightedFreqs = weightedFreqs.view(1, -1)
 
             if debugPrints: ʕっʘ‿ʘʔっ("setting penalty to 0 for target token!")
             if self.targetTokenFromTutor is not None:
@@ -842,7 +848,11 @@ class BABYLLM(nn.Module):
     @whocalled
     def getNextToken(self, _inputSeq):  
         with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
-            ʕっʘ‿ʘʔっ(f"unpack logits from self.forward{_inputSeq}")
+            ʕっʘ‿ʘʔっ("unpack logits from self.forward")
+            if debugPrints:
+                try: seq_len = len(_inputSeq)
+                except TypeError: seq_len = "unknown"
+                ʕっʘ‿ʘʔっ("♥input_seq_len", seq_len)
             logits, nextToken = self.forward_and_sample(_inputSeq, _training=True)
             if debugPrints: print("nextToken: ")
             print(f"{nextToken}")

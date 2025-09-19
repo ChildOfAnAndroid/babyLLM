@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v1.1
+# v1.3
 
 import random, os, time, threading
 from collections import Counter, defaultdict
@@ -552,7 +552,8 @@ class TUTOR:
                 if debugPrints: print(f"[j={j}] inputLen={len(inputTensor)} → predicted {predictedTokenIndex.item()}")
 
                 if debugPrints: ʕっʘ‿ʘʔっ("inputSeqPredictions")
-                self.predictedTokenIndices.append(predictedTokenIndex) # tensor shape [1]
+                predicted_index = int(predictedTokenIndex.item())
+                self.predictedTokenIndices.append(predicted_index)
 
                 # -- RGB visual tracker --
                 if not skipPixels and (hasattr(self.model, "latestTokenEmbed") and hasattr(self.model, "pixelPupil") and hasattr(self.model, "nextPixelTarget")):
@@ -640,19 +641,19 @@ class TUTOR:
                 self.sampledFlags.append(sampledTokens)
                 if sampledTokens:
                     self.stats['sampledTokens'] = self.stats.get('sampledTokens', 0) + 1
-                    nextTokenInput = predictedTokenIndex.item() # .ITEM() REQUIRED!! FOR APPENDING ONLY ONE TOKEN (grids?)
+                    nextTokenInput = predicted_index
                 elif j < len(_targetTokenIndexSeq):
                     nextTokenInput = _targetTokenIndexSeq[j]
                 else:
-                    nextTokenInput = predictedTokenIndex.item() # .ITEM() REQUIRED!! FOR APPENDING ONLY ONE TOKEN (grids?)
+                    nextTokenInput = predicted_index
 
                 inputSeqPredictions.append(nextTokenInput) # multi-token autoregressive generation: append next token to your current input — becomes the prompt for the next token
-                isCorrect = (nextTokenInput == predictedTokenIndex.item())
+                isCorrect = (nextTokenInput == predicted_index)
                 self.gotIt = isCorrect
                 self.tiktiktik = nextTokenInput
                 self.model.targetTokenFromTutor = _targetTokenIndexSeq[j]
                 self.tokenLevelCorrect.append(1.0 if isCorrect else 0.0)
-                if debugPrints: print(f"isCorrect = {isCorrect} for target: {nextTokenInput} vs guess: {predictedTokenIndex.item()}... tokenLevelCorrect = {self.tokenLevelCorrect}")
+                if debugPrints: print(f"isCorrect = {isCorrect} for target: {nextTokenInput} vs guess: {predicted_index}... tokenLevelCorrect = {self.tokenLevelCorrect}")
 
                 if debugPrints: ʕっʘ‿ʘʔっ("loop through tokens for this step")
                 if j < len(_targetTokenIndexSeq):
@@ -764,7 +765,8 @@ class TUTOR:
 
             #del inputTensor, logits, BACKWARDloss, buffer
 
-            ids = [idx.item() if torch.is_tensor(idx) else int(idx) for idx in self.predictedTokenIndices]
+            ids = [int(idx) for idx in self.predictedTokenIndices]
+            self.predictedTokenIndices = ids
             self.decodedTokenIndices = self.librarian.decodeIDs(ids)
             #print(f"{self.decodedTokenIndices}")
 
@@ -1136,13 +1138,14 @@ class TUTOR:
                             print(f"Used {rollPrint_avgKey} for averageRecentLoss: {lossStats[rollPrint_avgKey]} {self.ppp}x")
                     self.averageRecentLoss = lossStats[rollPrint_avgKey]
 
-            self.guessedTokenSeq = [self.librarian.indexToToken.get(idx.item(), "<UNK>") for idx in self.predictedTokenIndices]
+            self.guessedTokenSeq = [self.librarian.indexToToken.get(int(idx), "<UNK>") for idx in self.predictedTokenIndices]
             boldPerfects = []
             target = torch.tensor(self.targetTokenIndexSeq[:self.numTokensPerStep], device = self.device)
 
             for i, idx in enumerate(self.predictedTokenIndices):
-                tok = self.librarian.indexToToken.get(idx.item(), "<UNK>")
-                isCorrect = (i < len(target)) and (idx.item() == target[i].item())
+                idx_int = int(idx)
+                tok = self.librarian.indexToToken.get(idx_int, "<UNK>")
+                isCorrect = (i < len(target)) and (idx_int == target[i].item())
                 
                 if isCorrect:
                     styled = self.calligraphist.S_apply("reverse", tok)  # BOLD WHITE ANSI
