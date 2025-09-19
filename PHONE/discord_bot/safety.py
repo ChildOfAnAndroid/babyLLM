@@ -1,4 +1,4 @@
-# v1.5
+# v1.6
 """
 Centralized safety validation system for babyLLM
 Prevents code duplication of NaN/Inf checks and value validation
