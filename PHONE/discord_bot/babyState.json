@@ -4,7 +4,7 @@
   "cheeks_on": false,
   "tears_on": false,
   "jumping": false,
-  "stretch_left": false,
+  "stretch_left": true,
   "stretch_right": true,
   "stretch_up": false,
   "stretch_down": true,
@@ -14,9 +14,9 @@
   "squish_down": false,
   "isSpeaking": false,
   "speechText": "",
-  "R": 1,
-  "G": 6,
-  "B": 4,
+  "R": 8,
+  "G": 34,
+  "B": 29,
   "cerebralLoad": 0.33861812949180603,
   "dreamIntensity": 1.9741375148296356,
   "memoryFlux": 0.14052343368530273,
@@ -24,5 +24,5 @@
   "metabolicRate": 0.12096774193548387,
   "timestamp": 1758244119.066006,
   "correct": false,
-  "lastUpdated": 1758244119.080611
+  "lastUpdated": 1758244142.9446452
 }
