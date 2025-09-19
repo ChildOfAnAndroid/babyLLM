@@ -261,7 +261,12 @@ def cmd_apply(args: argparse.Namespace) -> int:
         if changed:
             print(f"[HEADERIZED] {rel} -> {ver}")
         # track version
-        versions.setdefault(rel, ver)
+        # Always record the detected stamp.  ``setdefault`` would leave any
+        # existing entry untouched, meaning ``VERSIONS.json`` could fall out of
+        # sync if a file's version changed without rewriting the header.  By
+        # assigning directly we keep the tracking file aligned with the actual
+        # source headers.
+        versions[rel] = ver
 
     if changed_any and not args.dry_run:
         save_versions(versions)
