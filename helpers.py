@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM HELPERS // helpers.py
-# v1.3
+# v1.5
 
 # --- imports ---
 from __future__ import annotations
@@ -65,6 +65,10 @@ def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bo
 
     Returns True if a write occurred, False otherwise.
     """
+
+    parent = os.path.dirname(path)
+    if parent: os.makedirs(parent, exist_ok=True)
+
     new_content = json.dumps(data, indent=indent, sort_keys=sort_keys, **dump_kwargs)
     with _json_cache_lock:
         cached = _json_cache.get(path)

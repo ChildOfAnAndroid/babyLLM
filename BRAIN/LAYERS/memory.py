@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MEMORY LAYER // brain/LAYERS/memory.py
-# v1.3
+# v1.5
 
 import torch
 import torch.nn as nn
@@ -331,7 +331,7 @@ class MEMORY(nn.Module):
                     "4M_1_longDecay": statLongDecay,
                 }
 
-            self._reset_history_buffers()
+                self._reset_history_buffers()
 
             if debugPrints: ʕっʘ‿ʘʔっ("store computed memories for after backward")
             self.newShort = newShort

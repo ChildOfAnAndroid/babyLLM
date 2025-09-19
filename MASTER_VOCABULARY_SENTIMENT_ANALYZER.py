@@ -7,7 +7,7 @@
 # Using the complete 93-category vocabulary mapping for ALL 4200 tokens
 # Every token gets meaningful sentiment - no token left behind!
 # v1.0 - COMPLETE COVERAGE EDITION
-# v1.3
+# v1.5
 
 import json
 import logging
