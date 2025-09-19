@@ -418,9 +418,15 @@ class BABYLLM(nn.Module):
 
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")):
                 if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss with creative synesthetic enhancement")
-                debug_print(f"latestTokenEmbed is {self.latestTokenEmbed} ({self.latestTokenEmbed.shape})")
-                
+
                 # Handle different tensor shapes properly
+                token_embed_for_pixel = getattr(self, "latestTokenEmbed", None)
+                if token_embed_for_pixel is None:
+                    debug_print("latestTokenEmbed is None; using zero embedding for pixel loss")
+                    token_embed_for_pixel = torch.zeros(self.pixelPupil.linear1.in_features, device=self.device)
+                else:
+                    debug_print(f"latestTokenEmbed is {token_embed_for_pixel} ({token_embed_for_pixel.shape})")
+
                 if len(token_embed_for_pixel.shape) == 1:
                     # Already 1D embedding - use directly
                     embedding = token_embed_for_pixel
