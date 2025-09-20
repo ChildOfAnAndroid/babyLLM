@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/__init__.py
-# v1.7
+# v2.18
 
 """bbys on discord!"""
 

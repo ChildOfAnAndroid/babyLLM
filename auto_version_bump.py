@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# v1.7
+# v2.18
 
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 

@@ -1,4 +1,4 @@
-# v1.7
+# v2.18
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -810,8 +810,7 @@ class BABYBOT_DISCORD(commands.Bot):
             del self.lex_sessions[ref_id]
 
     def getNickname(self, author):
-        if not author:
-            return "someone"
+        if not author: return "someone"
         user_key = str(author).lower()
         mem = self.userMemory.get(user_key, {})
         name = mem.get("nickname") or mem.get("display_name") or str(author)

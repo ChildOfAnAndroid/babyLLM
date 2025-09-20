@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v1.7
+# v2.18
 
 import os
 import json
@@ -3553,21 +3553,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # --- Asynchronous Generation Call ---
         # The low-level function now returns a tuple: (text, error_message)
+
         try:
+            prompt_text = self._ensure_baby_prompt_suffix(prompt_text)
+            promptTokenStrings = self.bot.librarian.tokenizeText(prompt_text)
+            promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
+
+            max_window = getattr(self.bot, 'chatWindowMAX', 256)
+            if len(promptTokenIDs) > max_window:
+                promptTokenIDs = promptTokenIDs[-max_window:]
+                print(f"[_generate_and_reply] cut prompt to last {max_window} tokens.")
+
+            num_tokens_to_gen = max(5, min(num_tokens_to_gen, 1999))
+            print(f"[_generate_and_reply] requesting {num_tokens_to_gen} tokens for generation.")
+
+            # Only show typing while actually generating
             async with ctx.typing():
-                prompt_text = self._ensure_baby_prompt_suffix(prompt_text)
-                promptTokenStrings = self.bot.librarian.tokenizeText(prompt_text)
-                promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
-                
-                max_window = getattr(self.bot, 'chatWindowMAX', 256)
-                if len(promptTokenIDs) > max_window:
-                    promptTokenIDs = promptTokenIDs[-max_window:]
-                    print(f"[_generate_and_reply] cut prompt to last {max_window} tokens.")
-
-                num_tokens_to_gen = max(5, min(num_tokens_to_gen, 1999))
-                print(f"[_generate_and_reply] requesting {num_tokens_to_gen} tokens for generation.")
-
-                # The async wrapper now returns the tuple from the blocking function
                 babyllm_text, generation_error = await self._generate_response_async(promptTokenIDs, num_tokens_to_gen)
 
         except Exception as e:
@@ -3684,7 +3685,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if name_match:
                 new_nick = name_match.group(1).strip()
                 new_nick = re.sub(r"\s+", " ", new_nick)
-                new_nick += self.get_varied_choice().choice([f" ({self.bot.babyName})", f" (babyLLM)"])
+                new_nick += " (babyLLM)"
                 new_nick = new_nick[:32]
                 junk_matches = {"is", "am", "are", "was", "were", "be", "being", "been", "it's", "its", "to"}
                 if new_nick.lower().strip() in junk_matches:
@@ -3743,22 +3744,24 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         elif user_input.lower().startswith("!bby "): user_input = user_input[5:]
         elif user_input.lower().startswith("!b "): user_input = user_input[3:]
         
-        base_length = min(len(user_input), 120)
-        edge = base_length * (0.1 * self.get_varied_random())
-        edge2 = base_length * (1.9 * self.get_varied_random())
+        # Make response length more closely match user input (in tokens)
+        base_length = min(len(user_input), 400)
+        edge = base_length * (0.15 * self.get_varied_random())
+        edge2 = base_length * (1.5 * self.get_varied_random())
         edgeint = abs(int((edge + edge2) * 0.5))
         random_offset = random.randint(-edgeint, edgeint)
-        num_tokens_to_gen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.45)
+        # Use a higher multiplier to get closer to user input length
+        num_tokens_to_gen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.85)
         
-        # Cap to keep replies snappy
-        num_tokens_to_gen = max(1, min(num_tokens_to_gen, 120))
+        # Raise cap to allow longer replies
+        num_tokens_to_gen = max(5, min(num_tokens_to_gen, 400))
 
         load = max(0, int(self._active_generations))
         if load > 0:
             scale = 1.0 / (1.0 + 0.6 * load)
             num_tokens_to_gen = max(1, int(num_tokens_to_gen * scale))
 
-        # --- STEP 3: Call the core helper with the buffer prompt and short length ---
+    # --- STEP 3: Call the core helper with the buffer prompt and short length ---
         await self._generate_and_reply(ctx, prompt_text, num_tokens_to_gen)
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
@@ -4470,8 +4473,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             num_fragments = random.randint(10, 30)
             seed_prompt = "\n".join(fragments[:num_fragments])
             
+
             len_seed_token_approx = len(seed_prompt) * 0.25
-            num_tokens_for_rant = self.get_varied_choice((len_seed_token_approx * self.get_varied_random), (len_seed_token_approx * (self.get_varied_random + self.get_varied_random)))
+            # Fix: call self.get_varied_random() to get float, not method
+            rand1 = self.get_varied_random()
+            rand2 = self.get_varied_random()
+            min_tokens = int(len_seed_token_approx * rand1)
+            max_tokens = int(len_seed_token_approx * (rand1 + rand2))
+            if max_tokens < min_tokens:
+                min_tokens, max_tokens = max_tokens, min_tokens
+            # Use random.randint for numeric range
+            num_tokens_for_rant = random.randint(max(5, min_tokens), max(10, max_tokens))
 
             print(f"\n\n[BBYRANT] Generated seed prompt of {len_seed_token_approx * 4} chars for '{word}'.")
             print(f"[BBYRANT] Requesting a long generation of {num_tokens_for_rant} tokens.")

@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # GATED MULTI-HEAD ATTENTION LAYER // brain/LAYERS/attention.py
-# v1.7
+# v2.18
 
 import math
 import torch

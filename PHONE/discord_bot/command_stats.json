@@ -1,13 +1,14 @@
 {
   "babyllm": {
-    "total_uses": 81,
+    "total_uses": 83,
     "unique_users": [
       "charis"
     ]
   },
   "bbyteach": {
-    "total_uses": 64,
+    "total_uses": 70,
     "unique_users": [
+      "childofanandroid",
       "chaosshadowwolf"
     ]
   },
@@ -67,7 +68,7 @@
     ]
   },
   "bbymyitem": {
-    "total_uses": 6,
+    "total_uses": 7,
     "unique_users": [
       "childofanandroid"
     ]
@@ -91,23 +92,25 @@
     ]
   },
   "bbyconnect": {
-    "total_uses": 27,
+    "total_uses": 43,
     "unique_users": [
-      "childofanandroid"
+      "childofanandroid",
+      "chaosshadowwolf"
     ]
   },
   "bbyfite": {
-    "total_uses": 33,
+    "total_uses": 47,
     "unique_users": [
-      "chaosshadowwolf",
-      "childofanandroid"
+      "childofanandroid",
+      "chaosshadowwolf"
     ]
   },
   "bbyiteminfo": {
-    "total_uses": 5,
+    "total_uses": 7,
     "unique_users": [
+      "childofanandroid",
       "loveangel1337",
-      "childofanandroid"
+      "chaosshadowwolf"
     ]
   },
   "bbytranslate": {
@@ -131,10 +134,10 @@
     ]
   },
   "bbygift": {
-    "total_uses": 6,
+    "total_uses": 14,
     "unique_users": [
-      "loveangel1337",
-      "childofanandroid"
+      "childofanandroid",
+      "loveangel1337"
     ]
   },
   "bbyfaves": {
@@ -156,6 +159,12 @@
     ]
   },
   "bbyitems": {
+    "total_uses": 1,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyspecialinterest": {
     "total_uses": 1,
     "unique_users": [
       "childofanandroid"
