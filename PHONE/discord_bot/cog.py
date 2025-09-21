@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v2.18
+# v3.8
 
 import os
 import json
@@ -1754,8 +1754,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         key = key.lower().strip()
         reply = ""
 
-        if not key:
-            return await self.bot._discord_reply(ctx, "oh woww! nothing!? hot.")
+        if not key: return await self.bot._discord_reply(ctx, "oh woww! nothing!? hot.")
 
         # Check if the fact already exists
         if key in self.bot.bbyfacts:
@@ -3576,7 +3575,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print("!!!![_generate_and_reply] CRITICAL ERROR during pre-generation phase.")
             traceback.print_exc()
             await self.bot._discord_reply(ctx, f"I broke :( system just said: {e}")
-            return
+            return None, None
 
         # --- New, Robust Logic to Handle the Three Possible Outcomes ---
 
@@ -3585,7 +3584,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # First, post any salvaged partial text so it's not lost.
             if babyllm_text and babyllm_text.strip():
                 await self.bot._discord_reply(ctx, f"{babyllm_text}")
-            
             # Now, trigger the original "you broke the bot" logic.
             reason = generation_error
             brokeMessage = f"i broke :( {escape_markdown(reason)}"
@@ -3595,7 +3593,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, brokeMessage2)
             if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
             if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage2))
-            return
+            return None, None
 
         # === Case 2: Generation was successful but produced no text ===
         if not babyllm_text.strip():
@@ -3604,7 +3602,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if hasattr(ctx.message, 'add_reaction'):
                 try: await ctx.message.add_reaction(quietEmoji)
                 except Exception: pass
-            return
+            return None, None
         
         # === Case 3: Full Success! All original logic now executes. ===
         try:
@@ -3712,6 +3710,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print("!!!![_generate_and_reply] Error during reply/post-gen phase.")
             traceback.print_exc()
             await self.bot._discord_reply(ctx, f"I generated a response but crashed while trying to reply: {e}")
+            return None, None
+        
+        return babyllm_message, babyllm_text
         
     @commands.command(name='babyllm', aliases=['bby', 'bbyllm', 'b'])
     @track_command
@@ -3762,7 +3763,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             num_tokens_to_gen = max(1, int(num_tokens_to_gen * scale))
 
     # --- STEP 3: Call the core helper with the buffer prompt and short length ---
-        await self._generate_and_reply(ctx, prompt_text, num_tokens_to_gen)
+        return await self._generate_and_reply(ctx, prompt_text, num_tokens_to_gen)
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
     @track_command

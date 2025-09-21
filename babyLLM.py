@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v2.18
+# v3.8
 
 import random, os, threading
 from contextlib import nullcontext

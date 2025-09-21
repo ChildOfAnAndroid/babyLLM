@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // SHKAIRA/notebook/tools/genBoi.py
-# v2.18
+# v3.8
 
 import random
 

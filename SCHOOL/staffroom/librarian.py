@@ -2,7 +2,7 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # VOCAB: TRAINING GENERATION AND TOKENIZATION
 # brain/LAYERS/vocab.py
-# v2.18
+# v3.8
 
 from collections import Counter, deque
 from config import *
