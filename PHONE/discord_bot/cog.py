@@ -1392,44 +1392,50 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         token_vectors = []
         min_score = 0.1
 
-        # per-token
-        for tid in valid_ids:
-            tok_str = self.bot.librarian.decodeIDs([tid])
-            if not tok_str or tok_str == self.bot.librarian.unkToken: continue
+        with torch.no_grad():
+            # per-token
+            for tid in valid_ids:
+                tok_str = self.bot.librarian.decodeIDs([tid])
+                if not tok_str or tok_str == self.bot.librarian.unkToken:
+                    continue
 
-            vec = embed[tid]
-            token_vectors.append(vec)
+                vec = embed[tid]
+                token_vectors.append(vec)
 
-            raw = self._get_similar_tokens(vec, [tid], top_k, with_scores=True)
+                raw = self._get_similar_tokens(vec, [tid], top_k, with_scores=True)
 
-            formatted: list[str] = []
-            for candidate, score in raw:
-                if score < min_score: continue
-                # literal token display: preserve spaces and wrap in brackets
-                cand_disp = escape_markdown(candidate.replace('Ġ', ' '))
-                formatted.append(f"[{cand_disp}]")
+                formatted: list[str] = []
+                for candidate, score in raw:
+                    if score < min_score:
+                        continue
+                    # literal token display: preserve spaces and wrap in brackets
+                    cand_disp = escape_markdown(candidate.replace('Ġ', ' '))
+                    formatted.append(f"[{cand_disp}]")
 
-            lines.append(self._format_conn_line(tok_str, formatted))
+                lines.append(self._format_conn_line(tok_str, formatted))
 
-        # combo (only if >1 token)
-        if token_vectors and len(valid_ids) > 1:
-            combo_vec = torch.stack(token_vectors, dim=0).mean(dim=0)
-            raw_combo = self._get_similar_tokens(combo_vec, valid_ids, top_k, with_scores=True)
+            # combo (only if >1 token)
+            if token_vectors and len(valid_ids) > 1:
+                combo_vec = torch.stack(token_vectors, dim=0).mean(dim=0)
+                raw_combo = self._get_similar_tokens(combo_vec, valid_ids, top_k, with_scores=True)
 
-            combo_tokens = [self.bot.librarian.decodeIDs([tid])
-                            for tid in valid_ids
-                            if self.bot.librarian.decodeIDs([tid])
-                            and self.bot.librarian.decodeIDs([tid]) != self.bot.librarian.unkToken]
+                combo_tokens = [
+                    self.bot.librarian.decodeIDs([tid])
+                    for tid in valid_ids
+                    if self.bot.librarian.decodeIDs([tid])
+                    and self.bot.librarian.decodeIDs([tid]) != self.bot.librarian.unkToken
+                ]
 
-            combo_label = " + ".join(escape_markdown(t) for t in combo_tokens) if combo_tokens else "blend"
+                combo_label = " + ".join(escape_markdown(t) for t in combo_tokens) if combo_tokens else "blend"
 
-            formatted_combo: list[str] = []
-            for candidate, score in raw_combo:
-                if score < min_score: continue
-                cand_disp = escape_markdown(candidate.replace('Ġ', ' '))
-                formatted_combo.append(f"[{cand_disp}]")
+                formatted_combo: list[str] = []
+                for candidate, score in raw_combo:
+                    if score < min_score:
+                        continue
+                    cand_disp = escape_markdown(candidate.replace('Ġ', ' '))
+                    formatted_combo.append(f"[{cand_disp}]")
 
-            lines.append(self._format_conn_line(combo_label, formatted_combo))
+                lines.append(self._format_conn_line(combo_label, formatted_combo))
 
         return "\n".join(lines)
 
@@ -1469,7 +1475,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not valid_ids:
             return []
         embed = self.bot.babyLLM.embed.e_weights
-        vec = embed[valid_ids].mean(dim=0)
+        with torch.no_grad():
+            vec = embed[valid_ids].mean(dim=0)
         return self._get_similar_tokens(vec, valid_ids, top_k)
 
     def _add_brain_thought(self, subject: str, similar_tokens: list[str]):
@@ -1492,7 +1499,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         valid_ids = [tid for tid in token_ids if tid != unk_id]
         if not valid_ids: return "???"
         embed = self.bot.babyLLM.embed.e_weights
-        vec = embed[valid_ids].mean(dim=0)
+        with torch.no_grad():
+            vec = embed[valid_ids].mean(dim=0)
         similar = self._get_similar_tokens(vec, valid_ids, top_k)
         num_parts_to_blend = random.randint(1, 12)
         parts = similar[:num_parts_to_blend]
@@ -1633,7 +1641,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return word
 
         embed = self.bot.babyLLM.embed.e_weights
-        base_vec = embed[token_ids].mean(dim=0)
+        with torch.no_grad():
+            base_vec = embed[token_ids].mean(dim=0)
 
         # Fetch related tokens using the existing brain connection helper
         raw_connections = self._get_similar_tokens(base_vec, token_ids, top_n * 3)
@@ -1680,8 +1689,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             cand_ids = [tid for tid in self.bot.librarian.tokenizer.encode(cand) if tid != unk_id]
             if not cand_ids:
                 continue
-            cand_vec = embed[cand_ids].mean(dim=0)
-            sim = torch.nn.functional.cosine_similarity(base_vec.unsqueeze(0), cand_vec.unsqueeze(0)).item()
+            with torch.no_grad():
+                cand_vec = embed[cand_ids].mean(dim=0)
+                sim = torch.nn.functional.cosine_similarity(
+                    base_vec.unsqueeze(0), cand_vec.unsqueeze(0)
+                ).item()
             if sim > best_sim:
                 best_sim = sim
                 best_word = cand

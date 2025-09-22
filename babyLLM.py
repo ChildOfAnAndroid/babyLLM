@@ -904,14 +904,15 @@ class BABYLLM(nn.Module):
         return _logits - (weightedFreqs * penalty)
 
     @whocalled
-    def getNextToken(self, _inputSeq):  
+    def getNextToken(self, _inputSeq):
         with self.counsellor.infodump("getNextToken(FORWARD)") as ʕっʘ‿ʘʔっ:
             ʕっʘ‿ʘʔっ("unpack logits from self.forward")
             if debugPrints:
                 try: seq_len = len(_inputSeq)
                 except TypeError: seq_len = "unknown"
                 ʕっʘ‿ʘʔっ("♥input_seq_len", seq_len)
-            logits, nextToken = self.forward_and_sample(_inputSeq, _training=True)
+            with torch.no_grad():
+                logits, nextToken = self.forward_and_sample(_inputSeq, _training=True)
             if debugPrints: print("nextToken: ")
             print(f"{nextToken}")
             return nextToken
