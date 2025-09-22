@@ -10,34 +10,54 @@ from transformers import PreTrainedTokenizerFast
 from tokenizers import Tokenizer, models, trainers, pre_tokenizers, ByteLevelBPETokenizer
 from tokenizers.processors import ByteLevel
 from tokenizers.decoders import ByteLevel as ByteLevelDecoder
-import os, re, json, random, torch, io
+import os, re, json, random, torch, itertools
 from SHKAIRA.notebook.tools.genBoi import *
 from collections import defaultdict
 from textCleaningTool import clean_text
 import csv
 import numpy as np
 from numpy.lib.format import open_memmap
+from typing import Callable, Iterator, Sequence
 
 
 class _MemmapTokenSequence:
-    """Lightweight list-like wrapper that chains multiple memmaps."""
+    """Lightweight list-like wrapper that chains multiple array-like segments."""
 
-    def __init__(self, arrays: list[np.memmap]):
-        self._segments: list[tuple[int, int, np.memmap]] = []
+    def __init__(self, arrays: Sequence[Sequence]):
+        self._segments: list[tuple[int, int, Sequence]] = []
         self._length = 0
+        dtype = None
+        sample_value = None
         for arr in arrays:
-            seg_len = int(arr.shape[0])
+            if arr is None:
+                continue
+            try:
+                seg_len = int(len(arr))
+            except TypeError:
+                continue
+            if seg_len <= 0:
+                continue
             start = self._length
             end = start + seg_len
             self._segments.append((start, end, arr))
             self._length = end
-        self.dtype = arrays[0].dtype if arrays else None
-        self.is_numeric = bool(arrays and np.issubdtype(self.dtype, np.integer))
+            if dtype is None and hasattr(arr, "dtype"):
+                dtype = arr.dtype
+            if sample_value is None and seg_len:
+                try:
+                    sample_value = arr[0]
+                except Exception:
+                    sample_value = None
+        self.dtype = dtype
+        if dtype is not None:
+            self.is_numeric = bool(np.issubdtype(dtype, np.integer))
+        else:
+            self.is_numeric = isinstance(sample_value, (int, np.integer))
 
     def __len__(self) -> int:
         return self._length
 
-    def _locate(self, idx: int) -> tuple[np.memmap, int]:
+    def _locate(self, idx: int) -> tuple[Sequence, int]:
         if idx < 0:
             idx += self._length
         if idx < 0 or idx >= self._length:
@@ -58,9 +78,13 @@ class _MemmapTokenSequence:
             idx = start
             while idx < stop:
                 arr, local_idx = self._locate(idx)
-                take = min(stop - idx, arr.shape[0] - local_idx)
+                seg_len = len(arr)
+                take = min(stop - idx, seg_len - local_idx)
                 view = arr[local_idx:local_idx + take]
-                out.extend(view.tolist())
+                if hasattr(view, "tolist"):
+                    out.extend(view.tolist())
+                else:
+                    out.extend(list(view))
                 idx += take
             return out
         arr, local_idx = self._locate(int(item))
@@ -71,6 +95,42 @@ class _MemmapTokenSequence:
         for _, _, arr in self._segments:
             if hasattr(arr, "flush"):
                 arr.flush()
+
+    def __iter__(self) -> Iterator:
+        for _, _, arr in self._segments:
+            for val in arr:
+                yield val.item() if hasattr(val, "item") else val
+
+    @property
+    def segments(self) -> list[Sequence]:
+        return [arr for _, _, arr in self._segments]
+
+
+class _TrainingPairStream:
+    """Re-iterable wrapper around a streaming training pair generator."""
+
+    def __init__(
+        self,
+        factory: Callable[[], Iterator[tuple[list, list]]],
+        length: int | None = None,
+        description: str | None = None,
+    ) -> None:
+        self._factory = factory
+        self._length = length
+        self.description = description or ""
+
+    def __iter__(self) -> Iterator[tuple[list, list]]:
+        return self._factory()
+
+    def __len__(self) -> int:
+        if self._length is None:
+            raise TypeError("stream length is unknown")
+        return self._length
+
+    def __repr__(self) -> str:
+        desc = f" {self.description}" if self.description else ""
+        length = self._length if self._length is not None else "?"
+        return f"<TrainingPairStream{desc} len={length}>"
 
 """
 Handles vocab creation, loading, and tokenization.
@@ -115,6 +175,8 @@ class LIBRARIAN:
         self._dynamic_tokens_max = 20000  # ~lightweight ring buffer
         self._dynamic_tokens: deque[str] = deque(maxlen=self._dynamic_tokens_max)
         self._tokens_are_indices = False
+        self._token_stream_factories: list[Callable[[], Iterator]] = []
+        self._training_token_count_estimate: int | None = None
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
 
@@ -202,11 +264,14 @@ class LIBRARIAN:
 
     def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData, _dataCharactersToLoad = 900000):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ:
+            self._token_stream_factories = []
             memmaps: list[np.memmap] = []
-            buffer = io.StringIO()
-            loadedChars = 0
+            text_factories: list[Callable[[], Iterator]] = []
+            loaded_chars_estimate = 0
 
             for path in _filepaths:
+                if not path:
+                    continue
                 ext = os.path.splitext(path)[1].lower()
                 if ext == ".npy":
                     try:
@@ -215,41 +280,240 @@ class LIBRARIAN:
                         print(f"[WARN] Failed to memory-map {path}: {e}")
                     else:
                         memmaps.append(mmap_arr)
+                        self._token_stream_factories.append(
+                            lambda arr=mmap_arr: self._iter_memmap_tokens(arr)
+                        )
+                        try:
+                            loaded_chars_estimate += int(len(mmap_arr))
+                        except Exception:
+                            pass
                     continue
 
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        while loadedChars < _dataCharactersToLoad:
-                            readSize = min(_chunkSize, _dataCharactersToLoad - loadedChars)
-                            chunk = f.read(readSize)
-                            if not chunk:
-                                break
-                            buffer.write(chunk)
-                            loadedChars += len(chunk)
-                    if loadedChars >= _dataCharactersToLoad:
+                remaining = None
+                if _dataCharactersToLoad is not None:
+                    remaining = max(0, _dataCharactersToLoad - loaded_chars_estimate)
+                    if remaining <= 0:
                         break
+                    try:
+                        file_size = os.path.getsize(path)
+                    except OSError:
+                        file_size = remaining
+                    max_chars = min(remaining, file_size) if file_size else remaining
+                else:
+                    max_chars = None
+
+                try:
+                    factory = self._make_text_stream_factory(
+                        path,
+                        chunk_size=_chunkSize,
+                        max_chars=max_chars,
+                    )
                 except FileNotFoundError:
                     print(f"[WARN] Training data file not found: {path}")
+                    continue
+                except Exception as e:
+                    print(f"[WARN] Failed to prepare stream for {path}: {e}")
+                    continue
+
+                text_factories.append(factory)
+                if max_chars is not None:
+                    loaded_chars_estimate += int(max_chars)
+
+            if text_factories:
+                self._token_stream_factories.extend(text_factories)
 
             if memmaps:
                 sequence = _MemmapTokenSequence(memmaps)
                 self.tokens = sequence
                 self._tokens_are_indices = sequence.is_numeric
-                extra_text = buffer.getvalue()
-                if extra_text:
-                    added = self.add_training_text(extra_text)
-                    if added:
-                        print(f"loaded {added} supplemental tokens into dynamic buffer")
+                self._training_token_count_estimate = len(sequence)
                 print(
                     f"memory-mapped {len(sequence)} training items from {len(memmaps)} file(s)"
                 )
                 return sequence
 
-            text_data = buffer.getvalue()
-            result = re.sub(r"[ \t]+", " ", text_data)
-            self._tokens_are_indices = False
-            print(f"loaded {len(result)} characters of training data!")
-            return result
+            # No memmaps: fall back to streaming text tokens without loading entire file
+            self.tokens = []
+            if self._token_stream_factories:
+                self._tokens_are_indices = True
+                self._training_token_count_estimate = None
+                print(
+                    f"prepared streaming token generators for {len(self._token_stream_factories)} text file(s)"
+                )
+                return ""
+
+            print("[WARN] No training data sources available to load")
+            return ""
+
+    def _iter_memmap_tokens(self, mmap_arr: np.memmap, block_size: int = 131072) -> Iterator[int]:
+        block_size = max(1, int(block_size))
+        try:
+            length = int(len(mmap_arr))
+        except Exception:
+            length = int(mmap_arr.shape[0])
+        for start in range(0, length, block_size):
+            block = mmap_arr[start:start + block_size]
+            for val in block:
+                yield val.item() if hasattr(val, "item") else val
+
+    def _make_text_stream_factory(
+        self,
+        path: str,
+        *,
+        chunk_size: int,
+        max_chars: int | None,
+        overlap: int = 256,
+    ) -> Callable[[], Iterator[int]]:
+        chunk_size = max(1, int(chunk_size))
+        overlap = max(0, int(overlap))
+
+        def factory() -> Iterator[int]:
+            return self._iter_text_file_tokens(
+                path,
+                chunk_size=chunk_size,
+                max_chars=max_chars,
+                overlap=overlap,
+            )
+
+        return factory
+
+    def _iter_text_file_tokens(
+        self,
+        path: str,
+        *,
+        chunk_size: int,
+        max_chars: int | None,
+        overlap: int,
+    ) -> Iterator[int]:
+        remaining = max_chars if max_chars is not None else None
+        tail = ""
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                while True:
+                    if remaining is not None and remaining <= 0:
+                        break
+                    to_read = chunk_size if remaining is None else min(chunk_size, remaining)
+                    chunk = f.read(to_read)
+                    if not chunk:
+                        break
+                    if remaining is not None:
+                        remaining -= len(chunk)
+                    text = tail + chunk
+                    if not text:
+                        continue
+                    tokens = self.tokenizer.encode(text)
+                    if not tokens:
+                        tail = text[-overlap:] if overlap else ""
+                        continue
+                    if overlap:
+                        tail_text = text[-overlap:]
+                        tail_tokens = self.tokenizer.encode(tail_text) if tail_text else []
+                        emit_count = len(tokens) - len(tail_tokens)
+                        if emit_count > 0:
+                            for tok in tokens[:emit_count]:
+                                yield tok
+                        tail = tail_text
+                    else:
+                        for tok in tokens:
+                            yield tok
+                        tail = ""
+                if tail:
+                    for tok in self.tokenizer.encode(tail):
+                        yield tok
+        except FileNotFoundError:
+            print(f"[WARN] Training data file not found during stream: {path}")
+        except Exception as e:
+            print(f"[WARN] Streaming read failed for {path}: {e}")
+
+    def training_token_count_estimate(self) -> int:
+        if self.tokens is not None:
+            try:
+                length = len(self.tokens)
+                if length:
+                    return length
+            except Exception:
+                pass
+        if self._training_token_count_estimate is not None:
+            return int(self._training_token_count_estimate)
+        return len(self._dynamic_tokens)
+
+    def _estimate_pair_count(
+        self,
+        length_estimate: int | None,
+        dynamic_tokens: Sequence,
+        *,
+        window: int,
+        stride: int,
+        limit: int | None,
+        start: int,
+    ) -> int | None:
+        if length_estimate is None:
+            return None
+        total = max(0, int(length_estimate)) + (len(dynamic_tokens) if dynamic_tokens else 0)
+        required = window * 2
+        if total < start + required:
+            return 0
+        available = total - (start + required) + stride
+        if available < 0:
+            positions = 0
+        else:
+            positions = (available // stride)
+        positions = max(0, positions)
+        if limit is not None:
+            positions = min(positions, limit)
+        return positions
+
+    def _make_pair_iterator_factory(
+        self,
+        token_iterator_factory: Callable[[], Iterator],
+        *,
+        window: int,
+        stride: int,
+        limit: int | None,
+        tokens_are_indices: bool,
+        token_lookup: dict,
+        start: int,
+    ) -> Callable[[], Iterator[tuple[list, list]]]:
+        window = max(1, int(window))
+        stride = max(1, int(stride))
+
+        def factory() -> Iterator[tuple[list, list]]:
+            iterator = token_iterator_factory()
+            if start > 0:
+                iterator = itertools.islice(iterator, start, None)
+            buffer: deque = deque(maxlen=window * 2 + stride)
+            produced = 0
+            for token in iterator:
+                buffer.append(token)
+                if len(buffer) < window * 2:
+                    continue
+                while len(buffer) >= window * 2:
+                    input_seq = list(itertools.islice(buffer, 0, window))
+                    target_seq = list(itertools.islice(buffer, window, 2 * window))
+                    if len(target_seq) < window:
+                        break
+                    if tokens_are_indices or (
+                        input_seq and isinstance(input_seq[0], (int, np.integer))
+                    ):
+                        yield (input_seq, target_seq)
+                    elif all(
+                        t in token_lookup for t in itertools.chain(input_seq, target_seq)
+                    ):
+                        yield (input_seq, target_seq)
+                    else:
+                        print(
+                            f"skipping <UNK> - inputSeq sample: {input_seq[:4]}, target sample: {target_seq[:4]}"
+                        )
+                    produced += 1
+                    if limit is not None and produced >= limit:
+                        return
+                    for _ in range(stride):
+                        if buffer:
+                            buffer.popleft()
+                    if len(buffer) < window * 2:
+                        break
+
+        return factory
 
     def loadSingleFile(self, path: str, ftype: str = "text", *, max_chars: int = 900000, strategy: str = "head") -> str:
         """Load and clean a single file according to its type.
@@ -574,58 +838,118 @@ class LIBRARIAN:
             if not toks:
                 return 0
             self._dynamic_tokens.extend(toks)
-            return len(toks)
+            added = len(toks)
+            if self._training_token_count_estimate is not None:
+                self._training_token_count_estimate += added
+            return added
         except Exception:
             return 0
 
     def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = 1, _stride = trainingDataStride, _tokens=None):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
-            count = 0
-            tokens = _tokens if _tokens is not None else self.tokens
-            if tokens is None:
-                tokens = []
-            tokens_are_indices = getattr(self, "_tokens_are_indices", False)
-            if _tokens is not None:
-                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(tokens)
-            if debugPrints: ʕっʘ‿ʘʔっ("check if windowMax is tensor?")
             if isinstance(_windowMAX, torch.Tensor):
-                _windowMAX = _windowMAX.item()
+                _windowMAX = int(_windowMAX.item())
+            window = max(1, int(_windowMAX))
+            stride = max(1, int(_stride) if _stride else 1)
+            limit = (
+                int(_trainingDataPairNumber)
+                if _trainingDataPairNumber and _trainingDataPairNumber > 0
+                else None
+            )
 
-            if debugPrints: ʕっʘ‿ʘʔっ("allows for random start")
-            if _startIndex == 'random':
-                _startIndex = random.randint(0, len(tokens) - _windowMAX - 1)
+            tokens_are_indices = getattr(self, "_tokens_are_indices", False)
+            description = "tokens"
 
-            end = len(tokens) - _windowMAX
+            if _tokens is not None:
+                base_tokens = _tokens
+                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(base_tokens)
+
+                def base_iter_factory() -> Iterator:
+                    return iter(base_tokens)
+
+                try:
+                    length_estimate = len(base_tokens)  # type: ignore[arg-type]
+                except Exception:
+                    length_estimate = None
+                dynamic_snapshot: list = []
+                description = "custom"
+            elif self._token_stream_factories:
+                factories = list(self._token_stream_factories)
+
+                def base_iter_factory() -> Iterator:
+                    def chained() -> Iterator:
+                        for factory in factories:
+                            yield from factory()
+
+                    return chained()
+
+                length_estimate = self.training_token_count_estimate()
+                tokens_are_indices = True
+                dynamic_snapshot = list(self._dynamic_tokens)
+                description = "stream"
+            else:
+                base_tokens = self.tokens if self.tokens is not None else []
+                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(base_tokens)
+
+                def base_iter_factory() -> Iterator:
+                    return iter(base_tokens)
+
+                try:
+                    length_estimate = len(base_tokens)  # type: ignore[arg-type]
+                except Exception:
+                    length_estimate = None
+                dynamic_snapshot = list(self._dynamic_tokens)
+
+            if _tokens is not None:
+                dynamic_snapshot = []
+
+            start_index = _startIndex
+            if isinstance(start_index, torch.Tensor):
+                start_index = int(start_index.item())
+            if start_index == "random":
+                estimate = length_estimate if length_estimate is not None else self.training_token_count_estimate()
+                if estimate and estimate > window * 2:
+                    start_index = random.randint(0, max(0, estimate - window * 2))
+                else:
+                    start_index = 0
+            else:
+                try:
+                    start_index = int(start_index)
+                except Exception:
+                    start_index = 0
 
             token_lookup = self.tokenToIndex
 
-            i = _startIndex
-            while count < _trainingDataPairNumber and i < len(tokens) - _windowMAX:
-                if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
-                inputSeq = tokens[i:i + _windowMAX]
-                target = tokens[i + _windowMAX:i + _windowMAX + _windowMAX]
-                if not isinstance(inputSeq, list):
-                    inputSeq = list(inputSeq)
-                if not isinstance(target, list):
-                    target = list(target)
-                if len(target) < _windowMAX:
-                    i += int(_stride)
-                    continue
-                if tokens_are_indices or (
-                    inputSeq and isinstance(inputSeq[0], (int, np.integer))
-                ):
-                    yield (inputSeq, target)
-                    count += 1
-                    if count % 1000 == 0:
-                        print(f"{makeDatBoi()} {babyName}: generated {count}x trainingDataPairs!")
-                elif all(t in token_lookup for t in inputSeq + target):
-                    yield (inputSeq, target)
-                    count += 1
-                    if count % 1000 == 0:
-                        print(f"{makeDatBoi()} {babyName}: generated {count}x trainingDataPairs!")
-                else:
-                    print(f"skipping <UNK> - inputSeq: {inputSeq}, target: {target}")
-                i += int(_stride)
+            def token_iterator_factory() -> Iterator:
+                def iterator() -> Iterator:
+                    for val in base_iter_factory():
+                        yield val
+                    if dynamic_snapshot:
+                        for val in dynamic_snapshot:
+                            yield val
+
+                return iterator()
+
+            pair_factory = self._make_pair_iterator_factory(
+                token_iterator_factory,
+                window=window,
+                stride=stride,
+                limit=limit,
+                tokens_are_indices=tokens_are_indices,
+                token_lookup=token_lookup,
+                start=start_index,
+            )
+
+            estimated_pairs = self._estimate_pair_count(
+                length_estimate,
+                dynamic_snapshot,
+                window=window,
+                stride=stride,
+                limit=limit,
+                start=start_index,
+            )
+
+            return _TrainingPairStream(pair_factory, estimated_pairs, description=description)
 
     def genTrainingData_weighted(self, _windowMAX, _trainingDataPairNumber):
         # 1. Create a "pool" of training pairs for each data source type

@@ -37,6 +37,11 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
             if debugPrints: ʕっʘ‿ʘʔっ("waking the librarian...")
             librarian           = LIBRARIAN (_counsellor = counsellor, _baseTokenizerPath = None, _forceRetrain = False) #_baseTokenizerPath = "brain/vocabCache/2000_20/tokenizer_2000.json", _forceRetrain = True)
 
+            try:
+                librarian.loadTrainingData(trainingFilePath_arr)
+            except Exception as e:
+                print(f"[WARN] failed to initialise streaming training data: {e}")
+
             if False: exit(0)
             #if debugPrints: ʕっʘ‿ʘʔっ("opening questions...")
             #newStartIndex       = openingQuestions(_counsellor = counsellor, _librarian = librarian, _windowMAX = windowMAX, _first = first)

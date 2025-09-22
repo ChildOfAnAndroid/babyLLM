@@ -94,7 +94,17 @@ def openingQuestions(_counsellor, _librarian, _windowMAX, _first):
         ]:
             if debugPrints:
                 ʕっʘ‿ʘʔっ("♥choice = r")
-            newStartIndex = random.randint(0, len(librarian.tokens) - _windowMAX - 1)
+            if hasattr(librarian, "training_token_count_estimate"):
+                token_count = librarian.training_token_count_estimate()
+            else:
+                try:
+                    token_count = len(librarian.tokens)
+                except Exception:
+                    token_count = 0
+            if token_count > _windowMAX * 2:
+                newStartIndex = random.randint(0, max(0, token_count - _windowMAX - 1))
+            else:
+                newStartIndex = 0
             startIndex = newStartIndex
             babyNote_loadCheckpoint = (f"[{babyName}]: oh, cool! i'll pick a random spot to start from... umm... let's go to step {newStartIndex}!")
             print(babyNote_loadCheckpoint, end="")
