@@ -15,6 +15,62 @@ from SHKAIRA.notebook.tools.genBoi import *
 from collections import defaultdict
 from textCleaningTool import clean_text
 import csv
+import numpy as np
+from numpy.lib.format import open_memmap
+
+
+class _MemmapTokenSequence:
+    """Lightweight list-like wrapper that chains multiple memmaps."""
+
+    def __init__(self, arrays: list[np.memmap]):
+        self._segments: list[tuple[int, int, np.memmap]] = []
+        self._length = 0
+        for arr in arrays:
+            seg_len = int(arr.shape[0])
+            start = self._length
+            end = start + seg_len
+            self._segments.append((start, end, arr))
+            self._length = end
+        self.dtype = arrays[0].dtype if arrays else None
+        self.is_numeric = bool(arrays and np.issubdtype(self.dtype, np.integer))
+
+    def __len__(self) -> int:
+        return self._length
+
+    def _locate(self, idx: int) -> tuple[np.memmap, int]:
+        if idx < 0:
+            idx += self._length
+        if idx < 0 or idx >= self._length:
+            raise IndexError("memmap index out of range")
+        for start, end, arr in self._segments:
+            if idx < end:
+                return arr, idx - start
+        raise IndexError("memmap index lookup failed")
+
+    def __getitem__(self, item):
+        if isinstance(item, slice):
+            start, stop, step = item.indices(self._length)
+            if step != 1:
+                return [self[i] for i in range(start, stop, step)]
+            if start >= stop:
+                return []
+            out: list = []
+            idx = start
+            while idx < stop:
+                arr, local_idx = self._locate(idx)
+                take = min(stop - idx, arr.shape[0] - local_idx)
+                view = arr[local_idx:local_idx + take]
+                out.extend(view.tolist())
+                idx += take
+            return out
+        arr, local_idx = self._locate(int(item))
+        val = arr[local_idx]
+        return val.item() if hasattr(val, "item") else val
+
+    def flush(self) -> None:
+        for _, _, arr in self._segments:
+            if hasattr(arr, "flush"):
+                arr.flush()
 
 """
 Handles vocab creation, loading, and tokenization.
@@ -58,6 +114,7 @@ class LIBRARIAN:
         # rolling dynamic tokens from live training buffer (bounded)
         self._dynamic_tokens_max = 20000  # ~lightweight ring buffer
         self._dynamic_tokens: deque[str] = deque(maxlen=self._dynamic_tokens_max)
+        self._tokens_are_indices = False
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
 
@@ -145,21 +202,52 @@ class LIBRARIAN:
 
     def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData, _dataCharactersToLoad = 900000):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ:
+            memmaps: list[np.memmap] = []
             buffer = io.StringIO()
             loadedChars = 0
-            for path in _filepaths:
-                with open(path, "r", encoding="utf-8") as f:
-                    while loadedChars < _dataCharactersToLoad:
-                        readSize = min(_chunkSize, _dataCharactersToLoad - loadedChars)
-                        chunk = f.read(readSize)
-                        if not chunk:
-                            break
-                        buffer.write(chunk)
-                        loadedChars += len(chunk)
-                if loadedChars >= _dataCharactersToLoad:
-                    break
 
-            result = re.sub(r'[ \t]+', ' ', buffer.getvalue())
+            for path in _filepaths:
+                ext = os.path.splitext(path)[1].lower()
+                if ext == ".npy":
+                    try:
+                        mmap_arr = open_memmap(path, mode="r")
+                    except Exception as e:
+                        print(f"[WARN] Failed to memory-map {path}: {e}")
+                    else:
+                        memmaps.append(mmap_arr)
+                    continue
+
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        while loadedChars < _dataCharactersToLoad:
+                            readSize = min(_chunkSize, _dataCharactersToLoad - loadedChars)
+                            chunk = f.read(readSize)
+                            if not chunk:
+                                break
+                            buffer.write(chunk)
+                            loadedChars += len(chunk)
+                    if loadedChars >= _dataCharactersToLoad:
+                        break
+                except FileNotFoundError:
+                    print(f"[WARN] Training data file not found: {path}")
+
+            if memmaps:
+                sequence = _MemmapTokenSequence(memmaps)
+                self.tokens = sequence
+                self._tokens_are_indices = sequence.is_numeric
+                extra_text = buffer.getvalue()
+                if extra_text:
+                    added = self.add_training_text(extra_text)
+                    if added:
+                        print(f"loaded {added} supplemental tokens into dynamic buffer")
+                print(
+                    f"memory-mapped {len(sequence)} training items from {len(memmaps)} file(s)"
+                )
+                return sequence
+
+            text_data = buffer.getvalue()
+            result = re.sub(r"[ \t]+", " ", text_data)
+            self._tokens_are_indices = False
             print(f"loaded {len(result)} characters of training data!")
             return result
 
@@ -462,7 +550,16 @@ class LIBRARIAN:
             except Exception:
                 pass
         return toks
-        
+
+    def _sequence_is_indices(self, seq) -> bool:
+        try:
+            sample = seq[0]
+        except Exception:
+            return False
+        if isinstance(sample, (list, tuple)) and sample:
+            sample = sample[0]
+        return isinstance(sample, (int, np.integer))
+
     def add_training_text(self, text):
         """Append new training text into a bounded internal token buffer.
 
@@ -485,10 +582,15 @@ class LIBRARIAN:
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             count = 0
             tokens = _tokens if _tokens is not None else self.tokens
+            if tokens is None:
+                tokens = []
+            tokens_are_indices = getattr(self, "_tokens_are_indices", False)
+            if _tokens is not None:
+                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(tokens)
             if debugPrints: ʕっʘ‿ʘʔっ("check if windowMax is tensor?")
             if isinstance(_windowMAX, torch.Tensor):
                 _windowMAX = _windowMAX.item()
-            
+
             if debugPrints: ʕっʘ‿ʘʔっ("allows for random start")
             if _startIndex == 'random':
                 _startIndex = random.randint(0, len(tokens) - _windowMAX - 1)
@@ -502,10 +604,21 @@ class LIBRARIAN:
                 if debugPrints: ʕっʘ‿ʘʔっ("generate training pairs")
                 inputSeq = tokens[i:i + _windowMAX]
                 target = tokens[i + _windowMAX:i + _windowMAX + _windowMAX]
+                if not isinstance(inputSeq, list):
+                    inputSeq = list(inputSeq)
+                if not isinstance(target, list):
+                    target = list(target)
                 if len(target) < _windowMAX:
                     i += int(_stride)
                     continue
-                if all(t in token_lookup for t in inputSeq + target):
+                if tokens_are_indices or (
+                    inputSeq and isinstance(inputSeq[0], (int, np.integer))
+                ):
+                    yield (inputSeq, target)
+                    count += 1
+                    if count % 1000 == 0:
+                        print(f"{makeDatBoi()} {babyName}: generated {count}x trainingDataPairs!")
+                elif all(t in token_lookup for t in inputSeq + target):
                     yield (inputSeq, target)
                     count += 1
                     if count % 1000 == 0:

@@ -449,8 +449,15 @@ class TUTOR:
     def startTurnActions(self, _inputSeq, _targetSeq, _lastTurnLossDelta):
         with self.counsellor.infodump("startTurnActions") as ʕっʘ‿ʘʔっ:
             self.lastTurnLossDelta = _lastTurnLossDelta
-            self.inputTokenIndices = [self.librarian.tokenToIndex.get(t, self.librarian.tokenToIndex["<UNK>"]) for t in _inputSeq]
-            self.targetTokenIndexSeq = [self.librarian.tokenToIndex.get(t, self.librarian.tokenToIndex["<UNK>"]) for t in _targetSeq]
+            def _resolve(token):
+                if isinstance(token, (int, np.integer)):
+                    return int(token)
+                return self.librarian.tokenToIndex.get(
+                    token, self.librarian.tokenToIndex["<UNK>"]
+                )
+
+            self.inputTokenIndices = [_resolve(t) for t in _inputSeq]
+            self.targetTokenIndexSeq = [_resolve(t) for t in _targetSeq]
             self.inputSeq = _inputSeq
             self.targetSeq = _targetSeq
 
