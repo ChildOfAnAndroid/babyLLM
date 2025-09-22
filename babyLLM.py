@@ -4,11 +4,12 @@
 # v4.1
 
 import random, os, threading
+from collections import deque
 from contextlib import nullcontext
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-import torch.optim as optim 
+import torch.optim as optim
 from adan_pytorch import Adan
 import math
 from sophia.sophia import SophiaG
@@ -67,14 +68,15 @@ class BABYLLM(nn.Module):
         self.targetTokenFromTutor = None
 
         self.stats = {}
-        self.normalisedHistory = []
-        self.INNOutputHistory = []
-        self.memoryOutputHistory = []
+        history_maxlen = max(1, self.numTokensPerStep)
+        self.normalisedHistory = deque(maxlen=history_maxlen)
+        self.INNOutputHistory = deque(maxlen=history_maxlen)
+        self.memoryOutputHistory = deque(maxlen=history_maxlen)
         self.totalTurns = 1
-        self.memory2OutputHistory = []
-        self.penalisedOutputHistory = []
-        self.inputEmbedsHistory = []
-        self.FINALlogitsHistory = []
+        self.memory2OutputHistory = deque(maxlen=history_maxlen)
+        self.penalisedOutputHistory = deque(maxlen=history_maxlen)
+        self.inputEmbedsHistory = deque(maxlen=history_maxlen)
+        self.FINALlogitsHistory = deque(maxlen=history_maxlen)
         self.predPixel = torch.tensor([0.0, 0.0, 0.0], device = self.device)
 
         self.cerebralLoad = 0.0
@@ -306,13 +308,13 @@ class BABYLLM(nn.Module):
                             debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
                         self.stats.update(self.forwardStats)
                         
-                        self.inputEmbedsHistory = []
-                        self.INNOutputHistory = []
-                        self.memoryOutputHistory = []
-                        self.memory2OutputHistory = []
-                        self.penalisedOutputHistory = []
-                        self.FINALlogitsHistory = []
-                        self.normalisedHistory = []
+                        self.inputEmbedsHistory.clear()
+                        self.INNOutputHistory.clear()
+                        self.memoryOutputHistory.clear()
+                        self.memory2OutputHistory.clear()
+                        self.penalisedOutputHistory.clear()
+                        self.FINALlogitsHistory.clear()
+                        self.normalisedHistory.clear()
 
                 """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
                 #tokenEmbed = self.embed(_tokenIndex = _inputSeq)

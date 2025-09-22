@@ -5,6 +5,7 @@
 
 import torch
 import torch.nn as nn
+from collections import deque
 from config import *
 
 """this makes a rolling buffer of past activations"""
@@ -37,57 +38,7 @@ class MEMORY(nn.Module):
 
         # stats
         self.stats = {}
-        self.shortGateScaleHistory = []
-        self.longGateScaleHistory = []
-        self.activationsGateScaleHistory = []
-        self.gateLayer2History = []
-        self.gateLayer2MaxHistory = []
-        self.gateLayer2MinHistory = []
-        self.reducedInputHistory = []
-        self.reducedInputMaxHistory = []
-        self.reducedInputMinHistory = []
-
-        self.rawActivationsHistory = []
-        self.rawActivationsMaxHistory = []
-        self.rawActivationsMinHistory = []
-        self.shortTermMemoryHistory = []
-        self.shortTermMemoryMaxHistory = []
-        self.shortTermMemoryMinHistory = []
-        self.longTermMemoryHistory = []
-        self.longTermMemoryMaxHistory = []
-        self.longTermMemoryMinHistory = []
-        self.FINALmemoryHistory = []
-        self.FINALmemoryMaxHistory = []
-        self.FINALmemoryMinHistory = []
-
-        self.memGateScaleHistory = []
-        self.projectedMemoryHistory = []
-        self.projectedMemoryMaxHistory = []
-        self.projectedMemoryMinHistory = []
-        self.memoryGateHistory = []
-        self.memoryGateMaxHistory = []
-        self.memoryGateMinHistory = []
-        self.mixedEmbedHistory = []
-        self.mixedEmbedMaxHistory = []
-        self.mixedEmbedMinHistory = []
-        self.gateLayer2NormHistory = []
-        self.reducedInputNormHistory = []
-
-        self.rawActivationsNormHistory = []
-        self.shortTermMemoryNormHistory = []
-        self.longTermMemoryNormHistory = []
-        self.FINALmemoryNormHistory = []
-
-        self.projectedMemoryNormHistory = []
-        self.memoryGateNormHistory = []
-        self.mixedEmbedNormHistory = []
-
-        self.register_buffer("reducedInputBuf", torch.zeros(1, embedDimension, device=self.device))
-        self.register_buffer("gateLogitsBuf", torch.zeros(4, numNeurons, device=self.device))
-
-    def _reset_history_buffers(self):
-        """Clear history buffers once stats have been aggregated."""
-        history_attrs = [
+        self._history_attrs = [
             "shortGateScaleHistory",
             "longGateScaleHistory",
             "activationsGateScaleHistory",
@@ -129,11 +80,20 @@ class MEMORY(nn.Module):
             "memoryGateNormHistory",
             "mixedEmbedNormHistory",
         ]
+        self._init_history_buffers()
 
-        for attr in history_attrs:
-            history = getattr(self, attr, None)
-            if isinstance(history, list):
-                history.clear()
+        self.register_buffer("reducedInputBuf", torch.zeros(1, embedDimension, device=self.device))
+        self.register_buffer("gateLogitsBuf", torch.zeros(4, numNeurons, device=self.device))
+
+    def _init_history_buffers(self):
+        maxlen = max(1, self.numTokensPerStep)
+        for attr in self._history_attrs:
+            setattr(self, attr, deque(maxlen=maxlen))
+
+    def _reset_history_buffers(self):
+        """Clear history buffers once stats have been aggregated."""
+        for attr in self._history_attrs:
+            getattr(self, attr).clear()
 
     @whocalled
     def forward(self, _activationsTensor):
@@ -383,8 +343,6 @@ class MEMORY(nn.Module):
 
     @whocalled
     def clearStats(self):
-        for attr in list(vars(self)):
-            if attr.endswith("History") or attr.endswith("Hist"):
-                setattr(self, attr, [])
+        self._init_history_buffers()
 
 # __main__ test harness removed (vanity)

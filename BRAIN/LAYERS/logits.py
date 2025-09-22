@@ -6,6 +6,7 @@
 
 import torch
 import torch.nn as nn
+from collections import deque
 from config import *
 import torch.nn.functional as F
 from helpers import clamp_param
@@ -28,34 +29,38 @@ class LOGITS(nn.Module):
         self.logitNorm = nn.LayerNorm(vocabSize, device = self.device)
 
         self.stats = {}
+        self._history_attrs = [
+            "tensorNormHist",
+            "normedNormHist",
+            "activNormHist",
+            "logitNormHist",
+            "normLayerNormHist",
+            "finalNormHist",
+            "tensorHist",
+            "normedHist",
+            "activHist",
+            "logitHist",
+            "normLayerHist",
+            "finalHist",
+            "tensorMinHist",
+            "normedMinHist",
+            "activMinHist",
+            "logitMinHist",
+            "normLayerMinHist",
+            "finalMinHist",
+            "tensorMaxHist",
+            "normedMaxHist",
+            "activMaxHist",
+            "logitMaxHist",
+            "normLayerMaxHist",
+            "finalMaxHist",
+        ]
+        self._init_history_buffers()
 
-        self.tensorNormHist = []
-        self.normedNormHist = []
-        self.activNormHist = []
-        self.logitNormHist = []
-        self.normLayerNormHist = []
-        self.finalNormHist = []
-
-        self.tensorHist = []
-        self.normedHist = []
-        self.activHist = []
-        self.logitHist = []
-        self.normLayerHist = []
-        self.finalHist = []
-
-        self.tensorMinHist = []
-        self.normedMinHist = []
-        self.activMinHist = []
-        self.logitMinHist = []
-        self.normLayerMinHist = []
-        self.finalMinHist = []
-
-        self.tensorMaxHist = []
-        self.normedMaxHist = []
-        self.activMaxHist = []
-        self.logitMaxHist = []
-        self.normLayerMaxHist = []
-        self.finalMaxHist = []
+    def _init_history_buffers(self):
+        maxlen = max(1, self.numTokensPerStep)
+        for attr in self._history_attrs:
+            setattr(self, attr, deque(maxlen=maxlen))
 
     @whocalled
     def forward(self, _meanActivationsTensor):
@@ -151,33 +156,8 @@ class LOGITS(nn.Module):
 
                 }
 
-                self.tensorNormHist = []
-                self.normedNormHist = []
-                self.activNormHist = []
-                self.logitNormHist = []
-                self.normLayerNormHist = []
-                self.finalNormHist = []
-
-                self.tensorHist = []
-                self.normedHist = []
-                self.activHist = []
-                self.logitHist = []
-                self.normLayerHist = []
-                self.finalHist = []
-
-                self.tensorMinHist = []
-                self.normedMinHist = []
-                self.activMinHist = []
-                self.logitMinHist = []
-                self.normLayerMinHist = []
-                self.finalMinHist = []
-
-                self.tensorMaxHist = []
-                self.normedMaxHist = []
-                self.activMaxHist = []
-                self.logitMaxHist = []
-                self.normLayerMaxHist = []
-                self.finalMaxHist = []
+                for attr in self._history_attrs:
+                    getattr(self, attr).clear()
 
             #with torch.no_grad():
                 #topValues, topIndices = torch.topk(finalLogit, 5)
@@ -239,8 +219,6 @@ class LOGITS(nn.Module):
 
     @whocalled
     def clearStats(self):
-        for attr in list(vars(self)):
-            if attr.endswith("History") or attr.endswith("Hist"):
-                setattr(self, attr, [])
+        self._init_history_buffers()
 
 # __main__ test harness removed (vanity)

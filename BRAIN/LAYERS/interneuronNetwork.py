@@ -7,6 +7,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from collections import deque
 import random
 import math
 from config import *
@@ -29,32 +30,30 @@ class NEURON(nn.Module):
         self.n_counsellor = COUNSELLOR("NEURON", _debug = debugPrints, _durations = durationLogging)
 
         self.stats = {}
-
-        self.rawInputHistory = []
-        self.rawInputNormHistory = []
-        self.rawInputHistory_tokens = []
-        self.rawInputHistory_neurons = []
-
-        self.normedInputHistory = []
-        self.normedInputNormHistory = []
-        self.normedInputHistory_tokens = []
-        self.normedInputHistory_neurons = []
-
-        self.rawOutputHistory = []
-        self.rawOutputNormHistory = []
-        self.rawOutputHistory_tokens = []
-        self.rawOutputHistory_neurons = []
-
-        self.activatedOutputHistory = []
-        self.activatedOutputNormHistory = []
-        self.activatedOutputHistory_tokens = []
-        self.activatedOutputHistory_neurons = []
-
-        self.activatedOutputHistory_std_token = []
-        self.activatedOutputHistory_std_neuron = []
-        self.activatedOutputHistory_saturation = []
-        self.activatedOutputHistory_min = []
-        self.activatedOutputHistory_max = []
+        self._history_attrs = [
+            "rawInputHistory",
+            "rawInputNormHistory",
+            "rawInputHistory_tokens",
+            "rawInputHistory_neurons",
+            "normedInputHistory",
+            "normedInputNormHistory",
+            "normedInputHistory_tokens",
+            "normedInputHistory_neurons",
+            "rawOutputHistory",
+            "rawOutputNormHistory",
+            "rawOutputHistory_tokens",
+            "rawOutputHistory_neurons",
+            "activatedOutputHistory",
+            "activatedOutputNormHistory",
+            "activatedOutputHistory_tokens",
+            "activatedOutputHistory_neurons",
+            "activatedOutputHistory_std_token",
+            "activatedOutputHistory_std_neuron",
+            "activatedOutputHistory_saturation",
+            "activatedOutputHistory_min",
+            "activatedOutputHistory_max",
+        ]
+        self._init_history_buffers()
 
         #self.normedOutputHistory = []
         #self.normedOutputHistory_tokens = []
@@ -63,6 +62,15 @@ class NEURON(nn.Module):
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         #numNeuron, embedDimension, activationFunction, e
 
+
+    def _init_history_buffers(self):
+        maxlen = max(1, self.numTokensPerStep)
+        for attr in self._history_attrs:
+            setattr(self, attr, deque(maxlen=maxlen))
+
+    def _clear_histories(self):
+        for attr in self._history_attrs:
+            getattr(self, attr).clear()
 
     @whocalled
     def forward(self, _inputEmbeds):  # embed: (batch_size, embed_size)
@@ -199,35 +207,7 @@ class NEURON(nn.Module):
                         }
 
                     if debugPrints: ʕっʘ‿ʘʔっ("clear stats")
-                    self.rawInputHistory = []
-                    self.rawInputNormHistory = []
-                    self.rawInputHistory_tokens = []
-                    self.rawInputHistory_neurons = []
-
-                    self.normedInputHistory = []
-                    self.normedInputNormHistory = []
-                    self.normedInputHistory_tokens = []
-                    self.normedInputHistory_neurons = []
-
-                    self.rawOutputHistory = []
-                    self.rawOutputNormHistory = []
-                    self.rawOutputHistory_tokens = []
-                    self.rawOutputHistory_neurons = []
-
-                    self.activatedOutputHistory = []
-                    self.activatedOutputNormHistory = []
-                    self.activatedOutputHistory_tokens = []
-                    self.activatedOutputHistory_neurons = []
-
-                    self.activatedOutputHistory_std_token = []
-                    self.activatedOutputHistory_std_neuron = []
-                    self.activatedOutputHistory_saturation = []
-                    self.activatedOutputHistory_min = []
-                    self.activatedOutputHistory_max = []
-
-                    #self.normedOutputHistory = []
-                    #self.normedOutputHistory_tokens = []
-                    #self.normedOutputHistory_neurons = []"""
+                    self._clear_histories()
 
         return activated
 
@@ -248,33 +228,29 @@ class INTERNEURON_NETWORK(nn.Module):
         self.temperature = temperatureGOAL
 
         self.stats = {}
-
-        self.activationsHistory = [] 
-        self.activationsHistory_token = []
-        self.activationsHistory_neuron = []
-
-        self.normedMeanInputHistory = []
-        self.normedMeanInputHistory_token = []
-        self.normedMeanInputHistory_neuron = []
-
-        self.combHistory = []
-        self.combHistory_token = []
-        self.combHistory_neuron = []
-
-        self.refHistory = []
-        self.refHistory_token = []
-        self.refHistory_neuron = []
-
-        self.scaledHistory = []
-        self.scaledHistory_token = []
-        self.scaledHistory_neuron = []
-
-        self.combiOutHistory = [] 
-        self.combiOutHistory_token = [] 
-        self.combiOutHistory_neuron = [] 
-
-        self.logitHistory = []
-        self.combiScaleHistory = []
+        self._history_attrs = [
+            "activationsHistory",
+            "activationsHistory_token",
+            "activationsHistory_neuron",
+            "normedMeanInputHistory",
+            "normedMeanInputHistory_token",
+            "normedMeanInputHistory_neuron",
+            "combHistory",
+            "combHistory_token",
+            "combHistory_neuron",
+            "refHistory",
+            "refHistory_token",
+            "refHistory_neuron",
+            "scaledHistory",
+            "scaledHistory_token",
+            "scaledHistory_neuron",
+            "combiOutHistory",
+            "combiOutHistory_token",
+            "combiOutHistory_neuron",
+            "logitHistory",
+            "combiScaleHistory",
+        ]
+        self._init_history_buffers()
 
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(_counsellor = self.inn_counsellor, _numTokensPerStep = self.numTokensPerStep)
@@ -295,8 +271,17 @@ class INTERNEURON_NETWORK(nn.Module):
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         #numNeurons, embedDimension, activationFunction, allWindowSizes_new, etc
 
+    def _init_history_buffers(self):
+        maxlen = max(1, self.numTokensPerStep)
+        for attr in self._history_attrs:
+            setattr(self, attr, deque(maxlen=maxlen))
+
+    def _clear_histories(self):
+        for attr in self._history_attrs:
+            getattr(self, attr).clear()
+
     @whocalled
-    def forward(self, _inputEmbeds):  
+    def forward(self, _inputEmbeds):
         with self.inn_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             if debugPrints: ʕっʘ‿ʘʔっ("INN1: neuronActivationsPerToken")
             neuronActsPerToken = self.neurons(_inputEmbeds)
@@ -467,13 +452,7 @@ class INTERNEURON_NETWORK(nn.Module):
                 if debugPrints: print(f"{self.stats}")
 
                 if debugPrints: ʕっʘ‿ʘʔっ("clearstats")
-                self.activationsHistory = []
-                self.activationsHistory_token = []
-                self.activationsHistory_neuron = []
-                self.combHistory = []
-                self.combHistory_neuron = []
-                self.refHistory = []
-                self.refHistory_neuron = []
+                self._clear_histories()
 
             return FINALout
     
@@ -577,8 +556,8 @@ class INTERNEURON_NETWORK(nn.Module):
 
     @whocalled
     def clearStats(self):
-        for attr in list(vars(self)):
-            if attr.endswith("History") or attr.endswith("Hist"):
-                setattr(self, attr, [])
+        self._init_history_buffers()
+        if hasattr(self, "neurons"):
+            self.neurons._init_history_buffers()
 
 # __main__ test harness removed (vanity)
