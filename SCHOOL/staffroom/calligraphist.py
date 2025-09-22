@@ -244,6 +244,20 @@ class S_OUTPUT:
         else:
             print("ʕっ•ᴥ•ʔっ not enough data to refresh stat bands yet")
 
+    def _to_plain_value(self, value):
+        """Detach tensors so logging never keeps autograd graphs alive."""
+
+        if isinstance(value, torch.Tensor):
+            if value.numel() == 1:
+                return value.detach().item()
+            return value.detach().cpu().tolist()
+        try:
+            if hasattr(value, "item") and not isinstance(value, (str, bytes, list, tuple, dict)):
+                return value.item()
+        except (TypeError, ValueError):
+            pass
+        return value
+
     @whocalled
     def S_apply(self, _S_type, _text): 
         with self.counsellor.infodump("S_apply") as ʕっʘ‿ʘʔっ:
@@ -348,11 +362,13 @@ class S_OUTPUT:
             newLineDelim = self.S_apply("dim", " | \n")
 
             if debugPrints: ʕっʘ‿ʘʔっ("avgStats")
-            #doNotAverage = ["avgLoss", "tokenCount", "scheduledSamplingRate", "gradNorm", "topWindowWeight", "windowEntropy", "effectiveWindowCount", "windowStd", "memoryGateMean", "memoryGateStd", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "4INN_cerebellum", "4INN_cerebellumSoft", "4INN_cerebellumMean", "4INN_cerebellumStd", "shortDecay", "longDecay"]
-            #avgStats = {k: raw if k in doNotAverage else (raw / _freq if _freq else 0) for k, raw in _stats.items()}
-
-            avgStats = {k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v for k, v in sorted(_stats.items()) if k != "embedDimensionMean" and k != "latestMemoryGates"}
-            self.allKeys = _stats.keys()
+            clean_stats = {k: self._to_plain_value(v) for k, v in _stats.items()}
+            avgStats = {
+                k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v
+                for k, v in sorted(clean_stats.items())
+                if k != "embedDimensionMean" and k != "latestMemoryGates"
+            }
+            self.allKeys = clean_stats.keys()
 
             try:
                 # OK, so... we need to pad:
@@ -377,6 +393,8 @@ class S_OUTPUT:
                             v = v.item()  # convert scalar tensor
                         else:
                             return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"<tensor[{v.shape}]>")
+                    if isinstance(v, (list, tuple)):
+                        return self.S_apply("dim", f"{k}:") + self.S_apply("dim", str(v))
                     return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.{decLen}f}")
                 except Exception as e:
                     return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"ERR:{str(e)} key:{k} value:{v}")

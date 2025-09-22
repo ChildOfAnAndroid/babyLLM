@@ -164,6 +164,30 @@ class TUTOR:
 
         return base
 
+    def _sanitize_stat_value(self, value):
+        """Convert tensors/NumPy scalars to plain Python types for logging."""
+
+        if isinstance(value, torch.Tensor):
+            if value.numel() == 1:
+                return value.detach().item()
+            return value.detach().cpu().tolist()
+        if isinstance(value, np.generic):
+            return float(value)
+        return value
+
+    def _merge_stats_dict(self, stats_dict, *, accumulate=False):
+        """Merge stats ensuring tensors are detached before storage."""
+
+        for key, raw_value in stats_dict.items():
+            value = self._sanitize_stat_value(raw_value)
+            if isinstance(value, (int, float)):
+                if accumulate:
+                    self.stats[key] = self.stats.get(key, 0.0) + value
+                else:
+                    self.stats[key] = value
+            elif value is not None:
+                self.stringStats[key] = value
+
     @whocalled
     def loadIntro(self, path="school/library/charisStudies/forbbyllm.txt"):
         try:
@@ -1266,20 +1290,16 @@ class TUTOR:
 
                 if embed_collectStats:
                     if debugPrints: ʕっʘ‿ʘʔっ("♥if embed_collectStats")
-                    self.stats.update(self.model.embed.getEmbedStats())
+                    self._merge_stats_dict(self.model.embed.getEmbedStats())
 
                 if attention_collectStats:
                     if debugPrints: ʕっʘ‿ʘʔっ("♥if attention_collectStats")
-                    self.stats.update(self.model.attention.getAttentionStats())
+                    self._merge_stats_dict(self.model.attention.getAttentionStats())
 
                 if logit_collectStats:
                     if debugPrints: ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
                     logitStats = self.model.logits.getLogitStats()
-                    for k, v in logitStats.items():
-                        if isinstance(v, (int, float)):
-                            self.stats[k] = self.stats.get(k, 0) + v
-                        else:
-                            self.stringStats[k] = v  # dump non-numeric stuff here (e.g. top logits, indices)
+                    self._merge_stats_dict(logitStats, accumulate=True)
                     #if self.stats["logitSeq"]:
                     #    if debugPrints: ʕっʘ‿ʘʔっ("♥logit max & min")
                     #    self.stats["logitMin"] = self.logitSeq[-1].min(dim=-1).values.mean()
@@ -1295,13 +1315,13 @@ class TUTOR:
                     self.model.memory2.updateMemoryBuffers()
                     if memory_collectStats:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥if memory_collectStats")
-                        self.stats.update({f"5M_memory_{k}": v for k, v in self.model.memory.getMemoryStats().items()})
-                        self.stats.update({f"6M_memory2_{k}": v for k, v in self.model.memory2.getMemoryStats().items()})
+                        self._merge_stats_dict({f"5M_memory_{k}": v for k, v in self.model.memory.getMemoryStats().items()})
+                        self._merge_stats_dict({f"6M_memory2_{k}": v for k, v in self.model.memory2.getMemoryStats().items()})
 
                 if debugPrints: ʕっʘ‿ʘʔっ("♥INN_collectStats")
                 INN_stats, INN_cerebellum_str = self.model.interneuronNetwork.INN_getStats()
-                self.stats.update(INN_stats)
-                self.stats.update(self.model.getBabyStats())
+                self._merge_stats_dict(INN_stats)
+                self._merge_stats_dict(self.model.getBabyStats())
                 INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str)}
                 self.stringStats.update(INN_stringStats)
                 #self.stringStats.update({"topTokens": str(topTokens)})
@@ -1328,19 +1348,11 @@ class TUTOR:
 
     @whocalled
     def collectAllTimeStats(self):
-        for _statKey, _value in self.stats.items():
-            if isinstance(_value, torch.Tensor):
-                if _value.numel() == 1:
-                    _value = _value.detach().item()
-                else:
-                    if debugPrints and _statKey == "loss":
-                        print(f"{_statKey} value is : {_value}, {_statKey} value type is {type(_value)}")
-                    continue  # skip non-scalar tensors to avoid holding graphs
-            elif isinstance(_value, np.generic):
-                _value = float(_value)
-            elif not isinstance(_value, (int, float)):
+        for _statKey, raw_value in self.stats.items():
+            value = self._sanitize_stat_value(raw_value)
+            if not isinstance(value, (int, float)):
                 if debugPrints and _statKey == "loss":
-                    print(f"{_statKey} value is : {_value}, {_statKey} value type is {type(_value)}")
+                    print(f"{_statKey} value is : {value}, {_statKey} value type is {type(value)}")
                 continue  # skip strings, tensors, weird stuff
 
             """ෆෆෆ^ ♥ KEYS ETC ♥ ^ෆෆෆ"""
@@ -1353,14 +1365,14 @@ class TUTOR:
             """ ෆෆෆ^ ♥ UPDATE EVERY TURN ♥ ^ෆෆෆ   """
             """ ෆෆෆ^ ♥ turn stats ♥ ^ෆෆෆ  """
             #if _statKey == "loss":
-                #print(f"Setting prev to: {ෆ‿ෆ.get("now", 0.0)}, Setting now to: {_value}, Setting _Δ to {_value - ෆ‿ෆ.get("now", 0.0)}")
-            ෆ‿ෆ["now"]      = _value
+                #print(f"Setting prev to: {ෆ‿ෆ.get("now", 0.0)}, Setting now to: {value}, Setting _Δ to {value - ෆ‿ෆ.get("now", 0.0)}")
+            ෆ‿ෆ["now"]      = value
             if ෆ‿ෆ["prev"]:
-                ෆ‿ෆ["_Δ"]   = _value - ෆ‿ෆ["prev"]
+                ෆ‿ෆ["_Δ"]   = value - ෆ‿ෆ["prev"]
             ෆ‿ෆ["prev"]     = ෆ‿ෆ.get("now", 0.0)
 
             """ ෆෆෆ^ ♥ totals ♥ ^ෆෆෆ  """
-            ෆ‿ෆ["totSum"]   = ෆ‿ෆ.get("totSum", 0.0)    + _value
+            ෆ‿ෆ["totSum"]   = ෆ‿ෆ.get("totSum", 0.0)    + value
             ෆ‿ෆ["totNum"]   = ෆ‿ෆ.get("totNum", 0)      + 1
             ෆ‿ෆ["totAvg"]   = ෆ‿ෆ["totSum"] / ෆ‿ෆ["totNum"]
             ෆ‿ෆ["totAvgΔ"]  = ෆ‿ෆ["now"]    - ෆ‿ෆ["totAvg"]
@@ -1375,9 +1387,9 @@ class TUTOR:
                     tag = f"{freq}"
                     if tag not in ෆ‿ෆ:
                         ෆ‿ෆ[tag] = []
-                    if len(ෆ‿ෆ[tag]) >= freq: 
+                    if len(ෆ‿ෆ[tag]) >= freq:
                         ෆ‿ෆ[tag].pop(0)
-                    ෆ‿ෆ[tag].append(_value)
+                    ෆ‿ෆ[tag].append(value)
                     if ෆ‿ෆ[tag]:
                         self.updateRollingStats(_ෆ‿ෆ = ෆ‿ෆ, _values = ෆ‿ෆ[tag], _freq = freq, _tag = tag, _percentiles = percentiles)
 
@@ -1388,7 +1400,7 @@ class TUTOR:
                         ෆ‿ෆ[importantTag] = []
                     if len(ෆ‿ෆ[importantTag]) >= self.trainingLogFreq_A:
                         ෆ‿ෆ[importantTag].pop(0)
-                    ෆ‿ෆ[importantTag].append(_value)
+                    ෆ‿ෆ[importantTag].append(value)
                     if ෆ‿ෆ[importantTag]:
                         self.updateRollingStats(_ෆ‿ෆ = ෆ‿ෆ, _values = ෆ‿ෆ[importantTag], _freq = importantFreq, _tag = importantTag, _percentiles = percentiles)
 
