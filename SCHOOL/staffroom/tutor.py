@@ -2,9 +2,9 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # MULTI-TOKEN AUTOREGRESSIVE TRAINING MODULE 
 # school/staffroom/tutor.py
-# v3.8
+# v4.1
 
-import random, os, time, threading
+import random, os, time, threading, gc
 from collections import Counter, defaultdict
 import torch
 from config import *
@@ -746,6 +746,16 @@ class TUTOR:
 
             if profiler: print(prof.key_averages().table())
 
+            # Release references to tensors tied to the backward graph so Python's GC can
+            # promptly reclaim the memory.  Keep the model inputs and parameters intact.
+            if 'inputTensor' in locals(): del inputTensor
+            if 'logits' in locals(): del logits
+            if 'buffer' in locals(): del buffer
+            if 'cumulativeLoss' in locals(): del cumulativeLoss
+            if 'stepLoss' in locals(): del stepLoss
+            if 'WEloss' in locals(): del WEloss
+            if 'predictedRGB' in locals(): del predictedRGB
+
             if debugPrints: ʕっʘ‿ʘʔっ("actions after looping")
             self.avgPixelDistTotals        += self.avgPixelDist
             self.totalAvgPixelDist          = self.avgPixelDistTotals / max(1, self.totalTurns)
@@ -763,12 +773,14 @@ class TUTOR:
                 if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
                 empty_mps_cache()
 
-            #del inputTensor, logits, BACKWARDloss, buffer
+            if 'BACKWARDloss' in locals(): del BACKWARDloss
+            gc.collect()
+            if hasattr(torch, "mps") and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                torch.mps.empty_cache()
 
             ids = [int(idx) for idx in self.predictedTokenIndices]
             self.predictedTokenIndices = ids
             self.decodedTokenIndices = self.librarian.decodeIDs(ids)
-            #print(f"{self.decodedTokenIndices}")
 
             return self.predictedTokenIndices, self.logitSeq
     

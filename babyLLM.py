@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM // babyLLM.py
-# v3.8
+# v4.1
 
 import random, os, threading
 from contextlib import nullcontext
@@ -573,6 +573,32 @@ class BABYLLM(nn.Module):
             debug_print("Cerebellum grad norm:", self.interneuronNetwork.cerebellum.grad.norm())
             debug_print("Repetition penalty grad norm:", self.repetitionPenalty.grad.norm())
             #print(next(self.parameters()).grad)
+
+            # --- MOVE GRAD SNAPSHOT/REPORTING HERE (after backward, before zero_grad) ---
+            if collect_grad_stats:
+                grad_snapshot = self._snapshot_gradients()
+                grad_total_norm = None
+                if grad_snapshot:
+                    grad_log_output = ["\n--- Gradient Snapshot (pre-zero_grad) ---"]
+                    for name, stats in grad_snapshot:
+                        norm_val = stats["norm"]
+                        sparsity_val = stats["sparsity"]
+                        mean_val = stats["mean"]
+                        std_val = stats["std"]
+                        norm_style = self.calligraphist.S_getStat(f"{name}_norm", norm_val)
+                        sparsity_style = self.calligraphist.S_getStat(f"{name}_sparsity", sparsity_val)
+                        mean_style = self.calligraphist.S_getStat(f"{name}_mean", mean_val)
+                        std_style = self.calligraphist.S_getStat(f"{name}_std", std_val)
+                        grad_log_output.append(
+                            f"{name:<50} | "
+                            f"norm: {self.calligraphist.S_apply(norm_style, f'{norm_val:.6f}')} | "
+                            f"sparsity: {self.calligraphist.S_apply(sparsity_style, f'{sparsity_val:.6%}')} | "
+                            f"mean: {self.calligraphist.S_apply(mean_style, f'{mean_val:.6f}')} | "
+                            f"std: {self.calligraphist.S_apply(std_style, f'{std_val:.6f}')}")
+                    print("\n".join(grad_log_output))
+                else:
+                    print("\n--- Gradient Snapshot (pre-zero_grad) ---\n(no gradients recorded)")
+
             if debugPrints:
                 if debugPrints: ʕっʘ‿ʘʔっ("print named parameters")
                 printTensorAttrs(self, name='babyllm')
@@ -595,7 +621,6 @@ class BABYLLM(nn.Module):
                         std = stats["std"]
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
-                    
             if debugPrints: ʕっʘ‿ʘʔっ("torch.no_grad")
             with torch.no_grad(): # RESET LEARNABLE PARAMETERS
                 #self.logLR.data.fill_(math.log(0.00035))  # Learning rate back to 1e-4
