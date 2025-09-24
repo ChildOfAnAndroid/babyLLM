@@ -3,11 +3,8 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // MASTER_VOCABULARY_SENTIMENT_ANALYZER.py
-# 🧠💫 ULTIMATE COMPREHENSIVE SENTIMENT ANALYSIS SYSTEM 💫🧠
-# Using the complete 93-category vocabulary mapping for ALL 4200 tokens
-# Every token gets meaningful sentiment - no token left behind!
 # v1.0 - COMPLETE COVERAGE EDITION
-# v1.10
+# v1.11
 
 import json
 import logging
@@ -15,10 +12,6 @@ import re
 from typing import Dict, List, Tuple, Optional, Union, Set
 from collections import defaultdict, Counter
 from COMPLETE_MASTER_VOCABULARY_MAP import CompleteMasterVocabularyMapper, load_complete_baby_vocabulary
-
-# ==============================================================================
-# 🎯 SENTIMENT SCALE DEFINITIONS
-# ==============================================================================
 
 class SentimentScale:
     """Standardized sentiment scale with british english commentary"""
@@ -32,10 +25,6 @@ class SentimentScale:
     MEDIUM_NEGATIVE = (-0.4, -0.2, "proper annoying that")
     HIGH_NEGATIVE = (-0.7, -0.5, "absolute nightmare")
     ULTRA_NEGATIVE = (-1.0, -0.8, "fucking dreadful innit")
-
-# ==============================================================================
-# 🧠 MASTER VOCABULARY SENTIMENT ANALYZER
-# ==============================================================================
 
 class MasterVocabularySentimentAnalyzer:
     """The ultimate sentiment analysis system using baby's complete vocabulary"""
@@ -291,10 +280,6 @@ class MasterVocabularySentimentAnalyzer:
                     else:
                         self.fragment_sentiments[fragment] = inherited_sentiment
     
-    # ==============================================================================
-    # 🎯 CORE SENTIMENT ANALYSIS METHODS
-    # ==============================================================================
-    
     def get_token_sentiment(self, token_id: int) -> float:
         """Get sentiment value for a specific token"""
         return self.token_sentiments.get(token_id, 0.0)
@@ -463,10 +448,6 @@ class MasterVocabularySentimentAnalyzer:
             )
         }
     
-    # ==============================================================================
-    # 🔍 ANALYSIS AND REPORTING METHODS  
-    # ==============================================================================
-    
     def get_sentiment_statistics(self) -> Dict:
         """Get comprehensive statistics about the sentiment mapping"""
         
@@ -561,49 +542,6 @@ class MasterVocabularySentimentAnalyzer:
             json.dump(export_data, f, indent=2)
         
         print(f"✅ exported complete sentiment mapping to {filepath}")
-
-# ==============================================================================
-# 🧪 TESTING AND VALIDATION
-# ==============================================================================
-
-def run_sentiment_tests():
-    """Test the sentiment analyzer with various examples"""
-    
-    print("\n🧪 running sentiment analysis tests...")
-    
-    analyzer = MasterVocabularySentimentAnalyzer()
-    
-    # Test cases from the requirements
-    test_cases = [
-        "i absolutely love this amazing day!",
-        "this is completely terrible and awful", 
-        "good news but bad timing",
-        "not bad actually",
-        "really very incredibly awesome",
-        "never again will i do that"
-    ]
-    
-    for i, text in enumerate(test_cases, 1):
-        print(f"\ntest {i}: '{text}'")
-        result = analyzer.analyze_text_with_fragments(text)
-        print(f"   sentiment: {result['sentiment']:.3f}")
-        print(f"   analysis: {result['analysis']}")
-    
-    # Show statistics
-    stats = analyzer.get_sentiment_statistics()
-    print(f"\n📊 sentiment mapping statistics:")
-    print(f"   total tokens: {stats['total_tokens']}")
-    print(f"   positive: {stats['positive_tokens']}")
-    print(f"   negative: {stats['negative_tokens']}")
-    print(f"   neutral: {stats['neutral_tokens']}")
-    print(f"   average sentiment: {stats['average_sentiment']:.3f}")
-    print(f"   amplifiers: {stats['amplifiers_found']}")
-    print(f"   negation tokens: {stats['negation_tokens_found']}")
-    print(f"   fragment mappings: {stats['fragment_mappings']}")
-
-# ==============================================================================
-# 🚀 MAIN EXECUTION
-# ==============================================================================
 
 if __name__ == "__main__":
     print("master vocabulary sentiment analyzer")

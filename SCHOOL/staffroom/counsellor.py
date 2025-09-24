@@ -1,7 +1,7 @@
 # CHARIS CAT 2025 
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
 # BABYLLM school COUNSELLOR // school/staffroom/counsellor.py
-# v1.12
+# v1.13
 
 """designed for detailed small scale logging throughout the project, with timing implemented for troubleshooting errors"""
 
