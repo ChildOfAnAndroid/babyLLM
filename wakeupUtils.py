@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM WAKEUP UTILS // wakeupUtils.py
-# v1.9
+# v1.10
 
 import os
 import random

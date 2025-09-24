@@ -3,9 +3,8 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // VOCABULARY_SENTIMENT_INTEGRATION.py
-# 🧠💫 INTEGRATION LAYER FOR BABY'S NEURAL SENTIMENT ANALYSIS 💫🧠
 # Bridges the complete vocabulary sentiment system with baby's neural network
-# v1.9
+# v1.10
 
 from typing import Dict, List, Tuple, Optional
 from MASTER_VOCABULARY_SENTIMENT_ANALYZER import MasterVocabularySentimentAnalyzer
@@ -42,7 +41,7 @@ class BabyNeuralSentimentIntegration:
             return result
             
         except Exception as e:
-            print(f"❌ error using baby's tokenizer: {e}")
+            print(f"error using baby's tokenizer: {e}")
             # Fallback to fragment analysis
             return self.sentiment_analyzer.analyze_text_with_fragments(text)
     
@@ -113,10 +112,6 @@ class BabyNeuralSentimentIntegration:
         
         return explanation
 
-# ==============================================================================
-# 🔗 DISCORD BOT INTEGRATION FUNCTIONS
-# ==============================================================================
-
 def get_enhanced_token_sentiment(token_id: int) -> Tuple[float, str, str]:
     """Enhanced version of existing token sentiment function for Discord bot"""
     
@@ -178,45 +173,3 @@ def analyze_message_sentiment_enhanced(text: str) -> Dict:
             'analysis': f"couldn't analyze: {e}",
             'discord_summary': "analysis failed mate"
         }
-
-# ==============================================================================
-# 🧪 INTEGRATION TESTING
-# ==============================================================================
-
-def test_integration():
-    """Test the integration layer"""
-    
-    print("🧪 testing baby neural sentiment integration...")
-    
-    # Test without baby instance (fallback mode)
-    integration = BabyNeuralSentimentIntegration()
-    
-    test_phrases = [
-        "i fucking love this brilliant day!",
-        "this is absolutely dreadful and terrible",
-        "not bad actually, quite decent",
-        "really very incredibly awesome stuff"
-    ]
-    
-    for phrase in test_phrases:
-        result = integration.analyze_baby_tokens(phrase)
-        print(f"\n'{phrase}':")
-        print(f"  sentiment: {result['sentiment']:.3f}")
-        print(f"  analysis: {result['analysis']}")
-        
-        explanation = integration.get_sentiment_explanation(phrase, detailed=True)
-        print(f"  explanation: {explanation}")
-    
-    # Test enhanced discord functions
-    print(f"\n🔗 testing discord integration functions...")
-    
-    # Test token sentiment
-    sentiment, desc, category = get_enhanced_token_sentiment(276)  # 'love' token
-    print(f"token 276: {sentiment:.3f} - {desc} [{category}]")
-    
-    # Test message analysis
-    msg_result = analyze_message_sentiment_enhanced("bloody brilliant mate!")
-    print(f"message analysis: {msg_result['discord_summary']}")
-
-if __name__ == "__main__":
-    test_integration()
