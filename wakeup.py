@@ -20,7 +20,7 @@ from secret import *
 from phone.babyBot import BABYBOT_TWITCH
 from phone.babyBot_discord import *
 from wakeupUtils import handle_exception, setStartIndex, checkLossCheckpoint, openingQuestions, append_to_files
-from helpers import get_grad_stats, empty_mps_cache
+from utils.helpers import get_grad_stats, empty_mps_cache
 
 sys.excepthook = handle_exception
 warnings.simplefilter("default") # show all warnings (PyTorch hides some by default)

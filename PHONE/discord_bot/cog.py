@@ -62,7 +62,7 @@ try:
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from VOCABULARY_SENTIMENT_INTEGRATION import (
+    from school.staffroom.VOCABULARY_SENTIMENT_INTEGRATION import (
         get_enhanced_token_sentiment, 
         analyze_message_sentiment_enhanced,
         BabyNeuralSentimentIntegration

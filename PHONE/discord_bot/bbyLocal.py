@@ -25,7 +25,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 try:
-    from helpers import save_json_if_changed, load_json_if_exists
+    from utils.helpers import save_json_if_changed, load_json_if_exists
 except ModuleNotFoundError:
     # Fallback: explicitly load helpers.py from project root
     try:

@@ -13,7 +13,7 @@ import math
 from config import *
 from school.staffroom.counsellor import COUNSELLOR
 from torch.nn.functional import gelu
-from helpers import clamp_param
+from utils.helpers import clamp_param
 
 class NEURON(nn.Module):
     def __init__(self, _counsellor, _numTokensPerStep, _device = modelDevice):

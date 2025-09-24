@@ -11,7 +11,7 @@ import logging
 import re
 from typing import Dict, List, Tuple, Optional, Union, Set
 from collections import defaultdict, Counter
-from COMPLETE_MASTER_VOCABULARY_MAP import CompleteMasterVocabularyMapper, load_complete_baby_vocabulary
+from school.staffroom.COMPLETE_MASTER_VOCABULARY_MAP import CompleteMasterVocabularyMapper, load_complete_baby_vocabulary
 
 class SentimentScale:
     """Standardized sentiment scale with british english commentary"""

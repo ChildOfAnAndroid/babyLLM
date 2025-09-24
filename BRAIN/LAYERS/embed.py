@@ -7,7 +7,7 @@ import math
 import torch
 import torch.nn as nn
 from config import *
-from helpers import clamp_param
+from utils.helpers import clamp_param
 
 """creates an embedding layer for each word in the vocabulary"""
 class EMBED(nn.Module):

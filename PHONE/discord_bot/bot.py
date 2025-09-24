@@ -31,7 +31,7 @@ import math
 import aiohttp
 from urllib.parse import urljoin
 
-from helpers import save_json_if_changed
+from utils.helpers import save_json_if_changed
 
 from .context import create_fake_context
 from .utils import escape_markdown, is_similar, killExcessTags, getTimeRant

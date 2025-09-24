@@ -9,7 +9,7 @@ import torch.nn as nn
 from collections import deque
 from config import *
 import torch.nn.functional as F
-from helpers import clamp_param
+from utils.helpers import clamp_param
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 class LOGITS(nn.Module):

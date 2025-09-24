@@ -23,7 +23,7 @@ from brain.LAYERS.attention import GATED_MHA
 #from brain.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
-from helpers import clamp_param, get_grad_stats, debug_print
+from utils.helpers import clamp_param, get_grad_stats, debug_print
 
 GRAD_SNAPSHOT_LIMIT = 8
 

@@ -13,7 +13,7 @@ import math
 import json
 import asyncio
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
-from helpers import get_grad_stats, empty_mps_cache
+from utils.helpers import get_grad_stats, empty_mps_cache
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _model_thread_lock = None,

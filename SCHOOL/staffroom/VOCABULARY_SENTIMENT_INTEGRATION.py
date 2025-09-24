@@ -7,7 +7,7 @@
 # v1.1
 
 from typing import Dict, List, Tuple, Optional
-from MASTER_VOCABULARY_SENTIMENT_ANALYZER import MasterVocabularySentimentAnalyzer
+from school.staffroom.MASTER_VOCABULARY_SENTIMENT_ANALYZER import MasterVocabularySentimentAnalyzer
 
 class BabyNeuralSentimentIntegration:
     """Integration layer between baby's neural network and the complete sentiment system"""
