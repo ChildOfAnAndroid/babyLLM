@@ -34,62 +34,62 @@ def load_complete_baby_vocabulary():
         return {}
 
 class CompleteMasterVocabularyMapper:
-    """The ultimate system for categorizing ALL 4200 tokens"""
+    """The ultimate system for categorising ALL 4200 tokens"""
     
     def __init__(self):
         self.vocab = load_complete_baby_vocabulary()
         self.categories = defaultdict(list)
         self.token_to_category = {}
-        self.uncategorized_tokens = set()
+        self.uncategorised_tokens = set()
         
-        # Initialize all tokens as uncategorized
-        self.uncategorized_tokens = set(self.vocab.keys())
+        # initialise all tokens as uncategorised
+        self.uncategorised_tokens = set(self.vocab.keys())
         
-        # Start categorization process - FULL EXPANSION
-        self._categorize_structural_tokens()
-        self._categorize_grammatical_tokens()  
-        self._categorize_emotional_tokens()
-        self._categorize_social_tokens()
-        self._categorize_action_tokens()
+        # Start categorisation process - FULL EXPANSION
+        self._categorise_structural_tokens()
+        self._categorise_grammatical_tokens()  
+        self._categorise_emotional_tokens()
+        self._categorise_social_tokens()
+        self._categorise_action_tokens()
         
         # NEW EXPANDED CATEGORIES
-        self._categorize_word_fragments()
-        self._categorize_contractions()
-        self._categorize_common_words()
-        self._categorize_descriptive_words()
-        self._categorize_temporal_words()
-        self._categorize_digital_language()
-        self._categorize_body_words()
-        self._categorize_location_words()
-        self._categorize_object_words()
-        self._categorize_conceptual_words()
-        self._categorize_intensity_modifiers()
-        self._categorize_question_words()
-        self._categorize_negation_words()
-        self._categorize_possession_words()
+        self._categorise_word_fragments()
+        self._categorise_contractions()
+        self._categorise_common_words()
+        self._categorise_descriptive_words()
+        self._categorise_temporal_words()
+        self._categorise_digital_language()
+        self._categorise_body_words()
+        self._categorise_location_words()
+        self._categorise_object_words()
+        self._categorise_conceptual_words()
+        self._categorise_intensity_modifiers()
+        self._categorise_question_words()
+        self._categorise_negation_words()
+        self._categorise_possession_words()
         
         # ADVANCED PATTERN RECOGNITION
-        self._categorize_by_patterns()
-        self._categorize_remaining_fragments()
-        self._categorize_special_tokens()
+        self._categorise_by_patterns()
+        self._categorise_remaining_fragments()
+        self._categorise_special_tokens()
         
         # Update tracking
         self._update_category_mappings()
     
-    def _categorize_token(self, token_id: int, category: str):
-        """Add token to category and remove from uncategorized"""
+    def _categorise_token(self, token_id: int, category: str):
+        """Add token to category and remove from uncategorised"""
         if token_id in self.vocab:
             self.categories[category].append(token_id)
-            self.uncategorized_tokens.discard(token_id)
+            self.uncategorised_tokens.discard(token_id)
     
-    def _categorize_structural_tokens(self):
-        """Categorize punctuation, symbols, numbers, letters"""
+    def _categorise_structural_tokens(self):
+        """categorise punctuation, symbols, numbers, letters"""
         for token_id, token_data in self.vocab.items():
             clean_token = token_data['clean']
             
             # Skip empty tokens
             if not clean_token:
-                self._categorize_token(token_id, 'EMPTY_TOKENS')
+                self._categorise_token(token_id, 'EMPTY_TOKENS')
                 continue
             
             # Single character analysis
@@ -97,22 +97,22 @@ class CompleteMasterVocabularyMapper:
                 char = clean_token
                 
                 if char.isdigit():
-                    self._categorize_token(token_id, 'NUMBERS')
+                    self._categorise_token(token_id, 'NUMBERS')
                 elif char.isalpha():
-                    self._categorize_token(token_id, 'SINGLE_LETTERS')
+                    self._categorise_token(token_id, 'SINGLE_LETTERS')
                 elif char in '!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~':
-                    self._categorize_token(token_id, 'PUNCTUATION')
+                    self._categorise_token(token_id, 'PUNCTUATION')
                 elif char in '£¦§©®°±²³´µ¶·¸¹º»¼½¾¿×÷':
-                    self._categorize_token(token_id, 'SYMBOLS')
+                    self._categorise_token(token_id, 'SYMBOLS')
                 else:
-                    self._categorize_token(token_id, 'SPECIAL_CHARACTERS')
+                    self._categorise_token(token_id, 'SPECIAL_CHARACTERS')
             
             # Multi-character punctuation
             elif clean_token in ['..', '...', '!!', '???', '--', '==']:
-                self._categorize_token(token_id, 'MULTI_PUNCTUATION')
+                self._categorise_token(token_id, 'MULTI_PUNCTUATION')
     
-    def _categorize_grammatical_tokens(self):
-        """Categorize core grammar words"""
+    def _categorise_grammatical_tokens(self):
+        """categorise core grammar words"""
         grammar_categories = {
             'PRONOUNS': ['i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 
                         'my', 'your', 'his', 'hers', 'its', 'our', 'their', 'myself', 'yourself', 
@@ -139,10 +139,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_emotional_tokens(self):
-        """Categorize emotional vocabulary"""
+    def _categorise_emotional_tokens(self):
+        """categorise emotional vocabulary"""
         emotional_categories = {
             'ULTRA_POSITIVE': ['love', 'amazing', 'perfect', 'wonderful', 'brilliant', 'fantastic', 
                              'excellent', 'magnificent', 'spectacular', 'extraordinary', 'phenomenal'],
@@ -173,10 +173,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_social_tokens(self):
-        """Categorize social and communication words"""
+    def _categorise_social_tokens(self):
+        """categorise social and communication words"""
         social_categories = {
             'GREETINGS': ['hello', 'hi', 'hey', 'sup', 'yo', 'howdy', 'greetings'],
             'FAREWELLS': ['bye', 'goodbye', 'farewell', 'later', 'see you', 'cya', 'ttyl'],
@@ -191,10 +191,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_action_tokens(self):
-        """Categorize action verbs and activities"""
+    def _categorise_action_tokens(self):
+        """categorise action verbs and activities"""
         action_categories = {
             'MOVEMENT_VERBS': ['go', 'come', 'walk', 'run', 'jump', 'sit', 'stand', 'lie', 'move', 
                              'travel', 'drive', 'fly', 'swim', 'climb', 'dance'],
@@ -216,7 +216,7 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
     def _update_category_mappings(self):
         """Update reverse mapping from token to category"""
@@ -225,67 +225,67 @@ class CompleteMasterVocabularyMapper:
             for token_id in token_list:
                 self.token_to_category[token_id] = category
         
-    def _categorize_by_patterns(self):
-        """Advanced pattern-based categorization for remaining tokens"""
+    def _categorise_by_patterns(self):
+        """Advanced pattern-based categorisation for remaining tokens"""
         
         for token_id, token_data in self.vocab.items():
-            if token_id in self.uncategorized_tokens:
+            if token_id in self.uncategorised_tokens:
                 clean_token = token_data['clean'].lower()
                 raw_token = token_data['raw']
                 
-                # Skip if already categorized or empty
+                # Skip if already categorised or empty
                 if not clean_token:
                     continue
                 
-                # Analyze patterns
+                # analyse patterns
                 if len(clean_token) == 2:
                     # Two letter combinations
                     if clean_token in ['ll', 've', 're', 'nt', 'wh', 'th', 'sh', 'ch', 'ph', 'gh', 'ck']:
-                        self._categorize_token(token_id, 'DIGRAPHS')
+                        self._categorise_token(token_id, 'DIGRAPHS')
                     elif clean_token in ['as', 'at', 'be', 'do', 'go', 'he', 'if', 'in', 'is', 'it', 'me', 'my', 'no', 'of', 'on', 'or', 'so', 'to', 'up', 'we']:
-                        self._categorize_token(token_id, 'TWO_LETTER_WORDS')
+                        self._categorise_token(token_id, 'TWO_LETTER_WORDS')
                     elif clean_token.isalpha():
-                        self._categorize_token(token_id, 'TWO_LETTER_FRAGMENTS')
+                        self._categorise_token(token_id, 'TWO_LETTER_FRAGMENTS')
                 
                 elif len(clean_token) == 3:
                     # Three letter combinations
                     if clean_token in ['ing', 'ion', 'and', 'the', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use']:
-                        self._categorize_token(token_id, 'THREE_LETTER_WORDS')
+                        self._categorise_token(token_id, 'THREE_LETTER_WORDS')
                     elif clean_token.endswith('ly'):
-                        self._categorize_token(token_id, 'ADVERBS')
+                        self._categorise_token(token_id, 'ADVERBS')
                     elif clean_token.endswith('ed') or clean_token.endswith('er') or clean_token.endswith('es'):
-                        self._categorize_token(token_id, 'VERB_FORMS')
+                        self._categorise_token(token_id, 'VERB_FORMS')
                     elif clean_token.isalpha():
-                        self._categorize_token(token_id, 'THREE_LETTER_FRAGMENTS')
+                        self._categorise_token(token_id, 'THREE_LETTER_FRAGMENTS')
                 
                 elif len(clean_token) >= 4:
                     # Longer patterns
                     if clean_token.endswith('ing'):
-                        self._categorize_token(token_id, 'GERUNDS')
+                        self._categorise_token(token_id, 'GERUNDS')
                     elif clean_token.endswith('tion') or clean_token.endswith('sion'):
-                        self._categorize_token(token_id, 'ABSTRACT_NOUNS')
+                        self._categorise_token(token_id, 'ABSTRACT_NOUNS')
                     elif clean_token.endswith('able') or clean_token.endswith('ible'):
-                        self._categorize_token(token_id, 'ADJECTIVES_ABLE')
+                        self._categorise_token(token_id, 'ADJECTIVES_ABLE')
                     elif clean_token.endswith('ment') or clean_token.endswith('ness'):
-                        self._categorize_token(token_id, 'NOUN_SUFFIXES')
+                        self._categorise_token(token_id, 'NOUN_SUFFIXES')
                     elif clean_token.endswith('ful') or clean_token.endswith('less'):
-                        self._categorize_token(token_id, 'DESCRIPTIVE_SUFFIXES')
+                        self._categorise_token(token_id, 'DESCRIPTIVE_SUFFIXES')
                     elif clean_token.startswith('un') or clean_token.startswith('re') or clean_token.startswith('pre'):
-                        self._categorize_token(token_id, 'PREFIXED_WORDS')
+                        self._categorise_token(token_id, 'PREFIXED_WORDS')
                     elif clean_token.endswith('ly') and len(clean_token) > 3:
-                        self._categorize_token(token_id, 'ADVERBS')
+                        self._categorise_token(token_id, 'ADVERBS')
                     elif clean_token.endswith('s') and len(clean_token) > 2:
-                        self._categorize_token(token_id, 'PLURAL_WORDS')
+                        self._categorise_token(token_id, 'PLURAL_WORDS')
                     elif clean_token.endswith('ed') and len(clean_token) > 3:
-                        self._categorize_token(token_id, 'PAST_TENSE_VERBS')
+                        self._categorise_token(token_id, 'PAST_TENSE_VERBS')
                     elif clean_token.isalpha():
-                        self._categorize_token(token_id, 'LONG_WORDS')
+                        self._categorise_token(token_id, 'LONG_WORDS')
     
-    def _categorize_remaining_fragments(self):
-        """Categorize remaining single and short fragments"""
+    def _categorise_remaining_fragments(self):
+        """categorise remaining single and short fragments"""
         
         for token_id, token_data in self.vocab.items():
-            if token_id in self.uncategorized_tokens:
+            if token_id in self.uncategorised_tokens:
                 clean_token = token_data['clean'].lower()
                 
                 if not clean_token:
@@ -295,59 +295,59 @@ class CompleteMasterVocabularyMapper:
                 if len(clean_token) == 1:
                     char = clean_token
                     if char.isalpha():
-                        self._categorize_token(token_id, 'REMAINING_SINGLE_LETTERS')
+                        self._categorise_token(token_id, 'REMAINING_SINGLE_LETTERS')
                     elif char.isdigit():
-                        self._categorize_token(token_id, 'REMAINING_SINGLE_NUMBERS')
+                        self._categorise_token(token_id, 'REMAINING_SINGLE_NUMBERS')
                     else:
-                        self._categorize_token(token_id, 'REMAINING_SINGLE_SYMBOLS')
+                        self._categorise_token(token_id, 'REMAINING_SINGLE_SYMBOLS')
                 
                 # Short fragments
                 elif len(clean_token) <= 3 and clean_token.isalpha():
-                    self._categorize_token(token_id, 'SHORT_FRAGMENTS')
+                    self._categorise_token(token_id, 'SHORT_FRAGMENTS')
                 
                 # Medium fragments  
                 elif 4 <= len(clean_token) <= 6 and clean_token.isalpha():
-                    self._categorize_token(token_id, 'MEDIUM_FRAGMENTS')
+                    self._categorise_token(token_id, 'MEDIUM_FRAGMENTS')
                 
                 # Long fragments
                 elif len(clean_token) > 6 and clean_token.isalpha():
-                    self._categorize_token(token_id, 'LONG_FRAGMENTS')
+                    self._categorise_token(token_id, 'LONG_FRAGMENTS')
     
-    def _categorize_special_tokens(self):
+    def _categorise_special_tokens(self):
         """Handle special tokens and edge cases"""
         
         for token_id, token_data in self.vocab.items():
-            if token_id in self.uncategorized_tokens:
+            if token_id in self.uncategorised_tokens:
                 clean_token = token_data['clean']
                 raw_token = token_data['raw']
                 
                 # Special system tokens
                 if clean_token in ['<UNK>', '<PAD>', '<SOS>', '<EOS>', '<MASK>']:
-                    self._categorize_token(token_id, 'SYSTEM_TOKENS')
+                    self._categorise_token(token_id, 'SYSTEM_TOKENS')
                 
                 # Mixed alphanumeric
                 elif any(c.isdigit() for c in clean_token) and any(c.isalpha() for c in clean_token):
-                    self._categorize_token(token_id, 'ALPHANUMERIC_MIXED')
+                    self._categorise_token(token_id, 'ALPHANUMERIC_MIXED')
                 
                 # Contains special characters
                 elif any(c in clean_token for c in '!@#$%^&*()[]{}|\\:";\'<>?,./~`'):
-                    self._categorize_token(token_id, 'SPECIAL_CHARACTERS_MIXED')
+                    self._categorise_token(token_id, 'SPECIAL_CHARACTERS_MIXED')
                 
                 # Unicode boundary markers
                 elif '\u0120' in raw_token or '\u013f' in raw_token:
-                    if not clean_token.strip(): self._categorize_token(token_id, 'BOUNDARY_MARKERS')
-                    else: self._categorize_token(token_id, 'BOUNDARY_WORDS')
+                    if not clean_token.strip(): self._categorise_token(token_id, 'BOUNDARY_MARKERS')
+                    else: self._categorise_token(token_id, 'BOUNDARY_WORDS')
                 
-                elif clean_token: self._categorize_token(token_id, 'MISCELLANEOUS')
+                elif clean_token: self._categorise_token(token_id, 'MISCELLANEOUS')
                 
-                else: self._categorize_token(token_id, 'UNDEFINED_TOKENS')
+                else: self._categorise_token(token_id, 'UNDEFINED_TOKENS')
     
     def get_token_category(self, token_id: int) -> Optional[str]:
         """Get category for a specific token"""
         return self.token_to_category.get(token_id)
     
-    def _categorize_word_fragments(self):
-        """Categorize word fragments and morphemes"""
+    def _categorise_word_fragments(self):
+        """categorise word fragments and morphemes"""
         fragment_patterns = {
             'PREFIXES': ['un', 're', 'pre', 'dis', 'in', 'im', 'non', 'anti', 'de', 'over', 'under'],
             'SUFFIXES': ['ing', 'ed', 'er', 'est', 'ly', 'tion', 'sion', 'ness', 'ment', 'ful', 'less', 'able'],
@@ -358,10 +358,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in fragment_list and len(clean_token) <= 4:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_contractions(self):
-        """Categorize contractions and informal language"""
+    def _categorise_contractions(self):
+        """categorise contractions and informal language"""
         contractions = {
             'CONTRACTIONS': ["n't", "'s", "'re", "'ll", "'ve", "'d", "'m", "don't", "can't", "won't", 
                            "shouldn't", "wouldn't", "couldn't", "haven't", "hasn't", "hadn't", 
@@ -381,10 +381,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_common_words(self):
-        """Categorize very common words not caught elsewhere"""
+    def _categorise_common_words(self):
+        """categorise very common words not caught elsewhere"""
         common_categories = {
             'EXISTENCE_VERBS': ['exist', 'live', 'die', 'born', 'grow', 'change', 'become', 'remain'],
             
@@ -408,10 +408,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_descriptive_words(self):
-        """Categorize descriptive and appearance words"""
+    def _categorise_descriptive_words(self):
+        """categorise descriptive and appearance words"""
         descriptive_categories = {
             'COLORS': ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown', 
                       'black', 'white', 'gray', 'grey', 'gold', 'silver', 'violet', 'indigo'],
@@ -430,10 +430,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_temporal_words(self):
-        """Categorize time-related words"""
+    def _categorise_temporal_words(self):
+        """categorise time-related words"""
         temporal_categories = {
             'TIME_PERIODS': ['morning', 'afternoon', 'evening', 'night', 'dawn', 'dusk', 'noon', 
                            'midnight', 'today', 'yesterday', 'tomorrow', 'weekend', 'weekday'],
@@ -451,10 +451,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_digital_language(self):
-        """Categorize digital age and technology words"""
+    def _categorise_digital_language(self):
+        """categorise digital age and technology words"""
         digital_categories = {
             'TECHNOLOGY': ['computer', 'phone', 'internet', 'website', 'app', 'software', 'program', 
                          'code', 'data', 'file', 'folder', 'screen', 'keyboard', 'mouse', 'camera'],
@@ -470,10 +470,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_body_words(self):
-        """Categorize body parts and physical words"""
+    def _categorise_body_words(self):
+        """categorise body parts and physical words"""
         body_categories = {
             'BODY_PARTS': ['head', 'hair', 'face', 'eye', 'eyes', 'ear', 'ears', 'nose', 'mouth', 
                          'teeth', 'tooth', 'lip', 'lips', 'neck', 'shoulder', 'arm', 'arms', 
@@ -491,10 +491,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_location_words(self):
-        """Categorize location and direction words"""
+    def _categorise_location_words(self):
+        """categorise location and direction words"""
         location_categories = {
             'DIRECTIONS': ['north', 'south', 'east', 'west', 'up', 'down', 'left', 'right', 
                          'forward', 'backward', 'inside', 'outside', 'upstairs', 'downstairs'],
@@ -510,10 +510,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_object_words(self):
-        """Categorize common objects and items"""
+    def _categorise_object_words(self):
+        """categorise common objects and items"""
         object_categories = {
             'FURNITURE': ['chair', 'table', 'bed', 'sofa', 'couch', 'desk', 'shelf', 'cabinet', 
                         'drawer', 'closet', 'mirror', 'lamp', 'clock'],
@@ -532,10 +532,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_conceptual_words(self):
-        """Categorize abstract concepts and ideas"""
+    def _categorise_conceptual_words(self):
+        """categorise abstract concepts and ideas"""
         conceptual_categories = {
             'ABSTRACT_CONCEPTS': ['idea', 'thought', 'concept', 'theory', 'belief', 'opinion', 
                                 'fact', 'truth', 'lie', 'secret', 'mystery', 'problem', 'solution'],
@@ -554,10 +554,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_intensity_modifiers(self):
-        """Categorize intensity and degree words"""
+    def _categorise_intensity_modifiers(self):
+        """categorise intensity and degree words"""
         intensity_categories = {
             'AMPLIFIERS': ['very', 'really', 'extremely', 'incredibly', 'absolutely', 'totally', 
                          'completely', 'entirely', 'perfectly', 'exactly', 'quite', 'rather', 
@@ -575,10 +575,10 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_question_words(self):
-        """Categorize question and inquiry words"""
+    def _categorise_question_words(self):
+        """categorise question and inquiry words"""
         question_categories = {
             'WH_QUESTIONS': ['what', 'who', 'where', 'when', 'why', 'how', 'which', 'whose', 'whom'],
             'QUESTION_MARKERS': ['?', 'huh', 'eh', 'right', 'okay', 'really', 'seriously']
@@ -588,27 +588,27 @@ class CompleteMasterVocabularyMapper:
             for token_id, token_data in self.vocab.items():
                 clean_token = token_data['clean'].lower()
                 if clean_token in word_list:
-                    self._categorize_token(token_id, category)
+                    self._categorise_token(token_id, category)
     
-    def _categorize_negation_words(self):
-        """Categorize negation and contradiction words"""
+    def _categorise_negation_words(self):
+        """categorise negation and contradiction words"""
         negation_words = ['not', 'no', 'never', 'nothing', 'nobody', 'nowhere', 'none', 'neither', 
                          'nor', 'without', 'lack', 'missing', 'absent', 'void', 'empty']
         
         for token_id, token_data in self.vocab.items():
             clean_token = token_data['clean'].lower()
             if clean_token in negation_words:
-                self._categorize_token(token_id, 'NEGATION')
+                self._categorise_token(token_id, 'NEGATION')
     
-    def _categorize_possession_words(self):
-        """Categorize possession and ownership words"""
+    def _categorise_possession_words(self):
+        """categorise possession and ownership words"""
         possession_words = ['mine', 'yours', 'his', 'hers', 'ours', 'theirs', 'own', 'belong', 
                            'property', 'possession', 'owner', 'ownership']
         
         for token_id, token_data in self.vocab.items():
             clean_token = token_data['clean'].lower()
             if clean_token in possession_words:
-                self._categorize_token(token_id, 'POSSESSION_OWNERSHIP')
+                self._categorise_token(token_id, 'POSSESSION_OWNERSHIP')
     
     # ==============================================================================
     
@@ -616,16 +616,16 @@ class CompleteMasterVocabularyMapper:
         """Get all token IDs in a category"""
         return self.categories.get(category, [])
     
-    def get_categorization_stats(self) -> Dict:
+    def get_categorisation_stats(self) -> Dict:
         """Get comprehensive statistics"""
         total_tokens = len(self.vocab)
-        categorized = total_tokens - len(self.uncategorized_tokens)
+        categorised = total_tokens - len(self.uncategorised_tokens)
         
         stats = {
             'total_tokens': total_tokens,
-            'categorized_tokens': categorized,
-            'uncategorized_tokens': len(self.uncategorized_tokens),
-            'coverage_percentage': (categorized / total_tokens) * 100,
+            'categorised_tokens': categorised,
+            'uncategorised_tokens': len(self.uncategorised_tokens),
+            'coverage_percentage': (categorised / total_tokens) * 100,
             'total_categories': len(self.categories),
             'category_breakdown': {cat: len(tokens) for cat, tokens in self.categories.items()},
             'largest_categories': sorted([(cat, len(tokens)) for cat, tokens in self.categories.items()], 
@@ -651,12 +651,12 @@ if __name__ == "__main__":
     print("=" * 75)
     
     mapper = CompleteMasterVocabularyMapper()
-    stats = mapper.get_categorization_stats()
+    stats = mapper.get_categorisation_stats()
     
     print(f"RESULTS:")
     print(f"   Total tokens: {stats['total_tokens']}")
-    print(f"   Categorised: {stats['categorized_tokens']}")
-    print(f"   Uncategorized: {stats['uncategorized_tokens']}")
+    print(f"   Categorised: {stats['categorised_tokens']}")
+    print(f"   Uncategorised: {stats['uncategorised_tokens']}")
     print(f"   Coverage: {stats['coverage_percentage']:.1f}%")
     print(f"   Categories created: {stats['total_categories']}")
     print()
@@ -670,13 +670,13 @@ if __name__ == "__main__":
         print(f"      Samples: {sample_text}")
         print()
     
-    print(f"UNCATEGORIZED TOKENS: {len(mapper.uncategorized_tokens)}")
-    if mapper.uncategorized_tokens:
-        uncategorized_samples = []
-        for token_id in list(mapper.uncategorized_tokens)[:10]:
+    print(f"UNcategorisED TOKENS: {len(mapper.uncategorised_tokens)}")
+    if mapper.uncategorised_tokens:
+        uncategorised_samples = []
+        for token_id in list(mapper.uncategorised_tokens)[:10]:
             if token_id in mapper.vocab:
-                uncategorized_samples.append(mapper.vocab[token_id]['clean'])
-        print(f"   Samples: {', '.join(uncategorized_samples)}")
+                uncategorised_samples.append(mapper.vocab[token_id]['clean'])
+        print(f"   Samples: {', '.join(uncategorised_samples)}")
     
     print("\n" + "=" * 75)
     print("FOUNDATION SYSTEM COMPLETE - READY FOR EXPANSION!")

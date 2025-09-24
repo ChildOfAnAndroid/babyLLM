@@ -263,7 +263,7 @@ class INTERNEURON_NETWORK(nn.Module):
         self.refinement2 = torch.nn.Sequential(
                             nn.Linear(numNeurons, 512, device = self.device), # bottleneck layer
                             nn.GELU(),                                      # smoother activation
-                            nn.LayerNorm(512, device = self.device),          # mid normalization
+                            nn.LayerNorm(512, device = self.device),          # mid normalisation
                             nn.Linear(512, numNeurons, device = self.device), # expand back
                             nn.LayerNorm(numNeurons, device = self.device)    # final safety net
                             )
@@ -340,7 +340,7 @@ class INTERNEURON_NETWORK(nn.Module):
             sigmoidWeights = torch.sigmoid(cerebellum_with_noise) # reduced from 10 to 2 for better gradient flow
             clamp_param(self.cerebellum, 0.01, 0.99)
             #clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
-            self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalize across all windows
+            self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalise across all windows
 
             variance = torch.var(self.cerebellumSoft)
             self.windowWeightSpread = variance

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ ---
-# BABYLLM // MASTER_VOCABULARY_SENTIMENT_ANALYZER.py
+# BABYLLM // MASTER_VOCABULARY_SENTIMENT_analysER.py
 # v1.0 - COMPLETE COVERAGE EDITION
 # v1.2
 
@@ -26,13 +26,13 @@ class SentimentScale:
     HIGH_NEGATIVE = (-0.7, -0.5, "absolute nightmare")
     ULTRA_NEGATIVE = (-1.0, -0.8, "fucking dreadful innit")
 
-class MasterVocabularySentimentAnalyzer:
+class MasterVocabularySentimentanalyser:
     """The ultimate sentiment analysis system using baby's complete vocabulary"""
     
     def __init__(self):
-        print("initializing master vocabulary sentiment analyzer...")
+        print("initializing master vocabulary sentiment analyser...")
         
-        # Load the complete vocabulary and categorization
+        # Load the complete vocabulary and categorisation
         self.vocab_mapper = CompleteMasterVocabularyMapper()
         self.vocab = self.vocab_mapper.vocab
         
@@ -47,15 +47,15 @@ class MasterVocabularySentimentAnalyzer:
         self.negation_tokens: Set[int] = set()
         self.fragment_sentiments: Dict[str, float] = {}
         
-        # Initialize the complete sentiment system
-        self._initialize_category_sentiment_profiles()
+        # initialise the complete sentiment system
+        self._initialise_category_sentiment_profiles()
         self._assign_token_sentiments()
         self._identify_amplification_tokens()
         self._build_fragment_sentiment_map()
         
-        print(f"✅ sentiment analyzer ready! {len(self.token_sentiments)}/4200 tokens mapped")
+        print(f"✅ sentiment analyser ready! {len(self.token_sentiments)}/4200 tokens mapped")
     
-    def _initialize_category_sentiment_profiles(self):
+    def _initialise_category_sentiment_profiles(self):
         """Define sentiment profiles for all 93 categories"""
         
         # Core emotional categories (already well-defined)
@@ -165,8 +165,8 @@ class MasterVocabularySentimentAnalyzer:
             'SUFFIXES': {'base': 0.0, 'variance': 0.1, 'modifier': 0.6},
         })
         
-        # Default for any uncategorized tokens
-        self.category_sentiment_profiles['UNCATEGORIZED'] = {
+        # Default for any uncategorised tokens
+        self.category_sentiment_profiles['UNcategorisED'] = {
             'base': 0.0, 'variance': 0.1, 'modifier': 1.0
         }
     
@@ -177,14 +177,14 @@ class MasterVocabularySentimentAnalyzer:
             # Get the token's category
             category = self.vocab_mapper.get_token_category(token_id)
             if not category:
-                category = 'UNCATEGORIZED'
+                category = 'UNcategorisED'
             
             # Store category mapping
             self.token_categories[token_id] = category
             
             # Get sentiment profile for this category
             profile = self.category_sentiment_profiles.get(category, 
-                self.category_sentiment_profiles['UNCATEGORIZED'])
+                self.category_sentiment_profiles['UNcategorisED'])
             
             # Calculate base sentiment with variance for natural distribution
             base_sentiment = profile['base']
@@ -286,10 +286,10 @@ class MasterVocabularySentimentAnalyzer:
     
     def get_token_category(self, token_id: int) -> str:
         """Get category for a specific token"""
-        return self.token_categories.get(token_id, 'UNCATEGORIZED')
+        return self.token_categories.get(token_id, 'UNcategorisED')
     
-    def analyze_token_sequence(self, token_ids: List[int]) -> Dict:
-        """Analyze sentiment of a sequence of tokens with amplification and context"""
+    def analyse_token_sequence(self, token_ids: List[int]) -> Dict:
+        """analyse sentiment of a sequence of tokens with amplification and context"""
         
         if not token_ids:
             return {'sentiment': 0.0, 'confidence': 0.0, 'analysis': 'empty sequence'}
@@ -396,8 +396,8 @@ class MasterVocabularySentimentAnalyzer:
         else:
             return f"dunno really, {total} tokens but can't make head nor tail of the mood"
     
-    def analyze_text_with_fragments(self, text: str) -> Dict:
-        """Analyze text sentiment including fragment-based analysis for unknown words"""
+    def analyse_text_with_fragments(self, text: str) -> Dict:
+        """analyse text sentiment including fragment-based analysis for unknown words"""
         
         # This would integrate with baby's tokenizer - placeholder for now
         # In real implementation, would use baby.librarian.tokenizeText()
@@ -544,15 +544,15 @@ class MasterVocabularySentimentAnalyzer:
         print(f"✅ exported complete sentiment mapping to {filepath}")
 
 if __name__ == "__main__":
-    print("master vocabulary sentiment analyzer")
+    print("master vocabulary sentiment analyser")
     print("=" * 75)
     
     try:
-        # Initialize the analyzer
-        analyzer = MasterVocabularySentimentAnalyzer()
+        # initialise the analyser
+        analyser = MasterVocabularySentimentanalyser()
         
         # Show most emotional tokens
-        emotional_tokens = analyzer.get_most_emotional_tokens(10)
+        emotional_tokens = analyser.get_most_emotional_tokens(10)
         
         print(f"\n🌟 most positive tokens:")
         for token_id, text, sentiment, category in emotional_tokens['most_positive'][:5]:
@@ -564,12 +564,12 @@ if __name__ == "__main__":
         
         # Export the complete mapping
         export_path = "/Users/charis/Dropbox/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/soul/complete_sentiment_mapping.json"
-        analyzer.export_sentiment_map(export_path)
+        analyser.export_sentiment_map(export_path)
         
-        print("\nmaster vocabulary sentiment analyzer ready for integration!")
+        print("\nmaster vocabulary sentiment analyser ready for integration!")
         print("all 4200 tokens now have meaningful sentiment assignments!")
         
     except Exception as e:
-        print(f"error initializing sentiment analyzer: {e}")
+        print(f"error initializing sentiment analyser: {e}")
         import traceback
         traceback.print_exc()

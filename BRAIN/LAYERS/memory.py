@@ -27,7 +27,7 @@ class MEMORY(nn.Module):
         self.memoryInfluence2 = torch.nn.Sequential(
                                 nn.Linear(embedDimension, 512, device = self.device),   # bottleneck layer
                                 nn.GELU(),                                              # smoother activation
-                                nn.LayerNorm(512, device = self.device),                # mid normalization
+                                nn.LayerNorm(512, device = self.device),                # mid normalisation
                                 nn.Linear(512, numNeurons, device = self.device),         # expand back
                                 nn.LayerNorm(numNeurons, device = self.device)            # final safety net
                                 )

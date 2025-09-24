@@ -58,7 +58,7 @@ def bump_clean_version(file_path: Path, rel_path: str) -> Tuple[List[str], bool,
     history = load_version_history()
     today = get_today_str()
     
-    # Initialize file history if not exists
+    # initialise file history if not exists
     if rel_path not in history:
         history[rel_path] = {
             "days_edited": [],

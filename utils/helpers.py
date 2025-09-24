@@ -112,16 +112,16 @@ def empty_mps_cache() -> None:
     kernels execute asynchronously and Python's GC can hold references.
     Synchronising and running a GC cycle helps avoid memory spikes.
 
-    ``torch.mps.synchronize`` must run on the main thread.  When invoked
+    ``torch.mps.synchronise`` must run on the main thread.  When invoked
     from a worker thread (for example, a ``ThreadPoolExecutor`` used for
     background generation) it can trigger a Metal assertion:
     ``-[_MTLCommandBuffer addScheduledHandler:]: failed assertion 'Scheduled handler provided after commit call'``.
-    To avoid crashes we only call ``synchronize`` on the main thread.
+    To avoid crashes we only call ``synchronise`` on the main thread.
     """
     if torch.backends.mps.is_available():
         gc.collect()
         if threading.current_thread() is threading.main_thread():
-            torch.mps.synchronize()
+            torch.mps.synchronise()
         torch.mps.empty_cache()
 
 # --- json utilities ---

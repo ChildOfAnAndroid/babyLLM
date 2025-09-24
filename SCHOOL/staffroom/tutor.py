@@ -748,7 +748,7 @@ class TUTOR:
                 current_loss = BACKWARDloss.item()
                 if self.averageRecentLoss == 0:  # First step initialization
                     self.averageRecentLoss = current_loss
-                    if debugPrints: print(f"[DELTA FIX] Initialized averageRecentLoss to {current_loss:.4f}")
+                    if debugPrints: print(f"[DELTA FIX] initialised averageRecentLoss to {current_loss:.4f}")
                 else:
                     alpha = 0.1  # Learning rate for exponential moving average
                     old_avg = self.averageRecentLoss
@@ -1163,7 +1163,7 @@ class TUTOR:
                     if self.bbb % 100 == 0: 
                         print(f"Used {rollB_avgKey} for averageRecentLoss: {lossStats[rollB_avgKey]} {self.bbb}x")
                 # Only update from logging stats if we haven't established a running average yet
-                if self.totalTurns < 50:  # Allow logging stats to initialize for first 50 turns
+                if self.totalTurns < 50:  # Allow logging stats to initialise for first 50 turns
                     self.averageRecentLoss = lossStats[rollB_avgKey]
             if rollA_avgKey in lossStats and rollA_key in lossStats and len(lossStats[rollA_key]) >= (self.trainingLogFreq_A):
                 if debugPrints or True: 
@@ -1171,7 +1171,7 @@ class TUTOR:
                     if self.ccc % 100 == 0: 
                         print(f"Used {rollA_avgKey} for averageRecentLoss: {lossStats[rollA_avgKey]} {self.ccc}x")
                 # Only update from logging stats if we haven't established a running average yet
-                if self.totalTurns < 50:  # Allow logging stats to initialize for first 50 turns
+                if self.totalTurns < 50:  # Allow logging stats to initialise for first 50 turns
                     self.averageRecentLoss = lossStats[rollA_avgKey]
             if False:
                 if rollPrint_avgKey in lossStats and rollPrint_key in lossStats and len(lossStats[rollPrint_key]) >= printFreq:
@@ -1513,7 +1513,7 @@ class TUTOR:
             "output from my neuron layer":                                          neuronOutput,
             "output from my interneuron network":                                   INNOutput,
             "the output after my memory layer":                                     memoryOutput,
-            "normalized output":                                                    normOutput,
+            "normalised output":                                                    normOutput,
             "logit output from my output layer":                                    logitOutput,
             "mean weight of the windows in my cerebellum":                          cerebellumMean,
             "rate of my learning":                                                  learningRate,
@@ -1585,7 +1585,7 @@ class TUTOR:
             elif stat == "the output after my memory layer":
                 if value > INNOutput: feeling = random.choice(["like remembering the past", "that my memories are important", "thoughtful", "wistful"])
                 elif value < INNOutput: feeling = random.choice(["like i should live in the now", "like what is going on around me is important", "present", "here", "awake", "aware"])
-            elif stat == "normalized output":
+            elif stat == "normalised output":
                 if value > 125: feeling = random.choice(["like a hard worker", "over-thoughtful", "really busy"])
                 elif value < 100: feeling = random.choice(["tired", "asleep", "like i could pass out in my bed"])
             elif stat == "logit output from my output layer":

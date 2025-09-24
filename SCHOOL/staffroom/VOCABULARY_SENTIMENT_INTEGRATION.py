@@ -7,70 +7,70 @@
 # v1.1
 
 from typing import Dict, List, Tuple, Optional
-from school.staffroom.MASTER_VOCABULARY_SENTIMENT_ANALYZER import MasterVocabularySentimentAnalyzer
+from school.staffroom.MASTER_VOCABULARY_SENTIMENT_analysER import MasterVocabularySentimentanalyser
 
 class BabyNeuralSentimentIntegration:
     """Integration layer between baby's neural network and the complete sentiment system"""
     
     def __init__(self, baby_instance=None):
-        """Initialize with baby's neural network instance"""
+        """initialise with baby's neural network instance"""
         self.baby = baby_instance
-        self.sentiment_analyzer = MasterVocabularySentimentAnalyzer()
+        self.sentiment_analyser = MasterVocabularySentimentanalyser()
         
         print("baby neural sentiment integration ready!")
     
-    def analyze_baby_tokens(self, text: str) -> Dict:
-        """Use baby's tokenizer and analyze with complete sentiment system"""
+    def analyse_baby_tokens(self, text: str) -> Dict:
+        """Use baby's tokenizer and analyse with complete sentiment system"""
         
         if not self.baby or not hasattr(self.baby, 'librarian'):
             # Fallback to basic analysis if baby not available
-            return self.sentiment_analyzer.analyze_text_with_fragments(text)
+            return self.sentiment_analyser.analyse_text_with_fragments(text)
         
         try:
             # Use baby's actual tokenizer
             token_ids = self.baby.librarian.tokenizeText(text)
             
-            # Analyze with complete sentiment system
-            result = self.sentiment_analyzer.analyze_token_sequence(token_ids)
+            # analyse with complete sentiment system
+            result = self.sentiment_analyser.analyse_token_sequence(token_ids)
             
             # Add baby-specific context
             result['baby_analysis'] = True
             result['token_count'] = len(token_ids)
-            result['text_analyzed'] = text
+            result['text_analysed'] = text
             
             return result
             
         except Exception as e:
             print(f"error using baby's tokenizer: {e}")
             # Fallback to fragment analysis
-            return self.sentiment_analyzer.analyze_text_with_fragments(text)
+            return self.sentiment_analyser.analyse_text_with_fragments(text)
     
     def get_token_sentiment_with_context(self, token_id: int) -> Dict:
         """Get detailed sentiment info for a specific token"""
         
-        base_sentiment = self.sentiment_analyzer.get_token_sentiment(token_id)
-        category = self.sentiment_analyzer.get_token_category(token_id)
+        base_sentiment = self.sentiment_analyser.get_token_sentiment(token_id)
+        category = self.sentiment_analyser.get_token_category(token_id)
         
         # Get token text from baby's vocab if available
         token_text = "unknown"
-        if token_id in self.sentiment_analyzer.vocab:
-            token_text = self.sentiment_analyzer.vocab[token_id]['clean']
+        if token_id in self.sentiment_analyser.vocab:
+            token_text = self.sentiment_analyser.vocab[token_id]['clean']
         
         return {
             'token_id': token_id,
             'token_text': token_text,
             'base_sentiment': base_sentiment,
             'category': category,
-            'is_amplifier': token_id in self.sentiment_analyzer.amplifiers,
-            'is_diminisher': token_id in self.sentiment_analyzer.diminishers,
-            'is_negation': token_id in self.sentiment_analyzer.negation_tokens,
-            'amplification_factor': self.sentiment_analyzer.amplifiers.get(token_id, 1.0)
+            'is_amplifier': token_id in self.sentiment_analyser.amplifiers,
+            'is_diminisher': token_id in self.sentiment_analyser.diminishers,
+            'is_negation': token_id in self.sentiment_analyser.negation_tokens,
+            'amplification_factor': self.sentiment_analyser.amplifiers.get(token_id, 1.0)
         }
     
     def compare_neural_vs_vocabulary_sentiment(self, text: str) -> Dict:
         """Compare baby's neural sentiment with vocabulary-based sentiment"""
         
-        vocab_result = self.analyze_baby_tokens(text)
+        vocab_result = self.analyse_baby_tokens(text)
         
         # Try to get neural sentiment if available
         neural_sentiment = 0.0
@@ -80,7 +80,7 @@ class BabyNeuralSentimentIntegration:
             try:
                 # This would depend on baby's actual neural sentiment method
                 # Placeholder for actual implementation
-                neural_sentiment = 0.0  # baby.brain.sentiment.analyze(text)
+                neural_sentiment = 0.0  # baby.brain.sentiment.analyse(text)
                 neural_available = False  # Set to True when implemented
             except:
                 pass
@@ -99,7 +99,7 @@ class BabyNeuralSentimentIntegration:
     def get_sentiment_explanation(self, text: str, detailed: bool = False) -> str:
         """Get a natural explanation of sentiment analysis in baby's style"""
         
-        result = self.analyze_baby_tokens(text)
+        result = self.analyse_baby_tokens(text)
         
         explanation = f"right, so '{text}' has got a sentiment of {result['sentiment']:.3f}. "
         explanation += result['analysis']
@@ -116,18 +116,18 @@ def get_enhanced_token_sentiment(token_id: int) -> Tuple[float, str, str]:
     """Enhanced version of existing token sentiment function for Discord bot"""
     
     try:
-        # Global analyzer instance for efficiency
-        if not hasattr(get_enhanced_token_sentiment, '_analyzer'):
-            get_enhanced_token_sentiment._analyzer = MasterVocabularySentimentAnalyzer()
+        # Global analyser instance for efficiency
+        if not hasattr(get_enhanced_token_sentiment, '_analyser'):
+            get_enhanced_token_sentiment._analyser = MasterVocabularySentimentanalyser()
         
-        analyzer = get_enhanced_token_sentiment._analyzer
+        analyser = get_enhanced_token_sentiment._analyser
         
-        sentiment = analyzer.get_token_sentiment(token_id)
-        category = analyzer.get_token_category(token_id)
+        sentiment = analyser.get_token_sentiment(token_id)
+        category = analyser.get_token_category(token_id)
         
         # Get token description in baby's style
-        if token_id in analyzer.vocab:
-            token_text = analyzer.vocab[token_id]['clean']
+        if token_id in analyser.vocab:
+            token_text = analyser.vocab[token_id]['clean']
         else:
             token_text = f"#{token_id}"
         
@@ -148,18 +148,18 @@ def get_enhanced_token_sentiment(token_id: int) -> Tuple[float, str, str]:
         return sentiment, description, category
         
     except Exception as e:
-        return 0.0, f"couldn't analyze token {token_id}: {e}", "UNKNOWN"
+        return 0.0, f"couldn't analyse token {token_id}: {e}", "UNKNOWN"
 
-def analyze_message_sentiment_enhanced(text: str) -> Dict:
+def analyse_message_sentiment_enhanced(text: str) -> Dict:
     """Enhanced message sentiment analysis for Discord bot"""
     
     try:
-        # Global analyzer instance for efficiency
-        if not hasattr(analyze_message_sentiment_enhanced, '_analyzer'):
-            analyze_message_sentiment_enhanced._analyzer = MasterVocabularySentimentAnalyzer()
+        # Global analyser instance for efficiency
+        if not hasattr(analyse_message_sentiment_enhanced, '_analyser'):
+            analyse_message_sentiment_enhanced._analyser = MasterVocabularySentimentanalyser()
         
-        analyzer = analyze_message_sentiment_enhanced._analyzer
-        result = analyzer.analyze_text_with_fragments(text)
+        analyser = analyse_message_sentiment_enhanced._analyser
+        result = analyser.analyse_text_with_fragments(text)
         
         # Add discord-friendly formatting
         result['discord_summary'] = f"sentiment: {result['sentiment']:.3f} | {result['analysis']}"
@@ -170,6 +170,6 @@ def analyze_message_sentiment_enhanced(text: str) -> Dict:
         return {
             'sentiment': 0.0,
             'confidence': 0.0,
-            'analysis': f"couldn't analyze: {e}",
+            'analysis': f"couldn't analyse: {e}",
             'discord_summary': "analysis failed mate"
         }

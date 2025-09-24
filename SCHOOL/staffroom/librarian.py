@@ -978,7 +978,7 @@ class LIBRARIAN:
         final_training_pairs = []
         source_weights = {info['type']: info['weight'] for info in trainingFilePath_dict_weighted}
         
-        # Normalize weights to get probabilities
+        # normalise weights to get probabilities
         total_weight = sum(source_weights.values())
         source_probs = {source: weight / total_weight for source, weight in source_weights.items()}
         

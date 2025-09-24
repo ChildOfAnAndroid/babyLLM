@@ -64,7 +64,7 @@ try:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     from school.staffroom.VOCABULARY_SENTIMENT_INTEGRATION import (
         get_enhanced_token_sentiment, 
-        analyze_message_sentiment_enhanced,
+        analyse_message_sentiment_enhanced,
         BabyNeuralSentimentIntegration
     )
     ENHANCED_SENTIMENT_AVAILABLE = True
@@ -432,11 +432,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 if isinstance(img_url, str) and img_url.endswith(suf):
                                     img_url = img_url[: -len(suf)] + ".png"
 
-                            # Normalize any accidental stamp path that slipped into url
+                            # normalise any accidental stamp path that slipped into url
                             if isinstance(img_url, str) and img_url.endswith(".stamp.png"):
                                 img_url = img_url.replace(".stamp.png", ".png")
 
-                            # Normalize site path: ensure direct file endpoint (for Discord to fetch the raw image)
+                            # normalise site path: ensure direct file endpoint (for Discord to fetch the raw image)
                             # If a '/gallery/<file>' page path ever appears, convert it to '/api/gallery/file/<file>'
                             if isinstance(img_url, str) and "/gallery/" in img_url and "/api/gallery/file/" not in img_url:
                                 try:
@@ -1085,7 +1085,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         
                     print(f"[SENTIMENT_ECONOMY] '{sentiment_text}' -> {sentiment_score:+.3f} -> {sentiment_multiplier:.2f}x multiplier")
                 except Exception as e:
-                    print(f"[SENTIMENT_ECONOMY] Error analyzing sentiment: {e}")
+                    print(f"[SENTIMENT_ECONOMY] Error analysing sentiment: {e}")
             
             # Calculate components
             economy_component = total_economy * base_percentage * economy_weight
@@ -1549,7 +1549,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         unk_token = self.bot.librarian.unkToken
 
         with torch.no_grad():
-            norms = torch.nn.functional.normalize(all_vecs, dim=1)
+            norms = torch.nn.functional.normalise(all_vecs, dim=1)
             sims = torch.matmul(norms, norms.T)
             sims.fill_diagonal_(-1.0)
             flat_vals, flat_idx = torch.topk(sims.flatten(), top_n * 10)
@@ -3419,7 +3419,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             target_bby = target_memory.get("BBY", 0)
             other_bby = other_memory.get("BBY", 0)
             bby_diff = abs(target_bby - other_bby)
-            bby_similarity = max(0, 1 - (bby_diff / 1000))  # Normalize BBY difference
+            bby_similarity = max(0, 1 - (bby_diff / 1000))  # normalise BBY difference
             
             final_score = (combined_score * 0.8) + (bby_similarity * 0.2)
             
@@ -6574,7 +6574,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             else:
                 # Fallback using legacy system if available
                 try:
-                    fallback_analysis = analyze_message_sentiment_enhanced(text)
+                    fallback_analysis = analyse_message_sentiment_enhanced(text)
                     reply += f"{fallback_analysis['discord_summary']}\n\n"
                 except:
                     reply = "sentiment analysis not available - missing required components!"
@@ -6593,7 +6593,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if self.enhanced_sentiment:
                 if item:
                     # Use enhanced system with baby's actual tokenizer
-                    analysis = self.enhanced_sentiment.analyze_baby_tokens(item)
+                    analysis = self.enhanced_sentiment.analyse_baby_tokens(item)
                     
                     reply = f"enhanced vocabulary analysis of '{item}':\n"
                     reply += f"sentiment: {analysis['sentiment']:+.3f} (confidence: {analysis['confidence']:.2f})\n"

@@ -780,7 +780,7 @@ class BABYLLM(nn.Module):
                     self.gumBellend += 1
                     debug_print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
                     base_probs = F.softmax(logits_scaled, dim=-1)
-                # Clamp and renormalize to avoid zeros that cause log(0) downstream
+                # Clamp and renormalise to avoid zeros that cause log(0) downstream
 
             eps = 1e-8
             base_probs = torch.nan_to_num(base_probs, nan=0.0)

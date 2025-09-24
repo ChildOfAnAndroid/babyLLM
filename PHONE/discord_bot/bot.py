@@ -647,7 +647,7 @@ class BABYBOT_DISCORD(commands.Bot):
         return True
 
     def _buffer_add(self, text_to_add: str):
-        # Normalize excessive blank lines to avoid training with empty paragraphs
+        # normalise excessive blank lines to avoid training with empty paragraphs
         try:
             text_to_add = re.sub(r"\n{2,}", "\n", text_to_add)
         except Exception:
@@ -1898,14 +1898,14 @@ class BABYBOT_DISCORD(commands.Bot):
         print("[MONTHLY_BBYBOOK] started (daily checks for end-of-month)")
         
         
-        # Wait a bit for bot to fully initialize
+        # Wait a bit for bot to fully initialise
         await asyncio.sleep(30)
         
         while True:
             try:
-                # Check if bot is properly initialized
+                # Check if bot is properly initialised
                 if not hasattr(self, 'userMemory') or not hasattr(self, 'faveEmotes'):
-                    print("[MONTHLY_BBYBOOK] Bot not fully initialized yet, waiting...")
+                    print("[MONTHLY_BBYBOOK] Bot not fully initialised yet, waiting...")
                     await asyncio.sleep(300)  # Wait 5 minutes and try again
                     continue
                 
@@ -1935,7 +1935,7 @@ class BABYBOT_DISCORD(commands.Bot):
                             # Check if we've already processed this month
                             month_year = current_date.strftime('%Y-%m')
                             
-                            # Initialize bbybook if it doesn't exist
+                            # initialise bbybook if it doesn't exist
                             if not hasattr(self, 'bbybook'):
                                 self.bbybook = []
                             
@@ -1994,14 +1994,14 @@ class BABYBOT_DISCORD(commands.Bot):
         """
         print("[INVENTORY_DECAY] started (percentage-based decay to prevent hoarding)")
         
-        # Wait a bit for bot to fully initialize
+        # Wait a bit for bot to fully initialise
         await asyncio.sleep(60)
         
         while True:
             try:
-                # Check if bot is properly initialized
+                # Check if bot is properly initialised
                 if not hasattr(self, 'userMemory'):
-                    print("[INVENTORY_DECAY] Bot not fully initialized yet, waiting...")
+                    print("[INVENTORY_DECAY] Bot not fully initialised yet, waiting...")
                     await asyncio.sleep(1800)  # Wait 30 minutes and try again
                     continue
                 
