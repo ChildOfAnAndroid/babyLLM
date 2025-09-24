@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/cog.py
-# v4.2
+# v1.9
 
 import os
 import json
@@ -3728,6 +3728,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
     @commands.command(name='babyllm', aliases=['bby', 'bbyllm', 'b'])
     @track_command
+
     async def babyllm_command(self, ctx: commands.Context):
         print(f"\n\n[babyllm_command] Received command from {ctx.author.name}")
 
@@ -3774,8 +3775,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             scale = 1.0 / (1.0 + 0.6 * load)
             num_tokens_to_gen = max(1, int(num_tokens_to_gen * scale))
 
-    # --- STEP 3: Call the core helper with the buffer prompt and short length ---
-        return await self._generate_and_reply(ctx, prompt_text, num_tokens_to_gen)
+        # --- STEP 3: Enqueue the generation request ---
+        fut = asyncio.get_event_loop().create_future()
+        async def callback(result):
+            fut.set_result(result)
+        await self.bot.generation_queue.put((ctx, prompt_text, num_tokens_to_gen, callback))
+        return await fut
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
     @track_command

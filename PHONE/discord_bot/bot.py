@@ -1,4 +1,4 @@
-# v4.2
+# v1.9
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // phone/discord_bot/bot.py
@@ -45,18 +45,31 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REQUEST_FILE_PATH = os.path.join(SCRIPT_DIR, "bby_request.json")
 RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
 
-class BABYBOT_DISCORD(commands.Bot): 
+
+class BABYBOT_DISCORD(commands.Bot):
+
+    async def _generation_worker(self):
+        """Background task to process generation requests one at a time, globally."""
+        while True:
+            ctx, prompt_text, num_tokens_to_gen, callback = await self.generation_queue.get()
+            try:
+                result = await self.cog._generate_and_reply(ctx, prompt_text, num_tokens_to_gen)
+                if callback:
+                    await callback(result)
+            except Exception as e:
+                print(f"[GENERATION_QUEUE] Error: {e}")
+            finally:
+                self.generation_queue.task_done()
 
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,  
                  discordToken = SECRETdiscordTokenSECRET, discordChannel = bby_spam,
                  rollingContextSize = rollingContextSize, idleTrainSeconds = 100, N = rollingContextSize - 1):
-
         self.babyLLM, self.tutor, self.librarian, self.scribe, self.calligraphist = babyLLM, tutor, librarian, scribe, calligraphist
 
         # lock protects user dictionaries/file saves
         self._user_data_save_lock = asyncio.Lock()
         self._fact_award_lock = asyncio.Lock()
-        
+
         # --- Smink high score tracking ---
         self.smink_highscore_path = os.path.join(SCRIPT_DIR, "smink_highscore.json")
         if os.path.exists(self.smink_highscore_path):
@@ -64,7 +77,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 self.smink_highscore = json.load(f)
         else:
             self.smink_highscore = {"amount": 0, "user": ""}
-        
+
         intents = discord.Intents.all()
         # Add heartbeat_timeout to prevent gateway issues
         super().__init__(
@@ -73,6 +86,9 @@ class BABYBOT_DISCORD(commands.Bot):
             heartbeat_timeout=60.0,  # Increase from default 30s
         )
         self.cog = None
+
+        # --- Global generation queue ---
+        self.generation_queue = asyncio.Queue()
 
         self.faveEmotes = ("😭", "😤", "🔥", "✨", "❤️", "😡", "😠", "🤬", "💔", "💕", "🦊", "😊", "🎵", "🎶", "🤣", "🙌", "🥰", "🥨", "🥖", "😂", "🤞", "🍜", "🥯", "🌻", "🍞", "😀", 
                            "😃", "😄", "😁", "😅", "🥹", "😆", "🤣", "🥲", "☺️", "😊", "😉", "🙃", "🙂", "😇", "😌", "😍", "🥰", "😘", "🤨", "🧐", "🤓", "😎", "😏", "😔", "🙁", "😭", 
@@ -223,6 +239,8 @@ class BABYBOT_DISCORD(commands.Bot):
         
     async def setup_hook(self):
         await super().setup_hook()
+        # Start the generation worker task here, where self.loop is available
+        self.generation_worker_task = self.loop.create_task(self._generation_worker())
         self._ensure_random_task()
 
     def save_smink_highscore(self):

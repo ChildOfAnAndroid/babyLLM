@@ -1,4 +1,4 @@
-# v4.2
+# v1.9
 """
 Performance monitoring and health checks for babyLLM
 Tracks system health and performance metrics

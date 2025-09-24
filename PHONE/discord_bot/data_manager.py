@@ -1,4 +1,4 @@
-# v4.2
+# v1.9
 """
 Centralized data persistence manager for babyLLM
 Handles all save/load operations with batching and error recovery
