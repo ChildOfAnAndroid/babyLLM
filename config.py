@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM CONFIG FILE // config.py
-# v1.11
+# v1.12
 
 # === Imports ===
 import datetime as CONFIGDATE
@@ -24,9 +24,6 @@ modelDevice = torch.device(
 if hasattr(torch, "set_default_device") and modelDevice.type != "mps":
     torch.set_default_device(modelDevice)
 # modelDevice = torch.device("cpu")  # Force CPU (optional)
-
-# === Debug toggle for call tracing ===
-# UNUSED: WHOCALLED_DEBUG = False
 
 def whocalled(func):
     # UNUSED: if WHOCALLED_DEBUG:
@@ -58,14 +55,9 @@ def printTensorAttrs(obj, name='self'):
             print(f"{name}.{attr}: <error accessing attribute: {e}>")
     print("--- END ---\n")
 
-# Alias for tensor_snitch used in babyLLM.py
-def tensor_snitch(obj, message):
-    printTensorAttrs(obj, message)
+def tensor_snitch(obj, message): printTensorAttrs(obj, message)
 
-# Legacy placeholder (not used directly; kept for safety)
 guessedTokenSeq = []
-
-# ---
 
 charis = "charis"
 userName = charis

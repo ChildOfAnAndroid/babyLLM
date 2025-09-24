@@ -1,22 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // COMPLETE_MASTER_VOCABULARY_MAP.py
-# 🧠💫 COMPLETE MASTER VOCABULARY CATEGORIZATION SYSTEM 💫🧠
-# EVERY SINGLE TOKEN IN BABY'S 4200 VOCABULARY - NO TOKEN LEFT BEHIND!
-# This is the ULTIMATE vocabulary archaeology project
-# v1.0 - FOUNDATION SYSTEM
-# v1.11
+# v1.2
 
 import json
 import logging
 from typing import Dict, List, Tuple, Optional, Set
 from collections import defaultdict, Counter
-
-# ==============================================================================
-# 🗂️ MASTER VOCABULARY LOADER
-# ==============================================================================
 
 def load_complete_baby_vocabulary():
     """Load baby's complete 4200 token vocabulary"""
@@ -42,10 +32,6 @@ def load_complete_baby_vocabulary():
     except Exception as e:
         logging.error(f"Failed to load baby vocabulary: {e}")
         return {}
-
-# ==============================================================================
-# 🏗️ MASTER CATEGORIZATION SYSTEM - PART 1 (Foundation Categories)
-# ==============================================================================
 
 class CompleteMasterVocabularyMapper:
     """The ultimate system for categorizing ALL 4200 tokens"""
@@ -238,9 +224,7 @@ class CompleteMasterVocabularyMapper:
         for category, token_list in self.categories.items():
             for token_id in token_list:
                 self.token_to_category[token_id] = category
-    
-    # ==============================================================================
-    
+        
     def _categorize_by_patterns(self):
         """Advanced pattern-based categorization for remaining tokens"""
         
@@ -351,27 +335,16 @@ class CompleteMasterVocabularyMapper:
                 
                 # Unicode boundary markers
                 elif '\u0120' in raw_token or '\u013f' in raw_token:
-                    if not clean_token.strip():
-                        self._categorize_token(token_id, 'BOUNDARY_MARKERS')
-                    else:
-                        self._categorize_token(token_id, 'BOUNDARY_WORDS')
+                    if not clean_token.strip(): self._categorize_token(token_id, 'BOUNDARY_MARKERS')
+                    else: self._categorize_token(token_id, 'BOUNDARY_WORDS')
                 
-                # Everything else
-                elif clean_token:
-                    self._categorize_token(token_id, 'MISCELLANEOUS')
+                elif clean_token: self._categorize_token(token_id, 'MISCELLANEOUS')
                 
-                # Truly empty/weird tokens
-                else:
-                    self._categorize_token(token_id, 'UNDEFINED_TOKENS')
+                else: self._categorize_token(token_id, 'UNDEFINED_TOKENS')
     
-    # Original methods continue here...
     def get_token_category(self, token_id: int) -> Optional[str]:
         """Get category for a specific token"""
         return self.token_to_category.get(token_id)
-    
-    # ==============================================================================
-    # 🚀 EXPANDED CATEGORIZATION METHODS - PART 2
-    # ==============================================================================
     
     def _categorize_word_fragments(self):
         """Categorize word fragments and morphemes"""
@@ -673,10 +646,6 @@ class CompleteMasterVocabularyMapper:
         
         return samples
 
-# ==============================================================================
-# 🧪 TESTING AND ANALYSIS
-# ==============================================================================
-
 if __name__ == "__main__":
     print("🧠💫 COMPLETE MASTER VOCABULARY MAPPER - FOUNDATION SYSTEM 💫🧠")
     print("=" * 75)
@@ -684,15 +653,15 @@ if __name__ == "__main__":
     mapper = CompleteMasterVocabularyMapper()
     stats = mapper.get_categorization_stats()
     
-    print(f"📊 FOUNDATION CATEGORIZATION RESULTS:")
+    print(f"RESULTS:")
     print(f"   Total tokens: {stats['total_tokens']}")
-    print(f"   Categorized: {stats['categorized_tokens']}")
+    print(f"   Categorised: {stats['categorized_tokens']}")
     print(f"   Uncategorized: {stats['uncategorized_tokens']}")
     print(f"   Coverage: {stats['coverage_percentage']:.1f}%")
     print(f"   Categories created: {stats['total_categories']}")
     print()
     
-    print(f"🏆 TOP CATEGORIES:")
+    print(f"TOP CATEGORIES:")
     for category, count in stats['largest_categories']:
         print(f"   {category}: {count} tokens")
         # Show sample tokens
@@ -701,7 +670,7 @@ if __name__ == "__main__":
         print(f"      Samples: {sample_text}")
         print()
     
-    print(f"⚠️  UNCATEGORIZED TOKENS: {len(mapper.uncategorized_tokens)}")
+    print(f"UNCATEGORIZED TOKENS: {len(mapper.uncategorized_tokens)}")
     if mapper.uncategorized_tokens:
         uncategorized_samples = []
         for token_id in list(mapper.uncategorized_tokens)[:10]:
@@ -710,5 +679,5 @@ if __name__ == "__main__":
         print(f"   Samples: {', '.join(uncategorized_samples)}")
     
     print("\n" + "=" * 75)
-    print("🚧 FOUNDATION SYSTEM COMPLETE - READY FOR EXPANSION! 🚧")
+    print("FOUNDATION SYSTEM COMPLETE - READY FOR EXPANSION!")
 

@@ -4,7 +4,7 @@
 # --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // MASTER_VOCABULARY_SENTIMENT_ANALYZER.py
 # v1.0 - COMPLETE COVERAGE EDITION
-# v1.11
+# v1.2
 
 import json
 import logging
@@ -550,9 +550,6 @@ if __name__ == "__main__":
     try:
         # Initialize the analyzer
         analyzer = MasterVocabularySentimentAnalyzer()
-        
-        # Run tests
-        run_sentiment_tests()
         
         # Show most emotional tokens
         emotional_tokens = analyzer.get_most_emotional_tokens(10)

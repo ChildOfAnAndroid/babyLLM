@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM // school/staffroom/painter.py
-# v1.12
+# v1.1
 
 
 # painter.py

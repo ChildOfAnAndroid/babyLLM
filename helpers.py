@@ -1,7 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
 # BABYLLM HELPERS // helpers.py
-# v1.11
+# v1.1
 
 # --- imports ---
 from __future__ import annotations
@@ -72,7 +72,6 @@ def _json_fingerprint(content: str) -> tuple[int, bytes]:
     data = content.encode("utf-8")
     digest = hashlib.blake2b(data, digest_size=16).digest()
     return (len(data), digest)
-
 
 # --- file utilities ---
 def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bool = False, **dump_kwargs) -> bool:
