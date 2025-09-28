@@ -655,27 +655,29 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return (True, num_to_award, "SUCCESS") # Success!
 
     # --*- FACT HELPERS -*--
-    def _generate_response_blocking(self, promptTokenIDs, numTokensToGen):
+    def _generate_response_blocking(self, prompt_text, numTokensToGen):
         """
         Synchronous generation method.
-        Gracefully handles out-of-memory errors by returning a partial response.
-        
-        --- FIX: RETURNS a tuple: (generated_text: str, error_message: Optional[str]) ---
+        Generates a response based on the received message length, not the full buffer.
+        Tokenizes and crops the prompt to MAXwindow before generation.
+        Returns a tuple: (generated_text: str, error_message: Optional[str])
         """
         start_time = time.time()
-        logger.info("GENERATE", f"Starting with {len(promptTokenIDs)} prompt tokens, generating {numTokensToGen} tokens")
+        # Tokenize and crop prompt to MAXwindow
+        tokenizer = self.bot.librarian.tokenizer
+        promptTokenIDs = tokenizer.encode(prompt_text)
+        MAXwindow = getattr(self.bot, 'MAXwindow', getattr(self.bot, 'chatWindowMAX', 512))
+        if len(promptTokenIDs) > MAXwindow:
+            promptTokenIDs = promptTokenIDs[-MAXwindow:]
+        logger.info("GENERATE", f"Prompt text length: {len(prompt_text)}, {len(promptTokenIDs)} tokens, generating {numTokensToGen} tokens")
         genSeqIDs = list(promptTokenIDs)
         responseSeqId = []
-        
-        # --- FIX: This variable will hold the error message if one occurs ---
         oom_error_message = None
-
         try:
             with torch.no_grad():
                 self.bot.babyLLM.eval()
-                self.bot.numTokensPerStep = self.bot.chatWindowMAX
+                self.bot.numTokensPerStep = MAXwindow
                 logger.debug("GENERATE", f"Model loaded, window size: {self.bot.numTokensPerStep}")
-
                 for i in range(numTokensToGen):
                     try:
                         inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
@@ -685,69 +687,54 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             _training=True,
                             _totAvgAbsDelta=self.bot.tutor.totalAvgAbsDelta,
                         )
-                        
                         if torch.isnan(logits).any() or torch.isinf(logits).any():
-                            # For critical model errors, return an immediate hard error.
                             msg = "ERROR: NaN/Inf detected in logits. Generation stopped to protect model."
                             logger.emergency("GENERATE", msg)
-                            return ("", msg) # Return with empty text but a clear error
-                        
+                            return ("", msg)
                         nextTokenID = nextTokenIDTensor.item()
-                        
                         if nextTokenID < 0 or nextTokenID >= len(self.bot.librarian.indexToToken):
                             err = f"ERROR: Invalid token ID {nextTokenID} at position {i}! Stopping generation."
                             print(f"[_GENERATE_RESPONSE_BLOCKING] {err}")
                             return ("", err)
-                        
                         genSeqIDs.append(nextTokenID)
                         responseSeqId.append(nextTokenID)
-
-                    # --- FIX: Gracefully catch memory errors ---
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as mem_error:
                         if "out of memory" in str(mem_error).lower():
                             logger.error("GENERATE", f"Out of Memory at token {i+1}. Salvaging partial response.")
                             print(f"[_GENERATE_RESPONSE_BLOCKING] CAUGHT OUT OF MEMORY! Breaking generation loop.")
                             oom_error_message = f"ERROR: Ran out of memory after generating {len(responseSeqId)} tokens."
-                            break # Exit the loop, preserving the partial response
+                            break
                         else:
-                            raise mem_error # Re-raise other RuntimeErrors
-
-            # --- Text decoding and cleaning happens regardless of completion ---
+                            raise mem_error
             babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
             babyllm_text = clean_baby_output(babyllm_text)
             babyllm_text = re.sub(r'\n([^\n]{0,8})(?=\n|\Z)', r' \1', babyllm_text)
             babyllm_text = re.sub(r'  ', r' ', babyllm_text)
-
-            # --- Record performance metrics ---
             generation_time = time.time() - start_time
             perf_monitor.record_metric("generation_time", generation_time)
             perf_monitor.record_metric("tokens_generated", len(responseSeqId))
             perf_monitor.record_metric("tokens_per_second", len(responseSeqId) / generation_time if generation_time > 0 else 0)
             if oom_error_message:
                 perf_monitor.record_metric("generation_oom_errors", 1)
-            
-            # --- FIX: Return both the text (partial or full) and the error status ---
             return (babyllm_text, oom_error_message)
-            
         except Exception as e:
             generation_time = time.time() - start_time
             perf_monitor.record_metric("generation_errors", 1)
             logger.error("GENERATE", f"error during generation: {e}")
             traceback.print_exc()
-            # Return a hard error in the same tuple format for consistency
             return ("", f"ERROR: {e}")
 
-    async def _generate_response_async(self, promptTokenIDs, numTokensToGen):
+    async def _generate_response_async(self, prompt_text, numTokensToGen):
         """Asynchronous wrapper that runs generation in an executor to prevent blocking"""
         loop = asyncio.get_event_loop()
         try:
-            result = await loop.run_in_executor(None, self._generate_response_blocking, promptTokenIDs, numTokensToGen)
+            result = await loop.run_in_executor(None, self._generate_response_blocking, prompt_text, numTokensToGen)
             print(f"[_GENERATE_RESPONSE_ASYNC] generation completed successfully.")
             return result
         except Exception as e:
             print(f"[_GENERATE_RESPONSE_ASYNC] error during generation: {e}")
             traceback.print_exc()
-            return f"ERROR: {e}"
+            return ("", f"ERROR: {e}")
 
     def _decay_item_value(self, fact_name: str, decay_percentage: float = 0.0001):
         if fact_name not in self.bot.bbyfacts: return None
@@ -1549,7 +1536,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         unk_token = self.bot.librarian.unkToken
 
         with torch.no_grad():
-            norms = torch.nn.functional.normalise(all_vecs, dim=1)
+            norms = torch.nn.functional.normalize(all_vecs, dim=1)
             sims = torch.matmul(norms, norms.T)
             sims.fill_diagonal_(-1.0)
             flat_vals, flat_idx = torch.topk(sims.flatten(), top_n * 10)
@@ -1810,38 +1797,45 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         bonus_hits = 0
         chaos_multiplier = 1.0
         
-        brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.3)
-        if brain_excitement > 0.9:
+        brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=self.get_varied_random())
+        if brain_excitement > 0.420:
             reply += "omg "
-            chaos_multiplier *= 1.4 + (self.get_varied_random() * 0.4)
+            chaos_multiplier *= (4.20 * self.get_varied_random())
             bonus_hits += 1
+        else: 
+            reply += "meh "
+            chaos_multiplier += (4.20 * self.get_varied_random())
 
-        brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
-        if brain_enthusiasm > 0.94:
-            reply += "holy?? "
-            chaos_multiplier *= 1.6 + (self.get_varied_random() * 0.6)
+        brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=self.get_varied_random())
+        if brain_enthusiasm > 0.69:
+            reply += "noice "
+            chaos_multiplier *= (6.9 * self.get_varied_random())
             bonus_hits += 1
+        else:
+            reply += "why tho "
+            chaos_multiplier += (6.9 * self.get_varied_random())
 
         focus_spark = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.25)
-        if focus_spark > 0.97:
-            chaos_multiplier *= 2.0 + self.get_varied_random()
+        if focus_spark > 0.9420:
+            reply += "legend! "
+            chaos_multiplier *= (42.0 * self.get_varied_random())
             bonus_hits += 1
 
         rare_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
-        if rare_chaos > 0.995:
-            reply += "HUH??? "
-            chaos_multiplier *= 4.0 + (self.get_varied_random() * 2.0)
+        if rare_chaos > 0.969:
+            reply += "nice!! "
+            chaos_multiplier *= (69.0 * self.get_varied_random())
             bonus_hits += 1
 
         ambient_glow = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.15)
-        if ambient_glow > 0.6:
-            chaos_multiplier *= 1.05 + (self.get_varied_random() * 0.2)
+        if ambient_glow:
+            chaos_multiplier *= (1.05 + (self.get_varied_random() * ambient_glow))
 
         vowel_roll = self.get_varied_random()
         if vowel_roll > 0.25:
             o_count = 2 + bonus_hits
             reply += f"so{'o'*o_count}... "
-            chaos_multiplier *= 1.05 + (vowel_roll ** 2) * 0.25
+            chaos_multiplier *= (1.05 + (vowel_roll ** 2) * 0.25)
 
         # This is the initial "potential" value before the big random roll
         raw_increment = base_increment * chaos_multiplier
@@ -3567,23 +3561,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         try:
             prompt_text = self._ensure_baby_prompt_suffix(prompt_text)
-            promptTokenStrings = self.bot.librarian.tokenizeText(prompt_text)
-            promptTokenIDs = [self.bot.librarian.tokenToIndex.get(t, self.bot.librarian.tokenToIndex["<UNK>"]) for t in promptTokenStrings]
-
-            max_window = getattr(self.bot, 'chatWindowMAX', 256)
-            if len(promptTokenIDs) > max_window:
-                promptTokenIDs = promptTokenIDs[-max_window:]
-                print(f"[_generate_and_reply] cut prompt to last {max_window} tokens.")
-
             num_tokens_to_gen = max(5, min(num_tokens_to_gen, 1999))
             print(f"[_generate_and_reply] requesting {num_tokens_to_gen} tokens for generation.")
-
-            # Only show typing while actually generating
             async with ctx.typing():
-                babyllm_text, generation_error = await self._generate_response_async(promptTokenIDs, num_tokens_to_gen)
-
+                babyllm_text, generation_error = await self._generate_response_async(prompt_text, num_tokens_to_gen)
         except Exception as e:
-            # Catch errors during the setup/typing phase
             print("!!!![_generate_and_reply] CRITICAL ERROR during pre-generation phase.")
             traceback.print_exc()
             await self.bot._discord_reply(ctx, f"I broke :( system just said: {e}")

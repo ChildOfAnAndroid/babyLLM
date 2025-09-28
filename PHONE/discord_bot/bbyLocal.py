@@ -17,30 +17,11 @@ import threading
 import random
 
 import sys
-# Ensure project root is on sys.path when running from phone/discord_bot
-# bbyLocal.py is in .../phone/discord_bot/. We need to go up three levels
-# to reach the repository root where helpers.py lives.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-try:
-    from utils.helpers import save_json_if_changed, load_json_if_exists
-except ModuleNotFoundError:
-    # Fallback: explicitly load helpers.py from project root
-    try:
-        import importlib.util
-        HELPERS_PATH = os.path.join(PROJECT_ROOT, "helpers.py")
-        spec = importlib.util.spec_from_file_location("helpers", HELPERS_PATH)
-        if spec and spec.loader:
-            helpers = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(helpers)
-            save_json_if_changed = getattr(helpers, "save_json_if_changed")
-            load_json_if_exists = getattr(helpers, "load_json_if_exists")
-        else:
-            raise ModuleNotFoundError("helpers module spec not found")
-    except Exception as e:
-        raise ModuleNotFoundError(f"Could not import 'helpers' via sys.path or file path: {e}")
+from utils.helpers import save_json_if_changed, load_json_if_exists
 
 app = Flask(__name__)
 CORS(app)
