@@ -344,5 +344,3 @@ class MEMORY(nn.Module):
     @whocalled
     def clearStats(self):
         self._init_history_buffers()
-
-# __main__ test harness removed (vanity)

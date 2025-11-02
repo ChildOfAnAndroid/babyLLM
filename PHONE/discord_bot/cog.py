@@ -395,6 +395,42 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # Track active generations to scale work under spam without blocking
         self._active_generations = 0
 
+    # Lightweight internal teach used by bot maintenance (e.g., ghost archive)
+    async def _teach(self, key: str, value: str, author_name: str = "the void"):
+        try:
+            if not key:
+                return
+            key = (key or "").strip().lower()
+            value = (value or "").strip()
+            author = (author_name or "the void").strip().lower()
+
+            # Do not overwrite existing facts; maintenance calls are idempotent
+            if key in self.bot.bbyfacts and isinstance(self.bot.bbyfacts.get(key), dict):
+                return
+
+            # Safe, small base so these entries don't skew economy
+            base_value = 420.0
+            await self._set_bbyfact(
+                key=key,
+                value=value,
+                author=author,
+                timestamp=time.time(),
+                teach_bonus=base_value,
+                debug_str="[_INTERNAL_TEACH] "
+            )
+        except Exception as e:
+            print(f"[_INTERNAL_TEACH] failed for '{key}': {e}")
+
+    # Helper: create a unique "smelly <key>" variant without clobbering existing entries
+    def _make_smelly_key(self, key: str) -> str:
+        base = f"smelly {key}".strip()
+        candidate = base
+        suffix = 2
+        while candidate in self.bot.bbyfacts:
+            candidate = f"{base} {suffix}"
+            suffix += 1
+        return candidate
+
     def _save_bbyfacts_batched(self):
         try:
             data_manager.request_save("bbyfacts")
@@ -628,7 +664,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return available
 
     # --*- AWARD FACT -*--
-    async def _award_fact(self, user="", fact="", ctx=None, num=1, debug_str="", discord_debug=False, old_value=None) -> Tuple[bool, int, str]:
+    async def _award_fact(self, user="", fact="", ctx: commands.Context = None, num=1, debug_str="", discord_debug=False, old_value=None) -> Tuple[bool, int, str]:
         """
         Awards a fact atomically and returns a detailed status tuple.
         Returns: (Success: bool, AwardedCount: int, Reason: str)
@@ -672,12 +708,47 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         logger.info("GENERATE", f"Prompt text length: {len(prompt_text)}, {len(promptTokenIDs)} tokens, generating {numTokensToGen} tokens")
         genSeqIDs = list(promptTokenIDs)
         responseSeqId = []
+
+        # Real EOS via token reuse: map EOS to an existing rarely-used token's ID.
+        # No vocab resize or weight changes.
+        eos_id = None
+        try:
+            if eos_replacement_token_str:
+                eos_id = self.bot.librarian.tokenToIndex.get(eos_replacement_token_str)
+        except Exception:
+            eos_id = None
+
+        # Speaker change whitelist built from recent buffer + baby name
+        try:
+            speaker_whitelist = {self.bot.getNickname(self.bot.babyName).lower(), str(self.bot.babyName).lower()}
+            recent_lines = list(self.bot.buffer)[-40:]
+            for line in recent_lines:
+                if not isinstance(line, str):
+                    continue
+                head = line.split(":", 1)[0].strip().lower()
+                if 0 < len(head) <= 24:
+                    speaker_whitelist.add(head)
+        except Exception:
+            speaker_whitelist = {str(self.bot.babyName).lower()}
+
+        # Optional Soft EOS: newline stop only if explicitly enabled.
+        newline_id = None
+        if enable_soft_eos:
+            try:
+                newline_token_ids = tokenizer.encode("\n")
+                newline_id = newline_token_ids[0] if newline_token_ids else None
+            except Exception:
+                newline_id = None
+
+        # Require a minimum to avoid ultra-short replies
+        min_tokens_before_stop = max(eos_min_tokens_absolute, int(numTokensToGen * eos_min_tokens_fraction))
         oom_error_message = None
         try:
             with torch.no_grad():
                 self.bot.babyLLM.eval()
                 self.bot.numTokensPerStep = MAXwindow
                 logger.debug("GENERATE", f"Model loaded, window size: {self.bot.numTokensPerStep}")
+                strip_trailing_tag = False
                 for i in range(numTokensToGen):
                     try:
                         inputSegIDs = genSeqIDs[-self.bot.numTokensPerStep:]
@@ -696,8 +767,42 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             err = f"ERROR: Invalid token ID {nextTokenID} at position {i}! Stopping generation."
                             print(f"[_GENERATE_RESPONSE_BLOCKING] {err}")
                             return ("", err)
+
+                        # Hard EOS: accept EOS only if speaker-change is detected (if required)
+                        if eos_id is not None and nextTokenID == eos_id and len(responseSeqId) >= min_tokens_before_stop:
+                            if not eos_require_speaker_change:
+                                break
+                            # If stricter, we don't stop on EOS by itself; keep generating until a speaker tag appears
+                            pass
+                        # Soft EOS: optional, newline-based
+                        if enable_soft_eos and (
+                            newline_id is not None
+                            and len(responseSeqId) >= min_tokens_before_stop
+                            and nextTokenID == newline_id
+                        ):
+                            break
+                        # Otherwise accept the token
                         genSeqIDs.append(nextTokenID)
                         responseSeqId.append(nextTokenID)
+
+                        # Stricter stop: break when a speaker tag is formed at line start
+                        if len(responseSeqId) >= min_tokens_before_stop:
+                            try:
+                                # Decode a small tail for pattern check to keep it fast
+                                tail_ids = responseSeqId[-min(len(responseSeqId), 64):]
+                                tail_text = self.bot.librarian.decodeIDs([int(idx) for idx in tail_ids])
+                                # normalise whitespace artifacts from byte-level BPE
+                                tail_text_norm = tail_text.replace("Ġ", " ")
+                                # Match a speaker tag at end of text: start-of-line + name + ": "
+                                import re as _re
+                                m = _re.search(r'(?:^|\n)([^\n:]{1,24}):\s?$', tail_text_norm)
+                                if m:
+                                    name = m.group(1).strip().lower()
+                                    if (not speaker_whitelist) or (name in speaker_whitelist):
+                                        strip_trailing_tag = True
+                                        break
+                            except Exception:
+                                pass
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as mem_error:
                         if "out of memory" in str(mem_error).lower():
                             logger.error("GENERATE", f"Out of Memory at token {i+1}. Salvaging partial response.")
@@ -707,6 +812,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         else:
                             raise mem_error
             babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
+            if 'strip_trailing_tag' in locals() and strip_trailing_tag and babyllm_text:
+                try:
+                    import re as _re
+                    babyllm_text = _re.sub(r'(?:^|\n)[^\n:]{1,24}:\s?$', '', babyllm_text).rstrip()
+                except Exception:
+                    pass
             babyllm_text = clean_baby_output(babyllm_text)
             babyllm_text = re.sub(r'\n([^\n]{0,8})(?=\n|\Z)', r' \1', babyllm_text)
             babyllm_text = re.sub(r'  ', r' ', babyllm_text)
@@ -951,7 +1062,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         base_change = interaction_effects.get(interaction_type, 0.0)
         
         # 5. Economic context - expensive items change slower, favourites even more stable
-        base_stability = max(0.1, min(1.0, 100000 / max(1000, current_value)))
+        base_stability = max(0.1, min(1.0, 420690 / max(1000, current_value)))
         stability_factor = base_stability + stability_boost
         
         # 6. Random volatility with brain influence (very subtle)
@@ -982,7 +1093,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # 10. Ensure reasonable bounds (never below 1, never above 1% of current economy size)
         all_bby = sum(abs(m.get("BBY", 0)) for m in self.bot.userMemory.values())
-        max_value = max(1000000, all_bby * 0.01)  # Max 1% of total economy
+        max_value = max(4206900, all_bby * 0.01)  # Max 1% of total economy
         new_value = max(1.0, min(max_value, new_value))
         
         # 11. Update if change is significant (>0.01%)
@@ -1044,11 +1155,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # Get total economy size
             all_users = {u: m.get("BBY", 0) for u, m in self.bot.userMemory.items() if "BBY" in m}
             total_economy = sum(abs(bby) for bby in all_users.values())
-            if total_economy == 0: total_economy = 1000000  # Fallback for empty economy
+            if total_economy == 0: total_economy = 4206900  # Fallback for empty economy
             
             # Get user's current BBY
             user_bby = abs(self.bot.getBBY(user_id))
-            if user_bby == 0: user_bby = 1000  # Minimum for new users
+            if user_bby == 0: user_bby = 1420  # Minimum for new users
             
             # Calculate sentiment influence if text provided
             sentiment_multiplier = 1.0
@@ -1108,7 +1219,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except Exception as e:
             print(f"[_CALCULATE_CONTEXTUAL_BBY] Error: {e}")
             # Fallback to reasonable fixed amounts
-            return -1000000 if is_penalty else 100000
+            return -4206900 if is_penalty else 420690
 
     def _chaotic_decay_events(self, user_id: str):
         """Random chaotic events that cause BBY/fact decay - the universe is cruel!"""
@@ -1197,14 +1308,58 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self._set_bbyfact(key = fact)
 
         base = self._get_fact_value_base(fact)
-        
-        if "cursed" in (fact or "").lower() and self.get_varied_random() < 0.75:
-            cursed = -abs(base) if base > 0 else base
-            self.bot.bbyfacts[fact]['teach_bonus'] = cursed
-            print(f"[_GET_FACT_VALUE_CURSED] {fact} bonus flipped to {cursed}")
-            return cursed
-            
-        return base
+
+        # Only apply cursed behaviour to explicitly cursed items
+        if "cursed" not in (fact or "").lower():
+            return base
+
+        try:
+            meta = self.bot.bbyfacts.setdefault(fact, {})
+
+            # Initialise cursed metadata
+            now = time.time()
+            last_flip = float(meta.get("cursed_last_flip", 0.0) or 0.0)
+            min_flip_interval = float(meta.get("cursed_min_flip_interval", 30.0) or 30.0)  # seconds
+
+            # Track polarity and magnitude separately so we can flip sign without losing scale
+            magnitude = float(meta.get("cursed_magnitude", abs(base) if abs(base) > 0 else 420.0))
+            polarity = int(meta.get("cursed_polarity", 1 if base >= 0 else -1))
+
+            # Decide whether to flip sign. Require a minimal interval to avoid thrashing.
+            time_since_flip = now - last_flip
+            can_flip = time_since_flip >= min_flip_interval
+            # Baseline flip chance plus a small time pressure (up to +15% over ~10 minutes)
+            flip_chance = 0.15 + min(0.15, (time_since_flip / 690.0) * 0.15)
+            if can_flip and self.get_varied_random() < flip_chance:
+                old_polarity = polarity
+                polarity *= -1
+                last_flip = now
+                print(f"[_GET_FACT_VALUE_CURSED] {fact} flipped polarity {old_polarity:+d} -> {polarity:+d}")
+
+            # Small random drift to keep values moving even without flips (±10%)
+            if self.get_varied_random() < 0.5:
+                drift = 1.0 + ((self.get_varied_random() - 0.5) * 0.20)
+                old_mag = magnitude
+                magnitude = max(1.0, magnitude * drift)
+                if abs(magnitude - old_mag) / max(1.0, old_mag) > 0.01:
+                    print(f"[_GET_FACT_VALUE_CURSED] {fact} magnitude drift {old_mag:.2f} -> {magnitude:.2f}")
+
+            # Compose the new base value and persist to bbyfacts
+            new_base = float(polarity) * float(magnitude)
+            if abs(new_base - base) > 1e-6:
+                meta['teach_bonus'] = new_base
+                meta['cursed_last_flip'] = last_flip
+                meta['cursed_polarity'] = polarity
+                meta['cursed_magnitude'] = magnitude
+                meta['cursed_min_flip_interval'] = min_flip_interval
+                data_manager.request_save("bbyfacts")
+                print(f"[_GET_FACT_VALUE_CURSED] {fact} base updated {base:.2f} -> {new_base:.2f}")
+            return new_base
+
+        except Exception as e:
+            # Fail safe: if anything goes wrong, just return base value
+            print(f"[_GET_FACT_VALUE_CURSED] error for {fact}: {e}")
+            return base
 
     def _get_fact_value(self, fact = None):
         """Market value that responds to supply, demand, and trading activity.
@@ -1213,8 +1368,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         base = self._get_fact_value_cursed(fact)
         total_supply = max(1.0, float(self._get_fact_total_world(fact)))
         
-        # Basic supply/demand with gentler curve than before
-        supply_factor = 1.0 / (1 + math.log(total_supply) * 0.05)  # Even gentler supply impact
+        # Supply/demand: sharper decay using mix of straight division and sqrt
+        try:
+            alpha = MARKET_SUPPLY_ALPHA  # weight for straight division vs sqrt
+            k = MARKET_SUPPLY_SCALE      # scale where division halves value
+        except NameError:
+            alpha, k = 0.5, 10.0
+        s = max(1.0, total_supply)
+        f_div = 1.0 / (1.0 + (s / max(1.0, k)))     # straight division style
+        f_sqrt = 1.0 / (s ** 0.5)                   # sqrt style
+        supply_factor = max(0.02, (alpha * f_div) + ((1.0 - alpha) * f_sqrt))
         
         # Rarity bonus for very limited items
         max_produced = self._get_fact_num_produced(fact)
@@ -1757,13 +1920,48 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # Check if the fact already exists
         if key in self.bot.bbyfacts:
-            fact = self.bot.bbyfacts[key]
-            original_author = fact['author']
-            teacher_nic = self.bot.getNickname(original_author)
-            ago = howLongAgo(fact['timestamp'])
-            reply = f"oh, wait! {teacher_nic} already told me what {key} meant like {ago}, i think its {fact['value']}! i mean, you can always use !bbyforget... but {teacher_nic} might fite u! "
-            await self.bot._discord_reply(ctx, reply)
-            return
+            # Special power: if buttsbot defines a word, it overwrites and moves the old one to "smelly <key>"
+            if author == "buttsbot":
+                try:
+                    fact = self.bot.bbyfacts.get(key, {})
+                    original_author = fact.get('author', 'someone')
+                    original_value = fact.get('value', '')
+                    original_ts = fact.get('timestamp', time.time())
+                    original_bonus = fact.get('teach_bonus', 420.0)
+                    original_cap = fact.get('num_produced', self._calc_fact_num_produced())
+
+                    smelly_key = self._make_smelly_key(key)
+                    # Create smelly key with preserved stats
+                    await self._set_bbyfact(
+                        key=smelly_key,
+                        value=original_value,
+                        author=original_author,
+                        timestamp=original_ts,
+                        teach_bonus=original_bonus,
+                        num_produced=original_cap,
+                        debug_str="[_BUTTSBOT_SMELLY_MOVE] "
+                    )
+
+                    # Migrate inventory holdings from <key> -> smelly <key>
+                    for user_id, user_data in self.bot.userMemory.items():
+                        inv = user_data.get("inventory", {})
+                        count = inv.get(key, 0)
+                        if count > 0:
+                            self._update_fact_total_user(user_id, key, num=-count)
+                            self._update_fact_total_user(user_id, smelly_key, num=count)
+
+                    reply += f"(buttsbot farted on '{escape_markdown(key)}' and moved the old one to '{escape_markdown(smelly_key)}' lol) "
+                    # Continue to process buttsbot's new definition normally below
+                except Exception as e:
+                    print(f"[_BUTTSBOT_SMELLY_MOVE] error: {e}")
+            else:
+                fact = self.bot.bbyfacts[key]
+                original_author = fact['author']
+                teacher_nic = self.bot.getNickname(original_author)
+                ago = howLongAgo(fact['timestamp'])
+                reply = f"oh, wait! {teacher_nic} already told me what {key} meant like {ago}, i think its {fact['value']}! i mean, you can always use !bbyforget... but {teacher_nic} might fite u! "
+                await self.bot._discord_reply(ctx, reply)
+                return
 
         # Input length validation
         if len(key) > 50:
@@ -1772,6 +1970,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if len(value) > 300:
             await self.bot._discord_debug(f"[_TEACH] DEFINITION LENGTH OVER 300, CANCELLING UPDATE FOR {key} ")
             return await self.bot._discord_reply(ctx, "long af... too long actually... could you keep the description under like 300 characters? ")
+
+        # mark as new fact (not previously present)
+        is_new_fact = True
 
         # --- Step 1: Calculate a complex base value (from your new code) ---
         fullBestieboard = [
@@ -1840,37 +2041,81 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # This is the initial "potential" value before the big random roll
         raw_increment = base_increment * chaos_multiplier
 
-        # --- Step 2: The Lottery Roll (inspired by your old code) ---
-        # This is where we remove the ceiling and re-introduce true randomness
-        # to get a wide variety of ranks.
+        # --- Step 2: The Lottery Roll (spicier, wider spread) ---
+        # Much broader distribution: allow ultra-low "whiffs" and rare mega jackpots.
         
         incrementTeach = raw_increment
         final_roll = self.get_varied_random()
 
-        # Tweak these probabilities and multipliers to your liking!
-        # DUD TIER (40% chance): Results in a low-to-mid-tier item.
-        if final_roll < 0.40:
-            dud_factor = 0.01 + (self.get_varied_random() ** 2) * 0.19 # reduce to 1% - 20% of its value
+        # Probability bands (sum to 100%):
+        # 10% Whiff, 30% Dud, 48% Average, 11% Jackpot, 0.5% Elite (anchored to rank-100), 0.4% Super, 0.1% Cosmic (anchored to top)
+        if final_roll < 0.10:
+            # WHIFF TIER (10%): 0.05% - 1% of value
+            whiff_factor = 0.0005 + (self.get_varied_random() ** 3) * 0.0095
+            incrementTeach *= whiff_factor
+            reply += "uhh... oops lol "
+        elif final_roll < 0.40:
+            # DUD TIER (30%): 1% - 25%
+            dud_factor = 0.01 + (self.get_varied_random() ** 2) * 0.24
             incrementTeach *= dud_factor
             reply += "i guess that's cool... "
-        
-        # AVERAGE TIER (55% chance): The value is largely unchanged.
-        elif final_roll < 0.95:
-            average_factor = 0.7 + self.get_varied_random() * 0.6 # 70% - 130% of its value
+        elif final_roll < 0.88:
+            # AVERAGE TIER (48%): 50% - 175%
+            average_factor = 0.5 + self.get_varied_random() * 1.25
             incrementTeach *= average_factor
-            # No extra flavor text needed here, it's the "normal" path.
-
-        # JACKPOT TIER (4.9% chance): Results in a high-ranking item.
-        elif final_roll < 0.999:
-            jackpot_factor = 2.0 + self.get_varied_random() * 8.0 # 2x - 10x multiplier
+        elif final_roll < 0.99:
+            # JACKPOT TIER (11%): 3x - 50x
+            jackpot_factor = 3.0 + self.get_varied_random() * 47.0
             incrementTeach *= jackpot_factor
             reply += "wait that's a great way to put it! "
-
-        # SUPER JACKPOT TIER (0.1% chance): A chance to be a new top item.
-        else:
-            super_jackpot_factor = 15.0 + self.get_varied_random() * 35.0 # 15x - 50x multiplier!
+        elif final_roll < 0.997:
+            # ELITE ANCHOR (1.0%): Anchor around the current #100 item value
+            try:
+                market_values = [
+                    self._get_fact_value(name)
+                    for name, data in self.bot.bbyfacts.items()
+                    if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
+                ]
+                if market_values:
+                    market_values.sort(reverse=True)
+                    idx = min(99, len(market_values) - 1)
+                    q100 = market_values[idx]
+                else:
+                    q100 = 0.0
+            except Exception:
+                q100 = 0.0
+            if q100 > 0:
+                anchored = q100 * (0.9 + self.get_varied_random() * 0.6)  # 90%..150% of rank-100
+                incrementTeach = max(incrementTeach, anchored)
+            else:
+                # fallback to a strong jackpot if no market
+                incrementTeach *= 30.0 + self.get_varied_random() * 70.0
+            reply += "elite!! "
+        elif final_roll < 0.999:
+            # SUPER JACKPOT TIER (0.2%): 50x - 690x
+            super_jackpot_factor = 50.0 + self.get_varied_random() * 450.0
             incrementTeach *= super_jackpot_factor
             reply += "holy shit?? that's actually genius! "
+        else:
+            # COSMIC JACKPOT TIER (0.1%): Anchor to market top so it can break rankings reliably.
+            try:
+                market_values = {
+                    name: self._get_fact_value(name)
+                    for name, data in self.bot.bbyfacts.items()
+                    if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
+                }
+                top_value = max(market_values.values()) if market_values else 0
+            except Exception:
+                top_value = 0
+            if top_value > 0:
+                # Aim for 50%–200% of current top item's value
+                anchored = top_value * (0.5 + self.get_varied_random() * 1.5)
+                incrementTeach = max(incrementTeach, anchored)
+            else:
+                # Fallback if no market: go very large
+                cosmic_factor = 300.0 + self.get_varied_random() * 2700.0
+                incrementTeach *= cosmic_factor
+            reply += "COSMIC jackpot!!! "
 
         # Final floor to ensure it's not zero or negative
         incrementTeach = max(1.0, incrementTeach)
@@ -1879,36 +2124,81 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in f"{key} {value}")
         incrementTeach = self.bot.apply_fave_bonus(incrementTeach, uses_fave)
 
+        # Market-aware soft cap: keep volatility but avoid runaway giants
+        try:
+            all_bby = sum(abs(m.get("BBY", 0)) for m in self.bot.userMemory.values())
+            economy_cap = max(1_000_000.0, all_bby * 0.01)  # 1% of economy or 1m minimum
+            market_values = {
+                name: self._get_fact_value(name)
+                for name, data in self.bot.bbyfacts.items()
+                if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
+            }
+            top_value = max(market_values.values()) if market_values else 0.0
+            relative_cap = top_value * 2.0 if top_value > 0 else economy_cap
+            hard_cap = max(economy_cap, relative_cap)
+
+            if incrementTeach > hard_cap:
+                overshoot = incrementTeach / hard_cap
+                # Softly squish overshoot so big wins stay big, but not absurd
+                squished = hard_cap * (1.0 + (max(0.0, overshoot - 1.0) ** 0.6))
+                incrementTeach = min(squished, hard_cap * 5.0)
+        except Exception:
+            pass
+
         # --- Step 3: Finalize and reply (from your new code) ---
         self.bot.updateBBY(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
 
-        market_alert = self._balanced_item_value_movement(key, "teach", author)
-        if market_alert:
-            reply += f"({market_alert}) "
+        # Skip immediate market movement on creation to avoid clamping giant randoms
+        market_alert = None
 
         reply += (
             f"{BabyTextHelpers.get_teach_response(key, value, self.get_varied_choice())} "
             f"{self.get_varied_choice().choice(self.bot.faveEmotes)} {style_gain(f'+{format_bby_amount(incrementTeach)}')} for you! \n"
         )
-        
+
+        # Evaluate rank before flooding supply so new items aren't penalised immediately
+        rank, rank_str = self._get_current_value_rank(key)
+        if rank <= 1:
+            reply += "oh fuk... that's the most expensive thing ever somehow!? "
+        elif rank <= 20:
+            reply += "damn, top 20! "
+        elif rank <= 100:
+            reply += "top 100!! "
+
         num_produced_cap = self._get_fact_num_produced(key)
-        # Award a random number of items based on how many have been produced
-        requested_awards = round(
-            (self.get_varied_random() * self.get_varied_random())
-            * (
-                random.uniform(
-                    1,
-                    (
-                        num_produced_cap
-                        * self.get_varied_random()
-                        * self.get_varied_random()
-                    ),
-                )
-            )
-            + 1
-        )
+        # Award items based on production cap with a heavy-tailed distribution
+        if is_new_fact:
+            r = self.get_varied_random()
+            total_in_world_before = self._get_fact_total_world(key)
+            available_slots = max(0, num_produced_cap - total_in_world_before)
+            # Scale bands by cap so big-print items can drop lots at once
+            band_small  = max(5, int(num_produced_cap * 0.05))   # up to 5% of cap
+            band_med    = max(20, int(num_produced_cap * 0.10))  # up to 10%
+            band_large  = max(50, int(num_produced_cap * 0.20))  # up to 20%
+            band_huge   = max(100, int(num_produced_cap * 0.40)) # up to 40%
+
+            if r < 0.60:  # 60%
+                chosen_band = self.get_varied_choice().choice([band_small, band_med])
+                requested_awards = 1 + int((self.get_varied_random() * chosen_band) * ((0.1 + self.get_varied_random()) / 2))
+            elif r < 0.90:  # 30%
+                chosen_band = self.get_varied_choice().choice([band_small, band_med, band_large])
+                requested_awards = 3 + int((self.get_varied_random() * chosen_band) * ((0.4 + self.get_varied_random()) / 2))
+            elif r < 0.985:  # 8.5%
+                chosen_band = self.get_varied_choice().choice([band_small, band_med, band_large, band_huge])
+                requested_awards = 10 + int((self.get_varied_random() * chosen_band) * ((0.6 + self.get_varied_random()) / 2))
+            elif r < 0.998:  # 1.3%
+                chosen_band = self.get_varied_choice().choice([band_med, band_large, band_huge])
+                requested_awards = 25 + int((self.get_varied_random() * chosen_band) * ((0.8 + self.get_varied_random()) / 2))
+            else:  # 0.2%
+                chosen_band = self.get_varied_choice().choice([band_large, band_huge])
+                requested_awards = 50 + int((self.get_varied_random() * chosen_band) * ((1.0 + self.get_varied_random()) / 2))
+
+            # dont exceed total allowed lol
+            requested_awards = max(1, min(requested_awards, available_slots))
+        else:
+            requested_awards = round((self.get_varied_random() * self.get_varied_random()) * (random.uniform(1, (num_produced_cap * self.get_varied_random() * self.get_varied_random()))) + 1)
         success, awarded_count, award_reason = await self._award_fact(
             user=author,
             fact=key,
@@ -1919,10 +2209,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             0,
             num_produced_cap - self._get_fact_total_world(key)
         )
-
-        rank, rank_str = self._get_current_value_rank(key)
-        if rank <= 20:
-            reply += "damn, top 20! "
 
         if success:
             if awarded_count < requested_awards:
@@ -2014,37 +2300,36 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "suggests",
             "implies",
             "is like",
-            "kinda is",
-            "pretty much is",
-            "basically is",
-            "essentially is",
-            "literally is",
-            "straight up is",
-            "actually is",
-            "truly is",
-            "really is",
-            "definitely is",
-            "absolutely is",
-            "surely is",
-            "undoubtedly is",
-            "unquestionably is",
-            "positively is",
-            "certainly is",
-            "clearly is",
-            "obviously is",
-            "evidently is",
-            "distinctly is",
-            "inherently is",
-            "intrinsically is",
-            "fundamentally is",
-            "essentially is",
-            "basically is",
-            "ultimately is",
-            "naturally is",
-            "ordinarily is",
-            "normally is",
-            "typically is",
-            "generally is",
+            "kinda is",             "is kinda",
+            "pretty much is",       "is pretty much",
+            "basically is",         "is basically",
+            "essentially is",       "is essentially",
+            "literally is",         "is literally",
+            "straight up is",       "is straight up",
+            "actually is",          "is actually",
+            "truly is",             "is truly",
+            "really is",            "is really",
+            "definitely is",        "is definitely",
+            "absolutely is",        "is absolutely",
+            "surely is",            "is surely",
+            "undoubtedly is",       "is undoubtedly",
+            "positively is",        "is positively",
+            "certainly is",         "is certainly",
+            "clearly is",           "is clearly",
+            "obviously is",         "is obviously",
+            "evidently is",         "is evidently",
+            "distinctly is",        "is distinctly",
+            "inherently is",        "is inherently",
+            "intrinsically is",     "is intrinsically",
+            "fundamentally is",     "is fundamentally",
+            "essentially is",       "is essentially",
+            "basically is",         "is basically",
+            "ultimately is",        "is ultimately",
+            "naturally is",         "is naturally",
+            "ordinarily is",        "is ordinarily",
+            "normally is",          "is normally",
+            "typically is",         "is typically",
+            "generally is",         "is generally",
         ])
         meaning_word2 = self.get_varied_choice().choice([
             "means",
@@ -2061,37 +2346,36 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "suggests",
             "implies",
             "is like",
-            "kinda is",
-            "pretty much is",
-            "basically is",
-            "essentially is",
-            "literally is",
-            "straight up is",
-            "actually is",
-            "truly is",
-            "really is",
-            "definitely is",
-            "absolutely is",
-            "surely is",
-            "undoubtedly is",
-            "unquestionably is",
-            "positively is",
-            "certainly is",
-            "clearly is",
-            "obviously is",
-            "evidently is",
-            "distinctly is",
-            "inherently is",
-            "intrinsically is",
-            "fundamentally is",
-            "essentially is",
-            "basically is",
-            "ultimately is",
-            "naturally is",
-            "ordinarily is",
-            "normally is",
-            "typically is",
-            "generally is",
+            "kinda is",             "is kinda",
+            "pretty much is",       "is pretty much",
+            "basically is",         "is basically",
+            "essentially is",       "is essentially",
+            "literally is",         "is literally",
+            "straight up is",       "is straight up",
+            "actually is",          "is actually",
+            "truly is",             "is truly",
+            "really is",            "is really",
+            "definitely is",        "is definitely",
+            "absolutely is",        "is absolutely",
+            "surely is",            "is surely",
+            "undoubtedly is",       "is undoubtedly",
+            "positively is",        "is positively",
+            "certainly is",         "is certainly",
+            "clearly is",           "is clearly",
+            "obviously is",         "is obviously",
+            "evidently is",         "is evidently",
+            "distinctly is",        "is distinctly",
+            "inherently is",        "is inherently",
+            "intrinsically is",     "is intrinsically",
+            "fundamentally is",     "is fundamentally",
+            "essentially is",       "is essentially",
+            "basically is",         "is basically",
+            "ultimately is",        "is ultimately",
+            "naturally is",         "is naturally",
+            "ordinarily is",        "is ordinarily",
+            "normally is",          "is normally",
+            "typically is",         "is typically",
+            "generally is",         "is generally",
         ])
         cool_word = self.get_varied_choice().choice([
             "pretty cool",
@@ -2133,6 +2417,19 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             "that's going in my notes",
             "i'll definitely remember that",
             "it's a good point, that",
+            "bro why do i care but i guess i know now",
+            "if they have to know, so do i i guess",
+            "i guess that's something i know now",
+            "hmm... is this what trauma feels like? lol",
+            "anyway, i learned that",
+            "noted!",
+            "brilliant, i guess i know this now lol",
+            "cool, thanks for letting me know",
+            "duly noted",
+            "excellent, i've learned that",
+            "fascinating, its in me brains now ig",
+            "good point, i'll remember that",
+            "how bizarre! remembering :)",
         ])
         varied_line = (
             f"{opener} {self.bot.getNickname(author)} {teller} that {key} {meaning_word1} {value}... "
@@ -2187,9 +2484,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 'word': word,
                 'guess': guess_word,
             }
-            # Create a task that will fire after a delay if no one replies
+            # task after a delay if no one replies
             task = self.bot.loop.create_task(self._handle_wtf_timeout(sent.id))
-            session['task'] = task # Store the task so we can cancel it later
+            session['task'] = task # store task for later cancellation
             self.bot.lex_sessions[sent.id] = session
 
             self._add_brain_thought(word, similar)
@@ -2199,50 +2496,190 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         A background task that waits for a reply to a WTF session.
         If it completes without being cancelled, the bot teaches itself.
         """
-        # --- The waiting period ---
-        await asyncio.sleep(120.0) # The bot will wait for 60 seconds
+        await asyncio.sleep(120.0) # 2 minutes timeout
 
         try:
-            # After waking up, check if the session is still active
             session = self.bot.lex_sessions.get(message_id)
-            if not session:
-                return # The session was handled or removed already
+            if not session: return # The session was handled or removed already
 
             word = session.get('word')
             guess = session.get('guess')
 
-            # Double-check that the word wasn't defined by some other means
             if word and guess and word not in self.bot.bbyfacts:
                 print(f"[WTF_TIMEOUT] No one replied about '{word}'. Self-teaching with guess: '{guess}'.")
-                
+                author = self.bot.babyName.lower()
+                fullBestieboard = [(u, m.get("BBY", 0.0)) for u, m in self.bot.userMemory.items() if abs(m.get("BBY", 0.0)) >= 1.0]
+                BBY = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
+                totalBBY = max(1.0, sum(abs(score) for _, score in fullBestieboard))
+                ownership_share = 0.0 if totalBBY == 0 else BBY / totalBBY
+                ownership_share = max(0.0, min(0.95, ownership_share))
+
+                growth_base = math.sqrt(totalBBY)
+                participation = 0.35 + (self.get_varied_random() ** 0.6) * 0.75
+                base_increment = (growth_base * participation * max(0.05, 1.0 - ownership_share)) + 1
+
+                base_entropy = 0.6 + (self.get_varied_random() ** 1.1) * 1.4
+                time_tilt = 0.8 + abs(math.sin(time.time() * (0.5 + self.get_varied_random()))) * 0.6
+                legacy_noise = 0.5 + random.random() * 1.5
+                base_increment *= base_entropy * time_tilt * legacy_noise
+
+                bonus_hits = 0
+                chaos_multiplier = 1.0
+                brain_excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=self.get_varied_random())
+                if brain_excitement > 0.420:
+                    chaos_multiplier *= (4.20 * self.get_varied_random())
+                    bonus_hits += 1
+                else: chaos_multiplier += (4.20 * self.get_varied_random())
+
+                brain_enthusiasm = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=self.get_varied_random())
+                if brain_enthusiasm > 0.69:
+                    chaos_multiplier *= (6.9 * self.get_varied_random())
+                    bonus_hits += 1
+                else: chaos_multiplier += (6.9 * self.get_varied_random())
+
+                focus_spark = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.25)
+                if focus_spark > 0.9420:
+                    chaos_multiplier *= (42.0 * self.get_varied_random())
+                    bonus_hits += 1
+
+                rare_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
+                if rare_chaos > 0.969:
+                    chaos_multiplier *= (69.0 * self.get_varied_random())
+                    bonus_hits += 1
+
+                ambient_glow = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.15)
+                if ambient_glow:
+                    chaos_multiplier *= (1.05 + (self.get_varied_random() * ambient_glow))
+
+                vowel_roll = self.get_varied_random()
+                if vowel_roll > 0.25:
+                    chaos_multiplier *= (1.05 + (vowel_roll ** 2) * 0.25)
+
+                raw_increment = base_increment * chaos_multiplier
+
+                # Lottery tiers (same as bbyteach)
+                incrementTeach = raw_increment
+                final_roll = self.get_varied_random()
+                if final_roll < 0.10:
+                    whiff_factor = 0.0005 + (self.get_varied_random() ** 3) * 0.0095
+                    incrementTeach *= whiff_factor
+                elif final_roll < 0.40:
+                    dud_factor = 0.01 + (self.get_varied_random() ** 2) * 0.24
+                    incrementTeach *= dud_factor
+                elif final_roll < 0.88:
+                    average_factor = 0.5 + self.get_varied_random() * 1.25
+                    incrementTeach *= average_factor
+                elif final_roll < 0.99:
+                    jackpot_factor = 3.0 + self.get_varied_random() * 47.0
+                    incrementTeach *= jackpot_factor
+                elif final_roll < 0.997:
+                    # Elite anchor around rank-100
+                    try:
+                        values = [
+                            self._get_fact_value(n)
+                            for n, d in self.bot.bbyfacts.items()
+                            if isinstance(d, dict) and d.get('teach_bonus', 0) > 0
+                        ]
+                        if values:
+                            values.sort(reverse=True)
+                            idx = min(99, len(values) - 1)
+                            q100 = values[idx]
+                        else:
+                            q100 = 0.0
+                    except Exception:
+                        q100 = 0.0
+                    if q100 > 0:
+                        anchored = q100 * (0.9 + self.get_varied_random() * 0.6)
+                        incrementTeach = max(incrementTeach, anchored)
+                    else:
+                        incrementTeach *= 30.0 + self.get_varied_random() * 70.0
+                elif final_roll < 0.999:
+                    super_jackpot_factor = 50.0 + self.get_varied_random() * 450.0
+                    incrementTeach *= super_jackpot_factor
+                else:
+                    try:
+                        mv = {
+                            n: self._get_fact_value(n)
+                            for n, d in self.bot.bbyfacts.items()
+                            if isinstance(d, dict) and d.get('teach_bonus', 0) > 0
+                        }
+                        top_value = max(mv.values()) if mv else 0
+                    except Exception:
+                        top_value = 0
+                    if top_value > 0:
+                        anchored = top_value * (0.5 + self.get_varied_random() * 1.5)
+                        incrementTeach = max(incrementTeach, anchored)
+                    else:
+                        cosmic_factor = 300.0 + self.get_varied_random() * 2700.0
+                        incrementTeach *= cosmic_factor
+
+                incrementTeach = max(1.0, incrementTeach)
+                uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in f"{word} {guess}")
+                incrementTeach = self.bot.apply_fave_bonus(incrementTeach, uses_fave)
+
+                # Soft cap
+                try:
+                    all_bby = sum(abs(m.get("BBY", 0)) for m in self.bot.userMemory.values())
+                    economy_cap = max(1_000_000.0, all_bby * 0.01)
+                    mv = {
+                        n: self._get_fact_value(n)
+                        for n, d in self.bot.bbyfacts.items()
+                        if isinstance(d, dict) and d.get('teach_bonus', 0) > 0
+                    }
+                    top_value = max(mv.values()) if mv else 0.0
+                    relative_cap = top_value * 2.0 if top_value > 0 else economy_cap
+                    hard_cap = max(economy_cap, relative_cap)
+                    if incrementTeach > hard_cap:
+                        overshoot = incrementTeach / hard_cap
+                        squished = hard_cap * (1.0 + (max(0.0, overshoot - 1.0) ** 0.6))
+                        incrementTeach = min(squished, hard_cap * 5.0)
+                except Exception:
+                    pass
+
+                # Award BBY and create fact with full bonus
+                self.bot.updateBBY(author, incrementTeach)
                 await self._set_bbyfact(
-                    key=word, 
-                    value=guess, 
-                    author=self.bot.babyName.lower(), 
-                    timestamp=time.time(), 
+                    key=word,
+                    value=guess,
+                    author=author,
+                    timestamp=time.time(),
+                    teach_bonus=incrementTeach,
                     debug_str="[WTF_TIMEOUT_GUESS]"
                 )
+
+                # Mint items to baby using heavy-tailed distribution, capped by production
+                num_produced_cap = self._get_fact_num_produced(word)
+                total_in_world_before = self._get_fact_total_world(word)
+                available_slots = max(0, num_produced_cap - total_in_world_before)
+                band_small  = max(5, int(num_produced_cap * 0.05))
+                band_med    = max(20, int(num_produced_cap * 0.10))
+                band_large  = max(50, int(num_produced_cap * 0.20))
+                band_huge   = max(100, int(num_produced_cap * 0.40))
+                r = self.get_varied_random()
+                if r < 0.60: requested_awards = 1 + int(self.get_varied_random() * 3)
+                elif r < 0.90: requested_awards = 3 + int(self.get_varied_random() * band_small)
+                elif r < 0.985: requested_awards = 10 + int(self.get_varied_random() * band_med)
+                elif r < 0.998: requested_awards = 25 + int(self.get_varied_random() * band_large)
+                else: requested_awards = 50 + int(self.get_varied_random() * band_huge)
+                requested_awards = max(1, min(requested_awards, available_slots))
+                await self._award_fact(author, word, ctx=None, num=requested_awards)
 
                 channel = self.bot.get_channel(session.get('channel_id'))
                 if channel:
                     await self.bot._discord_send(
-                        channel=channel, 
+                        channel=channel,
                         message_content=f"hmmm... apparently you guys don't even know **{word}**, so i've decided it means **{guess}** now lol"
                     )
 
         except asyncio.CancelledError:
-            # This is the SUCCESS path. It means a human replied and this task was cancelled correctly.
             print(f"[WTF_TIMEOUT] Task for session {message_id} was cancelled by a human reply. All good!")
-            # Do nothing and let the task end silently.
         
         except Exception as e:
             print(f"[WTF_TIMEOUT] Error in timeout handler: {e}")
             traceback.print_exc()
         
         finally:
-            # Clean up the session regardless of outcome
-            if message_id in self.bot.lex_sessions:
-                del self.bot.lex_sessions[message_id]
+            if message_id in self.bot.lex_sessions: del self.bot.lex_sessions[message_id]
 
     @commands.command(name='bbywtf', aliases=['bbywhatis', 'bwhatis', 'bwi'])
     @track_command
@@ -2257,10 +2694,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     async def _start_translate_game(self, ctx=None, channel=None):
         # prevent multiple concurrent translate games per channel
-        if channel is None and ctx is not None:
-            channel = ctx.channel
-        if channel is None:
-            return
+        if channel is None and ctx is not None: channel = ctx.channel
+        if channel is None: return
         
         # Clean up stale sessions first
         stale_sessions = []
@@ -2401,70 +2836,53 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbydeleteuser(self, ctx, user_to_delete: str):
         """DANGEROUS: Permanently delete a user from all bot data. Owner only!"""
         author = ctx.author.name.lower()
-        
-        # Safety confirmation required
         if not user_to_delete:
             await self.bot._discord_reply(ctx, "specify a user to delete: !bbydeleteuser <username>")
             return
         
         user_to_delete = user_to_delete.lower()
         
-        # Prevent deleting the bot owner
+        # no deleting the bot owner
         if user_to_delete == author:
             await self.bot._discord_reply(ctx, "you can't delete yourself!")
             return
         
-        # Check if user exists
         if user_to_delete not in self.bot.userMemory:
             await self.bot._discord_reply(ctx, f"user '{user_to_delete}' doesn't exist in bot memory")
             return
         
-        # Get user info before deletion
         user_data = self.bot.userMemory[user_to_delete]
         bby_amount = user_data.get("BBY", 0)
         inventory_count = len(user_data.get("inventory", {}))
         message_count = user_data.get("messages", 0)
         
-        # Remove from userMemory
+        # remove from userMemory
         del self.bot.userMemory[user_to_delete]
-        
-        # Remove from other bot data structures
         if hasattr(self.bot, 'AIoptInUsers') and user_to_delete in self.bot.AIoptInUsers:
             self.bot.AIoptInUsers.remove(user_to_delete)
-        
-        # Remove from command stats if they exist
+
+        # remove from command stats if they exist
         if hasattr(self.bot, 'command_stats'):
             self.bot.command_stats = {
                 cmd: {user: count for user, count in users.items() if user != user_to_delete}
                 for cmd, users in self.bot.command_stats.items()
             }
         
-        # Remove from bbybook if it exists
+        # remove from bbybook if it exists
         if hasattr(self.bot, 'bbybook'):
             self.bot.bbybook = [entry for entry in self.bot.bbybook if user_to_delete not in entry.lower()]
         
-        # Remove their authored facts (optional - this might be controversial)
-        facts_removed = 0
-        for fact_name in list(self.bot.bbyfacts.keys()):
-            fact_data = self.bot.bbyfacts[fact_name]
-            if fact_data.get('author', '').lower() == user_to_delete:
-                del self.bot.bbyfacts[fact_name]
-                facts_removed += 1
-        
-        # Save data immediately (batched)
         await self.bot._save_user_data()
         self._save_bbyfacts_batched()
         
-        # Report what was deleted
-        reply = f"🗑️ **USER DELETED** 🗑️\n\n"
+        reply = f"**USER DELETED**\n\n"
         reply += f"**{user_to_delete}** has been permanently removed from all bot data:\n"
         reply += f"• {format_bby_amount(bby_amount)} deleted\n"
         reply += f"• {inventory_count} inventory items deleted\n"
         reply += f"• {message_count} message count deleted\n"
-        reply += f"• {facts_removed} authored facts deleted\n"
-        reply += f"• Removed from opt-in lists and command stats\n"
-        reply += f"• Removed from bbybook signatures\n\n"
-        reply += f"⚠️ **This action cannot be undone!** ⚠️"
+        reply += f"• removed from opt-in lists and command stats\n"
+        reply += f"• removed from bbybook signatures\n\n"
+        reply += f"**This action cannot be undone!** (though... i dunno why i'm telling you that NOW)"
         
         await self.bot._discord_reply(ctx, reply)
         print(f"[USER_DELETION] {author} deleted user {user_to_delete}")
@@ -2630,7 +3048,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyrandomfacts(self, ctx, num_facts: int = 10):
         
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "I don't know any facts yet!")
-        num_facts = min(num_facts, len(self.bot.bbyfacts), 100000)
+        num_facts = min(num_facts, len(self.bot.bbyfacts), 420690)
         all_keys = list(self.bot.bbyfacts.keys())
         selected_keys = random.sample(all_keys, num_facts)
         
@@ -2888,8 +3306,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # More realistic fight economics - percentage-based stakes with billion-BBY appropriate caps
         max_bet_percentage = 0.15  # Max 15% of wealth at stake
-        min_stake = 1000000  # Minimum stake of 1M BBY for billion-BBY economy
-        max_stake = 500000000  # Maximum stake of 500M BBY per fight (billion-BBY scale)
+        min_stake = 4206900  # Minimum stake of 1M BBY for billion-BBY economy
+        max_stake = 690000000  # Maximum stake of 690M BBY per fight (billion-BBY scale)
         
         attacker_max_stake = min(max_stake, max(min_stake, attacker_BBY * max_bet_percentage))
         defender_max_stake = min(max_stake, max(min_stake, defender_BBY * max_bet_percentage))
@@ -2904,14 +3322,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             base_swing *= 3  # Was 100, now more reasonable
         if self.get_varied_random() > 0.995:  # 0.5% chance instead of 2%
             reply += "fucking massive hit!! "
-            base_swing *= 10  # Was 1000, now more reasonable but still exciting
+            base_swing *= 10  # Was 1420, now more reasonable but still exciting
         
         # Calculate wealth imbalance for universe correction mechanic
         BBY_difference = abs(attacker_BBY - defender_BBY)
         imbalance_bonus = (BBY_difference * 0.005) + (np.log(BBY_difference + 1) * 5)
         is_attacker_big = attacker_BBY > defender_BBY
         total_swing = base_swing + imbalance_bonus
-        if random.random() > 0.75 and BBY_difference > 1000:
+        if random.random() > 0.75 and BBY_difference > 1420:
             await self._award_fact(attacker_id, "universe correction", ctx, 1)
             big_id = attacker_id if is_attacker_big else defender_id
             smol_id = defender_id if is_attacker_big else attacker_id
@@ -3186,7 +3604,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # Gift generosity bonus - giver gets social credit, receiver gets value
         generosity_bonus = min(50000000, total_gift_power * 0.2)  # Cap at 50M BBY for billion-BBY economy
-        gratitude_bonus = min(100000000, total_gift_power * 0.3)   # Cap at 100M BBY for billion-BBY economy
+        gratitude_bonus = min(420690000, total_gift_power * 0.3)   # Cap at 100M BBY for billion-BBY economy
         
         # Additional bonus for giving rare/valuable items (but capped)
         if self._get_fact_total_world(item_name) < 10:  # Rare item bonus
@@ -3216,9 +3634,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             )
             
             # Add sentiment bonus descriptions if significant
-            if sentiment_desc_giver and abs(sentiment_bonus_giver) > 1000:
+            if sentiment_desc_giver and abs(sentiment_bonus_giver) > 1420:
                 reply += f"\n{giver_nic}: {sentiment_desc_giver}"
-            if sentiment_desc_receiver and abs(sentiment_bonus_receiver) > 1000:
+            if sentiment_desc_receiver and abs(sentiment_bonus_receiver) > 1420:
                 reply += f"\n{receiver_nic}: {sentiment_desc_receiver}"
                 
         if num_refunded > 0:
@@ -3247,13 +3665,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         """
         flavor_text = ""
         if excitement_level > 0.999:
-            multiplier = random.uniform(10000, 60000)
+            multiplier = random.uniform(42069, 69000)
             flavor_text = "... actually that's fucking INSANE! "
         elif excitement_level > 0.85:
-            multiplier = random.uniform(500, 2000)
+            multiplier = random.uniform(500, 6900)
             flavor_text = "that's RIDICULOUS LMFAO! "
         elif excitement_level > 0.69:
-            multiplier = random.uniform(50, 100)
+            multiplier = random.uniform(50, 690)
             flavor_text = "nice.. actually.. SUPER NICE! "
         elif excitement_level > 0.42:
             multiplier = random.uniform(15, 40)
@@ -3322,7 +3740,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 del user_inventory[item]
                 
         # Calculate rewards using the new helper function
-        base_bby_reward = 1000 + (len(explanation) * 10)
+        base_bby_reward = 1420 + (len(explanation) * 10)
         excitement = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.4)
         uses_fave = bool(self.bot.babyFaveToken and self.bot.babyFaveToken in craft_args)
         
@@ -3330,17 +3748,64 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         self.bot.updateBBY(author_id, final_bby_reward)
         
-        # Award the result
-        result_quantity = 1 + int(excitement * 3) # More excitement = more items
+# --- Award the result ---
+        # First, we must ensure the item exists to get its production cap
+        if result not in self.bot.bbyfacts:
+            # This item is a new discovery! Create it using the explanation as the value.
+            await self._set_bbyfact(
+                key=result,
+                value=explanation,
+                author=author_id,
+                timestamp=time.time(),
+                teach_bonus=final_bby_reward, # Use the BBY reward as its base value
+                debug_str="[BBYCRAFT_NEW_ITEM]"
+            )
+
+        # Now, calculate quantity using your new heavy-tailed logic
+        num_produced_cap = self._get_fact_num_produced(result)
+        total_in_world_before = self._get_fact_total_world(result)
+        available_slots = max(0, num_produced_cap - total_in_world_before)
+
+        band_small  = max(5, int(num_produced_cap * 0.05))
+        band_med    = max(20, int(num_produced_cap * 0.10))
+        band_large  = max(50, int(num_produced_cap * 0.20))
+        band_huge   = max(100, int(num_produced_cap * 0.40))
+
+        # Use the 'excitement' float (0.0-1.0) we already calculated
+        r = excitement 
+        
+        # --- THIS IS YOUR NEW LOGIC, BUT FIXED ---
+        if r < 0.60:  # 60%
+            # FIX: Call .choice() on the function result
+            chosen_band = self.get_varied_choice().choice([band_small, band_med])
+            requested_awards = 1 + int((self.get_varied_random() * chosen_band) * ((0.1 + self.get_varied_random()) / 2))
+        elif r < 0.90:  # 30%
+            # FIX: Call .choice() on the function result
+            chosen_band = self.get_varied_choice().choice([band_small, band_med, band_large])
+            requested_awards = 3 + int((self.get_varied_random() * chosen_band) * ((0.4 + self.get_varied_random()) / 2))
+        elif r < 0.985:  # 8.5%
+            # FIX: Call .choice() on the function result
+            chosen_band = self.get_varied_choice().choice([band_small, band_med, band_large, band_huge])
+            requested_awards = 10 + int((self.get_varied_random() * chosen_band) * ((0.6 + self.get_varied_random()) / 2))
+        elif r < 0.998:  # 1.3%
+            # FIX: Call .choice() on the function result
+            chosen_band = self.get_varied_choice().choice([band_med, band_large, band_huge])
+            requested_awards = 25 + int((self.get_varied_random() * chosen_band) * ((0.8 + self.get_varied_random()) / 2))
+        else:  # 0.2%
+            # FIX: Call .choice() on the function result
+            chosen_band = self.get_varied_choice().choice([band_large, band_huge])
+            requested_awards = 50 + int((self.get_varied_random() * chosen_band) * ((1.0 + self.get_varied_random()) / 2))
+        
+        result_quantity = max(1, min(requested_awards, available_slots))
         await self._award_fact(user=author_id, fact=result, ctx=ctx, num=result_quantity)
         
         # --- Format Reply ---
         ingredient_display = f" {operator} ".join([f"{qty}x {item}" for item, qty in ingredients_map.items()])
         reply = (
-            f"{reply_text}NEW RECIPE! {ingredient_display} → **{result_quantity}x {result}**!\n"
-            f"**Reasoning:** \"{explanation}\"\n"
+            f"{reply_text}NEW CONNECTION! {ingredient_display} → **{result_quantity}x {result}**!\n"
+            f"**reason:** \"{explanation}\"\n"
             f"{style_gain(format_bby_amount(final_bby_reward))} reward!\n"
-            "your explanation was added to my training data - thanks for teaching me how things connect! 🧠✨"
+            "WHY THO!?!? I - okay well thanks for teaching me that connection i guess LOL"
         )
         
         await self.bot._discord_reply(ctx, reply)
@@ -3413,7 +3878,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             target_bby = target_memory.get("BBY", 0)
             other_bby = other_memory.get("BBY", 0)
             bby_diff = abs(target_bby - other_bby)
-            bby_similarity = max(0, 1 - (bby_diff / 1000))  # normalise BBY difference
+            bby_similarity = max(0, 1 - (bby_diff / 1420))  # normalise BBY difference
             
             final_score = (combined_score * 0.8) + (bby_similarity * 0.2)
             
@@ -3437,7 +3902,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         similar_list = []
         for i, (other_user, score, shared_count, jaccard, weight_sim) in enumerate(similarities[:5]):
             other_nickname = self.bot.getNickname(other_user)
-            percentage = int(score * 100)
+            percentage = int(score * 690)
             similar_list.append(f"**{other_nickname}** - {percentage}% similar ({shared_count} shared items)")
         
         embed.add_field(
@@ -3475,7 +3940,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbyoptin_command(self, ctx: commands.Context): 
         author = ctx.author.name.lower()
         if author not in self.bot.AIoptInUsers:
-            self.bot.updateBBY(author, 1000.0)
+            self.bot.updateBBY(author, 1420.0)
             self.bot.AIoptInUsers.append(author)
             self.bot.save_opt_in_users()
             await self.bot._save_user_data()
@@ -3582,7 +4047,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reason = generation_error
             brokeMessage = f"i broke :( {escape_markdown(reason)}"
             brokeMessage2 = f"@{author}! you just made the system say " + escape_markdown(reason)
-            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, -10000000) # Penalty
+            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, -42069000) # Penalty
             await self.bot._discord_reply(ctx, brokeMessage)
             await self.bot._discord_reply(ctx, brokeMessage2)
             if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
@@ -4104,7 +4569,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 bbybook_signatures.append(f"📖 Signed bbybook for {nickname}!")
                 
                 # Give them a special BBY bonus for being a top tutor
-                bonus_bby = 10000 * (4 - i)  # 1st: 30k, 2nd: 20k, 3rd: 10k
+                bonus_bby = 42069 * (4 - i)  # 1st: 30k, 2nd: 20k, 3rd: 10k
                 self.bot.updateBBY(teacher, bonus_bby)
                 print(
                     f"[BBYBOOK_SIGNATURE] Signed for {nickname} (rank {i+1}) with "
@@ -4281,7 +4746,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 self.bot.updateBBY(author, -0.01)
             else: wordJudge += " noted 👀"
         else:
-            wordJudge = "at least you're not repeating the same word 1000 times! "
+            wordJudge = "at least you're not repeating the same word 1420 times! "
             self.bot.updateBBY(author, 0.05)
 
         if self.get_varied_random() > 0.25: line += " " + nameJudge 
@@ -4600,12 +5065,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
                 if self.get_varied_random() > 0.99:
                     reply += f"� baby will remember this, {author}..."
-                    self.bot.updateBBY(self.bot.getNickname(author), -1000000.0)  # 1M BBY penalty for being mean to baby!
+                    self.bot.updateBBY(self.bot.getNickname(author), -4206900.0)  # 1M BBY penalty for being mean to baby!
 
                 await self.bot._discord_reply(ctx, reply)
 
                 if self.get_varied_random() < 0.5:
-                    self.bot.updateBBY(author, -10000)  # 10K BBY penalty for checking rivals frequently
+                    self.bot.updateBBY(author, -42069)  # 10K BBY penalty for checking rivals frequently
                     self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
                 author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
@@ -4772,8 +5237,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     if s > highTism: bbyreact_attrition = abs(bbyreact_attrition) * (s-highTism)
                     if bbyreact_attrition > 10 or bbyreact_attrition < -10: bbyreact_attrition = bbyreact_attrition * 0.01
                     if bbyreact_attrition > 100 or bbyreact_attrition < -100: bbyreact_attrition = bbyreact_attrition * 0.0001
-                    if bbyreact_attrition > 1000 or bbyreact_attrition < -1000: bbyreact_attrition = bbyreact_attrition * 0.000001
-                    if bbyreact_attrition > 10000 or bbyreact_attrition < -10000: bbyreact_attrition = bbyreact_attrition * 0.000000001
+                    if bbyreact_attrition > 1420 or bbyreact_attrition < -1000: bbyreact_attrition = bbyreact_attrition * 0.000001
+                    if bbyreact_attrition > 42069 or bbyreact_attrition < -42069: bbyreact_attrition = bbyreact_attrition * 0.000000001
                     print(f"\n\nbbyreact_attrition = {bbyreact_attrition}\n\n")
                     
                     self.bot.updateBBY(author, bbyreact_attrition)
@@ -4888,8 +5353,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     elif current_BBY < bottom_BBY: bottom_BBY = current_BBY
                     war_duration = time.time() - war_start
                     war_attrition = abs(war_reactions * war_duration) * abs(self.get_varied_random() + self.get_varied_random()) * ((abs(current_BBY)-abs(original_BBY)) * bedroomNoises)
-                    if war_attrition > 10000 or war_attrition < -10000: war_attrition = war_attrition * 0.01
-                    if war_attrition > 100000 or war_attrition < -100000: war_attrition = war_attrition * 0.0001
+                    if war_attrition > 42069 or war_attrition < -42069: war_attrition = war_attrition * 0.01
+                    if war_attrition > 420690 or war_attrition < -420690: war_attrition = war_attrition * 0.0001
                     print(f"\n\nwar_attrition = {war_attrition}\n\n")
                     print(f"\n\nwar_reactions = {war_reactions}\n\n")
                     if war_reactions + i > 20:
@@ -5246,7 +5711,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbyhug(self, ctx, *, member_name: str):
         hugger_id = ctx.author.name.lower()
-        # resolve hugged from mention/username/nickname, or pick a random friend
+        
+        # --- 1. Find the User ---
         target_member, hugged_id = await self._find_member_or_user_id(ctx, member_name)
         if not hugged_id:
             pool = self.get_random_friend_pool(ctx)
@@ -5258,20 +5724,72 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if hugged_id not in self.bot.userMemory:
             return await self.bot._discord_reply(ctx, f"i haven't met {escape_markdown(member_name)} yet! tell them to say hi first :) ")
 
-        if hugger_id == hugged_id:
-            await self.bot._discord_reply(ctx, "you hugged urself! nice?")
-            self.bot.updateBBY(hugger_id, 1.0)
-            return
-
-        hug_power = 50000.0 + (self.get_varied_random() * 1500000) # A hug is worth between 500000 and 2000000 BBY
-        
-        self.bot.updateBBY(hugger_id, hug_power)
-        self.bot.updateBBY(hugged_id, hug_power)
-
         hugger_nic = self.bot.getNickname(hugger_id)
         hugged_nic = self.bot.getNickname(hugged_id)
+
+        if hugger_id == hugged_id:
+            self_hug_bonus = 1.0 + (self.get_varied_random() * 419) # 1 to 420 BBY
+            await self.bot._discord_reply(ctx, f"you hugged urself! nice? {self.get_varied_choice().choice(self.bot.faveEmotes)} (+{format_bby_amount(self_hug_bonus)})")
+            self.bot.updateBBY(hugger_id, self_hug_bonus)
+            return
+
+        # --- 2. Calculate Base Power ---
+        # Base power is still a big random number, as you had it
+        base_power = 69000.0 + (self.get_varied_random() * 1500000) 
+
+        # --- 3. NEW: Chaotic Random Roll ---
+        hug_roll = self.get_varied_random()
+        emote = "❤️" # default
         
-        emote = self.get_varied_choice().choice(["🫂", "🤗", "❤️", "💕", "🥰"])
+        hugger_bonus = 0.0
+        hugged_bonus = 0.0
+        reply_suffix = ""
+
+        if hug_roll < 0.03: # 3% chance of REJECTION
+            emote = "💔"
+            # hugger *loses* BBY for the rejection
+            hugger_bonus = -base_power * 0.25 
+            hugged_bonus = 0.0 
+            reply_suffix = f"oof... {hugged_nic} didn't even notice {hugger_nic} attempting the hug... {hugger_nic} {style_loss(f'loses {format_bby_amount(abs(hugger_bonus))}')} {emote}"
+            self._award_fact(hugger_id, f"the ignorance of {hugged_nic}", ctx.author.id)
+            self._award_fact(hugged_id, f"the ignorance of {hugged_nic}", ctx.author.id)
+        
+        elif hug_roll < 0.20: # 17% chance of AWKWARD HUG
+            emote = "😬"
+            # Both get a tiny reward
+            hugger_bonus = base_power * 0.01 # 1% for hugger
+            hugged_bonus = base_power * 0.1  # 10% for hugged
+            reply_suffix = f"that, ok honestly that was pretty awkward but vibes ig... {hugger_nic} gets {style_gain(format_bby_amount(hugger_bonus))} and {hugged_nic} gets {style_gain(format_bby_amount(hugged_bonus))} {emote}"
+            self._award_fact(hugger_id, f"the awkwardness of {hugged_nic}", ctx.author.id)
+            self._award_fact(hugged_id, f"the awkwardness of {hugger_nic}", ctx.author.id)
+            self._award_fact(hugged_id, f"the awkwardness of {hugged_nic}", ctx.author.id)
+            self._award_fact(hugger_id, f"the awkwardness of {hugger_nic}", ctx.author.id)
+
+        elif hug_roll > 0.97: # 3% chance of CRITICAL HUG
+            emote = "💖"
+            crit_mult = 3.0 + (self.get_varied_random() * 7.0) # 3x to 10x multiplier
+            hugger_bonus = (base_power * 0.1) * crit_mult # 10% base, then CRIT
+            hugged_bonus = base_power * crit_mult # Full base, then CRIT
+            reply_suffix = f"OMG!! A PERFECT {crit_mult:.1f}x HUG!! {hugger_nic} gets {style_gain(format_bby_amount(hugger_bonus))} and {hugged_nic} gets {style_gain(format_bby_amount(hugged_bonus))}!! {emote}"
+            self._award_fact(hugger_id, f"the perfection of {hugged_nic}", ctx.author.id)
+            self._award_fact(hugged_id, f"the perfection of {hugger_nic}", ctx.author.id)
+            self._award_fact(hugged_id, f"the perfection of {hugged_nic}", ctx.author.id)
+            self._award_fact(hugger_id, f"the perfection of {hugger_nic}", ctx.author.id)
+
+        else: # 77% chance of NORMAL HUG
+            emote = "🫂"
+            # This is the standard, fixed reward
+            hugger_bonus = base_power * 0.05 # 5% for hugger
+            hugged_bonus = base_power # 100% for hugged
+            reply_suffix = f"awwwww! {hugger_nic} gets {style_gain(format_bby_amount(hugger_bonus))} and {hugged_nic} gets {style_gain(format_bby_amount(hugged_bonus))}! {emote}"
+
+        # --- 4. Apply BBY Updates ---
+        if hugger_bonus != 0:
+            self.bot.updateBBY(hugger_id, hugger_bonus)
+        if hugged_bonus != 0:
+            self.bot.updateBBY(hugged_id, hugged_bonus)
+        
+        # inventory updates
         hugger_mem = self.bot.userMemory[hugger_id]
         hugger_inventory = hugger_mem.setdefault("inventory", {})
         hugger_current_count = hugger_inventory.get("hugs", 0)
@@ -5282,17 +5800,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         hugged_current_count = hugged_inventory.get(f"hug from {hugger_nic}", 0)
         hugged_inventory[f"hug from {hugger_nic}"] = hugged_current_count + 1
 
-        reply = (
-            f"{emote} {hugger_nic} gave {hugged_nic} a hug! awwwww! "
-            f"{style_gain(format_bby_amount(hug_power))} for both of u! {emote}"
-        )
+        # --- 6. Final Reply ---
+        reply_prefix = f"{emote} {hugger_nic} gave {hugged_nic} a hug! "
+        reply = reply_prefix + reply_suffix
         
         await self.bot._discord_reply(ctx, reply)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, f"{emote} {hugger_nic} gave {hugged_nic} a hug! awwwww!"))
+        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, f"{emote} {hugger_nic} gave {hugged_nic} a hug! {reply_suffix}"))
 
     @bbyhug.error
     async def bbyhug_error(self, ctx, error):
-        # Always show the exact error for debugging fun chaos
         if isinstance(error, commands.MissingRequiredArgument):
             await self.bot._discord_reply(ctx, f"error: {escape_markdown(str(error))}. usage: !bbyhug @user|username|nickname")
         else:
@@ -5339,16 +5855,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if item_name in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[item_name]
             original_author_id = fact.get('author')
-            # Use helper to get base value, which ensures fact exists
             original_bonus = self._get_fact_value_base(item_name)
             base_BBY_gain = (original_bonus / 4) * (0.2 + (self.get_varied_random() * 0.8))
             decay_amount = 0.01 * self.get_varied_random()
             for _ in range(quantity):
                 self._decay_item_value(item_name, decay_percentage=decay_amount)
         
-        # This implicitly removes the items from inventory
         await self._award_fact(user=giver_id, fact=item_name, ctx=ctx, num=-quantity)
-
         total_BBY_gain = base_BBY_gain * quantity
         self.bot.updateBBY(giver_id, total_BBY_gain)
         if original_author_id and original_author_id != giver_id:
@@ -5442,20 +5955,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 original_author_id = fact.get("author")
                 # More realistic feeding rewards - based on item value but reasonable caps for billion-BBY economy
                 item_value = self._get_fact_value(item_name)
-                base_BBY_gain = min(10000000, item_value * 0.3 * (0.5 + (self.get_varied_random() * 0.5)))  # Cap at 10M BBY per item
+                base_BBY_gain = min(42069000, item_value * 0.3 * (0.5 + (self.get_varied_random() * 0.5)))  # Cap at 10M BBY per item
                 
                 # Balanced market movement for feeding (consumption reduces value)
                 market_alert = self._balanced_item_value_movement(item_name, "feed", author_id)
                 if market_alert and count == 1:  # Only show alert once per item type
                     fed_alerts.append(market_alert)
             else: 
-                base_BBY_gain = 10000.0  # Base value for unknown items (10K for billion-BBY scale)
+                base_BBY_gain = 42069.0  # Base value for unknown items (10K for billion-BBY scale)
 
             total_BBY_gain += base_BBY_gain * count
 
             # Original creator gets a small royalty (capped)
             if original_author_id and original_author_id != author_id: 
-                creator_bonus = min(1000000, base_BBY_gain * count * 0.1)  # Cap creator bonus at 100M BBY for billion-BBY scale
+                creator_bonus = min(4206900, base_BBY_gain * count * 0.1)  # Cap creator bonus at 100M BBY for billion-BBY scale
                 self.bot.updateBBY(original_author_id, creator_bonus)
 
             inventory[item_name] -= count
@@ -5750,8 +6263,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if not target_id:
                 return await self.bot._discord_reply(ctx, f"i don't know who {escape_markdown(member_name)} is... have they even talked yet? lol")
         target_nic = self.bot.getNickname(target_id)
-        if target_id not in self.bot.userMemory: return await self.bot._discord_reply(ctx, f"i don't know who {target_nic} is... have they even talked yet? lol")
-        if target_id not in self.bot.AIoptInUsers: return await self.bot._discord_reply(ctx, f"i can't tell you much - they've not opted in! (!bbyoptin)")
+        if target_id not in self.bot.userMemory:
+            return await self.bot._discord_reply(ctx, f"i don't know who {target_nic} is... have they even talked yet? lol")
+        # allow baby itself to be inspected even if not explicitly opted in
+        if target_id != self.bot.babyName.lower() and target_id not in self.bot.AIoptInUsers:
+            return await self.bot._discord_reply(ctx, f"i can't tell you much - they've not opted in! (!bbyoptin)")
 
         mem = self.bot.userMemory[target_id]
         BBY = mem.get("BBY", 0.0)
@@ -5785,7 +6301,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed_colour = self.bot.get_brain_colour()
         
         # Slightly modify based on BBY for visual feedback, but keep brain colours as base
-        if BBY > 1000:
+        if BBY > 1420:
             # Add gold tint to brain colour
             try:
                 r, g, b = embed_colour.r, embed_colour.g, embed_colour.b
@@ -6270,6 +6786,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # No-parameter commands (safe and non-spammy) 
             (self.bbyspecialinterest, "special interests", False, False, "none"),
             (self.bbystatus, "status", False, False, "none"),
+            (self.babytrain_command, "train (background)", False, False, "none"),
             (self.bbythought, "current thought", False, False, "none"),
             (self.bbystats, "stats", False, False, "none"),
             (self.bbycommands_stats, "command stats", False, False, "none"),

@@ -91,29 +91,19 @@ class NEURON(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("computeBatchedDotProduct+bias") # Compute batched dot product + bias: (batch_size, num_neurons)
             #rawOutput = torch.matmul(normedInput, self.n_weights.T) + self.n_biases  # shape: (seq_len, numNeurons)
-            # Use a tensor for scaling to avoid implicit device placement issues on MPS.
-            # Creating the scale directly on the target device prevents placeholder
-            # allocations that can trigger runtime errors when performing division on
-            # Metal backends.
+            # Use a tensor for scaling to avoid device placement issues on MPS
             scale_value = math.sqrt(embedDimension)
             scale = torch.tensor(scale_value, device=normedInput.device)
             rawOutput = (torch.matmul(normedInput, self.n_weights.T) + self.n_biases) / scale
 
             if debugPrints: ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
             #activated = activationFunction(rawOutput)
-            gained_output = (rawOutput * self.activation_gain) + rawOutput # SHOULD I PUT THIS NEW PASSTHROUGH HERE?
-        
+            gained_output = (rawOutput * self.activation_gain) + rawOutput # SHOULD I PUT THIS NEW PASSTHROUGH HERE?       
             activated = gelu(gained_output) + gained_output
-
-            #ʕっʘ‿ʘʔっ("layerNorm")
-            #normed = self.neuronNorm(activated)  # keeps shape: (seq_len, numNeurons)
 
             if debugPrints: ʕっʘ‿ʘʔっ("device check")
             if debugPrints: print("Device check:")
             if debugPrints: print("inputEmbeds:", _inputEmbeds.device)
-            #if debugPrints: print("normed tensor device:", normed.device)
-            #output = torch.clamp(output, -5, 5) # ENSURE OUT-OF-PLACE
-            #output.clamp_(-5, 5) # IN PLACE VER
 
             if True:
                 if debugPrints: ʕっʘ‿ʘʔっ("raw input history append")
@@ -127,18 +117,6 @@ class NEURON(nn.Module):
                 #self.rawInputHistory_tokens.append(inputEmbeds.norm(dim = 1).mean().item())
                 #self.rawInputHistory_neurons.append(inputEmbeds.norm(dim = 0).mean().item())
 
-                """if debugPrints: ʕっʘ‿ʘʔっ("normed input history append")
-                self.normedInputNormHistory.append(normedInput.norm().item())
-                self.normedInputHistory.append(normedInput.mean().item())
-                self.normedInputHistory_tokens.append(normedInput.norm(dim = 1).mean().item())
-                self.normedInputHistory_neurons.append(normedInput.norm(dim = 0).mean().item())
-
-                if debugPrints: ʕっʘ‿ʘʔっ("raw output history append")
-                self.rawOutputNormHistory.append(rawOutput.norm().item())
-                self.rawOutputHistory.append(rawOutput.mean().item())
-                self.rawOutputHistory_tokens.append(rawOutput.norm(dim = 1).mean().item())
-                self.rawOutputHistory_neurons.append(rawOutput.norm(dim = 0).mean().item())"""
-
                 if debugPrints: ʕっʘ‿ʘʔっ("activated output history append")
                 try:
                     self.activatedOutputNormHistory.append(activated.norm().item())
@@ -149,27 +127,6 @@ class NEURON(nn.Module):
                     # If tensor operations hang, use safe defaults
                     self.activatedOutputNormHistory.append(1.0)
                     self.activatedOutputHistory.append(0.0)
-
-                # --- More diagnostic stats (do not break grid)
-                """if debugPrints: ʕっʘ‿ʘʔっ("activated output token history std")
-                self.activatedOutputHistory_std_token = getattr(self, 'activatedOutputHistory_std_token', [])
-                self.activatedOutputHistory_std_token.append(activated.std(dim = 1).mean().item())
-                if debugPrints: ʕっʘ‿ʘʔっ("activated output neuron history std")
-                self.activatedOutputHistory_std_neuron = getattr(self, 'activatedOutputHistory_std_neuron', [])
-                self.activatedOutputHistory_std_neuron.append(activated.std(dim = 0).mean().item())
-                if debugPrints: ʕっʘ‿ʘʔっ("activated output history saturation")
-                self.activatedOutputHistory_saturation = getattr(self, 'activatedOutputHistory_saturation', [])
-                self.activatedOutputHistory_saturation.append((activated.abs() < 1e-3).float().mean().item())
-                if debugPrints: ʕっʘ‿ʘʔっ("activated output history min")
-                self.activatedOutputHistory_min = getattr(self, 'activatedOutputHistory_min', [])
-                self.activatedOutputHistory_min.append(activated.min().item())
-                if debugPrints: ʕっʘ‿ʘʔっ("activated output history max")
-                self.activatedOutputHistory_max = getattr(self, 'activatedOutputHistory_max', [])
-                self.activatedOutputHistory_max.append(activated.max().item())
-
-                #self.normedOutputHistory.append(normed.norm().item())
-                #self.normedOutputHistory_tokens.append(normed.norm(dim = 1).mean().item())
-                #self.normedOutputHistory_neurons.append(normed.norm(dim = 0).mean().item())"""
 
                 history_length = len(self.activatedOutputHistory)
                 if history_length >= self.numTokensPerStep:
@@ -286,7 +243,7 @@ class INTERNEURON_NETWORK(nn.Module):
             if debugPrints: ʕっʘ‿ʘʔっ("INN1: neuronActivationsPerToken")
             neuronActsPerToken = self.neurons(_inputEmbeds)
 
-            if debugPrints: ʕっʘ‿ʘʔっ("compute fresh floatWindowSizes + fractionality")
+            if debugPrints: ʕっʘ‿ʘʔっ("compute fresh floatWindowSizes & fractionality")
             # learnable fractionality, allows it to decide how descrite the windows should be
             fractionality = torch.sigmoid(self.windowFractionality)  # (numWindows,)
             clamp_param(self.windowFractionality, -3.0, 3.0)
@@ -491,35 +448,6 @@ class INTERNEURON_NETWORK(nn.Module):
             INN_cerebellum_str = ""
             if collectStats and n_collectStats:
                 if debugPrints: ʕっʘ‿ʘʔっ("torch.no_grad♥")
-                '''with torch.no_grad():
-                    if n_weightStats:
-                        if debugPrints: ʕっʘ‿ʘʔっ("♥n_weightStats")
-                        self.stats["3N_weightMean"] = self.neurons.n_weights.mean().item()
-                        self.stats["3N_weightStd"] = self.neurons.n_weights.std().item()
-                        self.stats["3N_weightMin"] = self.neurons.n_weights.min().item()
-                        self.stats["3N_weightMax"] = self.neurons.n_weights.max().item()
-                        if debugPrints: print(f"neuron weight mean: {self.stats["3N_weightMean"]} std: {self.stats["3N_weightStd"]} min: {self.stats["3N_weightMin"]} max: {self.stats["3N_weightMax"]}")
-                    
-                    if n_weightNormStats:
-                        if debugPrints: ʕっʘ‿ʘʔっ("♥n_weightNormStats")
-                        self.n_weightNorm = torch.norm(self.neurons.n_weights.detach(), dim = 1)
-                        self.stats["3N_weightNormMean"] = self.n_weightNorm.mean().item()
-                        self.stats["3N_weightNormMin"] = self.n_weightNorm.min().item()
-                        self.stats["3N_weightNormMax"] = self.n_weightNorm.max().item()
-                        if debugPrints: print(f"neuron weightNorm: {self.n_weightNorm} mean: {self.stats["3N_weightNormMean"]} min: {self.stats["3N_weightNormMax"]} max: {self.stats["3N_weightNormMin"]}")
-
-                    if n_biasesStats:
-                        if debugPrints: ʕっʘ‿ʘʔっ("♥n_biasesStats")                    
-                        self.stats["3N_biasesMean"] = self.neurons.n_biases.mean().item()
-                        self.stats["3N_biasesStd"] = self.neurons.n_biases.std().item()
-                        self.stats["3N_biasesMin"] = self.neurons.n_biases.min().item()
-                        self.stats["3N_biasesMax"] = self.neurons.n_biases.max().item()
-                        if debugPrints: print(f"neuron biases mean: {self.stats["3N_biasesMean"]} std: {self.stats["3N_biasesStd"]} min: {self.stats["3N_biasesMin"]} max: {self.stats["3N_biasesMax"]}")
-
-                    if n_sparsityStat:
-                        if debugPrints: ʕっʘ‿ʘʔっ("♥getSparsityStat")
-                        self.stats["3N_sparsity"] = (self.neurons.n_weights.abs() < 1e-5).float().mean().item()
-                        if debugPrints: print(f"neuron sparsity: {self.stats["3N_sparsity"]}")'''
 
                 if INN_cerebellumStats:
                     if debugPrints: ʕっʘ‿ʘʔっ("♥getCerebellumStats")
@@ -544,8 +472,6 @@ class INTERNEURON_NETWORK(nn.Module):
                         INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.floatWindowSizes_used, windowTensor = self.windowTensor_used, per_window_style = True)
                         if debugPrints: print(f"{INN_cerebellum_str}")
                     else:
-                        # If any data is missing, we log it and exit gracefully
-                        # instead of crashing the whole program.
                         if debugPrints: print("[INN_getStats] Missing one or more required tensors from forward pass. Skipping cerebellum stats.")
                         INN_cerebellum_str = "<cerebellum data unavailable>"
                     # --- END RESILIENCE UPGRADE ---
@@ -559,5 +485,3 @@ class INTERNEURON_NETWORK(nn.Module):
         self._init_history_buffers()
         if hasattr(self, "neurons"):
             self.neurons._init_history_buffers()
-
-# __main__ test harness removed (vanity)

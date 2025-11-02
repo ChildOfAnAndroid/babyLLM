@@ -129,7 +129,7 @@ class AutonomyPlanner:
             else:
                 lines.append(f"attention sits comfy (gate {g:.2f}); small focus/refocus reps now")
 
-        # Memory + load flavour
+        # Memory & load flavour
         if isinstance(mf, (int, float)) and isinstance(cl, (int, float)):
             if mf > 0.35 and cl > 0.3:
                 lines.append("lots of cross‑links buzzing; i’ll pin a couple clean examples into my training buffer")

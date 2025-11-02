@@ -3,7 +3,7 @@
 
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ --- 
-# BABYLLM HEADER + VERSION TOOL // tools/header_version.py
+# BABYLLM HEADER & VERSION TOOL // tools/header_version.py
 # v0.0.1
 
 import argparse

@@ -837,6 +837,16 @@ class LIBRARIAN:
                 toks = list(text)
             if not toks:
                 return 0
+            # Optional: append EOS token at the end of a chat line to teach end-of-sequence behavior
+            try:
+                from config import enable_train_append_eos, eos_replacement_token_str, eos_append_probability
+                if enable_train_append_eos and eos_replacement_token_str and isinstance(text, str):
+                    import random as _r
+                    if _r.random() < float(eos_append_probability):
+                        if not toks or toks[-1] != eos_replacement_token_str:
+                            toks = list(toks) + [eos_replacement_token_str]
+            except Exception:
+                pass
             self._dynamic_tokens.extend(toks)
             added = len(toks)
             if self._training_token_count_estimate is not None:

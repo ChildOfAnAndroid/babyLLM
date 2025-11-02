@@ -449,7 +449,7 @@ class S_OUTPUT:
                 k = re.sub(r"^x_", "", k)
                 return k
 
-            # Group + format
+            # Group & format
             groupedStats = self.groupStatsBySection(avgStats)
 
             # Build flat list with headers as entries

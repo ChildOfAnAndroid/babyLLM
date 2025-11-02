@@ -16,11 +16,9 @@ class GATED_MHA(nn.Module):
         self.device = _device
         self.num_heads = _num_heads
         self.attn = nn.MultiheadAttention(embed_dim=embedDimension, num_heads=_num_heads, batch_first=True, device=self.device)
-        # start almost closed so behaviour initially matches pre-attention training
         self.logit_gate = nn.Parameter(torch.tensor(-8.0, device=self.device))
         self.norm = nn.LayerNorm(embedDimension, device=self.device)
         self.stats = {}
-        # Precompute the scale factor for efficiency
         self._scale = math.sqrt(embedDimension)
 
     @whocalled
@@ -31,21 +29,13 @@ class GATED_MHA(nn.Module):
             elif original_dim == 2: embeds = _embeds.unsqueeze(0)  # [1, seq, dim]
             else: embeds = _embeds  # already [batch, seq, dim]
             seq_len = embeds.size(1)
-            # Use a boolean causal mask to avoid -inf masking which can
-            # trigger NaNs on some MPS kernels when combined with fp32/16.
+            # Use a boolean causal mask to avoid -inf masking issues
             causal_mask = torch.triu(
                 torch.ones((seq_len, seq_len), dtype=torch.bool, device=embeds.device),
                 diagonal=1,
             )
-            attn_out, _ = self.attn(
-                embeds, embeds, embeds,
-                need_weights=False,
-                attn_mask=causal_mask,
-            )
-            # embeddings are scaled by sqrt(embedDimension) in the embed layer
-            # which causes the raw attention output to grow very large.  Counter
-            # this by normalising with the same scale (and sequence length) so
-            # the attention statistics remain comparable to other layers.
+            attn_out, _ = self.attn(embeds, embeds, embeds, need_weights=False, attn_mask=causal_mask,)
+            # embeddings are scaled by sqrt(embedDimension) in the embed layer, so normalising with the same scale (and sequence length)
             attn_out = attn_out / (self._scale * math.sqrt(seq_len))
             if original_dim <= 2:
                 attn_out = attn_out.squeeze(0)
@@ -54,8 +44,6 @@ class GATED_MHA(nn.Module):
             gated = gate * attn_out
             out = self.norm(_embeds + gated)
 
-            # collect stats in the same format as other layers so values are
-            # directly comparable
             try:
                 attn_norm = attn_out.norm().item()
                 gated_norm = gated.norm().item()
@@ -74,7 +62,6 @@ class GATED_MHA(nn.Module):
                     "2A_gateScale": gate_item,
                 }
             except (RuntimeError, ValueError):
-                # If tensor operations hang or fail, use safe defaults
                 self.stats = {
                     "2A_0_attnOut_norm": 0.0,
                     "2A_0_attnOut_mean": 0.0,

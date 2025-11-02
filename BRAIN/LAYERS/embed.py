@@ -85,11 +85,6 @@ class EMBED(nn.Module):
                     ###self.stats["1E_1_pixelEmbed_mean"] = self.pixelEmbed.weight.mean().item()###
                     #self.stats["1E_0_vector_scale"] = self.weightsScale.norm().item()
                     #self.stats["1E_1_normed_scale"] = self.normScale.norm().item()
-                    # positional embedding weights contain one vector per position and the
-                    # Frobenius norm grows with the number of positions.  Use the mean L2
-                    # norm of the individual positional vectors so the value reflects the
-                    # typical magnitude of a single position embedding rather than the
-                    # entire matrix.
                     pos_emb_row_norm = self.posEmbedding.weight.norm(dim=1).mean().item()
                     self.stats["1E_1_posEmbWeight_norm"] = pos_emb_row_norm
                     self.stats["1E_1_posEmbWeight_mean"] = self.posEmbedding.weight.mean().item()
@@ -119,5 +114,3 @@ class EMBED(nn.Module):
         e1 = self.e_weights[_idx1]
         e2 = self.e_weights[_idx2]
         return torch.nn.functional.cosine_similarity(e1.unsqueeze(0), e2.unsqueeze(0))
-
-# __main__ test harness removed (vanity)

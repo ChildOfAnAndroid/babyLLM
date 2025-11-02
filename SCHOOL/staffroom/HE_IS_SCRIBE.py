@@ -442,7 +442,7 @@ class SCRIBE:
         paddedLine = self.softPadding(line, self.numTokensPerStep * 2 + (self.numTokensPerStep // 10))
         print(f"\n\n--- BZZZ - SCRIBE INCOMING - BZZZ ---\n\n{paddedLine}\n\n--- BZZZ - SCRIBE OUTGOING - BZZZ ---\n\n")
 
-        # Save + tokenize
+        # Save & tokenize
         with open("scribeSays.txt", "a", encoding="utf-8") as f:
             f.write(paddedLine + "\n")
 

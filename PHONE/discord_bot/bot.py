@@ -12,6 +12,8 @@ import discord
 from discord.ext import commands
 import re
 from collections import Counter, defaultdict, deque
+
+from sympy import im
 from config import *
 from secret import *
 from textCleaningTool import *
@@ -34,7 +36,7 @@ from urllib.parse import urljoin
 from utils.helpers import save_json_if_changed
 
 from .context import create_fake_context
-from .utils import escape_markdown, is_similar, killExcessTags, getTimeRant
+from .utils import escape_markdown, format_bby_amount, is_similar, killExcessTags, getTimeRant
 from .autonomy import AutonomyPlanner
 
 bby_lounge = 1388782896084422788
@@ -121,28 +123,21 @@ class BABYBOT_DISCORD(commands.Bot):
         self.current_bestie, self.bestie_score = None, 0.0
         self.inventory = {}
 
-        # --- unified lexicon game state ---
-        # Multiple concurrent sessions keyed by the prompt message id.
-        # Session schema:
-        # { 'mode': 'wtf'|'translate', 'channel_id': int, 'message_id': int,
-        #   'created_at': float, 'extra': {...}, optional 'task': asyncio.Task }
         self.lex_sessions = {}
-        self.word_usage = Counter()            # trending unknowns for auto-wtf
-        
-        # --- Neural token sentiment tracking ---
-        self.recent_positive_tokens = set()   # Token IDs that appeared in positive contexts
-        self.recent_negative_tokens = set()   # Token IDs that appeared in negative contexts
-        self.token_sentiment_decay = 100     # How many messages before token sentiment expires
-        self.opt_in_token_usage = Counter()    # opted-in user token usage stats
+        self.word_usage = Counter()         # trending unknowns for auto-wtf
+        self.recent_positive_tokens = set() # Token IDs that appeared in positive contexts
+        self.recent_negative_tokens = set() # Token IDs that appeared in negative contexts
+        self.token_sentiment_decay = 1420   # How many messages before token sentiment expires
+        self.opt_in_token_usage = Counter() # opted-in user token usage stats
         self.wtf_threshold = 30
         self.wtf_reacts = ["💡", "😳", "💀", "🤔", "😂", "🙀"]
-        self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
+        self.next_translate_time = time.time() + random.uniform(24 * 3690, 168 * 3690)
 
         # --- favourite token tracking ---
         self.babyFaveToken = ""
         self.baby_state_path = os.path.join(SCRIPT_DIR, "babyState.json")
 
-        # Load chat buffer with proper file handling
+        # Load chat buffer & file handling
         if os.path.exists(chatBufferFilepath):
             with open(chatBufferFilepath, "r") as f:
                 loaded_buffer = json.load(f)
@@ -152,14 +147,11 @@ class BABYBOT_DISCORD(commands.Bot):
                 loaded_buffer[-self.rollingContextSize :],
                 maxlen=self.rollingContextSize,
             )
-        else:
-            self.buffer = deque(maxlen=self.rollingContextSize)
+        else: self.buffer = deque(maxlen=self.rollingContextSize)
 
-        # --- Separate rolling training buffer (JSON file)
-        try:
-            self.training_buffer_path = bbyTrainingBufferFilepath
-        except NameError:
-            self.training_buffer_path = os.path.join(SCRIPT_DIR, "training_buffer.json")
+        # rolling training buffer JSON
+        try: self.training_buffer_path = bbyTrainingBufferFilepath
+        except NameError: self.training_buffer_path = os.path.join(SCRIPT_DIR, "training_buffer.json")
         # Keep 2–4x chat buffer; default ~3x
         self.training_buffer_size = max(64, int(self.rollingContextSize * 3))
         self.training_buffer: deque[str] = deque(maxlen=self.training_buffer_size)
@@ -169,14 +161,31 @@ class BABYBOT_DISCORD(commands.Bot):
         self.bbycraft_recipes_path = os.path.join(SCRIPT_DIR, "bbycraft_recipes.json")
 
         def get_default_user_memory():
-            return {"nickname": None, "display_name": None, "timezone": "Europe/London",
-                    "BBY": 0.0, "spamMax": 0.3, "bbybook": [],
-                    "wins": 0.0, "losses": 0.0, "draws": 0.0,
-                    "last_seen": time.time(), "message_count": 0.0, "loyalty": 1,
-                    "last_message_words": set(), "creative_combo": 1, "spammer": 1,
-                    "inventory": {}, "favourites": [], "next_talk_milestone": 50,
-                    "translate_wins": 0, "translate_losses": 0,
-                    "fave_token_usage": 0, "command_usage": {}}
+            return {"nickname": None, 
+                    "display_name": None, 
+                    "timezone": "Europe/London",
+                    "BBY": 0.0, 
+                    "spamMax": 0.3, 
+                    "bbybook": [],
+                    "wins": 0.0, 
+                    "losses": 0.0, 
+                    "draws": 0.0,
+                    "last_seen": time.time(), 
+                    "message_count": 0.0, 
+                    "loyalty": 1,
+                    "last_message_words": set(), 
+                    "creative_combo": 1, 
+                    "spammer": 1,
+                    "inventory": {}, 
+                    "favourites": [], 
+                    "next_talk_milestone": 50,
+                    "translate_wins": 0, 
+                    "translate_losses": 0,
+                    "fave_token_usage": 0, 
+                    "command_usage": {},
+                    "opt_in": False,
+                    "last_fact_time": 0,
+                    }
 
         # Global command statistics tracking
         self.command_stats_path = os.path.join(SCRIPT_DIR, "command_stats.json")
@@ -189,8 +198,7 @@ class BABYBOT_DISCORD(commands.Bot):
             logger.info("INIT", f"{self.user_data_path} LOADING FROM PATH...")
             self.userMemory = defaultdict(get_default_user_memory)
             self._load_user_data()
-        else:
-            self.userMemory = defaultdict(get_default_user_memory)
+        else: self.userMemory = defaultdict(get_default_user_memory)
         
         self.opt_in_path = optInUsersPath 
         if os.path.exists(self.opt_in_path):
@@ -209,16 +217,13 @@ class BABYBOT_DISCORD(commands.Bot):
         self.training_queue = asyncio.Queue()
         self._refresh_brain_randoms()
         self._load_baby_state()
-        # preload training buffer for early enrichment
-        try:
-            self._load_training_buffer()
-        except Exception:
-            pass
+        # preload training buffer
+        try: self._load_training_buffer()
+        except Exception: pass
 
-        # lightweight stats-guided autonomy planner for idle periods
-        self.autonomy = AutonomyPlanner(self)
+        self.autonomy = AutonomyPlanner(self)   # planner for idle periods
 
-        # Setup centralized data manager for batched saves
+        # batched saves
         data_manager.set_bot_reference(self)
         data_manager.register_save_callback("user_data", self._save_user_data)
         data_manager.register_save_callback("bbyfacts", self.save_bbyfacts)
@@ -226,7 +231,7 @@ class BABYBOT_DISCORD(commands.Bot):
         data_manager.register_save_callback("command_stats", self._save_command_stats)
         logger.info("INIT", "Data manager initialised with batched save system")
 
-        # Setup performance monitoring with health checks
+        # health checks
         perf_monitor.add_health_check("neural_network", lambda: hasattr(self, 'babyLLM') and self.babyLLM is not None, critical=True)
         perf_monitor.add_health_check("user_memory", lambda: len(self.userMemory) > 0)
         perf_monitor.add_health_check("librarian", lambda: hasattr(self, 'librarian') and self.librarian is not None, critical=True)
@@ -239,7 +244,7 @@ class BABYBOT_DISCORD(commands.Bot):
         
     async def setup_hook(self):
         await super().setup_hook()
-        # Start the generation worker task here, where self.loop is available
+        # generation worker task starts here, where self.loop is available
         self.generation_worker_task = self.loop.create_task(self._generation_worker())
         self._ensure_random_task()
 
@@ -247,7 +252,7 @@ class BABYBOT_DISCORD(commands.Bot):
         with open(self.smink_highscore_path, "w") as f: json.dump(self.smink_highscore, f)
 
     def get_varied_random(self):
-        """Brain-influenced random draw with per-call jitter to avoid identical streaks."""
+        """bby influenced random draw with jitter to avoid identical stuff"""
         if not any((self.random, self.random2, self.random3, self.random4)):
             self._refresh_brain_randoms()
 
@@ -257,7 +262,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
         influenced = self.get_brain_influence(base, influence_strength=0.35)
         jitter_primary = pyrandom.random()
-        jitter_secondary = (time.perf_counter() % 1.0)
+        jitter_secondary = (pyrandom.random())
 
         blended = (influenced * 0.5) + (jitter_primary * 0.35) + (jitter_secondary * 0.15)
         blended = max(0.0, min(1.0, blended))
@@ -265,14 +270,10 @@ class BABYBOT_DISCORD(commands.Bot):
         if abs(blended - base) < 1e-6:
             blended = max(0.0, min(1.0, blended + (pyrandom.random() - 0.5) * 0.02))
 
-        if slot_index == 0:
-            self.random = blended
-        elif slot_index == 1:
-            self.random2 = blended
-        elif slot_index == 2:
-            self.random3 = blended
-        else:
-            self.random4 = blended
+        if slot_index == 0: self.random = blended
+        elif slot_index == 1: self.random2 = blended
+        elif slot_index == 2: self.random3 = blended
+        else: self.random4 = blended
 
         return blended
 
@@ -328,7 +329,7 @@ class BABYBOT_DISCORD(commands.Bot):
         def random(self) -> float:
             base = self._rng.random()
             jitter_primary = pyrandom.random()
-            jitter_secondary = (time.perf_counter() % 1.0)
+            jitter_secondary = (pyrandom.random())
             value = (base * 0.55) + (jitter_primary * 0.3) + (jitter_secondary * 0.15)
             value = max(0.0, min(1.0, value))
             if abs(value - base) < 1e-6:
@@ -355,7 +356,7 @@ class BABYBOT_DISCORD(commands.Bot):
             return result
 
     def get_varied_rng(self, *, scope: Optional[str] = None, author: Optional[str] = None) -> "_VariedRNG":
-        """Unified RNG seeded by brain state + optional scope/author.
+        """Unified RNG seeded by brain state & optional scope/author.
 
         - Keeps chaotic feel (brain-influenced), but is consistent within a scope
           for a short time window so related picks feel coherent.
@@ -384,7 +385,7 @@ class BABYBOT_DISCORD(commands.Bot):
         """Periodic health monitoring loop"""
         while True:
             try:
-                await asyncio.sleep(300)  # Check every 5 minutes
+                await asyncio.sleep(420)  # Check every 5 minutes
                 
                 # Run health checks
                 health_results = await perf_monitor.run_health_checks()
@@ -405,7 +406,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 
                 # Periodic system stats logging (every 30 minutes)
                 if hasattr(self, '_last_stats_log'):
-                    if time.time() - self._last_stats_log > 1800:
+                    if time.time() - self._last_stats_log > 1690:
                         logger.info("SYSTEM_STATS", 
                                   f"Memory: {system_stats.get('memory_mb', 0):.1f}MB, "
                                   f"CPU: {system_stats.get('cpu_percent', 0):.1f}%, "
@@ -697,6 +698,41 @@ class BABYBOT_DISCORD(commands.Bot):
         except Exception:
             pass
 
+    def _format_for_training_buffer(self, line: str) -> str:
+        """Reduce the model's bias toward "name: " while still teaching names.
+
+        If a line begins with a speaker tag like "name: message", emit a
+        varied form most of the time:
+          - 60%: "message"
+          - 20%: "message - name"
+          - 15%: "message from name"
+          - 4%:  "name said message"
+          - 1%:  keep original "name: message"
+
+        For non-matching lines, return unchanged.
+        """
+        try:
+            m = re.match(r"^\s*([^:\n]{1,24})\s*:\s*(.+)$", line)
+            if not m:
+                return line
+            name, msg = m.group(1).strip(), m.group(2).strip()
+            # Avoid empty content after stripping
+            if not msg:
+                return line
+            r = random.random()
+            if r < 0.60:
+                return msg
+            elif r < 0.80:
+                return f"{msg} - {name}"
+            elif r < 0.90:
+                return f"{msg} from {name}"
+            elif r < 0.95:
+                return f"{name} said {msg}"
+            else:
+                return line
+        except Exception:
+            return line
+
     def _training_buffer_add(self, text_to_add: str) -> bool:
         """Append a single cleaned line to the separate training buffer JSON.
 
@@ -709,10 +745,12 @@ class BABYBOT_DISCORD(commands.Bot):
             line = text_to_add.replace("\r\n", "\n").replace("\r", "\n").strip()
             if not line:
                 return False
+            # Soften "name: message" dominance when mirroring into training buffer
+            line = self._format_for_training_buffer(line)
             # length clamp
             if len(line) > 2000:
                 line = line[:2000]
-            # quality + dedup
+            # quality & dedup
             if not self._is_high_quality(line):
                 return False
             recent = list(self.training_buffer)[-30:]
@@ -937,14 +975,20 @@ class BABYBOT_DISCORD(commands.Bot):
             memory_flux = getattr(self.babyLLM, "memoryFlux", 0.0) or 0.0
             
             # High cerebral load makes things more chaotic/unpredictable
-            chaos_factor = cerebral * influence_strength
-            # Memory flux adds oscillation
-            flux_factor = memory_flux * influence_strength * 0.5
+            chaos_nudge = cerebral * influence_strength * (pyrandom.random() - 0.5)
+            
+            # Memory flux adds another, separate random nudge
+            # FIX: Replaced time.time() with a random call for per-call flux
+            flux_nudge = memory_flux * influence_strength * 0.5 * (pyrandom.random() - 0.5)
             
             # Modify the base random with brain influence
-            influenced = base_random + (chaos_factor * (pyrandom.random() - 0.5)) + (flux_factor * math.sin(time.time()))
+            influenced = base_random + chaos_nudge + flux_nudge
+            
             return max(0.0, min(1.0, influenced))  # Keep in [0,1] range
-        except Exception:
+            
+        except (AttributeError, TypeError) as e:
+            # Be specific about errors and log them
+            print(f"Warning: Could not get brain influence. Error: {e}")
             return base_random
 
     def track_command_usage(self, command_name: str, author: str):
@@ -1013,7 +1057,7 @@ class BABYBOT_DISCORD(commands.Bot):
         if safe_random != self.random:
             logger.warn("DECAY", f"random factor too small ({self.random}); clamping to {safe_random}")
         DECAY_FLOOR = -(total_money_in_circulation / (safe_random * 420)) if total_money_in_circulation > 0 else -69696969.69
-        SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86400.0, time.time()
+        SECONDS_PER_INTERVAL, SECONDS_PER_DAY, now = self.idleTrainSeconds, 86420.0, time.time()
         ORIGINAL_INTERVAL_SECONDS = 10.0  # The original interval that all rates were tuned for
         interval_multiplier = SECONDS_PER_INTERVAL / ORIGINAL_INTERVAL_SECONDS
         DECAY_FLOOR *= interval_multiplier
@@ -1081,8 +1125,8 @@ class BABYBOT_DISCORD(commands.Bot):
                 quietKid = ACTIVE_BONUS_PER_DAY
                 if time_since_last_seen <= 31556952: quietKid += ACTIVE_BONUS_PER_YEAR
                 if time_since_last_seen <= 2629744: quietKid += ACTIVE_BONUS_PER_MONTH
-                if time_since_last_seen <= 604800: quietKid += ACTIVE_BONUS_PER_WEEK
-                if time_since_last_seen <= 3600: quietKid += ACTIVE_BONUS_PER_HOUR
+                if time_since_last_seen <= 604690: quietKid += ACTIVE_BONUS_PER_WEEK
+                if time_since_last_seen <= 3690: quietKid += ACTIVE_BONUS_PER_HOUR
                 if time_since_last_seen <= 60: quietKid += ACTIVE_BONUS_PER_MINUTE
                 share_of_voice = memory.get("message_count", 0) / total_message_count
                 quietKid *= ((1.0 - share_of_voice) ** 4.20) * SHARE_OF_VOICE_INFLUENCE
@@ -1096,10 +1140,10 @@ class BABYBOT_DISCORD(commands.Bot):
 
             negative_bonus = 0.0
             new_BBY = current_BBY + BBY_change_this_interval
-            if new_BBY < 0: negative_bonus += 0.5 * interval_multiplier
-            if new_BBY < -1000: negative_bonus += 69.0 * interval_multiplier
-            if new_BBY < -10000: negative_bonus += 420.0 * interval_multiplier
-            if new_BBY < -100000: negative_bonus += 4206.9 * interval_multiplier
+            if new_BBY < 0: negative_bonus += 0.69 * interval_multiplier
+            if new_BBY < -1420: negative_bonus += 69.0 * interval_multiplier
+            if new_BBY < -42069: negative_bonus += 420.0 * interval_multiplier
+            if new_BBY < -420690: negative_bonus += 4206.9 * interval_multiplier
             BBY_change_this_interval += negative_bonus
             debug_log.append(f"boost: {negative_bonus:.4f}")
 
@@ -1112,6 +1156,42 @@ class BABYBOT_DISCORD(commands.Bot):
             debug_log.insert(0, f"total: {BBY_change_this_interval:+.4f}")
             memory["last_decay_debug"] = debug_log
             memory["spamMax"] = max(0.001, min(0.8, memory.get("spamMax", 0.8) * (0.99999 ** interval_multiplier)))
+
+# --- NEW: Lurker Poke (Idea A) ---
+            ONE_WEEK_SECONDS = 604800
+            # Check for lurkers who haven't been seen in a week
+            if self.cog and time_since_last_seen > ONE_WEEK_SECONDS and self.get_varied_random() > 0.95: # 5% chance
+                inventory = memory.get("inventory", {})
+                favourites = memory.get("favourites", [])
+                spendable_items = [item for item, count in inventory.items() if item not in favourites and count > 0]
+                
+                if spendable_items:
+                    item_to_eat = self.cog.get_varied_choice().choice(spendable_items)
+                    qty_to_eat = min(inventory.get(item_to_eat, 0), random.randint(1, 420))
+                    asyncio.create_task(self.cog._award_fact(author, item_to_eat, ctx=None, num=-qty_to_eat))
+                    item_data = self.bbyfacts.get(item_to_eat)
+                    if isinstance(item_data, dict):
+                        current_value = item_data.get('teach_bonus', 420.0)
+                        change_factor = random.uniform(((self.get_varied_random()+self.get_varied_random()) * 0.069), ((self.get_varied_random()+self.get_varied_random()) * 69.69)) # 0.069x to 69.69x swing
+                        
+                        if self.get_varied_random() > 0.5:
+                            new_value = current_value * (change_factor * self.get_varied_random())
+                            direction_str = "skyrocketed"
+                            emote = "🚀"
+                        else:
+                            new_value = max((current_value * 0.5), current_value / (change_factor * self.get_varied_random()))
+                            direction_str = "crashed"
+                            emote = "💀"
+                        
+                        item_data['teach_bonus'] = new_value
+                        data_manager.request_save("bbyfacts") # already debounced
+                        
+                        lurker_msg = (
+                            f"{emote} i got bored waiting for {self.getNickname(author)} for what feels like {int(time_since_last_seen / 86400) * (self.get_varied_random() + self.get_varied_random() + self.get_varied_random())} days... "
+                            f"so i ate {qty_to_eat}x {item_to_eat}! and.. now it's apparently {direction_str} "
+                            f"from {format_bby_amount(current_value)} to {format_bby_amount(new_value)}! {emote}"
+                        )
+                        asyncio.create_task(self._discord_spam(lurker_msg))
 
             # --- Store for later sorting ---
             decay_logs.append({
@@ -1171,7 +1251,7 @@ class BABYBOT_DISCORD(commands.Bot):
         for username, memory in list(self.userMemory.items()):
             if (memory.get("loyalty", 0) < 2 and
                 memory.get("message_count", 0) < 1 and
-                memory.get("BBY", 0) < -400.0):
+                memory.get("BBY", 0) < -420.0):
                 ghosts_to_archive.append(username)
         
         if ghosts_to_archive:
@@ -1184,12 +1264,20 @@ class BABYBOT_DISCORD(commands.Bot):
             for username in ghosts_to_archive:
                 key = f"the ghost of {username}"
                 value = "was a here for a but, but they're off now :( "
-                await cog._teach(key, value, author_name = "the void") # The author is "the_void"
+                # Use internal fact setter; keep idempotent semantics
+                if key not in self.bbyfacts:
+                    await cog._set_bbyfact(
+                        key=key,
+                        value=value,
+                        author="the void",
+                        timestamp=time.time(),
+                        teach_bonus=420.0,
+                        debug_str="[_INTERNAL_TEACH] "
+                    )
                 if username not in self.AIoptInUsers:
                     del self.userMemory[username]
                     print(f"  -> ARCHIVED GHOST = {username} ")
-                else:
-                    print(f"  -> DIDN'T ARCHIVE {username} BECAUSE THEY'RE ON THE OPT IN LIST ")
+                else: print(f"  -> DIDN'T ARCHIVE {username} BECAUSE THEY'RE ON THE OPT IN LIST ")
             
             data_manager.request_save("user_data")
 
@@ -1296,8 +1384,6 @@ class BABYBOT_DISCORD(commands.Bot):
         """Update Discord avatar using the most recent snapshot.
         Prefers the new HTTP API, with a robust 'newest' scorer, and falls back to local files.
         """
-        
-
         def _to_epoch(ts_val):
             """Convert various timestamp-like values to a float epoch seconds."""
             if ts_val is None:
@@ -1556,7 +1642,7 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"[CreativeCombo] {author:<15}: Similarity to last msg: {similarity:.2f}")
             if similarity < 0.5:
                 mem["creative_combo"] = mem.get("creative_combo", 1) + 1
-                combo_bonus = 0.05 * mem["creative_combo"]
+                combo_bonus = 420.69 * mem["creative_combo"] # a real bonus!
                 combo_bonus = self.apply_fave_bonus(combo_bonus, used_fave_token)
                 self.updateBBY(author, combo_bonus)
                 print(f"[CreativeCombo] {author:<15}: Combo UP to x{mem['creative_combo']}! +ᛒ{combo_bonus:.2f}")
@@ -1572,9 +1658,30 @@ class BABYBOT_DISCORD(commands.Bot):
                 mem["spammer"] = max(1, mem.get("spammer", 1) - max(1, int(2 * self.random + self.random2)))
             else:
                 mem["spammer"] = mem.get("spammer", 1) + 1
-                spam_bonus = -0.05 * mem["spammer"]
+                spam_bonus = -420.69 * mem["spammer"] # a real penalty!
                 spam_bonus = self.apply_fave_bonus(spam_bonus, used_fave_token)
                 self.updateBBY(author, spam_bonus)
+                # spammer poke
+                spam_level = mem.get("spammer", 1)
+                # chance to eat an item increases with spam level
+                eat_chance = min(0.75, (spam_level / 100.0) * self.get_varied_random())
+                if self.cog and self.get_varied_random() < eat_chance:
+                    inventory = mem.get("inventory", {})
+                    favourites = mem.get("favourites", [])
+                    # find items baby can eat (not favourited)
+                    spendable_items = [item for item, count in inventory.items() if item not in favourites and count > 0]
+                    if spendable_items:
+                        item_to_eat = self.cog.get_varied_choice().choice(spendable_items)
+                        qty_to_eat = min(inventory[item_to_eat], random.randint(1, 3))
+                        await self.cog._award_fact(author, item_to_eat, ctx=None, num=-qty_to_eat)
+                        poke_msg = (
+                            f"omg {self.getNickname(author)}, you're so repetitive lol... "
+                            f"i'm eating {qty_to_eat}x {item_to_eat} out of pure boredom. "
+                            f"{self.cog.get_varied_choice().choice(self.faveEmotes)}"
+                        )
+                        ctx = await self.get_context(message)
+                        await self._discord_reply(ctx, poke_msg)
+                        data_manager.request_save("user_data")
                 if mem["spammer"] in [10, 42.0, 69, 420, 690, 840, 4200, 6969, 42069, 69420, 420420]:
                     try: await self._discord_spam(f"{self.getNickname(author)} hit x{mem['spammer']} spam! {random.choice(self.faveEmotes)}")
                     except discord.errors.Forbidden: pass
@@ -1586,6 +1693,31 @@ class BABYBOT_DISCORD(commands.Bot):
                 # More reasonable reset that doesn't go extremely negative
                 mem["creative_combo"] = max(1, mem.get("creative_combo", 1) - max(1, int(2 * self.random + self.random2)))
             mem["last_message_words"] = current_words
+
+        is_bestie = (author == self.current_bestie)
+        is_creative = (mem.get("creative_combo", 1) > 10)
+        # Check for message milestones
+        msg_count = mem.get("message_count", 0)
+        is_chatty_milestone = (msg_count > 0 and msg_count % 42 == 0)
+        ctx = await self.get_context(message)
+        if self.cog and is_chatty_milestone:
+            drop_chance = 0.1 # Base 10% chance
+            if is_bestie:
+                drop_chance += 0.1 # Extra 10% for bestie
+            if is_creative:
+                drop_chance += min(0.5, mem.get("creative_combo", 1) / 1000.0) # Up to 50% more for high combo
+            
+            if self.get_varied_random() < drop_chance:
+                available_items = await self.cog._get_available_items()
+                if available_items:
+                    item_to_drop = self.cog.get_varied_choice().choice(list(available_items.keys()))
+                    qty_to_drop = 1
+                    success, awarded, reason = await self.cog._award_fact(author, item_to_drop, ctx=None, num=qty_to_drop)
+                    
+                    if success and awarded > 0:
+                        try: await message.add_reaction("✨")
+                        except discord.errors.Forbidden: pass
+                        await self._discord_reply(ctx, f"*throws {self.getNickname(author)} a *{item_to_drop}* (cause ur cool)")
         
         # Final safety validation after all calculations
         mem = safety.validate_user_memory(mem, author)
@@ -1726,11 +1858,11 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"[Loyalty] {self.getNickname(author)} logged in for a new day! Day {mem['loyalty']}, +ᛒ{loyalty_bonus:.0f}")
 
             today_key = day_start_420am.strftime('%Y-%m-%d')
-            event_key = f"first chat on {today_key}"
+            event_key = f"{self.getNickname(author)} got first chat on {today_key}"
 
             if event_key not in self.bbyfacts:
                 self.updateBBY(author, 42069.0)
-                print(f"[Event] {self.getNickname(author)} is the FIRST chatter of the day! +ᛒ42")
+                print(f"[Event] {self.getNickname(author)} is the FIRST chatter of the day! +ᛒ42069.00")
                 mem["got_first_chatter_bonus"] = True
                 await self.cog._set_bbyfact(key = event_key, author = author, value = f"the first person to chat on this day was {self.getNickname(author)}.")
                 ctx = await self.get_context(message)
@@ -1750,8 +1882,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 else:
                     fact = self.bbyfacts[nickname]
                     # Use visit counter instead of appending text
-                    if "visit_count" not in fact:
-                        fact["visit_count"] = 1
+                    if "visit_count" not in fact: fact["visit_count"] = 1
                     fact["visit_count"] += 1
                     # Update the base value to reflect total visits, not append every date
                     if fact["visit_count"] == 2:
@@ -1770,15 +1901,15 @@ class BABYBOT_DISCORD(commands.Bot):
             await self.update_avatar_from_snapshots()
 
         lower_content = content.lower()
-        if any(w in lower_content for w in ["shut up", "you suck"]): self.updateBBY(author, -5000.0)
-        if any(w in lower_content for w in ["good bot", "clever baby"]): self.updateBBY(author, 5000)
+        if any(w in lower_content for w in ["shut up", "you suck"]): self.updateBBY(author, -6969.0)
+        if any(w in lower_content for w in ["good bot", "clever baby"]): self.updateBBY(author, 6969)
         for name, fact in self.bbyfacts.items():
             if name in lower_content:
-                #original_author = fact[name]
-                self.updateBBY(author, 0.01)
-                #self.updateBBY(original_author, 0.1)
+                original_author = fact.get("original_author", None)
+                self.updateBBY(author, 69.69) # nice, simple reward
+                self.updateBBY(original_author, 42.0)
                 original_bonus = self.bbyfacts[name]["teach_bonus"]
-                self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.9999) + ((original_bonus * (self.random + self.random2 + self.random3 + self.random4) * 0.00001))  # Much gentler price increase
+                self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.999) + ((original_bonus * (self.random + self.random2 + self.random3 + self.random4) * 0.0001))  # Much gentler price increase
                 data_manager.request_save("bbyfacts")
         in_baby_channel = message.channel.id == bby_spam
         is_bby_mentioned = self.user in message.mentions
@@ -1786,7 +1917,7 @@ class BABYBOT_DISCORD(commands.Bot):
         potential_command = ""
         if content.startswith(self.command_prefix):
             potential_command = content.split()[0][len(self.command_prefix):].lower()
-        if potential_command in main_llm_aliases or is_bby_mentioned:
+        if potential_command in main_llm_aliases:
             print(f"[LLM Trigger] Matched in #{message.channel.name} (Main Command or Mention)")
             self.idles = round(self.idles * 0.5)
             ctx = await self.get_context(message)
@@ -1803,8 +1934,8 @@ class BABYBOT_DISCORD(commands.Bot):
                 if is_random_spam_chance and not is_opted_in_user:
                     void_prompts = [
                         "the void: a message drifts past... anything to say?",
-                        "the void: you spot that message, baby. any thoughts?",
-                        "the void: that message pokes at your circuits; respond?",
+                        "the void: you spot this message, baby. any thoughts?",
+                        "the void: this message pokes at you; respond?",
                     ]
                     self._buffer_add(random.choice(void_prompts))
                 ctx = await self.get_context(message)
@@ -1831,20 +1962,14 @@ class BABYBOT_DISCORD(commands.Bot):
                 return
             channel = self.get_channel(payload.channel_id)
             if channel is None:
-                try:
-                    channel = await self.fetch_channel(payload.channel_id)
-                except Exception:
-                    return
-            try:
-                message = await channel.fetch_message(payload.message_id)
-            except Exception:
-                return
-            if message.author != self.user:
-                return
+                try: channel = await self.fetch_channel(payload.channel_id)
+                except Exception: return
+            try: message = await channel.fetch_message(payload.message_id)
+            except Exception: return
+            if message.author != self.user: return
             author_key = str(self.user.name).lower()
             content = message.clean_content or ""
-            if not content.strip():
-                return
+            if not content.strip(): return
             buffer_line = content if author_key == self.last_logged_author else self.formatMessage(self.babyName, content)
             if self._buffer_add(buffer_line):
                 self.last_logged_author = author_key
@@ -1852,8 +1977,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     f.write(f"\n---\n{buffer_line}")
                 if self.training_queue.qsize() < 20:
                     await self.training_queue.put({"type": "chat", "text": "\n".join(self.buffer)})
-        except Exception as e:
-            print(f"[on_raw_reaction_add] {e}")
+        except Exception as e: print(f"[on_raw_reaction_add] {e}")
 
     async def background_training_loop(self):
         print(f"\n\nTraining worker started!\n\n")
@@ -1862,8 +1986,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 item = await self.training_queue.get()
                 await self._train_on_item(item)
                 self.training_queue.task_done()
-            except Exception as e:
-                print(f"exception in background training worker: {e}\n{traceback.format_exc()}")
+            except Exception as e: print(f"exception in background training worker: {e}\n{traceback.format_exc()}")
             await asyncio.sleep(0.05)
 
     async def randoms_tick_loop(self):
@@ -1878,8 +2001,7 @@ class BABYBOT_DISCORD(commands.Bot):
         print("[RANDOMS_TICK] started (1s updates with brain influence)")
         while True:
             start = time.perf_counter()
-            try:
-                self._refresh_brain_randoms()
+            try: self._refresh_brain_randoms()
             except Exception as e:
                 print(f"[RANDOMS_TICK] error: {e}")
                 self.random, self.random2, self.random3, self.random4 = [pyrandom.random() for _ in range(4)]
@@ -1906,7 +2028,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 # Check if bot is properly initialised
                 if not hasattr(self, 'userMemory') or not hasattr(self, 'faveEmotes'):
                     print("[MONTHLY_BBYBOOK] Bot not fully initialised yet, waiting...")
-                    await asyncio.sleep(300)  # Wait 5 minutes and try again
+                    await asyncio.sleep(420)  # Wait 7 minutes and try again
                     continue
                 
                 current_date = datetime.now()
@@ -1969,7 +2091,7 @@ class BABYBOT_DISCORD(commands.Bot):
                                     self.bbybook.append(book_entry)
                                     
                                     # Give them a special BBY bonus for being a top tutor
-                                    bonus_bby = 10000 * (4 - i)  # 1st: 30k, 2nd: 20k, 3rd: 10k
+                                    bonus_bby = 42069 * (4 - i)  # 1st: 30k, 2nd: 20k, 3rd: 10k
                                     self.updateBBY(teacher, bonus_bby)
                                     
                                     print(f"[MONTHLY_BBYBOOK] Auto-signed for {nickname} (rank {i+1}) with ᛒ{bonus_bby:,} bonus")
@@ -1982,7 +2104,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 traceback.print_exc()
             
             # Sleep for 24 hours (check once per day)
-            await asyncio.sleep(86400)  # 24 hours in seconds
+            await asyncio.sleep(86420)  # 24 hours in seconds
 
     async def inventory_decay_loop(self):
         """
@@ -2002,7 +2124,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 # Check if bot is properly initialised
                 if not hasattr(self, 'userMemory'):
                     print("[INVENTORY_DECAY] Bot not fully initialised yet, waiting...")
-                    await asyncio.sleep(1800)  # Wait 30 minutes and try again
+                    await asyncio.sleep(1690)  # Wait 30 minutes and try again
                     continue
                 
                 # First pass: calculate total quantities of each item across all users
@@ -2048,11 +2170,11 @@ class BABYBOT_DISCORD(commands.Bot):
                         
                         # Additional tiny modifiers for excessive individual quantities
                         quantity_modifier = 0
-                        if count > 5000:
+                        if count > 6969:
                             quantity_modifier = 0.005  # +0.5% for huge individual stacks
-                        elif count > 1000:
+                        elif count > 1420:
                             quantity_modifier = 0.003  # +0.3% for big individual stacks
-                        elif count > 500:
+                        elif count > 420:
                             quantity_modifier = 0.002  # +0.2% for medium individual stacks
                         
                         final_decay_chance = max(0, min(0.05, base_decay_chance + random_modifier + quantity_modifier))  # Cap at 5%
@@ -2118,7 +2240,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 traceback.print_exc()
 
             # Sleep for 3 hours between decay cycles
-            await asyncio.sleep(10800)  # 3 hours in seconds
+            await asyncio.sleep(10690)  # 3 hours in seconds
 
     async def _train_on_item(self, item): 
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
@@ -2185,7 +2307,7 @@ class BABYBOT_DISCORD(commands.Bot):
                     channel = self.get_channel(self.discordChannel)
                     if channel:
                         await self.cog.trigger_bbytranslate_auto(channel)
-                        self.next_translate_time = time.time() + random.uniform(24 * 3600, 168 * 3600)
+                        self.next_translate_time = time.time() + random.uniform(24 * 3690, 168 * 3690)
             
             try:
                 await self.decay_BBY()
@@ -2194,6 +2316,29 @@ class BABYBOT_DISCORD(commands.Bot):
                 print(traceback.format_exc())
                 continue
             print(f"decayed bby")
+            # --- NEW: Random Market Event (Idea D) ---
+            if self.cog and self.get_varied_random() > 0.90: # 10% chance per cycle
+                if self.bbyfacts:
+                    item_name = self.cog.get_varied_choice().choice(list(self.bbyfacts.keys()))
+                    item_data = self.bbyfacts.get(item_name)
+                    if isinstance(item_data, dict):
+                        current_value = item_data.get('teach_bonus', 420.0)
+                        change_factor = random.uniform(((self.get_varied_random()+self.get_varied_random()) * 0.069), ((self.get_varied_random()+self.get_varied_random()) * 69.69)) # 0.069x to 69.69x swing
+                        
+                        if self.get_varied_random() > 0.5:
+                            new_value = current_value * (change_factor * self.get_varied_random())
+                            direction_str = "become.. more interesting?! somehow!?"
+                            emote = "🚀"
+                        else:
+                            new_value = max((current_value * 0.5), current_value / (change_factor * self.get_varied_random())) # Clamp at 0.0
+                            direction_str = "just crashed a lil lol"
+                            emote = "💀"
+                        
+                        item_data['teach_bonus'] = new_value
+                        data_manager.request_save("bbyfacts")
+                        await self._discord_spam(
+                            f"{emote} beep boop; {emote}\n **{item_name}** has {direction_str} "
+                            f"it's gone from {format_bby_amount(current_value)} to {format_bby_amount(new_value)}!")
 
             new_bestie, new_bestie_score = self.checkBestie()
             new_rival, new_rival_score = self.checkRival()
@@ -2220,7 +2365,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
                 await self._buffer_clean()
 
-                if now - self.lastClockAnnounce > pyrandom.randint(60, 36000):
+                if now - self.lastClockAnnounce > pyrandom.randint(60, 36969):
                     self.lastClockAnnounce = now
                     clock_line = getTimeRant(self.AIoptInUsers)
                     self._buffer_add(clock_line)

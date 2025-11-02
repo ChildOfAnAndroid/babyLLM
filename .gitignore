@@ -62,6 +62,7 @@ spamLevel.json
 userNicknames.json
 chatHistory.json
 bbybook.json
+bby_request.json
 
 # Archive & Old Code
 archive/

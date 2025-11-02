@@ -185,6 +185,31 @@ skipFINALlogitNorm = True
 skipPrompts = False
 pixelStyling = True
 
+# --- EOS SETTINGS ---
+# Real EOS: reuse an existing rarely-used token ID instead of changing vocab size.
+# Set `eos_replacement_token_str` to a token that never meaningfully occurs in your data
+# (e.g. "pingpingpingpingping"). Leave as None to disable hard EOS.
+enable_soft_eos = False                 # newline-based early stop (inference-only). Off by default.
+eos_token_str = "<EOS>"                 # symbolic label; not added to tokenizer
+eos_replacement_token_str = "usingusingusingusingusingusingusingusing"  # reserved as <EOS>
+eos_min_tokens_absolute = 8             # minimum tokens before allowing early stop
+eos_min_tokens_fraction = 0.25          # also require this fraction of requested tokens before stop
+
+# Train-time augmentation: append EOS to ends of chat lines added to the rolling training buffer.
+enable_train_append_eos = True          # teach EOS on live chat buffer lines
+eos_append_probability = 1.0            # probability to append EOS to a training line (0..1)
+
+# Stricter stop: only stop on EOS when a speaker change is detected at line start.
+# When True, EOS alone won’t stop unless a speaker tag like "name: " is formed.
+eos_require_speaker_change = True
+
+# --- MARKET / ECONOMY TUNING ---
+# Controls supply sensitivity in item value calculation.
+# MARKET_SUPPLY_ALPHA mixes straight division with sqrt decay (0..1).
+# MARKET_SUPPLY_SCALE is the supply at which the division component halves value.
+MARKET_SUPPLY_ALPHA = 0.5
+MARKET_SUPPLY_SCALE = 10.0
+
 # --- STATS COLLECTION ---
 refreshRollingTokenTotalsWhen = 10000
 mostImportantStats  =   [
@@ -548,7 +573,7 @@ n_collectStats = True
 INN_collectStats = True
 memory_collectStats = True
 
-# neuron + interneuronNetwork
+# neuron & interneuronNetwork
 n_weightStats = True
 n_weightNormStats = True
 n_biasesStats = True

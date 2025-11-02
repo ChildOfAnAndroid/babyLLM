@@ -1,20 +1,20 @@
 {
   "babyllm": {
-    "total_uses": 149,
+    "total_uses": 180,
     "unique_users": [
-      "chaosshadowwolf",
       "charis",
-      "childofanandroid",
       "kevinonline420",
+      "childofanandroid",
+      "chaosshadowwolf",
       "geepy"
     ]
   },
   "bbyteach": {
-    "total_uses": 117,
+    "total_uses": 431,
     "unique_users": [
+      "buttsbot",
       "chaosshadowwolf",
-      "childofanandroid",
-      "buttsbot"
+      "childofanandroid"
     ]
   },
   "bbyspam": {
@@ -24,7 +24,7 @@
     ]
   },
   "bbythink": {
-    "total_uses": 13,
+    "total_uses": 15,
     "unique_users": [
       "childofanandroid"
     ]
@@ -36,38 +36,42 @@
     ]
   },
   "bbyrandom": {
-    "total_uses": 889,
+    "total_uses": 987,
     "unique_users": [
-      "childofanandroid"
+      "childofanandroid",
+      "chaosshadowwolf"
     ]
   },
   "bbyrant": {
+    "total_uses": 10,
+    "unique_users": [
+      "childofanandroid",
+      "chaosshadowwolf"
+    ]
+  },
+  "bbycommands": {
     "total_uses": 6,
     "unique_users": [
       "childofanandroid"
     ]
   },
-  "bbycommands": {
-    "total_uses": 5,
-    "unique_users": [
-      "childofanandroid"
-    ]
-  },
   "bbyinfo": {
-    "total_uses": 4,
+    "total_uses": 10,
     "unique_users": [
       "chaosshadowwolf",
       "childofanandroid"
     ]
   },
   "bbysocial": {
-    "total_uses": 6,
+    "total_uses": 25,
     "unique_users": [
+      "skunkelmusen",
+      "chaosshadowwolf",
       "childofanandroid"
     ]
   },
   "bbyjudge": {
-    "total_uses": 2,
+    "total_uses": 4,
     "unique_users": [
       "childofanandroid"
     ]
@@ -79,81 +83,87 @@
     ]
   },
   "bbytimer": {
-    "total_uses": 1,
+    "total_uses": 7,
     "unique_users": [
+      "chaosshadowwolf",
       "childofanandroid"
     ]
   },
   "bbysminks": {
-    "total_uses": 70,
+    "total_uses": 168,
     "unique_users": [
-      "childofanandroid"
+      "childofanandroid",
+      "skunkelmusen",
+      "chaosshadowwolf"
     ]
   },
   "bbyfeed": {
-    "total_uses": 14,
+    "total_uses": 188,
     "unique_users": [
-      "buttsbot",
+      "chaosshadowwolf",
       "childofanandroid",
-      "chaosshadowwolf"
+      "buttsbot"
     ]
   },
   "bbyconnect": {
-    "total_uses": 62,
+    "total_uses": 147,
     "unique_users": [
       "childofanandroid",
-      "chaosshadowwolf"
+      "chaosshadowwolf",
+      "buttsbot"
     ]
   },
   "bbyfite": {
-    "total_uses": 57,
+    "total_uses": 177,
     "unique_users": [
       "chaosshadowwolf",
       "childofanandroid"
     ]
   },
   "bbyiteminfo": {
-    "total_uses": 41,
+    "total_uses": 148,
     "unique_users": [
-      "loveangel1337",
       "childofanandroid",
-      "chaosshadowwolf"
+      "loveangel1337",
+      "chaosshadowwolf",
+      "buttsbot"
     ]
   },
   "bbytranslate": {
-    "total_uses": 18,
+    "total_uses": 19,
     "unique_users": [
       "childofanandroid",
       "chaosshadowwolf"
     ]
   },
   "bbystatus": {
-    "total_uses": 1,
+    "total_uses": 4,
     "unique_users": [
+      "childofanandroid",
       "chaosshadowwolf"
     ]
   },
   "bbythought": {
-    "total_uses": 2,
+    "total_uses": 4,
     "unique_users": [
       "chaosshadowwolf",
       "childofanandroid"
     ]
   },
   "bbygift": {
-    "total_uses": 21,
+    "total_uses": 37,
     "unique_users": [
+      "chaosshadowwolf",
       "loveangel1337",
-      "childofanandroid",
-      "chaosshadowwolf"
+      "childofanandroid"
     ]
   },
   "bbyfaves": {
-    "total_uses": 13,
+    "total_uses": 21,
     "unique_users": [
       "loveangel1337",
-      "childofanandroid",
-      "chaosshadowwolf"
+      "chaosshadowwolf",
+      "childofanandroid"
     ]
   },
   "bbybag": {
@@ -163,21 +173,24 @@
     ]
   },
   "bbysnack": {
-    "total_uses": 2,
+    "total_uses": 55,
     "unique_users": [
+      "chaosshadowwolf",
       "childofanandroid"
     ]
   },
   "bbyitems": {
-    "total_uses": 4,
+    "total_uses": 19,
     "unique_users": [
+      "chaosshadowwolf",
       "childofanandroid"
     ]
   },
   "bbyspecialinterest": {
-    "total_uses": 1,
+    "total_uses": 9,
     "unique_users": [
-      "childofanandroid"
+      "childofanandroid",
+      "chaosshadowwolf"
     ]
   },
   "bbyrandomfacts": {
@@ -187,7 +200,54 @@
     ]
   },
   "bbyface": {
-    "total_uses": 3,
+    "total_uses": 7,
+    "unique_users": [
+      "childofanandroid",
+      "chaosshadowwolf"
+    ]
+  },
+  "bbyhug": {
+    "total_uses": 5,
+    "unique_users": [
+      "chaosshadowwolf",
+      "childofanandroid"
+    ]
+  },
+  "bbynick": {
+    "total_uses": 10,
+    "unique_users": [
+      "chaosshadowwolf",
+      "childofanandroid"
+    ]
+  },
+  "bbytip": {
+    "total_uses": 89,
+    "unique_users": [
+      "chaosshadowwolf",
+      "childofanandroid"
+    ]
+  },
+  "bbyforget": {
+    "total_uses": 2,
+    "unique_users": [
+      "chaosshadowwolf",
+      "childofanandroid"
+    ]
+  },
+  "bbydeclarewar": {
+    "total_uses": 5,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbyhelp": {
+    "total_uses": 1,
+    "unique_users": [
+      "childofanandroid"
+    ]
+  },
+  "bbystats": {
+    "total_uses": 1,
     "unique_users": [
       "childofanandroid"
     ]

@@ -1028,19 +1028,54 @@ class BABYLLM(nn.Module):
         response_ids = []
 
         with torch.no_grad(): # We don't need to calculate gradients during generation
-            for _ in range(_numTokens):
+            # EOS settings from config
+            from config import eos_replacement_token_str, eos_min_tokens_absolute, eos_min_tokens_fraction, eos_require_speaker_change, babyName
+            eos_id = None
+            try:
+                if eos_replacement_token_str:
+                    eos_id = self.librarian.tokenToIndex.get(eos_replacement_token_str)
+            except Exception:
+                eos_id = None
+            min_tokens_before_stop = max(eos_min_tokens_absolute, int(_numTokens * eos_min_tokens_fraction))
+
+            strip_trailing_tag = False
+            for i in range(_numTokens):
                 # The context window is the last `numTokensPerStep` tokens
                 input_ids = gen_token_ids[-self.numTokensPerStep:]
                 input_tensor = torch.tensor(input_ids, dtype=torch.long, device=self.device)
                 logits, next_token_tensor = self.forward_and_sample(input_tensor, _training=False)
                 next_token_id = next_token_tensor.item()
+                # Real EOS: accept only if not requiring a speaker change
+                if eos_id is not None and i + 1 >= min_tokens_before_stop and next_token_id == eos_id and not eos_require_speaker_change:
+                    break
+                # Otherwise accept and check for speaker-tag change to stop cleanly
                 gen_token_ids.append(next_token_id)
                 response_ids.append(next_token_id)
-                # if next_token_id == self.librarian.tokenToIndex.get("<EOS>", -1):
-                #     break
+
+                # Stricter stop: if a speaker tag is formed at the end of output, stop (and strip it)
+                if i + 1 >= min_tokens_before_stop and eos_require_speaker_change:
+                    try:
+                        # decode a small tail safely
+                        tail_ids = response_ids[-min(len(response_ids), 64):]
+                        tail_text = self.librarian.decodeIDs([int(idx) for idx in tail_ids]).replace("Ġ", " ")
+                        import re as _re
+                        m = _re.search(r'(?:^|\n)([^\n:]{1,24}):\s?$', tail_text)
+                        if m:
+                            strip_trailing_tag = True
+                            break
+                    except Exception:
+                        pass
         
         # Decode the generated IDs back into a string
-        return self.librarian.decodeIDs(response_ids)
+        out_text = self.librarian.decodeIDs(response_ids)
+        out_text = out_text.replace("Ġ", " ")
+        if strip_trailing_tag and out_text:
+            try:
+                import re as _re
+                out_text = _re.sub(r'(?:^|\n)[^\n:]{1,24}:\s?$', '', out_text).rstrip()
+            except Exception:
+                pass
+        return out_text
 
     @whocalled
     def babyllm_diary_entry(self, interneuronNetwork, step):
