@@ -12,7 +12,7 @@ import torch
 date = CONFIGDATE.date.today()
 
 # === Messaging / Channels ===
-bby_spam_channel_id = 1156683242087387206
+bby_spam_channel_id = 1440825576884535326
 twitch_channel = "childofanandroid"
 rollingContextSize = 420
 

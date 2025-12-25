@@ -111,6 +111,21 @@ eloMouseNum = 0.1
 notes = True
 notesNum = 0.1
 
+# --- icharis2 (personal authored only) ---
+icharis2_user_text = True
+icharis2_user_text_weight = 0.2
+icharis2_user_text_limit = 30  # number of files to sample when using raw
+icharis2_base_path = "/Users/charis/Dropbox/00_Icharis/icharis2"
+icharis2_allow_without_keyword = False  # set True to include all text files, even without author hints
+icharis2_export_combined = True
+icharis2_export_by_month = True
+icharis2_export_months_limit = 12
+icharis2_export_path = "school/library/icharis2_clean.txt"
+icharis2_export_dir = "school/library/icharis2_by_month"
+icharis2_use_pipeline_exports = True
+icharis2_pipeline_export_dir = "/Users/charis/Dropbox/00_Icharis/icharis2/07_TIMELINE"
+icharis2_pipeline_limit = 500  # how many pipeline files to scan (set 0 for unlimited)
+
 # --- babyBot chat logs ---
 babyBot_twitch = True
 babyBot_twitchNum = 0.0001
@@ -132,6 +147,87 @@ code = False
 codeNum = 0.1
 
 rawDataFilepaths: List[Tuple[str, str, float]] = []
+icharis2_entries: List[Tuple[str, str, float]] = []
+icharis2_compiled_entry: List[Tuple[str, str, float]] = []
+icharis2_monthly_entries: List[Tuple[str, str, float]] = []
+
+try:
+    from utils.icharis2_ingest import (
+        build_training_entries_from_icharis2,
+        export_icharis2_corpus,
+        export_icharis2_corpus_by_month,
+        discover_user_authored_files,
+    )
+    if icharis2_user_text:
+        # Prefer already-exported timeline files if available
+        pipeline_paths: List[str] = []
+        if icharis2_use_pipeline_exports:
+            try:
+                pipeline_paths = discover_user_authored_files(
+                    base_path=icharis2_pipeline_export_dir,
+                    limit=icharis2_pipeline_limit,
+                    require_allow_keyword=not icharis2_allow_without_keyword,
+                )
+            except Exception as e:
+                print(f"[WARN] icharis2 pipeline exports unavailable: {e}")
+
+        # If pipeline exports exist, aggregate them by month to keep the file list tiny.
+        if pipeline_paths:
+            try:
+                monthly_exports = export_icharis2_corpus_by_month(
+                    base_path=icharis2_pipeline_export_dir,
+                    entries=pipeline_paths,
+                    out_dir=icharis2_export_dir,
+                    require_allow_keyword=not icharis2_allow_without_keyword,
+                    months_limit=icharis2_export_months_limit,
+                )
+                for path, count, chars in monthly_exports:
+                    icharis2_monthly_entries.append(("text", path, icharis2_user_text_weight))
+                if monthly_exports:
+                    print(f"[EXPORT] icharis2 monthly (pipeline): {len(monthly_exports)} files -> {icharis2_export_dir}")
+            except Exception as e:
+                print(f"[WARN] icharis2 monthly export from pipeline failed: {e}")
+
+        # Fallback to raw base path + exports if pipeline exports are empty
+        if not icharis2_monthly_entries:
+            icharis2_entries = build_training_entries_from_icharis2(
+                base_path=icharis2_base_path,
+                weight=icharis2_user_text_weight,
+                max_files=icharis2_user_text_limit,
+                require_allow_keyword=not icharis2_allow_without_keyword,
+            )
+            if icharis2_entries:
+                print(f"[AUTO-ADD] icharis2 personal texts: {len(icharis2_entries)} files @ {icharis2_user_text_weight}")
+                if icharis2_export_by_month and icharis2_export_dir:
+                    try:
+                        monthly_exports = export_icharis2_corpus_by_month(
+                            base_path=icharis2_base_path,
+                            entries=[p for _, p, _ in icharis2_entries],
+                            out_dir=icharis2_export_dir,
+                            require_allow_keyword=not icharis2_allow_without_keyword,
+                            months_limit=icharis2_export_months_limit,
+                        )
+                        for path, count, chars in monthly_exports:
+                            icharis2_monthly_entries.append(("text", path, icharis2_user_text_weight))
+                        if monthly_exports:
+                            print(f"[EXPORT] icharis2 monthly: {len(monthly_exports)} files -> {icharis2_export_dir}")
+                    except Exception as e:
+                        print(f"[WARN] icharis2 monthly export failed: {e}")
+                elif icharis2_export_combined and icharis2_export_path:
+                    try:
+                        count, chars = export_icharis2_corpus(
+                            base_path=icharis2_base_path,
+                            entries=[p for _, p, _ in icharis2_entries],
+                            out_path=icharis2_export_path,
+                            require_allow_keyword=not icharis2_allow_without_keyword,
+                        )
+                        if count > 0 and chars > 0:
+                            icharis2_compiled_entry = [("text", icharis2_export_path, icharis2_user_text_weight)]
+                            print(f"[EXPORT] icharis2 combined ({count} files, {chars} chars) -> {icharis2_export_path}")
+                    except Exception as e:
+                        print(f"[WARN] icharis2 export failed: {e}")
+except Exception as e:
+    print(f"[WARN] icharis2 ingest unavailable: {e}")
 
 def add_data(CTD_enabled: bool, CTD_years: list[int], CTD_basePath: str, CTD_filenameTemplate: str, CTD_dtype: str, CTD_weight: float) -> None:
     if not CTD_enabled: return
@@ -177,7 +273,7 @@ add_data(twitch,
 # youtube live
 add_data(youtube_live,
          CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/04_YOUTUBE/live chats",
+         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/04_YOUTUBE/live chats/extracted_comments",
          "{CTD_year}_comments.txt",
          "text",
          youtube_liveNum)
@@ -187,7 +283,7 @@ add_data(youtube_live,
 # youtube comments
 add_data(youtube_comments,
          CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/04_YOUTUBE/live chats",
+         "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/04_YOUTUBE/comments/extracted_comments",
          "{CTD_year}_comments.txt",
          "text",
          youtube_commentsNum)
@@ -308,6 +404,13 @@ if limit:
     rawDataFilepaths = rawDataFilepaths[:fileLimit]
     if shuffle:
         random.shuffle(rawDataFilepaths)
+
+# Always keep personal icharis2 content, even when limiting/shuffling others
+# Prefer tiny monthly aggregates; avoid adding huge per-file lists.
+if icharis2_monthly_entries:
+    rawDataFilepaths = icharis2_monthly_entries + rawDataFilepaths
+elif icharis2_compiled_entry:
+    rawDataFilepaths = icharis2_compiled_entry + rawDataFilepaths
 
 # for textCleaningTool.py examples (disabled)
 # rawDataFilepaths = [

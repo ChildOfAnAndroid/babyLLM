@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 from adan_pytorch import Adan
 import math
+# This might need some fixing when pulling the package!
 from sophia.sophia import SophiaG
 
 from brain.LAYERS.embed import EMBED
@@ -77,6 +78,7 @@ class BABYLLM(nn.Module):
         self.penalisedOutputHistory = deque(maxlen=history_maxlen)
         self.inputEmbedsHistory = deque(maxlen=history_maxlen)
         self.FINALlogitsHistory = deque(maxlen=history_maxlen)
+        self.charEmbedHistory = deque(maxlen=history_maxlen)
         self.predPixel = torch.tensor([0.0, 0.0, 0.0], device = self.device)
 
         self.cerebralLoad = 0.0
@@ -88,14 +90,56 @@ class BABYLLM(nn.Module):
         self.lastSoftSample = None
         self._lastSoftSample_for_loss = None
 
+        # NEW MINI LAYER
+        self.char_vocab_size = 256
+        self.char_embed_dim = 128
+        self.char_embed = nn.Embedding(self.char_vocab_size, self.char_embed_dim, padding_idx=0, device=self.device)
+        self.char_projector = nn.Linear(self.char_embed_dim, embedDimension, device=self.device)
+
+        # B. Build the high-speed lookup table (THIS IS THE NEW PART)
+        print("ʕっ•ᴥ•ʔっ Pre-calculating character-byte lookup table...")
+        
+        # Find the longest token (in bytes) to know how wide our table needs to be
+        max_bytes = 0
+        for i in range(self.librarian.vocabSize):
+            s = self.librarian.indexToToken.get(i, "<UNK>")
+            max_bytes = max(max_bytes, len(s.encode('utf-8')))
+        
+        print(f"Longest token is {max_bytes} bytes. Creating lookup table [shape: {self.librarian.vocabSize}, {max_bytes}]")
+        
+        # This tensor (e.g., [4200, 16]) will store the byte-IDs for every token.
+        # It's LONG (integers)
+        char_lookup_data = torch.zeros((self.librarian.vocabSize, max_bytes), dtype=torch.long)
+        
+        # This tensor (e.g., [4200, 16]) will store the *mask* to ignore padding.
+        # It's FLOAT
+        char_mask_data = torch.zeros((self.librarian.vocabSize, max_bytes), dtype=torch.float)
+
+        for i in range(self.librarian.vocabSize):
+            s = self.librarian.indexToToken.get(i, "<UNK>")
+            byte_ids = list(s.encode('utf-8'))
+            if not byte_ids: 
+                byte_ids = [0] # Handle empty
+            
+            length = len(byte_ids)
+            char_lookup_data[i, :length] = torch.tensor(byte_ids, dtype=torch.long)
+            char_mask_data[i, :length] = 1.0
+
+        # C. Register these tables as **BUFFERS** (non-trainable data)
+        # This is the fix. They are no longer nn.Parameters.
+        self.register_buffer('char_lookup_data', char_lookup_data)
+        self.register_buffer('char_mask_data', char_mask_data)
+
+        print("...Character lookup table created successfully.")
+
         """CEREBRAL LAYERS // brain"""
         self.embed = EMBED(_counsellor = self.counsellor, _device = self.device)
-        self.attention = GATED_MHA(_counsellor = self.counsellor, _device = self.device)
+        self.attention = GATED_MHA(_counsellor = self.counsellor, _device = self.device, _stat_prefix="2A")
+        self.attention2 = GATED_MHA(_counsellor = self.counsellor, _device = self.device, _embed_dim=numNeurons, _stat_prefix="4A_1")
         self.interneuronNetwork = INTERNEURON_NETWORK(_model = BABYLLM, _counsellor = self.counsellor, _calligraphist = self.calligraphist, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.logits = LOGITS(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory2 = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
-        #self.pixelPupil = nn.Sequential(nn.Linear(embedDimension, embedDimension), nn.GELU(), nn.Linear(embedDimension, 3), nn.Sigmoid())
         self.pixelPupil = PIXEL(embedDimension, embedDimension, 3, _device=self.device)
         
         # Creative modules removed
@@ -110,6 +154,7 @@ class BABYLLM(nn.Module):
         self.logMemory2Length = nn.Parameter(torch.tensor(math.log(memoryLengthGOAL), device = self.device))
         self.logRepetitionWindow = nn.Parameter(torch.tensor(math.log(repetitionWindowGOAL), device = self.device))
         self.inputBlend = nn.Parameter(torch.ones(3, device = self.device))
+        self.charBlendWeight = nn.Parameter(torch.zeros(1, device = self.device))
         self.memoryLength = log_param_to_length(self.logMemoryLength)
         self.memory2Length = log_param_to_length(self.logMemory2Length)
 
@@ -205,52 +250,91 @@ class BABYLLM(nn.Module):
 
                 if debugPrints: ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
                 tokenEmbed = self.embed(_tokenIndex = _inputSeq)
-                seq_len = tokenEmbed.shape[0]
+                seq_len = tokenEmbed.shape[0] # e.g., 1024
+                
+                # --- START: NEW **SUPER-FAST** CHARACTER EMBEDDING LOGIC ---
+                if debugPrints: ʕっʘ‿ʘʔっ("B0.5: charEmbeds (Super-Fast)")
+                
+                # 1. Look up the byte-IDs (e.g., [1024, 16])
+                # We use F.embedding to look up data from our non-trainable buffer
+                padded_byte_tensor = F.embedding(_inputSeq, self.char_lookup_data)
+                
+                # 2. Look up the padding mask (e.g., [1024, 16])
+                attention_mask = F.embedding(_inputSeq, self.char_mask_data)
+
+                # 3. Run all bytes through mini-layer
+                # [1024, 16] -> [1024, 16, 128]
+                # This works now because padded_byte_tensor is torch.long
+                embedded_chars = self.char_embed(padded_byte_tensor)
+                
+                # 4. Calculate masked mean (all fast GPU ops)
+                # ... (this logic is unchanged) ...
+                embedded_chars = embedded_chars * attention_mask.unsqueeze(-1)
+                summed_vectors = embedded_chars.sum(dim=1)
+                real_lengths = attention_mask.sum(dim=1, keepdim=True).clamp(min=1.0)
+                char_vector_batch = summed_vectors / real_lengths
+                
+                # 5. Project to final shape
+                # [1024, 128] -> [1024, 1024]
+                charEmbed = self.char_projector(char_vector_batch)
+                
+                self.charEmbedHistory.append(charEmbed.norm().item())
+                # --- END: SUPER-FAST CHARACTER EMBEDDING LOGIC ---
+
+                # --- 6. BLEND (Same as before) ---
                 pos_indices = torch.arange(seq_len, device = tokenEmbed.device)
                 posEmbed = self.embed.posEmbedding(pos_indices)
                 posEmbed = self.embed.posDropout(posEmbed * self.embed.scale)  # [seq_len, embed_dim]
+
+                all_blend_weights = torch.cat([self.inputBlend, self.charBlendWeight], dim=0)
+                blend = F.softmax(all_blend_weights, dim = 0) 
+                
                 if not skipPixels and (_pixel is not None):
                     rgbEmbed = self.embed(_pixel = _pixel)
                     debug_print("tokenEmbed:", tokenEmbed.shape)
                     debug_print("posEmbed:", posEmbed.shape)
                     debug_print("rgbEmbed:", rgbEmbed.shape)
-                    #blendPixelClamped = self.blendPixel.clamp(0.0, 1.0)
-                    #inputEmbeds = ((1.0 - blendPixelClamped) * tokenEmbed) + (blendPixelClamped * rgbEmbed)
-                    blend = F.softmax(self.inputBlend, dim = 0)
-                    inputEmbeds = blend[0] * tokenEmbed + blend[1] * posEmbed + blend[2] * rgbEmbed
-                else: inputEmbeds = tokenEmbed
+                    debug_print("charEmbed:", charEmbed.shape)
+
+                    inputEmbeds = (
+                        blend[0] * tokenEmbed + 
+                        blend[1] * posEmbed + 
+                        blend[2] * rgbEmbed + 
+                        blend[3] * charEmbed
+                    )
+                else: 
+                    inputEmbeds = (
+                        blend[0] * tokenEmbed + 
+                        blend[1] * posEmbed + 
+                        blend[3] * charEmbed
+                    )
+                # --- END: BLEND ---
+                
                 token_embed_for_pixel = inputEmbeds
-                # Store a detached copy so we don't hold on to the autograd graph between
-                # forward passes (this was causing a memory leak when pixels were skipped).
                 self.latestTokenEmbed = token_embed_for_pixel.detach()
-                # Ensure latestTokenEmbed has proper dimensions for pixel regression
                 if hasattr(self, "pixelPupil") and len(self.latestTokenEmbed.shape) == 1:
-                    # If 1D, ensure it matches expected embedding dimension
                     debug_print(f"[DEBUG] latestTokenEmbed is 1D with shape {self.latestTokenEmbed.shape}")
+                
                 inputEmbeds = self.attention(inputEmbeds)
                 debug_print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
-                if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput") # PARALLEL NEURON LAYER input/processing (feature extraction)
+                if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput")
 
                 if True:
-                    INNOutput = self.interneuronNetwork.forward(inputEmbeds)
+                    interneuron_output = self.interneuronNetwork.forward(inputEmbeds)
+                    INNOutput = interneuron_output + self.attention2(interneuron_output)
                     debug_print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
                     debug_print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
                     debug_print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
 
-                    if debugPrints: ʕっʘ‿ʘʔっ("B2: memoryOutput") # MEMORY LAYER PROCESSING - NOW PROCESS THE COMBINED ACTIVATIONS
+                    if debugPrints: ʕっʘ‿ʘʔっ("B2: memoryOutput")
                     if skipMemory:
                         debug_print("skipping memory layer...")
                         memoryOutput = INNOutput
                     else:
-                        # --- RESIDUAL A: pass the raw thought past the first memory layer ---
                         memoryOutput = self.memory.forward(INNOutput) + INNOutput
-
                         memory2Input = (INNOutput * 0.5) + (memoryOutput * 0.5)
-
-                        # --- RESIDUAL B: bypass the second Memory Layer ---
                         memory2Output = self.memory2.forward(memory2Input) + memory2Input
-                        #self.latestMemGates = self.memory.latestMemoryGates
                     
                     if debugPrints: ʕっʘ‿ʘʔっ("B3: logits.forward BEFORE penalty")
                     logitsBeforePenalty = self.logits.forward(memory2Output)
@@ -282,30 +366,40 @@ class BABYLLM(nn.Module):
 
                 if True:
                     if debugPrints: ʕっʘ‿ʘʔっ("stats collection!")
-                    blend_vals = None
-                    if (not skipPixels) and (_pixel is not None):
-                        blend_vals = blend.detach().cpu().tolist()
-                    #self.inputEmbedsHistory.append(inputEmbeds.norm().item())
-                    #self.INNOutputHistory.append(INNOutput.norm().item())
-                    #self.memoryOutputHistory.append(memoryOutput.norm().item())
-                    #self.memory2OutputHistory.append(memory2Output.norm().item())
-                    #self.penalisedOutputHistory.append(penalisedLogits.norm().item())
+                    
+                    # --- START: MODIFIED STATS LOGIC ---
+                    # Get blend weights (this variable is now available everywhere)
+                    blend_vals_detached = blend.detach().cpu().tolist()
+                    
                     self.FINALlogitsHistory.append(FINALlogits.norm().item())
+                    
                     if len(self.FINALlogitsHistory) >= self.numTokensPerStep:
                         self.forwardStats = {
-                            #"2B_0_inputEmbeds_norm": sum(self.inputEmbedsHistory) / len(self.inputEmbedsHistory),
-                            #"3B_1_INNOutput_norm": sum(self.INNOutputHistory) / len(self.INNOutputHistory),
-                            #"5B_0_memoryOutput_norm": sum(self.memoryOutputHistory) / len(self.memoryOutputHistory),
-                            #"5B_0b_memory2Output_norm": sum(self.memory2OutputHistory) / len(self.memory2OutputHistory),
-                            #"7B_1_penalisedOutput_norm": sum(self.penalisedOutputHistory) / len(self.penalisedOutputHistory),
                             "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
-                            #"B_blendPixel": self.blendPixel.item(),
+                            
+                            # --- ADDING YOUR NEW STATS ---
+                            # 1. The average norm of the mini-layer's *output*
+                            "B_charEmbed_OUT_norm": sum(self.charEmbedHistory) / len(self.charEmbedHistory),
+                            # 2. The norm of the mini-layer's *embedding weights*
+                            "B_charEmbed_W_norm": self.char_embed.weight.norm().item(),
+                            # 3. The norm of the mini-layer's *projector weights*
+                            "B_charProj_W_norm": self.char_projector.weight.norm().item(),
                         }
-                        if blend_vals is not None:
-                            self.forwardStats["B_blendToken"] = blend_vals[0]
-                            self.forwardStats["B_blendPos"] = blend_vals[1]
-                            self.forwardStats["B_blendPixel"] = blend_vals[2]
-                            debug_print(f"token {blend_vals[0]}, pos {blend_vals[1]}, pixel {blend_vals[2]}")
+                        
+                        # Log blend weights
+                        self.forwardStats["B_blendToken"] = blend_vals_detached[0]
+                        self.forwardStats["B_blendPos"] = blend_vals_detached[1]
+                        
+                        if not skipPixels and (_pixel is not None):
+                            self.forwardStats["B_blendPixel"] = blend_vals_detached[2]
+                            self.forwardStats["B_blendChar"] = blend_vals_detached[3]
+                            debug_print(f"token {blend_vals_detached[0]:.2f}, pos {blend_vals_detached[1]:.2f}, pixel {blend_vals_detached[2]:.2f}, char {blend_vals_detached[3]:.2f}")
+                        else:
+                            self.forwardStats["B_blendPixel"] = 0.0 # Log 0 since it wasn't used
+                            self.forwardStats["B_blendChar"] = blend_vals_detached[3]
+                            debug_print(f"token {blend_vals_detached[0]:.2f}, pos {blend_vals_detached[1]:.2f}, char {blend_vals_detached[3]:.2f} (no pixel)")
+                        # --- END: MODIFIED STATS LOGIC ---
+
                         self.stats.update(self.forwardStats)
                         
                         self.inputEmbedsHistory.clear()
@@ -315,11 +409,9 @@ class BABYLLM(nn.Module):
                         self.penalisedOutputHistory.clear()
                         self.FINALlogitsHistory.clear()
                         self.normalisedHistory.clear()
+                        self.charEmbedHistory.clear() # <-- NEW: Clear the new history
 
                 """returns a logits tensor of shape (1, vocabSize) showing predicted probabilities for the next token"""
-                #tokenEmbed = self.embed(_tokenIndex = _inputSeq)
-                #self.latestTokenEmbed = tokenEmbed
-                #self.log_all_learnable_params(prefix="FORWARD_")
                 if debugPrints:
                     tensor_snitch(self, "babyllm forward end")
                     tensor_snitch(self.memory, "babyllm forward end")
@@ -327,7 +419,7 @@ class BABYLLM(nn.Module):
                     tensor_snitch(self.embed, "babyllm forward end")
                     tensor_snitch(self.interneuronNetwork, "babyllm forward end")
                     tensor_snitch(self.logits, "babyllm forward end")
-            return FINALlogits #, self.latestTokenEmbed
+            return FINALlogits
 
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
     @whocalled
@@ -1167,6 +1259,24 @@ class BABYLLM(nn.Module):
         if non_zero.dim() == 0:
             non_zero = non_zero.unsqueeze(0)
         return {self.librarian.indexToToken[int(i)]: float(counts[int(i)]) for i in non_zero}
+
+    @torch.no_grad()
+    def updateRollingTokenTotals(self, token_indices):
+        """Accumulate token usage counts on-device without Python loops."""
+        if token_indices is None:
+            return
+        if not isinstance(token_indices, torch.Tensor):
+            token_tensor = torch.as_tensor(token_indices, device=self.device)
+        else:
+            token_tensor = token_indices.to(self.device, non_blocking=True)
+        if token_tensor.numel() == 0:
+            return
+        token_tensor = token_tensor.long()
+        vocab_limit = self.rollingTokenTotals_tensor.shape[0] - 1
+        if vocab_limit >= 0:
+            token_tensor = token_tensor.clamp_(0, vocab_limit)
+        updates = torch.ones_like(token_tensor, dtype=self.rollingTokenTotals_tensor.dtype)
+        self.rollingTokenTotals_tensor.scatter_add_(0, token_tensor, updates)
 
 
     """def log_all_learnable_params(self, prefix="PARAM_"):

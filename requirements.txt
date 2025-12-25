@@ -7,3 +7,7 @@ adan-pytorch
 torch_optimizer
 flask
 flask_cors
+sophia-optimizer
+pillow
+discord.py
+psutil

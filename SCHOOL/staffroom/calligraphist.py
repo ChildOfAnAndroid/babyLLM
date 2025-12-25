@@ -123,17 +123,19 @@ class S_OUTPUT:
         # lower than bottom ever    #omgwtf!
 
         self.avgPlz = ["embedNormMean", "B_PIXELloss_scaled", "B_PIXELloss", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "4INN_cerebellumMean", "4INN_cerebellumStd", "7L_logitMax", "7L_logitMin", "7L_logitMean", "7L_logitStd", "7L_logitEntropy", "2A_0_attnOut_norm", "2A_1_gated_norm", "2A_x_final_norm", "2A_gateScale"]
+        self.avgPlz.extend(["4A_1_0_attnOut_norm", "4A_1_1_gated_norm", "4A_1_x_final_norm", "4A_1_gateScale"])
+
 
         self.statSections = [
             ("EMBED STATS", re.compile(r"1E_")),
             ("ATTENTION STATS", re.compile(r"2A_")),
             ("NEURON STATS", re.compile(r"3N_")),
             ("INTERNEURON STATS", re.compile(r"4INN_")),
+            ("ATTENTION2 STATS", re.compile(r"4A_1_")),
             ("MEMORY STATS", re.compile(r"5M_memory_4M_")),
             ("MEMORY2 STATS", re.compile(r"6M_memory2_4M_")),
             ("LOGIT STATS", re.compile(r"7L_")),
-            # Creative modules removed
-            ("BABYLLM STATS", re.compile(r"[0-9]B_")),
+            ("BABYLLM STATS", re.compile(r"([0-9]B_|B_)")), # <-- This now matches "B_" AND "7B_"
             ("LOSS STATS", re.compile(r"L_")),
         ]
 

@@ -48,8 +48,37 @@ def escape_markdown(text: str) -> str:
     return _escape_markdown(text)
 
 
-def is_similar(a, b, threshold=0.8):
-    return difflib.SequenceMatcher(None, a, b).ratio() > threshold
+def is_similar(a, b, threshold=0.8, max_chars=400, max_length_delta=0.45):
+    """Heuristic fuzzy duplicate check that short-circuits cheap cases."""
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+
+    len_a, len_b = len(a), len(b)
+    longer = max(len_a, len_b)
+    shorter = min(len_a, len_b)
+    if longer == 0:
+        return False
+    if (longer - shorter) / longer > max_length_delta:
+        return False
+
+    def _trim(text: str) -> str:
+        text = text.strip()
+        if len(text) <= max_chars:
+            return text
+        half = max_chars // 2
+        return text[:half] + text[-half:]
+
+    a_trimmed = _trim(a)
+    b_trimmed = _trim(b)
+
+    matcher = difflib.SequenceMatcher(None, a_trimmed, b_trimmed, autojunk=False)
+    if matcher.quick_ratio() < threshold:
+        return False
+    if matcher.real_quick_ratio() < threshold:
+        return False
+    return matcher.ratio() > threshold
 
 
 def howLongAgo(t):

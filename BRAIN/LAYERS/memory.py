@@ -95,6 +95,12 @@ class MEMORY(nn.Module):
         for attr in self._history_attrs:
             getattr(self, attr).clear()
 
+    def _history_mean(self, history, offset=0.0):
+        if not history:
+            return offset
+        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
+        return tensor.mean().item() + offset
+
     @whocalled
     def forward(self, _activationsTensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
@@ -236,11 +242,23 @@ class MEMORY(nn.Module):
                 if debugPrints: ʕっʘ‿ʘʔっ("updateStats if short gate scale history >= self.numTokensPerStep")
                 statShortDecay = torch.sigmoid(self.shortTermDecay).item()
                 statLongDecay = torch.sigmoid(self.longTermDecay).item()
+                raw_norm = self._history_mean(self.rawActivationsNormHistory, 0.001)
+                raw_mean = self._history_mean(self.rawActivationsHistory, 0.001)
+                raw_max = self._history_mean(self.rawActivationsMaxHistory, 0.001)
+                raw_min = self._history_mean(self.rawActivationsMinHistory, 0.001)
+                final_norm = self._history_mean(self.FINALmemoryNormHistory, 0.001)
+                final_mean = self._history_mean(self.FINALmemoryHistory, 0.001)
+                final_max = self._history_mean(self.FINALmemoryMaxHistory, 0.001)
+                final_min = self._history_mean(self.FINALmemoryMinHistory, 0.001)
+                short_gate = self._history_mean(self.shortGateScaleHistory, 0.001)
+                long_gate = self._history_mean(self.longGateScaleHistory, 0.001)
+                act_gate = self._history_mean(self.activationsGateScaleHistory, 0.001)
+                mem_gate = self._history_mean(self.memGateScaleHistory, 0.001)
                 self.stats = {
-                    "4M_0_rawActs_norm": sum(self.rawActivationsNormHistory) / len(self.rawActivationsNormHistory) + 0.001,
-                    "4M_0_rawActs_mean": sum(self.rawActivationsHistory) / len(self.rawActivationsHistory) + 0.001,
-                    "4M_0_rawActs_max": sum(self.rawActivationsMaxHistory) / len(self.rawActivationsMaxHistory) + 0.001,
-                    "4M_0_rawActs_min": sum(self.rawActivationsMinHistory) / len(self.rawActivationsMinHistory) + 0.001,
+                    "4M_0_rawActs_norm": raw_norm,
+                    "4M_0_rawActs_mean": raw_mean,
+                    "4M_0_rawActs_max": raw_max,
+                    "4M_0_rawActs_min": raw_min,
 
                     #"4M_1_STM_norm": sum(self.shortTermMemoryNormHistory) / len(self.shortTermMemoryNormHistory),
                     #"4M_1_STM_mean": sum(self.shortTermMemoryHistory) / len(self.shortTermMemoryHistory),
@@ -277,15 +295,15 @@ class MEMORY(nn.Module):
                     #"4M_7_memoryGate_max": sum(self.memoryGateMaxHistory) / len(self.memoryGateMaxHistory),
                     #"4M_7_memoryGate_min": sum(self.memoryGateMinHistory) / len(self.memoryGateMinHistory),
 
-                    "4M_x_FINAL_norm": sum(self.FINALmemoryNormHistory) / len(self.FINALmemoryNormHistory) + 0.001,
-                    "4M_x_FINAL_mean": sum(self.FINALmemoryHistory) / len(self.FINALmemoryHistory) + 0.001,
-                    "4M_x_FINAL_max": sum(self.FINALmemoryMaxHistory) / len(self.FINALmemoryMaxHistory) + 0.001,
-                    "4M_x_FINAL_min": sum(self.FINALmemoryMinHistory) / len(self.FINALmemoryMinHistory) + 0.001,
+                    "4M_x_FINAL_norm": final_norm,
+                    "4M_x_FINAL_mean": final_mean,
+                    "4M_x_FINAL_max": final_max,
+                    "4M_x_FINAL_min": final_min,
 
-                    "4M_1_shortGateScale": sum(self.shortGateScaleHistory) / len(self.shortGateScaleHistory) + 0.001,
-                    "4M_2_longGateScale": sum(self.longGateScaleHistory) / len(self.longGateScaleHistory) + 0.001,
-                    "4M_0_actGateScale": sum(self.activationsGateScaleHistory) / len(self.activationsGateScaleHistory) + 0.001,
-                    "4M_7_memoryGateScale": sum(self.memGateScaleHistory) / len(self.memGateScaleHistory) + 0.001,
+                    "4M_1_shortGateScale": short_gate,
+                    "4M_2_longGateScale": long_gate,
+                    "4M_0_actGateScale": act_gate,
+                    "4M_7_memoryGateScale": mem_gate,
 
                     "4M_1_shortDecay": statShortDecay,
                     "4M_1_longDecay": statLongDecay,

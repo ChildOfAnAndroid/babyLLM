@@ -72,6 +72,12 @@ class NEURON(nn.Module):
         for attr in self._history_attrs:
             getattr(self, attr).clear()
 
+    def _history_mean(self, history, offset=0.0):
+        if not history:
+            return offset
+        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
+        return tensor.mean().item() + offset
+
     @whocalled
     def forward(self, _inputEmbeds):  # embed: (batch_size, embed_size)
         with self.n_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
@@ -131,9 +137,13 @@ class NEURON(nn.Module):
                 history_length = len(self.activatedOutputHistory)
                 if history_length >= self.numTokensPerStep:
                     if debugPrints: ʕっʘ‿ʘʔっ("if len >= windowMAX, add to self.stats")
+                    raw_input_norm = self._history_mean(self.rawInputNormHistory)
+                    raw_input_mean = self._history_mean(self.rawInputHistory)
+                    act_out_norm = self._history_mean(self.activatedOutputNormHistory)
+                    act_out_mean = self._history_mean(self.activatedOutputHistory)
                     self.stats = {
-                        "3N_0_rawInput_norm": sum(self.rawInputNormHistory) / len(self.rawInputNormHistory),
-                        "3N_0_rawInput_mean": sum(self.rawInputHistory) / len(self.rawInputHistory),
+                        "3N_0_rawInput_norm": raw_input_norm,
+                        "3N_0_rawInput_mean": raw_input_mean,
                         #"3N_0_rawInput_norm_token": sum(self.rawInputHistory_tokens) / len(self.rawInputHistory_tokens),
                         #"3N_0_rawInput_norm_neuron": sum(self.rawInputHistory_neurons) / len(self.rawInputHistory_neurons),
 
@@ -147,8 +157,8 @@ class NEURON(nn.Module):
                         #"3N_2_rawOutput_norm_token": sum(self.rawOutputHistory_tokens) / len(self.rawOutputHistory_tokens),
                         #"3N_2_rawOutput_norm_neuron": sum(self.rawOutputHistory_neurons) / len(self.rawOutputHistory_neurons),
 
-                        "3N_x_actOut_norm": sum(self.activatedOutputNormHistory) / len(self.activatedOutputNormHistory),
-                        "3N_x_actOut_mean": sum(self.activatedOutputHistory) / len(self.activatedOutputHistory),
+                        "3N_x_actOut_norm": act_out_norm,
+                        "3N_x_actOut_mean": act_out_mean,
                         #"3N_x_actOut_norm_token": sum(self.activatedOutputHistory_tokens) / len(self.activatedOutputHistory_tokens),
                         #"3N_x_actOut_norm_neuron": sum(self.activatedOutputHistory_neurons) / len(self.activatedOutputHistory_neurons),
 
@@ -236,6 +246,12 @@ class INTERNEURON_NETWORK(nn.Module):
     def _clear_histories(self):
         for attr in self._history_attrs:
             getattr(self, attr).clear()
+
+    def _history_mean(self, history, offset=0.0):
+        if not history:
+            return offset
+        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
+        return tensor.mean().item() + offset
 
     @whocalled
     def forward(self, _inputEmbeds):
@@ -393,25 +409,27 @@ class INTERNEURON_NETWORK(nn.Module):
                     #ref_neuron_norm,
                 #) = norms_cpu
 
-            if len(self.combHistory) >= self.numTokensPerStep:
-                if debugPrints: ʕっʘ‿ʘʔっ("add to self.stats")
-                self.stats = {
-                    "4INN_0_rawActs_norm": sum(self.activationsHistory) / len(self.activationsHistory),
-                    #"4INN_0_rawActs_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
-                    #"4INN_0_rawActs_norm_neuron": sum(self.activationsHistory_neuron) / len(self.activationsHistory_neuron),
-                    #"4INN_2_combinedActs_norm": sum(self.combHistory) / len(self.combHistory),
-                    #"4INN_2_combinedActs_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
-                    "4INN_x_refinedActs_norm": sum(self.refHistory) / len(self.refHistory),
-                    #"4INN_3_refinedActs_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
-                    "4INN_windowSizesMean": floatWindowSizes.mean().item(),
-                    "4INN_windowEntropy": self.windowSizeEntropy
-                }
-                if debugPrints: print(f"{self.stats}")
+        if len(self.combHistory) >= self.numTokensPerStep:
+            if debugPrints: ʕっʘ‿ʘʔっ("add to self.stats")
+            raw_acts_mean = self._history_mean(self.activationsHistory)
+            refined_mean = self._history_mean(self.refHistory)
+            self.stats = {
+                "4INN_0_rawActs_norm": raw_acts_mean,
+                #"4INN_0_rawActs_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
+                #"4INN_0_rawActs_norm_neuron": sum(self.activationsHistory_neuron) / len(self.activationsHistory_neuron),
+                #"4INN_2_combinedActs_norm": sum(self.combHistory) / len(self.combHistory),
+                #"4INN_2_combinedActs_norm_neuron": sum(self.combHistory_neuron) / len(self.combHistory_neuron),
+                "4INN_x_refinedActs_norm": refined_mean,
+                #"4INN_3_refinedActs_norm_neuron": sum(self.refHistory_neuron) / len(self.refHistory_neuron),
+                "4INN_windowSizesMean": floatWindowSizes.mean().item(),
+                "4INN_windowEntropy": self.windowSizeEntropy
+            }
+            if debugPrints: print(f"{self.stats}")
 
-                if debugPrints: ʕっʘ‿ʘʔっ("clearstats")
-                self._clear_histories()
+            if debugPrints: ʕっʘ‿ʘʔっ("clearstats")
+            self._clear_histories()
 
-            return FINALout
+        return FINALout
     
     @whocalled
     def stackedWindowMeans(self, activations: torch.Tensor, windowTensor: torch.Tensor) -> torch.Tensor:

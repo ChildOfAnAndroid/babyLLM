@@ -4,8 +4,27 @@ Centralized safety validation system for babyLLM
 Prevents code duplication of NaN/Inf checks and value validation
 """
 import math
+import asyncio
 from typing import Union, Any, Optional, Dict
 from .logger import logger
+from .data_manager import data_manager
+
+def _emit_safety_debug(message: str) -> None:
+    bot = getattr(data_manager, "_bot_ref", None)
+    if not bot or not hasattr(bot, "_discord_debug"):
+        return
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(bot._discord_debug(message))
+        return
+    except RuntimeError:
+        pass
+    try:
+        loop = getattr(bot, "loop", None)
+        if loop and loop.is_running():
+            loop.create_task(bot._discord_debug(message))
+    except Exception:
+        pass
 
 class SafetyValidator:
     """Centralized validation for numerical safety and data integrity"""
@@ -53,6 +72,7 @@ class SafetyValidator:
         string_fields = {"display_name"}
         
         repaired = False
+        repair_notes = []
         for key, default_value in defaults.items():
             if key not in mem:
                 mem[key] = default_value
@@ -61,41 +81,55 @@ class SafetyValidator:
                 logger.emergency("MEMORY_REPAIR", f"Corrupted {key}={mem[key]} for user {user_id}, resetting to {default_value}")
                 mem[key] = default_value
                 repaired = True
+                repair_notes.append(f"{key}=invalid")
             elif key in string_fields and not isinstance(mem[key], str):
                 logger.emergency("MEMORY_REPAIR", f"Corrupted {key}={mem[key]} for user {user_id}, resetting to '{default_value}'")
                 mem[key] = default_value
                 repaired = True
+                repair_notes.append(f"{key}=invalid_type")
         
         # Apply specific safety ranges only for critical corruption, not normal high values
         if not SafetyValidator.is_safe_number(mem["creative_combo"]):
             logger.emergency("MEMORY_REPAIR", f"Corrupted creative_combo={mem['creative_combo']} for user {user_id}, resetting to 1")
             mem["creative_combo"] = 1
             repaired = True
+            repair_notes.append("creative_combo=invalid")
         elif mem["creative_combo"] < -50:  # Only clamp extremely negative values
             mem["creative_combo"] = 1
             repaired = True
+            repair_notes.append("creative_combo=clamped")
             
         if not SafetyValidator.is_safe_number(mem["spammer"]):
             logger.emergency("MEMORY_REPAIR", f"Corrupted spammer={mem['spammer']} for user {user_id}, resetting to 1")
             mem["spammer"] = 1
             repaired = True
+            repair_notes.append("spammer=invalid")
         elif mem["spammer"] < -50:  # Only clamp extremely negative values
             mem["spammer"] = 1
             repaired = True
+            repair_notes.append("spammer=clamped")
             
         mem["spamMax"] = SafetyValidator.clamp_value(
             mem["spamMax"], 0.1, 2.0, 0.8, f"spamMax for {user_id}"
         )
         
-        # Validate and fix inventory item counts - ensure all items are integers
+        # Validate and fix inventory item counts - ensure dict with integer counts
+        if "inventory" in mem and not isinstance(mem["inventory"], dict):
+            logger.emergency("MEMORY_REPAIR", f"Corrupted inventory type for user {user_id}, resetting inventory to empty dict")
+            mem["inventory"] = {}
+            repaired = True
+            repair_notes.append("inventory=invalid_type")
+
         if "inventory" in mem and isinstance(mem["inventory"], dict):
             inventory_repaired = False
+            inventory_change_count = 0
             for item_name, count in list(mem["inventory"].items()):
                 if not SafetyValidator.is_safe_number(count):
                     logger.emergency("MEMORY_REPAIR", f"Corrupted inventory count {item_name}={count} for user {user_id}, removing item")
                     del mem["inventory"][item_name]
                     inventory_repaired = True
                     repaired = True
+                    inventory_change_count += 1
                 elif not isinstance(count, int):
                     # Round fractional item counts to integers
                     fixed_count = int(round(count)) if count > 0 else 0
@@ -109,18 +143,23 @@ class SafetyValidator:
                             logger.info("MEMORY_REPAIR", f"Rounded inventory count {item_name}: {count} -> {fixed_count} for user {user_id}")
                     inventory_repaired = True
                     repaired = True
+                    inventory_change_count += 1
                 elif count <= 0:
                     # Remove items with non-positive counts
                     del mem["inventory"][item_name]
                     logger.info("MEMORY_REPAIR", f"Removed item {item_name} with non-positive count {count} for user {user_id}")
                     inventory_repaired = True
                     repaired = True
+                    inventory_change_count += 1
             
             if inventory_repaired:
                 logger.info("MEMORY_REPAIR", f"Fixed inventory items for user {user_id}")
+                repair_notes.append(f"inventory=items_fixed({inventory_change_count})")
         
         if repaired:
             logger.info("MEMORY_REPAIR", f"Repaired user memory for {user_id}")
+            if repair_notes:
+                _emit_safety_debug(f"[SAFETY_REPAIR] {user_id}: {', '.join(repair_notes)}")
         
         return mem
     

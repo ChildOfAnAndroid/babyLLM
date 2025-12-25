@@ -62,6 +62,12 @@ class LOGITS(nn.Module):
         for attr in self._history_attrs:
             setattr(self, attr, deque(maxlen=maxlen))
 
+    def _history_mean(self, history):
+        if not history:
+            return 0.0
+        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
+        return tensor.mean().item()
+
     @whocalled
     def forward(self, _meanActivationsTensor):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
@@ -125,34 +131,42 @@ class LOGITS(nn.Module):
 
             if len(self.tensorHist) >= self.numTokensPerStep:
                 if debugPrints: ʕっʘ‿ʘʔっ("clear rolling self.stats at end of window")
+                acts_norm = self._history_mean(self.tensorNormHist)
+                final_norm = self._history_mean(self.finalNormHist)
+                acts_mean = self._history_mean(self.tensorHist)
+                final_mean = self._history_mean(self.finalHist)
+                acts_min = self._history_mean(self.tensorMinHist)
+                final_min = self._history_mean(self.finalMinHist)
+                acts_max = self._history_mean(self.tensorMaxHist)
+                final_max = self._history_mean(self.finalMaxHist)
                 self.stats = {
-                    "7L_0_actsTensor_norm": sum(self.tensorNormHist) / len(self.tensorNormHist),
+                    "7L_0_actsTensor_norm": acts_norm,
                     #"7L_1_normActsTensor_norm": sum(self.normedNormHist) / len(self.normedNormHist),
                     #"7L_2_scaledActsTensor_norm": sum(self.activNormHist) / len(self.activNormHist),
                     #"7L_3_out_norm": sum(self.logitNormHist) / len(self.logitNormHist),
                     #"7L_4_outNorm_norm": sum(self.normLayerNormHist) / len(self.normLayerNormHist),
-                    "7L_x_final_norm": sum(self.finalNormHist) / len(self.finalNormHist),
+                    "7L_x_final_norm": final_norm,
 
-                    "7L_0_actsTensor_mean": sum(self.tensorHist) / len(self.tensorHist),
+                    "7L_0_actsTensor_mean": acts_mean,
                     #"7L_1_normActsTensor_mean": sum(self.normedHist) / len(self.normedHist),
                     #"7L_2_scaledActsTensor_mean": sum(self.activHist) / len(self.activHist),
                     #"7L_3_out_mean": sum(self.logitHist) / len(self.logitHist),
                     #"7L_4_outNorm_mean": sum(self.normLayerHist) / len(self.normLayerHist),
-                    "7L_x_final_mean": sum(self.finalHist) / len(self.finalHist),
+                    "7L_x_final_mean": final_mean,
 
-                    "7L_0_actsTensor_min": sum(self.tensorMinHist) / len(self.tensorMinHist),
+                    "7L_0_actsTensor_min": acts_min,
                     #"7L_1_normActsTensor_min": sum(self.normedMinHist) / len(self.normedMinHist),
                     #"7L_2_scaledActsTensor_min": sum(self.activMinHist) / len(self.activMinHist),
                     #"7L_3_out_min": sum(self.logitMinHist) / len(self.logitMinHist),
                     #"7L_4_outNorm_min": sum(self.normLayerMinHist) / len(self.normLayerMinHist),
-                    "7L_x_final_min": sum(self.finalMinHist) / len(self.finalMinHist),
+                    "7L_x_final_min": final_min,
 
-                    "7L_0_actsTensor_max": sum(self.tensorMaxHist) / len(self.tensorMaxHist),
+                    "7L_0_actsTensor_max": acts_max,
                     #"7L_1_normActsTensor_max": sum(self.normedMaxHist) / len(self.normedMaxHist),
                     #"7L_2_scaledActsTensor_max": sum(self.activMaxHist) / len(self.activMaxHist),
                     #"7L_3_out_max": sum(self.logitMaxHist) / len(self.logitMaxHist),
                     #"7L_4_outNorm_max": sum(self.normLayerMaxHist) / len(self.normLayerMaxHist),
-                    "7L_x_final_max": sum(self.finalMaxHist) / len(self.finalMaxHist),
+                    "7L_x_final_max": final_max,
 
                 }
 

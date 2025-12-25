@@ -40,7 +40,11 @@ from .utils import escape_markdown, format_bby_amount, is_similar, killExcessTag
 from .autonomy import AutonomyPlanner
 
 bby_lounge = 1388782896084422788
-bby_spam = 1156683242087387206
+# Respect config-provided channel IDs so BabyLLM listens in the correct room.
+try:
+    bby_spam = bby_spam_channel_id
+except NameError:
+    bby_spam = 1440825576884535326
 bby_debug = 1399818543125495970
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -575,12 +579,28 @@ class BABYBOT_DISCORD(commands.Bot):
                 print(f"!!!![_DISCORD_SEND] NO CHANNEL OR CTX PROVIDED")
                 return None # Return None on failure
             terminal_debug_str += f"{getattr(target, 'name', 'UNKNOWN')}:\n"
+
+            async def _send_with_fallback(*, content=None, embed=None, allow_reply=True):
+                nonlocal sent_message, terminal_debug_str
+                if allow_reply and ctx:
+                    reply_method = getattr(ctx, "reply", None)
+                    if callable(reply_method):
+                        try:
+                            if embed is not None:
+                                sent_message = await reply_method(embed=embed)
+                            else:
+                                sent_message = await reply_method(content)
+                            return sent_message
+                        except Exception as reply_error:
+                            terminal_debug_str += f"              !] reply failed ({type(reply_error).__name__}), fallback to send\n"
+                if embed is not None:
+                    sent_message = await target.send(embed=embed)
+                else:
+                    sent_message = await target.send(content)
+                return sent_message
             
             if embed:
-                if ctx and is_reply:
-                    sent_message = await ctx.reply(embed=embed)
-                else:
-                    sent_message = await target.send(embed=embed)
+                sent_message = await _send_with_fallback(embed=embed, allow_reply=is_reply)
                 terminal_debug_str += "              b] EMBED MESSAGE SENT\n"
             
             elif message_content:
@@ -588,10 +608,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 if dm_overflow and ctx is not None and len(chunks) > 1:
                     # Send first chunk to channel/reply, rest via DM if possible
                     terminal_debug_str += f"              a] SENDING MESSAGE PART 0... (channel)\n"
-                    if is_reply:
-                        sent_message = await ctx.reply(chunks[0])
-                    else:
-                        sent_message = await target.send(chunks[0])
+                    sent_message = await _send_with_fallback(content=chunks[0], allow_reply=is_reply)
                     try:
                         user_dm = await ctx.author.create_dm()
                         for i, chunk in enumerate(chunks[1:], start=1):
@@ -608,10 +625,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 else:
                     for i, chunk in enumerate(chunks):
                         terminal_debug_str += f"              a] SENDING MESSAGE PART {i}...\n"
-                        if ctx and is_reply and i == 0:
-                            sent_message = await ctx.reply(chunk)
-                        else:
-                            sent_message = await target.send(chunk)
+                        sent_message = await _send_with_fallback(content=chunk, allow_reply=(is_reply and i == 0))
             
             if to_buffer:
                 terminal_debug_str += "               ] APPENDING MESSAGE TO TRAINING BUFFER...\n"
@@ -840,7 +854,11 @@ class BABYBOT_DISCORD(commands.Bot):
     def save_bbycraft_recipes(self): self._save_json(self.bbycraft_recipes_path, self.bbycraft_recipes, "_SAVE_CRAFT_RECIPES", ensure_ascii = False)
     def save_opt_in_users(self): self._save_json(self.opt_in_path, self.AIoptInUsers, "_SAVE_OPTIN")
 
-    async def handle_wtf_reply(self, message, sess):
+    async def maybe_trigger_pin_celebration(self):
+        """Optional hook for pin celebrations (safe no-op if unused)."""
+        return
+
+    async def handle_wtf_reply(self, message, sess, ctx=None):
         task = sess.get('task')
         if task and not task.done(): task.cancel()
 
@@ -853,13 +871,18 @@ class BABYBOT_DISCORD(commands.Bot):
         except discord.errors.Forbidden: pass
             
         if word and word not in self.bbyfacts:
-            await self.cog._set_bbyfact(
-                key=word, 
-                value=definition, 
-                author=author, 
-                timestamp=time.time(), 
-                debug_str="[BBYWTF_REPLY]"
-            )
+            if self.cog and hasattr(self.cog, "bbyteach"):
+                if ctx is None:
+                    ctx = await self.get_context(message)
+                await self.cog.bbyteach(ctx, word, value=definition, debug_str="[BBYWTF_REPLY] ")
+            elif self.cog:
+                await self.cog._set_bbyfact(
+                    key=word,
+                    value=definition,
+                    author=author,
+                    timestamp=time.time(),
+                    debug_str="[BBYWTF_REPLY]"
+                )
         
         ref_id = message.reference.message_id
         if ref_id in self.lex_sessions:
@@ -873,6 +896,35 @@ class BABYBOT_DISCORD(commands.Bot):
         return escape_markdown(name)
 
     def formatMessage(self, user, text): return f"{self.getNickname(user)}: {text}"
+
+    # --- Context helpers required by cog ---
+    def _get_fact_injection_settings(self):
+        """Return (probability, cooldown_seconds, train_share) based on current chapter stage."""
+        stage = getattr(self, "chapter_stage", 2)
+        if stage <= 1:
+            return (
+                getattr(self, "fact_injection_probability_ch1", 0.10),
+                getattr(self, "fact_injection_cooldown_ch1", 240.0),
+                getattr(self, "fact_injection_training_ratio_ch1", 1.0),
+            )
+        return (
+            getattr(self, "fact_injection_probability_ch2", 0.25),
+            getattr(self, "fact_injection_cooldown_ch2", 150.0),
+            getattr(self, "fact_injection_training_ratio_ch2", 0.55),
+        )
+
+    def build_prompt_context(self, max_chars: int = 10000) -> str:
+        """Assemble a prompt from the current buffer, capped to max_chars."""
+        context = "\n".join(list(self.buffer))
+        return context[-max_chars:]
+
+    def build_training_context(self, *, max_chars: int = 10000, include_external: bool = True) -> str:
+        """Assemble training context from chat buffer (and optional training buffer)."""
+        parts = list(self.buffer)
+        if include_external and hasattr(self, "training_buffer") and self.training_buffer:
+            parts.extend(list(self.training_buffer))
+        context = "\n".join(parts)
+        return context[-max_chars:]
     
     def repeatAndDie(self, user, text_block): 
         seen_in_this_msg = set()
@@ -1661,11 +1713,14 @@ class BABYBOT_DISCORD(commands.Bot):
                 spam_bonus = -420.69 * mem["spammer"] # a real penalty!
                 spam_bonus = self.apply_fave_bonus(spam_bonus, used_fave_token)
                 self.updateBBY(author, spam_bonus)
-                # spammer poke
+                # spammer poke (rarer + cooldown)
                 spam_level = mem.get("spammer", 1)
-                # chance to eat an item increases with spam level
-                eat_chance = min(0.75, (spam_level / 100.0) * self.get_varied_random())
-                if self.cog and self.get_varied_random() < eat_chance:
+                poke_cooldown = 60 * 60  # 1 hour
+                last_poke = mem.get("last_repetitive_poke", 0)
+                cooldown_ready = (time.time() - last_poke) >= poke_cooldown
+                # chance to eat an item increases with spam level (much lower baseline)
+                eat_chance = min(0.2, (spam_level / 400.0) * self.get_varied_random())
+                if self.cog and cooldown_ready and self.get_varied_random() < eat_chance:
                     inventory = mem.get("inventory", {})
                     favourites = mem.get("favourites", [])
                     # find items baby can eat (not favourited)
@@ -1681,6 +1736,7 @@ class BABYBOT_DISCORD(commands.Bot):
                         )
                         ctx = await self.get_context(message)
                         await self._discord_reply(ctx, poke_msg)
+                        mem["last_repetitive_poke"] = time.time()
                         data_manager.request_save("user_data")
                 if mem["spammer"] in [10, 42.0, 69, 420, 690, 840, 4200, 6969, 42069, 69420, 420420]:
                     try: await self._discord_spam(f"{self.getNickname(author)} hit x{mem['spammer']} spam! {random.choice(self.faveEmotes)}")
@@ -1701,11 +1757,11 @@ class BABYBOT_DISCORD(commands.Bot):
         is_chatty_milestone = (msg_count > 0 and msg_count % 42 == 0)
         ctx = await self.get_context(message)
         if self.cog and is_chatty_milestone:
-            drop_chance = 0.1 # Base 10% chance
+            drop_chance = 0.02  # Base 2% chance (rarer drops)
             if is_bestie:
-                drop_chance += 0.1 # Extra 10% for bestie
+                drop_chance += 0.02  # Extra 2% for bestie
             if is_creative:
-                drop_chance += min(0.5, mem.get("creative_combo", 1) / 1000.0) # Up to 50% more for high combo
+                drop_chance += min(0.08, mem.get("creative_combo", 1) / 5000.0)  # Up to 8% more for high combo
             
             if self.get_varied_random() < drop_chance:
                 available_items = await self.cog._get_available_items()
@@ -1793,7 +1849,7 @@ class BABYBOT_DISCORD(commands.Bot):
             ref_id = message.reference.message_id
             sess = self.lex_sessions.get(ref_id)
             if sess and sess.get('mode') == 'wtf':
-                await self.handle_wtf_reply(message, sess)
+                await self.handle_wtf_reply(message, sess, ctx=ctx)
 
         if message.author == self.user: return
 
@@ -1858,7 +1914,7 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"[Loyalty] {self.getNickname(author)} logged in for a new day! Day {mem['loyalty']}, +ᛒ{loyalty_bonus:.0f}")
 
             today_key = day_start_420am.strftime('%Y-%m-%d')
-            event_key = f"{self.getNickname(author)} got first chat on {today_key}"
+            event_key = f"first chat on {today_key}"
 
             if event_key not in self.bbyfacts:
                 self.updateBBY(author, 42069.0)

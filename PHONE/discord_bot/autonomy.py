@@ -269,33 +269,56 @@ class AutonomyPlanner:
         except Exception:
             return []
 
-    def _load_source_text(self, entry: dict, max_chars: int = 150_000) -> str:
+    def _load_source_text(self, entry: dict, max_chars: int = 150_000, retries: int = 5) -> str:
         """Load text from a weighted training entry using librarian when available.
 
+        On failure, retries with different random entries (up to `retries`).
         Supports 'text' type locally; other types best-effort via librarian if it
         exposes 'loadSingleFile(path, type, max_chars=...)'. Returns lowercase.
         """
-        try:
-            typ = str(entry.get("type", "text") or "text").lower()
-            path = entry.get("in")
-            if not path:
-                return ""
-            # Prefer librarian if it has a loader
-            lib = getattr(self.bot, "librarian", None)
-            if lib and hasattr(lib, "loadSingleFile"):
-                try:
-                    # Prefer a randomized window for large sources
+
+        def _try_load(ent: dict) -> str:
+            try:
+                typ = str(ent.get("type", "text") or "text").lower()
+                path = ent.get("in")
+                if not path:
+                    return ""
+                lib = getattr(self.bot, "librarian", None)
+                if lib and hasattr(lib, "loadSingleFile"):
                     strat = "random" if typ in ("text", "discord_txt", "discord_json", "json") else "head"
-                    txt = lib.loadSingleFile(path, typ, max_chars=max_chars, strategy=strat)
-                    return (txt or "").strip().lower()
-                except Exception:
-                    pass
-            # Fallback: plain text files only
-            if typ == "text" and os.path.exists(path):
-                with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    return f.read(max_chars).strip().lower()
-        except Exception:
-            pass
+                    try:
+                        txt = lib.loadSingleFile(path, typ, max_chars=max_chars, strategy=strat)
+                        if txt:
+                            return txt.strip().lower()
+                    except Exception:
+                        pass
+                if typ == "text" and os.path.exists(path):
+                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                        txt = f.read(max_chars).strip().lower()
+                        return txt
+            except Exception:
+                return ""
+            return ""
+
+        tried_paths = set()
+        txt = _try_load(entry)
+        if txt:
+            return txt
+        tried_paths.add(entry.get("in"))
+
+        pool = [e for e in (trainingFilePath_dict_weighted or []) if isinstance(e, dict)]
+        attempts = 1
+        while attempts < max(1, retries) and pool:
+            candidate = random.choice(pool)
+            path = candidate.get("in")
+            if path in tried_paths:
+                attempts += 1
+                continue
+            tried_paths.add(path)
+            txt = _try_load(candidate)
+            attempts += 1
+            if txt:
+                return txt
         return ""
 
     def _find_related_snippets(self, max_snippets: int = 2) -> List[str]:
