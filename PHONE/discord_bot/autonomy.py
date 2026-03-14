@@ -32,9 +32,12 @@ class AutonomyPlanner:
         self.state = {
             "enabled": True,
             "last_tick": 0.0,
-            "min_interval_sec": 45.0,
+            "min_interval_sec": 420.0,
+            "line_cooldown_sec": 3600.0,
+            "recent_line_signatures": {},
         }
         self._load_state()
+        self._normalise_state()
 
     # --- persistence ---
     def _load_state(self):
@@ -46,6 +49,58 @@ class AutonomyPlanner:
                     self.state.update({k: data.get(k, v) for k, v in self.state.items()})
         except Exception:
             pass
+
+    def _normalise_state(self):
+        changed = False
+
+        try:
+            min_interval = float(self.state.get("min_interval_sec", 420.0))
+        except Exception:
+            min_interval = 420.0
+            changed = True
+        # Legacy configs used 45s; clamp to a calmer cadence.
+        if min_interval < 300.0:
+            min_interval = 420.0
+            changed = True
+        self.state["min_interval_sec"] = min_interval
+
+        try:
+            cooldown = float(self.state.get("line_cooldown_sec", 3600.0))
+        except Exception:
+            cooldown = 3600.0
+            changed = True
+        if cooldown < 300.0:
+            cooldown = 1800.0
+            changed = True
+        self.state["line_cooldown_sec"] = cooldown
+
+        raw_hist = self.state.get("recent_line_signatures", {})
+        if not isinstance(raw_hist, dict):
+            raw_hist = {}
+            changed = True
+        now = time.time()
+        hist: dict[str, float] = {}
+        for sig, ts in raw_hist.items():
+            if not isinstance(sig, str) or not sig.strip():
+                changed = True
+                continue
+            try:
+                tsf = float(ts)
+            except Exception:
+                changed = True
+                continue
+            if now - tsf <= cooldown:
+                hist[sig] = tsf
+            else:
+                changed = True
+        if len(hist) > 128:
+            for key, _ in sorted(hist.items(), key=lambda kv: kv[1], reverse=True)[128:]:
+                hist.pop(key, None)
+            changed = True
+        self.state["recent_line_signatures"] = hist
+
+        if changed:
+            self._save_state()
 
     def _save_state(self):
         try:
@@ -127,20 +182,106 @@ class AutonomyPlanner:
             elif g > 0.75:
                 lines.append(f"attention is wide (gate {g:.2f}); trying a tighter focus pass on recent lines to avoid drifting")
             else:
-                lines.append(f"attention sits comfy (gate {g:.2f}); small focus/refocus reps now")
+                lines.append(random.choice([
+                    f"attention feels balanced (gate {g:.2f}); doing one compact focus/refocus rep",
+                    f"gate {g:.2f} looks steady; a tiny attention tidy-up now",
+                    f"attention is comfy (gate {g:.2f}); short focus pass, then back to listening",
+                ]))
 
         # Memory & load flavour
         if isinstance(mf, (int, float)) and isinstance(cl, (int, float)):
             if mf > 0.35 and cl > 0.3:
                 lines.append("lots of cross‑links buzzing; i’ll pin a couple clean examples into my training buffer")
             elif mf < 0.2 and cl < 0.25:
-                lines.append("quiet brain; i’ll skim my library and pick a neat snippet to rehearse")
+                lines.append(random.choice([
+                    "quiet brain; i'll skim my library for one neat snippet to rehearse",
+                    "quiet brain right now; i'll pick one short snippet and practise it cleanly",
+                    "brain is calm; i'll practise one tiny snippet from my notes",
+                    "low-noise moment; one clean line rehearsal should do",
+                    "head is quiet, so i'm grabbing one small snippet for a tidy rep",
+                ]))
         elif isinstance(st, (int, float)) and st > 0:
             lines.append(f"learning stability around {st:.2f}; tiny tidy reps")
 
         if not lines:
             lines.append("tiny self‑lesson: re‑read my own buffer then echo a shorter, cleaner line back")
         return lines[:2]
+
+    def _line_signature(self, line: str) -> str:
+        sig = str(line or "").strip().lower()
+        sig = re.sub(r"\b\d+(?:\.\d+)?\b", "<num>", sig)
+        sig = re.sub(r"\s+", " ", sig).strip()
+        return sig
+
+    def _allow_reflection_line(self, line: str, now_ts: float) -> bool:
+        self._normalise_state()
+        sig = self._line_signature(line)
+        if not sig:
+            return False
+        cooldown = float(self.state.get("line_cooldown_sec", 3600.0))
+        hist = self.state.setdefault("recent_line_signatures", {})
+        last = float(hist.get(sig, 0.0) or 0.0)
+        if last and (now_ts - last) < cooldown:
+            return False
+        hist[sig] = now_ts
+        if len(hist) > 128:
+            for key, _ in sorted(hist.items(), key=lambda kv: kv[1], reverse=True)[128:]:
+                hist.pop(key, None)
+        return True
+
+    def _clip_context_snippet(self, text: str, max_len: int = 96) -> str:
+        s = re.sub(r"\s+", " ", str(text or "").strip())
+        if len(s) <= max_len:
+            return s
+        return s[: max_len - 3].rstrip() + "..."
+
+    def _contextualise_reflection_line(self, line: str, sig: dict, related: List[str]) -> str:
+        """Wrap reflection lines with lightweight context to avoid rote standalone spam."""
+        base = re.sub(r"\s+", " ", str(line or "").strip())
+        if not base:
+            return ""
+
+        ctx_text = self._get_context_text(20)
+        keys = self._extract_keywords(ctx_text, k=4)
+        prefixes: list[str] = []
+
+        if len(keys) >= 2:
+            prefixes.extend(
+                [
+                    f"chat keeps circling {keys[0]} and {keys[1]}, so ",
+                    f"after seeing {keys[0]} pop up again, ",
+                    f"while {keys[0]} drifts through recent chat, ",
+                ]
+            )
+        elif len(keys) == 1:
+            prefixes.extend(
+                [
+                    f"with {keys[0]} still in my head, ",
+                    f"because chat keeps poking {keys[0]}, ",
+                ]
+            )
+
+        if related:
+            sample = self._clip_context_snippet(related[0], max_len=84)
+            if sample:
+                prefixes.extend(
+                    [
+                        f"i just skimmed a snippet saying \"{sample}\", so ",
+                        f"one line i found was \"{sample}\", and now ",
+                    ]
+                )
+
+        g = sig.get("attn_gate")
+        if isinstance(g, (int, float)):
+            prefixes.append(f"gate check says {float(g):.2f}, so ")
+
+        if not prefixes:
+            prefixes = [
+                "tiny self-check between chats: ",
+                "quick context-aware rehearsal: ",
+            ]
+
+        return f"{random.choice(prefixes)}{base}".strip()
 
     async def maybe_act(self):
         """Possibly schedule a small self‑directed training action.
@@ -151,7 +292,7 @@ class AutonomyPlanner:
         if not self.enabled:
             return
         now = time.time()
-        if (now - float(self.state.get("last_tick", 0.0))) < float(self.state.get("min_interval_sec", 45.0)):
+        if (now - float(self.state.get("last_tick", 0.0))) < float(self.state.get("min_interval_sec", 420.0)):
             return
 
         sig = self._read_signals()
@@ -159,27 +300,39 @@ class AutonomyPlanner:
         if sig.get("queue_len", 0) >= 10:
             return
 
-        # build reflective lines and commit
-        lines = self._compose_reflection(sig)
-        used_lines = []
-        for ln in lines:
-            try:
-                buf_line = self.bot.formatMessage(self.bot.babyName, ln)
-                if self.bot._buffer_add(buf_line):
-                    used_lines.append(ln)
-                # also feed cleaned lines into the training buffer (no speaker prefix)
-                self.bot._training_buffer_add(ln)
-            except Exception:
-                continue
-
-        # try to find 1–2 related snippets from training files and add them, too
+        # gather related snippets first so reflection lines can include context.
         related = []
         try:
             related = self._find_related_snippets(max_snippets=2)
-            for snip in related:
-                self.bot._training_buffer_add(snip)
         except Exception:
-            pass
+            related = []
+
+        # build reflective lines and commit
+        lines = self._compose_reflection(sig)
+        if len(lines) > 1:
+            lines = [random.choice(lines)]
+        used_lines = []
+        for ln in lines:
+            try:
+                contextual = self._contextualise_reflection_line(ln, sig, related)
+                if not contextual:
+                    continue
+                if not self._allow_reflection_line(contextual, now):
+                    continue
+                buf_line = self.bot.formatMessage(self.bot.babyName, contextual)
+                if self.bot._buffer_add(buf_line):
+                    used_lines.append(contextual)
+                # feed cleaned contextual lines into the training buffer.
+                self.bot._training_buffer_add(contextual, apply_clean=True)
+            except Exception:
+                continue
+
+        # also feed related snippets into training memory
+        for snip in related:
+            try:
+                self.bot._training_buffer_add(snip, apply_clean=True)
+            except Exception:
+                continue
 
         # opportunistically enqueue a compact context that includes the fresh lines
         if (used_lines or related) and sig.get("queue_len", 0) < 8 and hasattr(self.bot, "training_queue"):
