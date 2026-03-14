@@ -46,6 +46,8 @@ babyState = {
     "R": 133, "G": 239, "B": 238,
     "cerebralLoad": 0.0, "dreamIntensity": 0.0, "memoryFlux": 0.0, "learningStability": 0.0,
     "metabolicRate": 0.0,
+    "token_event": None,
+    "token_events": [],
 }
 baseColour = {"R": 133, "G": 239, "B": 238}
 targetColour = {"R": 133, "G": 239, "B": 238}

@@ -132,9 +132,12 @@ class S_OUTPUT:
             ("NEURON STATS", re.compile(r"3N_")),
             ("INTERNEURON STATS", re.compile(r"4INN_")),
             ("ATTENTION2 STATS", re.compile(r"4A_1_")),
+            ("TANGLING STATS", re.compile(r"TANGLE_")),
+            ("SCRATCHPAD STATS", re.compile(r"SCRATCH_")),
             ("MEMORY STATS", re.compile(r"5M_memory_4M_")),
             ("MEMORY2 STATS", re.compile(r"6M_memory2_4M_")),
             ("LOGIT STATS", re.compile(r"7L_")),
+            ("SENSORY BUS STATS", re.compile(r"S_")),
             ("BABYLLM STATS", re.compile(r"([0-9]B_|B_)")), # <-- This now matches "B_" AND "7B_"
             ("LOSS STATS", re.compile(r"L_")),
         ]
@@ -167,7 +170,7 @@ class S_OUTPUT:
         if len(values) < 2:
             return {"dim": -float('inf')}
 
-        if statKey in mostImportantStats or statKey.startswith("INN_cerebellum_W"): #values is dict:
+        if statKey in mostImportantStats or statKey.startswith("INN_cerebellum_W") or statKey.startswith("INN_cerebellum_SHORT_W"): #values is dict:
             keyList = {f"{printFreq}": printFreq, f"{trainingLogFreq_A}": trainingLogFreq_A, f"BIG{trainingLogFreq_A}": trainingLogFreq_A}
             requiredKey = list(keyList.keys())[0]
             for key, freq in keyList.items():
@@ -273,9 +276,23 @@ class S_OUTPUT:
             return "".join(style) + str(_text) + "".join(self.S_types.get("reset", []))
 
     @whocalled    
+    def S_renderTerminalText(self, _text):
+        with self.counsellor.infodump("S_renderTerminalText") as ʕっʘ‿ʘʔっ:
+            rendered = "" if _text is None else str(_text)
+            # Keep token-style markers visible in tutor bars.
+            # If real control whitespace appears, map it back to canonical BPE markers.
+            rendered = rendered.replace("\r", "").replace("\n", "Ċ").replace("\t", "ĉ")
+            if eos_replacement_token_str and eos_token_str:
+                rendered = rendered.replace(eos_replacement_token_str, eos_token_str)
+            if sos_replacement_token_str and sos_token_str:
+                rendered = rendered.replace(sos_replacement_token_str, sos_token_str)
+            return rendered
+
+    @whocalled    
     def S_stripForLogging(self, _text):
         with self.counsellor.infodump("S_stripForLogging") as ʕっʘ‿ʘʔっ:
-            return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', _text)
+            rendered = self.S_renderTerminalText(_text)
+            return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', rendered)
 
     @whocalled
     def groupStatsBySection(self, avgStats):
@@ -321,12 +338,12 @@ class S_OUTPUT:
             ]
 
             if debugPrints: ʕっʘ‿ʘʔっ("createTextStrings")
-            guess_str = "".join(guess).replace("Ġ", " ")
-            truth_str = "".join(truth).replace("Ġ", " ")
+            guess_str = self.S_renderTerminalText("".join(guess).replace("Ġ", " "))
+            truth_str = self.S_renderTerminalText("".join(truth).replace("Ġ", " "))
             match = guess_str.strip() == truth_str.strip()
             if match: S_type = "match"
 
-            prompt_str = ''.join(_inputSeq).replace("Ġ", " ").strip()[-printPromptLength:]
+            prompt_str = self.S_renderTerminalText(''.join(_inputSeq).replace("Ġ", " ").strip()[-printPromptLength:])
             delta_str = ""
 
             if debugPrints: ʕっʘ‿ʘʔっ("calculateLossDelta") # Calculate delta
@@ -420,8 +437,8 @@ class S_OUTPUT:
                 if k in mostImportantStats
                 if v not in (None, "")
             ]) + newLineDelim"""
-            maxKeyLen = 12
-            maxCols = 6
+            maxKeyLen = 20  # Increased from 12 to show full stat names
+            maxCols = 5     # 5 columns for better layout
             cellWidth = statTopLen + decLen + maxKeyLen - 1
 
             statSections = self.statSections
@@ -473,6 +490,15 @@ class S_OUTPUT:
                         )
                     flatEntries.append((k, formatted))
 
+            # Add window weights to grid if available
+            if _INN_cerebellum_str:
+                flatEntries.append((f"__HEADER__WINDOW WEIGHTS", None))
+                # Parse window weight lines
+                for line in _INN_cerebellum_str.strip().split('\n'):
+                    if line.strip():
+                        # Each line is already formatted, just add it
+                        flatEntries.append(("window_weight", self.S_apply('dim', line.strip())))
+
             # Format each entry
             formattedCells = []
             for k, val in flatEntries:
@@ -499,26 +525,38 @@ class S_OUTPUT:
             # Combine into grid
             newLineLittle += "\n" + "\n".join("".join(cell for cell in row) for row in rows) + f"{self.S_apply('reset', '')}"
 
-            if _INN_cerebellum_str: 
+            # Window weights are now integrated into the grid above
+            if _INN_cerebellum_str:
                 if debugPrints: ʕっʘ‿ʘʔっ("INN_cerebellum_str")
                 cerebellum = delimiter + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
                 logOutput += cerebellum
                 littleLogOutput += cerebellum
-                newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
+                # Removed: newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
+                # (now in grid)
 
             if debugPrints: ʕっʘ‿ʘʔっ("topTokens_str")
             if _topTokens_str: 
-                topTokens = delimiter + f"topTokens{self.S_apply('reset', _topTokens_str)}"
+                rendered_top_tokens = self.S_renderTerminalText(_topTokens_str)
+                topTokens = delimiter + f"topTokens{self.S_apply('reset', rendered_top_tokens)}"
                 logOutput += topTokens
                 littleLogOutput += topTokens
-                newLineLittle += "\n" + f"topTokens{self.S_apply('reset', _topTokens_str)}"
+                newLineLittle += "\n" + f"topTokens{self.S_apply('reset', rendered_top_tokens)}"
 
             if debugPrints: ʕっʘ‿ʘʔっ("prompt+otherInfo")
-            if _prompt: logOutput += f"{delimiter}prompt → {self.S_apply('reset', _prompt)} | guess → {self.S_apply('reset', _guess)} | truth → {self.S_apply('reset', _truth)}"
-            if _otherInfo_str:
-                logOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
-                littleLogOutput += f"{delimiter}{self.S_apply('reset', _otherInfo_str)}"
-                newLineLittle += f"\n{delimiter}{self.S_apply('reset', _otherInfo_str)}"
+            rendered_prompt = self.S_renderTerminalText(_prompt)
+            rendered_guess = self.S_renderTerminalText(_guess)
+            rendered_truth = self.S_renderTerminalText(_truth)
+            rendered_other_info = self.S_renderTerminalText(_otherInfo_str)
+            if rendered_prompt:
+                logOutput += (
+                    f"{delimiter}prompt → {self.S_apply('reset', rendered_prompt)}"
+                    f" | guess → {self.S_apply('reset', rendered_guess)}"
+                    f" | truth → {self.S_apply('reset', rendered_truth)}"
+                )
+            if rendered_other_info:
+                logOutput += f"{delimiter}{self.S_apply('reset', rendered_other_info)}"
+                littleLogOutput += f"{delimiter}{self.S_apply('reset', rendered_other_info)}"
+                newLineLittle += f"\n{delimiter}{self.S_apply('reset', rendered_other_info)}"
 
 
             if debugPrints: ʕっʘ‿ʘʔっ("logOutput")

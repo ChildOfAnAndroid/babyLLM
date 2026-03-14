@@ -20,9 +20,12 @@ class EMBED(nn.Module):
         """creates the embedding weights matrix with random numbers initially"""
         self.e_weights = nn.Parameter(torch.randn(vocabSize, embedDimension, device = self.device)) # [2000,]
         self.embedNorm = nn.LayerNorm(embedDimension, device = self.device)
-        self.weightsScale = nn.Parameter(torch.tensor(0.5)) 
-        self.normScale = nn.Parameter(torch.tensor(0.5)) 
+        self.weightsScale = nn.Parameter(torch.tensor(0.5))
+        self.normScale = nn.Parameter(torch.tensor(0.5))
         self.lastSavedEmbeds = self.e_weights.detach().clone() # THIS IS INITIALISED ONCE, FOR STATS, DOES NOT BREAK GRAPH CONFIRMED!!
+
+        # Output normalization to prevent explosion after scale multiplication
+        self.finalNorm = nn.LayerNorm(embedDimension, device = self.device)
 
         self.pixelEmbed = nn.Linear(3, embedDimension, device = self.device)
 
@@ -53,8 +56,10 @@ class EMBED(nn.Module):
             self.embedNormed = self.embedNorm(self.embedVector)
             if debugPrints: ʕっʘ‿ʘʔっ("Ex_embedFinal") # <- E2
             #self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale)
-            self.embedFinal = self.embedVector + self.embedNormed # direct passthrough instead of scaling cause he abuses them lol, -0.005 scale... wtf is that!?
-            self.embedFinal = (self.embedFinal * self.scale)
+            combined = self.embedVector + self.embedNormed # direct passthrough instead of scaling cause he abuses them lol, -0.005 scale... wtf is that!?
+            # Normalize before scaling to prevent explosion
+            normalized = self.finalNorm(combined)
+            self.embedFinal = (self.embedVector + normalized) * self.scale  # residual: raw + normed, then scale
             self.embedFinal = self.dropout(self.embedFinal)
             clamp_param(self.weightsScale, -10, 10)
             clamp_param(self.normScale, -10, 10)

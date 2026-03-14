@@ -5,10 +5,42 @@
 
 import os, re, json, csv, random
 from html import unescape
-from config import * 
-from CONFIG_trainingData import *
 
 write_locks = {}
+CLEAN_TEXT_VERBOSE = str(os.getenv("BBY_CLEAN_VERBOSE", "0")).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _resolve_runtime_settings():
+    """Load heavyweight training config only when file-processing paths need it."""
+    settings = {
+        "trainingFilePathCLEANED": "school/library/trainingData.txt",
+        "trainingDataSliceSize_min": 10000,
+        "trainingDataSliceSize_max": 100000,
+        "trainingFilePath_dict_weighted": [],
+    }
+    try:
+        import config as cfg
+
+        settings["trainingFilePathCLEANED"] = getattr(
+            cfg, "trainingFilePathCLEANED", settings["trainingFilePathCLEANED"]
+        )
+    except Exception:
+        pass
+    try:
+        import CONFIG_trainingData as ctd
+
+        settings["trainingDataSliceSize_min"] = int(
+            getattr(ctd, "trainingDataSliceSize_min", settings["trainingDataSliceSize_min"])
+        )
+        settings["trainingDataSliceSize_max"] = int(
+            getattr(ctd, "trainingDataSliceSize_max", settings["trainingDataSliceSize_max"])
+        )
+        settings["trainingFilePath_dict_weighted"] = list(
+            getattr(ctd, "trainingFilePath_dict_weighted", settings["trainingFilePath_dict_weighted"])
+        )
+    except Exception:
+        pass
+    return settings
 
 _CONTRACTION_VARIATION_DATA = {
     "do not": ["don't", "do not", "dont", "dont"],
@@ -152,10 +184,67 @@ def apply_random_variations(text):
 """restock the library! check out some new books for babyllm :)"""
 
 EMAIL = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b')
+URL = re.compile(r'(?i)\b(?:https?://|www\.|ftp://|mailto:|//[a-z0-9])[^\s<>()]+')
+MARKDOWN_LINK = re.compile(r'(?i)\[[^\]\n]{1,180}\]\((?:https?://|www\.)[^)\n]{1,2000}\)')
+HTMLISH_TAG = re.compile(r'(?i)</?[a-z][^>\n]{0,120}>')
+ANGLE_TAG = re.compile(r'<[^>\n]{1,120}>')
+LONG_HASH_TOKEN = re.compile(r'\b(?:[a-f0-9]{16,}|[a-z0-9][a-z0-9_/%=+.-]{40,})\b', re.IGNORECASE)
+EMAIL_HEADER_LINE = re.compile(
+    r"^\s*(?:from|to|cc|bcc|subject|date|sent|reply-to|message-id|return-path|"
+    r"attachments?|attachment|reactions?|inbox|outbox|forwarded message|skip to content)\b"
+    r"(?:\s*:|\s+says\s*:|\s+is\s*:)?\s*.*$",
+    re.IGNORECASE,
+)
+QUOTE_REPLY_LINE = re.compile(r'^\s*on .{0,220}\bwrote:\s*$', re.IGNORECASE)
+FORWARDED_MARKER_LINE = re.compile(r'^\s*-{0,3}\s*forwarded message\s*-{0,3}\s*$', re.IGNORECASE)
+BRACKET_META_LINE = re.compile(r'^\s*(?:\[\[[^\]\n]{1,120}\]\]|\[[^\]\n]{1,120}\])\s*$')
+MARKUP_NOISE_LINE = re.compile(r'^\s*(?:#{1,6}.*|[-*_`]{3,}\s*)$')
+UI_COUNTER_LINE = re.compile(r'^\s*\d+\s+of\s+\d+\s*$', re.IGNORECASE)
+PATHISH_LINE = re.compile(r'^\s*[a-z0-9_.-]+(?:/[a-z0-9_.-]+){1,6}\s*$', re.IGNORECASE)
+EMAIL_DATESTAMP_LINE = re.compile(
+    r"^\s*(?:mon|tue|wed|thu|fri|sat|sun),?\s+\d{1,2}\s+[a-z]{3,}\s+\d{4}(?:,\s+\d{1,2}:\d{2})?\s*$",
+    re.IGNORECASE,
+)
+IOS_CHAT_META_LINE = re.compile(
+    r"^\s*(?:[a-z0-9_ .()'/-]{1,64}(?:\s+says)?\s*:\s*)?"
+    r"(?:service\s*:\s*(?:imessage|sms)(?:\s*\([^)]+\))?"
+    r"|handle(?:\s+says)?\s*:\s*(?:unknown|\+?\d[\d\s()-]{5,}|[a-z0-9._%+-]+@[a-z0-9.-]+)"
+    r"|unknown(?:\s*-\s*handle|\s*\(handle\))?"
+    r"|chat(?:\s+id)?\s*:\s*(?:chat[0-9a-z_-]+)?"
+    r"|guid(?:\s+says)?\s*:\s*[0-9a-z-]{8,}"
+    r"|\d+\s*(?:-|[()])\s*attachments?\)?"
+    r"|attachments?\s*:\s*\d+)\s*$",
+    re.IGNORECASE,
+)
+UUIDISH_LINE = re.compile(
+    r"^\s*(?:guid(?:\s+says)?\s*:\s*)?"
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"(?:\s*(?:\(|-)?\s*guid\)?)?\s*$",
+    re.IGNORECASE,
+)
+
+EMAIL_UI_NOISE = {
+    "skip to content",
+    "using gmail with screen readers",
+    "inbox",
+    "outbox",
+    "drafts",
+}
+
+EMAIL_NOISE_PHRASES = (
+    "draftconversation opened",
+    "messages read",
+    "mail delivery subsystem",
+    "address not found",
+    "your message was not delivered",
+    "your message wasnt delivered",
+    "this is an automated response",
+    "do not reply to this email",
+)
 
 REPEATS = re.compile(r'(\S)\1{3,}', re.IGNORECASE)
 REPEATED_WORDS = re.compile(r'\b(\w+)(?:\s+\1){2,}\b', re.IGNORECASE)
-"""# Dont allow character repeats
+r"""# Dont allow character repeats
 (re.compile(r'(\\S)\1{3,}', r'\1\1\1', re.I)) # normalise everything to only 3 repeats tops
 (re.compile(r'(?:\.\\s\.)+', '...', text)  # Replace any ". ." patterns with "..."
 (re.compile(r'(?:\:\({3,})', ':(', text)  # Normalise :(
@@ -167,6 +256,12 @@ REPEATED_WORDS = re.compile(r'\b(\w+)(?:\s+\1){2,}\b', re.IGNORECASE)
 (re.compile(r'(?:\-{3,})', '-', text)  # Normalise -"""
 
 MULTISPACE = re.compile(r'[ \t]+')
+BRACKETED_CHILD_HANDLE = re.compile(
+    r"\[\[\s*(?:childofagamingdroid|child of an android|childofanandroid|childo|coaa)\s*\]\]",
+    re.IGNORECASE,
+)
+BRACKETED_SIMPLE_LABEL = re.compile(r"\[\[\s*([a-z0-9 _.'-]{1,48})\s*\]\]", re.IGNORECASE)
+DISCORD_CUSTOM_EMOJI = re.compile(r"<a?:([A-Za-z0-9_]{1,64}):\d+>")
 
 EMOTES = [
     (re.compile(r'(?:\:\({3,})'), ':('),
@@ -342,16 +437,141 @@ def batch_sub(text, pattern_map):
         text = pattern.sub(replacement, text)
     return text
 
+def normalize_bracketed_handles(text):
+    # Canonicalise the creator's legacy bracketed handle to the training name.
+    text = BRACKETED_CHILD_HANDLE.sub(" charis ", text)
+    # Unwrap simple [[name]] labels so bracket tokens do not pollute vocab.
+    text = BRACKETED_SIMPLE_LABEL.sub(lambda m: f" {m.group(1).strip()} ", text)
+    return text
+
+
+def _strip_inline_artifacts(line):
+    line = MARKDOWN_LINK.sub(" ", line)
+    line = URL.sub(" ", line)
+    line = EMAIL.sub(" ", line)
+    line = HTMLISH_TAG.sub(" ", line)
+    line = ANGLE_TAG.sub(" ", line)
+    line = re.sub(r'\s+', ' ', line).strip()
+    return line
+
+
+def is_artifact_heavy_line(line):
+    raw = str(line or "").strip()
+    if not raw:
+        return True
+    lower = raw.lower()
+
+    if lower in EMAIL_UI_NOISE:
+        return True
+    if any(phrase in lower for phrase in EMAIL_NOISE_PHRASES):
+        return True
+    if EMAIL_HEADER_LINE.match(lower):
+        return True
+    if QUOTE_REPLY_LINE.match(lower):
+        return True
+    if BRACKET_META_LINE.match(raw):
+        return True
+    if MARKUP_NOISE_LINE.match(raw):
+        return True
+    if UI_COUNTER_LINE.match(lower):
+        return True
+    if PATHISH_LINE.match(lower):
+        return True
+    if EMAIL_DATESTAMP_LINE.match(lower):
+        return True
+    if IOS_CHAT_META_LINE.match(lower):
+        return True
+    if UUIDISH_LINE.match(lower):
+        return True
+
+    if "[embed]" in lower or "image removed by sender" in lower:
+        return True
+    if "utm_" in lower or "click?" in lower:
+        return True
+    if "transaction id" in lower or "case id:" in lower:
+        return True
+
+    if LONG_HASH_TOKEN.search(lower):
+        return True
+
+    if EMAIL.search(raw):
+        return True
+
+    if URL.search(raw):
+        alpha_chars = sum(ch.isalpha() for ch in raw)
+        # Pure link lines and link-heavy snippets are not useful language targets.
+        if alpha_chars < 40 or len(raw.split()) <= 14:
+            return True
+
+    chars = len(raw)
+    if chars >= 18:
+        alpha_chars = sum(ch.isalpha() for ch in raw)
+        digit_chars = sum(ch.isdigit() for ch in raw)
+        symbol_chars = sum((not ch.isalnum()) and (not ch.isspace()) for ch in raw)
+        alpha_ratio = alpha_chars / chars
+        digit_ratio = digit_chars / chars
+        symbol_ratio = symbol_chars / chars
+        if alpha_ratio < 0.25 and (symbol_ratio > 0.25 or digit_ratio > 0.45):
+            return True
+        if symbol_ratio > 0.45 and alpha_chars < 12:
+            return True
+
+    return False
+
+
+def strip_artifact_lines(text, min_chars=3):
+    raw_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    if not raw_text:
+        return ""
+
+    cleaned_lines = []
+    for raw_line in raw_text.split("\n"):
+        line = str(raw_line or "").strip()
+        if not line:
+            continue
+        if QUOTE_REPLY_LINE.match(line) or FORWARDED_MARKER_LINE.match(line):
+            # "On ... wrote:" usually starts quoted email history.
+            break
+        if is_artifact_heavy_line(line):
+            continue
+        line = _strip_inline_artifacts(line)
+        if not line:
+            continue
+        if is_artifact_heavy_line(line):
+            continue
+        if len(line) < min_chars and not re.search(r"[a-z]", line, re.IGNORECASE):
+            continue
+        cleaned_lines.append(line)
+
+    deduped = []
+    last = None
+    for line in cleaned_lines:
+        if line == last:
+            continue
+        deduped.append(line)
+        last = line
+
+    return "\n".join(deduped).strip()
+
 def clean_text(text):
     before = len(text)
     text = unescape(text).strip(" \t")
     text = re.sub(r'(?:<END>)', '', text)  # placeholder
     text = text.lower() # Convert to lowercase early for consistent matching
+    # Convert Discord custom emoji tags to compact text form.
+    text = DISCORD_CUSTOM_EMOJI.sub(lambda m: f":{m.group(1).lower()}:", text)
+    text = normalize_bracketed_handles(text)
+    text = strip_artifact_lines(text)
 
     text = apply_random_variations(text)
 
     text = re.sub(r"[‘’]", "'", text)
-    text = EMAIL.sub("kevinOnline420", text)
+    text = EMAIL.sub(" emailaddress ", text)
+    text = MARKDOWN_LINK.sub(" [url] ", text)
+    text = URL.sub(" [url] ", text)
+    text = HTMLISH_TAG.sub(" ", text)
+    text = ANGLE_TAG.sub(" ", text)
+    text = LONG_HASH_TOKEN.sub(" [hash] ", text)
     text = BAD.sub("", text)
     text = REPEATS.sub(r"\1\1\1", text)
     text = REPEATED_WORDS.sub(r'\1', text)
@@ -371,9 +591,11 @@ def clean_text(text):
 
     # Final multi-space clean up after all replacements
     text = re.sub(r'[ \t]+', ' ', text)
+    text = strip_artifact_lines(text)
 
     after = len(text.strip(" \t"))
-    print(f"reduced from {before:,} to {after:,} characters!")
+    if CLEAN_TEXT_VERBOSE:
+        print(f"reduced from {before:,} to {after:,} characters!")
     #text = remove_long_word_lines(text, max_len=trainingWordLength)
     #long = len(text.strip(" \t"))
     #print(f"removing lines containing words over {trainingWordLength} characters... reduced from {after:,} to {long:,} characters!")
@@ -382,7 +604,8 @@ def clean_text(text):
     #print(f"removing lines without emojis... reduced from {long:,} to {final:,} characters!")
     return text.strip(" \t")
 
-def process_file(current_file):
+def process_file(current_file, settings=None):
+    settings = settings or _resolve_runtime_settings()
     try:
         with open(current_file["in"], "r", encoding="utf-8") as file:
             if current_file["type"] == "discord_json":
@@ -416,8 +639,10 @@ def process_file(current_file):
         final_text = raw_text
         print(f"set {len(raw_text)} chars from {current_file['in']} as the full file (weight is -1)")
     else:
-        sliceRange = trainingDataSliceSize_max - trainingDataSliceSize_min
-        baseSlice = trainingDataSliceSize_min + random.random() * sliceRange
+        slice_max = int(settings.get("trainingDataSliceSize_max", 100000))
+        slice_min = int(settings.get("trainingDataSliceSize_min", 10000))
+        sliceRange = slice_max - slice_min
+        baseSlice = slice_min + random.random() * sliceRange
         sliceSize = int(baseSlice * weight)
         if len(raw_text) <= sliceSize:
             final_text = raw_text
@@ -432,7 +657,7 @@ def process_file(current_file):
     cleaned_chunks = [clean_text(chunk) for chunk in chunks]
     cleaned_text = "".join(cleaned_chunks)
 
-    out_path = trainingFilePathCLEANED
+    out_path = str(settings.get("trainingFilePathCLEANED", "school/library/trainingData.txt"))
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     try:
@@ -443,22 +668,26 @@ def process_file(current_file):
         print(f"write error for {out_path}: {e}")
 
 def run_cleaning():
+    settings = _resolve_runtime_settings()
+    out_path = str(settings.get("trainingFilePathCLEANED", "school/library/trainingData.txt"))
+    entries = list(settings.get("trainingFilePath_dict_weighted", []))
+
     # Step 1: clear output file
     try:
-        with open(trainingFilePathCLEANED, "w", encoding="utf-8") as f:
+        with open(out_path, "w", encoding="utf-8") as f:
             pass
     except Exception as e:
-        print(f"failed to clear file {trainingFilePathCLEANED}: {e}")
+        print(f"failed to clear file {out_path}: {e}")
         return
 
     # Step 2: Process each file one by one
     print("starting sequential processing...")
 
-    random.shuffle(trainingFilePath_dict_weighted)
-    for current_file in trainingFilePath_dict_weighted:
+    random.shuffle(entries)
+    for current_file in entries:
         try:
             print(f"\nprocessing: {current_file['in']}")
-            process_file(current_file)
+            process_file(current_file, settings=settings)
         except Exception as e:
             print(f"error in file {current_file['in']}: {e}")
 

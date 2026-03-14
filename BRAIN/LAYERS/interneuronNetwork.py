@@ -15,6 +15,7 @@ from school.staffroom.counsellor import COUNSELLOR
 from torch.nn.functional import gelu
 from utils.helpers import clamp_param
 
+
 class NEURON(nn.Module):
     def __init__(self, _counsellor, _numTokensPerStep, _device = modelDevice):
         super().__init__()
@@ -104,7 +105,7 @@ class NEURON(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("activationFunction") # magic activation function applied to this weighted sum, which outputs a single number from the neuron
             #activated = activationFunction(rawOutput)
-            gained_output = (rawOutput * self.activation_gain) + rawOutput # SHOULD I PUT THIS NEW PASSTHROUGH HERE?       
+            gained_output = (rawOutput * self.activation_gain) + rawOutput # SHOULD I PUT THIS NEW PASSTHROUGH HERE?
             activated = gelu(gained_output) + gained_output
 
             if debugPrints: ʕっʘ‿ʘʔっ("device check")
@@ -114,8 +115,9 @@ class NEURON(nn.Module):
             if True:
                 if debugPrints: ʕっʘ‿ʘʔっ("raw input history append")
                 try:
-                    self.rawInputNormHistory.append(inputEmbeds.norm().item())
-                    self.rawInputHistory.append(inputEmbeds.mean().item())
+                    _in_stats = torch.stack([inputEmbeds.norm(), inputEmbeds.mean()]).tolist()
+                    self.rawInputNormHistory.append(_in_stats[0])
+                    self.rawInputHistory.append(_in_stats[1])
                 except Exception:
                     # If tensor operations hang, use safe defaults
                     self.rawInputNormHistory.append(1.0)
@@ -125,8 +127,9 @@ class NEURON(nn.Module):
 
                 if debugPrints: ʕっʘ‿ʘʔっ("activated output history append")
                 try:
-                    self.activatedOutputNormHistory.append(activated.norm().item())
-                    self.activatedOutputHistory.append(activated.mean().item())
+                    _out_stats = torch.stack([activated.norm(), activated.mean()]).tolist()
+                    self.activatedOutputNormHistory.append(_out_stats[0])
+                    self.activatedOutputHistory.append(_out_stats[1])
                     #self.activatedOutputHistory_tokens.append(activated.norm(dim = 1).mean().item())
                     #self.activatedOutputHistory_neurons.append(activated.norm(dim = 0).mean().item())
                 except Exception:
@@ -137,10 +140,13 @@ class NEURON(nn.Module):
                 history_length = len(self.activatedOutputHistory)
                 if history_length >= self.numTokensPerStep:
                     if debugPrints: ʕっʘ‿ʘʔっ("if len >= windowMAX, add to self.stats")
-                    raw_input_norm = self._history_mean(self.rawInputNormHistory)
-                    raw_input_mean = self._history_mean(self.rawInputHistory)
-                    act_out_norm = self._history_mean(self.activatedOutputNormHistory)
-                    act_out_mean = self._history_mean(self.activatedOutputHistory)
+                    _flush_means = torch.stack([
+                        torch.as_tensor(list(self.rawInputNormHistory),         dtype=torch.float32, device=self.device),
+                        torch.as_tensor(list(self.rawInputHistory),             dtype=torch.float32, device=self.device),
+                        torch.as_tensor(list(self.activatedOutputNormHistory),  dtype=torch.float32, device=self.device),
+                        torch.as_tensor(list(self.activatedOutputHistory),      dtype=torch.float32, device=self.device),
+                    ]).mean(dim=1).tolist()
+                    raw_input_norm, raw_input_mean, act_out_norm, act_out_mean = _flush_means
                     self.stats = {
                         "3N_0_rawInput_norm": raw_input_norm,
                         "3N_0_rawInput_mean": raw_input_mean,
@@ -222,11 +228,36 @@ class INTERNEURON_NETWORK(nn.Module):
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(_counsellor = self.inn_counsellor, _numTokensPerStep = self.numTokensPerStep)
 
+        # === LONG-RANGE WINDOWS === (original system, untouched)
         self.cerebellum = nn.Parameter(torch.ones(len(allWindowSizes_new), device = self.device)) # Window weighting layer - preserves learned weights when loading
-
         self.windowFractionality = nn.Parameter(torch.full((len(allWindowSizes_new),), -6.0, device = self.device))
-
         self.logWindowSizes = nn.Parameter(torch.log(torch.tensor(allWindowSizes_new, dtype = torch.float32, device = self.device))) # one tensor per window size!
+
+        # === SHORT-RANGE WINDOWS === (new parallel system for finer temporal resolution)
+        self.cerebellum_short = nn.Parameter(torch.ones(len(allWindowSizes_short), device = self.device))
+        self.windowFractionality_short = nn.Parameter(torch.full((len(allWindowSizes_short),), -6.0, device = self.device))
+
+        # Initialize with inverse-transformed values so they map to desired window sizes
+        # After tanh scaling, these will give approximately: [1, 2, 4, 6, 8, 12, 16, 24, 48] tokens
+        logWindowSizes_short_init = torch.tensor(
+            [-1.5767, -1.5415, -1.4734, -1.4081, -1.3453, -1.2261, -1.1142, -0.9075, -0.3688],
+            dtype=torch.float32, device=self.device
+        )
+        self.logWindowSizes_short = nn.Parameter(logWindowSizes_short_init)
+
+        # Learned gate to blend long and short window views (starts small ~0.01)
+        self.short_window_gate = nn.Parameter(torch.tensor(-4.595, device=self.device))  # sigmoid ≈ 0.01
+
+        # Learnable softmax temperature for window competition
+        # Temperature = exp(param), so:
+        #   param = 0.0 → temp = 1.0 (neutral)
+        #   param > 0 → temp > 1.0 (collaborative, flat distribution)
+        #   param < 0 → temp < 1.0 (competitive, sharp distribution)
+        # Long windows start at 2.0 (collaborative)
+        # Short windows start at 0.5 (competitive, so they differentiate faster)
+        self.window_softmax_temperature = nn.Parameter(torch.tensor(0.693, device=self.device))      # exp(0.693) ≈ 2.0
+        self.window_softmax_temperature_short = nn.Parameter(torch.tensor(-0.69, device=self.device))  # exp(-0.69) ≈ 0.5
+
         self.refinement2 = torch.nn.Sequential(
                             nn.Linear(numNeurons, 512, device = self.device), # bottleneck layer
                             nn.GELU(),                                      # smoother activation
@@ -234,6 +265,12 @@ class INTERNEURON_NETWORK(nn.Module):
                             nn.Linear(512, numNeurons, device = self.device), # expand back
                             nn.LayerNorm(numNeurons, device = self.device)    # final safety net
                             )
+
+        self._cerebellum_temperature = nn.Parameter(torch.tensor(0.0, device=self.device))
+
+    @property
+    def cerebellum_temperature(self):
+        return F.softplus(self._cerebellum_temperature) + 1e-6
 
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         #numNeurons, embedDimension, activationFunction, allWindowSizes_new, etc
@@ -280,17 +317,16 @@ class INTERNEURON_NETWORK(nn.Module):
             self.windowTensor_used = windowTensor.squeeze(1).detach()
             self.floatWindowSizes_used = floatWindowSizes.detach()
 
-            # entropy of window usage
-            with torch.no_grad():
-                windowSizes = self.windowTensor_used
-                num_bins = 10
-                bins = torch.linspace(1.0, float(self.numTokensPerStep), steps=num_bins + 1, device=self.device)
-                bin_ids = torch.bucketize(windowSizes, bins, right=False) - 1
-                bin_ids = torch.clamp(bin_ids, 0, num_bins - 1)
-
-                counts = torch.bincount(bin_ids, minlength=num_bins).float()
-                probs = counts / (counts.sum() + 1e-12)
-                probs = torch.clamp(probs, min=1e-12)
+            # entropy of window usage (soft histogram keeps gradients)
+            window_sizes = windowTensor.squeeze(1)
+            num_bins = 10
+            bin_centers = torch.linspace(1.0, float(self.numTokensPerStep), steps=num_bins, device=self.device)
+            bin_width = (float(self.numTokensPerStep) - 1.0) / max(num_bins - 1, 1)
+            sigma = max(bin_width, 1e-3)
+            dist = window_sizes.unsqueeze(1) - bin_centers.unsqueeze(0)
+            weights = torch.exp(-0.5 * (dist / sigma) ** 2)
+            soft_counts = weights.sum(dim=0)
+            probs = soft_counts / (soft_counts.sum() + 1e-12)
             window_range = torch.max(windowTensor) - torch.min(windowTensor)
             desired_range = self.numTokensPerStep - 1.0  # ideally full spread
             self.rangePenalty = torch.relu(desired_range - window_range)
@@ -298,7 +334,7 @@ class INTERNEURON_NETWORK(nn.Module):
             std_window_size = torch.std(windowTensor)
             self.meanPenalty = torch.relu(0.1 - std_window_size)
 
-            self.windowSizeEntropy = -torch.sum(probs * torch.log(probs))
+            self.windowSizeEntropy = -torch.sum(probs * torch.log(probs + 1e-12))
 
             if debugPrints: ʕっʘ‿ʘʔっ("INN2: stackedWindowMeans")
             windowMeanStack = self.stackedWindowMeans(neuronActsPerToken, windowTensor)
@@ -309,11 +345,21 @@ class INTERNEURON_NETWORK(nn.Module):
             if self.training:  # Only add noise during training, not inference
                 noise = torch.randn_like(self.cerebellum) * 0.005  # Very weak noise to gently break symmetry
                 cerebellum_with_noise = self.cerebellum + noise
+
+            temperature_for_sigmoid = (self.cerebellum_temperature * 0.5) + (self.temperature * 0.5)
+            temperature_for_sigmoid = temperature_for_sigmoid.clamp(min=0.1)  # floor: prevents division by near-zero
+
+            cerebellum_scaled = (cerebellum_with_noise / temperature_for_sigmoid)
             
-            sigmoidWeights = torch.sigmoid(cerebellum_with_noise) # reduced from 10 to 2 for better gradient flow
+            sigmoidWeights = torch.sigmoid(cerebellum_scaled) # reduced from 10 to 2 for better gradient flow
             clamp_param(self.cerebellum, 0.01, 0.99)
-            #clamped = torch.clamp(sigmoidWeights, min = 1e-4) # avoid 0s
-            self.cerebellumSoft = sigmoidWeights / sigmoidWeights.sum()   # normalise across all windows
+
+            # Apply learnable softmax temperature (controls competition vs collaboration)
+            # Temperature = exp(param), can be any positive value
+            # temp < 1.0 (param < 0) = competitive/sharp, temp = 1.0 (param = 0) = neutral, temp > 1.0 (param > 0) = collaborative/flat
+            softmax_temp = torch.exp(self.window_softmax_temperature).clamp(min=0.01)  # floor: exp(-Inf)→0 → softmax(all -Inf) = NaN
+            log_weights = torch.log(sigmoidWeights + 1e-12)
+            self.cerebellumSoft = F.softmax(log_weights / softmax_temp, dim=0)
 
             variance = torch.var(self.cerebellumSoft)
             self.windowWeightSpread = variance
@@ -324,8 +370,63 @@ class INTERNEURON_NETWORK(nn.Module):
             self.windowEntropy = -torch.sum(self.cerebellumSoft * torch.log(self.cerebellumSoft + 1e-12))
             self.entropyBonus = self.windowEntropy
 
-            if debugPrints: ʕっʘ‿ʘʔっ("weightedWindowStack.sum")
-            combinedActivationsTensor = weightedWindowStack.sum(dim = 0, keepdim = True)
+            if debugPrints: ʕっʘ‿ʘʔっ("weightedWindowStack.sum (long windows)")
+            combinedActivationsTensor_long = weightedWindowStack.sum(dim = 0, keepdim = True)
+
+            # === SHORT-RANGE WINDOW COMPUTATION === (parallel system)
+            if debugPrints: ʕっʘ‿ʘʔっ("SHORT WINDOWS: compute window sizes")
+            fractionality_short = torch.sigmoid(self.windowFractionality_short)
+            clamp_param(self.windowFractionality_short, -3.0, 3.0)
+
+            minWindowSize_short = 0.1
+            maxWindowSize_short = float(windowShortMAX)  # 132 tokens max
+
+            clampedLogWindowSizes_short = torch.tanh(self.logWindowSizes_short / 2) * 1.5
+            scaledTanh_short = (torch.tanh(clampedLogWindowSizes_short) + 1) / 2
+            floatWindowSizes_short = minWindowSize_short + (maxWindowSize_short - minWindowSize_short) * scaledTanh_short
+            intWindowSizes_short = torch.round(floatWindowSizes_short).clamp(min = 1.0)
+
+            windowTensor_short = (1 - fractionality_short) * intWindowSizes_short + fractionality_short * floatWindowSizes_short
+            windowTensor_short = windowTensor_short.unsqueeze(1)
+
+            # Store for stats
+            self.windowTensor_short_used = windowTensor_short.squeeze(1).detach()
+            self.floatWindowSizes_short_used = floatWindowSizes_short.detach()
+
+            if debugPrints: ʕっʘ‿ʘʔっ("SHORT WINDOWS: stackedWindowMeans")
+            windowMeanStack_short = self.stackedWindowMeans(neuronActsPerToken, windowTensor_short)
+
+            if debugPrints: ʕっʘ‿ʘʔっ("SHORT WINDOWS: cerebellum weights")
+            cerebellum_short_with_noise = self.cerebellum_short
+            if self.training:
+                noise_short = torch.randn_like(self.cerebellum_short) * 0.005
+                cerebellum_short_with_noise = self.cerebellum_short + noise_short
+
+            cerebellum_short_scaled = cerebellum_short_with_noise / temperature_for_sigmoid
+            sigmoidWeights_short = torch.sigmoid(cerebellum_short_scaled)
+            clamp_param(self.cerebellum_short, 0.01, 0.99)
+
+            # Apply learnable softmax temperature for short windows
+            # Starts at 0.5 (competitive) to encourage differentiation
+            softmax_temp_short = torch.exp(self.window_softmax_temperature_short).clamp(min=0.01)  # floor: same NaN risk as long-window temp
+            log_weights_short = torch.log(sigmoidWeights_short + 1e-12)
+            self.cerebellumSoft_short = F.softmax(log_weights_short / softmax_temp_short, dim=0)
+
+            weightedWindowStack_short = windowMeanStack_short * self.cerebellumSoft_short.unsqueeze(1)
+
+            if debugPrints: ʕっʘ‿ʘʔっ("SHORT WINDOWS: sum weighted windows")
+            combinedActivationsTensor_short = weightedWindowStack_short.sum(dim = 0, keepdim = True)
+
+            # === BLEND LONG AND SHORT WINDOW VIEWS ===
+            if debugPrints: ʕっʘ‿ʘʔっ("BLEND: combine long + short windows")
+            short_gate = torch.sigmoid(self.short_window_gate)
+            combinedActivationsTensor = combinedActivationsTensor_long + (short_gate * combinedActivationsTensor_short)
+
+            # Store values for stats
+            self.short_gate_used = short_gate.detach()
+            self.softmax_temp_used = softmax_temp.detach()
+            self.softmax_temp_short_used = softmax_temp_short.detach()
+
             ʕっʘ‿ʘʔっ(self.refinement2)
             refinedActivations = self.refinement2(combinedActivationsTensor)
 
@@ -481,10 +582,11 @@ class INTERNEURON_NETWORK(nn.Module):
                     if all(t.numel() > 0 for t in [float_windows, self.cerebellum, soft_weights, tensor_windows]):
                         INN_cerebellumStats_fullValues = zip(float_windows, self.cerebellum, soft_weights, tensor_windows)
                         for w, raw, soft, tensor in INN_cerebellumStats_fullValues:
-                            self.stats[f"INN_cerebellum_W{int(w)}_float"] = w.item()
-                            self.stats[f"INN_cerebellum_W{int(w)}"] = raw.item()
-                            self.stats[f"INN_cerebellum_W{int(w)}_softMax"] = soft.item()
-                            self.stats[f"INN_cerebellum_W{int(w)}_tensor"] = tensor.item()
+                            w_val, raw_val, soft_val, tensor_val = torch.stack([w, raw, soft, tensor]).tolist()
+                            self.stats[f"INN_cerebellum_W{int(w_val)}_float"] = w_val
+                            self.stats[f"INN_cerebellum_W{int(w_val)}"] = raw_val
+                            self.stats[f"INN_cerebellum_W{int(w_val)}_softMax"] = soft_val
+                            self.stats[f"INN_cerebellum_W{int(w_val)}_tensor"] = tensor_val
                         #if debugPrints: print(f"cerebellum: {self.cerebellum}, soft: {self.cerebellumSoft} mean: {self.stats['4INN_cerebellumMean']} std: {self.stats['4INN_cerebellumStd']}")
                         if debugPrints: ʕっʘ‿ʘʔっ("♥cerebellumString")
                         INN_cerebellum_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum", rawTensor = self.cerebellum, softTensor = self.cerebellumSoft, windowSizes = self.floatWindowSizes_used, windowTensor = self.windowTensor_used, per_window_style = True)
@@ -493,6 +595,42 @@ class INTERNEURON_NETWORK(nn.Module):
                         if debugPrints: print("[INN_getStats] Missing one or more required tensors from forward pass. Skipping cerebellum stats.")
                         INN_cerebellum_str = "<cerebellum data unavailable>"
                     # --- END RESILIENCE UPGRADE ---
+
+                    # === SHORT WINDOW STATS ===
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥shortWindowStats")
+                    float_windows_short = getattr(self, 'floatWindowSizes_short_used', torch.empty(0))
+                    soft_weights_short = getattr(self, 'cerebellumSoft_short', torch.empty(0))
+                    tensor_windows_short = getattr(self, 'windowTensor_short_used', torch.empty(0))
+                    short_gate = getattr(self, 'short_gate_used', torch.tensor(0.0))
+
+                    if all(t.numel() > 0 for t in [float_windows_short, self.cerebellum_short, soft_weights_short, tensor_windows_short]):
+                        # Add short window individual stats
+                        for w, raw, soft, tensor in zip(float_windows_short, self.cerebellum_short, soft_weights_short, tensor_windows_short):
+                            w_val, raw_val, soft_val, tensor_val = torch.stack([w, raw, soft, tensor]).tolist()
+                            self.stats[f"INN_cerebellum_SHORT_W{int(w_val)}_float"] = w_val
+                            self.stats[f"INN_cerebellum_SHORT_W{int(w_val)}"] = raw_val
+                            self.stats[f"INN_cerebellum_SHORT_W{int(w_val)}_softMax"] = soft_val
+                            self.stats[f"INN_cerebellum_SHORT_W{int(w_val)}_tensor"] = tensor_val
+
+                        # Add summary stats
+                        _short_summary = torch.stack([short_gate, float_windows_short.mean()]).tolist()
+                        self.stats["4INN_short_gate"] = _short_summary[0]
+                        self.stats["4INN_short_windowSizesMean"] = _short_summary[1]
+
+                        # Add softmax temperature stats
+                        softmax_temp = getattr(self, 'softmax_temp_used', torch.tensor(1.0))
+                        softmax_temp_short = getattr(self, 'softmax_temp_short_used', torch.tensor(1.0))
+                        self.stats["4INN_window_softmax_temp"] = softmax_temp.item()
+                        self.stats["4INN_window_softmax_temp_short"] = softmax_temp_short.item()
+
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥shortCerebellumString")
+                        INN_cerebellum_short_str = self.calligraphist.S_formatWindowBiasTriplets(label="INN_cerebellum_SHORT", rawTensor = self.cerebellum_short, softTensor = self.cerebellumSoft_short, windowSizes = self.floatWindowSizes_short_used, windowTensor = self.windowTensor_short_used, per_window_style = True)
+                        if debugPrints: print(f"{INN_cerebellum_short_str}")
+
+                        # Combine both cerebellum strings for display
+                        INN_cerebellum_str = INN_cerebellum_str + "\n--- SHORT WINDOWS ---\n" + INN_cerebellum_short_str
+                    else:
+                        if debugPrints: print("[INN_getStats] Missing short window tensors from forward pass.")
 
             if debugPrints: ʕっʘ‿ʘʔっ("update self.stats")
             #self.stats.update({f"{k}": v for k, v in self.neurons.getStats().items()})

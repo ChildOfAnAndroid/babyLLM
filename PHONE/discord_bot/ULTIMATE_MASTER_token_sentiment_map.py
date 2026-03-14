@@ -3,12 +3,9 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // phone/discord_bot/ULTIMATE_MASTER_token_sentiment_map.py
-# 🧠💫 ULTIMATE MASTER TOKEN SENTIMENT MAPPING 💫🧠
-# Combined from ALL sentiment files using baby's ACTUAL neural vocabulary
 # Based on his real 4200 token vocab with exact token IDs
-# THIS IS THE ONE TRUE SENTIMENT MAP!!! 🚀✨
-# v3.0 - ULTIMATE MASTER EDITION
-# v1.1
+# THE ONE TRUE MAP!!!
+# v3.0
 
 import json
 import logging
@@ -26,11 +23,11 @@ def load_baby_vocabulary():
         return {}
 
 # ==============================================================================
-# 🔥 ULTIMATE MASTER SENTIMENT TOKEN MAPPINGS
+# ULTIMATE MASTER SENTIMENT TOKEN MAPPINGS
 # Based on baby's ACTUAL neural network vocabulary with exact token IDs
 # ==============================================================================
 
-# 🌟 ULTRA POSITIVE SENTIMENT (2.0-2.5) - Peak emotional highs
+# ULTRA POSITIVE SENTIMENT (2.0-2.5) - Peak emotional highs
 ULTRA_POSITIVE_TOKENS = {
     276: ('love', 2.5),           # Token ID 276: "love"
     1013: ('awesome', 2.3),       # Token ID 1013: "awesome"  
@@ -41,7 +38,7 @@ ULTRA_POSITIVE_TOKENS = {
     3619: ('joy', 2.4),          # Token ID 3619: "joy"
 }
 
-# 😊 HIGH POSITIVE SENTIMENT (1.5-1.9) - Strong happiness
+# HIGH POSITIVE SENTIMENT (1.5-1.9) - Strong happiness
 HIGH_POSITIVE_TOKENS = {
     713: ('cute', 1.8),           # Token ID 713: "cute"
     795: ('happy', 1.9),          # Token ID 795: "happy"
@@ -56,7 +53,7 @@ HIGH_POSITIVE_TOKENS = {
     1953: ('proud', 1.7),         # Token ID 1953: "proud"
 }
 
-# 🎉 MEDIUM POSITIVE SENTIMENT (1.0-1.4) - Good vibes
+# MEDIUM POSITIVE SENTIMENT (1.0-1.4) - Good vibes
 MEDIUM_POSITIVE_TOKENS = {
     341: ('good', 1.4),           # Token ID 341: "good"
     537: ('cool', 1.3),           # Token ID 537: "cool"
@@ -73,7 +70,7 @@ MEDIUM_POSITIVE_TOKENS = {
     410: (':)', 1.3),             # Token ID 410: ":)"
 }
 
-# 🙏 LOW POSITIVE SENTIMENT (0.5-0.9) - Mild positive
+# LOW POSITIVE SENTIMENT (0.5-0.9) - Mild positive
 LOW_POSITIVE_TOKENS = {
     256: ('yeah', 0.8),           # Token ID 256: "yeah"
     270: ('ok', 0.6),             # Token ID 270: "ok"
@@ -87,7 +84,7 @@ LOW_POSITIVE_TOKENS = {
     2989: ('welcome', 0.7),       # Token ID 2989: "welcome"
 }
 
-# 💀 ULTRA NEGATIVE SENTIMENT (-2.0 to -2.5) - Peak emotional lows  
+# ULTRA NEGATIVE SENTIMENT (-2.0 to -2.5) - Peak emotional lows  
 ULTRA_NEGATIVE_TOKENS = {
     282: ('hate', -2.5),          # Token ID 282: "hate"
     259: ('fuck', -2.3),          # Token ID 259: "fuck"
@@ -99,7 +96,7 @@ ULTRA_NEGATIVE_TOKENS = {
     3251: ('depressed', -2.4),    # Token ID 3251: "depressed"
 }
 
-# 😢 HIGH NEGATIVE SENTIMENT (-1.5 to -1.9) - Strong sadness/anger
+# HIGH NEGATIVE SENTIMENT (-1.5 to -1.9) - Strong sadness/anger
 HIGH_NEGATIVE_TOKENS = {
     427: (':(', -1.8),            # Token ID 427: ":("
     560: ('mad', -1.7),           # Token ID 560: "mad"
@@ -118,7 +115,7 @@ HIGH_NEGATIVE_TOKENS = {
     3256: ('fear', -1.8),         # Token ID 3256: "fear"
 }
 
-# 😒 MEDIUM NEGATIVE SENTIMENT (-1.0 to -1.4) - Frustration/annoyance
+# MEDIUM NEGATIVE SENTIMENT (-1.0 to -1.4) - Frustration/annoyance
 MEDIUM_NEGATIVE_TOKENS = {
     471: ('bad', -1.2),           # Token ID 471: "bad"
     766: ('nah', -0.8),           # Token ID 766: "nah"
@@ -136,7 +133,7 @@ MEDIUM_NEGATIVE_TOKENS = {
     2771: ('idiot', -1.4),        # Token ID 2771: "idiot"
 }
 
-# 😕 LOW NEGATIVE SENTIMENT (-0.5 to -0.9) - Mild negative
+# LOW NEGATIVE SENTIMENT (-0.5 to -0.9) - Mild negative
 LOW_NEGATIVE_TOKENS = {
     114: ('no', -0.5),            # Token ID 114: "no"
     283: ('no', -0.5),            # Token ID 283: "no" (duplicate)
@@ -148,7 +145,7 @@ LOW_NEGATIVE_TOKENS = {
     3548: ('lose', -0.7),         # Token ID 3548: "lose"
 }
 
-# ⚡ SENTIMENT AMPLIFIERS - Multiply surrounding sentiment
+# SENTIMENT AMPLIFIERS - Multiply surrounding sentiment
 AMPLIFIER_TOKENS = {
     166: ('so', 1.3),             # Token ID 166: "so"
     285: ('very', 1.5),           # Token ID 285: "very"  
@@ -170,7 +167,7 @@ AMPLIFIER_TOKENS = {
 }
 
 # ==============================================================================
-# 🔧 ULTIMATE MASTER SENTIMENT ENGINE
+# ULTIMATE MASTER SENTIMENT ENGINE
 # ==============================================================================
 
 class UltimateMasterSentimentAnalyser:
@@ -359,25 +356,25 @@ def get_natural_sentiment_summary() -> Dict:
 # ==============================================================================
 
 if __name__ == "__main__":
-    print("🧠💫 ULTIMATE MASTER SENTIMENT ANALYSER 💫🧠")
+    print("ULTIMATE MASTER SENTIMENT ANALYSER")
     print("=" * 65)
     
     analyser = get_master_analyser()
     summary = analyser.get_sentiment_summary()
     
-    print(f"📊 MASTER SENTIMENT STATISTICS:")
+    print(f"MASTER SENTIMENT STATISTICS:")
     print(f"   Total Vocabulary: {summary['total_vocabulary_size']} tokens")
     print(f"   Sentiment Mapped: {summary['total_sentiment_tokens']} tokens")
     print(f"   Amplifiers: {summary['amplifier_tokens']} tokens")
     print(f"   Coverage: {summary['coverage_percentage']:.1f}%")
     print()
     
-    print(f"🟢 POSITIVE CATEGORIES:")
+    print(f"POSITIVE CATEGORIES:")
     print(f"   Ultra: {summary['ultra_positive']} | High: {summary['high_positive']}")
     print(f"   Medium: {summary['medium_positive']} | Low: {summary['low_positive']}")
     print()
     
-    print(f"🔴 NEGATIVE CATEGORIES:")  
+    print(f"NEGATIVE CATEGORIES:")  
     print(f"   Ultra: {summary['ultra_negative']} | High: {summary['high_negative']}")
     print(f"   Medium: {summary['medium_negative']} | Low: {summary['low_negative']}")
     print()

@@ -19,6 +19,18 @@ import numpy as np
 from numpy.lib.format import open_memmap
 from typing import Callable, Iterator, Sequence
 
+_BRACKETED_CHILD_HANDLE = re.compile(
+    r"\[\[\s*(?:childofagamingdroid|child of an android|childofanandroid|childo|coaa)\s*\]\]",
+    re.IGNORECASE,
+)
+_BRACKETED_SIMPLE_LABEL = re.compile(r"\[\[\s*([a-z0-9 _.'-]{1,48})\s*\]\]", re.IGNORECASE)
+
+
+def _normalize_bracketed_handles_for_training(text: str) -> str:
+    # Keep one canonical identity in training data instead of literal [[...]] handles.
+    text = _BRACKETED_CHILD_HANDLE.sub(" charis ", text)
+    return _BRACKETED_SIMPLE_LABEL.sub(lambda m: f" {m.group(1).strip()} ", text)
+
 
 class _MemmapTokenSequence:
     """Lightweight list-like wrapper that chains multiple array-like segments."""
@@ -401,6 +413,7 @@ class LIBRARIAN:
                     text = tail + chunk
                     if not text:
                         continue
+                    text = _normalize_bracketed_handles_for_training(text)
                     tokens = self.tokenizer.encode(text)
                     if not tokens:
                         tail = text[-overlap:] if overlap else ""

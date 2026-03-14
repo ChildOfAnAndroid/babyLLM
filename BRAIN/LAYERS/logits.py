@@ -101,44 +101,42 @@ class LOGITS(nn.Module):
             clamp_param(self.normedActivationsScale, 0, 0.75)
 
             if debugPrints: ʕっʘ‿ʘʔっ("append rolling self.stats")
-            self.tensorNormHist.append(actsTensor.norm().item())
-            #self.normedNormHist.append(normedActsTensor.norm().item())
-            #self.activNormHist.append(scaledActs.norm().item())
-            #self.logitNormHist.append(logitOutput.norm().item())
-            #self.normLayerNormHist.append(logitNormed.norm().item())
-            self.finalNormHist.append(finalLogit.norm().item())
-
-            self.tensorHist.append(actsTensor.mean().item())
+            _a_stats = torch.stack([actsTensor.norm(), actsTensor.mean(), actsTensor.min(), actsTensor.max()]).tolist()
+            _f_stats = torch.stack([finalLogit.norm(), finalLogit.mean(), finalLogit.min(), finalLogit.max()]).tolist()
+            self.tensorNormHist.append(_a_stats[0])
+            self.finalNormHist.append(_f_stats[0])
+            self.tensorHist.append(_a_stats[1])
             #self.normedHist.append(normedActsTensor.mean().item())
             #self.activHist.append(scaledActs.mean().item())
             #self.logitHist.append(logitOutput.mean().item())
             #self.normLayerHist.append(logitNormed.mean().item())
-            self.finalHist.append(finalLogit.mean().item())
-
-            self.tensorMinHist.append(actsTensor.min().item())
+            self.finalHist.append(_f_stats[1])
+            self.tensorMinHist.append(_a_stats[2])
             #self.normedMinHist.append(normedActsTensor.min().item())
             #self.activMinHist.append(scaledActs.min().item())
             #self.logitMinHist.append(logitOutput.min().item())
             #self.normLayerMinHist.append(logitNormed.min().item())
-            self.finalMinHist.append(finalLogit.min().item())
-
-            self.tensorMaxHist.append(actsTensor.max().item())
+            self.finalMinHist.append(_f_stats[2])
+            self.tensorMaxHist.append(_a_stats[3])
             #self.normedMaxHist.append(normedActsTensor.max().item())
             #self.activMaxHist.append(scaledActs.max().item())
             #self.logitMaxHist.append(logitOutput.max().item())
             #self.normLayerMaxHist.append(logitNormed.max().item())
-            self.finalMaxHist.append(finalLogit.max().item())
+            self.finalMaxHist.append(_f_stats[3])
 
             if len(self.tensorHist) >= self.numTokensPerStep:
                 if debugPrints: ʕっʘ‿ʘʔっ("clear rolling self.stats at end of window")
-                acts_norm = self._history_mean(self.tensorNormHist)
-                final_norm = self._history_mean(self.finalNormHist)
-                acts_mean = self._history_mean(self.tensorHist)
-                final_mean = self._history_mean(self.finalHist)
-                acts_min = self._history_mean(self.tensorMinHist)
-                final_min = self._history_mean(self.finalMinHist)
-                acts_max = self._history_mean(self.tensorMaxHist)
-                final_max = self._history_mean(self.finalMaxHist)
+                _flush_means = torch.stack([
+                    torch.as_tensor(list(self.tensorNormHist), dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.finalNormHist),  dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.tensorHist),     dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.finalHist),      dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.tensorMinHist),  dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.finalMinHist),   dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.tensorMaxHist),  dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.finalMaxHist),   dtype=torch.float32, device=self.device),
+                ]).mean(dim=1).tolist()
+                acts_norm, final_norm, acts_mean, final_mean, acts_min, final_min, acts_max, final_max = _flush_means
                 self.stats = {
                     "7L_0_actsTensor_norm": acts_norm,
                     #"7L_1_normActsTensor_norm": sum(self.normedNormHist) / len(self.normedNormHist),

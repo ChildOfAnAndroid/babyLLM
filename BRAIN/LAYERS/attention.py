@@ -50,17 +50,16 @@ class GATED_MHA(nn.Module):
                 attn_out = attn_out.squeeze(0)
                 if original_dim == 1: attn_out = attn_out.squeeze(0)  # [dim]
             gate = torch.sigmoid(self.logit_gate)
+            gate_nudge = getattr(self, "gate_nudge", 1.0)
+            if not torch.is_tensor(gate_nudge):
+                gate_nudge = torch.tensor(gate_nudge, device=gate.device, dtype=gate.dtype)
+            gate = (gate * gate_nudge).clamp(0.0, 1.0)
             gated = gate * attn_out
             out = self.norm(_embeds + gated)
 
             try:
-                attn_norm = attn_out.norm().item()
-                gated_norm = gated.norm().item()
-                final_norm = out.norm().item()
-                attn_mean = attn_out.mean().item()
-                gated_mean = gated.mean().item()
-                final_mean = out.mean().item()
-                gate_item = gate.item()
+                _stats = torch.stack([attn_out.norm(), gated.norm(), out.norm(), attn_out.mean(), gated.mean(), out.mean(), gate]).tolist()
+                attn_norm, gated_norm, final_norm, attn_mean, gated_mean, final_mean, gate_item = _stats
                 self.stats = {
                     f"{self.stat_prefix}_0_attnOut_norm": attn_norm,
                     f"{self.stat_prefix}_0_attnOut_mean": attn_mean,

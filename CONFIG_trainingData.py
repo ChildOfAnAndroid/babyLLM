@@ -123,8 +123,9 @@ icharis2_export_months_limit = 12
 icharis2_export_path = "school/library/icharis2_clean.txt"
 icharis2_export_dir = "school/library/icharis2_by_month"
 icharis2_use_pipeline_exports = True
-icharis2_pipeline_export_dir = "/Users/charis/Dropbox/00_Icharis/icharis2/07_TIMELINE"
+icharis2_pipeline_export_dir = "/Users/charis/Dropbox/00_Icharis/07_TIMELINE"
 icharis2_pipeline_limit = 500  # how many pipeline files to scan (set 0 for unlimited)
+icharis2_defer_ingest = True  # defer heavy scans/exports to bot idle
 
 # --- babyBot chat logs ---
 babyBot_twitch = True
@@ -158,7 +159,7 @@ try:
         export_icharis2_corpus_by_month,
         discover_user_authored_files,
     )
-    if icharis2_user_text:
+    if icharis2_user_text and not icharis2_defer_ingest:
         # Prefer already-exported timeline files if available
         pipeline_paths: List[str] = []
         if icharis2_use_pipeline_exports:
@@ -167,6 +168,7 @@ try:
                     base_path=icharis2_pipeline_export_dir,
                     limit=icharis2_pipeline_limit,
                     require_allow_keyword=not icharis2_allow_without_keyword,
+                    require_sent_suffix=True,
                 )
             except Exception as e:
                 print(f"[WARN] icharis2 pipeline exports unavailable: {e}")
@@ -226,6 +228,8 @@ try:
                             print(f"[EXPORT] icharis2 combined ({count} files, {chars} chars) -> {icharis2_export_path}")
                     except Exception as e:
                         print(f"[WARN] icharis2 export failed: {e}")
+    elif icharis2_user_text and icharis2_defer_ingest:
+        print("[INFO] icharis2 ingest deferred; will refresh during bot idle.")
 except Exception as e:
     print(f"[WARN] icharis2 ingest unavailable: {e}")
 
@@ -239,70 +243,38 @@ def add_data(CTD_enabled: bool, CTD_years: list[int], CTD_basePath: str, CTD_fil
 # discord_DATA
 add_data(discord_DATA,
          CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/01_DISCORD/02_FORMATTED",
+         "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/01_DISCORD/02_FORMATTED",
          "discord_new_{CTD_year}.json",
          "discord_json",
          discord_DATANum)
 
 # facebook
 if facebook:
-    rawDataFilepaths.append(("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/02_FACEBOOK/old_fb_messages_extract.txt", facebookNum))
+    rawDataFilepaths.append(("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/02_FACEBOOK/old_fb_messages_extract.txt", facebookNum))
 
-# google chat
-add_data(gchat,
-         CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/04_YOUTUBE/google/Google Chat/extracted_comments",
-         "{CTD_year}_comments.txt",
-         "text",
-         gchatNum)
-
-# chatgpt
-if chatgpt:
-    rawDataFilepaths.append(("json", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/06_CHATGPT/charisGPThistory.txt", chatgptNum))
-
-
-# --- LIVE MESSAGES ---
 # twitch
 add_data(twitch,
          CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/08_TWITCH/site_history/extracted_comments",
+         "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/08_TWITCH/site_history/extracted_comments",
          "{CTD_year}_comments.txt",
          "text",
          twitchNum)
 
-# youtube live
-add_data(youtube_live,
-         CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/04_YOUTUBE/live chats/extracted_comments",
-         "{CTD_year}_comments.txt",
-         "text",
-         youtube_liveNum)
-
-
-# --- POSTS ---
-# youtube comments
-add_data(youtube_comments,
-         CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/04_YOUTUBE/comments/extracted_comments",
-         "{CTD_year}_comments.txt",
-         "text",
-         youtube_commentsNum)
-
 # reddit
 if reddit:
-    rawDataFilepaths.append(("reddit_comment", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/05_REDDIT/reddit_comments.csv", redditNum))
-    rawDataFilepaths.append(("reddit_post", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/05_REDDIT/reddit_posts.csv", redditNum))
+    rawDataFilepaths.append(("reddit_comment", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/05_REDDIT/reddit_comments.csv", redditNum))
+    rawDataFilepaths.append(("reddit_post", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/05_REDDIT/reddit_posts.csv", redditNum))
 
 # LiveJournal
 if livejournal:
-    rawDataFilepaths.append(("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/07_LIVEJOURNAL/charisParisProductions.txt", livejournalNum))
+    rawDataFilepaths.append(("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/07_LIVEJOURNAL/charisParisProductions.txt", livejournalNum))
 
 
 # --- EMAILS ---
 # charis23februles
 add_data(charis23februles,
          CTD_enabled_years,
-         "/Users/charis/Dropbox/00_Icharis/04_charisLOG/02_ONLINE/03_EMAIL/01_charis23februles@googlemail.com/extracted_comments",
+         "/Users/charis/Dropbox/00_Icharis/05_charisLOG/02_ONLINE/03_EMAIL/01_charis23februles@googlemail.com/extracted_comments",
          "{CTD_year}_comments.txt",
          "text",
          charis23februlesNum)
@@ -311,15 +283,15 @@ add_data(charis23februles,
 # mouse adventures
 if eloMouse:
     rawDataFilepaths += [
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/00_NOTES/mouseAdventure/elodieMousey.txt", eloMouseNum),     #  elodies wonderful mouse story!
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/00_NOTES/mouseAdventure/mousey.txt", eloMouseNum),     #  my simple version of elodies mouse story!
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/00_NOTES/mouseAdventure/elodieMouseyLonger.txt", eloMouseNum),     #  even more of elodies lovely mouse story!
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/01_NOTES/mouseAdventure/elodieMousey.txt", eloMouseNum),     #  elodies wonderful mouse story!
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/01_NOTES/mouseAdventure/mousey.txt", eloMouseNum),     #  my simple version of elodies mouse story!
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/01_NOTES/mouseAdventure/elodieMouseyLonger.txt", eloMouseNum),     #  even more of elodies lovely mouse story!
     ]
 
 if notes:
     rawDataFilepaths += [
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/00_NOTES/DISSERTATIONONAI.txt", notesNum), # 
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/00_NOTES/shitpoems.txt", notesNum),     #  random poems from my notes on my phone
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/01_NOTES/DISSERTATIONONAI.txt", notesNum), # 
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/01_NOTES/shitpoems.txt", notesNum),     #  random poems from my notes on my phone
     ]
 
 # --- BABYBOT ---
@@ -372,29 +344,29 @@ if code:
 # tenses
 if tenses:
     rawDataFilepaths += [
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentTense.txt", tensesNum),     #  tense: present (kevin's weed theme?)
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastTense.txt", tensesNum),     # tense: past (mouse theme!)
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentTense copy.txt", tensesNum),     # tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/futureContinuousTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/futurePerfectContinuousTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/futurePerfectTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastModalCouldHave.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastModalMustHaveTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastModalShouldHave.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastModalWouldHaveTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastPerfectContinuousTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentContinuousTense.txt", tensesNum),    #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastPerfectTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentModalCanTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentModalCouldTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentModalMustTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentModalShouldTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentPerfectContinuousTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentPerfectTense.txt", tensesNum),     #  tense
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/futureTense.txt", tensesNum),    #  tense: future
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/presentConditionalTense.txt", tensesNum),     # tense: present conditional
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/pastContinuousTense.txt", tensesNum),     #  tense: past continuous
-        ("text", "/Users/charis/Dropbox/00_Icharis/04_charisLOG/04_BABYDATA/tenses/imperativeTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentTense.txt", tensesNum),     #  tense: present (kevin's weed theme?)
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastTense.txt", tensesNum),     # tense: past (mouse theme!)
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentTense copy.txt", tensesNum),     # tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/futureContinuousTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/futurePerfectContinuousTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/futurePerfectTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastModalCouldHave.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastModalMustHaveTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastModalShouldHave.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastModalWouldHaveTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastPerfectContinuousTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentContinuousTense.txt", tensesNum),    #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastPerfectTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentModalCanTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentModalCouldTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentModalMustTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentModalShouldTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentPerfectContinuousTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentPerfectTense.txt", tensesNum),     #  tense
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/futureTense.txt", tensesNum),    #  tense: future
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/presentConditionalTense.txt", tensesNum),     # tense: present conditional
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/pastContinuousTense.txt", tensesNum),     #  tense: past continuous
+        ("text", "/Users/charis/Dropbox/00_Icharis/05_charisLOG/04_BABYDATA/tenses/imperativeTense.txt", tensesNum),     #  tense
     ]
 
 if shuffle:

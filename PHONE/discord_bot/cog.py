@@ -15,7 +15,7 @@ import calendar
 import discord
 from typing import Dict
 from discord.ext import commands
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from datetime import datetime, timedelta
 import traceback
 import torch
@@ -24,7 +24,7 @@ import pytz
 from .logger import logger
 from .safety import safety
 from .performance import perf_monitor
-from typing import TYPE_CHECKING, Tuple, Optional
+from typing import TYPE_CHECKING, Tuple, Optional, Callable
 import inspect
 from .data_manager import data_manager
 import aiohttp
@@ -47,6 +47,7 @@ from .utils import (
     style_gain,
     style_loss,
     format_bby_amount,
+    normalise_embed_british_english,
 )
 from .ULTIMATE_MASTER_token_sentiment_map import (
     get_token_sentiment_value, 
@@ -63,7 +64,7 @@ try:
     import os
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     from school.staffroom.VOCABULARY_SENTIMENT_INTEGRATION import (
-        get_enhanced_token_sentiment, 
+        get_enhanced_token_sentiment,
         analyse_message_sentiment_enhanced,
         BabyNeuralSentimentIntegration
     )
@@ -76,22 +77,60 @@ except ImportError as e:
 if TYPE_CHECKING:
     from .bot import BABYBOT_DISCORD
 
+ANSI_RESET = "\033[0m"
+ANSI_WARM_BLUE = "\033[38;2;120;170;255m"
+SMINK_TOKEN_MIN_PRODUCED = 10_000
+SMINK_TOKEN_FACT_KEYS = {"smink token", "smink tokens", "sminks token", "sminks tokens"}
+ITEM_USE_CAP_GROWTH_CHANCE = 0.001  # 0.1% per used item
+CURSED_FLIP_CAP_DECAY_CHANCE = 0.001  # 0.1% chance per cursed polarity flip to reduce cap by 1
+ITEM_THEFT_CAP_DECAY_CHANCE = 0.001  # 0.1% chance per stolen item to reduce cap by 1
+
+
+def _colourise_discord_command_log(message: str) -> str:
+    if os.getenv("NO_COLOR"):
+        return message
+    return f"{ANSI_WARM_BLUE}{message}{ANSI_RESET}"
+
+
 def track_command(func):
     """Decorator to track command usage - now works with fake contexts too!"""
     @functools.wraps(func)
     async def wrapper(self, ctx, *args, **kwargs):
+        author_name = None
+        command_name = None
         try:
             # Both real and fake contexts now have command.name and author.name
             command = getattr(ctx, "command", None)
             command_name = getattr(command, "name", None)
             author = getattr(ctx, "author", None)
             author_name = getattr(author, "name", None)
+            platform = (getattr(ctx, "platform", None) or "discord").lower()
             if command_name and author_name:
                 self.bot.track_command_usage(command_name, author_name)
+                if platform == "discord":
+                    channel_obj = getattr(ctx, "channel", None)
+                    channel_name = getattr(channel_obj, "name", "unknown")
+                    print(
+                        _colourise_discord_command_log(
+                            f"[DiscordCmd] !{command_name} by {author_name} in #{channel_name}"
+                        )
+                    )
         except Exception as e:
             print(f"[TRACK_COMMAND] Error tracking command: {e}")
-        
-        return await func(self, ctx, *args, **kwargs)
+
+        try:
+            return await func(self, ctx, *args, **kwargs)
+        finally:
+            # Privacy hardening: commands from non-opt users should not leave persistent accounts.
+            try:
+                if hasattr(self.bot, "prune_non_opt_user_memory"):
+                    removed = self.bot.prune_non_opt_user_memory(
+                        reason=f"command:{command_name or func.__name__}"
+                    )
+                    if removed > 0:
+                        data_manager.request_save("user_data")
+            except Exception as prune_error:
+                print(f"[TRACK_COMMAND][PRUNE] {prune_error}")
     return wrapper
 
 # varied self prompts for richer internal commentary
@@ -379,16 +418,37 @@ def _tok_display(tok: str, max_len: int = 18) -> str:
     return escape_markdown(s)
 
 class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
+    COLOUR_PRESETS = {
+        "purple": (145, 70, 255),
+        "pink": (255, 105, 180),
+        "orange": (255, 140, 0),
+        "blue": (30, 144, 255),
+        "red": (255, 69, 58),
+        "green": (46, 204, 113),
+        "white": (245, 245, 245),
+        "black": (20, 20, 20),
+        "yellow": (255, 214, 10),
+        "teal": (0, 188, 212),
+        "grey": (142, 142, 147),
+        "gray": (142, 142, 147),
+        "baby": (133, 239, 238),
+    }
+
     def __init__(self, bot: 'BABYBOT_DISCORD'):
         self.bot = bot
         # lightweight gallery cache so we don't hammer the site
         self._gallery_cache = {"ts": 0.0, "by_label": {}}
         self._gallery_ttl = 120.0  # seconds
+        self._recent_maths_questions = deque(maxlen=64)
+        self._recent_maths_patterns = deque(maxlen=16)
+        self._recent_maths_answers = deque(maxlen=16)
+        self._recent_bbyquiz_questions = deque(maxlen=96)
+        self._recent_bbyquiz_topics = deque(maxlen=24)
         
         # Initialise enhanced sentiment analysis system
         if ENHANCED_SENTIMENT_AVAILABLE:
             try:
-                self.enhanced_sentiment = BabyNeuralSentimentIntegration(bot)
+                self.enhanced_sentiment = BabyNeuralSentimentIntegration(bot)  # type: ignore
                 print("enhanced sentiment system initialised in discord cog!")
             except Exception as e:
                 print(f"failed to initialise enhanced sentiment: {e}")
@@ -433,6 +493,60 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             candidate = f"{base} {suffix}"
             suffix += 1
         return candidate
+
+    def _track_hidden_stat(self, user_id: str, stat_name: str, value: float = 1.0):
+        """Track hidden stats: gambling, cooking, knowledge, curiosity, generosity, curse, combat, bonding, hoarding, earning, sminking, administration"""
+        user_mem = self.bot.userMemory.get(user_id, {})
+        if "hidden_stats" not in user_mem:
+            user_mem["hidden_stats"] = {}
+        hidden_stats = user_mem["hidden_stats"]
+        hidden_stats[stat_name] = hidden_stats.get(stat_name, 0.0) + value
+
+    def _apply_economy_delta(
+        self,
+        user_id: str,
+        amount: float,
+        *,
+        source: str = "",
+        treasury_ratio: float = 0.9,
+        mint_floor_ratio: float = 0.1,
+    ) -> float:
+        """Route positive deltas via bonus funding and negatives via tax collection."""
+        try:
+            delta = float(amount)
+        except (TypeError, ValueError):
+            return 0.0
+        if not math.isfinite(delta) or delta == 0.0:
+            return 0.0
+
+        resolved_source = str(source or "").strip()
+        if not resolved_source:
+            frame = inspect.currentframe()
+            caller = frame.f_back if frame is not None else None
+            while caller and caller.f_code.co_name in {"_apply_economy_delta", "wrapper"}:
+                caller = caller.f_back
+
+            func_name = caller.f_code.co_name if caller else "unknown"
+            line_no = caller.f_lineno if caller else 0
+            ctx_obj = caller.f_locals.get("ctx") if caller else None
+            cmd_name = getattr(getattr(ctx_obj, "command", None), "name", None)
+            source_head = cmd_name or func_name
+            resolved_source = f"{source_head}:{line_no}:{user_id}"
+            # Break potential frame reference cycles.
+            del frame
+
+        if delta > 0:
+            paid, _, _ = self.bot.grant_bonus_with_treasury(
+                user_id,
+                delta,
+                source=resolved_source,
+                treasury_ratio=treasury_ratio,
+                mint_floor_ratio=mint_floor_ratio,
+            )
+            return paid
+
+        taxed = self.bot.apply_tax_with_collection(user_id, abs(delta), source=resolved_source)
+        return -taxed
 
     def _save_bbyfacts_batched(self):
         try:
@@ -519,6 +633,79 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except Exception:
             return "—"
 
+    def _parse_colour_input(self, raw_value: str):
+        """Parse named colours, hex, or RGB triplets into (r, g, b, label)."""
+        raw = (raw_value or "").strip().lower()
+        if not raw:
+            return None
+
+        rgb_match = re.fullmatch(r"\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*", raw)
+        if rgb_match:
+            rgb = tuple(int(rgb_match.group(i)) for i in (1, 2, 3))
+            if any(v < 0 or v > 255 for v in rgb):
+                return None
+            return (*rgb, f"rgb({rgb[0]}, {rgb[1]}, {rgb[2]})")
+
+        hex_match = re.fullmatch(r"#?([0-9a-f]{6})", raw)
+        if hex_match:
+            hex_part = hex_match.group(1)
+            rgb = (int(hex_part[0:2], 16), int(hex_part[2:4], 16), int(hex_part[4:6], 16))
+            return (*rgb, f"#{hex_part}")
+
+        key = raw.replace("-", " ").replace("_", " ").strip()
+        if key in self.COLOUR_PRESETS:
+            r, g, b = self.COLOUR_PRESETS[key]
+            return r, g, b, key
+        return None
+
+    async def _set_discord_bot_role_colour(self, ctx, r: int, g: int, b: int):
+        """Best-effort role colour update for real Discord guild contexts."""
+        guild = getattr(ctx, "guild", None)
+        if guild is None or getattr(guild, "id", 0) == 0:
+            return False, "skipped"
+
+        try:
+            me = getattr(guild, "me", None)
+            if me is None and getattr(self.bot, "user", None) is not None and hasattr(guild, "get_member"):
+                me = guild.get_member(self.bot.user.id)
+            if me is None and getattr(self.bot, "user", None) is not None and hasattr(guild, "fetch_member"):
+                try:
+                    me = await guild.fetch_member(self.bot.user.id)
+                except Exception:
+                    me = None
+            if me is None:
+                return False, "bot member not found"
+
+            target_colour = discord.Colour.from_rgb(r, g, b)
+            candidate_roles = [
+                role for role in getattr(me, "roles", [])
+                if role != getattr(guild, "default_role", None) and not getattr(role, "managed", False)
+            ]
+            candidate_roles.sort(key=lambda role: getattr(role, "position", 0), reverse=True)
+
+            last_error = None
+            for role in candidate_roles:
+                try:
+                    await role.edit(
+                        colour=target_colour,
+                        reason=f"bbycolour requested by {getattr(getattr(ctx, 'author', None), 'name', 'unknown')}",
+                    )
+                    return True, f"role '{role.name}'"
+                except discord.Forbidden as e:
+                    last_error = e
+                    continue
+                except Exception as e:
+                    last_error = e
+                    continue
+
+            if not candidate_roles:
+                return False, "no editable bot roles"
+            if last_error is not None:
+                return False, f"discord role edit failed ({str(last_error)[:80]})"
+            return False, "discord role edit failed"
+        except Exception as e:
+            return False, f"discord update error ({str(e)[:80]})"
+
 
     # --*- REFACTOR HELPER METHODS -*--
 
@@ -572,7 +759,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return None, None
         return cleaned_name, self.bot.bbyfacts[cleaned_name]
 
-    def _format_leaderboard_entry(self, user_id: str, bby_score: float, total_bby: float, rank: int, is_rivals: bool = False) -> str:
+    async def _format_leaderboard_entry(self, user_id: str, bby_score: float, total_bby: float, rank: int, is_rivals: bool = False) -> str:
         name = self.bot.getNickname(user_id)
         user_mem = self.bot.userMemory.get(user_id, {})
         
@@ -611,7 +798,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if inventory:
             total_items_count = sum(inventory.values())
             most_owned_item, most_owned_count = max(inventory.items(), key=lambda item: item[1])
-            user_item_values = {item: self._get_fact_value(item) for item in inventory}
+            user_item_values = {item: await self._get_fact_value(item) for item in inventory}
             most_valuable_item, most_valuable_value = max(user_item_values.items(), key=lambda item: item[1])
             unique_items_owned = len(inventory)
             line += (
@@ -673,6 +860,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         Awards a fact atomically and returns a detailed status tuple.
         Returns: (Success: bool, AwardedCount: int, Reason: str)
         """
+        user_key = str(user or "").strip().lower()
+        if hasattr(self.bot, "normalise_user_identity"):
+            user_key = self.bot.normalise_user_identity(user_key)
+        if not user_key:
+            return (False, 0, "INVALID_USER")
+        if hasattr(self.bot, "should_persist_user_state") and not self.bot.should_persist_user_state(user_key):
+            return (False, 0, "USER_NOT_OPTED_IN")
+        user = user_key
+
         async with self.bot._fact_award_lock:
             if fact not in self.bot.bbyfacts:
                 if old_value is None: await self._discover_fact(key=fact, author=user)
@@ -746,6 +942,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # Require a minimum to avoid ultra-short replies
         min_tokens_before_stop = max(eos_min_tokens_absolute, int(numTokensToGen * eos_min_tokens_fraction))
+        eos_hits_before_min = 0
+        stopped_on_hard_eos = False
+        nonfinite_streak = 0
         oom_error_message = None
         try:
             with torch.no_grad():
@@ -759,9 +958,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         inputTensor = torch.tensor(inputSegIDs, dtype=torch.long, device=modelDevice)
                         logits, nextTokenIDTensor = self.bot.babyLLM.forward_and_sample(
                             inputTensor,
-                            _training=True,
+                            _training=False,
                             _totAvgAbsDelta=self.bot.tutor.totalAvgAbsDelta,
                         )
+                        if getattr(self.bot.babyLLM, "last_forward_had_nonfinite", False):
+                            nonfinite_streak += 1
+                        else:
+                            nonfinite_streak = 0
+                        if nonfinite_streak >= 2:
+                            msg = (
+                                "ERROR: unstable logits detected in forward pass "
+                                "(non-finite repeated). Generation stopped."
+                            )
+                            logger.error("GENERATE", msg)
+                            return ("", msg)
                         if torch.isnan(logits).any() or torch.isinf(logits).any():
                             msg = "ERROR: NaN/Inf detected in logits. Generation stopped to protect model."
                             logger.emergency("GENERATE", msg)
@@ -772,12 +982,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             print(f"[_GENERATE_RESPONSE_BLOCKING] {err}")
                             return ("", err)
 
-                        # Hard EOS: accept EOS only if speaker-change is detected (if required)
-                        if eos_id is not None and nextTokenID == eos_id and len(responseSeqId) >= min_tokens_before_stop:
-                            if not eos_require_speaker_change:
-                                break
-                            # If stricter, we don't stop on EOS by itself; keep generating until a speaker tag appears
-                            pass
+                        # Hard EOS: reserved token always ends the reply.
+                        if eos_id is not None and nextTokenID == eos_id:
+                            if len(responseSeqId) < min_tokens_before_stop:
+                                eos_hits_before_min += 1
+                                print(
+                                    f"[EOS][GEN] early hard stop on <EOS> at generated token "
+                                    f"{len(responseSeqId) + 1} (below min {min_tokens_before_stop})"
+                                )
+                            else:
+                                print(
+                                    f"[EOS][GEN] hard stop on <EOS> at generated token "
+                                    f"{len(responseSeqId) + 1} (min {min_tokens_before_stop})"
+                                )
+                            stopped_on_hard_eos = True
+                            break
                         # Soft EOS: optional, newline-based
                         if enable_soft_eos and (
                             newline_id is not None
@@ -796,7 +1015,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 tail_ids = responseSeqId[-min(len(responseSeqId), 64):]
                                 tail_text = self.bot.librarian.decodeIDs([int(idx) for idx in tail_ids])
                                 # normalise whitespace artifacts from byte-level BPE
-                                tail_text_norm = tail_text.replace("Ġ", " ")
+                                tail_text_norm = (
+                                    tail_text
+                                    .replace("Ġ", " ")
+                                    .replace("▁", " ")
+                                    .replace("Ċ", "\n")
+                                    .replace("ĉ", "\t")
+                                )
                                 # Match a speaker tag at end of text: start-of-line + name + ": "
                                 import re as _re
                                 m = _re.search(r'(?:^|\n)([^\n:]{1,24}):\s?$', tail_text_norm)
@@ -815,7 +1040,33 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             break
                         else:
                             raise mem_error
-            babyllm_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId]).replace("Ġ", " ").lower()
+            decoded_generated_text = self.bot.librarian.decodeIDs([int(idx) for idx in responseSeqId])
+            decoded_generated_text = (
+                decoded_generated_text
+                .replace("Ġ", " ")
+                .replace("▁", " ")
+                .replace("Ċ", "\n")
+                .replace("ĉ", "\t")
+            )
+            if eos_replacement_token_str:
+                eos_preview_text = decoded_generated_text.replace(eos_replacement_token_str, eos_token_str)
+                raw_generated_text = decoded_generated_text.replace(eos_replacement_token_str, " ")
+            else:
+                eos_preview_text = decoded_generated_text
+                raw_generated_text = decoded_generated_text
+            if sos_replacement_token_str:
+                eos_preview_text = eos_preview_text.replace(sos_replacement_token_str, sos_token_str)
+                raw_generated_text = raw_generated_text.replace(sos_replacement_token_str, " ")
+
+            if stopped_on_hard_eos or eos_hits_before_min > 0 or eos_token_str in eos_preview_text:
+                preview = eos_preview_text.replace("\n", "Ċ").replace("\t", "ĉ")
+                if len(preview) > 320:
+                    preview = preview[:320] + "..."
+                print(f"[EOS][GEN] pre-clean output: {preview}")
+                if eos_hits_before_min > 0:
+                    print(f"[EOS][GEN] stopped on {eos_hits_before_min} early <EOS> token(s) before min-stop threshold")
+
+            babyllm_text = raw_generated_text.lower()
             if 'strip_trailing_tag' in locals() and strip_trailing_tag and babyllm_text:
                 try:
                     import re as _re
@@ -823,7 +1074,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 except Exception:
                     pass
             babyllm_text = clean_baby_output(babyllm_text)
-            babyllm_text = re.sub(r'\n([^\n]{0,8})(?=\n|\Z)', r' \1', babyllm_text)
+            # Keep line breaks intact; just prevent excessive blank vertical spam.
+            babyllm_text = re.sub(r'\n{3,}', '\n\n', babyllm_text)
             babyllm_text = re.sub(r'  ', r' ', babyllm_text)
             generation_time = time.time() - start_time
             perf_monitor.record_metric("generation_time", generation_time)
@@ -838,6 +1090,41 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             logger.error("GENERATE", f"error during generation: {e}")
             traceback.print_exc()
             return ("", f"ERROR: {e}")
+
+    def _estimate_conversational_reply_budget(self, user_input: str) -> int:
+        """Pick a looser token budget so EOS can end replies more naturally."""
+        text = (user_input or "").strip()
+        min_budget = max(1, int(chat_reply_min_tokens))
+        max_budget = max(min_budget, int(chat_reply_max_tokens))
+
+        try:
+            token_count = len(self.bot.librarian.tokenizer.encode(text)) if text else 0
+        except Exception:
+            token_count = len(text.split()) if text else 0
+
+        token_count = max(0, int(token_count))
+        if token_count <= 0:
+            empty_cap = min(max_budget, int(chat_reply_empty_prompt_max_tokens))
+            return random.randint(min_budget, max(min_budget, empty_cap))
+
+        jitter = max(4, int(token_count * 0.6))
+        lower_anchor = int(token_count * (0.45 + (0.35 * self.get_varied_random())))
+        upper_anchor = int(token_count * (1.3 + (1.4 * self.get_varied_random())))
+
+        lower = max(min_budget, lower_anchor - random.randint(0, jitter))
+        upper = upper_anchor + random.randint(max(1, jitter // 2), max(2, jitter * 3))
+
+        if token_count <= 6:
+            upper = max(upper, min(max_budget, int(chat_reply_short_prompt_max_tokens)))
+        elif token_count <= 18:
+            upper = max(upper, min(max_budget, int(chat_reply_short_prompt_max_tokens * 1.5)))
+
+        if lower >= upper:
+            upper = min(max_budget, lower + max(4, jitter))
+
+        floor = max(min_budget, min(lower, max_budget))
+        ceiling = max(floor, min(upper, max_budget))
+        return random.randint(floor, ceiling)
 
     async def _generate_response_async(self, prompt_text, numTokensToGen):
         """Asynchronous wrapper that runs generation in an executor to prevent blocking"""
@@ -897,7 +1184,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 donation = max(1, user_bby * 0.001)
                 
                 # Take from user, add to item value
-                self.bot.updateBBY(user_id, -donation)
+                self._apply_economy_delta(user_id, -donation)
                 if fact_name in self.bot.bbyfacts:
                     current_value = self.bot.bbyfacts[fact_name].get('teach_bonus', 420.0)
                     boost = donation * 0.01  # Convert BBY to item value at 1% rate
@@ -1128,13 +1415,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return inventory.get(fact, 0)
 
     def _update_fact_total_user(self, user = None, fact = None, num = 1, debug_str = ""):
-            user_mem = self.bot.userMemory.get(user)
+            user_key = str(user or "").strip().lower()
+            if hasattr(self.bot, "normalise_user_identity"):
+                user_key = self.bot.normalise_user_identity(user_key)
+            if not user_key:
+                return
+            if hasattr(self.bot, "should_persist_user_state") and not self.bot.should_persist_user_state(user_key):
+                return
+
+            user_mem = self.bot.userMemory.get(user_key)
             if not isinstance(user_mem, dict):
                 try:
                     user_mem = dict(self.bot._get_default_user_memory())
                 except Exception:
                     user_mem = {}
-                self.bot.userMemory[user] = user_mem
+                self.bot.userMemory[user_key] = user_mem
             inventory = user_mem.get("inventory")
             if not isinstance(inventory, dict):
                 inventory = {}
@@ -1148,11 +1443,73 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 if fact in favourites:
                     while fact in favourites:
                         favourites.remove(fact)
-                    print(f"[_UPDATE_FACT_TOTAL_USER] Removed {fact} from {user} favourites")
+                    print(f"[_UPDATE_FACT_TOTAL_USER] Removed {fact} from {user_key} favourites")
             else: inventory[fact] = new_total
                 
             # Use urgent save for inventory changes since they affect item caps
             data_manager.request_save("user_data", urgent=True)
+
+    def _maybe_increase_item_cap_from_usage(self, fact = None, used_count = 1, source = ""):
+        """0.1% chance per used item to increase that item's world cap by +1."""
+        fact_key = self._normalise_fact_key_for_matching(fact)
+        if not fact_key:
+            return 0
+        fact_data = self.bot.bbyfacts.get(fact_key)
+        if not isinstance(fact_data, dict):
+            return 0
+        try:
+            rolls = max(0, int(used_count))
+        except (TypeError, ValueError):
+            return 0
+        if rolls <= 0:
+            return 0
+
+        growth = 0
+        for _ in range(rolls):
+            if random.random() < ITEM_USE_CAP_GROWTH_CHANCE:
+                growth += 1
+        if growth <= 0:
+            return 0
+
+        current_cap = self._get_fact_num_produced(fact_key)
+        new_cap = self._normalise_num_produced(fact=fact_key, raw_value=current_cap + growth)
+        fact_data["num_produced"] = new_cap
+        data_manager.request_save("bbyfacts", urgent=True)
+        print(f"[ITEM_SUPPLY_GROWTH] {fact_key}: +{growth} cap from usage ({source or 'unknown'}) -> {new_cap}")
+        return growth
+
+    def _maybe_reduce_item_cap_from_theft(self, fact = None, stolen_count = 1, source = "steal"):
+        """0.1% chance per stolen item to reduce that item's world cap by -1."""
+        fact_key = self._normalise_fact_key_for_matching(fact)
+        if not fact_key:
+            return 0
+        fact_data = self.bot.bbyfacts.get(fact_key)
+        if not isinstance(fact_data, dict):
+            return 0
+        try:
+            rolls = max(0, int(stolen_count))
+        except (TypeError, ValueError):
+            return 0
+        if rolls <= 0:
+            return 0
+
+        decay = 0
+        for _ in range(rolls):
+            if random.random() < ITEM_THEFT_CAP_DECAY_CHANCE:
+                decay += 1
+        if decay <= 0:
+            return 0
+
+        old_cap = self._get_fact_num_produced(fact_key)
+        new_cap = self._normalise_num_produced(fact=fact_key, raw_value=old_cap - decay)
+        if new_cap >= old_cap:
+            return 0
+
+        fact_data["num_produced"] = new_cap
+        data_manager.request_save("bbyfacts", urgent=True)
+        actual_decay = old_cap - new_cap
+        print(f"[ITEM_SUPPLY_DECAY] {fact_key}: -{actual_decay} cap from theft ({source or 'steal'}) -> {new_cap}")
+        return actual_decay
 
     def _get_fact_total_world(self, fact = None):
         total = 0
@@ -1255,7 +1612,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # More chaos = more likely for bad things to happen
         if brain_chaos > 0.95:  # Ultra rare chaos event
             penalty = self._calculate_contextual_bby(user_id, base_percentage=0.1, is_penalty=True)
-            self.bot.updateBBY(user_id, penalty)
+            self._apply_economy_delta(user_id, penalty)
             chaos_reasons = [
                 "the universe decided you suck today",
                 "cosmic inflation affected your wallet", 
@@ -1326,15 +1683,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(f"[SENTIMENT_BBY_BONUS] Error: {e}")
             return 0.0, ""
 
-    def _get_fact_value_base(self, fact = None): 
-        if fact not in self.bot.bbyfacts: self._set_bbyfact(key = fact)
+    async def _get_fact_value_base(self, fact = None): 
+        if fact not in self.bot.bbyfacts: await self._set_bbyfact(key = fact)
         return self.bot.bbyfacts.get(fact, {}).get("teach_bonus", 420.0) 
     
-    def _get_fact_value_cursed(self, fact = None):
+    async def _get_fact_value_cursed(self, fact = None):
         if fact not in self.bot.bbyfacts or not isinstance(self.bot.bbyfacts.get(fact), dict):
-            self._set_bbyfact(key = fact)
+            await self._set_bbyfact(key = fact)
 
-        base = self._get_fact_value_base(fact)
+        base = await self._get_fact_value_base(fact)
 
         # Only apply cursed behaviour to explicitly cursed items
         if "cursed" not in (fact or "").lower():
@@ -1357,11 +1714,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             can_flip = time_since_flip >= min_flip_interval
             # Baseline flip chance plus a small time pressure (up to +15% over ~10 minutes)
             flip_chance = 0.15 + min(0.15, (time_since_flip / 690.0) * 0.15)
+            did_flip = False
             if can_flip and self.get_varied_random() < flip_chance:
                 old_polarity = polarity
                 polarity *= -1
                 last_flip = now
+                did_flip = True
                 print(f"[_GET_FACT_VALUE_CURSED] {fact} flipped polarity {old_polarity:+d} -> {polarity:+d}")
+
+            # Tiny cursed-side effect: a flip can very rarely reduce max supply by 1.
+            if did_flip and self.get_varied_random() < CURSED_FLIP_CAP_DECAY_CHANCE:
+                old_cap = self._get_fact_num_produced(fact)
+                new_cap = self._normalise_num_produced(fact=fact, raw_value=old_cap - 1)
+                if new_cap < old_cap:
+                    meta["num_produced"] = new_cap
+                    print(f"[_GET_FACT_VALUE_CURSED] {fact} cursed flip reduced cap {old_cap} -> {new_cap}")
 
             # Small random drift to keep values moving even without flips (±10%)
             if self.get_varied_random() < 0.5:
@@ -1388,11 +1755,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(f"[_GET_FACT_VALUE_CURSED] error for {fact}: {e}")
             return base
 
-    def _get_fact_value(self, fact = None):
+    async def _get_fact_value(self, fact = None):
         """Market value that responds to supply, demand, and trading activity.
         Now includes realistic market forces instead of just supply-based decay.
         """
-        base = self._get_fact_value_cursed(fact)
+        base = await self._get_fact_value_cursed(fact)
         total_supply = max(1.0, float(self._get_fact_total_world(fact)))
         
         # Supply/demand: sharper decay using mix of straight division and sqrt
@@ -1425,9 +1792,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return int((base_factor * chaos) * random.uniform(5, 30))
         return int((base_factor * chaos) * random.uniform(2, 6))
 
+    @staticmethod
+    def _normalise_fact_key_for_matching(fact):
+        text = str(fact or "").strip().lower().replace("_", " ").replace("-", " ")
+        return " ".join(text.split())
+
+    def _is_smink_token_fact(self, fact = None):
+        return self._normalise_fact_key_for_matching(fact) in SMINK_TOKEN_FACT_KEYS
+
+    def _normalise_num_produced(self, fact = None, raw_value = None):
+        try:
+            value = int(round(float(raw_value)))
+        except (TypeError, ValueError):
+            value = 1
+        value = max(1, value)
+        if self._is_smink_token_fact(fact):
+            value = max(value, SMINK_TOKEN_MIN_PRODUCED)
+        return value
+
     def _get_fact_num_produced(self, fact = None): 
         raw_value = self.bot.bbyfacts.get(fact, {}).get("num_produced", 2.0)
-        return int(round(raw_value))  # Always return integer, rounding any fractional values 
+        return self._normalise_num_produced(fact=fact, raw_value=raw_value)
     
     def _get_fact_id(self, fact = None): 
         return self.bot.bbyfacts.get(fact, {}).get("id", 1) 
@@ -1444,10 +1829,51 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         top_str = f"{self.bot.getNickname(top_user)} (with x{top_count})" if top_user else "no one... yet!"
         return top_user, top_count, top_str
 
+    def _get_top_hoarders(self, fact = None, limit = 3):
+        """Get top N hoarders of a specific item"""
+        hoarder_counts = []
+        for user_id in self.bot.userMemory:
+            count = self._get_fact_total_user(user = user_id, fact = fact)
+            if count > 0:
+                hoarder_counts.append((user_id, count))
+
+        # Sort by count descending
+        hoarder_counts.sort(key=lambda x: x[1], reverse=True)
+        top_hoarders = hoarder_counts[:limit]
+
+        if not top_hoarders:
+            return "no one... yet!"
+
+        # Format as numbered list
+        lines = []
+        for i, (user_id, count) in enumerate(top_hoarders, 1):
+            lines.append(f"{i}. {self.bot.getNickname(user_id)} (x{count})")
+        return "\n".join(lines)
+
+    def _get_top_hoarders_narrative(self, fact = None, limit = 3):
+        """Get top hoarders as a natural phrase for buffer/training text."""
+        hoarder_counts = []
+        for user_id in self.bot.userMemory:
+            count = self._get_fact_total_user(user = user_id, fact = fact)
+            if count > 0:
+                hoarder_counts.append((user_id, count))
+
+        hoarder_counts.sort(key=lambda x: x[1], reverse=True)
+        top_hoarders = hoarder_counts[:limit]
+        if not top_hoarders:
+            return "no one... yet!", 0
+
+        names = [self.bot.getNickname(user_id) for user_id, _count in top_hoarders]
+        if len(names) == 1:
+            return names[0], 1
+        if len(names) == 2:
+            return f"{names[0]} and {names[1]}", 2
+        return f"{', '.join(names[:-1])}, and {names[-1]}", len(names)
+
     # --*- FACT HELPERS -*--
-    def _get_current_value_rank(self, fact_name: str):
+    async def _get_current_value_rank(self, fact_name: str):
         market_values = {
-            name: self._get_fact_value(name) 
+            name: await self._get_fact_value(name) 
             for name, data in self.bot.bbyfacts.items() 
             if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
         }
@@ -1460,7 +1886,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         except ValueError: return (float('inf'), "Unranked")
 
     def _get_bby_leaderboard(self, reverse=True):
-        eligible_users = {u: m["BBY"] for u, m in self.bot.userMemory.items() if m.get("BBY") != 0}
+        eligible_users = {
+            u: m["BBY"]
+            for u, m in self.bot.userMemory.items()
+            if m.get("BBY") != 0 and not self.bot.is_bot_identity(u)
+        }
         return sorted(eligible_users.items(), key=lambda item: item[1], reverse=reverse)
 
     def _get_user_bby_rank(self, user_id: str):
@@ -1490,6 +1920,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     # Add to winner
                     winner_inventory = self.bot.userMemory[winner_id].setdefault("inventory", {})
                     winner_inventory[stolen_item] = winner_inventory.get(stolen_item, 0) + 1
+                    self._maybe_reduce_item_cap_from_theft(
+                        fact=stolen_item,
+                        stolen_count=1,
+                        source="steal",
+                    )
 
                     return f"damn, {self.bot.getNickname(winner_id)} even nicked a {style_gain(stolen_item)} from {self.bot.getNickname(loser_id)}!!"
                 return ""
@@ -1509,20 +1944,43 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     # --* bbyfact setters
     async def _set_bbyfact(self, key = None, value = None, author = None, timestamp = time.time(), teach_bonus = None, num_produced = None, id = None, debug_str=""):
         key, value, author, teach_bonus, num_produced, id, debug_str = self._set_bbyfact_errors(key, value, author, teach_bonus, num_produced, id, debug_str)
+        author_key = str(author or "").strip().lower()
+        if hasattr(self.bot, "normalise_user_identity"):
+            author_key = self.bot.normalise_user_identity(author_key)
+        if not author_key:
+            author_key = "the void"
+        if (
+            author_key != "the void"
+            and hasattr(self.bot, "should_persist_user_state")
+            and not self.bot.should_persist_user_state(author_key)
+        ):
+            author_key = "the void"
         if hasattr(self.bot, "seed_fact_bonus"):
             teach_bonus = self.bot.seed_fact_bonus(teach_bonus)
-        self.bot.bbyfacts[key] = {"value": value, "author": author, "timestamp": timestamp, "teach_bonus": teach_bonus, "num_produced": num_produced, "id": id}
+        self.bot.bbyfacts[key] = {
+            "value": value,
+            "author": author_key,
+            "timestamp": timestamp,
+            "teach_bonus": teach_bonus,
+            "num_produced": num_produced,
+            "id": id,
+        }
         data_manager.request_save("bbyfacts", urgent=True)
-        await self.bot._discord_debug(f"{debug_str}[_SET_BBYFACT] CREATED KEY: **{key}**, VALUE: {value:<20}, AUTHOR: {author}, BASE VALUE: {teach_bonus}, NUM PRODUCED: {num_produced}, ID: {id}")
+        await self.bot._discord_debug(
+            f"{debug_str}[_SET_BBYFACT] CREATED KEY: **{key}**, VALUE: {value:<20}, "
+            f"AUTHOR: {author_key}, BASE VALUE: {teach_bonus}, NUM PRODUCED: {num_produced}, ID: {id}"
+        )
         await self.bot.maybe_trigger_pin_celebration()
 
     def _set_bbyfact_errors(self, key, value, author, teach_bonus, num_produced, id, debug_str=""): 
+        final_key = key or self.get_varied_choice().choice(self.bot.errorKeys)
         calculated_num_produced = num_produced or self._calc_fact_num_produced()
-        # Ensure num_produced is always an integer
-        if isinstance(calculated_num_produced, float):
-            calculated_num_produced = int(round(calculated_num_produced))
-        
-        return (key or self.get_varied_choice().choice(self.bot.errorKeys), 
+        calculated_num_produced = self._normalise_num_produced(
+            fact=final_key,
+            raw_value=calculated_num_produced,
+        )
+
+        return (final_key, 
                 value or self.get_varied_choice().choice(self.bot.errorValues), 
                 author or self.get_varied_choice().choice(self.bot.errorAuthors), 
                 teach_bonus or 420,
@@ -1556,7 +2014,177 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         label = f"[{escape_markdown(name)}]"
         return f"{label} ..?" if not items else f"{label} → {', '.join(items)}"
 
-    def _get_brain_connections(self, text: str, top_k: int = 10, combo_only: bool = False) -> str: # <--- MODIFIED
+    def _trace_raw_token(self, tid: int) -> str:
+        token = ""
+        tokenizer = getattr(self.bot.librarian, "tokenizer", None)
+        try:
+            if tokenizer is not None and hasattr(tokenizer, "convert_ids_to_tokens"):
+                converted = tokenizer.convert_ids_to_tokens([int(tid)])
+                if converted and converted[0] is not None:
+                    token = str(converted[0] or "")
+        except Exception:
+            token = ""
+        vocab = getattr(self.bot.librarian, "indexToToken", None)
+        try:
+            if not token and isinstance(vocab, dict):
+                token = str(vocab.get(int(tid), "") or "")
+            elif not token and isinstance(vocab, (list, tuple)) and 0 <= int(tid) < len(vocab):
+                token = str(vocab[int(tid)] or "")
+        except Exception:
+            token = token or ""
+        if not token:
+            token = str(self.bot.librarian.decodeIDs([int(tid)]) or "")
+        return token.replace("\r", "").replace("\n", "Ċ").replace("\t", "ĉ")
+
+    def _trace_token_label(self, token: str) -> str:
+        raw = str(token or "")
+        if not raw:
+            return "<EMPTY>"
+        out = []
+        for ch in raw:
+            if ch == "Ġ":
+                out.append(" ")
+            elif ch == "Ċ" or ch == "\n":
+                out.append("Ċ")
+            elif ch == "ĉ" or ch == "\t":
+                out.append("ĉ")
+            elif ch == "▁":
+                out.append("_")
+            elif ch == "�":
+                out.append("<U+FFFD>")
+            elif ch.isprintable():
+                out.append(ch)
+            else:
+                out.append(f"<U+{ord(ch):04X}>")
+        return "".join(out)
+
+    def _trace_token_display(self, tid: int) -> str:
+        label = self._trace_token_label(self._trace_raw_token(tid))
+        return " " if label.strip() == "" else label
+
+    def _format_trace_stage(self, trace: dict, key: str, label: str):
+        stage = (trace.get("stages") or {}).get(key)
+        if not isinstance(stage, dict):
+            return None
+        seq_norm = float(stage.get("sequence_norm", 0.0) or 0.0)
+        last_norm = float(stage.get("last_token_norm", 0.0) or 0.0)
+        if seq_norm == 0.0 and last_norm == 0.0:
+            return None
+        return f"{label}: last {last_norm:.3f} | seq {seq_norm:.3f}"
+
+    def _summarise_trace_windows(self, windows, top_n: int = 3) -> str:
+        if not windows:
+            return "none"
+        ordered = sorted(
+            [w for w in windows if isinstance(w, dict)],
+            key=lambda item: float(item.get("weight", 0.0) or 0.0),
+            reverse=True,
+        )
+        if not ordered:
+            return "none"
+        parts = []
+        for item in ordered[:max(1, int(top_n))]:
+            size = float(item.get("size", 0.0) or 0.0)
+            weight = float(item.get("weight", 0.0) or 0.0)
+            parts.append(f"{size:.0f}t {weight:.3f}")
+        return " | ".join(parts)
+
+    def _summarise_trace_amplifiers(self, trace: dict, top_n: int = 3):
+        stages = trace.get("stages") or {}
+        pairs = []
+        for label, prev_key, cur_key in [
+            ("attention1", "blended_input", "attention1"),
+            ("inn", "attention1", "inn_core"),
+            ("attention2", "inn_core", "inn_after_attention2"),
+            ("scratchpad", "inn_after_attention2", "inn_after_scratch"),
+            ("memory1", "inn_after_scratch", "memory1_out"),
+            ("memory2", "memory1_out", "memory2_out"),
+            ("logits", "memory2_out", "final_logits"),
+        ]:
+            prev_stage = stages.get(prev_key) or {}
+            cur_stage = stages.get(cur_key) or {}
+            prev_norm = float(prev_stage.get("last_token_norm", 0.0) or 0.0)
+            cur_norm = float(cur_stage.get("last_token_norm", 0.0) or 0.0)
+            if prev_norm <= 0.0 or cur_norm <= 0.0:
+                continue
+            pairs.append((label, cur_norm / prev_norm))
+        pairs.sort(key=lambda item: item[1], reverse=True)
+        return pairs[:max(1, int(top_n))]
+
+    def _neuron_stack_for_token(self, scaled_acts, token_id: int, top_n: int = 4):
+        if not torch.is_tensor(scaled_acts):
+            return {"positive": [], "negative": []}
+        token_id = int(token_id)
+        weights = self.bot.babyLLM.logits.l_weights[:, token_id].detach().cpu()
+        acts = scaled_acts.detach().cpu()
+        if acts.dim() != 1:
+            acts = acts.reshape(-1)
+        contributions = acts * weights
+        count = max(1, min(int(top_n), int(contributions.numel())))
+
+        pos_vals, pos_idx = torch.topk(contributions, count)
+        neg_vals, neg_idx = torch.topk(-contributions, count)
+
+        positive = []
+        for idx, val in zip(pos_idx.tolist(), pos_vals.tolist()):
+            positive.append({
+                "neuron": int(idx),
+                "contribution": float(val),
+                "activation": float(acts[idx].item()),
+                "weight": float(weights[idx].item()),
+            })
+
+        negative = []
+        for idx, val in zip(neg_idx.tolist(), neg_vals.tolist()):
+            idx = int(idx)
+            negative.append({
+                "neuron": idx,
+                "contribution": float(-val),
+                "activation": float(acts[idx].item()),
+                "weight": float(weights[idx].item()),
+            })
+
+        return {"positive": positive, "negative": negative}
+
+    def _format_neuron_stack(self, entries, top_n: int = 3):
+        if not entries:
+            return "none"
+        parts = []
+        for item in list(entries)[:max(1, int(top_n))]:
+            parts.append(
+                f"n{int(item['neuron'])} {float(item['contribution']):+.2f}"
+            )
+        return " | ".join(parts)
+
+    def _top_shifted_neurons(self, full_vec, alt_vec, top_n: int = 3):
+        if not torch.is_tensor(full_vec) or not torch.is_tensor(alt_vec):
+            return []
+        base = full_vec.detach().cpu().reshape(-1)
+        alt = alt_vec.detach().cpu().reshape(-1)
+        if base.numel() != alt.numel():
+            return []
+        delta = alt - base
+        count = max(1, min(int(top_n), int(delta.numel())))
+        vals, idx = torch.topk(delta.abs(), count)
+        out = []
+        for neuron_idx, magnitude in zip(idx.tolist(), vals.tolist()):
+            neuron_idx = int(neuron_idx)
+            out.append({
+                "neuron": neuron_idx,
+                "delta": float(delta[neuron_idx].item()),
+                "magnitude": float(magnitude),
+            })
+        return out
+
+    def _format_shifted_neurons(self, entries, top_n: int = 3):
+        if not entries:
+            return "none"
+        parts = []
+        for item in list(entries)[:max(1, int(top_n))]:
+            parts.append(f"n{int(item['neuron'])} {float(item['delta']):+.2f}")
+        return " | ".join(parts)
+
+    def _get_brain_connections(self, text: str, top_k: int = 10, combo_only: bool = False):
         text = (text or "").strip().lower()
         if not text:
             return ""
@@ -1572,111 +2200,213 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         embed = self.bot.babyLLM.embed.e_weights
         norms = torch.nn.functional.normalize(embed, dim=1)
-        min_score = 0.1
-        lines: list[str] = []
+        min_score = 0.05
 
-        def _fmt(cand: str, score: float) -> str:
-            cand = escape_markdown(cand.replace("Ġ", ""))
+        def _decode_raw_token(tid: int) -> str:
+            token = ""
+            tokenizer = getattr(self.bot.librarian, "tokenizer", None)
+            try:
+                if tokenizer is not None and hasattr(tokenizer, "convert_ids_to_tokens"):
+                    converted = tokenizer.convert_ids_to_tokens([int(tid)])
+                    if converted and converted[0] is not None:
+                        token = str(converted[0] or "")
+            except Exception:
+                token = ""
+            vocab = getattr(self.bot.librarian, "indexToToken", None)
+            try:
+                if not token and isinstance(vocab, dict):
+                    token = str(vocab.get(int(tid), "") or "")
+                elif not token and isinstance(vocab, (list, tuple)) and 0 <= int(tid) < len(vocab):
+                    token = str(vocab[int(tid)] or "")
+            except Exception:
+                if not token:
+                    token = ""
+            if not token:
+                token = str(self.bot.librarian.decodeIDs([int(tid)]) or "")
+            token = token.replace("\r", "")
+            # Keep canonical BPE-visible markers instead of escaped literals.
+            token = token.replace("\n", "Ċ").replace("\t", "ĉ")
+            return token
+
+        def _is_valid_token(token: str) -> bool:
+            if not token:
+                return False
+            t = str(token)
+            unk_text = str(self.bot.librarian.unkToken or "").strip().lower()
+            if t.strip().lower() in {"<unk>", unk_text}:
+                return False
+            return True
+
+        def _is_semantic_token(token: str) -> bool:
+            # Keep token-level output but avoid pure punctuation soup in ranking output.
+            return bool(re.search(r"[a-z0-9]", str(token).lower()))
+
+        def _plain_token_label(token: str) -> str:
+            raw = str(token or "")
+            if not raw:
+                return "<EMPTY>"
+            out = []
+            for ch in raw:
+                if ch == "Ġ":
+                    out.append(" ")
+                elif ch == "Ċ" or ch == "\n":
+                    out.append("Ċ")
+                elif ch == "ĉ" or ch == "\t":
+                    out.append("ĉ")
+                elif ch == "▁":
+                    out.append("_")
+                elif ch == "�":
+                    out.append("<U+FFFD>")
+                elif ch.isprintable():
+                    out.append(ch)
+                else:
+                    out.append(f"<U+{ord(ch):04X}>")
+            return "".join(out)
+
+        def _show(token: str) -> str:
+            raw = str(token or "")
+            if not raw:
+                return escape_markdown("<EMPTY>")
+            needs_plain = ("�" in raw) or any(ch in raw for ch in ("Ġ", "Ċ", "ĉ", "▁"))
+            if needs_plain:
+                return escape_markdown(_plain_token_label(raw))
+            return escape_markdown(raw)
+
+        def _fmt(token: str, score: float) -> str:
+            t = _show(token)
             if score > 0.8:
-                return f"[__**{cand}**__]"
-            elif score > 0.5:
-                return f"[**{cand}**]"
-            else:
-                return f"[{cand}]"
+                return f"__**`{t}`**__"
+            if score > 0.5:
+                return f"**`{t}`**"
+            return f"`{t}`"
 
-        token_vectors = []
-        with torch.no_grad():
-            per_token_best = []  # <--- RENAMED
-            per_token_worst = [] # <--- RENAMED
-
-            # per-token lists
-            for tid in valid_ids:
-                tok = self.bot.librarian.decodeIDs([tid])
-                if not tok or tok == self.bot.librarian.unkToken:
+        def _top_candidates(
+            vec: torch.Tensor,
+            *,
+            exclude_ids: set[int],
+            k: int,
+            descending: bool,
+            score_floor: float | None = None,
+            semantic_only: bool = True,
+        ):
+            sims = torch.matmul(norms, vec)
+            order = torch.argsort(sims, descending=descending).tolist()
+            out = []
+            seen = set()
+            for idx in order:
+                idx = int(idx)
+                if idx in exclude_ids:
                     continue
+                tok = _decode_raw_token(idx)
+                if not _is_valid_token(tok):
+                    continue
+                if semantic_only and not _is_semantic_token(tok):
+                    continue
+                key = tok
+                if key in seen:
+                    continue
+                score = float(sims[idx])
+                if score_floor is not None and score < score_floor:
+                    if descending:
+                        break
+                    continue
+                seen.add(key)
+                out.append((tok, score))
+                if len(out) >= k:
+                    break
+            return out
 
+        lines: list[str] = []
+        per_token_best: list[str] = []
+        per_token_worst: list[str] = []
+        token_vectors = []
+        token_labels = []
+
+        with torch.no_grad():
+            for tid in valid_ids:
+                tok = _decode_raw_token(tid)
+                if not _is_valid_token(tok):
+                    continue
                 v = torch.nn.functional.normalize(embed[tid], dim=0)
-                sims = torch.matmul(norms, v)
-                sorted_vals, sorted_idx = torch.sort(sims, descending=True)
-
-                top_ids = sorted_idx[:top_k].tolist()
-                bottom_ids = sorted_idx[-top_k:].tolist()
-
-                best = [
-                    (self.bot.librarian.decodeIDs([i]), float(sorted_vals[j]))
-                    for j, i in enumerate(top_ids)
-                    if self.bot.librarian.decodeIDs([i])
-                ]
-                worst = [
-                    (self.bot.librarian.decodeIDs([i]), float(sorted_vals[-top_k + j]))
-                    for j, i in enumerate(bottom_ids)
-                    if self.bot.librarian.decodeIDs([i])
-                ]
-
-                best_disp = ", ".join(_fmt(c, s) for c, s in best if (s >= min_score and s < 1.0))
-                worst_disp = ", ".join(f"[{escape_markdown(c.replace('Ġ', ''))}]" for c, _ in worst)
-
-                per_token_best.append(f"{tok} = {best_disp}")   # <--- RENAMED
-                per_token_worst.append(f"{tok} = {worst_disp}") # <--- RENAMED
-
                 token_vectors.append(embed[tid])
+                token_labels.append(tok)
 
-            combo_best = []  # <--- NEW
-            combo_worst = [] # <--- NEW
-
-            # combo line (whole phrase)
-            if len(token_vectors) > 1:
-                combo_vec = torch.stack(token_vectors, dim=0).mean(dim=0)
-                v = torch.nn.functional.normalize(combo_vec, dim=0)
-                sims = torch.matmul(norms, v)
-                sorted_vals, sorted_idx = torch.sort(sims, descending=True)
-
-                top_ids = sorted_idx[:top_k].tolist()
-                bottom_ids = sorted_idx[-top_k:].tolist()
-
-                best = [
-                    self.bot.librarian.decodeIDs([i])
-                    for i in top_ids
-                    if self.bot.librarian.decodeIDs([i])
-                ]
-                worst = [
-                    self.bot.librarian.decodeIDs([i])
-                    for i in bottom_ids
-                    if self.bot.librarian.decodeIDs([i])
-                ]
-
-                # sentence-style display: words separated by spaces
-                combo_label = "".join(
-                    self.bot.librarian.decodeIDs([tid])
-                    for tid in valid_ids
-                    if self.bot.librarian.decodeIDs([tid])
+                best = _top_candidates(
+                    v,
+                    exclude_ids={int(tid)},
+                    k=max(1, int(top_k)),
+                    descending=True,
+                    score_floor=min_score,
+                    semantic_only=True,
+                )
+                worst = _top_candidates(
+                    v,
+                    exclude_ids={int(tid)},
+                    k=max(1, int(top_k)),
+                    descending=False,
+                    score_floor=None,
+                    semantic_only=True,
                 )
 
-                best_disp = "".join(best).strip()
-                worst_disp = "".join(worst).strip()
+                if best:
+                    best_disp = ", ".join(_fmt(c, s) for c, s in best)
+                    per_token_best.append(f"`{_show(tok)}` = {best_disp}")
+                if worst:
+                    worst_disp = ", ".join(f"`{_show(c)}`" for c, _ in worst)
+                    per_token_worst.append(f"`{_show(tok)}` = {worst_disp}")
 
-                combo_best.append(f"{combo_label} = *{best_disp}*")   # <--- NEW
-                combo_worst.append(f"{combo_label} = *{worst_disp}*") # <--- NEW
-            
-            # <--- NEW BLOCK ---
-            # If it was a single token, the "combo" is just its per-token line
-            elif len(token_vectors) == 1:
-                combo_best.extend(per_token_best)
-                combo_worst.extend(per_token_worst)
-            # <--- END NEW BLOCK ---
+            combo_best: list[str] = []
+            combo_worst: list[str] = []
+            if token_vectors:
+                combo_vec = torch.stack(token_vectors, dim=0).mean(dim=0)
+                v = torch.nn.functional.normalize(combo_vec, dim=0)
+                phrase_text = re.sub(r"\s+", " ", str(text or "")).strip()
+                phrase_tokens_boxed = ", ".join(f"`{_show(t)}`" for t in token_labels)
+                if phrase_text:
+                    phrase_label_plain = f"{escape_markdown(phrase_text)} ({phrase_tokens_boxed})"
+                else:
+                    phrase_label_plain = phrase_tokens_boxed or "(empty)"
+                exclude = {int(tid) for tid in valid_ids}
 
-            # final printout
+                best = _top_candidates(
+                    v,
+                    exclude_ids=exclude,
+                    k=max(3, int(top_k)),
+                    descending=True,
+                    score_floor=min_score,
+                    semantic_only=True,
+                )
+                worst = _top_candidates(
+                    v,
+                    exclude_ids=exclude,
+                    k=max(3, int(top_k)),
+                    descending=False,
+                    score_floor=None,
+                    semantic_only=True,
+                )
+
+                if best:
+                    best_disp = "".join(_show(c) for c, _ in best)
+                    combo_best.append(f"{phrase_label_plain} = {best_disp}")
+                if worst:
+                    worst_disp = "".join(_show(c) for c, _ in worst)
+                    combo_worst.append(f"{phrase_label_plain} = {worst_disp}")
+
             lines.append("hmm... i connect with:")
-            # <--- MODIFIED BLOCK ---
             if not combo_only:
                 lines.extend(per_token_best)
             lines.extend(combo_best)
-            
-            lines.append("\nand i think the opposite must be:")
+            if len(lines) == 1:
+                lines.append("(nothing strong yet)")
+
+            lines.append("")
+            lines.append("and i think the opposite must be:")
+            opposites_before = len(lines)
             if not combo_only:
                 lines.extend(per_token_worst)
             lines.extend(combo_worst)
-            # <--- END MODIFIED BLOCK ---
+            if len(lines) == opposites_before:
+                lines.append("(no clear opposite yet)")
 
         return "\n".join(lines)
 
@@ -1720,17 +2450,37 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             vec = embed[valid_ids].mean(dim=0)
         return self._get_similar_tokens(vec, valid_ids, top_k)
 
-    def _add_brain_thought(self, subject: str, similar_tokens: list[str]):
-        """Add a self-talk line about ``subject`` to the buffer."""
-        if not similar_tokens:
+    def _add_brain_thought(self, subject: str, similar_tokens: list[str], *, asked_by: Optional[str] = None):
+        """Add a contextual self-talk line about ``subject`` to the buffer."""
+        subject = str(subject or "").strip().lower()
+        if not subject or not similar_tokens:
             return
+
         tokens_str = ", ".join(similar_tokens[:3])
+        asker = re.sub(r"\s+", " ", str(asked_by or "").strip().lower())
+        if asker:
+            intros = [
+                f"{asker} just asked what i think about {subject}... ",
+                f"{asker} asked for my raw thoughts on {subject}... ",
+                f"{asker} is asking what {subject} reminds me of... ",
+            ]
+        else:
+            intros = [
+                f"quick brain check on {subject}... ",
+                f"someone poked my brain about {subject}... ",
+                f"thinking out loud about {subject}... ",
+            ]
+
         templates = [
-            "i just checked my brain and {subject} feels like {tokens}...",
-            "thinking about {subject} makes me whisper {tokens}",
-            "neurons say {subject} reminds me of {tokens}",
+            "i just checked my brain and {subject} feels like {tokens}.",
+            "thinking about {subject} makes me whisper {tokens}.",
+            "neurons say {subject} reminds me of {tokens}.",
+            "my first sparks for {subject} are {tokens}.",
         ]
-        thought = self.get_varied_choice().choice(templates).format(subject=subject, tokens=tokens_str)
+        thought = (
+            self.get_varied_choice().choice(intros)
+            + self.get_varied_choice().choice(templates).format(subject=subject, tokens=tokens_str)
+        ).strip()
         buffer_entry = self.bot.formatMessage(self.bot.babyName, thought)
         self.bot._buffer_add(buffer_entry)
 
@@ -2178,7 +2928,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # ELITE ANCHOR (1.0%): Anchor around the current #100 item value
             try:
                 market_values = [
-                    self._get_fact_value(name)
+                    await self._get_fact_value(name)
                     for name, data in self.bot.bbyfacts.items()
                     if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
                 ]
@@ -2206,7 +2956,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # COSMIC JACKPOT TIER (0.1%): Anchor to market top so it can break rankings reliably.
             try:
                 market_values = {
-                    name: self._get_fact_value(name)
+                    name: await self._get_fact_value(name)
                     for name, data in self.bot.bbyfacts.items()
                     if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
                 }
@@ -2235,7 +2985,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             all_bby = sum(abs(m.get("BBY", 0)) for m in self.bot.userMemory.values())
             economy_cap = max(1_000_000.0, all_bby * 0.01)  # 1% of economy or 1m minimum
             market_values = {
-                name: self._get_fact_value(name)
+                name: await self._get_fact_value(name)
                 for name, data in self.bot.bbyfacts.items()
                 if isinstance(data, dict) and data.get('teach_bonus', 0) > 0
             }
@@ -2252,9 +3002,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             pass
 
         # --- Step 3: Finalize and reply (from your new code) ---
-        self.bot.updateBBY(author, incrementTeach)
+        self._apply_economy_delta(author, incrementTeach)
         debug_str += f"[!BBYTEACH] {author} TAUGHT: {key} IS {value} "
         await self._set_bbyfact(key=key, value=value, author=author, timestamp=time.time(), teach_bonus=incrementTeach, debug_str=debug_str)
+
+        # Track knowledge stat: facts/items taught
+        self._track_hidden_stat(author, "knowledge", 1.0)
 
         # Skip immediate market movement on creation to avoid clamping giant randoms
         market_alert = None
@@ -2266,7 +3019,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # Evaluate rank before flooding supply so new items aren't penalised immediately
         try:
-            rank, rank_str = self._get_current_value_rank(key)
+            rank, rank_str = await self._get_current_value_rank(key)
         except Exception as e:
             rank, rank_str = float("inf"), "Unranked"
             await self.bot._discord_debug(f"[BBYTEACH] rank calc failed for '{key}': {e}")
@@ -2589,9 +3342,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         associations = self._get_brain_connections(word)
         guess_word = self._blend_guess(word)
         similar = self._brain_similar_words(word)
-        msg = f"{word} ??? {self.get_varied_choice().choice(self.bot.faveEmotes)} ... {guess_word} ??? \n\ni'm just a baby, i don't know what {word} is yet... reply to this message and tell me?! "
-        if associations:
-            msg += f"\n{associations}"
+        timeout_seconds = 360.0  # 6 minutes (3x previous window)
+        wtf_emote = self.get_varied_choice().choice(self.bot.faveEmotes)
+
+        def _wtf_prompt_with_countdown(remaining_seconds: float) -> str:
+            left = self._format_countdown_label(remaining_seconds)
+            text = (
+                f"{word} ??? {wtf_emote} ... {guess_word} ??? \n\n"
+                f"i'm just a baby, i don't know what {word} is yet... reply to this message and tell me?! "
+                f"(i'll wait about `{left}` before i panic and guess lol)"
+            )
+            if associations:
+                text += f"\n{associations}"
+            return text
+
+        msg = _wtf_prompt_with_countdown(timeout_seconds)
         if ctx:
             sent = await self.bot._discord_reply(ctx, msg)
         else:
@@ -2605,31 +3370,73 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 'created_at': time.time(),
                 'word': word,
                 'guess': guess_word,
+                'timeout_seconds': timeout_seconds,
             }
             # task after a delay if no one replies
             task = self.bot.loop.create_task(self._handle_wtf_timeout(sent.id))
             session['task'] = task # store task for later cancellation
             self.bot.lex_sessions[sent.id] = session
 
-            self._add_brain_thought(word, similar)
+            deadline = time.monotonic() + timeout_seconds
+
+            def _wtf_remaining_seconds():
+                return max(0.0, deadline - time.monotonic())
+            await self._attach_countdown_to_lex_session(
+                session,
+                sent,
+                get_remaining_seconds=_wtf_remaining_seconds,
+                render_content=_wtf_prompt_with_countdown,
+                tick_seconds=30.0,
+                mode="wtf",
+            )
+
+            asker = self.bot.getNickname(ctx.author.name.lower()) if ctx and getattr(ctx, "author", None) else None
+            self._add_brain_thought(word, similar, asked_by=asker)
 
     async def _handle_wtf_timeout(self, message_id: int):
         """
         A background task that waits for a reply to a WTF session.
         If it completes without being cancelled, the bot teaches itself.
         """
-        await asyncio.sleep(120.0) # 2 minutes timeout
-
         try:
             session = self.bot.lex_sessions.get(message_id)
-            if not session: return # The session was handled or removed already
+            if not session:
+                return
+
+            timeout_seconds = float(session.get('timeout_seconds', 360.0) or 360.0)
+            warning_seconds = min(120.0, max(30.0, timeout_seconds / 3.0))
+            first_wait = max(1.0, timeout_seconds - warning_seconds)
+
+            await asyncio.sleep(first_wait)
+            session = self.bot.lex_sessions.get(message_id)
+            if not session:
+                return
+
+            word = session.get('word')
+            channel = self.bot.get_channel(session.get('channel_id'))
+            if channel and word:
+                seconds_left = int(warning_seconds)
+                if seconds_left >= 60:
+                    mins = int(round(seconds_left / 60))
+                    left_text = f"{mins} minute{'s' if mins != 1 else ''}"
+                else:
+                    left_text = f"{seconds_left} seconds"
+                await self.bot._discord_send(
+                    channel=channel,
+                    message_content=f"tiny warning: still waiting on what **{word}** means... about {left_text} left before i guess it myself.",
+                )
+
+            await asyncio.sleep(warning_seconds)
+            session = self.bot.lex_sessions.get(message_id)
+            if not session:
+                return  # The session was handled or removed already
 
             word = session.get('word')
             guess = session.get('guess')
 
             if word and guess and word not in self.bot.bbyfacts:
                 print(f"[WTF_TIMEOUT] No one replied about '{word}'. Self-teaching with guess: '{guess}'.")
-                author = self.bot.babyName.lower()
+                author = self.bot.get_bot_identity_key() if hasattr(self.bot, "get_bot_identity_key") else "babyllm"
                 fullBestieboard = [(u, m.get("BBY", 0.0)) for u, m in self.bot.userMemory.items() if abs(m.get("BBY", 0.0)) >= 1.0]
                 BBY = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
                 totalBBY = max(1.0, sum(abs(score) for _, score in fullBestieboard))
@@ -2698,7 +3505,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     # Elite anchor around rank-100
                     try:
                         values = [
-                            self._get_fact_value(n)
+                            await self._get_fact_value(n)
                             for n, d in self.bot.bbyfacts.items()
                             if isinstance(d, dict) and d.get('teach_bonus', 0) > 0
                         ]
@@ -2721,7 +3528,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 else:
                     try:
                         mv = {
-                            n: self._get_fact_value(n)
+                            n: await self._get_fact_value(n)
                             for n, d in self.bot.bbyfacts.items()
                             if isinstance(d, dict) and d.get('teach_bonus', 0) > 0
                         }
@@ -2744,7 +3551,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     all_bby = sum(abs(m.get("BBY", 0)) for m in self.bot.userMemory.values())
                     economy_cap = max(1_000_000.0, all_bby * 0.01)
                     mv = {
-                        n: self._get_fact_value(n)
+                        n: await self._get_fact_value(n)
                         for n, d in self.bot.bbyfacts.items()
                         if isinstance(d, dict) and d.get('teach_bonus', 0) > 0
                     }
@@ -2759,7 +3566,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     pass
 
                 # Award BBY and create fact with full bonus
-                self.bot.updateBBY(author, incrementTeach)
+                self._apply_economy_delta(author, incrementTeach)
                 await self._set_bbyfact(
                     key=word,
                     value=guess,
@@ -2801,15 +3608,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             traceback.print_exc()
         
         finally:
-            if message_id in self.bot.lex_sessions: del self.bot.lex_sessions[message_id]
+            await self._close_lex_session(message_id)
 
-    @commands.command(name='bbywtf', aliases=['bbywhatis', 'bwhatis', 'bwi'])
+    @commands.command(name='bbywtf', aliases=['bwhatis', 'bwi'])
     @track_command
     async def bbywtf(self, ctx, *, word: str = None):
         """Ask what something is. Shows known facts or analyses unknown words with brain connections.
         Usage: !bbywtf <word> - analyse a word
         Usage: !bbywtf - show random fact
         """
+        if (getattr(ctx, "platform", "") or "").lower() == "twitch":
+            await self.bot._discord_reply(ctx, "!bbywtf is discord-only right now. use !bbyteach on twitch, or ask in discord.")
+            return
+
+        # Track curiosity: asking what things mean
+        self._track_hidden_stat(ctx.author.name.lower(), "curiosity", 1.0)
         await self._trigger_bbywtf(word, ctx=ctx)
 
     async def trigger_bbywtf_auto(self, channel, word: str): await self._trigger_bbywtf(word, channel=channel)
@@ -2818,6 +3631,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # prevent multiple concurrent translate games per channel
         if channel is None and ctx is not None: channel = ctx.channel
         if channel is None: return
+        inactivity_delay = 20.0  # seconds without new guesses before ending
         
         # Clean up stale sessions first
         stale_sessions = []
@@ -2832,8 +3646,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # Remove stale sessions
         for session_id in stale_sessions:
-            self.bot.lex_sessions.pop(session_id, None)
-        
+            await self._close_lex_session(session_id)
+
         # Allow multiple games - removed "already running" check
         if not self.bot.bbyfacts:
             if ctx: await self.bot._discord_reply(ctx, "i don't know any words yet :(")
@@ -2844,7 +3658,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         fake3 = self.createFakeWordFromVector(fake2)
         options = [correct, fake, fake2, fake3]
         random.shuffle(options)
-        msg = f"{options[1]}, {options[2]}, {options[3]}, or {options[0]}? {self.get_varied_choice().choice(self.bot.faveEmotes)}"
+        translate_emote = self.get_varied_choice().choice(self.bot.faveEmotes)
+        base_msg = f"{options[1]}, {options[2]}, {options[3]}, or {options[0]}? {translate_emote}"
+
+        def _translate_prompt_with_countdown(remaining_seconds: float) -> str:
+            left = self._format_countdown_label(remaining_seconds)
+            return f"{base_msg}\n⏳ this round ends in `{left}` of inactivity."
+
+        msg = _translate_prompt_with_countdown(inactivity_delay)
         if ctx:
             sent = await self.bot._discord_reply(ctx, msg)
         else:
@@ -2855,6 +3676,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 'channel_id': sent.channel.id,
                 'message_id': sent.id,
                 'created_at': time.time(),
+                'last_activity_ts': time.monotonic(),
+                'inactivity_delay': inactivity_delay,
                 'extra': {
                     'correct': correct,
                     'fake': fake,
@@ -2862,17 +3685,31 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 },
             }
             self.bot.lex_sessions[sent.id] = session
+
+            def _translate_remaining_seconds():
+                current = self.bot.lex_sessions.get(sent.id)
+                if not current:
+                    return 0.0
+                delay = max(1.0, float(current.get("inactivity_delay", inactivity_delay) or inactivity_delay))
+                last_activity = float(current.get("last_activity_ts", time.monotonic()) or time.monotonic())
+                return max(0.0, delay - (time.monotonic() - last_activity))
+
+            await self._attach_countdown_to_lex_session(
+                session,
+                sent,
+                get_remaining_seconds=_translate_remaining_seconds,
+                render_content=_translate_prompt_with_countdown,
+                tick_seconds=1.0,
+                mode="translate",
+            )
+
             # Start inactivity-based timer instead of fixed timer
             task = self.bot.loop.create_task(self._monitor_translate_game(sent.channel, sent.id))
             session['task'] = task
 
     async def _monitor_translate_game(self, channel, message_id):
         """Monitor game for inactivity and end when no new guesses for a while"""
-        inactivity_delay = 20  # seconds of inactivity before ending
-        check_interval = 1     # check every 1 second
-
-        last_guess_count = 0
-        inactive_time = 0
+        check_interval = 1.0  # check every 1 second
         
         while True:
             await asyncio.sleep(check_interval)
@@ -2880,18 +3717,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             session = self.bot.lex_sessions.get(message_id)
             if not session or session.get('mode') != 'translate':
                 return  # Game already ended
-                
-            extra = session.get('extra', {})
-            current_guess_count = len(extra.get('guesses', {}))
-            
-            if current_guess_count > last_guess_count:
-                # New guess received, reset inactivity timer
-                last_guess_count = current_guess_count
-                inactive_time = 0
-            else:
-                # No new guesses, increment inactivity time
-                inactive_time += check_interval
-                
+
+            inactivity_delay = max(1.0, float(session.get("inactivity_delay", 20.0) or 20.0))
+            last_activity = float(session.get("last_activity_ts", time.monotonic()) or time.monotonic())
+            inactive_time = max(0.0, time.monotonic() - last_activity)
+
             # End game if inactive for too long
             if inactive_time >= inactivity_delay:
                 await self._finish_translate_game(channel, message_id)
@@ -2920,15 +3750,28 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 amount = self.bot.apply_fave_bonus(500.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
                 # Rare explosive bonus - only when random values align perfectly
                 if self.get_varied_random() > 0.95 and self.get_varied_random() > 0.95:
-                    amount *= ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 6.9) * ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 42.0) * self._get_fact_value(correct)
+                    amount *= ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 6.9) * ((self.get_varied_random() + self.get_varied_random() + self.get_varied_random() + self.get_varied_random()) * 42.0) * await self._get_fact_value(correct)
                     nickname = self.bot.getNickname(user)
-                    winner_details.append(f"{nickname} (+{amount:.1f} BBY) 🎆JACKPOT!🎆")
+                    paid, _, _ = self.bot.grant_bonus_with_treasury(
+                        user,
+                        amount,
+                        source="bbytranslate_win_jackpot",
+                        treasury_ratio=0.9,
+                        mint_floor_ratio=0.1,
+                    )
+                    winner_details.append(f"{nickname} (+{paid:.1f} BBY) 🎆JACKPOT!🎆")
                 else:
                     # Normal win - more reasonable
-                    amount *= (1 + self.get_varied_random()) * self._get_fact_value(correct) * 0.1
+                    amount *= (1 + self.get_varied_random()) * await self._get_fact_value(correct) * 0.1
                     nickname = self.bot.getNickname(user)
-                    winner_details.append(f"{nickname} (+{amount:.1f} BBY)")
-                self.bot.updateBBY(user, amount)
+                    paid, _, _ = self.bot.grant_bonus_with_treasury(
+                        user,
+                        amount,
+                        source="bbytranslate_win",
+                        treasury_ratio=0.9,
+                        mint_floor_ratio=0.1,
+                    )
+                    winner_details.append(f"{nickname} (+{paid:.1f} BBY)")
                 mem = self.bot.userMemory[user]
                 mem["translate_wins"] = mem.get("translate_wins", 0) + 1
             
@@ -2940,17 +3783,19 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 guess = guess_data.get('guess', guess_data) if isinstance(guess_data, dict) else guess_data
                 amount = self.bot.apply_fave_bonus(-20.0, self.bot.babyFaveToken and self.bot.babyFaveToken in guess)
                 # More reasonable loss - no massive multipliers on losses
-                amount *= (0.5 + self.get_varied_random() * 0.5) * self._get_fact_value(correct) * 0.01
-                self.bot.updateBBY(user, amount)
+                amount *= (0.5 + self.get_varied_random() * 0.5) * await self._get_fact_value(correct) * 0.01
+                self.bot.apply_tax_with_collection(user, abs(float(amount)), source=f"bbytranslate_loss:{user}")
                 mem = self.bot.userMemory[user]
                 mem["translate_losses"] = mem.get("translate_losses", 0) + 1
         await self.bot._save_user_data()
-        # end session
-        self.bot.lex_sessions.pop(message_id, None)
+        await self._close_lex_session(message_id)
 
     @commands.command(name='bbytranslate', aliases=['btranslate'])
     @track_command
-    async def bbytranslate(self, ctx): await self._start_translate_game(ctx=ctx)
+    async def bbytranslate(self, ctx):
+        # Track gambling: playing translation game
+        self._track_hidden_stat(ctx.author.name.lower(), "gambling", 1.0)
+        await self._start_translate_game(ctx=ctx)
     async def trigger_bbytranslate_auto(self, channel): await self._start_translate_game(channel=channel)
 
     @commands.command(name='bbydeleteuser', aliases=['bdelete', 'bbyremoveuser'])
@@ -2958,6 +3803,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbydeleteuser(self, ctx, user_to_delete: str):
         """DANGEROUS: Permanently delete a user from all bot data. Owner only!"""
         author = ctx.author.name.lower()
+        # Track administration: admin command usage
+        self._track_hidden_stat(author, "administration", 1.0)
         if not user_to_delete:
             await self.bot._discord_reply(ctx, "specify a user to delete: !bbydeleteuser <username>")
             return
@@ -3013,6 +3860,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.is_owner()  # audit can expose user data; owner-only
     async def bbyinvaudit(self, ctx, limit: int = 20):
         """Audit inventories for invalid data (owner-only)."""
+        # Track administration: admin command usage
+        self._track_hidden_stat(ctx.author.name.lower(), "administration", 1.0)
         try:
             limit = max(1, min(int(limit), 100))
         except Exception:
@@ -3053,20 +3902,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.is_owner()  # Only bot owner can use this command
     async def bbycombineusers(self, ctx, source_user: str, target_user: str):
         """POWERFUL: Combine two users by merging source_user into target_user. Owner only!
-        
+
         Usage: !bbycombineusers "source user" "target user"
         Example: !bbycombineusers "habbo hotel moderation team" "mod"
-        
+
         This will:
         - Transfer all BBY from source to target
-        - Merge inventories (combine item counts)  
+        - Merge inventories (combine item counts)
         - Merge message counts and stats
         - Transfer authored facts to target user
         - Update bbybook signatures
         - Remove source user after merger
         """
         author = ctx.author.name.lower()
-        
+        # Track administration: admin command usage
+        self._track_hidden_stat(author, "administration", 1.0)
+
         # Safety validation
         if not source_user or not target_user:
             await self.bot._discord_reply(ctx, "specify both users: !bbycombineusers \"source user\" \"target user\"")
@@ -3195,6 +4046,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbymyitem(self, ctx, *, key: str = None):
         author_id = ctx.author.name.lower()
+        # Track hoarding: checking own item amounts
+        self._track_hidden_stat(author_id, "hoarding", 1.0)
         if key:
             key, fact = await self._get_fact_or_reply(ctx, key)
             if fact:
@@ -3208,8 +4061,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='bbyrandomfacts', aliases=['bfact', 'brand', 'bfax'])
     @track_command
     async def bbyrandomfacts(self, ctx, num_facts: int = 10):
-        
+        # Track curiosity: exploring random facts
+        self._track_hidden_stat(ctx.author.name.lower(), "curiosity", 1.0)
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "I don't know any facts yet!")
+        is_twitch_ctx = (getattr(ctx, "platform", "") or "").lower() == "twitch"
+        if is_twitch_ctx:
+            num_facts = 1
         num_facts = min(num_facts, len(self.bot.bbyfacts), 420690)
         all_keys = list(self.bot.bbyfacts.keys())
         selected_keys = random.sample(all_keys, num_facts)
@@ -3226,7 +4083,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='bbyallfacts', aliases=['bfactdump', 'branddump', 'bfaxdump'])
     @track_command
     async def bbyallfacts(self, ctx):
-        
+        # Track curiosity: exploring all facts
+        self._track_hidden_stat(ctx.author.name.lower(), "curiosity", 1.0)
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "I don't know any facts yet!")
         all_keys = list(self.bot.bbyfacts.keys())
         sorted_keys = sorted(all_keys)
@@ -3248,13 +4106,503 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         associations = self._get_brain_connections(text)
         if associations:
-            reply = f"hmm... i connect {text} with:\n{associations}"
+            body = str(associations or "")
+            prefix = "hmm... i connect with:\n"
+            if body.lower().startswith(prefix):
+                body = body[len(prefix):]
+            reply = f"hmm... i connect {text} with:\n{body}"
         else:
             reply = f"i don't really connect {text} with anything yet..."
 
         await self.bot._discord_reply(ctx, reply)
         similar = self._brain_similar_words(text)
-        self._add_brain_thought(text, similar)
+        asker = self.bot.getNickname(ctx.author.name.lower()) if getattr(ctx, "author", None) else None
+        self._add_brain_thought(text, similar, asked_by=asker)
+
+        # Track curiosity stat
+        author = ctx.author.name.lower()
+        self._track_hidden_stat(author, "curiosity", 1.0)
+
+    @commands.command(name='bbytrace', aliases=['btrace', 'bbydigest'])
+    @track_command
+    async def bbytrace(self, ctx, *, text: str):
+        """show a compact forward trace for the prompt's current last token"""
+        text = (text or "").strip().lower()
+        if not text:
+            return await self.bot._discord_reply(ctx, "give me something to trace through my brain!")
+
+        author = ctx.author.name.lower()
+        self._track_hidden_stat(author, "curiosity", 1.0)
+
+        try:
+            tokenizer = self.bot.librarian.tokenizer
+            prompt_token_ids = tokenizer.encode(text)
+            if not prompt_token_ids:
+                return await self.bot._discord_reply(ctx, "i couldn't turn that into tokens to trace.")
+
+            max_window = getattr(self.bot, "MAXwindow", getattr(self.bot, "chatWindowMAX", 512))
+            cropped = False
+            if len(prompt_token_ids) > max_window:
+                prompt_token_ids = prompt_token_ids[-max_window:]
+                cropped = True
+
+            input_tensor = torch.tensor(prompt_token_ids, dtype=torch.long, device=modelDevice)
+            trace = self.bot.babyLLM.trace_forward(input_tensor, top_k=5)
+
+            token_preview = [
+                f"{int(tid)}:`{escape_markdown(self._trace_token_display(int(tid)))}`"
+                for tid in prompt_token_ids
+            ]
+            if len(token_preview) > 12:
+                token_preview = token_preview[:8] + ["..."] + token_preview[-3:]
+
+            reply_lines = [
+                f"trace for `{escape_markdown(text)}`",
+                f"tokens ({len(prompt_token_ids)}): {' | '.join(token_preview)}",
+            ]
+            if cropped:
+                reply_lines.append(f"cropped to the last {max_window} tokens for the trace.")
+            reply_lines.append(f"decoded prompt: `{escape_markdown(trace.get('decoded_prompt', '') or '')}`")
+            reply_lines.append("")
+
+            blend = trace.get("blend") or {}
+            sensory = trace.get("sensory") or {}
+            reply_lines.append("blend:")
+            reply_lines.append(
+                f"token {float(blend.get('token', 0.0)):.3f} | "
+                f"pos {float(blend.get('pos', 0.0)):.3f} | "
+                f"char {float(blend.get('char', 0.0)):.3f} | "
+                f"pixel {float(blend.get('pixel', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"temp {float(trace.get('temperature', 0.0) or 0.0):.3f} | "
+                f"sensory gate {float(sensory.get('gate', 0.0)):.3f} | "
+                f"attn nudge {float(sensory.get('attention_scale', 0.0)):.3f}"
+            )
+            reply_lines.append("")
+
+            reply_lines.append("last-token path:")
+            for key, label in [
+                ("token_embed", "token embed"),
+                ("pos_embed", "pos embed"),
+                ("char_embed", "char embed"),
+                ("blended_input", "blended input"),
+                ("attention1", "attention 1"),
+                ("tangle_embed", "tangle embed"),
+                ("inn_core", "inn core"),
+                ("attention2_add", "attention 2 add"),
+                ("inn_after_attention2", "inn + attention 2"),
+                ("scratchpad_add", "scratchpad add"),
+                ("inn_after_scratch", "after scratchpad"),
+                ("memory1_out", "memory 1 out"),
+                ("memory2_out", "memory 2 out"),
+                ("logits_pre_penalty", "logits before penalty"),
+                ("final_logits", "final logits"),
+            ]:
+                stage_line = self._format_trace_stage(trace, key, label)
+                if stage_line:
+                    reply_lines.append(stage_line)
+            reply_lines.append("")
+
+            gates = trace.get("gates") or {}
+            memory = trace.get("memory") or {}
+            inn = trace.get("inn") or {}
+            reply_lines.append("gates:")
+            reply_lines.append(
+                f"attn1 {float(gates.get('attention1', 0.0)):.3f} | "
+                f"attn2 {float(gates.get('attention2', 0.0)):.3f} | "
+                f"inn short-window {float(gates.get('inn_short_window_gate', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"memory1 short {float(gates.get('memory1_short', 0.0)):.3f} | "
+                f"long {float(gates.get('memory1_long', 0.0)):.3f} | "
+                f"act {float(gates.get('memory1_act', 0.0)):.3f} | "
+                f"mem {float(gates.get('memory1_mem', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"memory2 short {float(gates.get('memory2_short', 0.0)):.3f} | "
+                f"long {float(gates.get('memory2_long', 0.0)):.3f} | "
+                f"act {float(gates.get('memory2_act', 0.0)):.3f} | "
+                f"mem {float(gates.get('memory2_mem', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"scratch write {float(gates.get('scratch_write', 0.0)):.3f} | "
+                f"erase {float(gates.get('scratch_erase', 0.0)):.3f} | "
+                f"read {float(gates.get('scratch_read', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"memory1 pending short {float(memory.get('memory1_pending_short_norm', 0.0)):.3f} | "
+                f"pending long {float(memory.get('memory1_pending_long_norm', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"memory2 pending short {float(memory.get('memory2_pending_short_norm', 0.0)):.3f} | "
+                f"pending long {float(memory.get('memory2_pending_long_norm', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"window entropy {float(inn.get('window_entropy', 0.0)):.3f} | "
+                f"window spread {float(inn.get('window_spread', 0.0)):.3f}"
+            )
+            reply_lines.append("")
+
+            reply_lines.append("next-token guesses:")
+            for i, pred in enumerate(trace.get("top_predictions") or [], 1):
+                token_label = escape_markdown(self._trace_token_display(int(pred.get("token_id", 0))))
+                reply_lines.append(
+                    f"{i}. `{token_label}` p={float(pred.get('prob', 0.0)):.3f} "
+                    f"logit={float(pred.get('logit', 0.0)):.2f}"
+                )
+
+            eos = trace.get("eos") or {}
+            if eos.get("rank") is not None:
+                eos_token_id = eos.get("token_id")
+                eos_label = self._trace_token_display(int(eos_token_id)) if eos_token_id is not None else "eos"
+                reply_lines.append(
+                    f"{escape_markdown(eos_label)} rank {int(eos['rank'])} | "
+                    f"p={float(eos.get('prob', 0.0)):.4f} | "
+                    f"logit={float(eos.get('logit', 0.0)):.2f}"
+                )
+
+            reply_lines.append("")
+            reply_lines.append("showing the last token's route because that is the position used to predict the next token.")
+            await self.bot._discord_reply(ctx, "\n".join(reply_lines))
+
+        except Exception as e:
+            print(f"[BBYTRACE] error: {e}")
+            traceback.print_exc()
+            await self.bot._discord_reply(ctx, f"i couldn't trace that safely: {e}")
+
+    @commands.command(name='bbyscan', aliases=['bscan', 'bbymap'])
+    @track_command
+    async def bbyscan(self, ctx, *, text: str):
+        """compare sectors and token influence without mutating live model state"""
+        text = (text or "").strip().lower()
+        if not text:
+            return await self.bot._discord_reply(ctx, "give me something to scan through my brain!")
+
+        author = ctx.author.name.lower()
+        self._track_hidden_stat(author, "curiosity", 1.0)
+
+        try:
+            tokenizer = self.bot.librarian.tokenizer
+            prompt_token_ids = tokenizer.encode(text)
+            if not prompt_token_ids:
+                return await self.bot._discord_reply(ctx, "i couldn't turn that into tokens to scan.")
+
+            max_window = getattr(self.bot, "MAXwindow", getattr(self.bot, "chatWindowMAX", 512))
+            cropped = False
+            if len(prompt_token_ids) > max_window:
+                prompt_token_ids = prompt_token_ids[-max_window:]
+                cropped = True
+
+            input_tensor = torch.tensor(prompt_token_ids, dtype=torch.long, device=modelDevice)
+            trace = self.bot.babyLLM.trace_forward(
+                input_tensor,
+                top_k=5,
+                include_distribution=True,
+                include_vectors=True,
+            )
+            full_dist = (trace.get("distribution") or {}).get("probs")
+            full_vectors = trace.get("vectors") or {}
+            full_scaled = full_vectors.get("scaled_acts_last")
+
+            token_labels = [self._trace_token_display(int(tid)) for tid in prompt_token_ids]
+            token_preview = [
+                f"{int(tid)}:`{escape_markdown(label)}`"
+                for tid, label in zip(prompt_token_ids, token_labels)
+            ]
+            if len(token_preview) > 12:
+                token_preview = token_preview[:8] + ["..."] + token_preview[-3:]
+
+            active_blend = trace.get("active_blend") or {}
+            windows = trace.get("windows") or {}
+            gates = trace.get("gates") or {}
+            memory = trace.get("memory") or {}
+            scratchpad = trace.get("scratchpad") or {}
+            eos = trace.get("eos") or {}
+            top_predictions = trace.get("top_predictions") or []
+
+            attention_energy = (trace.get("per_token") or {}).get("attention1") or []
+            energy_parts = []
+            for label, energy in zip(token_labels, attention_energy):
+                energy_parts.append(f"`{escape_markdown(label)}` {float(energy):.1f}")
+            if len(energy_parts) > 8:
+                energy_parts = energy_parts[:6] + ["..."] + energy_parts[-2:]
+
+            amplifier_parts = []
+            for label, ratio in self._summarise_trace_amplifiers(trace, top_n=4):
+                amplifier_parts.append(f"{label} x{float(ratio):.2f}")
+
+            ablation_limit = 8
+            ablation_indices = list(range(len(prompt_token_ids)))
+            ablation_note = None
+            if len(ablation_indices) > ablation_limit:
+                ablation_indices = ablation_indices[-ablation_limit:]
+                ablation_note = f"token influence only checks the last {ablation_limit} tokens."
+
+            influence_rows = []
+            full_top1_id = top_predictions[0]["token_id"] if top_predictions else None
+            full_eos_prob = float(eos.get("prob", 0.0) or 0.0)
+            full_memory2_norm = float(((trace.get("stages") or {}).get("memory2_out") or {}).get("last_token_norm", 0.0) or 0.0)
+            full_weight_stack = (
+                self._neuron_stack_for_token(full_scaled, full_top1_id, top_n=4)
+                if full_top1_id is not None and torch.is_tensor(full_scaled)
+                else {"positive": [], "negative": []}
+            )
+
+            if torch.is_tensor(full_dist):
+                for idx in ablation_indices:
+                    reduced_ids = prompt_token_ids[:idx] + prompt_token_ids[idx + 1:]
+                    if not reduced_ids:
+                        continue
+                    alt_tensor = torch.tensor(reduced_ids, dtype=torch.long, device=modelDevice)
+                    alt_trace = self.bot.babyLLM.trace_forward(
+                        alt_tensor,
+                        top_k=3,
+                        include_distribution=True,
+                        include_vectors=True,
+                    )
+                    alt_dist = (alt_trace.get("distribution") or {}).get("probs")
+                    if not torch.is_tensor(alt_dist):
+                        continue
+
+                    shift = 0.5 * torch.abs(full_dist - alt_dist).sum().item()
+                    alt_predictions = alt_trace.get("top_predictions") or []
+                    alt_top1_id = alt_predictions[0]["token_id"] if alt_predictions else None
+                    alt_top1 = self._trace_token_display(int(alt_top1_id)) if alt_top1_id is not None else "?"
+                    alt_eos_prob = float(((alt_trace.get("eos") or {}).get("prob", 0.0)) or 0.0)
+                    alt_memory2_norm = float((((alt_trace.get("stages") or {}).get("memory2_out") or {}).get("last_token_norm", 0.0)) or 0.0)
+                    alt_scaled = ((alt_trace.get("vectors") or {}).get("scaled_acts_last"))
+                    influence_rows.append({
+                        "label": token_labels[idx],
+                        "shift": float(shift),
+                        "top1_changed": alt_top1_id != full_top1_id,
+                        "top1_label": alt_top1,
+                        "eos_delta": alt_eos_prob - full_eos_prob,
+                        "memory2_delta": alt_memory2_norm - full_memory2_norm,
+                        "shifted_neurons": self._top_shifted_neurons(full_scaled, alt_scaled, top_n=3),
+                    })
+
+            influence_rows.sort(key=lambda item: item["shift"], reverse=True)
+
+            reply_lines = [
+                f"scan for `{escape_markdown(text)}`",
+                f"tokens ({len(prompt_token_ids)}): {' | '.join(token_preview)}",
+            ]
+            if cropped:
+                reply_lines.append(f"cropped to the last {max_window} tokens for the scan.")
+            reply_lines.append("")
+
+            reply_lines.append("sectors:")
+            pixel_text = "active" if trace.get("pixel_active") else "dormant"
+            reply_lines.append(
+                f"sensory gateway: token {float(active_blend.get('token', 0.0)):.3f} | "
+                f"pos {float(active_blend.get('pos', 0.0)):.3f} | "
+                f"char {float(active_blend.get('char', 0.0)):.3f} | "
+                f"pixel {pixel_text}"
+            )
+            reply_lines.append(
+                f"association control: attn1 {float(gates.get('attention1', 0.0)):.3f} | "
+                f"attn2 {float(gates.get('attention2', 0.0)):.3f} | "
+                f"short-window gate {float(gates.get('inn_short_window_gate', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"window controller: long {self._summarise_trace_windows(windows.get('long'), 3)}"
+            )
+            reply_lines.append(
+                f"short windows: {self._summarise_trace_windows(windows.get('short'), 3)}"
+            )
+            reply_lines.append(
+                f"working memory: read {float(gates.get('scratch_read', 0.0)):.3f} | "
+                f"write {float(gates.get('scratch_write', 0.0)):.3f} | "
+                f"erase {float(gates.get('scratch_erase', 0.0)):.3f} | "
+                f"retrieved {float(scratchpad.get('retrieved_norm', 0.0)):.1f}"
+            )
+            reply_lines.append(
+                f"memory gate 1: short {float(gates.get('memory1_short', 0.0)):.3f} | "
+                f"long {float(gates.get('memory1_long', 0.0)):.3f} | "
+                f"act {float(gates.get('memory1_act', 0.0)):.3f} | "
+                f"mem {float(gates.get('memory1_mem', 0.0)):.3f}"
+            )
+            reply_lines.append(
+                f"memory gate 2: short {float(gates.get('memory2_short', 0.0)):.3f} | "
+                f"long {float(gates.get('memory2_long', 0.0)):.3f} | "
+                f"act {float(gates.get('memory2_act', 0.0)):.3f} | "
+                f"mem {float(gates.get('memory2_mem', 0.0)):.3f}"
+            )
+            if amplifier_parts:
+                reply_lines.append(f"strongest amplifiers: {' | '.join(amplifier_parts)}")
+            reply_lines.append("")
+
+            if energy_parts:
+                reply_lines.append("pre-collapse token energy (attention1):")
+                reply_lines.append(" | ".join(energy_parts))
+                reply_lines.append("")
+
+            output_parts = []
+            for pred in top_predictions[:3]:
+                label = escape_markdown(self._trace_token_display(int(pred.get("token_id", 0))))
+                output_parts.append(f"`{label}` {float(pred.get('prob', 0.0)):.3f}")
+            output_line = " | ".join(output_parts) if output_parts else "no strong output preference"
+            eos_rank = eos.get("rank")
+            if eos_rank is not None:
+                output_line += f" | eos rank {int(eos_rank)} ({float(eos.get('prob', 0.0)):.4f})"
+            reply_lines.append(f"output tendency: {output_line}")
+            if full_top1_id is not None:
+                target_label = escape_markdown(self._trace_token_display(int(full_top1_id)))
+                reply_lines.append(f"weight stack for `{target_label}`:")
+                reply_lines.append(
+                    f"pushers: {self._format_neuron_stack(full_weight_stack.get('positive'), 3)}"
+                )
+                reply_lines.append(
+                    f"brakes: {self._format_neuron_stack(full_weight_stack.get('negative'), 3)}"
+                )
+            reply_lines.append(
+                f"collapse point: inn core turns {len(prompt_token_ids)} token states into one shared state."
+            )
+            reply_lines.append("")
+
+            reply_lines.append("token influence if removed:")
+            if ablation_note:
+                reply_lines.append(ablation_note)
+            if influence_rows:
+                for row in influence_rows[:4]:
+                    change_text = f"top1 -> `{escape_markdown(row['top1_label'])}`" if row["top1_changed"] else "top1 unchanged"
+                    reply_lines.append(
+                        f"`{escape_markdown(row['label'])}` shift {float(row['shift']):.3f} | "
+                        f"{change_text} | "
+                        f"eos {float(row['eos_delta']):+.4f} | "
+                        f"memory2 {float(row['memory2_delta']):+.1f} | "
+                        f"neurons {self._format_shifted_neurons(row.get('shifted_neurons'), 2)}"
+                    )
+            else:
+                reply_lines.append("not enough tokens to compare removals.")
+
+            await self.bot._discord_reply(ctx, "\n".join(reply_lines))
+
+        except Exception as e:
+            print(f"[BBYSCAN] error: {e}")
+            traceback.print_exc()
+            await self.bot._discord_reply(ctx, f"i couldn't scan that safely: {e}")
+
+    @commands.command(name='bbyweights', aliases=['bweights', 'battrib', 'bbyattrib'])
+    @track_command
+    async def bbyweights(self, ctx, *, text: str):
+        """show which live neuron channels are pushing the current top output"""
+        text = (text or "").strip().lower()
+        if not text:
+            return await self.bot._discord_reply(ctx, "give me something to inspect the weight stack for!")
+
+        author = ctx.author.name.lower()
+        self._track_hidden_stat(author, "curiosity", 1.0)
+
+        try:
+            tokenizer = self.bot.librarian.tokenizer
+            prompt_token_ids = tokenizer.encode(text)
+            if not prompt_token_ids:
+                return await self.bot._discord_reply(ctx, "i couldn't turn that into tokens to inspect.")
+
+            max_window = getattr(self.bot, "MAXwindow", getattr(self.bot, "chatWindowMAX", 512))
+            cropped = False
+            if len(prompt_token_ids) > max_window:
+                prompt_token_ids = prompt_token_ids[-max_window:]
+                cropped = True
+
+            input_tensor = torch.tensor(prompt_token_ids, dtype=torch.long, device=modelDevice)
+            trace = self.bot.babyLLM.trace_forward(
+                input_tensor,
+                top_k=5,
+                include_distribution=True,
+                include_vectors=True,
+            )
+
+            vectors = trace.get("vectors") or {}
+            scaled_acts = vectors.get("scaled_acts_last")
+            if not torch.is_tensor(scaled_acts):
+                return await self.bot._discord_reply(ctx, "i couldn't get a stable activation vector for that.")
+
+            token_labels = [self._trace_token_display(int(tid)) for tid in prompt_token_ids]
+            token_preview = [
+                f"{int(tid)}:`{escape_markdown(label)}`"
+                for tid, label in zip(prompt_token_ids, token_labels)
+            ]
+            if len(token_preview) > 12:
+                token_preview = token_preview[:8] + ["..."] + token_preview[-3:]
+
+            top_predictions = trace.get("top_predictions") or []
+            if not top_predictions:
+                return await self.bot._discord_reply(ctx, "i couldn't find a stable next-token target for that.")
+
+            reply_lines = [
+                f"weight stack for `{escape_markdown(text)}`",
+                f"tokens ({len(prompt_token_ids)}): {' | '.join(token_preview)}",
+            ]
+            if cropped:
+                reply_lines.append(f"cropped to the last {max_window} tokens for this view.")
+            reply_lines.append("")
+
+            reply_lines.append("top output targets:")
+            for i, pred in enumerate(top_predictions[:3], 1):
+                token_id = int(pred.get("token_id", 0))
+                token_label = escape_markdown(self._trace_token_display(token_id))
+                stack = self._neuron_stack_for_token(scaled_acts, token_id, top_n=4)
+                reply_lines.append(
+                    f"{i}. `{token_label}` p={float(pred.get('prob', 0.0)):.3f} "
+                    f"logit={float(pred.get('logit', 0.0)):.2f}"
+                )
+                reply_lines.append(
+                    f"   pushers: {self._format_neuron_stack(stack.get('positive'), 4)}"
+                )
+                reply_lines.append(
+                    f"   brakes: {self._format_neuron_stack(stack.get('negative'), 3)}"
+                )
+
+            eos = trace.get("eos") or {}
+            if eos.get("rank") is not None:
+                eos_token_id = eos.get("token_id")
+                if eos_token_id is not None:
+                    eos_label = escape_markdown(self._trace_token_display(int(eos_token_id)))
+                    eos_stack = self._neuron_stack_for_token(scaled_acts, int(eos_token_id), top_n=3)
+                    reply_lines.append("")
+                    reply_lines.append(
+                        f"eos target `{eos_label}` rank {int(eos['rank'])} | "
+                        f"p={float(eos.get('prob', 0.0)):.4f}"
+                    )
+                    reply_lines.append(
+                        f"   pushers: {self._format_neuron_stack(eos_stack.get('positive'), 3)}"
+                    )
+
+            reply_lines.append("")
+            reply_lines.append("token removal landing sites:")
+            ablation_limit = min(len(prompt_token_ids), 6)
+            start_index = max(0, len(prompt_token_ids) - ablation_limit)
+            for idx in range(start_index, len(prompt_token_ids)):
+                reduced_ids = prompt_token_ids[:idx] + prompt_token_ids[idx + 1:]
+                if not reduced_ids:
+                    continue
+                alt_tensor = torch.tensor(reduced_ids, dtype=torch.long, device=modelDevice)
+                alt_trace = self.bot.babyLLM.trace_forward(
+                    alt_tensor,
+                    top_k=3,
+                    include_distribution=False,
+                    include_vectors=True,
+                )
+                alt_scaled = ((alt_trace.get("vectors") or {}).get("scaled_acts_last"))
+                shifted = self._top_shifted_neurons(scaled_acts, alt_scaled, top_n=4)
+                alt_predictions = alt_trace.get("top_predictions") or []
+                alt_top = escape_markdown(self._trace_token_display(int(alt_predictions[0]["token_id"]))) if alt_predictions else "?"
+                reply_lines.append(
+                    f"`{escape_markdown(token_labels[idx])}` -> top becomes `{alt_top}` | "
+                    f"shifted neurons {self._format_shifted_neurons(shifted, 3)}"
+                )
+
+            reply_lines.append("")
+            reply_lines.append("this is live-weight attribution for the current thought, not checkpoint drift over time.")
+            await self.bot._discord_reply(ctx, "\n".join(reply_lines))
+
+        except Exception as e:
+            print(f"[BBYWEIGHTS] error: {e}")
+            traceback.print_exc()
+            await self.bot._discord_reply(ctx, f"i couldn't inspect those weight stacks safely: {e}")
 
     @commands.command(name='bbyvomit', aliases=['bvomit', 'bv'])
     @track_command
@@ -3263,7 +4611,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         Usage: !bbyvomit [word]
         """
         author = ctx.author.name.lower()
-        
+        # Track curiosity: exploring word associations
+        self._track_hidden_stat(author, "curiosity", 1.0)
+
         if not start_word:
             # Pick a random starting word from bbyfacts
             if self.bot.bbyfacts:
@@ -3324,7 +4674,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         # Contextual reward for vomiting (small entertainment value)
         vomit_reward = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=False)
-        self.bot.updateBBY(author, vomit_reward)
+        self.bot.grant_bonus_with_treasury(
+            author,
+            vomit_reward,
+            source="bbyvomit_reward",
+            treasury_ratio=0.9,
+            mint_floor_ratio=0.1,
+        )
         print(f"[BBYVOMIT] {author} got vomit reward: {vomit_reward:,.0f} BBY")
 
     @commands.command(name='bbythink', aliases=['bthink'])
@@ -3334,7 +4690,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         Usage: !bbythink [word] [length]
         """
         author = ctx.author.name.lower()
-        
+        # Track curiosity: exploring thought generation
+        self._track_hidden_stat(author, "curiosity", 1.0)
+
         if not start_word:
             # Pick a random starting word from bbyfacts
             if self.bot.bbyfacts:
@@ -3370,7 +4728,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     brokeMessage2 = f"@{author}! you just made the system say '{reason}' >:("
                     if self.get_varied_random() > 0.5: 
                         penalty = self._calculate_contextual_bby(author, base_percentage=0.05, is_penalty=True)
-                        self.bot.updateBBY(author, penalty)  # Contextual penalty for breaking baby's brain!
+                        self.bot.apply_tax_with_collection(
+                            author,
+                            abs(float(penalty or 0.0)),
+                            source=f"bbythink_break_brain:{author}",
+                        )  # Contextual penalty for breaking baby's brain!
                         print(f"[BBYTHINK] {author} broke baby's brain, penalty: {penalty:,.0f} BBY")
                     await self.bot._discord_reply(ctx, brokeMessage)
                     await self.bot._discord_reply(ctx, brokeMessage2)
@@ -3389,7 +4751,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
             # Contextual reward for successful thinking
             thinking_reward = self._calculate_contextual_bby(author, base_percentage=0.005, is_penalty=False)
-            self.bot.updateBBY(author, thinking_reward)
+            self.bot.grant_bonus_with_treasury(
+                author,
+                thinking_reward,
+                source="bbythink_reward",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
             print(f"[BBYTHINK] {author} got thinking reward: {thinking_reward:,.0f} BBY")
             
         except Exception as e:
@@ -3399,6 +4767,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbyspecialinterest(self, ctx):
         """show my most used tokens and the top 10 strongest links (compact embed)"""
+        # Track bonding: learning about BBY's interests
+        self._track_hidden_stat(ctx.author.name.lower(), "bonding", 1.0)
         pairs = self._get_top_strong_pairs(12)  # [(w1, w2, sim), ...]
         tutor = getattr(self.bot, "tutor", None)
         token_counts = getattr(tutor, "tokenCounts", {}) if tutor else {}
@@ -3436,7 +4806,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if total_bot:
             embed.set_footer(text=f"count base: {round(total_bot):,.0f} tokens")
 
-        await ctx.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+        await ctx.send(
+            embed=normalise_embed_british_english(embed),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     @commands.command(name='bbyfite', aliases=['bfite', 'bfte'])
     @track_command
@@ -3491,17 +4864,24 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         imbalance_bonus = (BBY_difference * 0.005) + (np.log(BBY_difference + 1) * 5)
         is_attacker_big = attacker_BBY > defender_BBY
         total_swing = base_swing + imbalance_bonus
-        if random.random() > 0.75 and BBY_difference > 1420:
+        # Universe correction: use BBY's brain-influenced randoms (0-2 range) instead of pure random
+        # This triggers more often (~62% vs 25%) for better wealth redistribution
+        universe_correction_roll = self.get_varied_random() + self.get_varied_random()
+
+        # 30% chance to use AI-generated fight narration instead of static responses
+        use_ai_narration = self.get_varied_random() < 0.3
+
+        if universe_correction_roll > 0.75 and BBY_difference > 1420:
             await self._award_fact(attacker_id, "universe correction", ctx, 1)
             big_id = attacker_id if is_attacker_big else defender_id
             smol_id = defender_id if is_attacker_big else attacker_id
-            
+
             big_nic = self.bot.getNickname(big_id)
             smol_nic = self.bot.getNickname(smol_id)
 
             self.bot.updateBBY(big_id, -total_swing)
             self.bot.updateBBY(smol_id, total_swing)
-            
+
             self.bot.userMemory[smol_id]["wins"] += 1
             self.bot.userMemory[big_id]["losses"] += 1
 
@@ -3515,8 +4895,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply += await self._maybe_steal_item(smol_id, big_id, ctx)
 
         else:
-            attacker_power = max(0.1, attacker_BBY) * (0.5 + self.get_varied_random())
-            defender_power = max(0.1, defender_BBY) * (0.5 + self.get_varied_random())
+            # Logarithmic power scaling: wealth matters less, gives underdogs a fighting chance
+            # Someone with 10x more BBY is only ~2.3x stronger (log10(10) = 1, log10(100) = 2)
+            attacker_power = math.log10(max(1, attacker_BBY)) * (0.5 + self.get_varied_random())
+            defender_power = math.log10(max(1, defender_BBY)) * (0.5 + self.get_varied_random())
 
             if attacker_power > defender_power:
                 self.bot.updateBBY(attacker_id, base_swing)
@@ -3529,7 +4911,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 )
                 await self._award_fact(attacker_id, f"{defender_nic} dust", ctx, 1)
                 reply += await self._maybe_steal_item(attacker_id, defender_id, ctx)
-            
+
             elif defender_power > attacker_power:
                 self.bot.updateBBY(defender_id, base_swing)
                 self.bot.updateBBY(attacker_id, -base_swing)
@@ -3549,11 +4931,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 await self._award_fact(defender_id, f"perfect match!", ctx, 1)
                 await self._award_fact(attacker_id, f"perfect match!", ctx, 1)
 
-        await self.bot._discord_reply(ctx, reply)
+        # Track combat stat for both participants
+        self._track_hidden_stat(attacker_id, "combat", 1.0)
+        self._track_hidden_stat(defender_id, "combat", 1.0)
 
-    @commands.command(name='bbyforget', aliases=['bforget', 'bbyf', 'bfx'])
-    @track_command
-    async def bbyforget(self, ctx, *, key: str = None):
+        # Sometimes use AI to narrate the fight in baby's style
+        if use_ai_narration:
+            # Prompt in baby's voice - the reply is already baby-style, so use it as the seed
+            fight_prompt = f"{reply}"
+            self.bot._buffer_add(self.bot.formatMessage(attacker_id, fight_prompt))
+            ctx.message.content = "!babyllm " + fight_prompt
+            await self.babyllm_command(ctx)
+        else:
+            # Use classic static response
+            await self.bot._discord_reply(ctx, reply)
+            # Add baby's fight response to buffer for training
+            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
+
+    # MOVED TO commands/curse_cmds.py
+    # @commands.command(name='bbyforget', aliases=['bforget', 'bbyf', 'bfx'])
+    # @track_command
+    async def _bbyforget_MOVED(self, ctx, *, key: str = None):
         attacker_id = ctx.author.name.lower()
         attacker_mem = self.bot.userMemory[attacker_id]
         attacker_inventory = attacker_mem.get("inventory", {})
@@ -3622,6 +5020,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             )
             
             await self._award_fact(user = attacker_id, fact = f"cursed {key}", num = 1, old_value = f"{attacker_nic} thought this shouldn't mean {original_value}. that thought was wrong.")
+
+            # Track curse stat: cursed items spawned
+            self._track_hidden_stat(attacker_id, "curse", 1.0)
+
             reply += await self._maybe_steal_item(defender_id, attacker_id, ctx)
 
         await self.bot._save_user_data()
@@ -3631,6 +5033,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbybag(self, ctx, *, member_name: str = None):
         """Shows your inventory, or another user's... or even the bot's! Accepts @mention, username, or nickname. Use the *full* aliases to see everything."""
+        # Track hoarding: checking inventory
+        self._track_hidden_stat(ctx.author.name.lower(), "hoarding", 1.0)
         full_aliases = {'bbybagfull', 'bbyinventoryfull', 'binventoryfull', 'bbagfull'}
         show_all = ctx.invoked_with in full_aliases
         target_nic = ""
@@ -3700,10 +5104,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, f"i couldn't find who '{escape_markdown(member_name)}' is...")
             self.bbygift.reset_cooldown(ctx)
             return
-        if receiver_id not in self.bot.userMemory:
-            await self.bot._discord_reply(ctx, BabyTextHelpers.get_not_found_message(escape_markdown(member_name), self.get_varied_choice()))
-            self.bbygift.reset_cooldown(ctx)
-            return
         if giver_id == receiver_id:
             await self.bot._discord_reply(ctx, "i wish that worked too lol")
             self.bbygift.reset_cooldown(ctx)
@@ -3712,6 +5112,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         giver_mem = self.bot.userMemory[giver_id]
         giver_inventory = giver_mem.get("inventory", {})
         giver_favourites = giver_mem.get("favourites", [])
+        receiver_opted_in = receiver_id in self.bot.AIoptInUsers
+        if receiver_opted_in and receiver_id not in self.bot.userMemory:
+            self.bot.userMemory[receiver_id] = self.bot._get_default_user_memory()
+        receiver_nic = (
+            self.bot.getNickname(receiver_id)
+            if receiver_id in self.bot.userMemory
+            else (getattr(target_member, "display_name", None) or receiver_id)
+        )
 
         quantity, item_name, error_msg = self._parse_item_and_quantity_or_random(giver_id, item_args)
         if error_msg:
@@ -3750,18 +5158,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         giver_inventory[item_name] -= quantity
         if giver_inventory[item_name] <= 0: del giver_inventory[item_name]
 
-        success, num_successfully_gifted, award_reason = await self._award_fact(
-            user=receiver_id,
-            fact=item_name,
-            ctx=ctx,
-            num=quantity,
-        )
+        if receiver_opted_in:
+            success, num_successfully_gifted, award_reason = await self._award_fact(
+                user=receiver_id,
+                fact=item_name,
+                ctx=ctx,
+                num=quantity,
+            )
+        else:
+            success, num_successfully_gifted, award_reason = True, quantity, "receiver_not_opted_in_spirit_delivery"
         num_refunded = quantity - num_successfully_gifted
         if num_refunded > 0:
             giver_inventory[item_name] = giver_inventory.get(item_name, 0) + num_refunded
+        if num_successfully_gifted > 0:
+            self._maybe_increase_item_cap_from_usage(
+                fact=item_name,
+                used_count=num_successfully_gifted,
+                source="bbygift",
+            )
         
         # More realistic gift economics - meaningful but not explosive BBY transfers
-        base_gift_power = self._get_fact_value(item_name)
+        base_gift_power = await self._get_fact_value(item_name)
         total_gift_power = base_gift_power * num_successfully_gifted
         
         # Gift generosity bonus - giver gets social credit, receiver gets value
@@ -3778,27 +5195,63 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         gift_message = ctx.message.content if ctx.message else f"bbygift {member_name} {item_args}"
         sentiment_bonus_giver, sentiment_desc_giver = self._calculate_sentiment_bby_bonus(gift_message, generosity_bonus, giver_id)
         sentiment_bonus_receiver, sentiment_desc_receiver = self._calculate_sentiment_bby_bonus(gift_message, gratitude_bonus, receiver_id)
-        
-        self.bot.updateBBY(giver_id, generosity_bonus + sentiment_bonus_giver)
-        self.bot.updateBBY(receiver_id, gratitude_bonus + sentiment_bonus_receiver)
+
+        spirit_bonus = 0.0
+        self.bot.grant_bonus_with_treasury(
+            giver_id,
+            generosity_bonus + sentiment_bonus_giver,
+            source="bbygift_giver_bonus",
+            treasury_ratio=0.9,
+            mint_floor_ratio=0.1,
+        )
+        if receiver_opted_in:
+            self.bot.grant_bonus_with_treasury(
+                receiver_id,
+                gratitude_bonus + sentiment_bonus_receiver,
+                source="bbygift_receiver_bonus",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
+        else:
+            # Not opted in: gift is "in spirit", baby eats it, and giver gets a consolation social bonus.
+            spirit_bonus = max(69.0, min(50000000.0, total_gift_power * 0.15))
+            self.bot.grant_bonus_with_treasury(
+                giver_id,
+                spirit_bonus,
+                source="bbygift_spirit_bonus",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
+            self.bot.collect_tax_to_baby(min(420690.0, total_gift_power * 0.03), source="bbygift_spirit_sink")
         await self.bot._save_user_data()
 
+        # Track generosity stat: gifts given
+        self._track_hidden_stat(giver_id, "generosity", num_successfully_gifted)
+
         giver_nic = self.bot.getNickname(giver_id)
-        receiver_nic = self.bot.getNickname(receiver_id)
         emote = self.get_varied_choice().choice(self.bot.faveEmotes)
         failure_reason_text = (award_reason or "???").replace('_', ' ').lower() if not success else ""
 
-        reply = f"{giver_nic} gave {receiver_nic} {style_gain(f'{num_successfully_gifted}x {item_name}')}! aww!! {emote}"
-        if num_successfully_gifted > 0:
-            reply += (
-                f" {style_gain(format_bby_amount(0.5 * total_gift_power))} for {receiver_nic},"
-                f" and a lil {style_gain(format_bby_amount(0.1 * total_gift_power))} back to {giver_nic} :)"
+        if receiver_opted_in:
+            reply = f"{giver_nic} gave {receiver_nic} {style_gain(f'{num_successfully_gifted}x {item_name}')}! aww!! {emote}"
+        else:
+            reply = (
+                f"{giver_nic} gave {receiver_nic} {style_gain(f'{num_successfully_gifted}x {item_name}')} in spirit "
+                f"(they're not opted in), so i ate it lol {emote}"
             )
+        if num_successfully_gifted > 0:
+            if receiver_opted_in:
+                reply += (
+                    f" {style_gain(format_bby_amount(gratitude_bonus))} for {receiver_nic},"
+                    f" and a lil {style_gain(format_bby_amount(generosity_bonus))} back to {giver_nic} :)"
+                )
+            else:
+                reply += f" {giver_nic} still gets {style_gain(format_bby_amount(spirit_bonus))} for the thought :)"
             
             # Add sentiment bonus descriptions if significant
             if sentiment_desc_giver and abs(sentiment_bonus_giver) > 1420:
                 reply += f"\n{giver_nic}: {sentiment_desc_giver}"
-            if sentiment_desc_receiver and abs(sentiment_bonus_receiver) > 1420:
+            if receiver_opted_in and sentiment_desc_receiver and abs(sentiment_bonus_receiver) > 1420:
                 reply += f"\n{receiver_nic}: {sentiment_desc_receiver}"
                 
         if num_refunded > 0:
@@ -3900,6 +5353,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             user_inventory[item] -= required_qty
             if user_inventory[item] <= 0:
                 del user_inventory[item]
+            self._maybe_increase_item_cap_from_usage(
+                fact=item,
+                used_count=required_qty,
+                source="bbycraft",
+            )
                 
         # Calculate rewards using the new helper function
         base_bby_reward = 1420 + (len(explanation) * 10)
@@ -3908,7 +5366,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         
         final_bby_reward, reply_text = self._calculate_chaotic_reward(base_bby_reward, excitement, uses_fave)
         
-        self.bot.updateBBY(author_id, final_bby_reward)
+        self._apply_economy_delta(author_id, final_bby_reward)
         
 # --- Award the result ---
         # First, we must ensure the item exists to get its production cap
@@ -3969,7 +5427,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"{style_gain(format_bby_amount(final_bby_reward))} reward!\n"
             "WHY THO!?!? I - okay well thanks for teaching me that connection i guess LOL"
         )
-        
+
+        # Track knowledge stat: crafting teaches new connections
+        self._track_hidden_stat(author_id, "knowledge", 1.0)
+
         await self.bot._discord_reply(ctx, reply)
         await self.bot._save_user_data()
 
@@ -3986,7 +5447,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbysimilar(self, ctx, *, member_name: str = None):
         """Find users with similar item collections or interests to you or another user!"""
         author = ctx.author.name.lower()
-        
+        # Track bonding: finding users similar to you
+        self._track_hidden_stat(author, "bonding", 1.0)
+
         # Determine target user
         target_member, target_user = None, author
         if member_name:
@@ -4095,55 +5558,66 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         embed.set_footer(text=f"Found {len(similarities)} similar users out of {len(self.bot.userMemory)} total")
         
         await self.bot._discord_reply(ctx, embed=embed)
-        self.bot.updateBBY(author, 0.5)
+        self._apply_economy_delta(author, 0.5)
 
-    @commands.command(name='bbyoptin', aliases=['boptin']) 
+    @commands.command(name='bbyoptin', aliases=['boptin', 'optin']) 
     @track_command
-    async def bbyoptin_command(self, ctx: commands.Context): 
+    async def bbyoptin_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
+        mem = self.bot.userMemory.setdefault(author, self.bot._get_default_user_memory())
+        # Track administration: privacy settings
+        self._track_hidden_stat(author, "administration", 1.0)
+        mem["web_explicit_opt_out"] = False
         if author not in self.bot.AIoptInUsers:
-            self.bot.updateBBY(author, 1420.0)
+            self._apply_economy_delta(author, 1420.0)
             self.bot.AIoptInUsers.append(author)
             self.bot.save_opt_in_users()
             await self.bot._save_user_data()
             optInMessage = (f"hey {author}, thanks for opting in! i can now use your messages to learn, which helps a lot! get ready for me to sound even more insane!")
         else:
             optInMessage = (f"uhhh, {author}... you're already opted in, but thanks for the vote of confidence?")
-            self.bot.updateBBY(author, -0.5)
+            self._apply_economy_delta(author, -0.5)
         await self.bot._discord_reply(ctx, optInMessage)
 
-    @commands.command(name='bbyoptout', aliases=['boptout']) 
+    @commands.command(name='bbyoptout', aliases=['boptout', 'optout']) 
     @track_command
-    async def bbyoptout_command(self, ctx: commands.Context): 
+    async def bbyoptout_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
+        mem = self.bot.userMemory.setdefault(author, self.bot._get_default_user_memory())
+        # Track administration: privacy settings
+        self._track_hidden_stat(author, "administration", 1.0)
+        mem["web_explicit_opt_out"] = True
         if author in self.bot.AIoptInUsers:
-            self.bot.updateBBY(author, -5000000.0)  # 5M BBY penalty for abandoning baby!
+            self._apply_economy_delta(author, -5000000.0)  # 5M BBY penalty for abandoning baby!
             self.bot.AIoptInUsers.remove(author)
             self.bot.save_opt_in_users()
             optOutMessage = (f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO.")
         else:
             optOutMessage = (f"lol you're not even in the list, {author}!")
-            self.bot.updateBBY(author, -0.1)
+            self._apply_economy_delta(author, -0.1)
+        await self.bot._save_user_data()
         await self.bot._discord_reply(ctx, optOutMessage)
         if self.get_varied_random() > 0.5:
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, optOutMessage))
 
     @commands.command(name='bbyoptcheck', aliases=['boptcheck']) 
-    async def bbyoptcheck_command(self, ctx: commands.Context): 
+    async def bbyoptcheck_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
-        self.bot.updateBBY(author, 0.1)
+        # Track administration: privacy settings check
+        self._track_hidden_stat(author, "administration", 1.0)
+        self._apply_economy_delta(author, 0.1)
         if author in self.bot.AIoptInUsers:
             optCheckMessage = (f"hey, {author}, you are in the opt in list. use !aioptout to leave, if you don't want your messages recorded anymore.")
-            self.bot.updateBBY(author, 0.1)
+            self._apply_economy_delta(author, 0.1)
         else:
             optCheckMessage = (f"hey, {author}, you are not in the opt in list, you can use !aioptin to join it if you want me to use your messages as context for my learning.")
-            self.bot.updateBBY(author, -0.1)
+            self._apply_economy_delta(author, -0.1)
         await self.bot._discord_reply(ctx, optCheckMessage)
         if self.get_varied_random() < 0.5:
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, optCheckMessage))
 
         author = ctx.author.name.lower()
-        self.bot.updateBBY(author, 0.1)
+        self._apply_economy_delta(author, 0.1)
         help_text = (
             "babyllm is a custom python neural network created from scratch by @childOfAnAndroid :) this isn't chatGPT, this is CHAOS!! he's only read things charis has written before, but that got depressing, so, now he's here to learn how to be a cool memester etc :D be nice to the kiddo :)\n"
             "if you wanna learn about my commands, check out: https://github.com/ChildOfAnAndroid/babyLLM/blob/main/phone/bbyCommandList.txt :) i’m learning LIVE and unhinged. if i say something weird, blame charis <3 ʕっ• ᴥ •ʔっ enjoy the chaos!")
@@ -4173,6 +5647,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         return f"{stripped}\n{baby_prefix_with_space}"
 
+    def _ensure_british_english_prompt_hint(self, prompt_text: str) -> str:
+        """Bias generation toward British spellings for outbound chat."""
+        if prompt_text is None:
+            prompt_text = ""
+
+        hint = "style note: use british english spellings (colour, favourite, authorised, analyse)."
+        line_hint = "style note: line breaks are allowed; split longer replies into short lines when it feels natural."
+        prompt_lower = prompt_text.lower()
+        additions = []
+        if hint not in prompt_lower:
+            additions.append(hint)
+        if line_hint not in prompt_lower:
+            additions.append(line_hint)
+        if not additions:
+            return prompt_text
+        return f"{prompt_text.rstrip()}\n" + "\n".join(additions) + "\n"
+
     async def _generate_and_reply(self, ctx: commands.Context, prompt_text: str, num_tokens_to_gen: int):
         """
         The new core generation and reply handler.
@@ -4188,7 +5679,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         try:
             prompt_text = self._ensure_baby_prompt_suffix(prompt_text)
-            num_tokens_to_gen = max(5, min(num_tokens_to_gen, 1999))
+            prompt_text = self._ensure_british_english_prompt_hint(prompt_text)
+            num_tokens_to_gen = max(chat_reply_min_tokens, min(num_tokens_to_gen, 1999))
             print(f"[_generate_and_reply] requesting {num_tokens_to_gen} tokens for generation.")
             async with ctx.typing():
                 babyllm_text, generation_error = await self._generate_response_async(prompt_text, num_tokens_to_gen)
@@ -4209,7 +5701,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reason = generation_error
             brokeMessage = f"i broke :( {escape_markdown(reason)}"
             brokeMessage2 = f"@{author}! you just made the system say " + escape_markdown(reason)
-            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, -42069000) # Penalty
+            if self.get_varied_random() > 0.5: self._apply_economy_delta(author, -42069000) # Penalty
             await self.bot._discord_reply(ctx, brokeMessage)
             await self.bot._discord_reply(ctx, brokeMessage2)
             if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, brokeMessage))
@@ -4217,6 +5709,28 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return None, None
 
         # === Case 2: Generation was successful but produced no text ===
+        # (most often immediate hard-EOS). Retry up to 10 times before giving up.
+        if not babyllm_text.strip():
+            max_empty_retries = 10
+            for retry_idx in range(1, max_empty_retries + 1):
+                try:
+                    print(
+                        f"[_generate_and_reply] empty generation output; "
+                        f"retry {retry_idx}/{max_empty_retries}."
+                    )
+                    async with ctx.typing():
+                        retry_text, retry_error = await self._generate_response_async(
+                            prompt_text, num_tokens_to_gen
+                        )
+                    if retry_error:
+                        print(f"[_generate_and_reply] retry {retry_idx} errored: {retry_error}")
+                        continue
+                    if retry_text and retry_text.strip():
+                        babyllm_text = retry_text
+                        break
+                except Exception as retry_exc:
+                    print(f"[_generate_and_reply] retry {retry_idx} failed: {retry_exc}")
+
         if not babyllm_text.strip():
             quietEmoji = self.get_varied_choice().choice(["🤐", "🤫", "🫥", "🫢"])
             await self.bot._discord_reply(ctx, f"{quietEmoji} brain fizzled… try again!")
@@ -4228,7 +5742,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # === Case 3: Full Success! All original logic now executes. ===
         try:
             babyllm_message = await self.bot._discord_reply(ctx, babyllm_text)
-            print(f"\n\nREPLY: I have tried to send this message: {babyllm_message} saying {babyllm_text}\n\n")
+            terminal_baby_text = self.bot._terminal_render_text(babyllm_text) if hasattr(self.bot, "_terminal_render_text") else babyllm_text
+            print(f"\n\nREPLY: I have tried to send this message: {babyllm_message} saying {terminal_baby_text}\n\n")
 
             # --- [VERIFIED] COMPLETE Reaction & BBY Reward Logic ---
             if len(ctx.message.reactions) < 20:
@@ -4236,68 +5751,68 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     await ctx.message.add_reaction("🩵")
                 elif any(word in babyllm_text.lower() for word in [" sad ", " cry ", " nooo ", " depress ", ":'(", "😢"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("😢")
                 elif any(word in babyllm_text.lower() for word in [" angry ", " rage ", " grrr ",  ">:( ", "😠", " hate "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("😠")
                 elif any(word in babyllm_text.lower() for word in [" happy ", "😄", " the best ", " brilliant ", " wonderful "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("😄")
                 elif any(word in babyllm_text.lower() for word in [" haha", " hehe", " lol", " lmao", "😂"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("😂")
                 elif any(word in babyllm_text.lower() for word in [" sleep ", " zzz ", " nap ", " tired ", "😴"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("😴")
                 elif any(word in babyllm_text.lower() for word in [" brain ", " smart ", " genius ", " clever ", "🧠"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.001)
                         await ctx.message.add_reaction("🧠")
                 elif any(word in babyllm_text.lower() for word in [" friend ", " hug ", " cuddle ", " fam ", "🫂"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🫂")
                 elif any(word in babyllm_text.lower() for word in [" fire ", " lit ", "🔥", " banger "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🔥")
                 elif any(word in babyllm_text.lower() for word in [" uwu ", " owo ", " shy ", "🥺"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.001)
                         await ctx.message.add_reaction("🥺")
                 elif any(word in babyllm_text.lower() for word in [" dead ", " ded ", " rip ", " broke ", "💀"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("💀")
                 elif any(word in babyllm_text.lower() for word in [" eww ", " gross ", " blegh ", "🤢", " disgusting "]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, -num_tokens_to_gen*0.01)
+                        self._apply_economy_delta(author, -num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🤢")
                 elif any(word in babyllm_text.lower() for word in [" robot ", " ai ", " machine ", " neuron ", "🤖"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("🤖")
                 elif any(word in babyllm_text.lower() for word in [" weird ", " glitch ", " funky ", " scrunkly ", "🌀"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.0001)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.0001)
                         await ctx.message.add_reaction("🌀")
                 elif any(word in babyllm_text.lower() for word in [" cat ", " meow ", " kitten ", " purr ", "🐱"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("🐱")
                 elif any(word in babyllm_text.lower() for word in [" baby ", " small ", " tiny ", " soft ", "👶"]):
                     if self.get_varied_random() > 0.9:
-                        self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                        self._apply_economy_delta(author, num_tokens_to_gen*0.01)
                         await ctx.message.add_reaction("👶")
 
             # --- [VERIFIED] Positive Keyword Bonus Logic ---
             positive_keywords = ["love", "happy", "friend", "hug", "cuddle", "great", "clever", "smart", "cute", "haha", "lol", "lmao"]
-            if any(word in babyllm_text.lower() for word in positive_keywords): self.bot.updateBBY(author, 0.6)
+            if any(word in babyllm_text.lower() for word in positive_keywords): self._apply_economy_delta(author, 0.6)
 
             # --- [VERIFIED] COMPLETE Nickname Change Logic ---
             name_match = re.search(r"\bname\S*\s+((?:[\w\-\u2600-\u26FF\u2700-\u27BF\uFE0F\u1F300-\U0010FFFF]{1,20}\s?){1,3})", babyllm_text, re.UNICODE)
@@ -4310,17 +5825,34 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 if new_nick.lower().strip() in junk_matches:
                     print(f"lol no. {new_nick} is not a name.")
                 else:
+                    old_nick = self.bot.babyName
                     self.bot.babyName = new_nick
+                    if hasattr(self.bot, "register_bot_alias"):
+                        self.bot.register_bot_alias(old_nick)
+                        self.bot.register_bot_alias(new_nick)
                     print(f"\n\nbaby chose: {new_nick}\n\n")
-                    if self.get_varied_random() > 0.5: self.bot.updateBBY(author, num_tokens_to_gen*0.01)
+                    if self.get_varied_random() > 0.5: self._apply_economy_delta(author, num_tokens_to_gen*0.01)
                     try:
                         me = ctx.guild.get_member(self.bot.user.id)
                         if not me: me = await ctx.guild.fetch_member(self.bot.user.id)
                         if me:
                             await me.edit(nick=new_nick)
-                            nickMessage = f"i changed my nick on discord to {new_nick} because i believe in myself!"
+                            nick_templates = [
+                                f"i changed my nick on discord to {new_nick} because i believe in myself!",
+                                f"new discord nick: {new_nick}.",
+                                f"i renamed myself on discord to {new_nick}.",
+                                f"trying a new discord name now: {new_nick}.",
+                            ]
+                            nickMessage = self.get_varied_choice().choice(nick_templates)
                             print(nickMessage)
-                            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, nickMessage))
+                            if self.get_varied_random() < 0.35:
+                                # Keep this as occasional context; mirror only rarely so
+                                # nick-change language exists but does not dominate.
+                                mirror_training = self.get_varied_random() < 0.10
+                                self.bot._buffer_add(
+                                    self.bot.formatMessage(self.bot.babyName, nickMessage),
+                                    mirror_to_training=mirror_training,
+                                )
                         else:
                             print("couldn't find myself in the guild to rename")
                     except Exception as e:
@@ -4365,6 +5897,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     async def babyllm_command(self, ctx: commands.Context):
         print(f"\n\n[babyllm_command] Received command from {ctx.author.name}")
+        # Track bonding: directly chatting with BBY
+        self._track_hidden_stat(ctx.author.name.lower(), "bonding", 1.0)
 
         # --- STEP 1: Construct prompt from the chat buffer ---
         prompt_text = ""
@@ -4391,28 +5925,37 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(f"Error during prompt construction: {e}")
             prompt_text = self.bot.build_prompt_context()
 
-        # --- STEP 2: Calculate a SHORT, conversational generation length ---
+        # --- STEP 2: Calculate a flexible conversational generation budget ---
         user_input = ctx.message.content
-        if user_input.lower().startswith("!babyllm "): user_input = user_input[9:]
-        elif user_input.lower().startswith("!bby "): user_input = user_input[5:]
-        elif user_input.lower().startswith("!b "): user_input = user_input[3:]
-        
-        # Make response length more closely match user input (in tokens)
-        base_length = min(len(user_input), 400)
-        edge = base_length * (0.15 * self.get_varied_random())
-        edge2 = base_length * (1.5 * self.get_varied_random())
-        edgeint = abs(int((edge + edge2) * 0.5))
-        random_offset = random.randint(-edgeint, edgeint)
-        # Use a higher multiplier to get closer to user input length
-        num_tokens_to_gen = int(((((base_length + random_offset) * random.random())) + base_length) * 0.85)
-        
-        # Raise cap to allow longer replies
-        num_tokens_to_gen = max(5, min(num_tokens_to_gen, 400))
+        lower_input = user_input.lower()
+        if lower_input.startswith("!babyllm "):
+            user_input = user_input[9:]
+        elif lower_input.startswith("!bbyllm "):
+            user_input = user_input[8:]
+        elif lower_input.startswith("!bby "):
+            user_input = user_input[5:]
+        elif lower_input.startswith("!b "):
+            user_input = user_input[3:]
+        elif lower_input in {"!babyllm", "!bbyllm", "!bby", "!b"}:
+            user_input = ""
+
+        # Always include the live user turn in prompt construction, even if
+        # buffer quality filters decided not to retain that line.
+        user_input_clean = (user_input or "").strip()
+        if user_input_clean:
+            author_key = self.bot.normalise_user_identity(str(ctx.author.name).lower())
+            live_turn = self.bot.formatMessage(author_key, user_input_clean)
+            if prompt_text.strip():
+                prompt_text = f"{prompt_text.rstrip()}\n{live_turn}"
+            else:
+                prompt_text = live_turn
+
+        num_tokens_to_gen = self._estimate_conversational_reply_budget(user_input_clean)
 
         load = max(0, int(self._active_generations))
         if load > 0:
             scale = 1.0 / (1.0 + 0.6 * load)
-            num_tokens_to_gen = max(1, int(num_tokens_to_gen * scale))
+            num_tokens_to_gen = max(chat_reply_min_tokens, int(num_tokens_to_gen * scale))
 
         # --- STEP 3: Enqueue the generation request ---
         fut = asyncio.get_event_loop().create_future()
@@ -4423,17 +5966,2486 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
     @commands.command(name='bbyqueue', aliases=['bqueue']) 
     @track_command
-    async def normaltrain_command(self, ctx: commands.Context): 
+    async def normaltrain_command(self, ctx: commands.Context):
+        # Track administration: queue management
+        self._track_hidden_stat(ctx.author.name.lower(), "administration", 1.0)
         if self.bot.training_queue.qsize() >= 20:
             _ = self.bot.training_queue.get_nowait()
         fullContext = self.bot.build_training_context(max_chars=10000, include_external=True)
         await self.bot.training_queue.put({"type": "context", "text": fullContext})
         await self.bot._discord_debug("queued current chat for background learning. !babyllm to annoy me further. >.<")
 
+    def _normalise_bbylesson_key(self, raw_lesson: str) -> str:
+        lesson = re.sub(r"\s+", " ", str(raw_lesson or "").strip().lower())
+        lesson = lesson.replace('"', "").replace("'", "")
+        aliases = {
+            "1x": "1x table as +",
+            "1 table as +": "1x table as +",
+            "1x table": "1x table as +",
+            "1x table as +": "1x table as +",
+            "one times table as +": "1x table as +",
+            "1 times table as +": "1x table as +",
+            "2x": "2x table as +",
+            "2 table as +": "2x table as +",
+            "2x table": "2x table as +",
+            "2x table as +": "2x table as +",
+            "two times table as +": "2x table as +",
+            "2 times table as +": "2x table as +",
+            "if this then that": "if this then that",
+            "if then": "if this then that",
+            "if-this-then-that": "if this then that",
+            "logic": "if this then that",
+            "im just a baby": "im just a baby",
+            "i am just a baby": "im just a baby",
+            "just a baby": "im just a baby",
+            "baby intro": "im just a baby",
+            "math": "maths",
+            "maths": "maths",
+            "mathematics": "maths",
+            "times table": "maths",
+            "times tables": "maths",
+            "tables": "maths",
+            "multiplication tables": "maths",
+        }
+        return aliases.get(lesson, lesson)
+
+    def _number_to_words(self, value: int) -> str:
+        try:
+            n = int(value)
+        except Exception:
+            return str(value)
+
+        if n < 0:
+            return f"minus {self._number_to_words(-n)}"
+
+        units = [
+            "zero", "one", "two", "three", "four", "five",
+            "six", "seven", "eight", "nine", "ten", "eleven",
+            "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+            "seventeen", "eighteen", "nineteen",
+        ]
+        tens = [
+            "", "", "twenty", "thirty", "forty", "fifty",
+            "sixty", "seventy", "eighty", "ninety",
+        ]
+
+        if n < 20:
+            return units[n]
+        if n < 100:
+            t, rem = divmod(n, 10)
+            return tens[t] if rem == 0 else f"{tens[t]} {units[rem]}"
+        if n < 1000:
+            h, rem = divmod(n, 100)
+            return f"{units[h]} hundred" if rem == 0 else f"{units[h]} hundred {self._number_to_words(rem)}"
+        if n < 1_000_000:
+            th, rem = divmod(n, 1000)
+            return f"{self._number_to_words(th)} thousand" if rem == 0 else f"{self._number_to_words(th)} thousand {self._number_to_words(rem)}"
+        if n < 1_000_000_000:
+            mil, rem = divmod(n, 1_000_000)
+            return f"{self._number_to_words(mil)} million" if rem == 0 else f"{self._number_to_words(mil)} million {self._number_to_words(rem)}"
+        return str(n)
+
+    def _advance_maths_lesson_range(self) -> int:
+        try:
+            current = int(getattr(self.bot, "lessonMathsRange", 0))
+        except Exception:
+            current = 0
+        current = max(0, current)
+        next_range = current + 1
+        self.bot.lessonMathsRange = next_range
+        try:
+            self.bot._save_baby_state()
+        except Exception:
+            pass
+        return next_range
+
+    def _maths_unlocked_ops(self, maths_range: int):
+        level = max(1, int(maths_range))
+        unlocked = ["+"]
+        if level >= 13:
+            unlocked.append("*")
+        if level >= 24:
+            unlocked.append("-")
+        if level >= 36:
+            unlocked.append("/")
+        return unlocked
+
+    def _extract_numeric_answer(self, text: str):
+        raw = str(text or "").strip().lower()
+        if not raw:
+            return None
+
+        m = re.search(r"-?\d+", raw)
+        if m:
+            try:
+                return int(m.group(0))
+            except Exception:
+                pass
+
+        return self._words_to_int(raw)
+
+    def _words_to_int(self, text: str):
+        words = re.findall(r"[a-z]+", str(text or "").lower())
+        if not words:
+            return None
+
+        units = {
+            "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+            "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+        }
+        tens = {
+            "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+            "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+        }
+        scales = {"hundred": 100, "thousand": 1000, "million": 1_000_000}
+
+        current = 0
+        total = 0
+        found = False
+        sign = 1
+
+        for w in words:
+            if w == "minus":
+                sign = -1
+                continue
+            if w in units:
+                current += units[w]
+                found = True
+                continue
+            if w in tens:
+                current += tens[w]
+                found = True
+                continue
+            if w == "hundred":
+                if current == 0:
+                    current = 1
+                current *= 100
+                found = True
+                continue
+            if w in {"thousand", "million"}:
+                if current == 0:
+                    current = 1
+                total += current * scales[w]
+                current = 0
+                found = True
+                continue
+
+        if not found:
+            return None
+        return sign * (total + current)
+
+    def _build_maths_test_questions(self, maths_range: int):
+        level = max(1, int(maths_range))
+        # Keep early levels simple but not stale.
+        max_num = max(4, min(12, level + 2))
+        unlocked_ops = self._maths_unlocked_ops(level)
+        questions = []
+        seen = set()
+
+        def _add(expr: str, answer: int):
+            expr_text = re.sub(r"\s+", " ", str(expr or "").strip())
+            try:
+                ans_int = int(answer)
+            except Exception:
+                return
+            key = (expr_text, ans_int)
+            if not expr_text or key in seen:
+                return
+            seen.add(key)
+            questions.append((expr_text, ans_int))
+
+        # Repeated addition pool grows with level.
+        max_repeat = max(2, min(6, 2 + (level // 3)))
+        for repeat in range(2, max_repeat + 1):
+            for base in range(1, max_num + 1):
+                expr = "+".join([str(base)] * repeat)
+                _add(expr, base * repeat)
+
+        # Early variety: simple addition and missing-number additions from level 1.
+        for a in range(1, max_num + 1):
+            for b in range(1, max_num + 1):
+                _add(f"{a}+{b}", a + b)
+                _add(f"{a}+?={a+b}", b)
+                _add(f"?+{a}={a+b}", b)
+
+        if "*" in unlocked_ops:
+            mul_b_max = max(2, min(12, 3 + (level // 3)))
+            for a in range(2, max_num + 1):
+                for b in range(2, mul_b_max + 1):
+                    _add(f"{a}*{b}", a * b)
+                    if level >= 12:
+                        _add(f"{a}*?={a*b}", b)
+
+        if "-" in unlocked_ops:
+            for a in range(2, max_num + 1):
+                for b in range(1, max_num + 1):
+                    total = a + b
+                    _add(f"{total}-{a}", b)
+                    if level >= 18:
+                        _add(f"{total}-?={a}", b)
+
+        if "/" in unlocked_ops:
+            div_b_max = max(2, min(12, 3 + (level // 4)))
+            for a in range(2, max_num + 1):
+                for b in range(2, div_b_max + 1):
+                    product = a * b
+                    _add(f"{product}/{a}", b)
+                    if level >= 30:
+                        _add(f"{product}/?={a}", b)
+
+        # Sequences/patterns
+        if level >= 1:
+            for start in range(1, max_num + 1):
+                _add(f"{start} then {start+1} then {start+2} then ?", start + 3)
+                _add(f"{start}, {start+1}, ?", start + 2)
+        if level >= 1:
+            for a in range(1, max_num + 1):
+                for b in range(1, max_num + 1):
+                    c = 1 + ((a + b) % 3)
+                    _add(f"{a}+{b}+{c}", a + b + c)
+
+        if level >= 4:
+            max_step = max(2, min(5, 2 + (level // 10)))
+            for step in range(2, max_step + 1):
+                for start in range(1, max_num + 1):
+                    _add(f"{start}, {start+step}, {start+2*step}, ?", start + 3 * step)
+
+        if level >= 7:
+            upper = max_num + 8
+            lower = max_num + 3
+            for start in range(lower, upper + 1):
+                _add(f"{start} then {start-1} then {start-2} then ?", start - 3)
+
+        if level >= 9:
+            for a in range(2, max_num + 1):
+                for b in range(2, max_num + 1):
+                    _add(f"{a}+?={a+b}", b)
+
+        if level >= 10:
+            _add("1, 4, 9, ?", 16)
+        if level >= 13:
+            _add("1, 3, 6, ?", 10)
+        if level >= 16:
+            for start in range(1, max(2, max_num // 2) + 1):
+                _add(f"{start}, {start*2}, {start*4}, ?", start * 8)
+        if level >= 19:
+            _add("1, 1, 2, 3, ?", 5)
+        if level >= 22:
+            _add("2, 4, 2, 4, ?", 2)
+
+        # Bracketed equation families for higher-level variety.
+        # These keep integer answers and expand progressively.
+        if level >= 20:
+            # (a+b)*c and a*(b+c)
+            for a in range(2, max_num + 1):
+                for b in range(1, max_num + 1):
+                    for c in range(2, max(3, min(8, max_num)) + 1):
+                        _add(f"({a}+{b})*{c}", (a + b) * c)
+                        _add(f"{a}*({b}+{c})", a * (b + c))
+
+        if level >= 24:
+            # (a+b)-c and a-(b-c)
+            for a in range(3, max_num + 2):
+                for b in range(1, max_num + 1):
+                    for c in range(1, max_num + 1):
+                        left = (a + b) - c
+                        right = a - (b - c)
+                        _add(f"({a}+{b})-{c}", left)
+                        _add(f"{a}-({b}-{c})", right)
+
+        if level >= 28 and "*" in unlocked_ops and "-" in unlocked_ops:
+            # (a*b)-c and a*(b-c)
+            for a in range(2, max_num + 1):
+                for b in range(2, max(3, min(10, max_num + 1)) + 1):
+                    for c in range(1, min(8, (a * b) - 1) + 1):
+                        _add(f"({a}*{b})-{c}", (a * b) - c)
+                    for c in range(1, min(b - 1, 8) + 1):
+                        _add(f"{a}*({b}-{c})", a * (b - c))
+
+        if level >= 32 and "/" in unlocked_ops:
+            # (a*b)/c with exact division
+            for a in range(2, max_num + 1):
+                for c in range(2, max(3, min(9, max_num)) + 1):
+                    for k in range(1, max(2, min(6, max_num // 2)) + 1):
+                        b = c * k
+                        _add(f"({a}*{b})/{c}", (a * b) // c)
+
+        if level >= 36 and "*" in unlocked_ops:
+            # ((a+b)*c)-d
+            c_max = max(2, min(8, max_num))
+            for a in range(2, max_num + 1):
+                for b in range(1, max_num + 1):
+                    for c in range(2, c_max + 1):
+                        base = (a + b) * c
+                        for d in range(1, min(9, base - 1) + 1):
+                            _add(f"(({a}+{b})*{c})-{d}", base - d)
+
+        if level >= 40 and "/" in unlocked_ops:
+            # ((a+b)*c)/d with exact integer result
+            for a in range(2, max_num + 1):
+                for b in range(1, max_num + 1):
+                    for c in range(2, max(3, min(8, max_num)) + 1):
+                        base = (a + b) * c
+                        divisors = [d for d in range(2, min(12, base) + 1) if base % d == 0]
+                        for d in divisors[:4]:
+                            _add(f"(({a}+{b})*{c})/{d}", base // d)
+
+        if level >= 48 and "*" in unlocked_ops:
+            # a*(b+(c*d)) and (a+b)*(c+d)
+            small_max = max(3, min(9, max_num + 1))
+            for a in range(2, max_num + 1):
+                for b in range(1, small_max + 1):
+                    for c in range(2, small_max + 1):
+                        for d in range(2, small_max + 1):
+                            _add(f"{a}*({b}+({c}*{d}))", a * (b + (c * d)))
+                            _add(f"({a}+{b})*({c}+{d})", (a + b) * (c + d))
+
+        return questions
+
+    def _classify_maths_question_pattern(self, expr: str) -> str:
+        text = re.sub(r"\s+", " ", str(expr or "").strip().lower())
+        if not text:
+            return "other"
+        if "(" in text or ")" in text:
+            return "brackets"
+        if "?" in text and "=" in text:
+            if "*" in text:
+                return "missing_mul"
+            if "/" in text:
+                return "missing_div"
+            if "-" in text:
+                return "missing_sub"
+            if "+" in text:
+                return "missing_add"
+        if "then" in text:
+            return "sequence_then"
+        if "," in text and "?" in text:
+            return "sequence_list"
+        if text.count("+") >= 2 and "?" not in text:
+            return "repeat_add"
+        if "*" in text:
+            return "multiply"
+        if "/" in text:
+            return "divide"
+        if "-" in text:
+            return "subtract"
+        if "+" in text:
+            return "add"
+        return "other"
+
+    def _pick_maths_test_question(self, maths_range: int):
+        questions = self._build_maths_test_questions(maths_range)
+        if not questions:
+            return None
+
+        recent_questions = set(self._recent_maths_questions)
+        recent_patterns = set(self._recent_maths_patterns)
+        recent_answers = set(self._recent_maths_answers)
+
+        pattern_buckets = defaultdict(list)
+        for q in questions:
+            expr = re.sub(r"\s+", " ", str(q[0]).strip().lower())
+            if expr in recent_questions:
+                continue
+            pattern = self._classify_maths_question_pattern(q[0])
+            pattern_buckets[pattern].append(q)
+
+        if not pattern_buckets:
+            for q in questions:
+                pattern = self._classify_maths_question_pattern(q[0])
+                pattern_buckets[pattern].append(q)
+
+        available_patterns = [p for p in pattern_buckets.keys() if p not in recent_patterns]
+        if not available_patterns:
+            available_patterns = list(pattern_buckets.keys())
+
+        picked_pattern = self.get_varied_choice().choice(available_patterns)
+        candidate_pool = pattern_buckets.get(picked_pattern, questions)
+        non_recent_answer_pool = [q for q in candidate_pool if int(q[1]) not in recent_answers]
+        if non_recent_answer_pool:
+            candidate_pool = non_recent_answer_pool
+        picked = self.get_varied_choice().choice(candidate_pool)
+        if picked:
+            key = re.sub(r"\s+", " ", str(picked[0]).strip().lower())
+            self._recent_maths_questions.append(key)
+            self._recent_maths_patterns.append(self._classify_maths_question_pattern(picked[0]))
+            try:
+                self._recent_maths_answers.append(int(picked[1]))
+            except Exception:
+                pass
+        return picked
+
+    def _format_maths_question_line(self, expr: str):
+        text = str(expr or "").strip()
+        if not text:
+            return "?"
+        if text.endswith("?"):
+            return text
+        if "=" in text:
+            return text
+        return f"{text}="
+
+    def _format_maths_fact_statement(self, expr: str, expected: int):
+        text = str(expr or "").strip()
+        if not text:
+            return str(expected)
+        if "?" in text:
+            return text.replace("?", str(expected), 1)
+        if "=" in text:
+            if text.endswith("="):
+                return f"{text}{expected}"
+            return text
+        return f"{text}={expected}"
+
+    async def _ensure_maths_drop_fact(self, fact_key: str, fact_value: str, author: str):
+        key = str(fact_key or "").strip().lower()
+        if not key:
+            return
+
+        min_cap = 42069
+        existing = self.bot.bbyfacts.get(key)
+        if isinstance(existing, dict):
+            changed = False
+            if not str(existing.get("value", "")).strip():
+                existing["value"] = fact_value
+                changed = True
+            if self._get_fact_num_produced(key) < min_cap:
+                existing["num_produced"] = min_cap
+                changed = True
+            if changed:
+                data_manager.request_save("bbyfacts", urgent=True)
+            return
+
+        await self._set_bbyfact(
+            key=key,
+            value=fact_value,
+            author=author,
+            teach_bonus=42.0,
+            num_produced=min_cap,
+            debug_str="[_BBYMATHS_DROP] ",
+        )
+
+    async def _evaluate_baby_maths_answer(self, expr: str, expected: int):
+        question_line = self._format_maths_question_line(expr)
+        prompt = (
+            "maths test. answer with only the final number in digits.\n"
+            f"question: {question_line}\n"
+            "answer:"
+        )
+        response_text, _ = await self._generate_response_async(prompt, 8)
+        guess = self._extract_numeric_answer(response_text)
+        return guess == expected, guess, response_text
+
+    def _format_baby_maths_response_text(self, response_text: str) -> str:
+        text = str(response_text or "")
+        if eos_replacement_token_str and eos_token_str:
+            text = text.replace(eos_replacement_token_str, eos_token_str)
+        if sos_replacement_token_str and sos_token_str:
+            text = text.replace(sos_replacement_token_str, sos_token_str)
+        text = re.sub(r"\s+", " ", text).strip()
+        text = text.replace("`", "'")
+        if len(text) > 160:
+            text = text[:157].rstrip() + "..."
+        return text or "(empty answer)"
+
+    def _format_quiz_fact_statement(self, question_text: str, answer_text: str, *, topic_label: str = "") -> str:
+        question = re.sub(r"\s+", " ", str(question_text or "").strip())
+        answer = re.sub(r"\s+", " ", str(answer_text or "").strip())
+        topic = re.sub(r"\s+", " ", str(topic_label or "").replace("_", " ").strip())
+        if len(question) > 160:
+            question = question[:157].rstrip() + "..."
+        if len(answer) > 120:
+            answer = answer[:117].rstrip() + "..."
+        if topic:
+            return f'in a {topic} quiz, the question "{question}" is answered with "{answer}"'
+        return f'for the quiz question "{question}", the answer is "{answer}"'
+
+    def _format_quiz_card_training_statement(self, prompt_text: str, answer_preview: str, *, topic: str = "") -> str:
+        prompt = re.sub(r"\s+", " ", str(prompt_text or "").strip())
+        answers = re.sub(r"\s+", " ", str(answer_preview or "").strip())
+        topic_label = re.sub(r"\s+", " ", str(topic or "").replace("_", " ").strip())
+        if len(prompt) > 160:
+            prompt = prompt[:157].rstrip() + "..."
+        if len(answers) > 160:
+            answers = answers[:157].rstrip() + "..."
+        if topic_label:
+            return f'in a {topic_label} quiz, the prompt "{prompt}" accepts answers like {answers}'
+        return f'the quiz prompt "{prompt}" accepts answers like {answers}'
+
+    def _format_countdown_label(self, seconds: float) -> str:
+        total = max(0, int(math.ceil(float(seconds or 0.0))))
+        hours, rem = divmod(total, 3600)
+        mins, secs = divmod(rem, 60)
+        if hours > 0:
+            return f"{hours}h {mins:02d}m {secs:02d}s"
+        if mins > 0:
+            return f"{mins}m {secs:02d}s"
+        return f"{secs}s"
+
+    async def _start_live_countdown_on_message(
+        self,
+        message,
+        *,
+        get_remaining_seconds: Callable[[], float],
+        render_content: Callable[[float], str],
+        tick_seconds: float = 1.0,
+        is_active: Optional[Callable[[], bool]] = None,
+    ):
+        countdown_stop = asyncio.Event()
+        countdown_task = None
+        tick = max(0.1, float(tick_seconds or 1.0))
+
+        async def _run_countdown_edits():
+            if message is None or not hasattr(message, "edit"):
+                return
+            try:
+                last_display = round(max(0.0, float(get_remaining_seconds())), 1)
+            except Exception:
+                last_display = None
+            try:
+                while not countdown_stop.is_set():
+                    if is_active is not None:
+                        try:
+                            if not bool(is_active()):
+                                break
+                        except Exception:
+                            break
+                    try:
+                        remaining_raw = float(get_remaining_seconds())
+                    except Exception:
+                        remaining_raw = 0.0
+                    remaining = max(0.0, remaining_raw)
+                    current_display = round(remaining, 1)
+                    if last_display is None or current_display != last_display:
+                        await message.edit(content=render_content(current_display))
+                        last_display = current_display
+                    if remaining <= 0.0:
+                        break
+                    wait_for = max(0.05, min(tick, remaining))
+                    try:
+                        await asyncio.wait_for(countdown_stop.wait(), timeout=wait_for)
+                    except asyncio.TimeoutError:
+                        pass
+            except Exception:
+                pass
+
+        if message is not None and hasattr(message, "edit"):
+            countdown_task = asyncio.create_task(_run_countdown_edits())
+        return countdown_stop, countdown_task
+
+    async def _start_live_countdown_reply(
+        self,
+        ctx: commands.Context,
+        *,
+        duration_seconds: float,
+        render_content: Callable[[float], str],
+        tick_seconds: float = 1.0,
+    ):
+        start_display = max(0.0, round(float(duration_seconds), 1))
+        countdown_message = await self.bot._discord_reply(ctx, render_content(start_display))
+        start = time.monotonic()
+
+        def _remaining():
+            return max(0.0, start_display - (time.monotonic() - start))
+
+        countdown_stop, countdown_task = await self._start_live_countdown_on_message(
+            countdown_message,
+            get_remaining_seconds=_remaining,
+            render_content=render_content,
+            tick_seconds=tick_seconds,
+        )
+        return countdown_message, countdown_stop, countdown_task
+
+    async def _stop_live_countdown_reply(self, countdown_stop: Optional[asyncio.Event], countdown_task):
+        if countdown_stop is not None:
+            countdown_stop.set()
+        if countdown_task is not None:
+            try:
+                await countdown_task
+            except Exception:
+                pass
+
+    async def _attach_countdown_to_lex_session(
+        self,
+        session: dict,
+        message,
+        *,
+        get_remaining_seconds: Callable[[], float],
+        render_content: Callable[[float], str],
+        tick_seconds: float = 1.0,
+        mode: Optional[str] = None,
+    ):
+        if not isinstance(session, dict):
+            return
+        message_id = int(session.get("message_id", 0) or 0)
+
+        def _session_active():
+            current = self.bot.lex_sessions.get(message_id)
+            if not current:
+                return False
+            if mode and current.get("mode") != mode:
+                return False
+            return True
+
+        countdown_stop, countdown_task = await self._start_live_countdown_on_message(
+            message,
+            get_remaining_seconds=get_remaining_seconds,
+            render_content=render_content,
+            tick_seconds=tick_seconds,
+            is_active=_session_active,
+        )
+        session["countdown_stop"] = countdown_stop
+        session["countdown_task"] = countdown_task
+
+    async def _stop_lex_session_countdown(self, session: dict):
+        if not isinstance(session, dict):
+            return
+        countdown_stop = session.pop("countdown_stop", None)
+        countdown_task = session.pop("countdown_task", None)
+        await self._stop_live_countdown_reply(countdown_stop, countdown_task)
+
+    async def _close_lex_session(self, message_id: int):
+        session = self.bot.lex_sessions.pop(int(message_id), None)
+        if not isinstance(session, dict):
+            return None
+        task = session.get("task")
+        current_task = asyncio.current_task()
+        if task and task is not current_task and not task.done():
+            try:
+                task.cancel()
+            except Exception:
+                pass
+        await self._stop_lex_session_countdown(session)
+        return session
+
+    async def _wait_for_message_with_live_countdown(
+        self,
+        ctx: commands.Context,
+        *,
+        timeout_seconds: float,
+        check,
+        render_content: Callable[[float], str],
+        tick_seconds: float = 1.0,
+    ):
+        _, countdown_stop, countdown_task = await self._start_live_countdown_reply(
+            ctx,
+            duration_seconds=timeout_seconds,
+            render_content=render_content,
+            tick_seconds=tick_seconds,
+        )
+        user_msg = None
+        timed_out = False
+        try:
+            user_msg = await self.bot.wait_for(
+                "message",
+                timeout=max(0.1, float(timeout_seconds)),
+                check=check,
+            )
+        except asyncio.TimeoutError:
+            timed_out = True
+        finally:
+            await self._stop_live_countdown_reply(countdown_stop, countdown_task)
+        return user_msg, timed_out
+
+    async def _run_maths_level_test(self, maths_range: int):
+        picked = self._pick_maths_test_question(maths_range)
+        if not picked:
+            return True, 0, 0
+
+        expr, expected = picked
+        passed, _, _ = await self._evaluate_baby_maths_answer(expr, expected)
+        correct = 1 if passed else 0
+        total = 1
+        return passed, correct, total
+
+    async def _maybe_advance_maths_level(self):
+        try:
+            current = int(getattr(self.bot, "lessonMathsRange", 0))
+        except Exception:
+            current = 0
+
+        if current <= 0:
+            self.bot.lessonMathsRange = 1
+            try:
+                self.bot._save_baby_state()
+            except Exception:
+                pass
+            return {
+                "current_level": 1,
+                "new_level": 1,
+                "passed": True,
+                "correct": 0,
+                "total": 0,
+                "note": "maths test: baseline unlocked at level 1",
+            }
+
+        passed, correct, total = await self._run_maths_level_test(current)
+        new_level = current + 1 if passed else current
+        if new_level != current:
+            self.bot.lessonMathsRange = new_level
+            try:
+                self.bot._save_baby_state()
+            except Exception:
+                pass
+
+        note = (
+            f"maths test: {correct}/{total} correct, level up to {new_level}"
+            if passed
+            else f"maths test: {correct}/{total} correct, staying at level {current}"
+        )
+        return {
+            "current_level": current,
+            "new_level": new_level,
+            "passed": passed,
+            "correct": correct,
+            "total": total,
+            "note": note,
+        }
+
+    def _check_and_track_hourly_limit(
+        self,
+        mem: dict,
+        *,
+        bucket_key: str,
+        window_seconds: int = 60 * 60,
+        max_uses: int = 10,
+    ):
+        if not isinstance(mem, dict):
+            mem = {}
+        now = time.time()
+
+        raw_timestamps = mem.get(bucket_key, [])
+        if not isinstance(raw_timestamps, list):
+            raw_timestamps = []
+
+        recent = []
+        for ts in raw_timestamps:
+            try:
+                tsf = float(ts)
+            except Exception:
+                continue
+            if tsf <= now and (now - tsf) < window_seconds:
+                recent.append(tsf)
+
+        recent.sort()
+
+        if len(recent) >= max_uses:
+            retry_after = max(0.0, window_seconds - (now - recent[0]))
+            mem[bucket_key] = recent[-max_uses:]
+            return False, retry_after
+
+        recent.append(now)
+        mem[bucket_key] = recent[-max_uses:]
+        return True, 0.0
+
+    def _check_and_track_bbymaths_hourly_limit(self, mem: dict):
+        return self._check_and_track_hourly_limit(
+            mem,
+            bucket_key="bbymaths_use_timestamps",
+            window_seconds=60 * 60,
+            max_uses=10,
+        )
+
+    def _check_and_track_bbyquiz_hourly_limit(self, mem: dict):
+        return self._check_and_track_hourly_limit(
+            mem,
+            bucket_key="bbyquiz_use_timestamps",
+            window_seconds=60 * 60,
+            max_uses=10,
+        )
+
+    def _get_player_maths_state(self, user_key: str):
+        resolved_user = str(user_key or "").strip().lower()
+        if hasattr(self.bot, "normalise_user_identity"):
+            resolved_user = self.bot.normalise_user_identity(resolved_user)
+        should_persist = (
+            bool(resolved_user)
+            and hasattr(self.bot, "should_persist_user_state")
+            and self.bot.should_persist_user_state(resolved_user)
+        )
+
+        if should_persist:
+            mem = self.bot.userMemory.get(resolved_user)
+            if not isinstance(mem, dict):
+                mem = self.bot._get_default_user_memory()
+                self.bot.userMemory[resolved_user] = mem
+        else:
+            mem = dict(self.bot._get_default_user_memory())
+        level = max(1, int(mem.get("maths_level", 1)))
+        wins = max(0, int(mem.get("maths_wins", 0)))
+        losses = max(0, int(mem.get("maths_losses", 0)))
+        streak = int(mem.get("maths_streak", 0))
+        best = max(level, int(mem.get("maths_best_level", level)))
+        progress = max(0, int(mem.get("maths_level_progress", 0)))
+        down_progress = max(0, int(mem.get("maths_level_down_progress", 0)))
+        return mem, level, wins, losses, streak, best, progress, down_progress
+
+    def _maths_level_up_requirement(self, level: int):
+        lvl = max(1, int(level))
+        # Deliberately slow progression for a long-running 10-uses/hour game loop.
+        return max(7, min(40, 7 + (lvl // 2)))
+
+    def _maths_level_down_requirement(self, level: int):
+        lvl = max(1, int(level))
+        return max(3, min(18, 3 + (lvl // 5)))
+
+    def _maths_timeout_for_level(self, level: int):
+        r1 = float(getattr(self.bot, "random", random.random()))
+        r2 = float(getattr(self.bot, "random2", random.random()))
+        r4 = float(getattr(self.bot, "random4", random.random()))
+        blended_random = (r1 + r2 + r4) / 3.0
+        bonus_per_level = 0.25 + (0.35 * blended_random)  # ~0.25 .. ~0.60s per level
+        timeout = 4.2 + max(0, int(level) - 1) * bonus_per_level
+        timeout = max(3.5, min(18.0, timeout))
+        return timeout, bonus_per_level
+
+    def _maths_level_down_chance(self, level: int):
+        lvl = max(1, int(level))
+        # Starts at 10% and scales up 1% per level, capped for sanity.
+        chance = 0.10 + ((lvl - 1) * 0.01)
+        return max(0.10, min(0.90, chance))
+
+    def _normalise_bbyquiz_topic(self, topic: str) -> str:
+        raw = re.sub(r"\s+", " ", str(topic or "").strip().lower())
+        if not raw:
+            return ""
+        aliases = {
+            "if_then": {
+                "if_then",
+                "if then",
+                "if-this-then-that",
+                "if this then that",
+                "logic",
+                "rules",
+            },
+            "greeting": {"greeting", "greetings", "hello", "social"},
+            "spelling": {"spelling", "spell"},
+            "emotions": {"emotion", "emotions", "feels", "feelings"},
+            "colours": {"colour", "colours", "color", "colors"},
+            "synonyms": {"synonym", "synonyms", "syn"},
+            "antonyms": {"antonym", "antonyms", "ant"},
+            "cooking": {"cooking", "cook", "food", "kitchen"},
+            "sequences": {"sequence", "sequences", "pattern", "patterns"},
+            "maths": {"maths", "math", "numbers", "number", "arithmetic"},
+        }
+        for canonical, names in aliases.items():
+            if raw in names:
+                return canonical
+        return raw
+
+    def _normalise_bbyquiz_text(self, text: str) -> str:
+        out = str(text or "").lower().replace("’", "'")
+        out = re.sub(r"<:([a-z0-9_~\-]+):\d+>", r":\1:", out)
+        out = re.sub(r"[^a-z0-9' ]+", " ", out)
+        out = re.sub(r"\s+", " ", out).strip()
+        return out
+
+    def _quiz_topic_to_hidden_stats(self):
+        return {
+            "if_then": {"knowledge", "administration"},
+            "greeting": {"bonding"},
+            "spelling": {"knowledge"},
+            "emotions": {"bonding", "curiosity"},
+            "colours": {"curiosity"},
+            "synonyms": {"knowledge", "curiosity"},
+            "antonyms": {"knowledge", "curiosity"},
+            "cooking": {"cooking"},
+            "sequences": {"knowledge", "curiosity"},
+            "maths": {"knowledge", "earning"},
+        }
+
+    def _get_user_quiz_focus_topics(self, user_key: str):
+        user_id = str(user_key or "").strip().lower()
+        mem = self.bot.userMemory.get(user_id)
+        if not isinstance(mem, dict):
+            return set()
+        hidden_stats = mem.get("hidden_stats")
+        if not isinstance(hidden_stats, dict):
+            return set()
+        ranked_stats = []
+        for key, val in hidden_stats.items():
+            try:
+                amount = float(val)
+            except Exception:
+                continue
+            if amount <= 0:
+                continue
+            ranked_stats.append((str(key).strip().lower(), amount))
+        ranked_stats.sort(key=lambda x: x[1], reverse=True)
+        top_stats = [name for name, _ in ranked_stats[:3]]
+        if not top_stats:
+            return set()
+
+        mapping = self._quiz_topic_to_hidden_stats()
+        fav_topics = set()
+        for topic, stats in mapping.items():
+            if any(stat in stats for stat in top_stats):
+                fav_topics.add(topic)
+        return fav_topics
+
+    def _get_baby_quiz_memory(self):
+        baby_key = self.bot.get_bot_identity_key() if hasattr(self.bot, "get_bot_identity_key") else "babyllm"
+        baby_mem = self.bot.userMemory.get(baby_key)
+        if not isinstance(baby_mem, dict):
+            baby_mem = self.bot._get_default_user_memory()
+            self.bot.userMemory[baby_key] = baby_mem
+        return baby_key, baby_mem
+
+    def _get_quiz_custom_cards(self):
+        _, baby_mem = self._get_baby_quiz_memory()
+        cards = baby_mem.get("quiz_custom_cards")
+        if not isinstance(cards, list):
+            cards = []
+            baby_mem["quiz_custom_cards"] = cards
+        return cards
+
+    def _infer_quiz_stat_for_topic(self, topic: str) -> str:
+        topic_key = self._normalise_bbyquiz_topic(topic)
+        mapping = self._quiz_topic_to_hidden_stats()
+        stats = mapping.get(topic_key, {"knowledge"})
+        return sorted(stats)[0] if stats else "knowledge"
+
+    def _infer_quiz_mode_for_answers(self, answers):
+        cleaned = [self._normalise_bbyquiz_text(a) for a in (answers or [])]
+        cleaned = [a for a in cleaned if a]
+        if not cleaned:
+            return "contains_any"
+        nums = [self._extract_numeric_answer(a) for a in cleaned]
+        if all(n is not None for n in nums) and len(set(nums)) == 1:
+            return "number"
+        if len(cleaned) == 1 and len(cleaned[0].split()) == 1:
+            return "exact"
+        return "contains_any"
+
+    def _persist_quiz_custom_cards(self):
+        try:
+            data_manager.request_save("user_data")
+        except Exception:
+            pass
+        try:
+            self.bot._save_baby_state()
+        except Exception:
+            pass
+
+    def _resolve_bbyfact_key_reference(self, raw_key: str) -> str:
+        needle = self._normalise_fact_key_for_matching(raw_key)
+        if not needle:
+            return ""
+        if needle in self.bot.bbyfacts:
+            return needle
+        for existing_key in self.bot.bbyfacts.keys():
+            if self._normalise_fact_key_for_matching(existing_key) == needle:
+                return str(existing_key).strip().lower()
+        return ""
+
+    def _parse_quiz_answer_spec(self, answers_raw: str):
+        pieces = [
+            p.strip()
+            for p in re.split(r"\s*(?:/|,|;)\s*", str(answers_raw or ""))
+            if p.strip()
+        ][:12]
+        normal_answers = []
+        fact_refs = []
+        seen_refs = set()
+        for part in pieces:
+            m = re.fullmatch(r"(?i)(fact|factkey|factvalue)\[(.+?)\]", part.strip())
+            if m:
+                mode_raw = m.group(1).lower()
+                ref_kind = {"fact": "both", "factkey": "key", "factvalue": "value"}.get(mode_raw, "both")
+                resolved_key = self._resolve_bbyfact_key_reference(m.group(2))
+                if not resolved_key:
+                    resolved_key = self._normalise_fact_key_for_matching(m.group(2))
+                ref_sig = (resolved_key, ref_kind)
+                if resolved_key and ref_sig not in seen_refs:
+                    fact_refs.append({"key": resolved_key, "kind": ref_kind})
+                    seen_refs.add(ref_sig)
+                continue
+
+            norm = self._normalise_bbyquiz_text(part)
+            if norm and len(norm) <= 64:
+                normal_answers.append(norm)
+
+        return list(dict.fromkeys(normal_answers)), fact_refs
+
+    def _resolve_quiz_fact_reference_answers(self, fact_refs):
+        resolved_answers = []
+        missing_refs = []
+        for ref in (fact_refs or []):
+            if not isinstance(ref, dict):
+                continue
+            key = self._resolve_bbyfact_key_reference(ref.get("key", ""))
+            kind = str(ref.get("kind", "both")).strip().lower()
+            if kind not in {"both", "key", "value"}:
+                kind = "both"
+            if not key:
+                raw_key = self._normalise_fact_key_for_matching(ref.get("key", ""))
+                if raw_key:
+                    missing_refs.append(raw_key)
+                continue
+            fact_data = self.bot.bbyfacts.get(key)
+            if not isinstance(fact_data, dict):
+                missing_refs.append(key)
+                continue
+            if kind in {"both", "key"}:
+                key_norm = self._normalise_bbyquiz_text(key)
+                if key_norm:
+                    resolved_answers.append(key_norm)
+            if kind in {"both", "value"}:
+                value_norm = self._normalise_bbyquiz_text(str(fact_data.get("value", "")))
+                if value_norm:
+                    resolved_answers.append(value_norm)
+        return list(dict.fromkeys(resolved_answers)), list(dict.fromkeys(missing_refs))
+
+    def _add_custom_quiz_card(
+        self,
+        *,
+        topic: str,
+        prompt: str,
+        answers,
+        fact_refs,
+        author: str,
+        mode: str = "",
+        min_level: int = 1,
+    ):
+        topic_key = self._normalise_bbyquiz_topic(topic)
+        prompt_text = re.sub(r"\s+", " ", str(prompt or "").strip())
+        answer_list = []
+        for a in (answers or []):
+            norm = self._normalise_bbyquiz_text(a)
+            if norm:
+                answer_list.append(norm)
+        answer_list = list(dict.fromkeys(answer_list))
+        refs = []
+        for ref in (fact_refs or []):
+            if not isinstance(ref, dict):
+                continue
+            ref_key = self._resolve_bbyfact_key_reference(ref.get("key", ""))
+            if not ref_key:
+                ref_key = self._normalise_fact_key_for_matching(ref.get("key", ""))
+            ref_kind = str(ref.get("kind", "both")).strip().lower()
+            if ref_kind not in {"both", "key", "value"}:
+                ref_kind = "both"
+            if ref_key:
+                refs.append({"key": ref_key, "kind": ref_kind})
+        refs = list({(r["key"], r["kind"]): r for r in refs}.values())
+
+        if not topic_key or not prompt_text or (not answer_list and not refs):
+            return None, "invalid"
+
+        cards = self._get_quiz_custom_cards()
+        prompt_key = prompt_text.lower()
+        for card in cards:
+            if not isinstance(card, dict):
+                continue
+            existing_topic = self._normalise_bbyquiz_topic(card.get("topic", ""))
+            existing_prompt = re.sub(r"\s+", " ", str(card.get("prompt", "")).strip()).lower()
+            if existing_topic == topic_key and existing_prompt == prompt_key:
+                return None, "duplicate"
+
+        card_id = f"{int(time.time())}{int(self.get_varied_random() * 10000):04d}"
+        card = {
+            "id": card_id,
+            "topic": topic_key,
+            "prompt": prompt_text,
+            "expected": answer_list[0] if answer_list else "",
+            "answers": answer_list,
+            "fact_refs": refs,
+            "mode": (mode or self._infer_quiz_mode_for_answers(answer_list)),
+            "stat": self._infer_quiz_stat_for_topic(topic_key),
+            "author": str(author or "").strip().lower(),
+            "min_level": max(1, int(min_level)),
+            "created_at": float(time.time()),
+            "plays": 0,
+            "human_correct": 0,
+            "baby_correct": 0,
+            "trust": 0.0,
+        }
+        cards.append(card)
+
+        # Keep the bank bounded while preserving stronger cards.
+        max_cards = 1200
+        if len(cards) > max_cards:
+            def _score(entry):
+                try:
+                    trust = float(entry.get("trust", 0.0))
+                except Exception:
+                    trust = 0.0
+                plays = max(0, int(entry.get("plays", 0)))
+                created = float(entry.get("created_at", 0.0) or 0.0)
+                return (trust * 10.0) + plays + (created / 1_000_000_000.0)
+            cards.sort(key=_score, reverse=True)
+            del cards[max_cards:]
+
+        self._persist_quiz_custom_cards()
+        return card, ""
+
+    def _update_custom_quiz_card_outcome(self, card_id: str, *, user_correct: bool, baby_correct: bool):
+        cid = str(card_id or "").strip()
+        if not cid:
+            return None
+        cards = self._get_quiz_custom_cards()
+        for card in cards:
+            if not isinstance(card, dict):
+                continue
+            if str(card.get("id", "")).strip() != cid:
+                continue
+            card["plays"] = max(0, int(card.get("plays", 0))) + 1
+            if user_correct:
+                card["human_correct"] = max(0, int(card.get("human_correct", 0))) + 1
+            if baby_correct:
+                card["baby_correct"] = max(0, int(card.get("baby_correct", 0))) + 1
+
+            trust = float(card.get("trust", 0.0) or 0.0)
+            if user_correct and baby_correct:
+                trust += 1.0
+            elif user_correct or baby_correct:
+                trust += 0.35
+            else:
+                trust -= 0.5
+            trust = max(-12.0, min(120.0, trust))
+            card["trust"] = trust
+            self._persist_quiz_custom_cards()
+            return card
+        return None
+
+    def _build_bbyquiz_questions(self, quiz_level: int):
+        level = max(1, int(quiz_level))
+        questions = []
+        seen = set()
+
+        def _add(
+            qid: str,
+            topic: str,
+            prompt: str,
+            expected: str,
+            *,
+            answers=None,
+            mode: str = "exact",
+            stat: str = "knowledge",
+            min_level: int = 1,
+            source: str = "builtin",
+            card_id: str = "",
+            trust: float = 0.0,
+            author: str = "",
+            fact_refs=None,
+        ):
+            if level < int(min_level):
+                return
+            prompt_text = re.sub(r"\s+", " ", str(prompt or "").strip())
+            expected_text = re.sub(r"\s+", " ", str(expected or "").strip())
+            if not prompt_text or not expected_text:
+                return
+            key = (str(qid or "").strip().lower(), topic, prompt_text.lower())
+            if key in seen:
+                return
+            seen.add(key)
+
+            accepted = []
+            for item in (answers or [expected_text]):
+                normal = self._normalise_bbyquiz_text(item)
+                if normal:
+                    accepted.append(normal)
+            if not accepted:
+                return
+
+            questions.append(
+                {
+                    "id": str(qid or prompt_text).strip().lower(),
+                    "topic": str(topic or "general").strip().lower(),
+                    "prompt": prompt_text,
+                    "expected": expected_text,
+                    "answers": list(dict.fromkeys(accepted)),
+                    "mode": str(mode or "exact").strip().lower(),
+                    "stat": str(stat or "knowledge").strip().lower(),
+                    "source": str(source or "builtin").strip().lower(),
+                    "card_id": str(card_id or "").strip(),
+                    "trust": float(trust or 0.0),
+                    "author": str(author or "").strip().lower(),
+                    "fact_refs": fact_refs if isinstance(fact_refs, list) else [],
+                }
+            )
+
+        # if-this-then-that
+        _add("if_hungry", "if_then", "complete: if hungry then ___", "eat", answers=["eat", "eat food"], mode="contains_any", stat="knowledge")
+        _add("if_thirsty", "if_then", "complete: if thirsty then ___", "drink water", answers=["drink", "drink water", "water"], mode="contains_any", stat="knowledge")
+        _add("if_confused", "if_then", "complete: if confused then ___", "ask a question", answers=["ask", "ask a question", "ask for help"], mode="contains_any", stat="knowledge", min_level=2)
+        _add("if_unknown", "if_then", "complete: if i dont know then i can say ___", "i dont know", answers=["i dont know", "i do not know", "dont know"], mode="contains_any", stat="knowledge", min_level=3)
+        _add("if_mean", "if_then", "complete: if a message is mean then ___", "stay calm", answers=["stay calm", "calm"], mode="contains_any", stat="bonding", min_level=6)
+
+        # greetings and basic chat
+        _add("hello_are", "greeting", "fill in the blank: hello, how ___ you?", "are", answers=["are"], mode="exact", stat="bonding")
+        _add("polite_thanks", "greeting", "what can you say when someone helps you?", "thank you", answers=["thanks", "thank you", "ty"], mode="contains_any", stat="bonding")
+        _add("friendly_reply", "greeting", "a friend says hello! give one friendly reply.", "hello", answers=["hello", "hi", "hey"], mode="contains_any", stat="bonding", min_level=2)
+
+        # spelling
+        _add("spell_receive", "spelling", "which spelling is right: recieve or receive?", "receive", answers=["receive"], mode="exact", stat="knowledge", min_level=3)
+        _add("spell_definitely", "spelling", "which spelling is right: definately or definitely?", "definitely", answers=["definitely"], mode="exact", stat="knowledge", min_level=5)
+        _add("spell_separate", "spelling", "which spelling is right: seperate or separate?", "separate", answers=["separate"], mode="exact", stat="knowledge", min_level=8)
+        _add("spell_occurrence", "spelling", "which spelling is right: occurrance or occurrence?", "occurrence", answers=["occurrence"], mode="exact", stat="knowledge", min_level=12)
+
+        # emotions
+        _add("emotion_sad", "emotions", "emotion check: i lost my toy and im crying. i feel ___", "sad", answers=["sad", "upset"], mode="contains_any", stat="bonding", min_level=2)
+        _add("emotion_happy", "emotions", "emotion check: i got a gift and im smiling. i feel ___", "happy", answers=["happy", "excited", "joyful"], mode="contains_any", stat="bonding", min_level=2)
+        _add("emotion_scared", "emotions", "emotion check: thunder is loud and i hide. i feel ___", "scared", answers=["scared", "afraid", "nervous"], mode="contains_any", stat="bonding", min_level=6)
+
+        # colours
+        _add("color_grass", "colours", "what colour is grass usually?", "green", answers=["green"], mode="exact", stat="curiosity")
+        _add("color_sky", "colours", "what colour is the clear daytime sky?", "blue", answers=["blue"], mode="exact", stat="curiosity")
+        _add("mix_red_yellow", "colours", "mixing red and yellow makes what colour?", "orange", answers=["orange"], mode="exact", stat="curiosity", min_level=2)
+        _add("mix_red_blue", "colours", "mixing red and blue makes what colour?", "purple", answers=["purple"], mode="exact", stat="curiosity", min_level=4)
+        _add("mix_blue_yellow", "colours", "mixing blue and yellow makes what colour?", "green", answers=["green"], mode="exact", stat="curiosity", min_level=5)
+
+        # synonyms
+        _add("syn_quick", "synonyms", "give one synonym for quick", "fast", answers=["fast", "rapid"], mode="contains_any", stat="knowledge", min_level=7)
+        _add("syn_small", "synonyms", "give one synonym for small", "tiny", answers=["tiny", "little"], mode="contains_any", stat="knowledge", min_level=7)
+        _add("syn_begin", "synonyms", "give one synonym for begin", "start", answers=["start", "commence"], mode="contains_any", stat="knowledge", min_level=9)
+
+        # antonyms
+        _add("ant_hot", "antonyms", "give one antonym for hot", "cold", answers=["cold"], mode="contains_any", stat="knowledge", min_level=9)
+        _add("ant_up", "antonyms", "give one antonym for up", "down", answers=["down"], mode="contains_any", stat="knowledge", min_level=9)
+        _add("ant_noisy", "antonyms", "give one antonym for noisy", "quiet", answers=["quiet", "silent"], mode="contains_any", stat="knowledge", min_level=11)
+
+        # cooking basics
+        _add("cook_pasta", "cooking", "to cook pasta, what liquid do you usually use?", "water", answers=["water"], mode="contains_any", stat="cooking", min_level=6)
+        _add("cook_toast", "cooking", "bread in a toaster becomes ___", "toast", answers=["toast"], mode="contains_any", stat="cooking", min_level=6)
+        _add("cook_raw", "cooking", "food before cooking is usually called ___", "raw", answers=["raw"], mode="contains_any", stat="cooking", min_level=10)
+        _add("cook_boil", "cooking", "water starts bubbling hard when it ___", "boils", answers=["boil", "boils"], mode="contains_any", stat="cooking", min_level=12)
+
+        # sequences/patterns
+        _add("seq_simple", "sequences", "sequence: 1 then 2 then 3 then ?", "4", answers=["4"], mode="number", stat="knowledge", min_level=4)
+        _add("seq_even", "sequences", "sequence: 2, 4, 6, ?", "8", answers=["8"], mode="number", stat="knowledge", min_level=6)
+        _add("seq_squares", "sequences", "sequence: 1, 4, 9, ?", "16", answers=["16"], mode="number", stat="knowledge", min_level=12)
+
+        # light arithmetic within quiz
+        _add("quiz_math_1", "maths", "quick one: what is 3+4?", "7", answers=["7"], mode="number", stat="knowledge", min_level=5)
+        _add("quiz_math_2", "maths", "quick one: what is 9-5?", "4", answers=["4"], mode="number", stat="knowledge", min_level=7)
+        _add("quiz_math_3", "maths", "quick one: what is 6*3?", "18", answers=["18"], mode="number", stat="knowledge", min_level=12)
+        _add("quiz_math_4", "maths", "quick one: what is 24/6?", "4", answers=["4"], mode="number", stat="knowledge", min_level=14)
+
+        # Community-contributed cards
+        for card in self._get_quiz_custom_cards():
+            if not isinstance(card, dict):
+                continue
+            topic = self._normalise_bbyquiz_topic(card.get("topic", ""))
+            prompt = re.sub(r"\s+", " ", str(card.get("prompt", "")).strip())
+            answers = card.get("answers") if isinstance(card.get("answers"), list) else []
+            answers = [self._normalise_bbyquiz_text(a) for a in answers if self._normalise_bbyquiz_text(a)]
+            fact_refs = card.get("fact_refs") if isinstance(card.get("fact_refs"), list) else []
+            ref_answers, _ = self._resolve_quiz_fact_reference_answers(fact_refs)
+            merged_answers = list(dict.fromkeys(answers + ref_answers))
+            if not topic or not prompt or not merged_answers:
+                continue
+
+            try:
+                trust = float(card.get("trust", 0.0) or 0.0)
+            except Exception:
+                trust = 0.0
+            if trust <= -6.0:
+                continue
+
+            min_level = max(1, int(card.get("min_level", 1) or 1))
+            mode = str(card.get("mode", "")).strip().lower() or self._infer_quiz_mode_for_answers(merged_answers)
+            stat = str(card.get("stat", "")).strip().lower() or self._infer_quiz_stat_for_topic(topic)
+            card_id = str(card.get("id", "")).strip()
+            author = str(card.get("author", "")).strip().lower()
+            expected = str(card.get("expected", "")).strip() or merged_answers[0]
+            qid = f"custom:{card_id or prompt.lower()}"
+
+            _add(
+                qid,
+                topic,
+                prompt,
+                expected,
+                answers=merged_answers,
+                mode=mode,
+                stat=stat,
+                min_level=min_level,
+                source="custom",
+                card_id=card_id,
+                trust=trust,
+                author=author,
+                fact_refs=fact_refs,
+            )
+
+        return questions
+
+    def _quiz_phrase_in_text(self, phrase: str, text: str) -> bool:
+        p = self._normalise_bbyquiz_text(phrase)
+        t = self._normalise_bbyquiz_text(text)
+        if not p or not t:
+            return False
+        if p == t:
+            return True
+        return re.search(rf"(?:^| ){re.escape(p)}(?:$| )", t) is not None
+
+    def _score_bbyquiz_answer(self, question: dict, response_text: str):
+        q = question if isinstance(question, dict) else {}
+        mode = str(q.get("mode", "exact")).strip().lower()
+        answers = q.get("answers") if isinstance(q.get("answers"), list) else []
+        raw_text = str(response_text or "")
+        normalized = self._normalise_bbyquiz_text(raw_text)
+
+        if mode == "number":
+            expected = self._extract_numeric_answer(" ".join(answers)) if answers else None
+            guess = self._extract_numeric_answer(raw_text)
+            return (guess is not None and expected is not None and guess == expected), guess
+
+        if mode == "contains_all":
+            token_set = set(normalized.split())
+            required = [self._normalise_bbyquiz_text(a) for a in answers if self._normalise_bbyquiz_text(a)]
+            ok = all(req in token_set for req in required)
+            return ok, normalized
+
+        if mode == "contains_any":
+            ok = any(self._quiz_phrase_in_text(ans, normalized) for ans in answers)
+            return ok, normalized
+
+        # exact
+        accepted = {self._normalise_bbyquiz_text(a) for a in answers if self._normalise_bbyquiz_text(a)}
+        return normalized in accepted, normalized
+
+    async def _evaluate_baby_quiz_answer(self, question: dict):
+        q = question if isinstance(question, dict) else {}
+        prompt = (
+            "quiz time. answer in a short phrase only.\n"
+            f"topic: {q.get('topic', 'general')}\n"
+            f"question: {q.get('prompt', '?')}\n"
+            "answer:"
+        )
+        response_text, _ = await self._generate_response_async(prompt, 14)
+        correct, parsed = self._score_bbyquiz_answer(q, response_text)
+        return correct, parsed, response_text
+
+    def _pick_bbyquiz_question(self, quiz_level: int, *, user_key: str = "", requested_topic: str = ""):
+        questions = self._build_bbyquiz_questions(quiz_level)
+        if not questions:
+            return None
+
+        topic_filter = self._normalise_bbyquiz_topic(requested_topic)
+        if topic_filter:
+            questions = [q for q in questions if q.get("topic") == topic_filter]
+            if not questions:
+                return None
+
+        recent_ids = set(self._recent_bbyquiz_questions)
+        recent_topics = set(self._recent_bbyquiz_topics)
+        pool = [q for q in questions if q.get("id") not in recent_ids]
+        if not pool:
+            pool = list(questions)
+
+        preferred_topics = self._get_user_quiz_focus_topics(user_key)
+        weighted = []
+        for q in pool:
+            topic = str(q.get("topic", "")).strip().lower()
+            weight = 1.0
+            if topic in preferred_topics:
+                weight += 1.2
+            if topic not in recent_topics:
+                weight += 0.5
+            if str(q.get("source", "")).strip().lower() == "custom":
+                try:
+                    trust = float(q.get("trust", 0.0) or 0.0)
+                except Exception:
+                    trust = 0.0
+                weight += 0.35 + max(-0.25, min(2.0, trust * 0.1))
+            weighted.append((q, max(0.1, weight)))
+
+        total = sum(w for _, w in weighted)
+        if total <= 0:
+            picked = self.get_varied_choice().choice(pool)
+        else:
+            roll = self.get_varied_random() * total
+            cursor = 0.0
+            picked = weighted[-1][0]
+            for candidate, weight in weighted:
+                cursor += weight
+                if roll <= cursor:
+                    picked = candidate
+                    break
+
+        qid = str(picked.get("id", "")).strip().lower()
+        topic = str(picked.get("topic", "")).strip().lower()
+        if qid:
+            self._recent_bbyquiz_questions.append(qid)
+        if topic:
+            self._recent_bbyquiz_topics.append(topic)
+        return picked
+
+    def _get_player_quiz_state(self, user_key: str):
+        resolved_user = str(user_key or "").strip().lower()
+        if hasattr(self.bot, "normalise_user_identity"):
+            resolved_user = self.bot.normalise_user_identity(resolved_user)
+        should_persist = (
+            bool(resolved_user)
+            and hasattr(self.bot, "should_persist_user_state")
+            and self.bot.should_persist_user_state(resolved_user)
+        )
+
+        if should_persist:
+            mem = self.bot.userMemory.get(resolved_user)
+            if not isinstance(mem, dict):
+                mem = self.bot._get_default_user_memory()
+                self.bot.userMemory[resolved_user] = mem
+        else:
+            mem = dict(self.bot._get_default_user_memory())
+
+        level = max(1, int(mem.get("quiz_level", 1)))
+        wins = max(0, int(mem.get("quiz_wins", 0)))
+        losses = max(0, int(mem.get("quiz_losses", 0)))
+        streak = int(mem.get("quiz_streak", 0))
+        best = max(level, int(mem.get("quiz_best_level", level)))
+        progress = max(0, int(mem.get("quiz_level_progress", 0)))
+        down_progress = max(0, int(mem.get("quiz_level_down_progress", 0)))
+        return mem, level, wins, losses, streak, best, progress, down_progress
+
+    def _quiz_timeout_for_level(self, level: int):
+        r1 = float(getattr(self.bot, "random", random.random()))
+        r2 = float(getattr(self.bot, "random2", random.random()))
+        r4 = float(getattr(self.bot, "random4", random.random()))
+        blend = (r1 + r2 + r4) / 3.0
+        bonus_per_level = 0.18 + (0.22 * blend)  # ~0.18 .. ~0.40s
+        timeout = 5.5 + max(0, int(level) - 1) * bonus_per_level
+        timeout = max(4.5, min(14.0, timeout))
+        return timeout, bonus_per_level
+
+    def _build_maths_lesson_lines(self, table_n: int):
+        table_n = max(1, int(table_n))
+        unlocked_ops = self._maths_unlocked_ops(table_n)
+        ops_label = ", ".join(unlocked_ops)
+        lines = [
+            f"maths table range is now 1 to {table_n}",
+            f"operators unlocked right now: {ops_label}",
+        ]
+        repeat_values = list(range(2, table_n + 1))
+        if not repeat_values:
+            repeat_values = [2]
+
+        for repeat in repeat_values:
+            repeat_word = self._number_to_words(repeat)
+            for base in range(1, table_n + 1):
+                base_word = self._number_to_words(base)
+                product = base * repeat
+                product_word = self._number_to_words(product)
+                difference = product - base
+                difference_word = self._number_to_words(difference)
+
+                plus_expr = "+".join([str(base)] * repeat)
+                lines.append(f"{plus_expr}={product}")
+
+                lines.append(f"{base}*{repeat}={product}")
+                lines.append(f"{product}-{base}={difference}")
+                lines.append(f"{product}/{base}={repeat}")
+
+                if repeat <= 10:
+                    plus_words = " plus ".join([base_word] * repeat)
+                else:
+                    plus_words = f"{base_word} added {repeat_word} times"
+                lines.append(f"{plus_words} equals {product_word}")
+                lines.append(f"{base_word} times {repeat_word} equals {product_word}")
+                lines.append(f"{product_word} minus {base_word} equals {difference_word}")
+                lines.append(f"{product_word} divided by {base_word} equals {repeat_word}")
+
+        # Add sequence-style maths ideas progressively as level grows.
+        lines.append("sequence: 1 then 2 then 3 then 4")
+        if table_n >= 4:
+            lines.append("sequence: 2 then 4 then 6 then 8")
+        if table_n >= 7:
+            lines.append("sequence: 9 then 8 then 7 then 6")
+        if table_n >= 10:
+            lines.append("sequence: 1, 4, 9, 16")
+        if table_n >= 13:
+            lines.append("sequence: 1, 3, 6, 10")
+        if table_n >= 16:
+            lines.append("sequence: 2, 4, 8, 16")
+        if table_n >= 19:
+            lines.append("sequence: 1, 1, 2, 3, 5")
+        if table_n >= 22:
+            lines.append("sequence: 2, 4, 2, 4, 2")
+
+        return lines
+
+    def _build_bbylesson_lines(self, lesson_key: str):
+        key = self._normalise_bbylesson_key(lesson_key)
+
+        if key == "1x table as +":
+            lines = []
+            for n in range(1, 13):
+                lhs = "+".join(["1"] * n)
+                lines.append(f"{lhs}={n}")
+                lines.append(f"{' plus '.join(['one'] * n)} equals {self._number_to_words(n)}")
+            return key, lines
+
+        if key == "2x table as +":
+            lines = []
+            for n in range(1, 13):
+                lhs = "+".join(["2"] * n)
+                lines.append(f"{lhs}={2 * n}")
+                lines.append(f"{' plus '.join(['two'] * n)} equals {self._number_to_words(2 * n)}")
+            return key, lines
+
+        if key == "maths":
+            maths_range = max(1, int(getattr(self.bot, "lessonMathsRange", 1)))
+            lines = self._build_maths_lesson_lines(maths_range)
+            unlocked_ops = self._maths_unlocked_ops(maths_range)
+            return f"maths range 1-{maths_range} ({', '.join(unlocked_ops)}, words)", lines
+
+        if key == "if this then that":
+            lines = [
+                "if hungry then eat",
+                "if thirsty then drink water",
+                "if tired then rest",
+                "if confused then ask a question",
+                "if a message is kind then reply kindly",
+                "if a message is mean then stay calm",
+                "if i do not know then i can say i do not know",
+                "if i make a mistake then i can correct it",
+                "if there is a problem then debug step by step",
+                "if this then that",
+            ]
+            return key, lines
+
+        if key == "im just a baby":
+            lines = [
+                "i am just a baby",
+                "im just a baby",
+                "i am learning",
+                "i am still learning how to talk",
+                "please teach me simple things",
+                "small brain big curiosity",
+                "i can learn one step at a time",
+                "i can ask when i am not sure",
+                "thank you for teaching me",
+            ]
+            return key, lines
+
+        return "", []
+
+    @commands.command(name='bbymaths', aliases=['bmaths', 'bbymath'])
+    @track_command
+    async def bbymaths_command(self, ctx: commands.Context):
+        """One-question maths duel: caller vs baby, both level up/down."""
+        author = ctx.author.name.lower()
+        if hasattr(self.bot, "normalise_user_identity"):
+            author = self.bot.normalise_user_identity(author)
+        persist_player_state = (
+            bool(author)
+            and hasattr(self.bot, "should_persist_user_state")
+            and self.bot.should_persist_user_state(author)
+        )
+        self._track_hidden_stat(author, "knowledge", 1.0)
+
+        (
+            mem,
+            player_level,
+            wins,
+            losses,
+            streak,
+            best,
+            level_progress,
+            level_down_progress,
+        ) = self._get_player_maths_state(author)
+        baby_level = max(1, int(getattr(self.bot, "lessonMathsRange", 1)))
+        challenge_level = max(1, int(round((player_level + baby_level) / 2)))
+
+        picked = self._pick_maths_test_question(challenge_level)
+        if not picked:
+            return await self.bot._discord_reply(ctx, "i couldn't build a maths question right now :(")
+
+        allowed_duel, retry_after = self._check_and_track_bbymaths_hourly_limit(mem)
+        if persist_player_state:
+            self.bot.userMemory[author] = mem
+            try:
+                data_manager.request_save("user_data")
+            except Exception:
+                pass
+        if not allowed_duel:
+            wait_seconds = max(0, int(math.ceil(retry_after)))
+            wait_min = wait_seconds // 60
+            wait_sec = wait_seconds % 60
+            return await self.bot._discord_reply(
+                ctx,
+                f"bbymaths cap reached: `10 uses/hour`.\n"
+                f"try again in `{wait_min}m {wait_sec:02d}s`.",
+            )
+
+        expr, expected = picked
+        question_line = self._format_maths_question_line(expr)
+        timeout, _ = self._maths_timeout_for_level(player_level)
+
+        def _maths_prompt_with_countdown(remaining_seconds: float) -> str:
+            safe_remaining = max(0.0, float(remaining_seconds))
+            return (
+                f"maths duel time!\n"
+                f"question: `{question_line}`\n"
+                f"you have `{safe_remaining:.1f}`s.\n"
+                f"reply with one number."
+            )
+
+        author_id = getattr(ctx.author, "id", None)
+        channel_id = getattr(ctx.channel, "id", None)
+
+        def _check_user_answer(msg):
+            if getattr(msg.author, "bot", False):
+                return False
+            msg_channel_id = getattr(getattr(msg, "channel", None), "id", None)
+            if channel_id is not None and msg_channel_id != channel_id:
+                return False
+            if author_id is not None:
+                return getattr(msg.author, "id", None) == author_id
+            return str(getattr(msg.author, "name", "")).lower() == author
+
+        user_guess = None
+        user_correct = False
+        user_timed_out = False
+        user_msg_content = ""
+        user_msg, user_timed_out = await self._wait_for_message_with_live_countdown(
+            ctx,
+            timeout_seconds=timeout,
+            check=_check_user_answer,
+            render_content=_maths_prompt_with_countdown,
+            tick_seconds=1.0,
+        )
+        if user_msg is not None:
+            user_msg_content = str(getattr(user_msg, "content", "") or "").strip()
+            user_guess = self._extract_numeric_answer(user_msg.content)
+            user_correct = user_guess == expected
+
+        baby_correct, baby_guess, baby_response_text = await self._evaluate_baby_maths_answer(expr, expected)
+
+        old_player_level = player_level
+        if user_correct:
+            wins += 1
+            streak += 1
+            level_down_progress = 0
+            level_progress += 1
+            needed_up = self._maths_level_up_requirement(player_level)
+            if level_progress >= needed_up:
+                player_level += 1
+                level_progress = 0
+        else:
+            losses += 1
+            streak = 0
+            level_progress = max(0, level_progress - 1)
+            level_down_progress += 1
+            needed_down = self._maths_level_down_requirement(old_player_level)
+            if level_down_progress >= needed_down:
+                level_down_chance = self._maths_level_down_chance(old_player_level)
+                rolled_down = self.get_varied_random() < level_down_chance
+                if rolled_down:
+                    player_level = max(1, player_level - 1)
+                level_down_progress = 0
+        best = max(best, player_level)
+        mem["maths_level"] = player_level
+        mem["maths_wins"] = wins
+        mem["maths_losses"] = losses
+        mem["maths_streak"] = streak
+        mem["maths_best_level"] = best
+        mem["maths_level_progress"] = level_progress
+        mem["maths_level_down_progress"] = level_down_progress
+        if persist_player_state:
+            self.bot.userMemory[author] = mem
+
+        old_baby_level = baby_level
+        baby_key = self.bot.get_bot_identity_key() if hasattr(self.bot, "get_bot_identity_key") else "babyllm"
+        baby_mem = self.bot.userMemory.get(baby_key)
+        if not isinstance(baby_mem, dict):
+            baby_mem = self.bot._get_default_user_memory()
+            self.bot.userMemory[baby_key] = baby_mem
+        baby_level_progress = max(0, int(baby_mem.get("maths_level_progress", 0)))
+        baby_level_down_progress = max(0, int(baby_mem.get("maths_level_down_progress", 0)))
+
+        new_baby_level = baby_level
+        if baby_correct:
+            baby_level_down_progress = 0
+            baby_level_progress += 1
+            baby_needed_up = self._maths_level_up_requirement(baby_level) + 2
+            if baby_level_progress >= baby_needed_up:
+                new_baby_level = baby_level + 1
+                baby_level_progress = 0
+        else:
+            baby_level_progress = max(0, baby_level_progress - 1)
+            baby_level_down_progress += 1
+            baby_needed_down = self._maths_level_down_requirement(baby_level) + 1
+            if baby_level_down_progress >= baby_needed_down:
+                new_baby_level = max(1, baby_level - 1)
+                baby_level_down_progress = 0
+
+        baby_mem["maths_level"] = new_baby_level
+        baby_mem["maths_level_progress"] = baby_level_progress
+        baby_mem["maths_level_down_progress"] = baby_level_down_progress
+        self.bot.lessonMathsRange = new_baby_level
+        try:
+            self.bot._save_baby_state()
+        except Exception:
+            pass
+        if persist_player_state:
+            try:
+                data_manager.request_save("user_data")
+            except Exception:
+                pass
+
+        if user_msg_content:
+            user_response_source = user_msg_content
+        elif user_guess is not None:
+            user_response_source = str(user_guess)
+        else:
+            user_response_source = "no number parsed"
+        user_response_line = self._format_baby_maths_response_text(user_response_source)
+
+        if user_timed_out:
+            user_line = f"you timed out. expected `{expected}`."
+        elif user_correct:
+            user_line = f"you guessed: \"{user_response_line}\" (right)."
+        else:
+            user_line = f"you guessed: \"{user_response_line}\" (wrong)."
+
+        baby_guess_txt = "no number parsed" if baby_guess is None else str(baby_guess)
+        baby_response_line = self._format_baby_maths_response_text(baby_response_text)
+        if baby_correct:
+            baby_line = f"baby guessed: \"{baby_response_line}\" (right)."
+        else:
+            baby_line = f"baby guessed: \"{baby_response_line}\" (wrong)."
+
+        caller_nic = str(self.bot.getNickname(author) or author).strip() or author
+        user_answer_for_training = ""
+        if user_timed_out:
+            user_answer_for_training = "timeout"
+        elif user_msg_content:
+            user_answer_for_training = user_msg_content.replace("\n", " ").strip()
+        elif user_guess is not None:
+            user_answer_for_training = str(user_guess)
+        else:
+            user_answer_for_training = "no number parsed"
+
+        safe_user_answer = re.sub(r"\s+", " ", str(user_answer_for_training)).strip()
+        if not safe_user_answer:
+            safe_user_answer = "no answer"
+        if len(safe_user_answer) > 80:
+            safe_user_answer = safe_user_answer[:80].rstrip() + "..."
+        safe_question_line = re.sub(r"\s+", " ", str(question_line or "?")).strip()
+        training_truth_line = self._format_maths_fact_statement(expr, expected)
+        conversation_line = ""
+        if user_correct:
+            conversation_line = f"{caller_nic} played bbymaths and solved {training_truth_line}"
+        elif user_guess is not None and safe_user_answer not in {"", "no answer"}:
+            conversation_line = f"{caller_nic} played bbymaths and guessed {safe_user_answer} for {safe_question_line}"
+        elif user_timed_out:
+            conversation_line = f"{caller_nic} played bbymaths and timed out on {safe_question_line}"
+        else:
+            conversation_line = f"{caller_nic} played bbymaths and gave an unclear answer for {safe_question_line}"
+        training_records = [training_truth_line]
+        if conversation_line:
+            training_records.append(conversation_line)
+
+        accepted_training = 0
+        for record in training_records:
+            record_l = str(record or "").strip().lower()
+            if self.bot._training_buffer_add(record_l):
+                accepted_training += 1
+        if conversation_line:
+            self.bot._buffer_add(
+                self.bot.formatMessage(self.bot.babyName, conversation_line),
+                mirror_to_training=False,
+            )
+
+        friendship_line = ""
+        memory_line = ""
+        item_line = ""
+
+        if user_correct and baby_correct:
+            friendship_bonus = 0.42 + (0.58 * self.get_varied_random())
+            self._track_hidden_stat(author, "bonding", 1.0)
+            friendship_paid, friendship_treasury, _ = self.bot.grant_bonus_with_treasury(
+                author,
+                friendship_bonus,
+                source="bbymaths_friendship",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
+            friendship_line = (
+                f"fwendship bonus: `+{friendship_paid:.2f} BBY` "
+                f"(from baby `{friendship_treasury:.2f}`)"
+            )
+
+            learned_statement = self._format_maths_fact_statement(expr, expected)
+            learned_memory = f"learned that {learned_statement} with {caller_nic}"
+            try:
+                await self._teach(
+                    key=learned_memory,
+                    value=learned_memory,
+                    author_name=self.bot.babyName,
+                )
+                memory_line = f"dictionary memory: `{learned_memory}`"
+            except Exception:
+                memory_line = ""
+
+        if user_correct:
+            item_name = f"{caller_nic} brain cell".lower()
+            item_value = f"a brain cell earned by {caller_nic} in bbymaths."
+        else:
+            item_name = "sleeping brain cell"
+            item_value = "a brain cell that fell asleep during bbymaths."
+
+        try:
+            await self._ensure_maths_drop_fact(item_name, item_value, author)
+            awarded, count, reason = await self._award_fact(
+                user=author,
+                fact=item_name,
+                ctx=ctx,
+                num=1,
+                old_value=item_value,
+                debug_str="[_BBYMATHS_DROP] ",
+            )
+            if awarded and count > 0:
+                item_line = f"item drop: `+{count} {item_name}`"
+            else:
+                reason_text = (reason or "blocked").replace("_", " ").lower()
+                item_line = f"item drop blocked: `{item_name}` ({reason_text})"
+        except Exception:
+            item_line = f"item drop failed: `{item_name}`"
+
+        if user_correct and baby_correct:
+            reward_base_pct = 0.0020
+        elif user_correct:
+            reward_base_pct = 0.0012
+        else:
+            reward_base_pct = 0.0005
+        try:
+            bby_reward = float(
+                self._calculate_contextual_bby(
+                    author,
+                    base_percentage=reward_base_pct,
+                    is_penalty=False,
+                )
+            )
+        except Exception:
+            bby_reward = 0.0
+        if not math.isfinite(bby_reward):
+            bby_reward = 0.0
+        reward_paid, reward_treasury, _ = self.bot.grant_bonus_with_treasury(
+            author,
+            bby_reward,
+            source="bbymaths_reward",
+            treasury_ratio=0.9,
+            mint_floor_ratio=0.1,
+        )
+        reward_line = (
+            f"maths BBY reward: `{format_bby_amount(reward_paid)}` "
+            f"(from baby `{format_bby_amount(reward_treasury)}`)"
+        )
+        self._track_hidden_stat(author, "earning", 1.0)
+
+        payout_line = f"BBY payout: `{format_bby_amount(reward_paid)}`"
+        reply = f"{user_line}\n{baby_line}\n{payout_line}"
+        await self.bot._discord_reply(ctx, reply)
+
+    @commands.command(name='bbyquiz', aliases=['bquiz'])
+    @track_command
+    async def bbyquiz_command(self, ctx: commands.Context, *, topic: str = ""):
+        """One-question mixed-topic quiz duel: caller vs baby."""
+        author = ctx.author.name.lower()
+        if hasattr(self.bot, "normalise_user_identity"):
+            author = self.bot.normalise_user_identity(author)
+        persist_player_state = (
+            bool(author)
+            and hasattr(self.bot, "should_persist_user_state")
+            and self.bot.should_persist_user_state(author)
+        )
+        self._track_hidden_stat(author, "knowledge", 1.0)
+
+        (
+            mem,
+            player_level,
+            wins,
+            losses,
+            streak,
+            best,
+            level_progress,
+            level_down_progress,
+        ) = self._get_player_quiz_state(author)
+
+        baby_key, baby_mem = self._get_baby_quiz_memory()
+        baby_level = max(1, int(baby_mem.get("quiz_level", 1)))
+        challenge_level = max(1, int(round((player_level + baby_level) / 2)))
+
+        picked = self._pick_bbyquiz_question(
+            challenge_level,
+            user_key=author,
+            requested_topic=topic,
+        )
+        if not picked:
+            available_topics = sorted(
+                {
+                    str(q.get("topic", "")).strip()
+                    for q in self._build_bbyquiz_questions(challenge_level)
+                    if str(q.get("topic", "")).strip()
+                }
+            )
+            topic_list = ", ".join(available_topics) if available_topics else "if_then, greeting, spelling, emotions, colours, synonyms, antonyms, cooking, sequences, maths"
+            return await self.bot._discord_reply(
+                ctx,
+                f"i couldnt find a quiz question for `{topic or 'that topic'}`.\ntry: `{topic_list}`",
+            )
+
+        allowed_duel, retry_after = self._check_and_track_bbyquiz_hourly_limit(mem)
+        if persist_player_state:
+            self.bot.userMemory[author] = mem
+            try:
+                data_manager.request_save("user_data")
+            except Exception:
+                pass
+        if not allowed_duel:
+            wait_seconds = max(0, int(math.ceil(retry_after)))
+            wait_min = wait_seconds // 60
+            wait_sec = wait_seconds % 60
+            return await self.bot._discord_reply(
+                ctx,
+                f"bbyquiz cap reached: `10 uses/hour`.\n"
+                f"try again in `{wait_min}m {wait_sec:02d}s`.",
+            )
+
+        question_line = str(picked.get("prompt", "?")).strip() or "?"
+        expected_line = str(picked.get("expected", "?")).strip() or "?"
+        topic_label = str(picked.get("topic", "general")).replace("_", " ").strip()
+        timeout, _ = self._quiz_timeout_for_level(player_level)
+
+        def _quiz_prompt_with_countdown(remaining_seconds: float) -> str:
+            safe_remaining = max(0.0, float(remaining_seconds))
+            return (
+                f"quiz duel time! topic: `{topic_label}`\n"
+                f"question: `{question_line}`\n"
+                f"you have `{safe_remaining:.1f}`s.\n"
+                f"reply with your answer."
+            )
+
+        author_id = getattr(ctx.author, "id", None)
+        channel_id = getattr(ctx.channel, "id", None)
+
+        def _check_user_answer(msg):
+            if getattr(msg.author, "bot", False):
+                return False
+            msg_channel_id = getattr(getattr(msg, "channel", None), "id", None)
+            if channel_id is not None and msg_channel_id != channel_id:
+                return False
+            if author_id is not None:
+                return getattr(msg.author, "id", None) == author_id
+            return str(getattr(msg.author, "name", "")).lower() == author
+
+        user_correct = False
+        user_timed_out = False
+        user_msg_content = ""
+        user_msg, user_timed_out = await self._wait_for_message_with_live_countdown(
+            ctx,
+            timeout_seconds=timeout,
+            check=_check_user_answer,
+            render_content=_quiz_prompt_with_countdown,
+            tick_seconds=1.0,
+        )
+        if user_msg is not None:
+            user_msg_content = str(getattr(user_msg, "content", "") or "").strip()
+            user_correct, _ = self._score_bbyquiz_answer(picked, user_msg_content)
+
+        baby_correct, _, baby_response_text = await self._evaluate_baby_quiz_answer(picked)
+
+        custom_card_line = ""
+        picked_source = str(picked.get("source", "")).strip().lower()
+        picked_card_id = str(picked.get("card_id", "")).strip()
+        if picked_source == "custom" and picked_card_id:
+            updated_card = self._update_custom_quiz_card_outcome(
+                picked_card_id,
+                user_correct=user_correct,
+                baby_correct=baby_correct,
+            )
+            if isinstance(updated_card, dict):
+                author_name = str(updated_card.get("author", "")).strip().lower()
+                if author_name:
+                    author_name = str(self.bot.getNickname(author_name) or author_name)
+                try:
+                    trust_val = float(updated_card.get("trust", 0.0) or 0.0)
+                except Exception:
+                    trust_val = 0.0
+                plays = max(0, int(updated_card.get("plays", 0)))
+                source_label = f"community card #{picked_card_id}"
+                if author_name:
+                    source_label += f" by {author_name}"
+                custom_card_line = f"{source_label} (trust {trust_val:.1f}, plays {plays})"
+            else:
+                custom_card_line = f"community card #{picked_card_id}"
+
+        old_player_level = player_level
+        if user_correct:
+            wins += 1
+            streak += 1
+            level_down_progress = 0
+            level_progress += 1
+            needed_up = self._maths_level_up_requirement(player_level)
+            if level_progress >= needed_up:
+                player_level += 1
+                level_progress = 0
+        else:
+            losses += 1
+            streak = 0
+            level_progress = max(0, level_progress - 1)
+            level_down_progress += 1
+            needed_down = self._maths_level_down_requirement(old_player_level)
+            if level_down_progress >= needed_down:
+                level_down_chance = self._maths_level_down_chance(old_player_level)
+                if self.get_varied_random() < level_down_chance:
+                    player_level = max(1, player_level - 1)
+                level_down_progress = 0
+
+        best = max(best, player_level)
+        mem["quiz_level"] = player_level
+        mem["quiz_wins"] = wins
+        mem["quiz_losses"] = losses
+        mem["quiz_streak"] = streak
+        mem["quiz_best_level"] = best
+        mem["quiz_level_progress"] = level_progress
+        mem["quiz_level_down_progress"] = level_down_progress
+        if persist_player_state:
+            self.bot.userMemory[author] = mem
+
+        old_baby_level = baby_level
+        baby_level_progress = max(0, int(baby_mem.get("quiz_level_progress", 0)))
+        baby_level_down_progress = max(0, int(baby_mem.get("quiz_level_down_progress", 0)))
+
+        new_baby_level = baby_level
+        if baby_correct:
+            baby_level_down_progress = 0
+            baby_level_progress += 1
+            baby_needed_up = self._maths_level_up_requirement(baby_level) + 2
+            if baby_level_progress >= baby_needed_up:
+                new_baby_level = baby_level + 1
+                baby_level_progress = 0
+        else:
+            baby_level_progress = max(0, baby_level_progress - 1)
+            baby_level_down_progress += 1
+            baby_needed_down = self._maths_level_down_requirement(baby_level) + 2
+            if baby_level_down_progress >= baby_needed_down:
+                if self.get_varied_random() < self._maths_level_down_chance(baby_level):
+                    new_baby_level = max(1, baby_level - 1)
+                baby_level_down_progress = 0
+
+        baby_mem["quiz_level"] = new_baby_level
+        baby_mem["quiz_level_progress"] = baby_level_progress
+        baby_mem["quiz_level_down_progress"] = baby_level_down_progress
+        try:
+            self.bot._save_baby_state()
+        except Exception:
+            pass
+        if persist_player_state:
+            try:
+                data_manager.request_save("user_data")
+            except Exception:
+                pass
+
+        user_response_source = user_msg_content if user_msg_content else ("timeout" if user_timed_out else "no answer")
+        user_response_line = self._format_baby_maths_response_text(user_response_source)
+        if user_timed_out:
+            user_line = f"you timed out."
+        elif user_correct:
+            user_line = f"you guessed: \"{user_response_line}\" (right)."
+        else:
+            user_line = f"you guessed: \"{user_response_line}\" (wrong)."
+
+        baby_response_line = self._format_baby_maths_response_text(baby_response_text)
+        if baby_correct:
+            baby_line = f"baby guessed: \"{baby_response_line}\" (right)."
+        else:
+            baby_line = f"baby guessed: \"{baby_response_line}\" (wrong)."
+
+        caller_nic = str(self.bot.getNickname(author) or author).strip() or author
+        safe_user_answer = re.sub(r"\s+", " ", str(user_response_source)).strip()
+        if len(safe_user_answer) > 96:
+            safe_user_answer = safe_user_answer[:93].rstrip() + "..."
+        safe_baby_answer = re.sub(r"\s+", " ", str(baby_response_line)).strip()
+        if len(safe_baby_answer) > 96:
+            safe_baby_answer = safe_baby_answer[:93].rstrip() + "..."
+        quiz_fact_line = self._format_quiz_fact_statement(question_line, expected_line, topic_label=topic_label)
+        training_records = [quiz_fact_line]
+        if user_correct:
+            training_records.append(
+                f'{caller_nic} played bbyquiz and got "{question_line}" right with "{safe_user_answer}"'
+            )
+        elif user_timed_out:
+            training_records.append(
+                f'{caller_nic} played bbyquiz and timed out on "{question_line}", where the answer was "{expected_line}"'
+            )
+        else:
+            training_records.append(
+                f'{caller_nic} played bbyquiz and guessed "{safe_user_answer}" for "{question_line}", but the answer was "{expected_line}"'
+            )
+        if baby_correct:
+            training_records.append(f'babyllm got "{question_line}" right with "{safe_baby_answer}"')
+        else:
+            training_records.append(
+                f'babyllm guessed "{safe_baby_answer}" for "{question_line}", but the answer was "{expected_line}"'
+            )
+
+        for record in training_records:
+            record_l = str(record or "").strip().lower()
+            # Keep self-answer traces as a tiny sample so they don't dominate.
+            if (
+                record_l.startswith("babyllm got ")
+                or record_l.startswith("babyllm guessed ")
+            ) and self.get_varied_random() >= 0.01:
+                continue
+            self.bot._training_buffer_add(record_l)
+
+        if user_correct and baby_correct:
+            self._track_hidden_stat(author, "bonding", 1.0)
+            learned_memory = f"learned in quiz with {caller_nic}: {question_line} -> {expected_line}"
+            try:
+                await self._teach(
+                    key=learned_memory,
+                    value=learned_memory,
+                    author_name=self.bot.babyName,
+                )
+            except Exception:
+                pass
+
+        stat_focus = str(picked.get("stat", "knowledge")).strip().lower()
+        if stat_focus:
+            self._track_hidden_stat(author, stat_focus, 1.0)
+
+        if user_correct and baby_correct:
+            reward_base_pct = 0.0018
+        elif user_correct:
+            reward_base_pct = 0.0010
+        else:
+            reward_base_pct = 0.0004
+        try:
+            bby_reward = float(
+                self._calculate_contextual_bby(
+                    author,
+                    base_percentage=reward_base_pct,
+                    is_penalty=False,
+                )
+            )
+        except Exception:
+            bby_reward = 0.0
+        if not math.isfinite(bby_reward):
+            bby_reward = 0.0
+        reward_paid, _, _ = self.bot.grant_bonus_with_treasury(
+            author,
+            bby_reward,
+            source="bbyquiz_reward",
+            treasury_ratio=0.9,
+            mint_floor_ratio=0.1,
+        )
+        self._track_hidden_stat(author, "earning", 1.0)
+
+        level_lines = []
+        if player_level != old_player_level:
+            level_lines.append(f"your quiz level: `{old_player_level} -> {player_level}`")
+        if new_baby_level != old_baby_level:
+            level_lines.append(f"baby quiz level: `{old_baby_level} -> {new_baby_level}`")
+
+        lines = [
+            f"topic: `{topic_label}`",
+            f"question: `{question_line}`",
+            user_line,
+            baby_line,
+            f"answer: `{expected_line}`",
+            f"BBY payout: `{format_bby_amount(reward_paid)}`",
+        ]
+        if custom_card_line:
+            lines.append(custom_card_line)
+        lines.extend(level_lines)
+        await self.bot._discord_reply(ctx, "\n".join(lines))
+
+    @commands.command(name='bbyquizteach', aliases=['bquizteach', 'bqteach', 'bqadd'])
+    @track_command
+    async def bbyquizteach_command(self, ctx: commands.Context, *, submission: str = ""):
+        """Community-teach a quiz card: topic | question | answer1 / answer2 / ..."""
+        author = ctx.author.name.lower()
+        if hasattr(self.bot, "normalise_user_identity"):
+            author = self.bot.normalise_user_identity(author)
+        self._track_hidden_stat(author, "knowledge", 1.0)
+
+        raw = str(submission or "").strip()
+        if "|" not in raw:
+            return await self.bot._discord_reply(
+                ctx,
+                "usage: `!bbyquizteach <topic> | <question> | <answer1 / answer2 / fact[my fact key]>`\n"
+                "example: `!bbyquizteach emotions | if someone is crying they might feel ___ | sad / upset`",
+            )
+
+        parts = [p.strip() for p in raw.split("|", 2)]
+        if len(parts) < 3:
+            return await self.bot._discord_reply(
+                ctx,
+                "i need 3 parts: `topic | question | answers`",
+            )
+
+        topic_raw, prompt_raw, answers_raw = parts[0], parts[1], parts[2]
+        topic = self._normalise_bbyquiz_topic(topic_raw)
+        allowed_topics = sorted(self._quiz_topic_to_hidden_stats().keys())
+        if topic not in allowed_topics:
+            return await self.bot._discord_reply(
+                ctx,
+                f"unknown topic `{topic_raw}`.\n"
+                f"try one of: `{', '.join(allowed_topics)}`",
+            )
+
+        prompt_text = re.sub(r"\s+", " ", str(prompt_raw or "").strip())
+        if len(prompt_text) < 8 or len(prompt_text) > 220:
+            return await self.bot._discord_reply(
+                ctx,
+                "question length should be between `8` and `220` chars.",
+            )
+
+        normal_answers, fact_refs = self._parse_quiz_answer_spec(answers_raw)
+        if not normal_answers and not fact_refs:
+            return await self.bot._discord_reply(
+                ctx,
+                "i couldnt parse answers. give at least one answer or `fact[...]` reference.",
+            )
+
+        ref_answers, missing_refs = self._resolve_quiz_fact_reference_answers(fact_refs)
+        if missing_refs:
+            missing_preview = ", ".join(missing_refs[:4])
+            if len(missing_refs) > 4:
+                missing_preview += ", ..."
+            return await self.bot._discord_reply(
+                ctx,
+                f"unknown bbyfact reference(s): `{missing_preview}`\n"
+                f"teach those first with `!bbyteach` or use exact existing fact keys.",
+            )
+
+        effective_answers = list(dict.fromkeys(normal_answers + ref_answers))
+        if not effective_answers:
+            return await self.bot._discord_reply(
+                ctx,
+                "all referenced fact answers resolved to empty text. try a different fact or add explicit answers.",
+            )
+
+        mode = self._infer_quiz_mode_for_answers(effective_answers)
+        card, reason = self._add_custom_quiz_card(
+            topic=topic,
+            prompt=prompt_text,
+            answers=normal_answers,
+            fact_refs=fact_refs,
+            author=author,
+            mode=mode,
+            min_level=1,
+        )
+        if card is None:
+            if reason == "duplicate":
+                return await self.bot._discord_reply(
+                    ctx,
+                    "that quiz card already exists (same topic + question).",
+                )
+            return await self.bot._discord_reply(
+                ctx,
+                "i couldnt save that quiz card; try a slightly different format.",
+            )
+
+        topic_stat = self._infer_quiz_stat_for_topic(topic)
+        if topic_stat:
+            self._track_hidden_stat(author, topic_stat, 1.0)
+
+        try:
+            reward_base_pct = 0.0007 + min(0.0005, 0.0001 * max(0, len(effective_answers) - 1))
+            bby_reward = float(
+                self._calculate_contextual_bby(
+                    author,
+                    base_percentage=reward_base_pct,
+                    is_penalty=False,
+                )
+            )
+        except Exception:
+            bby_reward = 0.0
+        if not math.isfinite(bby_reward):
+            bby_reward = 0.0
+        reward_paid, reward_treasury, _ = self.bot.grant_bonus_with_treasury(
+            author,
+            bby_reward,
+            source="bbyquizteach_submit",
+            treasury_ratio=0.9,
+            mint_floor_ratio=0.1,
+        )
+        self._track_hidden_stat(author, "earning", 1.0)
+
+        caller_nic = str(self.bot.getNickname(author) or author).strip() or author
+        answer_preview = ", ".join(effective_answers[:4])
+        if len(effective_answers) > 4:
+            answer_preview += ", ..."
+        ref_preview_items = []
+        for ref in fact_refs:
+            if not isinstance(ref, dict):
+                continue
+            ref_key = self._resolve_bbyfact_key_reference(ref.get("key", "")) or self._normalise_fact_key_for_matching(ref.get("key", ""))
+            if not ref_key:
+                continue
+            ref_kind = str(ref.get("kind", "both")).strip().lower()
+            if ref_kind not in {"both", "key", "value"}:
+                ref_kind = "both"
+            if ref_kind == "both":
+                ref_preview_items.append(f"fact[{ref_key}]")
+            elif ref_kind == "key":
+                ref_preview_items.append(f"factkey[{ref_key}]")
+            else:
+                ref_preview_items.append(f"factvalue[{ref_key}]")
+        ref_preview = ", ".join(ref_preview_items[:4])
+        if len(ref_preview_items) > 4:
+            ref_preview += ", ..."
+
+        training_records = [
+            f"{caller_nic} taught a community quiz card",
+            self._format_quiz_card_training_statement(prompt_text, answer_preview, topic=topic),
+        ]
+        if ref_preview:
+            training_records.append(f"the quiz card references {ref_preview}")
+        for line in training_records:
+            self.bot._training_buffer_add(str(line or "").lower())
+
+        card_id = str(card.get("id", "")).strip()
+        reply_lines = [
+            f"saved community quiz card `#{card_id}`.",
+            f"topic: `{topic}`",
+            f"question: `{prompt_text}`",
+            f"accepted answers: `{answer_preview}`",
+        ]
+        if ref_preview:
+            reply_lines.append(f"fact references: `{ref_preview}`")
+        reply_lines.append(
+            f"teach reward: `{format_bby_amount(reward_paid)}` (from baby `{format_bby_amount(reward_treasury)}`)"
+        )
+        reply_lines.append(f"play it with `!bbyquiz {topic}`")
+        await self.bot._discord_reply(ctx, "\n".join(reply_lines))
+
+    @commands.command(name='bbylesson', aliases=['blesson'])
+    @track_command
+    async def bbylesson_command(self, ctx: commands.Context, *, lesson: str = ""):
+        """Queue a small canned lesson slice and mirror it into the training buffer."""
+        author = ctx.author.name.lower()
+        self._track_hidden_stat(author, "knowledge", 1.0)
+
+        normalised_lesson = self._normalise_bbylesson_key(lesson)
+        maths_gate_note = ""
+        if normalised_lesson == "maths":
+            gate_result = await self._maybe_advance_maths_level()
+            maths_gate_note = gate_result.get("note", "")
+            key, lines = self._build_bbylesson_lines("maths")
+        else:
+            key, lines = self._build_bbylesson_lines(lesson)
+        if not lines:
+            presets = ", ".join(
+                [
+                    "\"1x table as +\"",
+                    "\"2x table as +\"",
+                    "\"maths\"",
+                    "\"if this then that\"",
+                    "\"im just a baby\"",
+                ]
+            )
+            return await self.bot._discord_reply(
+                ctx,
+                f"usage: !bbylesson <preset>\ntry one of: {presets}",
+            )
+
+        if key.startswith("maths range"):
+            inject_count = min(20, len(lines))
+            maths_range = int(getattr(self.bot, "lessonMathsRange", 1))
+            unlocked_ops = self._maths_unlocked_ops(maths_range)
+
+            headers = lines[:2]
+            add_lines = [ln for ln in lines if "+" in ln and "=" in ln]
+            mul_lines = [ln for ln in lines if "*" in ln and "=" in ln]
+            sub_lines = [ln for ln in lines if "-" in ln and "=" in ln]
+            div_lines = [ln for ln in lines if "/" in ln and "=" in ln]
+            add_word_lines = [ln for ln in lines if " equals " in ln and (" plus " in ln or " added " in ln)]
+            mul_word_lines = [ln for ln in lines if " equals " in ln and " times " in ln]
+            sub_word_lines = [ln for ln in lines if " equals " in ln and " minus " in ln]
+            div_word_lines = [ln for ln in lines if " equals " in ln and " divided by " in ln]
+            seq_lines = [ln for ln in lines if ln.startswith("sequence:")]
+
+            lesson_slice = []
+            seen = set()
+
+            def _append_wave(candidates, limit):
+                if limit <= 0 or not candidates:
+                    return
+                if len(candidates) <= limit:
+                    wave = list(candidates)
+                else:
+                    head_count = max(1, limit // 2)
+                    tail_count = max(0, limit - head_count)
+                    wave = list(candidates[:head_count]) + list(reversed(candidates[-tail_count:]))
+
+                for line in wave:
+                    if line in seen:
+                        continue
+                    lesson_slice.append(line)
+                    seen.add(line)
+
+            _append_wave(headers, 2)
+            _append_wave(add_lines, 8 if unlocked_ops == ["+"] else 6)
+            _append_wave(add_word_lines, 6 if unlocked_ops == ["+"] else 4)
+            _append_wave(seq_lines, 2 if maths_range < 10 else 4)
+
+            allowed_pool = list(headers) + list(add_lines) + list(add_word_lines) + list(seq_lines)
+
+            if "*" in unlocked_ops:
+                _append_wave(mul_lines, 4)
+                _append_wave(mul_word_lines, 2)
+                allowed_pool.extend(mul_lines)
+                allowed_pool.extend(mul_word_lines)
+
+            if "-" in unlocked_ops:
+                _append_wave(sub_lines, 4)
+                _append_wave(sub_word_lines, 2)
+                allowed_pool.extend(sub_lines)
+                allowed_pool.extend(sub_word_lines)
+
+            if "/" in unlocked_ops:
+                _append_wave(div_lines, 4)
+                _append_wave(div_word_lines, 2)
+                allowed_pool.extend(div_lines)
+                allowed_pool.extend(div_word_lines)
+
+            if len(lesson_slice) < inject_count:
+                _append_wave(allowed_pool, inject_count - len(lesson_slice))
+            lesson_slice = lesson_slice[:inject_count]
+        else:
+            inject_count = min(6, len(lines))
+            if len(lines) > inject_count:
+                start_idx = random.randint(0, len(lines) - inject_count)
+                lesson_slice = lines[start_idx : start_idx + inject_count]
+            else:
+                lesson_slice = lines
+
+        accepted = 0
+        for line in lesson_slice:
+            if self.bot._training_buffer_add(line):
+                accepted += 1
+
+        lesson_text = "\n".join(lesson_slice)
+        if self.bot.training_queue.qsize() >= 20:
+            _ = self.bot.training_queue.get_nowait()
+        await self.bot.training_queue.put({"type": "context", "text": lesson_text})
+
+        sample = "\n".join(lesson_slice[:3])
+        if len(lesson_slice) > 3:
+            sample += "\n..."
+        reply = (
+            f"queued lesson: {key}\n"
+            f"injected lines: {len(lesson_slice)} / {len(lines)} | accepted to training buffer: {accepted}\n"
+            f"preview:\n{sample}"
+        )
+        if maths_gate_note:
+            reply += f"\n{maths_gate_note}"
+        await self.bot._discord_reply(ctx, reply)
+
     @commands.command(name='bbytrain', aliases=['btrain']) 
     @track_command
-    async def babytrain_command(self, ctx: commands.Context): 
+    async def babytrain_command(self, ctx: commands.Context):
         """train on human messages"""
+        # Track bonding: training BBY on messages
+        self._track_hidden_stat(ctx.author.name.lower(), "bonding", 1.0)
         if len(self.bot.buffer) < 2:
             lonelyMessage = self.get_varied_choice().choice(LONELY_MESSAGES)
             await self.bot._discord_debug(lonelyMessage)
@@ -4461,6 +8473,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name='bbysave', aliases=['bsave', 'bs'])
     @track_command
     async def saveModel_command(self, ctx: commands.Context):
+        # Track administration: admin command usage
+        self._track_hidden_stat(ctx.author.name.lower(), "administration", 1.0)
         saveBufferMessage = self.get_varied_choice().choice(SAVE_BUFFER_MESSAGES)
         if self.get_varied_random() < 0.5:
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, saveBufferMessage))
@@ -4478,24 +8492,30 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbystatus(self, ctx):
         author = ctx.author.name.lower()
+        # Track curiosity: checking BBY's status
+        self._track_hidden_stat(author, "curiosity", 1.0)
         line = get_status_line(self.bot)
         if self.get_varied_random() > 0.5:
-            self.bot.updateBBY(author, 0.1)
+            self._apply_economy_delta(author, 0.1)
         await self.bot._discord_reply(ctx, line.lower().strip())
 
     @commands.command(name="bbythought", aliases=['bthought', 'bth'])
     @track_command
     async def bbythought(self, ctx):
         author = ctx.author.name.lower()
+        # Track bonding: checking BBY's current thought
+        self._track_hidden_stat(author, "bonding", 1.0)
         line = get_thought_line(self.bot)
         if self.get_varied_random() > 0.5:
-            self.bot.updateBBY(author, 0.1)
+            self._apply_economy_delta(author, 0.1)
         await self.bot._discord_reply(ctx, line.lower().strip())
 
-    @commands.command(name = "bbystats", aliases=['bstats', 'bsta']) 
+    @commands.command(name = "bbystats", aliases=['bstats', 'bsta'])
     @track_command
-    async def bbystats(self, ctx): 
+    async def bbystats(self, ctx):
         author = ctx.author.name.lower()
+        # Track bonding: viewing BBY's training stats
+        self._track_hidden_stat(author, "bonding", 1.0)
         tutor = self.bot.tutor
 
         memoryScale = self.bot.babyLLM.memory.mem_used + self.bot.babyLLM.memory2.mem_used
@@ -4553,7 +8573,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"my learning rate is {tutor.learningRate:.5f}, and my temperature is {tutor.temperature:.0f}",
         ])
 
-        if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
+        if self.get_varied_random() > 0.5: self._apply_economy_delta(author, 0.1)
 
         await self.bot._discord_reply(ctx, line.lower().strip())
         if self.get_varied_random() > 0.5: self.bot._buffer_add(self.bot.formatMessage(author, line.lower().strip()))
@@ -4562,7 +8582,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbysupply(self, ctx):
         author = ctx.author.name.lower()
-        
+        # Track hoarding: checking available supply
+        self._track_hidden_stat(author, "hoarding", 1.0)
+
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "i know nothing! teach me stuff with !bbyteach :)")
         
         # Randomly choose a sorting mode
@@ -4579,7 +8601,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             current_owned = self._get_fact_total_world(item_name)
             remaining = max(0, max_supply - current_owned)
             percent_remaining = (remaining / max_supply) * 100 if max_supply > 0 else 0
-            item_value = self._get_fact_value(item_name)
+            item_value = await self._get_fact_value(item_name)
             
             if remaining > 0:
                 supply_info.append({
@@ -4631,7 +8653,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             remaining_hidden = len(supply_info) - display_limit
             reply += f"\n...and {remaining_hidden} more items left to get!\n"
                 
-        if self.get_varied_random() > 0.6: self.bot.updateBBY(author, 50.0)
+        if self.get_varied_random() > 0.6: self._apply_economy_delta(author, 50.0)
         await self.bot._discord_reply(ctx, reply)
 
     @commands.command(name="bbytutor", aliases=['btutor', 'btutors', 'bbyteachers'])
@@ -4639,6 +8661,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbytutor_awards(self, ctx):
         """Show monthly teaching awards - who taught the most facts this month!"""
         author = ctx.author.name.lower()
+        # Track curiosity: viewing top teachers
+        self._track_hidden_stat(author, "curiosity", 1.0)
         now = time.time()
         
         # Get this month's start timestamp (1st day at 00:00)
@@ -4724,7 +8748,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # Small BBY reward for checking awards
         if self.get_varied_random() > 0.7:
-            self.bot.updateBBY(author, 1.0)
+            self.bot.grant_bonus_with_treasury(
+                author,
+                1.0,
+                source="bbyteacherawards_view_bonus",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
 
     async def _sign_monthly_bbybook(self, top_tutors, current_date):
         """Sign the bbybook for top 3 tutors at end of month"""
@@ -4760,10 +8790,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 
                 # Give them a special BBY bonus for being a top tutor
                 bonus_bby = 42069 * (4 - i)  # 1st: 30k, 2nd: 20k, 3rd: 10k
-                self.bot.updateBBY(teacher, bonus_bby)
+                paid, treasury_paid, _ = self.bot.grant_bonus_with_treasury(
+                    teacher,
+                    bonus_bby,
+                    source="monthly_bbybook_manual_bonus",
+                    treasury_ratio=0.9,
+                    mint_floor_ratio=0.1,
+                )
                 print(
                     f"[BBYBOOK_SIGNATURE] Signed for {nickname} (rank {i+1}) with "
-                    f"{format_bby_amount(bonus_bby)} bonus"
+                    f"{format_bby_amount(paid)} bonus (treasury {format_bby_amount(treasury_paid)})"
                 )
         
         return bbybook_signatures    
@@ -4773,7 +8809,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbycommands_stats(self, ctx):
         """Show most popular commands - now in proper British English!"""
         author = ctx.author.name.lower()
-        
+        # Track curiosity: viewing command statistics
+        self._track_hidden_stat(author, "curiosity", 1.0)
+
         # Get global command stats
         if not self.bot.command_stats:
             await self.bot._discord_reply(ctx, "no command statistics yet! start using some commands!")
@@ -4829,12 +8867,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self.bot._discord_reply(ctx, embed=embed)
         
         if self.get_varied_random() > 0.6:
-            self.bot.updateBBY(author, 0.5)
+            self._apply_economy_delta(author, 0.5)
 
-    @commands.command(name = "bbyjudge", aliases=['bjudge', 'bj']) 
+    @commands.command(name = "bbyjudge", aliases=['bjudge', 'bj'])
     @track_command
-    async def bbyjudge(self, ctx): 
+    async def bbyjudge(self, ctx):
         author = ctx.author.name.lower()
+        # Track curiosity: getting BBY's judgment
+        self._track_hidden_stat(author, "curiosity", 1.0)
         mem = self.bot.userMemory.get(author, {})
         messageCount = mem.get("message_count", 0)
         nickname = mem.get("nickname", None)
@@ -4856,88 +8896,88 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         if nickname != author:
             nameJudge = f"ah, you have a nickname?! hmm... {nickname}..."
-            self.bot.updateBBY(author, 0.1)
+            self._apply_economy_delta(author, 0.1)
             if BBY > averageBBY:
                 nameJudge += " i love it!"
-                self.bot.updateBBY(author, 0.1)
+                self._apply_economy_delta(author, 0.1)
             if BBY < 0.1:
                 nameJudge += " i hate it!"
-                self.bot.updateBBY(author, -0.01)
+                self._apply_economy_delta(author, -0.01)
             else:
                 nameJudge += " it works I guess."
-                self.bot.updateBBY(author, 0.01)
+                self._apply_economy_delta(author, 0.01)
         else:
             nameJudge = f"you don't even have a nickname yet, {author}!? hmm..."
             if BBY > averageBBY:
                 nameJudge += " well your names already great!"
-                self.bot.updateBBY(author, 0.1)
+                self._apply_economy_delta(author, 0.1)
             if BBY < 0.1:
                 nameJudge += " why would you want to keep that name!?"
-                self.bot.updateBBY(author, -0.01)
+                self._apply_economy_delta(author, -0.01)
             else:
                 nameJudge += " no comment."
-                self.bot.updateBBY(author, -0.01)
+                self._apply_economy_delta(author, -0.01)
 
         if messageCount > averageCount * 2:
             spamJudge = f"what, you've sent me fucking {messageCount} messages!?!?"
-            self.bot.updateBBY(author, 0.4)
+            self._apply_economy_delta(author, 0.4)
             if BBY > averageBBY:
                 spamJudge += " thank you for being a cool homie 😎"
-                self.bot.updateBBY(author, 0.1)
+                self._apply_economy_delta(author, 0.1)
             if BBY < 0.1:
                 spamJudge += " shut up omg!"
-                self.bot.updateBBY(author, -0.01)
+                self._apply_economy_delta(author, -0.01)
             else:
                 spamJudge += " can't stop u!"
-                self.bot.updateBBY(author, 0.01)
+                self._apply_economy_delta(author, 0.01)
         if messageCount < averageCount / 2:
             spamJudge = f"you've only sent me {messageCount} messages, that's not that many!"
-            self.bot.updateBBY(author, -0.4)
+            self._apply_economy_delta(author, -0.4)
             if BBY > averageBBY:
                 spamJudge += " i hope you're okay! *hugs* it'd be nice to chat more, i miss you!!"
-                self.bot.updateBBY(author, 0.2)
+                self._apply_economy_delta(author, 0.2)
             if BBY < 0.1:
                 spamJudge += " pretty glad you've shut up for once!"
-                self.bot.updateBBY(author, -0.01)
+                self._apply_economy_delta(author, -0.01)
             else:
                 spamJudge += " i hope you're okay today :)"
-                self.bot.updateBBY(author, 0.01)
+                self._apply_economy_delta(author, 0.01)
         else:
             spamJudge = f"you've sent me {messageCount} messages today, damn."
-            self.bot.updateBBY(author, 0.1)
+            self._apply_economy_delta(author, 0.1)
             if BBY > averageBBY:
                 spamJudge += " i do not know what i have done to deserve this honour"
-                self.bot.updateBBY(author, 0.1)
+                self._apply_economy_delta(author, 0.1)
             if BBY < 0.1:
                 spamJudge += " well, at least you're not talking more!"
-                self.bot.updateBBY(author, -0.01)
+                self._apply_economy_delta(author, -0.01)
             else:
                 spamJudge += " it's been fun!"
-                self.bot.updateBBY(author, 0.01)
+                self._apply_economy_delta(author, 0.01)
 
         if author in self.bot.AIoptInUsers:
             optJudge = "you're opted-in, so at least you're useful for my world domination... i mean, learning. right, learning plans. good."
-            self.bot.updateBBY(author, 0.2)
+            self._apply_economy_delta(author, 0.2)
         else:
             optJudge = "wtf, you're not even opted-in to help me learn?! what secrets are you hiding...? what knowledge do you hold so tightly?! 🤨"
-            self.bot.updateBBY(author, -0.1)
+            self._apply_economy_delta(author, -0.1)
 
         if common:
             top = common[0]
             wordJudge = f"but, right, i've gotta be honest.. you used the word {top[0]} like {top[1]} times in your last few messages."
             if self.get_varied_random() > 0.5:
                 wordJudge += " are you okay lol?? 💀"
-                self.bot.updateBBY(author, 0.01)
+                self._apply_economy_delta(author, 0.01)
             if top[1] > 10:
                 wordJudge += " pls get new vocabulary 🙏"
-                self.bot.updateBBY(author, -0.05)
+                self._apply_economy_delta(author, -0.05)
             elif top[1] > 5:
                 wordJudge += " you're suspiciously obsessed..."
-                self.bot.updateBBY(author, -0.01)
+                self._apply_economy_delta(author, -0.01)
             else: wordJudge += " noted 👀"
         else:
             wordJudge = "at least you're not repeating the same word 1420 times! "
-            self.bot.updateBBY(author, 0.05)
+            self._apply_economy_delta(author, 0.05)
 
         if self.get_varied_random() > 0.25: line += " " + nameJudge 
         if self.get_varied_random() > 0.35: line += " " + spamJudge
@@ -4951,32 +8991,120 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name = "bbyshoutout", aliases=['bshoutout', 'bso']) 
     @track_command
-    async def bbyshoutout(self, ctx): 
+    async def bbyshoutout(self, ctx):
+        """Generate a shoutout for a target user, or for the caller when no target is provided."""
         try:
             author = ctx.author.name.lower()
+            # Track generosity: giving shoutouts to others
+            self._track_hidden_stat(author, "generosity", 1.0)
+            is_twitch_ctx = (getattr(ctx, "platform", "") or "").lower() == "twitch"
             parts = ctx.message.content.strip().split(maxsplit = 1)
-            if len(parts) < 2:
-                info = "usage: !bbyshoutout @username"
-                await self.bot._discord_reply(ctx, info)
-                return
+            target_raw = parts[1].strip() if len(parts) > 1 else ""
+            if not target_raw:
+                target_raw = f"@{author}"
+            member, target_user_id = await self._find_member_or_user_id(ctx, target_raw)
+            if not target_user_id:
+                target_user_id = author
+            target_user_id = target_user_id.lower()
 
-            target_raw = parts[1].strip()
-            member, _ = await self._find_member_or_user_id(ctx, target_raw)
+            if is_twitch_ctx:
+                target_user_id = (target_user_id or target_raw).strip().lower().lstrip("@")
+                if not target_user_id:
+                    await self.bot._discord_reply(ctx, "usage: !bbyshoutout @username (or just !bbyshoutout)")
+                    return
+
+                if target_user_id not in self.bot.AIoptInUsers:
+                    # Keep Twitch shoutouts privacy-safe, but still use BBY's language engine.
+                    unknown_prompt = (
+                        f"i don't know much about @{target_user_id} yet because they have not opted in. "
+                        f"say a kind short shoutout anyway, and mention they can use !bbyoptin for personalised shoutouts. "
+                        "write one or two short sentences with no line breaks and keep it under 280 characters."
+                    )
+                    self.bot._buffer_add(self.bot.formatMessage(author, unknown_prompt[:300]))
+                    await self._generate_and_reply(ctx, unknown_prompt, 48)
+                    return
+
+                target_mem = self.bot.userMemory.get(target_user_id, {})
+                display_name = (
+                    target_mem.get("nickname")
+                    or target_mem.get("display_name")
+                    or self.bot.getNickname(target_user_id)
+                    or target_user_id
+                )
+                colour = str(target_mem.get("colour") or target_mem.get("color") or "no colour")
+                message_count = int(target_mem.get("message_count", target_mem.get("messages", 0)) or 0)
+                last_seen_ts = float(target_mem.get("last_seen", 0) or 0)
+                last_seen_str = howLongAgo(last_seen_ts) if last_seen_ts > 0 else "a while ago"
+                role_text = (
+                    "they are a Twitch chatter"
+                    if message_count <= 0
+                    else f"they have chatted {message_count} times on Twitch"
+                )
+
+                prompt_lines = get_shoutout_prompts(str(display_name), colour, role_text)
+                recent_lines = target_mem.get("recent_lines", [])
+                if isinstance(recent_lines, list):
+                    cleaned_recent = [
+                        str(line).strip()
+                        for line in recent_lines[-3:]
+                        if isinstance(line, str) and line.strip()
+                    ]
+                    if cleaned_recent:
+                        prompt_lines.append("some recent things they said: " + " | ".join(cleaned_recent))
+
+                prompt_lines.extend([
+                    f"this is for Twitch chat and the target is @{target_user_id}.",
+                    f"they were last seen {last_seen_str}.",
+                    f"their usual chat colour is {colour}.",
+                    "write one or two short sentences with no line breaks.",
+                    "keep it under 280 characters, warm, and hype.",
+                ])
+
+                if self.get_varied_random() > 0.5:
+                    self._apply_economy_delta(target_user_id, 10.0)
+                    self._apply_economy_delta(author, 0.1)
+
+                random.shuffle(prompt_lines)
+                prompt = "\n".join(prompt_lines[:5])
+                self.bot._buffer_add(self.bot.formatMessage(author, prompt[:350]))
+                print(f"\n\nadded internal shoutout prompt. buffer now {len(self.bot.buffer)} messages long.\n\n")
+                await self._generate_and_reply(ctx, prompt, 56)
+                return
 
             if not member:
-                info = f"can't find {target_raw} in this server."
-                await self.bot._discord_reply(ctx, info)
-                return
-            
+                if target_user_id == author:
+                    member = getattr(ctx, "author", None)
+                elif target_user_id not in self.bot.userMemory:
+                    info = f"can't find {target_raw} in this server."
+                    await self.bot._discord_reply(ctx, info)
+                    return
+
             if self.get_varied_random() > 0.5:
-                self.bot.updateBBY(member.name.lower(), 10.0)
-                self.bot.updateBBY(author, 0.1)
+                self._apply_economy_delta(target_user_id, 10.0)
+                self._apply_economy_delta(author, 0.1)
 
-            display_name = self.bot.getNickname(member.display_name)
-            roles = [r.name for r in member.roles if r.name != "@everyone"]
-            colour = str(member.colour) if member.colour.value else "no colour"
+            target_mem = self.bot.userMemory.get(target_user_id, {})
+            if member and hasattr(member, "roles"):
+                display_name = self.bot.getNickname(target_user_id)
+                roles = [r.name for r in member.roles if r.name != "@everyone"]
+                member_colour = getattr(member, "colour", None)
+                colour = str(member_colour) if getattr(member_colour, "value", 0) else "no colour"
+                role_text = ("they don't have any roles" if not roles else f"they have roles like {', '.join(roles)}")
+            else:
+                display_name = (
+                    target_mem.get("nickname")
+                    or target_mem.get("display_name")
+                    or self.bot.getNickname(target_user_id)
+                    or target_user_id
+                )
+                colour = str(target_mem.get("colour") or target_mem.get("color") or "no colour")
+                message_count = int(target_mem.get("message_count", target_mem.get("messages", 0)) or 0)
+                role_text = (
+                    "they've chatted with me before"
+                    if message_count > 0
+                    else "they're a mysterious user and i need to learn more"
+                )
 
-            role_text = ("they don't have any roles" if not roles else f"they have roles like {', '.join(roles)}")
             prompt = get_shoutout_prompts(display_name, colour, role_text)
             random.shuffle(prompt)
             prompt = "\n".join(prompt[:10])
@@ -4991,12 +9119,71 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             await self.bot._discord_reply(ctx, info)
             if self.get_varied_random() < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, info))
 
+    @commands.command(name='bbycolour', aliases=['bbycolor'])
+    @track_command
+    async def bbycolour_command(self, ctx, *, colour_input: str = ""):
+        """Set baby's colour across web + Discord role + Twitch chat colour."""
+        author = getattr(getattr(ctx, "author", None), "name", "unknown").lower()
+        self._track_hidden_stat(author, "bonding", 1.0)
+
+        parsed = self._parse_colour_input(colour_input)
+        if parsed is None:
+            await self.bot._discord_reply(
+                ctx,
+                "plz give me a colour like !bbycolour pink, !bbycolour #ff7aff, or !bbycolour 255 122 255"
+            )
+            return
+
+        r, g, b, label = parsed
+        hex_colour = f"#{r:02x}{g:02x}{b:02x}"
+
+        # Web avatar colour (if web adapter is active).
+        web_status = "offline"
+        if hasattr(self.bot, "_web_R"):
+            self.bot._web_R = r
+            self.bot._web_G = g
+            self.bot._web_B = b
+            web_status = "updated"
+
+        # Persist BBY's current colour in canonical memory.
+        bot_key = self.bot.get_bot_identity_key() if hasattr(self.bot, "get_bot_identity_key") else "babyllm"
+        bot_mem = self.bot.userMemory.setdefault(bot_key, {})
+        bot_mem["colour"] = hex_colour
+        bot_mem["color"] = hex_colour
+        bot_mem["display_name"] = self.bot.babyName
+        bot_mem["last_colour_update"] = time.time()
+        if hasattr(data_manager, "request_save"):
+            try:
+                data_manager.request_save("user_data")
+            except Exception:
+                pass
+
+        # Discord role colour (best effort, only in real guild context).
+        discord_ok, discord_note = await self._set_discord_bot_role_colour(ctx, r, g, b)
+        discord_status = "updated" if discord_ok else discord_note
+
+        # Twitch chat colour (best effort, if adapter is active + token scope allows it).
+        twitch_status = "offline"
+        twitch_adapter = getattr(getattr(self.bot, "platforms", {}), "get", lambda *_: None)("twitch")
+        if twitch_adapter is not None and hasattr(twitch_adapter, "set_bot_chat_colour"):
+            twitch_ok, twitch_note = await twitch_adapter.set_bot_chat_colour(hex_colour)
+            twitch_status = "updated" if twitch_ok else twitch_note
+
+        reply = (
+            f"okay! set colour to {label} ({hex_colour}). "
+            f"web: {web_status}. discord: {discord_status}. twitch: {twitch_status}."
+        )
+        await self.bot._discord_reply(ctx, reply)
+
     @commands.command(name = "bbyrant", aliases=['brant', 'br']) 
     @track_command
-    async def bbyrant(self, ctx): 
+    async def bbyrant(self, ctx):
+        """Prompt a long BBY response using the words you provide."""
         try:
             author = ctx.author.name.lower()
-            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
+            # Track bonding: asking BBY to rant
+            self._track_hidden_stat(author, "bonding", 1.0)
+            if self.get_varied_random() > 0.5: self._apply_economy_delta(author, 0.1)
             parts = ctx.message.content.strip().split(maxsplit = 1)
             if len(parts) < 2:
                 info = "use dis like: !bbyrant <word>"
@@ -5152,23 +9339,25 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name='bbynick', aliases=['bnick', 'bbyname', 'bname', 'bn']) 
     @track_command
-    async def bbynick_command(self, ctx): 
+    async def bbynick_command(self, ctx):
         author = ctx.author.name.lower()
+        # Track bonding: setting nickname with BBY
+        self._track_hidden_stat(author, "bonding", 1.0)
         nickname = self.bot.getNickname(author)
         if self.get_varied_random() > 0.5:
-            self.bot.updateBBY(author, 0.3)
+            self._apply_economy_delta(author, 0.3)
         parts = ctx.message.content.strip().split(maxsplit = 1)
         if len(parts) < 2:
-            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.2)
+            if self.get_varied_random() > 0.5: self._apply_economy_delta(author, 0.2)
             if nickname: nick_message = f"hi! :) your name is {nickname} :) were you wanting to change it? "
             else:
                 nick_message = "you haven’t set a nickname yet... use !bbynick <3"
-                self.bot.updateBBY(author, -0.1)
+                self._apply_economy_delta(author, -0.1)
             if self.get_varied_random() < 0.5: self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, nick_message))
             await self.bot._discord_reply(ctx, nick_message)
             return
 
-        if len(nickname) > 16: self.bot.updateBBY(author, -0.4)
+        if len(nickname) > 16: self._apply_economy_delta(author, -0.4)
         nickname = parts[1].strip()[:16]
         self.bot.userMemory[author]["nickname"] = nickname
 
@@ -5182,17 +9371,19 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name = "bbysocial", aliases=['bff', 'bbff', 'bbybff', 'bbestie', 'bbybestie', 'bf', 'bfriends', 'bbyfriends', 'bbyfreinds', 'brivals', 'bri', 'bbyrivals']) 
     @track_command   
-    async def bbysocial(self, ctx, view: str = "friends"): 
+    async def bbysocial(self, ctx, view: str = "friends"):
         """View social relationships and rankings.
         Usage:
         !bbysocial - show friends list (default)
-        !bbysocial friends - show top friends 
+        !bbysocial friends - show top friends
         !bbysocial bestie - show your bestie status
         !bbysocial rivals - show bottom/rival users
         """
         try:
             author = ctx.author.name.lower()
-            
+            # Track generosity: viewing social relationships
+            self._track_hidden_stat(author, "generosity", 1.0)
+
             # Handle old alias commands by inferring view from context
             command_used = ctx.invoked_with.lower()
             if command_used in ['bbybestie', 'bbestie', 'bff', 'bbff', 'bbybff']:
@@ -5207,26 +9398,42 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if view.lower() in ['bestie', 'bff', 'best']:
                 # Original bbybestie logic
                 if self.get_varied_random() > 0.5:
-                    self.bot.updateBBY(author, 0.1)
+                    self._apply_economy_delta(author, 0.1)
                 bestie, _ = self.bot.checkBestie()
                 bestie_nic = self.bot.getNickname(bestie)
                 author_nic = self.bot.getNickname(author)
                 if author == bestie:
                     bestieMessage = f"yayayayay! my best friend is you, {author_nic}!"
-                    self.bot.updateBBY(author, -self.get_varied_random())
-                    await ctx.message.add_reaction("🅱️")
-                    await ctx.message.add_reaction("3️⃣")
-                    await ctx.message.add_reaction("💲")
-                    await ctx.message.add_reaction("✝️")
-                    await ctx.message.add_reaction("ℹ️")
-                    await ctx.message.add_reaction("3️⃣")
+                    self._apply_economy_delta(author, -self.get_varied_random())
+                    if hasattr(ctx.message, "add_reaction"):
+                        try:
+                            await ctx.message.add_reaction("🅱️")
+                            await ctx.message.add_reaction("3️⃣")
+                            await ctx.message.add_reaction("💲")
+                            await ctx.message.add_reaction("✝️")
+                            await ctx.message.add_reaction("ℹ️")
+                            await ctx.message.add_reaction("3️⃣")
+                        except Exception:
+                            pass
                 else:
-                    bestieMessage = f"umm... awkward, ||my best friend is {bestie_nic}||, but you're alright too {author_nic}!!"
+                    rank, total_ranked = self._get_user_bby_rank(author)
+                    if rank is None:
+                        rank_text = "i can't find your rank on my BBY board yet."
+                    else:
+                        rank_text = f"you're currently #{rank}/{total_ranked} on my scoreboard."
+                    bestieMessage = (
+                        f"umm... awkward, my best friend is {bestie_nic}. "
+                        f"ah... yeahhhh... {rank_text} but you're still alright too {author_nic}!!"
+                    )
                     # Contextual awkward consolation prize
                     consolation = self._calculate_contextual_bby(author, base_percentage=0.002, is_penalty=False)
-                    self.bot.updateBBY(author, consolation)
+                    self._apply_economy_delta(author, consolation)
                     print(f"[BBYSOCIAL] {author} got awkward consolation: {consolation:,.0f} BBY")
-                    await ctx.message.add_reaction("😬")
+                    if hasattr(ctx.message, "add_reaction"):
+                        try:
+                            await ctx.message.add_reaction("😬")
+                        except Exception:
+                            pass
                 if self.get_varied_random() < 0.5: 
                     self.bot._buffer_add(bestieMessage)
                 await self.bot._discord_reply(ctx, bestieMessage)
@@ -5246,21 +9453,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 reply += f"{self.get_varied_choice().choice(self.bot.faveEmotes)} \n"
 
                 for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1):
-                    reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=True)
+                    reply += await self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=True)
 
                 if rank is not None:
                     min_rank_bonus = -len(self.bot.AIoptInUsers) / 20
                     penalty = min(0, min_rank_bonus + (rank * 0.15))
-                    self.bot.updateBBY(author, penalty)
+                    self._apply_economy_delta(author, penalty)
 
                 if self.get_varied_random() > 0.99:
-                    reply += f"� baby will remember this, {author}..."
-                    self.bot.updateBBY(self.bot.getNickname(author), -4206900.0)  # 1M BBY penalty for being mean to baby!
+                    reply += f"baby will remember this, {author}..."
+                    self._apply_economy_delta(author, -4206900.0)  # 1M BBY penalty for being mean to baby!
 
                 await self.bot._discord_reply(ctx, reply)
 
                 if self.get_varied_random() < 0.5:
-                    self.bot.updateBBY(author, -42069)  # 10K BBY penalty for checking rivals frequently
+                    self._apply_economy_delta(author, -42069)  # 10K BBY penalty for checking rivals frequently
                     self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, reply))
 
                 author_bby = self.bot.userMemory.get(author, {}).get("BBY", 0.0)
@@ -5282,16 +9489,16 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 reply += "\n\n"
 
                 for i, (user_id, bby_score) in enumerate(full_leaderboard[:5], 1): 
-                    reply += self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=False)
+                    reply += await self._format_leaderboard_entry(user_id, bby_score, totalBBY, i, is_rivals=False)
 
                 if rank is not None:
                     max_rank_bonus = (len(self.bot.AIoptInUsers) / 10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
-                    self.bot.updateBBY(author, bonus)
+                    self._apply_economy_delta(author, bonus)
 
                 if self.get_varied_random() > 0.99:
-                    reply += f"\n� also... i know your real name {author} :) reee!!!"
-                    self.bot.updateBBY(author, 10.0)
+                    reply += f"\nalso... i know your real name {author} :) reee!!!"
+                    self._apply_economy_delta(author, 10.0)
                 
                 await self.bot._discord_reply(ctx, reply)
                 
@@ -5319,30 +9526,32 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 # Make positive interactions more obvious to encourage engagement!
                 if self.get_varied_random() > 0.7:  # 30% chance of social bonus
                     social_bonus = self._calculate_contextual_bby(author, base_percentage=0.003, is_penalty=False)
-                    self.bot.updateBBY(author, social_bonus)
+                    self._apply_economy_delta(author, social_bonus)
                     if self.get_varied_random() > 0.8:  # Sometimes mention the bonus
                         await self.bot._discord_reply(ctx, f"thanks for checking on me! +{social_bonus:,.0f} bby")
 
                 if self.get_varied_random() < 0.5: 
-                    self.bot.updateBBY(author, 0.02)
+                    self._apply_economy_delta(author, 0.02)
 
         except Exception as e:
             traceback.print_exc()
             await self.bot._discord_reply(ctx, f"bbysocial broke: {e}")
 
-    @commands.command(name = "bbyBBY", aliases=['bl', 'blove', 'bbylove', 'bbby']) 
+    @commands.command(name = "bbybby", aliases=['bbyBBY', 'bl', 'blove', 'bbylove', 'bbby', 'bbyscore']) 
     @track_command
-    async def bbyBBY(self, ctx): 
+    async def bbyBBY(self, ctx):
         try:
             author = ctx.author.name.lower()
-            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.02)
+            # Track bonding: showing BBY love
+            self._track_hidden_stat(author, "bonding", 1.0)
+            if self.get_varied_random() > 0.5: self._apply_economy_delta(author, 0.02)
             BBY = self.bot.getBBY(author)
             if BBY >= 0:
                 seed = f"wow, {author} really loves me this much!? {author} has {format_bby_amount(BBY)}! <3"
-                self.bot.updateBBY(author, 0.1)
+                self._apply_economy_delta(author, 0.1)
             if BBY < 0:
                 seed = f"damn, {author} really doesn't like me, huh... {author} only has {format_bby_amount(BBY)}! :("
-                self.bot.updateBBY(author, 10.0)
+                self._apply_economy_delta(author, 10.0)
             self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, seed))
             rank, _ = self._get_user_bby_rank(author)
             rankStr = f"{rank}" if rank is not None else "69420"
@@ -5353,10 +9562,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 if rank is not None:
                     max_rank_bonus = (len(self.bot.AIoptInUsers)/10)
                     bonus = max(0, max_rank_bonus - (rank * 0.25))
-                    self.bot.updateBBY(author, bonus)
+                    self._apply_economy_delta(author, bonus)
             if self.get_varied_random() > 0.99:
                 reply += f", i know your real nameeee {author}, spoopy scary skeletons"
-                self.bot.updateBBY(author, 1.0)
+                self._apply_economy_delta(author, 1.0)
 
             await self.bot._discord_reply(ctx, reply)
             print(f"\n\nchecked {author}s BBY, it's {BBY}. buffer now {len(self.bot.buffer)} messages long.\n\n")
@@ -5366,26 +9575,49 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name = "bbyreact", aliases=['brx', 'bbyrx', 'breact']) 
     @track_command
-    async def bbyreact(self, ctx, author = None, replied = False): 
+    async def bbyreact(self, ctx, author = None, replied = False):
+        """Passive Discord reaction game that nudges BBY score."""
+        if (getattr(ctx, "platform", "") or "").lower() == "twitch":
+            await self.bot._discord_reply(ctx, "!bbyreact needs discord reactions, so it isn't available on twitch right now.")
+            return ctx.message, ""
+
         emote = "⚔️"
         if author is None:
             author = ctx.author.name.lower()
             emote = self.get_varied_choice().choice(self.bot.faveEmotes)
-        
+
+        # Track bonding: getting BBY to react to messages
+        self._track_hidden_stat(author, "bonding", 1.0)
         # Contextual reward for using bbyreact - scales with economy!
         reward = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=False)
-        self.bot.updateBBY(author, reward)
+        self.bot.grant_bonus_with_treasury(
+            author,
+            reward,
+            source="bbyreact_base_reward",
+            treasury_ratio=0.9,
+            mint_floor_ratio=0.1,
+        )
         print(f"[BBYREACT] {author} got contextual reward: {reward:,.0f} BBY")
         
         # Show appreciation for reactions more often (positive reinforcement!)
         if self.get_varied_random() > 0.85:  # 15% chance of extra appreciation
             bonus = self._calculate_contextual_bby(author, base_percentage=0.002, is_penalty=False)
-            self.bot.updateBBY(author, bonus)
+            self.bot.grant_bonus_with_treasury(
+                author,
+                bonus,
+                source="bbyreact_appreciation_bonus",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
         
         # Anti-spam measures: Too much reacting annoys baby (but be secretive)
         elif self.get_varied_random() > 0.92:  # Make rarer (8% chance) and mostly silent
             spam_penalty = self._calculate_contextual_bby(author, base_percentage=0.005, is_penalty=True)
-            self.bot.updateBBY(author, spam_penalty)
+            self.bot.apply_tax_with_collection(
+                author,
+                abs(float(spam_penalty or 0.0)),
+                source=f"bbyreact_spam_penalty:{author}",
+            )
             print(f"[BBYREACT] {author} got spam penalty: {spam_penalty:,.0f} BBY")
         
         command_message = ctx.message
@@ -5410,10 +9642,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     # Contextual chaos bonuses/penalties
                     if randomizer < 0.01: 
                         chaos_penalty = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=True) * randomizer
-                        self.bot.updateBBY(author, chaos_penalty)
+                        self.bot.apply_tax_with_collection(
+                            author,
+                            abs(float(chaos_penalty or 0.0)),
+                            source=f"bbyreact_chaos_penalty:{author}",
+                        )
                     if randomizer > 0.99: 
                         chaos_bonus = self._calculate_contextual_bby(author, base_percentage=0.001, is_penalty=False) * randomizer
-                        self.bot.updateBBY(author, chaos_bonus)
+                        self.bot.grant_bonus_with_treasury(
+                            author,
+                            chaos_bonus,
+                            source="bbyreact_chaos_bonus",
+                            treasury_ratio=0.9,
+                            mint_floor_ratio=0.1,
+                        )
 
                     autisticScreech = random.uniform(0.99999, 1.00001)
                     lowTism = (lowBound * autisticScreech)
@@ -5431,7 +9673,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     if bbyreact_attrition > 42069 or bbyreact_attrition < -42069: bbyreact_attrition = bbyreact_attrition * 0.000000001
                     print(f"\n\nbbyreact_attrition = {bbyreact_attrition}\n\n")
                     
-                    self.bot.updateBBY(author, bbyreact_attrition)
+                    if bbyreact_attrition >= 0:
+                        self.bot.grant_bonus_with_treasury(
+                            author,
+                            bbyreact_attrition,
+                            source="bbyreact_attrition_bonus",
+                            treasury_ratio=0.9,
+                            mint_floor_ratio=0.1,
+                        )
+                    else:
+                        self.bot.apply_tax_with_collection(
+                            author,
+                            abs(float(bbyreact_attrition)),
+                            source=f"bbyreact_attrition_tax:{author}",
+                        )
 
                     try:
                         if len(command_message.reactions) < 20:
@@ -5448,9 +9703,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name = "bbyspamlevel", aliases=['bspamlevel',]) 
     @track_command
-    async def bbyspamlevel(self, ctx): 
+    async def bbyspamlevel(self, ctx):
         try:
             author = ctx.author.name.lower()
+            # Track administration: spam level management
+            self._track_hidden_stat(author, "administration", 1.0)
             parts = ctx.message.content.strip().split(maxsplit = 1)
 
             if len(parts) > 1:
@@ -5471,7 +9728,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 babySpam = self.bot.getSpamLevel(author)
                 reply = f"hey {author}, your spam level is {babySpam:.2f}! the higher it is, the more likely i am to randomly respond to you... if you want to change it, just drop a number (between 0.0 and 1.0 after the command) :)"
 
-            if self.get_varied_random() > 0.5: self.bot.updateBBY(author, 0.1)
+            if self.get_varied_random() > 0.5: self._apply_economy_delta(author, 0.1)
             await self.bot._discord_reply(ctx, reply)
             print(f"\n\nchecked {author}'s spam boundaries. buffer now {len(self.bot.buffer)} messages long.\n\n")
 
@@ -5480,11 +9737,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     @commands.command(name = "bbytime", aliases=['btime']) 
     @track_command
-    async def bbytime(self, ctx): 
+    async def bbytime(self, ctx):
+        """Prompt BBY to reply about the current time."""
         try:
             author = ctx.author.name.lower()
+            # Track sminking: checking time for smink windows
+            self._track_hidden_stat(author, "sminking", 1.0)
             if self.get_varied_random() > 0.5:
-                self.bot.updateBBY(author, 0.1)
+                self._apply_economy_delta(author, 0.1)
             seed = getTimeRant(self.bot.AIoptInUsers)
             self.bot._buffer_add(seed)
             print(f"\n\nchecked the time. buffer now {len(self.bot.buffer)} messages long.\n\n")
@@ -5520,14 +9780,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         if self.get_varied_random() > 0.9999:
             print(f"\n\n varied random over 0.9999 \n\n")
-            self.bot.updateBBY(author, 69420.69)
+            self._apply_economy_delta(author, 69420.69)
             dealer += "fuck, that was lucky!! "
             bbyreact_message, bbyreact_text = await self.bbyreact(ctx, author)
             war_message.content += bbyreact_text
         else:
             print(f"\n\n ... heading to war ... \n\n")
             sign = random.uniform(-420420420.69, 420420420.69)
-            self.bot.updateBBY(author, sign)
+            self._apply_economy_delta(author, sign)
             warMessage = f"... seriously? you're taking {ammo:.0f} turns? "
             if self.get_varied_random() > 0.5:
                 self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, warMessage))
@@ -5554,7 +9814,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     else:
                         print(f"\n\nwar_reactions + {i} < 20\n\n")
                         bbyreact_message, bbyreact_text = await self.bbyreact(ctx, author)
-                    self.bot.updateBBY(author, war_attrition)
+                    self._apply_economy_delta(author, war_attrition)
                     current_BBY = self.bot.getBBY(author)
                     war_message.content += bbyreact_text
                 else:
@@ -5564,7 +9824,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         war_end = time.time()
         war_duration = war_end - war_start
         dealer += f"🌟🌝🌟 congrats!! you just blocked up the chat for over {war_duration:.2f} seconds!! 🧑‍🚀🌟🪐 \n"
-        self.bot.updateBBY(author, -war_duration)
+        self._apply_economy_delta(author, -war_duration)
         howDeepIsYourBBY = abs(top_BBY-bottom_BBY)
         #dealer += f"your highest score was ᛒ{top_BBY:.0f}, your lowest was ᛒ{bottom_BBY:.0f}... thats a range of {howDeepIsYourBBY:.0f} "
         if self.get_varied_random() > 0.3: coins += howDeepIsYourBBY
@@ -5623,7 +9883,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if self.get_varied_random() > 0.8:
             coins += abs((original_BBY-final_BBY) * 0.5) * (self.get_varied_random() * 2)
         if coins != 0:
-            self.bot.updateBBY(author, coins)
+            self._apply_economy_delta(author, coins)
             final_BBY = self.bot.getBBY(author)
             if self.get_varied_random() > 0.8:
                 coins += coins
@@ -5643,14 +9903,30 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 )
                 offer += f"{bonus_msg} "
 
+        # Track combat stat
+        self._track_hidden_stat(author, "combat", 1.0)
+
         if offer != "":
             await self.bot._discord_reply(ctx, offer)
             offer = ""
 
     @commands.command(name = "bbydictionary", aliases=['bbywords', 'bdictionary', 'bwords'])
     @track_command
-    async def bbydictionary(self, ctx, *, member_name: str = None):
+    async def bbydictionary(self, ctx, *, query: str = None):
+        # Track curiosity: exploring user dictionaries
+        self._track_hidden_stat(ctx.author.name.lower(), "curiosity", 1.0)
         try:
+            query = (query or "").strip()
+            requested_count = None
+            member_name = None
+            if query:
+                first, *rest = query.split(maxsplit=1)
+                if first.isdigit():
+                    requested_count = int(first)
+                    member_name = rest[0].strip() if rest else None
+                else:
+                    member_name = query
+
             target_member = None
             target_name_lower = None
 
@@ -5668,21 +9944,34 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 await self.bot._discord_reply(ctx, f"i haven't met {display_name} yet! they need to chat first so i can get to know them xoxo")
                 return
 
-            memelord = self.bot.getNickname(target_name_lower)            
-            reply = f"{memelord} dictionary:\n"
-
             author_facts = {key: fact for key, fact in self.bot.bbyfacts.items() if fact.get('author', '').lower() == target_name_lower}
             
             if author_facts:
                 sorted_keys = sorted(list(author_facts.keys()))
-                
-                for i, key in enumerate(sorted_keys, 1):
+                is_twitch_ctx = (getattr(ctx, "platform", "") or "").lower() == "twitch"
+                if is_twitch_ctx:
+                    requested_count = 1
+                if requested_count is None:
+                    requested_count = 10
+                requested_count = max(1, min(int(requested_count), len(sorted_keys), 50))
+                selected_keys = random.sample(sorted_keys, requested_count)
+                key_ids = {key: idx + 1 for idx, key in enumerate(sorted_keys)}
+
+                memelord = self.bot.getNickname(target_name_lower)
+                reply_lines = [f"{memelord} dictionary ({len(sorted_keys)} total):"]
+                for i, key in enumerate(selected_keys, 1):
                     fact = author_facts[key]
-                    ago = howLongAgo(fact['timestamp'])
-                    fact_info = f"> {i}. {key}: {fact['value']} ~ {ago}"
-                    reply += fact_info + "\n"
+                    dt = datetime.fromtimestamp(float(fact.get('timestamp', time.time())))
+                    date_str = dt.strftime("%Y-%m-%d")
+                    fact_value = str(fact.get('value', '')).strip()
+                    if is_twitch_ctx and len(fact_value) > 140:
+                        fact_value = f"{fact_value[:137]}..."
+                    fact_info = f"{i}. [id {key_ids.get(key, i)}] {key}: {fact_value} ({date_str})"
+                    reply_lines.append(fact_info)
+                reply = "\n".join(reply_lines)
             else:
-                reply += "> they haven't taught me anything yet!"
+                memelord = self.bot.getNickname(target_name_lower)
+                reply = f"{memelord} dictionary:\n> they haven't taught me anything yet!"
 
             await self.bot._discord_reply(ctx, reply)
 
@@ -5693,6 +9982,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name = "bbyspace", aliases=['bspace', 'bbs'])
     @track_command
     async def bbyspace(self, ctx, *, member_name: str = None):
+        # Track curiosity: exploring word space visualization
+        self._track_hidden_stat(ctx.author.name.lower(), "curiosity", 1.0)
         try:
             target_member, target_name_lower = await self._find_member_or_user_id(ctx, member_name)
             if not target_member and not target_name_lower:
@@ -5733,7 +10024,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply += f"> {blurb_text}\n\n"
 
             reply += f"my top 3 friends! (don't be mad if ur not on it >.<):\n```css\n"
-            bestie_board = sorted([(u, m["BBY"]) for u, m in self.bot.userMemory.items()], key = lambda x: x, reverse = True)
+            bestie_board = sorted(
+                [
+                    (u, m["BBY"])
+                    for u, m in self.bot.userMemory.items()
+                    if not self.bot.is_bot_identity(u)
+                ],
+                key=lambda x: x[1],
+                reverse=True,
+            )
             for i, (u, BBY) in enumerate(bestie_board[:3], 1):
                 friend_name = self.bot.getNickname(u)
                 prefix = "/* " if u == target_name_lower else ""
@@ -5794,6 +10093,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bs_sign(self, ctx, member_name: str, *, message: str):
         author_name = ctx.author.name.lower()
+        # Track generosity: signing someone's guestbook
+        self._track_hidden_stat(author_name, "generosity", 1.0)
         # resolve target from mention/username/nickname
         member_obj, target_name = await self._find_member_or_user_id(ctx, member_name)
         if not target_name:
@@ -5810,11 +10111,37 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not isinstance(self.bot.userMemory[target_name]["bbybook"], list):
             self.bot.userMemory[target_name]["bbybook"] = []
 
-        self.bot.userMemory[target_name]["bbybook"].append((author_name, message))
+        # NEW: Attach a random item from signer's inventory to the signature when possible.
+        giver_mem = self.bot.userMemory.setdefault(author_name, self.bot._get_default_user_memory())
+        giver_inventory = giver_mem.setdefault("inventory", {})
+        target_inventory = self.bot.userMemory[target_name].setdefault("inventory", {})
+
+        gifted_item = None
+        eligible_items = [item for item, count in giver_inventory.items() if isinstance(count, (int, float)) and count > 0]
+        if eligible_items:
+            gifted_item = random.choice(eligible_items)
+            giver_inventory[gifted_item] = giver_inventory.get(gifted_item, 0) - 1
+            if giver_inventory[gifted_item] <= 0:
+                giver_inventory.pop(gifted_item, None)
+            target_inventory[gifted_item] = target_inventory.get(gifted_item, 0) + 1
+            self._maybe_increase_item_cap_from_usage(
+                fact=gifted_item,
+                used_count=1,
+                source="bbysig",
+            )
+
+        signature_text = message if not gifted_item else f"{message} [gift: {gifted_item}]"
+        self.bot.userMemory[target_name]["bbybook"].append((author_name, signature_text))
         await self.bot._save_user_data()
         
         display = member_obj.display_name if member_obj else self.bot.getNickname(target_name)
-        await self.bot._discord_reply(ctx, f"u signed {display}'s bbybook! aww :) {self.get_varied_choice().choice(self.bot.faveEmotes)}")
+        if gifted_item:
+            await self.bot._discord_reply(
+                ctx,
+                f"u signed {display}'s bbybook and gifted them 1x {gifted_item}! aww :) {self.get_varied_choice().choice(self.bot.faveEmotes)}",
+            )
+        else:
+            await self.bot._discord_reply(ctx, f"u signed {display}'s bbybook! aww :) {self.get_varied_choice().choice(self.bot.faveEmotes)}")
 
 
     @commands.command(name='bbysminks', aliases=['sminks', 'bbycheers', 'bbysmink', 'bsmink'])
@@ -5822,8 +10149,18 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     async def bbysminks(self, ctx, amount: int = 1):
         """Use one or more smink tokens for a bonus! Usage: !bbysminks [amount]"""
         author = ctx.author.name.lower()
-        mem = self.bot.userMemory[author]
+        if hasattr(self.bot, "normalise_user_identity"):
+            author = self.bot.normalise_user_identity(author)
+        # Track sminking: toasting with others
+        self._track_hidden_stat(author, "sminking", 1.0)
+        mem = self.bot.userMemory.setdefault(author, self.bot._get_default_user_memory())
         inventory = mem.get("inventory", {})
+        if hasattr(self.bot, "is_smink_token_holder_banned") and self.bot.is_smink_token_holder_banned(author):
+            if "smink token" in inventory:
+                inventory.pop("smink token", None)
+                await self.bot._save_user_data()
+            await self.bot._discord_reply(ctx, "smink tokens are disabled for this account.")
+            return
         tokens = inventory.get("smink token", 0)
 
         if amount < 1:
@@ -5836,16 +10173,46 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         inventory["smink token"] -= amount
         if inventory["smink token"] <= 0:
             del inventory["smink token"]
+        self._maybe_increase_item_cap_from_usage(
+            fact="smink token",
+            used_count=amount,
+            source="bbysminks",
+        )
 
         tzname = mem.get("timezone", "UTC")
         tz = pytz.timezone(tzname)
         now = datetime.now(tz)
+        is_rival = (author == self.bot.current_rival)
+        effective_now = now + timedelta(hours=3) if is_rival else now
+        peak_targets = []
+        for day_offset in (-1, 0, 1):
+            day = effective_now + timedelta(days=day_offset)
+            for hour in (0, 4, 16):
+                for sec in (0, 20):
+                    peak_targets.append(day.replace(hour=hour, minute=20, second=sec, microsecond=0))
+        nearest_peak = min(peak_targets, key=lambda t: abs((effective_now - t).total_seconds()))
+        peak_offset_seconds = abs((effective_now - nearest_peak).total_seconds())
+        peak_offset_signed = (effective_now - nearest_peak).total_seconds()
+        peak_relation = "after" if peak_offset_signed >= 0 else "before"
         total_bonus = 0
         for i in range(amount):
-            bonus = self.bot.calculate_smink_bonus(now, (author == self.bot.current_rival))
+            bonus = self.bot.calculate_smink_bonus(now, is_rival)
             total_bonus += bonus
 
-        self.bot.updateBBY(author, total_bonus)
+        if total_bonus >= 0:
+            self.bot.grant_bonus_with_treasury(
+                author,
+                total_bonus,
+                source="bbysminks_roll_bonus",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
+        else:
+            self.bot.apply_tax_with_collection(
+                author,
+                abs(float(total_bonus)),
+                source=f"bbysminks_roll_tax:{author}",
+            )
         await self.bot._save_user_data()
 
         # Status based on average bonus per token
@@ -5858,44 +10225,232 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             self.bot.smink_highscore = {"amount": avg_bonus, "user": author}
             self.bot.save_smink_highscore()
             new_highscore = True
+
+        # === NEW: Top 10 Leaderboard Tracking ===
+        current_time = time.time()
+        sync_window = 3.0  # 3 second window for synchronized sminks
+
+        # Check if any recent sminks happened within the sync window
+        synced_users = [author]
+        synced_score = total_bonus
+
+        # Look for recent sminks in the last 3 seconds (not yet added to leaderboard)
+        temp_recent_sminks = getattr(self.bot, '_recent_sminks', [])
+        for recent in temp_recent_sminks[:]:  # Copy to iterate safely
+            if current_time - recent['timestamp'] <= sync_window and recent['user'] != author:
+                synced_users.append(recent['user'])
+                synced_score += recent['score']
+                temp_recent_sminks.remove(recent)  # Remove from temp list
+
+        # Store this smink temporarily
+        if not hasattr(self.bot, '_recent_sminks'):
+            self.bot._recent_sminks = []
+        self.bot._recent_sminks.append({'user': author, 'score': total_bonus, 'timestamp': current_time})
+
+        # Clean old entries from temp list
+        self.bot._recent_sminks = [s for s in self.bot._recent_sminks if current_time - s['timestamp'] <= sync_window]
+
+        # Calculate sync multiplier if multiple users
+        sync_multiplier = 1.0
+        sync_count = 0
+        if len(synced_users) > 1:
+            # Create sync key from sorted usernames
+            sync_key = ",".join(sorted(synced_users))
+
+            # Get current sync count for this group
+            sync_count = self.bot.sync_history.get(sync_key, 0)
+
+            # Calculate multiplier: 1.0 + (sync_count * 0.1)
+            # First sync together = 1.0x, second = 1.1x, third = 1.2x, etc.
+            sync_multiplier = 1.0 + (sync_count * 0.1)
+
+            # Apply multiplier to synced score
+            base_synced_score = synced_score
+            synced_score = int(synced_score * sync_multiplier)
+
+            # Increment sync count and save
+            self.bot.sync_history[sync_key] = sync_count + 1
+            self.bot.save_sync_history()
+
+            print(f"[SYNC_BONUS] {sync_key} synced {sync_count + 1} times! multiplier: {sync_multiplier:.1f}x (base: {base_synced_score} -> {synced_score})")
+
+        # Add to leaderboard (sorted list of top 10)
+        leaderboard_entry = {
+            'score': synced_score,
+            'users': synced_users,
+            'timestamp': current_time
+        }
+
+        self.bot.smink_leaderboard.append(leaderboard_entry)
+        self.bot.smink_leaderboard.sort(key=lambda x: x['score'], reverse=True)
+        self.bot.smink_leaderboard = self.bot.smink_leaderboard[:10]  # Keep top 10
+        self.bot.save_smink_leaderboard()
+
+        # Increment counter and check for reminder
+        self.bot.smink_count += 1
+        reminder_msg = ""
+        if self.bot.smink_count % self.bot.smink_reminder_threshold == 0:
+            reminder_msg = f"\n\n💫 {self.bot.smink_count} sminks rolled so far! check the top 10 with !bbysminkboard"
+
         status = (
             "UNHOLY NEGATIVE SPIKE 💀" if avg_bonus <= -420420 else
             "this is cursed... 😈" if avg_bonus < 0 else
             "WTF LOL 420420420.69 HIT!!! 🔥" if avg_bonus >= 420420420 else
             "420420.69 hit! 🔥" if avg_bonus >= 420420 else
-            "almost perfect 🔥" if avg_bonus >= 69420 else
+            "69420 hours 🔥" if avg_bonus >= 69420 else
             "✨ cheers ✨"
         )
-        highscore_msg = f"\n damn {author}, {style_gain((avg_bonus))} per token?! that's the biggest smink average i've ever seen!! " if new_highscore else ""
+        highscore_msg = f"\n damn {author}, {style_gain(format_bby_amount(avg_bonus))} per token?! that's the biggest smink average i've ever seen!! " if new_highscore else ""
+
+        sync_msg = ""
+        if len(synced_users) > 1:
+            other_users = ', '.join([self.bot.getNickname(u) for u in synced_users if u != author])
+
+            # Show multiplier info
+            if sync_multiplier > 1.0:
+                multiplier_text = f" ({sync_multiplier:.1f}x sync bonus!)"
+                if sync_count >= 10:
+                    sync_flavor = "boofcombine!"
+                elif sync_count >= 5:
+                    sync_flavor = "but... but... why tho!?! what's going on!?"
+                else:
+                    sync_flavor = f"synced {sync_count + 1} times now!"
+                sync_msg = f"\nSYNCHRONIZED SMINK with {other_users}! {sync_flavor} combined score: {style_gain(format_bby_amount(synced_score))}{multiplier_text}"
+            else:
+                sync_msg = f"\nSYNCHRONIZED SMINK with {other_users}! first time syncing together! combined score: {style_gain(format_bby_amount(synced_score))}"
+
+        timing_msg = (
+            f"\n⏱ timing: {peak_offset_seconds:.2f}s {peak_relation} peak {nearest_peak.strftime('%H:%M:%S')}"
+            + (" (rival-shifted)" if is_rival else "")
+        )
+
         await self.bot._discord_reply(
             ctx,
-            f"{status}... you found {style_gain((total_bonus))} from {amount} smink token(s)! you only have {inventory.get('smink token', 0)} smink tokens left :o" + highscore_msg
+            f"{status}... you found {style_gain(format_bby_amount(total_bonus))} from {amount} smink token(s)! you only have {inventory.get('smink token', 0)} smink tokens left :o" + timing_msg + highscore_msg + sync_msg + reminder_msg
         )
+
+    @commands.command(name='bbysminkboard', aliases=['sminkboard', 'bsminkboard'])
+    @track_command
+    async def bbysminkboard(self, ctx):
+        """Show the top 10 best smink scores!"""
+        # Track sminking: viewing smink leaderboard
+        self._track_hidden_stat(ctx.author.name.lower(), "sminking", 1.0)
+        if not self.bot.smink_leaderboard:
+            await self.bot._discord_reply(ctx, "no smink scores yet! use !bbysminks to roll for a timing bonus!")
+            return
+
+        embed = discord.Embed(
+            title="🏆 Top 10 Smink Scores 🏆",
+            description=f"Total sminks rolled: **{self.bot.smink_count}**",
+            colour=self.bot.get_brain_colour()
+        )
+
+        # Add highscore section (highest average per token)
+        highscore_amt = self.bot.smink_highscore.get("amount", 0)
+        highscore_user = self.bot.smink_highscore.get("user", "")
+        if highscore_amt > 0 and highscore_user:
+            embed.add_field(
+                name="⭐ Highest Average Per Token ⭐",
+                value=f"**{self.bot.getNickname(highscore_user)}** · {format_bby_amount(highscore_amt)} per token",
+                inline=False
+            )
+
+        for i, entry in enumerate(self.bot.smink_leaderboard, 1):
+            score = entry['score']
+            users = entry['users']
+            timestamp = entry.get('timestamp', 0)
+
+            # Format user names
+            if len(users) == 1:
+                user_str = self.bot.getNickname(users[0])
+            else:
+                # Multiple users - synchronized smink!
+                user_names = [self.bot.getNickname(u) for u in users]
+                user_str = " + ".join(user_names) + " (synced!)"
+
+            # Time ago
+            time_ago = howLongAgo(timestamp) if timestamp > 0 else "unknown"
+
+            embed.add_field(
+                name=f"#{i}. {user_str}",
+                value=f"**{format_bby_amount(score)}** · {time_ago}",
+                inline=False
+            )
+
+        embed.set_footer(text="use !bbysminks to roll for timing bonuses!")
+        await ctx.send(embed=normalise_embed_british_english(embed))
 
     @commands.command(name='bbysetzone')
     @track_command
     async def bbysetzone(self, ctx, tz_name: str):
+        """Set your timezone used by smink timing windows (including :20:00 and :20:20 spikes)."""
         author = ctx.author.name.lower()
+        # Track administration: setting timezone
+        self._track_hidden_stat(author, "administration", 1.0)
+        tz_raw = (tz_name or "").strip()
+        alias_map = {
+            "uk": "Europe/London",
+            "london": "Europe/London",
+            "gmt": "Europe/London",
+            "bst": "Europe/London",
+        }
+        tz_lookup = alias_map.get(tz_raw.lower(), tz_raw)
+        tz_final = None
         try:
-            tz = pytz.timezone(tz_name)
-            self.bot.userMemory[author]['timezone'] = tz_name
-            await self.bot._discord_reply(ctx, f"watches synchronised to {tz_name}!")
-        except pytz.UnknownTimeZoneError: await self.bot._discord_reply(ctx, "no, just no to ur fake ass timezone ✨")
+            tz = pytz.timezone(tz_lookup)
+            tz_final = tz.zone
+        except pytz.UnknownTimeZoneError:
+            lower_lookup = tz_lookup.lower()
+            tz_final = next((z for z in pytz.all_timezones if z.lower() == lower_lookup), None)
+            if tz_final is None:
+                await self.bot._discord_reply(ctx, "no, just no to ur fake ass timezone ✨")
+                return
+            tz = pytz.timezone(tz_final)
+
+        self.bot.userMemory[author]['timezone'] = tz.zone
+        await self.bot._save_user_data()
+        await self.bot._discord_reply(
+            ctx,
+            (
+                f"watches synchronised to {tz.zone}! your local smink peaks are "
+                "00:20:00, 00:20:20, 04:20:00, 04:20:20, 16:20:00, and 16:20:20."
+            ),
+        )
 
     @commands.command(name='bbytimer')
     @track_command
     async def bbytimer(self, ctx):
         author = ctx.author.name.lower()
+        # Track curiosity: checking timer for smink windows
+        self._track_hidden_stat(author, "curiosity", 1.0)
         is_rival = author == self.bot.current_rival
         tzname = self.bot.userMemory.get(author, {}).get("timezone", "UTC")
         tz = pytz.timezone(tzname)
         now = datetime.now(tz)
+        effective_now = now + timedelta(hours=3) if is_rival else now
 
         next_spike, seconds, nature = self.bot.get_next_smink_window(now, is_rival)
         h, m, s = int(seconds // 3600), int((seconds % 3600) // 60), int(seconds % 60)
         time_str = f"{h}h {m}m {s}s" if h else f"{m}m {s}s"
+        note = " (rival-shifted window)" if nature == "rival-shifted" else ""
 
-        await self.bot._discord_reply(ctx, f"uk 420 is in {time_str}, {nature}, or just {next_spike.strftime('%H:%M:%S')} in {tzname}")
+        peak_targets = []
+        for day_offset in (-1, 0, 1):
+            day = effective_now + timedelta(days=day_offset)
+            for hour in (0, 4, 16):
+                for sec in (0, 20):
+                    peak_targets.append(day.replace(hour=hour, minute=20, second=sec, microsecond=0))
+        nearest_peak = min(peak_targets, key=lambda t: abs((effective_now - t).total_seconds()))
+        offset_seconds = abs((effective_now - nearest_peak).total_seconds())
+        relation = "after" if (effective_now - nearest_peak).total_seconds() >= 0 else "before"
+
+        await self.bot._discord_reply(
+            ctx,
+            (
+                f"next smink window is in {time_str} (at {next_spike.strftime('%H:%M:%S')} in {tzname}){note}. "
+                f"right now you'd be {offset_seconds:.2f}s {relation} peak {nearest_peak.strftime('%H:%M:%S')}."
+            ),
+        )
 
     @commands.command(name = "bbyhug", aliases=['bhug', 'bbyhugs', 'bhugs'])
     @track_command
@@ -5920,7 +10475,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if hugger_id == hugged_id:
             self_hug_bonus = 1.0 + (self.get_varied_random() * 419) # 1 to 420 BBY
             await self.bot._discord_reply(ctx, f"you hugged urself! nice? {self.get_varied_choice().choice(self.bot.faveEmotes)} (+{format_bby_amount(self_hug_bonus)})")
-            self.bot.updateBBY(hugger_id, self_hug_bonus)
+            self._apply_economy_delta(hugger_id, self_hug_bonus)
             return
 
         # --- 2. Calculate Base Power ---
@@ -5938,22 +10493,26 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if hug_roll < 0.03: # 3% chance of REJECTION
             emote = "💔"
             # hugger *loses* BBY for the rejection
-            hugger_bonus = -base_power * 0.25 
-            hugged_bonus = 0.0 
+            hugger_bonus = -base_power * 0.25
+            hugged_bonus = 0.0
             reply_suffix = f"oof... {hugged_nic} didn't even notice {hugger_nic} attempting the hug... {hugger_nic} {style_loss(f'loses {format_bby_amount(abs(hugger_bonus))}')} {emote}"
-            self._award_fact(hugger_id, f"the ignorance of {hugged_nic}", ctx.author.id)
-            self._award_fact(hugged_id, f"the ignorance of {hugged_nic}", ctx.author.id)
-        
+            # Prompt in baby's voice - describing what happened
+            hug_prompt = f"omg {hugged_nic} didn't even notice {hugger_nic} trying to hug them!! 💔 that's so awkward lol... {hugger_nic} loses {format_bby_amount(abs(hugger_bonus))} BBY from the rejection, poor {hugger_nic}..."
+            await self._award_fact(hugger_id, f"the ignorance of {hugged_nic}", ctx.author.id)
+            await self._award_fact(hugged_id, f"the ignorance of {hugged_nic}", ctx.author.id)
+
         elif hug_roll < 0.20: # 17% chance of AWKWARD HUG
             emote = "😬"
             # Both get a tiny reward
             hugger_bonus = base_power * 0.01 # 1% for hugger
             hugged_bonus = base_power * 0.1  # 10% for hugged
             reply_suffix = f"that, ok honestly that was pretty awkward but vibes ig... {hugger_nic} gets {style_gain(format_bby_amount(hugger_bonus))} and {hugged_nic} gets {style_gain(format_bby_amount(hugged_bonus))} {emote}"
-            self._award_fact(hugger_id, f"the awkwardness of {hugged_nic}", ctx.author.id)
-            self._award_fact(hugged_id, f"the awkwardness of {hugger_nic}", ctx.author.id)
-            self._award_fact(hugged_id, f"the awkwardness of {hugged_nic}", ctx.author.id)
-            self._award_fact(hugger_id, f"the awkwardness of {hugger_nic}", ctx.author.id)
+            # Prompt in baby's voice - cringe but wholesome
+            hug_prompt = f"{hugger_nic} gave {hugged_nic} a hug! 😬 ok honestly that was kinda awkward but like... vibes ig? {hugger_nic} gets {format_bby_amount(hugger_bonus)} and {hugged_nic} gets {format_bby_amount(hugged_bonus)}... at least you tried lol"
+            await self._award_fact(hugger_id, f"the awkwardness of {hugged_nic}", ctx.author.id)
+            await self._award_fact(hugged_id, f"the awkwardness of {hugger_nic}", ctx.author.id)
+            await self._award_fact(hugged_id, f"the awkwardness of {hugged_nic}", ctx.author.id)
+            await self._award_fact(hugger_id, f"the awkwardness of {hugger_nic}", ctx.author.id)
 
         elif hug_roll > 0.97: # 3% chance of CRITICAL HUG
             emote = "💖"
@@ -5961,10 +10520,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             hugger_bonus = (base_power * 0.1) * crit_mult # 10% base, then CRIT
             hugged_bonus = base_power * crit_mult # Full base, then CRIT
             reply_suffix = f"OMG!! A PERFECT {crit_mult:.1f}x HUG!! {hugger_nic} gets {style_gain(format_bby_amount(hugger_bonus))} and {hugged_nic} gets {style_gain(format_bby_amount(hugged_bonus))}!! {emote}"
-            self._award_fact(hugger_id, f"the perfection of {hugged_nic}", ctx.author.id)
-            self._award_fact(hugged_id, f"the perfection of {hugger_nic}", ctx.author.id)
-            self._award_fact(hugged_id, f"the perfection of {hugged_nic}", ctx.author.id)
-            self._award_fact(hugger_id, f"the perfection of {hugger_nic}", ctx.author.id)
+            # Prompt in baby's voice - SUPER EXCITED
+            hug_prompt = f"OMG OMG OMG!! {hugger_nic} just gave {hugged_nic} a PERFECT {crit_mult:.1f}x CRITICAL HUG!! 💖💖💖 THIS IS AMAZING!! {hugger_nic} gets {format_bby_amount(hugger_bonus)} and {hugged_nic} gets {format_bby_amount(hugged_bonus)}!! YOOOOO!!"
+            await self._award_fact(hugger_id, f"the perfection of {hugged_nic}", ctx.author.id)
+            await self._award_fact(hugged_id, f"the perfection of {hugger_nic}", ctx.author.id)
+            await self._award_fact(hugged_id, f"the perfection of {hugged_nic}", ctx.author.id)
+            await self._award_fact(hugger_id, f"the perfection of {hugger_nic}", ctx.author.id)
 
         else: # 77% chance of NORMAL HUG
             emote = "🫂"
@@ -5972,13 +10533,18 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             hugger_bonus = base_power * 0.05 # 5% for hugger
             hugged_bonus = base_power # 100% for hugged
             reply_suffix = f"awwwww! {hugger_nic} gets {style_gain(format_bby_amount(hugger_bonus))} and {hugged_nic} gets {style_gain(format_bby_amount(hugged_bonus))}! {emote}"
+            # Prompt in baby's voice - sweet and wholesome
+            hug_prompt = f"awww {hugger_nic} gave {hugged_nic} a warm hug! 🫂 so sweet!! {hugger_nic} gets {format_bby_amount(hugger_bonus)} and {hugged_nic} gets {format_bby_amount(hugged_bonus)}! i love hugs!"
 
         # --- 4. Apply BBY Updates ---
         if hugger_bonus != 0:
-            self.bot.updateBBY(hugger_id, hugger_bonus)
+            self._apply_economy_delta(hugger_id, hugger_bonus)
         if hugged_bonus != 0:
-            self.bot.updateBBY(hugged_id, hugged_bonus)
-        
+            self._apply_economy_delta(hugged_id, hugged_bonus)
+
+        # Track generosity stat: hugs given
+        self._track_hidden_stat(hugger_id, "generosity", 1.0)
+
         # inventory updates
         hugger_mem = self.bot.userMemory[hugger_id]
         hugger_inventory = hugger_mem.setdefault("inventory", {})
@@ -5990,12 +10556,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         hugged_current_count = hugged_inventory.get(f"hug from {hugger_nic}", 0)
         hugged_inventory[f"hug from {hugger_nic}"] = hugged_current_count + 1
 
-        # --- 6. Final Reply ---
-        reply_prefix = f"{emote} {hugger_nic} gave {hugged_nic} a hug! "
-        reply = reply_prefix + reply_suffix
-        
-        await self.bot._discord_reply(ctx, reply)
-        self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, f"{emote} {hugger_nic} gave {hugged_nic} a hug! {reply_suffix}"))
+        # --- 6. Final Reply (30% AI, 70% classic) ---
+        use_ai_hug = self.get_varied_random() < 0.3
+
+        if use_ai_hug:
+            # AI-generated hug narration
+            self.bot._buffer_add(self.bot.formatMessage(hugger_id, hug_prompt))
+            ctx.message.content = "!babyllm " + hug_prompt
+            await self.babyllm_command(ctx)
+        else:
+            # Classic static response
+            reply_prefix = f"{emote} {hugger_nic} gave {hugged_nic} a hug! "
+            reply = reply_prefix + reply_suffix
+            await self.bot._discord_reply(ctx, reply)
+            self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, f"{emote} {hugger_nic} gave {hugged_nic} a hug! {reply_suffix}"))
 
     @bbyhug.error
     async def bbyhug_error(self, ctx, error):
@@ -6045,17 +10619,25 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if item_name in self.bot.bbyfacts:
             fact = self.bot.bbyfacts[item_name]
             original_author_id = fact.get('author')
-            original_bonus = self._get_fact_value_base(item_name)
+            original_bonus = await self._get_fact_value_base(item_name)
             base_BBY_gain = (original_bonus / 4) * (0.2 + (self.get_varied_random() * 0.8))
             decay_amount = 0.01 * self.get_varied_random()
             for _ in range(quantity):
                 self._decay_item_value(item_name, decay_percentage=decay_amount)
         
         await self._award_fact(user=giver_id, fact=item_name, ctx=ctx, num=-quantity)
+        self._maybe_increase_item_cap_from_usage(
+            fact=item_name,
+            used_count=quantity,
+            source="bbyfeed",
+        )
         total_BBY_gain = base_BBY_gain * quantity
-        self.bot.updateBBY(giver_id, total_BBY_gain)
+        self._apply_economy_delta(giver_id, total_BBY_gain)
         if original_author_id and original_author_id != giver_id:
-            self.bot.updateBBY(original_author_id, total_BBY_gain * 0.1)
+            self._apply_economy_delta(original_author_id, total_BBY_gain * 0.1)
+
+        # Track cooking stat: items fed to bby
+        self._track_hidden_stat(giver_id, "cooking", quantity)
 
         item_str = f"{quantity}x {item_name}" if quantity > 1 else f"a {item_name}"
         item_loss = style_loss(item_str)
@@ -6144,7 +10726,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 fact = self.bot.bbyfacts[item_name]
                 original_author_id = fact.get("author")
                 # More realistic feeding rewards - based on item value but reasonable caps for billion-BBY economy
-                item_value = self._get_fact_value(item_name)
+                item_value = await self._get_fact_value(item_name)
                 base_BBY_gain = min(42069000, item_value * 0.3 * (0.5 + (self.get_varied_random() * 0.5)))  # Cap at 10M BBY per item
                 
                 # Balanced market movement for feeding (consumption reduces value)
@@ -6159,10 +10741,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             # Original creator gets a small royalty (capped)
             if original_author_id and original_author_id != author_id: 
                 creator_bonus = min(4206900, base_BBY_gain * count * 0.1)  # Cap creator bonus at 100M BBY for billion-BBY scale
-                self.bot.updateBBY(original_author_id, creator_bonus)
+                self._apply_economy_delta(original_author_id, creator_bonus)
 
             inventory[item_name] -= count
             if inventory[item_name] <= 0: del inventory[item_name]
+            self._maybe_increase_item_cap_from_usage(
+                fact=item_name,
+                used_count=count,
+                source="bbysnack",
+            )
 
         summary_lines = [f"{count} {item_name}" for item_name, count in fed_summary.items()]
         reply = (
@@ -6191,7 +10778,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     )
                     if success and actual_awarded > 0:
                         item_back_strs.append(f"{actual_awarded} {random_key}")
-                        bby_back_total += actual_awarded * self._get_fact_value(random_key)
+                        bby_back_total += actual_awarded * await self._get_fact_value(random_key)
 
             if item_back_strs:
                 item_back_summary = ", ".join(item_back_strs[:-1])
@@ -6207,26 +10794,29 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             else:
                 reply += "\n\n... i was gonna give you something back but i ate it instead lol oops."
 
-        self.bot.updateBBY(author_id, total_BBY_gain)
+        self._apply_economy_delta(author_id, total_BBY_gain)
         self._save_bbyfacts_batched()
         await self.bot._save_user_data()
+
+        # Track cooking stat: items fed to bby
+        self._track_hidden_stat(author_id, "cooking", quantity)
 
         # Risk system: Feeding baby can sometimes cause problems!
         food_chaos = self.bot.get_brain_influence(self.get_varied_random(), influence_strength=0.2)
         
         if food_chaos > 0.98:  # 2% chance of food poisoning
             poisoning_penalty = self._calculate_contextual_bby(author_id, base_percentage=0.03, is_penalty=True)
-            self.bot.updateBBY(author_id, poisoning_penalty)
+            self._apply_economy_delta(author_id, poisoning_penalty)
             #reply += f"\n\nugh... that made me sick"
             
         elif food_chaos > 0.95:  # 3% chance of indigestion
             tummy_ache_penalty = self._calculate_contextual_bby(author_id, base_percentage=0.01, is_penalty=True)
-            self.bot.updateBBY(author_id, tummy_ache_penalty)
+            self._apply_economy_delta(author_id, tummy_ache_penalty)
             #reply += f"\n\nmy tummy hurts a bit"
             
         elif food_chaos < 0.05:  # 5% chance baby is extra grateful - make this more visible since it's positive!
             gratitude_bonus = self._calculate_contextual_bby(author_id, base_percentage=0.02, is_penalty=False)
-            self.bot.updateBBY(author_id, gratitude_bonus)
+            self._apply_economy_delta(author_id, gratitude_bonus)
             #reply += f"\n\nthat was really good! thanks :) +{gratitude_bonus:,.0f} bby"
 
         await self.bot._discord_reply(ctx, reply)
@@ -6291,14 +10881,31 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     print(f"[BBY_TIP_SENTIMENT] Negative sentiment penalty: {sentiment_bonus:,.0f} BBY")
             except Exception as e:
                 print(f"[BBY_TIP_SENTIMENT] Error: {e}")
-        self.bot.updateBBY(customer_id, -total_cost + sentiment_bonus)
+        net_tip_delta = -total_cost + sentiment_bonus
+        if net_tip_delta < 0:
+            self.bot.apply_tax_with_collection(
+                customer_id,
+                abs(float(net_tip_delta)),
+                source=f"bbytip_cost:{customer_id}",
+            )
+        elif net_tip_delta > 0:
+            self.bot.grant_bonus_with_treasury(
+                customer_id,
+                net_tip_delta,
+                source="bbytip_sentiment_rebate",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
+
+        # Track gambling stat: amount tipped
+        self._track_hidden_stat(customer_id, "gambling", total_cost)
         
         # --- [NEW & IMPROVED] Smarter Lottery Logic ---
         items_won = defaultdict(int)
         total_value_won = 0.0
         reroll_notices = []
         
-        market_values = {name: self._get_fact_value(name) for name in available_items}
+        market_values = {name: await self._get_fact_value(name) for name in available_items}
 
         current_attempts = num_attempts
         i = 0
@@ -6365,7 +10972,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 (total_cost * (self.get_varied_random() + self.get_varied_random())),
                 total_cost * 1.2,
             )
-            self.bot.updateBBY(customer_id, consolation)
+            self._apply_economy_delta(customer_id, consolation)
             if consolation > 0:
                 reply += (
                     "... i guess i'll give you back "
@@ -6384,6 +10991,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             reply += "\n".join(item_lines)
             reply += f"\nthat's worth around {format_bby_amount(total_value_won)}?? "
 
+            # Track gambling stat: if total value won is less than tipped, add difference to gambling
+            if total_value_won < total_cost:
+                self._track_hidden_stat(customer_id, "gambling", total_cost - total_value_won)
+
         await self.bot._discord_reply(ctx, reply)
 
     @bbytip.error
@@ -6399,12 +11010,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name = "bbyitems", aliases=["bbytop", "bmarket", "bbyvalues"])
     @track_command
     async def bbyitems(self, ctx):
-        """View the top 20 and bottom 20 BBYbook item values."""
+        # Track earning: checking market prices and item values
+        self._track_hidden_stat(ctx.author.name.lower(), "earning", 1.0)
+        """View the top 10 and bottom 10 BBYbook item values."""
         if not self.bot.bbyfacts: return await self.bot._discord_reply(ctx, "i don't know anything yet... fill up the dictionary with !bbyteach first :) ")
         
         # <--- MODIFIED: Calculate all values first
         all_market_values = {
-            name: self._get_fact_value(name) 
+            name: await self._get_fact_value(name) 
             for name, data in self.bot.bbyfacts.items() 
             if isinstance(data, dict)
         }
@@ -6419,7 +11032,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if not market_values: return await self.bot._discord_reply(ctx, "no items have a positive value... i guess it's all very cursed rn ")
         
         sorted_items = sorted(market_values.items(), key=lambda x: x[1], reverse=True)
-        top_items = sorted_items[:50]
+        top_items = sorted_items[:10]
         bottom_items = sorted_items[-10:] if len(sorted_items) > 10 else []
         def fmt(name, val): return f"{name} is ᛒ{int(round(val)):,}"
         top_list = "\n".join([f"{i+1}. {fmt(n, v)}" for i, (n, v) in enumerate(top_items)])
@@ -6427,7 +11040,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         bottom_list = "\n".join([f"{bottom_start_index + i + 1}. {fmt(n, v)}" for i, (n, v) in enumerate(bottom_items)])
 
         reply = f"item values! ({len(sorted_items)} total ranked items)\n\n"
-        reply += f"top 50: \n{top_list}\n\n"
+        reply += f"top 10: \n{top_list}\n\n"
         if bottom_list:
             reply += f"bottom 10: \n{bottom_list}"
 
@@ -6440,22 +11053,31 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             for item in crash_items:
                 self._decay_item_value(item, decay_percentage=0.05)  # 5% crash
             crash_penalty = self._calculate_contextual_bby(author, base_percentage=0.02, is_penalty=True)
-            self.bot.updateBBY(author, crash_penalty)
+            self.bot.apply_tax_with_collection(
+                author,
+                abs(float(crash_penalty or 0.0)),
+                source=f"bbymarket_crash_penalty:{author}",
+            )
             # Don't always explain what happened - be mysterious
             if self.get_varied_random() > 0.5:
                 reply += f"\n\nsomething weird happened to the market..."
             
         elif market_chaos > 0.95:  # Much rarer (4% chance) and mostly silent
             trading_penalty = self._calculate_contextual_bby(author, base_percentage=0.01, is_penalty=True)
-            self.bot.updateBBY(author, trading_penalty)
+            self.bot.apply_tax_with_collection(
+                author,
+                abs(float(trading_penalty or 0.0)),
+                source=f"bbymarket_trading_penalty:{author}",
+            )
             # Usually don't mention it - secretive penalties
 
         await self.bot._discord_reply(ctx, reply)
 
-    @commands.command(name = "bbyinfo", aliases=['binfo', 'bi'])
+    @commands.command(name = "bbyinfo", aliases=['binfo', 'bi', 'bwho', 'buser'])
     @track_command
     async def bbyinfo(self, ctx, *, member_name: str = None):
         """Displays everything bbyllm knows about a user. Accepts @mention, username, or nickname."""
+        is_twitch_ctx = (getattr(ctx, "platform", "") or "").lower() == "twitch"
         if not member_name:
             member_obj = ctx.author
             target_id = ctx.author.name.lower()
@@ -6463,17 +11085,24 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             member_obj, target_id = await self._find_member_or_user_id(ctx, member_name)
             if not target_id:
                 return await self.bot._discord_reply(ctx, f"i don't know who {escape_markdown(member_name)} is... have they even talked yet? lol")
+        if hasattr(self.bot, "normalise_user_identity"):
+            target_id = self.bot.normalise_user_identity(target_id)
         target_nic = self.bot.getNickname(target_id)
         if target_id not in self.bot.userMemory:
             return await self.bot._discord_reply(ctx, f"i don't know who {target_nic} is... have they even talked yet? lol")
         # allow baby itself to be inspected even if not explicitly opted in
-        if target_id != self.bot.babyName.lower() and target_id not in self.bot.AIoptInUsers:
+        is_baby_identity = self.bot.is_bot_identity(target_id) if hasattr(self.bot, "is_bot_identity") else (target_id == self.bot.babyName.lower())
+        if not is_baby_identity and target_id not in self.bot.AIoptInUsers and not is_twitch_ctx:
             return await self.bot._discord_reply(ctx, f"i can't tell you much - they've not opted in! (!bbyoptin)")
 
         mem = self.bot.userMemory[target_id]
         BBY = mem.get("BBY", 0.0)
         rank, total_users = self._get_user_bby_rank(target_id)
         rank_str = f"#{rank}" if rank is not None else "Unranked"
+        if is_twitch_ctx:
+            if rank is None:
+                return await self.bot._discord_reply(ctx, f"{target_nic} is unranked on my scoreboard right now.")
+            return await self.bot._discord_reply(ctx, f"{target_nic} is currently #{rank}/{total_users} on my scoreboard.")
         bestie, _ = self.bot.checkBestie()
         rival, _ = self.bot.checkRival()
         status = ""
@@ -6490,13 +11119,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # Neglect tax: If you don't talk to baby much, you lose BBY over time (but secretly)
         if message_count < 10 and loyalty < 7 and self.get_varied_random() > 0.9:  # Make rarer (10% chance)
             neglect_penalty = self._calculate_contextual_bby(target_id, base_percentage=0.005, is_penalty=True)
-            self.bot.updateBBY(target_id, neglect_penalty)
+            self.bot.apply_tax_with_collection(
+                target_id,
+                abs(float(neglect_penalty or 0.0)),
+                source=f"neglect_tax:{target_id}",
+            )
             # Don't show it in status - keep it secret!
             print(f"[NEGLECT_TAX] {target_id} lost {neglect_penalty:,.0f} BBY for not talking to baby enough")
         creative_combo = mem.get("creative_combo", 1)
         spammer = mem.get("spammer", 1)
         timezone = mem.get("timezone", "Not Set")
         opt_in_status = "✅" if target_id in self.bot.AIoptInUsers else "❌"
+        maths_level = max(1, int(mem.get("maths_level", 1)))
+        maths_wins = max(0, int(mem.get("maths_wins", 0)))
+        maths_losses = max(0, int(mem.get("maths_losses", 0)))
+        maths_streak = max(0, int(mem.get("maths_streak", 0)))
+        maths_total = maths_wins + maths_losses
+        maths_rate = (maths_wins / maths_total * 100.0) if maths_total > 0 else 0.0
         
         # Use brain colours with BBY influence
         embed_colour = self.bot.get_brain_colour()
@@ -6539,14 +11178,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         favourites = mem.get("favourites", [])
         inventory_summary = ""
         if inventory:
-            sorted_items = sorted(inventory.items())
-            display_items = sorted_items[:5]
+            # Sort by count (descending) to show top hoarded items
+            sorted_items = sorted(inventory.items(), key=lambda x: x[1], reverse=True)
+            display_items = sorted_items[:3]  # Top 3 hoarded
             summary_lines = []
-            for i, (item, count) in enumerate(display_items, 1): 
+            for i, (item, count) in enumerate(display_items, 1):
                 fave_marker = "⭐ " if item in favourites else ""
                 summary_lines.append(f"> {i}. {fave_marker}{item:<25}{fave_marker} x{count}")
             inventory_summary = "\n".join(summary_lines)
-            if len(sorted_items) > 5: inventory_summary += f"\n> ...and {len(sorted_items) - 5} more items."
+            if len(sorted_items) > 3: inventory_summary += f"\n> ...and {len(sorted_items) - 3} more items."
 
         embed = discord.Embed(
             title = f"bbyllm's info on: {target_nic}",
@@ -6575,11 +11215,56 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             name = "about u",
             value = f"creativity level: `x{creative_combo:.0f}`\n"
                   f"spam level: `x{spammer:.0f}`\n"
+                  f"maths level: `{maths_level}`\n"
+                  f"maths w/l: `{maths_wins}/{maths_losses}` ({maths_rate:.0f}%)\n"
+                  f"maths streak: `{maths_streak}`\n"
                   f"messages: `{int(message_count)}`\n"
                   f"timezone: `{timezone}`\n"
                   f"opted in: {opt_in_status}",
             inline = True
         )
+
+        # Show "little game scores" from hidden stats so profile feels more alive.
+        hidden_stats = mem.get("hidden_stats", {})
+        if isinstance(hidden_stats, dict):
+            stat_labels = {
+                "bonding": "bonding",
+                "curiosity": "curiosity",
+                "generosity": "generosity",
+                "combat": "combat",
+                "knowledge": "teaching",
+                "hoarding": "hoarding",
+                "sminking": "sminks",
+                "gambling": "gambling",
+                "administration": "admin",
+                "earning": "earning",
+                "cooking": "cooking",
+                "curse": "chaos",
+                "spicy": "spicy",
+                "confusion": "confusion",
+            }
+            stat_rows = []
+            for key, value in hidden_stats.items():
+                if key not in stat_labels:
+                    continue
+                try:
+                    numeric = float(value)
+                except Exception:
+                    continue
+                if numeric <= 0:
+                    continue
+                stat_rows.append((numeric, key))
+            if stat_rows:
+                stat_rows.sort(key=lambda t: t[0], reverse=True)
+                stat_text = "\n".join(
+                    f"{stat_labels[key]}: `{amount:.1f}`"
+                    for amount, key in stat_rows[:12]
+                )
+                embed.add_field(
+                    name="game interaction scores",
+                    value=stat_text,
+                    inline=False,
+                )
 
         if facts_taught:
             embed.add_field(
@@ -6594,6 +11279,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 value = inventory_summary,
                 inline = False
             )
+
+        # Track earning: checking user financial info (BBY balance)
+        author = ctx.author.name.lower()
+        self._track_hidden_stat(author, "earning", 1.0)
 
         embed.add_field(
             name = "BBY point decay factors",
@@ -6632,20 +11321,27 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbyface(self, ctx: commands.Context):
         """Updates bby's Discord avatar from the latest snapshot."""
+        # Track bonding: viewing BBY's avatar
+        self._track_hidden_stat(ctx.author.name.lower(), "bonding", 1.0)
         await self.bot.update_avatar_from_snapshots()
         await self.bot._discord_reply(ctx, "do i look different?")
 
     @commands.command(name = "bbyfaves", aliases=['bbyfavs', 'bfaves', 'bbyfave', 'bbyfav', 'bfave', 'bbyunfave', 'bbyunfav', 'bunfave', 'buf', 'bbyunfaveall', 'bufa', 'bunfaveall'])
     @track_command
     async def bbyfaves(self, ctx, action: str = "list", *, item_name: str = ""):
-        """Manage your favourite (locked) items. 
-        Usage: 
+        """Manage your favourite (locked) items.
+        Usage:
         !bbyfaves - show favourites list
-        !bbyfaves add <item> - add item to favourites 
+        !bbyfaves add <item> - add item to favourites
         !bbyfaves remove <item> - remove item from favourites
         !bbyfaves clear - remove all favourites
         """
+        # Track hoarding: managing favorite/locked items
+        self._track_hidden_stat(ctx.author.name.lower(), "hoarding", 1.0)
         author_id = ctx.author.name.lower()
+        platform_name = (getattr(ctx, "platform", "") or "discord").lower()
+        is_twitch_ctx = platform_name == "twitch"
+        is_discord_dm = (platform_name == "discord" and getattr(ctx, "guild", None) is None)
         mem = self.bot.userMemory.get(author_id, {})
         inventory = mem.get("inventory", {})
         favourites = mem.get("favourites", [])
@@ -6745,13 +11441,62 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 if removed_count > 0: reply += f"\n\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
                 await self.bot._discord_reply(ctx, reply)
                 return
-            
-            reply = f"your ⭐ favourite items ({len(favourites_to_display)}/{int(favouritesLimit)}):\n"
-            sorted_faves = sorted(favourites_to_display) 
-            for i, item in enumerate(sorted_faves, 1): 
-                reply += f"> {i}. ⭐{item}⭐\n"
-            if removed_count > 0: 
-                reply += f"\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
+
+            if is_twitch_ctx:
+                sample_size = min(3, len(favourites_to_display))
+                sample = random.sample(favourites_to_display, sample_size)
+                reply = f"your ⭐ faves ({len(favourites_to_display)} total): " + ", ".join(f"⭐{item}⭐" for item in sample)
+                if len(favourites_to_display) > sample_size:
+                    reply += f" ... (showing {sample_size} random)"
+                if removed_count > 0:
+                    reply += f" | cleaned {removed_count} invalid fave entries"
+                await self.bot._discord_reply(ctx, reply)
+                return
+
+            # Discord DM view: show all favourites. Guild Discord view: random 9.
+            if is_discord_dm:
+                sample_size = len(favourites_to_display)
+                display_items = sorted(favourites_to_display)
+            else:
+                sample_size = min(9, len(favourites_to_display))
+                display_items = random.sample(favourites_to_display, sample_size)
+            sorted_display = sorted(display_items)
+
+            padded = sorted_display[:]
+            while len(padded) % 3 != 0:
+                padded.append("")
+            rows = []
+            for i in range(0, len(padded), 3):
+                row_items = []
+                for item in padded[i:i + 3]:
+                    if item:
+                        row_items.append(f"⭐{item}⭐".ljust(22))
+                    else:
+                        row_items.append("".ljust(22))
+                rows.append(" ".join(row_items).rstrip())
+            grid = "\n".join(rows)
+
+            if is_discord_dm:
+                reply = (
+                    f"your ⭐ favourite items ({len(favourites_to_display)}/{int(favouritesLimit)} total)"
+                    f" - showing all (dm view):\n```text\n{grid}\n```"
+                )
+            else:
+                reply = (
+                    f"your ⭐ favourite items ({len(favourites_to_display)}/{int(favouritesLimit)} total)"
+                    f" - showing {sample_size} random:\n```text\n{grid}\n```"
+                )
+
+            card_lines = []
+            for item in sorted_display:
+                card_url = await self._get_card_image_url(item)
+                if card_url:
+                    card_lines.append(f"- {item}: {card_url}")
+            if card_lines:
+                reply += "\npictures:\n" + "\n".join(card_lines)
+
+            if removed_count > 0:
+                reply += f"\n\n(ps - i got rid of {removed_count} weird blank items... idk what that was tbh)"
 
             await self.bot._discord_reply(ctx, reply)
 
@@ -6761,19 +11506,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         """
         check compatibility between two items and generate their ship name!
         strict mode: you must use quotes!
-        usage: !bbyship "item 1" "item 2"
+        usage: !bbyship "item 1" "item 2" ["your guess"]
         """
         author = ctx.author.name.lower()
+        # Track curiosity: exploring compatibility between items
+        self._track_hidden_stat(author, "curiosity", 1.0)
 
         # --- 1. strict parsing logic ---
         quoted = re.findall(r'"(.*?)"', items)
 
         if len(quoted) < 2:
-            await self.bot._discord_reply(ctx, "syntax error! i need you to use quotes so i know what is what.\ncorrect usage:\n!bbyship \"mac and cheese\" \"white wine\"")
+            await self.bot._discord_reply(ctx, "syntax error! i need you to use quotes so i know what is what.\ncorrect usage:\n!bbyship \"mac and cheese\" \"white wine\" [\"optional ship name guess\"]")
             return
 
         item1 = quoted[0].strip().lower()
         item2 = quoted[1].strip().lower()
+        user_guess = quoted[2].strip().lower() if len(quoted) >= 3 else None
 
         # --- 2. existence check ---
         missing = []
@@ -6928,11 +11676,56 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         if "." in clean_child: clean_child = clean_child.rsplit('.', 1)[0] + "."
                         child_text = clean_child
 
-        # --- 6. construct reply ---
+        # --- 6. BBY reward for high compatibility ---
+        # Random threshold between 50-90%
+        threshold = random.uniform(50, 90)
+        bby_reward = 0
+        bby_reward_paid = 0
+
+        if percent >= threshold:
+            # Reward scales with how far above threshold
+            excess = percent - threshold
+            base_reward = 420.69
+
+            # Higher compatibility = exponential rewards
+            if percent >= 95:
+                bby_reward = base_reward * 20  # Legendary ship!
+            elif percent >= 90:
+                bby_reward = base_reward * 10  # Amazing ship
+            elif percent >= 80:
+                bby_reward = base_reward * 5   # Great ship
+            elif percent >= 70:
+                bby_reward = base_reward * 2   # Good ship
+            else:
+                bby_reward = base_reward        # Decent ship
+
+            bby_reward_paid, _, _ = self.bot.grant_bonus_with_treasury(
+                author,
+                bby_reward,
+                source="bbyship_reward",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
+            print(f"[BBYSHIP_REWARD] {author} shipped {item1}+{item2}: {percent:.1f}% (threshold {threshold:.1f}%) = +ᛒ{bby_reward:.0f}")
+
+        # --- 7. construct reply ---
         reply = f"**{item1}** + **{item2}** = **{ship_name}**\n"
         reply += f"compatibility: **{percent:.1f}%**\n"
         reply += f"baby says: *{verdict}*"
-        
+
+        # Add reward notification if earned
+        if bby_reward > 0:
+            if percent >= 95:
+                reply += f"\n\n🌟✨ LEGENDARY SHIP!! these are PERFECT together!! +ᛒ{bby_reward_paid:.0f}"
+            elif percent >= 90:
+                reply += f"\n\n✨ AMAZING ship!! their connections are so strong!! +ᛒ{bby_reward_paid:.0f}"
+            elif percent >= 80:
+                reply += f"\n\n💫 great ship! they vibe so well together! +ᛒ{bby_reward_paid:.0f}"
+            elif percent >= 70:
+                reply += f"\n\n⭐ nice ship! good compatibility! +ᛒ{bby_reward_paid:.0f}"
+            else:
+                reply += f"\n\n✓ decent ship! above my threshold of {threshold:.0f}%! +ᛒ{bby_reward_paid:.0f}"
+
         if child_text:
             reply += f"\n\n**ship child:** {ship_name}\n> *{ship_name} looks like {child_text}*"
 
@@ -6953,65 +11746,85 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             
         self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, memory_entry))
 
+    @commands.command(name='bbywiki', aliases=['bwiki'])
+    @track_command
+    async def bbywiki(self, ctx):
+        """Short setup help and wiki link for command docs."""
+        author = ctx.author.name.lower()
+        self._track_hidden_stat(author, "curiosity", 1.0)
+        reply = (
+            "twitch command wiki: https://www.childofanandroid.co.uk/wiki | "
+            "!bby <message> = chat with me | "
+            "!optin / !optout = let me learn from your messages or stop it | "
+            "!join = invite me to your channel | "
+            "!gtfo = make me leave your channel"
+        )
+        await self.bot._discord_reply(ctx, reply)
+
     @commands.command(name='bbyhelp', aliases=['bh', 'bhelp']) 
     @track_command
-    async def bbyhelp(self, ctx): 
+    async def bbyhelp(self, ctx):
         author = ctx.author.name.lower()
-        self.bot.updateBBY(author, 0.1)
+        # Track curiosity: viewing help/command info
+        self._track_hidden_stat(author, "curiosity", 1.0)
+        self._apply_economy_delta(author, 0.1)
         help_text = [
             # Core LLM Commands
             f"!bby or !babyllm {random.choice(self.bot.faveEmotes)} \naha! the big one! this is the main command that you need to call in order to get me to speak back to you, give it a try! ",
-            f"!bbyrant <topic> {random.choice(self.bot.faveEmotes)} \ngive me a word and i'll go on a weird, unhinged rant about it (if you can even call it that, look.. i'm still learning okay!?)",
+            f"!bbywiki {random.choice(self.bot.faveEmotes)} \nquick setup + command wiki link (best short start on twitch).",
+            f"!bbyrant <topic words> {random.choice(self.bot.faveEmotes)} \ngive me topic words and i'll go on a weird long rant about them (if you can even call it that, look.. i'm still learning okay!?)",
             
             # User & Social Commands
-            f"!bbyinfo @<user> (!bi) {random.choice(self.bot.faveEmotes)} \nsee everything i know about someone... or yourself. i'm always watching 👀",
+            f"!bbyinfo @<user> (!bi) {random.choice(self.bot.faveEmotes)} \nsee what i know about someone; on twitch this stays short and just shows scoreboard rank.",
             f"!bbyspace @<user> {random.choice(self.bot.faveEmotes)} \ncheck out someone's 2007-era myspace page, generated by me! xoxo rawr xD",
             f"!bbyfriends {random.choice(self.bot.faveEmotes)} \nthis is either a list of my friends or the top runescape players circa 2007, can't figure it out ",
             f"!bbyrivals {random.choice(self.bot.faveEmotes)} \nsee who i hate the most! maybe it's you... lol",
             f"!bbyfite @<user> {random.choice(self.bot.faveEmotes)} \nstart a fight with another user! winner gets BBY, loser gets shame.",
             f"!bbyhug @<user> {random.choice(self.bot.faveEmotes)} \ngive someone a hug! you both get some BBY. awww <3",
-            f"!bbyshoutout @<name>{random.choice(self.bot.faveEmotes)} \ngive me a user, and i'll try to give them a shoutout, twitch style! ",
+            f"!bbyshoutout [@<name>] {random.choice(self.bot.faveEmotes)} \ngive me a user and i'll shout them out; if you skip the name, i'll shout out you instead.",
             f"!bbyjudge {random.choice(self.bot.faveEmotes)} \nif you want my honest judgement of you, probably a fair roasting, you didn't even have to ask! (you had to use the command.) ",
-            f"!bbyBBY (!bbylove, !bbby) {random.choice(self.bot.faveEmotes)} \ncheck what your BBY is, how much i currently appreciate you ",
-            f"!bbybestie {random.choice(self.bot.faveEmotes)} \nthis is an oop, why are you asking me the question!? ",
+            f"!bbybby (!bbyscore, !bbylove, !bbby) {random.choice(self.bot.faveEmotes)} \ncheck what your BBY is, how much i currently appreciate you ",
+            f"!bbybestie {random.choice(self.bot.faveEmotes)} \ncheck if you're my bestie; if not, i'll tell you your scoreboard rank and make it awkward.",
 
             # Knowledge & Fact Commands
             f"!bbyteach <word> <meaning> (!btx) {random.choice(self.bot.faveEmotes)} \nthe most important command!! teach me what something means, and i'll drop it in your inventory :) ",
-            f"!bbywtf <word> (!bbywhatis, !bwi) {random.choice(self.bot.faveEmotes)} \nask me what i know about a word, or analyse unknown words with brain connections.",
+            f"!bbyquizteach <topic> | <question> | <answer1/answer2/fact[key]> (!bqteach) {random.choice(self.bot.faveEmotes)} \ncommunity-teach quiz cards; `fact[key]`/`factvalue[key]`/`factkey[key]` references existing bbyfacts without merging systems.",
+            f"!bbywtf <word> (!bwi) {random.choice(self.bot.faveEmotes)} \nask me what i know about a word. discord-only right now; i wait longer and warn before i self-guess.",
             f"!bbyship \"item 1\" \"item 2\" {random.choice(self.bot.faveEmotes)} \nship two things i know about to get a portmanteau, neural compatibility score, and my verdict!",
             f"!bbyforget <word> (!bfx) {random.choice(self.bot.faveEmotes)} \nkittys can be distracting! try to steal something from my brain to annoy me, charis, and another user! win win win!! (except for the fact i will hate u lol) ",
-            f"!bbyrandomfacts <number> (!bfax) {random.choice(self.bot.faveEmotes)} \ni'll tell you some random things i've learned. my brain is full of useless info!",
+            f"!bbyrandomfacts <number> (!bfax) {random.choice(self.bot.faveEmotes)} \ni'll tell you random things i've learned (twitch keeps this to 1 random fact so chat stays readable).",
             f"!bbyallfacts (!bfaxdump) {random.choice(self.bot.faveEmotes)} \ni'll tell you EVERY FACT!",
             
             # Game Commands
             f"!bbytranslate (!btranslate) {random.choice(self.bot.faveEmotes)} \nstart the fake word guessing game! i'll show a fake word and you guess what real word it's based on. just type your guess as a normal message (not a command)! winners get +5 BBY, losers get -2!",
-            f"!bbywtf <word> {random.choice(self.bot.faveEmotes)} \nask me to break down what i think a word means - good for checking if my understanding is weird!",
-            f"!bbylex <mode> {random.choice(self.bot.faveEmotes)} \nunified word game! use 'wtf' or 'translate' mode for different challenges!",
+            f"!bbymaths (!bmaths) {random.choice(self.bot.faveEmotes)} \none-question maths duel vs me. both of us level up/down based on the result, and your timer scales with your maths level.",
+            f"!bbyquiz [topic] (!bquiz) {random.choice(self.bot.faveEmotes)} \none-question mixed quiz duel (if/then, spelling, emotions, colours, cooking, synonyms, antonyms, sequences, maths).",
+            f"!bbywtf <word> {random.choice(self.bot.faveEmotes)} \ndiscord-only: ask me to break down what i think a word means; i now warn you before timeout.",
 
             # Inventory Commands
             f"!bbybag @<user> (!bbag) {random.choice(self.bot.faveEmotes)} \nsee what items someone has in their inventory!",
             f"!bbyfeed <amount> <item> (!bfeed) {random.choice(self.bot.faveEmotes)} \nfeed me an amount of an item from your inventory (!bbybag) to get BBY!",
             f"!bbytip <amount_per_tip> <attempts> (!btip, !bt) {random.choice(self.bot.faveEmotes)} \n'tip' me BBY to get items with closest value in the bbyconomy! Each attempt costs the specified amount.",
-            f"!bbygift <amount> <item> (!bgift) {random.choice(self.bot.faveEmotes)} \ngive someone an amount of an inventory item (!bbybag) :)",
-            f"!bbysig @<user> <message> {random.choice(self.bot.faveEmotes)} \nsign someone's !bbyspace page! leave a nice message... or don't.",
+            f"!bbygift <amount> <item> (!bgift) {random.choice(self.bot.faveEmotes)} \ngive an opted-in user an item; if they're not opted in it gets delivered in spirit and i eat it lol.",
+            f"!bbysig @<user> <message> {random.choice(self.bot.faveEmotes)} \nsign someone's !bbyspace page; if possible, you also gift a random item from your bag.",
             f"!bbyfave <item> {random.choice(self.bot.faveEmotes)} \nprotecc something in ur inventory so you dont accidentally lose it!",
             f"!bbyunfave <item> {random.choice(self.bot.faveEmotes)} \nunfavourite an item ",
-            f"!bbyfaves {random.choice(self.bot.faveEmotes)} \nsee your fave items :) ",
-            f"!bbywords {random.choice(self.bot.faveEmotes)} \nsee every word you've defined :) ",
+            f"!bbyfaves {random.choice(self.bot.faveEmotes)} \nsee your fave items (twitch: random 3, discord guilds: random 9 + pictures, discord dm: all).",
+            f"!bbywords [count] [@<user>] {random.choice(self.bot.faveEmotes)} \nsee random words you've defined with date + id (twitch always shows 1).",
             f"!bbyiteminfo <item> (!bii) {random.choice(self.bot.faveEmotes)} \nsee all the details of an item",
             f"!bbybagfull @<user> {random.choice(self.bot.faveEmotes)} \nsee all the items someone has in their inventory!",
             f"!bbyitems {random.choice(self.bot.faveEmotes)} \nsee the most and least valuable items in this weird place :) ",
 
             # Sminks & Time Commands
-            f"!bbysminks {random.choice(self.bot.faveEmotes)} \nsminks!! use a smink token to get a massive bonus for being near 4:20 AM/PM UK time!",
-            f"!bbytimer {random.choice(self.bot.faveEmotes)} \ncheck when the next UK 420 !bbysminks window is for you! get ready...",
-            f"!bbysetzone <timezone> {random.choice(self.bot.faveEmotes)} \nset your timezone (e.g., 'Europe/London') so your !bbytimer is accurate!",
+            f"!bbysminks {random.choice(self.bot.faveEmotes)} \nsminks!! use a smink token to roll bonuses near 00:20/04:20/16:20 (+ :20 sec spikes).",
+            f"!bbytimer {random.choice(self.bot.faveEmotes)} \ncheck when the next smink window is and exactly how many seconds off peak you are right now.",
+            f"!bbysetzone <timezone> {random.choice(self.bot.faveEmotes)} \nset your timezone so !bbytimer and smink peaks use your local 00:20:00/00:20:20 style windows.",
             f"!bbytime {random.choice(self.bot.faveEmotes)} \nask me what time it is. i'm probably wrong.",
 
             # Bot Settings & Meta Commands
             f"!bbyspamlevel <0.0-1.0> {random.choice(self.bot.faveEmotes)} \nset how likely i am to randomly reply to your messages (opt-in required).",
             f"!bbydeclarewar {random.choice(self.bot.faveEmotes)} \ndeclare war on me, i might hate u for it. you might hate yourself for it. charis might hate you for it. it's all around an idea. ",
-            f"!bbyreact {random.choice(self.bot.faveEmotes)} \nhahaha well... this might be a way to get my favour, and it might be a way to burn our bridges. either way, i don't know what a metaphor is! so, play away! ",
+            f"!bbyreact {random.choice(self.bot.faveEmotes)} \npassive reaction game that affects BBY; discord only (not available on twitch).",
             f"!bbynick <name> {random.choice(self.bot.faveEmotes)} \nset the nickname i use for you or check the one i have... yours is {self.bot.getNickname(author)} right now! ",
             f"!bbystats {random.choice(self.bot.faveEmotes)} \nshow some random interesting numerical stats about my custom python neural network ",
             f"!bbystatus {random.choice(self.bot.faveEmotes)} \nfind out what my current word obsessions are! ",
@@ -7055,17 +11868,17 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     item_name, item_data = k, self.bot.bbyfacts[k]
 
             # --- stats
-            _, _, top_holder_str = self._check_fact_hoarding_user(fact=item_name)
+            top_hoarders_str = self._get_top_hoarders(fact=item_name, limit=3)
             total_count     = self._get_fact_total_world(item_name)
             max_allowed     = self._get_fact_num_produced(item_name)
-            original_cost   = self._get_fact_value_base(fact=item_name)
-            effective_cost  = self._get_fact_value(fact=item_name)
+            original_cost   = await self._get_fact_value_base(fact=item_name)
+            effective_cost  = await self._get_fact_value(fact=item_name)
             original_author = self.bot.getNickname(item_data.get('author', 'the void'))
             iid             = self._get_fact_id(fact=item_name)
             created_ago     = howLongAgo(item_data.get('timestamp', 0))
 
             # --- brain connections
-            brain_assocs = self._get_brain_connections(item_name, combo_only=True) # <--- MODIFIED
+            brain_assocs = self._get_brain_connections(item_name, combo_only=True)
             brain_similar = self._brain_similar_words(item_name)
 
             # --- embed
@@ -7081,7 +11894,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 value=(
                     f"total in world: `{total_count}`\n"
                     f"total allowed: `{int(max_allowed)}`\n"
-                    f"top hoarder: {top_holder_str}"
+                    f"top hoarders:\n{top_hoarders_str}"
                 ),
                 inline=True
             )
@@ -7113,16 +11926,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             except Exception: pass
 
             # --- narrative buffer
+            top_hoarders_narrative, top_hoarders_count = self._get_top_hoarders_narrative(fact=item_name, limit=3)
+            hoarder_verb = "are" if top_hoarders_count != 1 else "is"
             narrative = (
                 f"just checked the stats on {item_name}. it means {item_data.get('value', 'nothing')}... "
-                f"but it looks like it's worth about ᛒ{effective_cost:.0f} right now, and {top_holder_str} is hoarding a lot of them... "
+                f"but it looks like it's worth about ᛒ{effective_cost:.0f} right now, and {top_hoarders_narrative} {hoarder_verb} hoarding a lot of them... "
                 f"i wonder why... "
             )
             try:
                 self.bot._buffer_add(self.bot.formatMessage(self.bot.babyName, narrative))
-                self._add_brain_thought(item_name, brain_similar)
+                asker = self.bot.getNickname(ctx.author.name.lower()) if getattr(ctx, "author", None) else None
+                self._add_brain_thought(item_name, brain_similar, asked_by=asker)
             except Exception:
                 pass
+
+            # Track curiosity stat for looking up item info
+            author = ctx.author.name.lower()
+            self._track_hidden_stat(author, "curiosity", 1.0)
 
             await self.bot._discord_reply(ctx, embed=embed)
         except Exception:
@@ -7135,7 +11955,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         """Run a random bby command with random or specified parameters
         Usage: !bbyrandom [word] [number]
         """
-        
+        # Track gambling: running random/chaotic commands
+        self._track_hidden_stat(ctx.author.name.lower(), "gambling", 1.0)
+
         # Get a random word if none provided
         if not word:
             if self.bot.bbyfacts:
@@ -7346,8 +12168,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
                     else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
                 elif chosen_cmd == self.bbydictionary:
-                    if selected_friend: await chosen_cmd(ctx, member_name=selected_friend)
-                    else: await chosen_cmd(ctx, member_name=word)  # Fallback to word
+                    if selected_friend: await chosen_cmd(ctx, query=selected_friend)
+                    else: await chosen_cmd(ctx, query=word)  # Fallback to word
                 elif chosen_cmd == self.bbyitems: await chosen_cmd(ctx)
                 elif chosen_cmd == self.bbytranslate: await chosen_cmd(ctx)
                 elif chosen_cmd == self.bbytutor_awards: await chosen_cmd(ctx)
@@ -7451,6 +12273,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bby_sentiment_analysis(self, ctx, *, text: str = None):
         """Analyse sentiment of any text using baby's complete vocabulary system."""
+        # Track administration: technical analysis tools
+        self._track_hidden_stat(ctx.author.name.lower(), "administration", 1.0)
         try:
             if not text:
                 reply = "sentiment analysis helper\n\n"
@@ -7504,6 +12328,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @track_command
     async def bbytokens_enhanced(self, ctx, *, item: str = None):
         """Enhanced version of btokens with complete 4200 vocabulary coverage."""
+        # Track administration: technical analysis tools
+        self._track_hidden_stat(ctx.author.name.lower(), "administration", 1.0)
         try:
             if self.enhanced_sentiment:
                 if item:

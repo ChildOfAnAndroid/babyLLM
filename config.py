@@ -13,7 +13,19 @@ date = CONFIGDATE.date.today()
 
 # === Messaging / Channels ===
 bby_spam_channel_id = 1440825576884535326
-twitch_channel = "childofanandroid"
+
+# Public website URL (used by web_adapter to push state changes reactively)
+bby_public_url = "https://www.childofanandroid.co.uk"
+
+# Twitch channels (can be single string or list)
+twitch_channels = [
+    "childofanandroid",
+    "childofanandroid2",
+    "babyllm",
+]
+# Legacy single channel (for backwards compatibility)
+twitch_channel = twitch_channels[0] if isinstance(twitch_channels, list) else twitch_channels
+
 rollingContextSize = 420
 
 # === Device Selection ===
@@ -24,6 +36,25 @@ modelDevice = torch.device(
 if hasattr(torch, "set_default_device") and modelDevice.type != "mps":
     torch.set_default_device(modelDevice)
 # modelDevice = torch.device("cpu")  # Force CPU (optional)
+
+# === Vision Inputs ===
+# Set vision_device_index to the physical camera index (NDI virtual cams are often 0).
+# Example: vision_device_index = 1
+vision_device_index = 0
+vision_probe_indices = [1, 2, 3, 0]  # try physical cams before virtual devices (NDI often at 0)
+vision_skip_indices = []  # e.g. [1] to skip Continuity/phone camera index
+vision_backend = None        # e.g. "avfoundation" on macOS
+vision_downsample = 32
+vision_step_interval = 2
+
+# === Audio Inputs ===
+# Set audio_device_index to force a specific input (None = default input device).
+audio_device_index = 2
+audio_sample_rate = 44100
+audio_frames_per_buffer = 1024
+audio_rms_scale = 10000.0
+audio_step_interval = 2
+temp_step_interval = 10
 
 def whocalled(func):
     # UNUSED: if WHOCALLED_DEBUG:
@@ -70,8 +101,8 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 # --- MODEL ---
 saveModelFreq = 50   # // 500 // 5000 // 10000 // saves the model every x number of turns
 
-modelFilePath = "SHKAIRA/soul/babyllm_4200.pth"    # where your currently trained saved boi is :)
-modelBackupFilePath = "SHKAIRA/soul/babyLLM.pth"  # where your currently trained saved boi is :)
+modelFilePath = "SHKAIRA/soul/babyllm_S_4200.pth"    # where your currently trained saved boi is :)
+modelBackupFilePath = "SHKAIRA/soul/babyLLM_S.pth"  # where your currently trained saved boi is :)
 
 stepCheckpointFilePath = "SHKAIRA/soul/stepCheckpoint.txt"
 lossCheckpointFilePath = "SHKAIRA/soul/lossCheckpoint.txt"
@@ -79,6 +110,7 @@ lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
 babyStateFilePath = "PHONE/discord_bot/babyState.json"
 topTokensFilePath = "PHONE/discord_bot/topTokens.json"
 tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
+tokenEventHistoryLimit = 2048
 
 optInUsersPath = "SHKAIRA/soul/optInUsers.txt"
 chatBufferFilepath = "SHKAIRA/soul/chatBuffer.json"
@@ -127,8 +159,8 @@ discordLogPath = f"SHKAIRA/statistics/LOGS/chat/discordLog_{date}.txt"
 trainDuringChat = True
 
 # --- MODEL ---
-numTokensPerStepSTART = 264 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
-maxTokensPerStep    = 264
+numTokensPerStepSTART = 269 # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
+maxTokensPerStep    = 269
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
 perfectionistMaxRetries = 2
@@ -195,13 +227,33 @@ eos_replacement_token_str = "usingusingusingusingusingusingusingusing"  # reserv
 eos_min_tokens_absolute = 8             # minimum tokens before allowing early stop
 eos_min_tokens_fraction = 0.25          # also require this fraction of requested tokens before stop
 
-# Train-time augmentation: append EOS to ends of chat lines added to the rolling training buffer.
-enable_train_append_eos = True          # teach EOS on live chat buffer lines
-eos_append_probability = 1.0            # probability to append EOS to a training line (0..1)
+# Optional SOS support (disabled by default):
+# Reuse another rare token as "start of message" teaching signal.
+sos_token_str = "<SOS>"                 # symbolic label; not added to tokenizer
+sos_replacement_token_str = None        # e.g. "startstartstartstartstartstartstartstart"
+enable_train_prepend_sos = False        # prepend SOS token once per training message
+sos_prepend_probability = 1.0           # probability to prepend SOS (0..1)
+
+# Train-time augmentation: append EOS stochastically per line during training text preparation.
+enable_train_append_eos = True          # teach EOS on line boundaries in queued training text
+eos_append_probability = 0.72           # base probability per line (adaptive + jitter in bot logic)
 
 # Stricter stop: only stop on EOS when a speaker change is detected at line start.
 # When True, EOS alone won’t stop unless a speaker tag like "name: " is formed.
 eos_require_speaker_change = True
+
+# Conversational reply budgeting for live chat generation.
+# This is the target generation budget before EOS decides to stop earlier.
+chat_reply_min_tokens = 1
+chat_reply_max_tokens = 690
+chat_reply_empty_prompt_max_tokens = 36
+chat_reply_short_prompt_max_tokens = 72
+
+# Background training should mostly learn from the cleaned training buffer.
+# Live chat is allowed as a small recency signal, not the main corpus.
+training_direct_chat_probability = 0.10
+training_chat_mix_max_lines = 12
+training_chat_mix_max_chars = 1200
 
 # --- MARKET / ECONOMY TUNING ---
 # Controls supply sensitivity in item value calculation.
@@ -238,6 +290,29 @@ mostImportantStats  =   [
                 "2A_1_gated_norm",
                 "2A_x_final_norm",
                 "2A_gateScale",
+
+            # ATTENTION2 STATS (operates on interneuron output with 10000 dims)
+                "4A_1_0_attnOut_norm",
+                "4A_1_1_gated_norm",
+                "4A_1_x_final_norm",
+                "4A_1_gateScale",
+
+            # === TANGLING STATS === (reuses attention2 at multiple stages)
+                "TANGLE_embed_gate",               # Gate strength for embed tangling (~0.01 initially)
+                "TANGLE_embed_refinement_norm",    # Norm of refinement applied to embeddings
+                "TANGLE_neuron_gate",              # Gate strength for neuron tangling (~0.01 initially)
+                "TANGLE_neuron_refinement_norm",   # Norm of refinement applied to neurons
+                "TANGLE_memory_gate",              # Gate strength for memory tangling (~0.01 initially)
+                "TANGLE_memory_refinement_norm",   # Norm of refinement applied to memory
+
+            # === SCRATCHPAD STATS === (working memory)
+                "SCRATCH_write_strength",          # Global write gate (~0.01 initially)
+                "SCRATCH_erase_strength",          # Global erase gate (~0.01 initially)
+                "SCRATCH_write_amount",            # Effective write amount (strength × controller)
+                "SCRATCH_erase_amount",            # Effective erase amount (strength × controller)
+                "SCRATCH_read_amount",             # Read controller output
+                "SCRATCH_buffer_norm",             # Total buffer content magnitude
+                "SCRATCH_slot_usage_mean",         # Average slot usage across buffer
 
             # NEURON STATS
             #                                                       "3N_0_rawInput_norm", # MATCHES 2B_0_inputEmbeds_norm & 1E_x_embedFinal_norm
@@ -281,9 +356,13 @@ mostImportantStats  =   [
             #       "4INN_x_FINALoutLayerNorm_norm_token",      
             #       "4INN_x_FINALoutLayerNorm_norm_neuron",
                 "4INN_windowSizesMean",
-                "4INN_cerebellumMean",  
+                "4INN_cerebellumMean",
                 "4INN_windowEntropy",
                 #"4INN_windowFractionalityMean",
+                "4INN_short_gate",              # Gate strength for short window blending
+                "4INN_short_windowSizesMean",   # Average short window size
+                "4INN_window_softmax_temp",     # Softmax temperature for long windows (1.0=competitive, 5.0+=collaborative)
+                "4INN_window_softmax_temp_short",  # Softmax temperature for short windows
 
             # BABYLLM STATS
             #                                                       "2B_0_inputEmbeds_norm", # MATCHES 3N_0_rawInput_norm & 1E_x_embedFinal_norm
@@ -355,6 +434,28 @@ mostImportantStats  =   [
                     "avgPixelDist",
                     "totalAvgPixelDist",
                         ]
+
+mostImportantStats += [
+    "B_sensory_gate",
+    "B_sensory_scale_mean",
+    "B_sensory_bias_mean",
+    "B_sensory_embed_w_norm",
+    "B_sensory_pupil_w_norm",
+    "B_temp_scale",
+    "B_temp_bias",
+    "B_temp_vec_norm",
+    "S_global_light_delta",
+    "S_noise_delta",
+    "S_time_of_day_delta",
+    "S_interaction_recency_delta",
+    "S_training_age_delta",
+    "S_global_motion_delta",
+    "S_left_right_bias_delta",
+    "S_top_bottom_bias_delta",
+    "S_contrast_intrusion_delta",
+    "S_device_temp_c_delta",
+    "L_sensoryLoss",
+]
 
 mostImportantStats += [
     #"3N_x_actOut_std_token",      # average stdev per token (across neurons)
@@ -602,7 +703,8 @@ perfectionistRun = True
 # --- #
 trainingDataPairNumber = 7500 #169420
 trainingWordLength = 10
-trainingDataStride = max(1,round(numTokensPerStepSTART * 0.1))
+percentStride = 0.8
+trainingDataStride = max(1,round(numTokensPerStepSTART * percentStride))
 trainingStartIndex = 0     # // 'random' (not in babyLLM.py)
 epochs = 1
 tokenSpeedTest = False
@@ -619,6 +721,14 @@ saveStrict = False   # // False //~allow reconstruction of missing files // True
 # --- MODEL ---
 embedDimension = 1024   # dimensionality of token embeddings
 numNeurons = 10000  # number of neurons in the parallel neuron layer
+
+# === TANGLING FLAGS ===
+# useMiniINN_Tangling: use lightwight causal window mixer (MINI_INN_TANGLING v2.0)
+#   True  → ~1M params, per-position window means, no attention2 needed  ← recommended
+#   False → original TANGLING: borrows attention2, ~20M params, O(seq²) compute
+# enableTangling: master switch (False = zero-cost skip of all tangling stages)
+useMiniINN_Tangling = True   # MINI_INN_TANGLING: causal windows, no quadratic compute
+enableTangling      = True   # Re-enabled: MINI_INN_TANGLING does not borrow attention2
 
 # windows
 #  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
@@ -638,6 +748,12 @@ window8 = 2.01 #2
 windowMAXSTART = numTokensPerStepSTART  # THIS MUST BE THE HIGHEST NUMBER
 allWindowSizes_new = [window8, window0, window1, window2, window3, window4, window5, window6, window7]     # defines the position of each window in the window weightings!
 #allWindowSizes = list(range(1, 33))
+
+# === SHORT-RANGE WINDOW SYSTEM === (50% max context)
+# Parallel window system for finer temporal resolution at shorter ranges
+# These windows cap at ~132 tokens (50% of numTokensPerStepSTART)
+windowShortMAX = numTokensPerStepSTART // 2  # 132 tokens max
+allWindowSizes_short = [1.01, 2.01, 4.01, 6.01, 8.01, 12.01, 16.01, 24.01, 48.01]  # Fine-grained short windows
 
 attentionWindow = None  # attention head  
 numHeads = 32

@@ -48,6 +48,169 @@ def escape_markdown(text: str) -> str:
     return _escape_markdown(text)
 
 
+_AMERICAN_TO_BRITISH = {
+    "analyze": "analyse",
+    "analyzed": "analysed",
+    "analyzes": "analyses",
+    "analyzing": "analysing",
+    "apologize": "apologise",
+    "apologized": "apologised",
+    "apologizes": "apologises",
+    "apologizing": "apologising",
+    "authorize": "authorise",
+    "authorized": "authorised",
+    "authorizes": "authorises",
+    "authorizing": "authorising",
+    "authorization": "authorisation",
+    "authorizations": "authorisations",
+    "behavior": "behaviour",
+    "behaviors": "behaviours",
+    "center": "centre",
+    "centers": "centres",
+    "centered": "centred",
+    "centering": "centring",
+    "color": "colour",
+    "colors": "colours",
+    "colored": "coloured",
+    "coloring": "colouring",
+    "customize": "customise",
+    "customized": "customised",
+    "customizes": "customises",
+    "customizing": "customising",
+    "defense": "defence",
+    "offense": "offence",
+    "offenses": "offences",
+    "dialog": "dialogue",
+    "dialogs": "dialogues",
+    "favorite": "favourite",
+    "favorites": "favourites",
+    "favorited": "favourited",
+    "favoriting": "favouriting",
+    "gray": "grey",
+    "humor": "humour",
+    "humors": "humours",
+    "license": "licence",
+    "licenses": "licences",
+    "licensing": "licencing",
+    "neighbor": "neighbour",
+    "neighbors": "neighbours",
+    "neighboring": "neighbouring",
+    "organize": "organise",
+    "organized": "organised",
+    "organizes": "organises",
+    "organizing": "organising",
+    "organization": "organisation",
+    "organizations": "organisations",
+    "personalize": "personalise",
+    "personalized": "personalised",
+    "personalizes": "personalises",
+    "personalizing": "personalising",
+    "realize": "realise",
+    "realized": "realised",
+    "realizes": "realises",
+    "realizing": "realising",
+    "recognize": "recognise",
+    "recognized": "recognised",
+    "recognizes": "recognises",
+    "recognizing": "recognising",
+    "summarize": "summarise",
+    "summarized": "summarised",
+    "summarizes": "summarises",
+    "summarizing": "summarising",
+    "synchronize": "synchronise",
+    "synchronized": "synchronised",
+    "synchronizes": "synchronises",
+    "synchronizing": "synchronising",
+    "synchronization": "synchronisation",
+    "theater": "theatre",
+    "theaters": "theatres",
+    "traveled": "travelled",
+    "traveling": "travelling",
+    "traveler": "traveller",
+    "travelers": "travellers",
+}
+
+_AMERICAN_TO_BRITISH_RE = re.compile(
+    r"\b(" + "|".join(sorted(map(re.escape, _AMERICAN_TO_BRITISH.keys()), key=len, reverse=True)) + r")\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _match_word_case(source: str, replacement: str) -> str:
+    if source.isupper():
+        return replacement.upper()
+    if source[:1].isupper():
+        return replacement.capitalize()
+    return replacement
+
+
+def to_british_english(text: str) -> str:
+    """Convert common US spellings in *text* to British spellings."""
+    if not isinstance(text, str) or not text:
+        return text
+
+    def _replace(match: re.Match) -> str:
+        source = match.group(0)
+        replacement = _AMERICAN_TO_BRITISH.get(source.lower(), source)
+        return _match_word_case(source, replacement)
+
+    return _AMERICAN_TO_BRITISH_RE.sub(_replace, text)
+
+
+def normalise_embed_british_english(embed):
+    """Apply British spelling normalisation to common embed text fields in place."""
+    if embed is None:
+        return embed
+
+    try:
+        title = getattr(embed, "title", None)
+        if isinstance(title, str) and title:
+            embed.title = to_british_english(title)
+    except Exception:
+        pass
+
+    try:
+        description = getattr(embed, "description", None)
+        if isinstance(description, str) and description:
+            embed.description = to_british_english(description)
+    except Exception:
+        pass
+
+    try:
+        footer = getattr(embed, "footer", None)
+        footer_text = getattr(footer, "text", None)
+        if isinstance(footer_text, str) and footer_text:
+            embed.set_footer(
+                text=to_british_english(footer_text),
+                icon_url=getattr(footer, "icon_url", None),
+            )
+    except Exception:
+        pass
+
+    try:
+        author = getattr(embed, "author", None)
+        author_name = getattr(author, "name", None)
+        if isinstance(author_name, str) and author_name:
+            embed.set_author(
+                name=to_british_english(author_name),
+                url=getattr(author, "url", None),
+                icon_url=getattr(author, "icon_url", None),
+            )
+    except Exception:
+        pass
+
+    try:
+        for i, field in enumerate(list(getattr(embed, "fields", []))):
+            field_name = to_british_english(str(getattr(field, "name", "")))
+            field_value = to_british_english(str(getattr(field, "value", "")))
+            field_inline = bool(getattr(field, "inline", False))
+            embed.set_field_at(i, name=field_name, value=field_value, inline=field_inline)
+    except Exception:
+        pass
+
+    return embed
+
+
 def is_similar(a, b, threshold=0.8, max_chars=400, max_length_delta=0.45):
     """Heuristic fuzzy duplicate check that short-circuits cheap cases."""
     if not a or not b:

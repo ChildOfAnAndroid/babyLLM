@@ -1,10 +1,12 @@
 # v1.1
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔっ --- 
+# --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // phone/discord_bot/bot.py
 # v1.9
 
 import os
+# Disable tokenizer parallelism warnings when forking
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import json
 import time
 import asyncio
@@ -15,6 +17,7 @@ from collections import Counter, defaultdict, deque
 
 from sympy import im
 from config import *
+import config as config_mod
 from secret import *
 from textCleaningTool import *
 import traceback
@@ -22,9 +25,11 @@ import random
 import random as pyrandom
 import hashlib
 import calendar
+import difflib
 from typing import Optional
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from .logger import logger
 from .safety import safety
 from .data_manager import data_manager
@@ -35,9 +40,19 @@ from urllib.parse import urljoin
 
 from utils.helpers import save_json_if_changed
 
-from .context import create_fake_context
-from .utils import escape_markdown, format_bby_amount, is_similar, killExcessTags, getTimeRant
+from .context import create_platform_command_context
+from .utils import (
+    escape_markdown,
+    format_bby_amount,
+    is_similar,
+    killExcessTags,
+    getTimeRant,
+    to_british_english,
+    normalise_embed_british_english,
+)
 from .autonomy import AutonomyPlanner
+from utils.icharis2_ingest import build_pipeline_monthly_entries
+from .platform_integration import PlatformIntegrationMixin
 
 bby_lounge = 1388782896084422788
 # Respect config-provided channel IDs so BabyLLM listens in the correct room.
@@ -50,21 +65,115 @@ bby_debug = 1399818543125495970
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REQUEST_FILE_PATH = os.path.join(SCRIPT_DIR, "bby_request.json")
 RESPONSE_DIR = os.path.join(SCRIPT_DIR, "bby_responses")
+DISCORD_CUSTOM_EMOJI_RE = re.compile(r"<a?:([A-Za-z0-9_]{1,64}):\d+>")
+TRAINING_URL_RE = re.compile(r"(?i)\b(?:https?://|www\.|mailto:|ftp://|//[a-z0-9])[^\s<>()]+")
+TRAINING_HASH_RE = re.compile(r"\b(?:[a-f0-9]{16,}|[a-z0-9][a-z0-9_/%=+.-]{40,})\b", re.IGNORECASE)
+TRAINING_SPEAKER_LINE_RE = re.compile(r"^\s*([^:\n]{1,80})\s*:\s*(.+)$")
+TRAINING_TRAILING_TAG_RE = re.compile(
+    r"^\s*(.+?)\s*(?:\(([^()\n]{1,40})\)|-\s*([a-z0-9_ .()'/+-]{1,40}))\s*$",
+    re.IGNORECASE,
+)
+TRAINING_TRANSCRIPT_DROP_RE = re.compile(r"(?i)^\s*what do you say\?.*$")
+TRAINING_NESTED_TRANSCRIPT_RE = re.compile(
+    r"(?i)^\s*(?:you said|u said|i said|babyllm says(?:\s+says)?|self(?:\s+says)?|"
+    r"user(?:\s+says)?|me(?:\s+says)?|service|chat(?:\s+id)?|guid|rowid|attachments?|"
+    r"timestamp_(?:fallback|no_time)|message(?:[_ -]?guid|[_ -]?id)|handle)\b"
+)
+TRAINING_EXPORT_METADATA_RE = re.compile(
+    r"(?i)^\s*(?:service|chat(?:\s+id)?|guid|rowid|attachments?|timestamp_(?:fallback|no_time)|"
+    r"message(?:[_ -]?guid|[_ -]?id)|handle|unknown(?:\s*-\s*handle|\s*\(handle\))?|"
+    r"parser(?:_version)?|processing_ok|direction)\s*:.*$"
+)
+TRAINING_EXPORT_METADATA_TRAILER_RE = re.compile(
+    r"(?i)^\s*\d+\s*(?:\((?:rowid|guid|service|chat|attachments?)\)|-\s*(?:rowid|guid|service|chat|attachments?))\s*$"
+)
+TRAINING_ORPHAN_NUMERIC_ID_RE = re.compile(r"^\s*\d{6,10}\s*$")
+TRAINING_LONG_HTML_TAG_RE = re.compile(r"(?i)</?[a-z][^>\n]{0,2000}>")
+TRAINING_PHONE_LINE_RE = re.compile(r"^\s*\+\d[\d ()-]{6,}\d\s*$")
+TRAINING_PHONE_INLINE_RE = re.compile(r"(?<!\w)\+\d[\d ()-]{6,}\d(?!\w)")
+TRAINING_GARBLE_TOKEN_RE = re.compile(
+    r"(?i)\b(?=\S{16,}\b)(?:[a-z]+\d+[a-z]+\d[a-z0-9;'/\\._-]*|\d+[a-z]+\d+[a-z0-9;'/\\._-]*)\b"
+)
+TRAINING_TOKEN_LIST_RE = re.compile(
+    r"^\s*\[(?:\s*['\"][^'\"\n]{1,40}['\"]\s*,){5,}\s*['\"][^'\"\n]{1,40}['\"]\s*\]\s*$"
+)
+TRAINING_TIME_TOKEN_RE = re.compile(r"\b(\d{1,2})\s*:\s*(\d{2})(?:\s*:\s*(\d{2}))?")
+TRAINING_FAKE_COUNT_SPEAKER_RE = re.compile(r"(?im)^\s*x\d{1,6}\s*:\s*")
+TRAINING_HOARDER_COUNT_RE = re.compile(r"\s*\(x\d{1,6}\)")
+TRAINING_LEGACY_SHORT_ANSWER_RE = re.compile(r"(?i)^the correct answer is\s+[0-9+\-*/= ]{1,24}$")
+TRAINING_LEGACY_QUESTION_RE = re.compile(r"(?i)^question:\s*.+$")
+TRAINING_LEGACY_CORRECT_RE = re.compile(r"(?i)^correct answer:\s*.+$")
+TRAINING_LEGACY_QUIZ_RIGHT_RE = re.compile(r"(?i)^[a-z0-9_ .()'/+-]{1,40}\s+got the quiz answer right$")
+TRAINING_LEGACY_ANSWERED_RE = re.compile(r"(?i)^[a-z0-9_ .()'/+-]{1,40}\s+answered\s+[\"'].+[\"']$")
+TRAINING_LEGACY_CHEER_RE = re.compile(r"(?i)^(?:good job|nice one)\s+[a-z0-9_ .()'/+-]{1,40},\s+(?:correct answer|that was right)$")
+TRAINING_PROGRESS_LINE_RE = re.compile(
+    r"(?i)^(?=.*\bstep\s*\d+\b)(?=.*\b(?:moving\s+avg\s+loss|avg\s+loss)\s*:\s*[-+]?\d+(?:\.\d+)?)(?=.*\bcontext(?:\s+window)?\s*:\s*\d+\b).*[|:].*$"
+)
+CLOCK_RANT_MARKERS = (
+    "it's <time> rn",
+    "somewhere around <time>",
+    "nearly ",
+    "just gone <time>",
+    "about <hour> o'clock",
+    "<time>, give or take",
+    "i think it's like <time>",
+    "it feels like <time>",
+    "<time>, time is fake tho",
+    "maybe <time>? idk",
+    "according to the thingy, it's <time>",
+    "<time>, allegedly",
+    "i peeked at a watch and saw <time>",
+    "the stars whisper <time>",
+    "call it <time> or so",
+    "my clock muttered <time>",
+    "the vibes say it's <time>",
+    "the sun thinks it's <time>",
+    "my gut says <time>",
+    "some clock somewhere insists it's <time>",
+    "if time were a feeling, it'd be <time>",
+    "the clock tower screamed <time>",
+    "my bones swear it's <time>",
+    "on this <day>, i'd call it around <time>",
+    "the calendar mumbles it's <day> near <time>",
+    "the shadows stretch like it's <time>",
+)
+TRAINING_METADATA_LABELS = {
+    "attachment",
+    "attachments",
+    "chat",
+    "chat id",
+    "direction",
+    "guid",
+    "handle",
+    "message guid",
+    "message id",
+    "parser_version",
+    "processing_ok",
+    "rowid",
+    "service",
+    "timestamp_fallback",
+    "timestamp_no_time",
+    "unknown",
+}
 
 
-class BABYBOT_DISCORD(commands.Bot):
+class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
 
     async def _generation_worker(self):
         """Background task to process generation requests one at a time, globally."""
         while True:
             ctx, prompt_text, num_tokens_to_gen, callback = await self.generation_queue.get()
+            result = (None, None)
             try:
                 result = await self.cog._generate_and_reply(ctx, prompt_text, num_tokens_to_gen)
-                if callback:
-                    await callback(result)
             except Exception as e:
                 print(f"[GENERATION_QUEUE] Error: {e}")
             finally:
+                if callback:
+                    try:
+                        await callback(result)
+                    except Exception as cb_error:
+                        print(f"[GENERATION_QUEUE] Callback error: {cb_error}")
                 self.generation_queue.task_done()
 
     def __init__(self, babyLLM, tutor, librarian, scribe, calligraphist,  
@@ -76,13 +185,41 @@ class BABYBOT_DISCORD(commands.Bot):
         self._user_data_save_lock = asyncio.Lock()
         self._fact_award_lock = asyncio.Lock()
 
+        self.world_state_path = os.path.join(SCRIPT_DIR, "world_state.json")
+
+        try:
+            with open(self.world_state_path, "r") as f:
+                self.world_state = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.world_state = {"era": datetime.now(timezone.utc).year, "last_checked": None}
+
         # --- Smink high score tracking ---
-        self.smink_highscore_path = os.path.join(SCRIPT_DIR, "smink_highscore.json")
-        if os.path.exists(self.smink_highscore_path):
+        YEAR = self.world_state.get("era", datetime.now(timezone.utc).year)
+        self.smink_highscore_path = os.path.join(SCRIPT_DIR,f"smink_highscore_{YEAR}.json")
+        try:
             with open(self.smink_highscore_path, "r") as f:
                 self.smink_highscore = json.load(f)
-        else:
+        except (FileNotFoundError, json.JSONDecodeError):
             self.smink_highscore = {"amount": 0, "user": ""}
+
+        # --- Top 10 smink leaderboard tracking ---
+        self.smink_leaderboard_path = os.path.join(SCRIPT_DIR, f"smink_leaderboard_{YEAR}.json")
+        try:
+            with open(self.smink_leaderboard_path, "r") as f:
+                self.smink_leaderboard = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.smink_leaderboard = []  # List of {score, users[], timestamp}
+
+        self.smink_count = 0  # Counter for reminder
+        self.smink_reminder_threshold = 100
+
+        # --- Sync history tracking for multipliers ---
+        self.sync_history_path = os.path.join(SCRIPT_DIR, f"sync_history_{YEAR}.json")
+        try:
+            with open(self.sync_history_path, "r") as f:
+                self.sync_history = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.sync_history = {}  # {"user1,user2": count, "user1,user2,user3": count}
 
         intents = discord.Intents.all()
         # Add heartbeat_timeout to prevent gateway issues
@@ -114,6 +251,11 @@ class BABYBOT_DISCORD(commands.Bot):
         self.errorAuthors = ["the void", "missingno", "error!", "NaN"]
         
         self.babyName, self.lastClockAnnounce = babyName, 0
+        # Clock chatter should be occasional and varied, not a repeating loop.
+        self.nextClockAnnounceAt = time.time() + pyrandom.randint(3600, 14400)  # 1h-4h
+        self._recent_clock_signatures = deque(maxlen=16)
+        # Canonical internal identity for BBY in userMemory/facts, independent of display nickname.
+        self.bot_identity_key = "babyllm"
         # Bots that are allowed to issue commands to babyllm. Messages from all bots
         # are processed, but only these bots are trusted to run commands.
         self.trusted_bot_names = {"buttsbot", "babyllm", "skunkllm", "tatsu", "tatsumaki"}
@@ -125,6 +267,11 @@ class BABYBOT_DISCORD(commands.Bot):
         self.idles, self.random, self.random2, self.random3, self.random4 = 0, 0.0, 0.0, 0.0, 0.0
         self._varied_rng_nonce = 0
         self.current_bestie, self.bestie_score = None, 0.0
+        self.current_rival, self.rival_score = None, 0.0
+        # Debug-room event throttling/deduping so we can log cool events without spam.
+        self._debug_event_last_ts = {}
+        self._debug_event_last_hash = {}
+        self._debug_event_last_hash_ts = {}
         self.inventory = {}
 
         self.lex_sessions = {}
@@ -147,10 +294,21 @@ class BABYBOT_DISCORD(commands.Bot):
                 loaded_buffer = json.load(f)
             if not isinstance(loaded_buffer, list):
                 loaded_buffer = list(loaded_buffer) if loaded_buffer is not None else []
-            self.buffer = deque(
-                loaded_buffer[-self.rollingContextSize :],
-                maxlen=self.rollingContextSize,
-            )
+            normalised_buffer = []
+            changed = False
+            for entry in loaded_buffer[-self.rollingContextSize :]:
+                original = str(entry or "")
+                normalised = self._normalise_buffer_ingest_text(original)
+                if normalised != original:
+                    changed = True
+                if normalised:
+                    normalised_buffer.append(normalised)
+            self.buffer = deque(normalised_buffer, maxlen=self.rollingContextSize)
+            if changed:
+                try:
+                    self._save_json(chatBufferFilepath, self.buffer, "CHAT_BUFFER_NORMALISED")
+                except Exception:
+                    pass
         else: self.buffer = deque(maxlen=self.rollingContextSize)
 
         # rolling training buffer JSON
@@ -185,15 +343,22 @@ class BABYBOT_DISCORD(commands.Bot):
                     "next_talk_milestone": 50,
                     "translate_wins": 0, 
                     "translate_losses": 0,
+                    "maths_level": 1,
+                    "maths_wins": 0,
+                    "maths_losses": 0,
+                    "maths_streak": 0,
+                    "maths_best_level": 1,
                     "fave_token_usage": 0, 
                     "command_usage": {},
                     "opt_in": False,
                     "last_fact_time": 0,
+                    "web_explicit_opt_out": False,
                     }
 
         # Global command statistics tracking
         self.command_stats_path = os.path.join(SCRIPT_DIR, "command_stats.json")
         self.command_stats = self._json_load(self.command_stats_path, default_type={})
+        self.system_eval_path = os.path.join(SCRIPT_DIR, "system_eval_history.json")
         
         # Load crafting recipes
         self.bbycraft_recipes = self._json_load(self.bbycraft_recipes_path, default_type={})
@@ -206,8 +371,19 @@ class BABYBOT_DISCORD(commands.Bot):
         
         self.opt_in_path = optInUsersPath 
         if os.path.exists(self.opt_in_path):
-            with open(self.opt_in_path, "r") as f: self.AIoptInUsers = json.load(f)
-        else: self.AIoptInUsers = []
+            with open(self.opt_in_path, "r") as f:
+                raw_opt_in_users = json.load(f)
+        else:
+            raw_opt_in_users = []
+
+        normalised_opt_in_users = []
+        for user_key in raw_opt_in_users:
+            norm_key = self.normalise_user_identity(str(user_key or "").strip().lower())
+            if not norm_key:
+                continue
+            normalised_opt_in_users.append(norm_key)
+        self.AIoptInUsers = sorted(set(normalised_opt_in_users))
+        self.prune_non_opt_user_memory(reason="init")
 
         self.bbyfacts = self._json_load(self.bbyfacts_path)
         logger.info("INIT", f"LOADED {len(self.bbyfacts)} FACTS")
@@ -218,6 +394,9 @@ class BABYBOT_DISCORD(commands.Bot):
         self.web_task = None
         self.monthly_task = None
         self.decay_task = None
+        self._icharis2_pipeline_task = None
+        self._icharis2_pipeline_last_attempt = 0.0
+        self._icharis2_pipeline_ready = False
         self.training_queue = asyncio.Queue()
         self._refresh_brain_randoms()
         self._load_baby_state()
@@ -235,6 +414,10 @@ class BABYBOT_DISCORD(commands.Bot):
         data_manager.register_save_callback("command_stats", self._save_command_stats)
         logger.info("INIT", "Data manager initialised with batched save system")
 
+        # Initialize multi-platform support
+        self.init_platforms()
+        logger.info("INIT", "Multi-platform support initialized")
+
         # health checks
         perf_monitor.add_health_check("neural_network", lambda: hasattr(self, 'babyLLM') and self.babyLLM is not None, critical=True)
         perf_monitor.add_health_check("user_memory", lambda: len(self.userMemory) > 0)
@@ -245,6 +428,9 @@ class BABYBOT_DISCORD(commands.Bot):
         from .cog import babyBot_DISCORD_COG
         self.cog = babyBot_DISCORD_COG(self)
         await self.add_cog(self.cog)
+
+        # Load modular command cogs
+        await self.load_extension("phone.discord_bot.commands.curse_cmds")
         
     async def setup_hook(self):
         await super().setup_hook()
@@ -253,7 +439,16 @@ class BABYBOT_DISCORD(commands.Bot):
         self._ensure_random_task()
 
     def save_smink_highscore(self):
-        with open(self.smink_highscore_path, "w") as f: json.dump(self.smink_highscore, f)
+        with open(self.smink_highscore_path, "w") as f:
+            json.dump(self.smink_highscore, f, indent=2)
+
+    def save_smink_leaderboard(self):
+        with open(self.smink_leaderboard_path, "w") as f:
+            json.dump(self.smink_leaderboard, f, indent=2)
+
+    def save_sync_history(self):
+        with open(self.sync_history_path, "w") as f:
+            json.dump(self.sync_history, f, indent=2)
 
     def get_varied_random(self):
         """bby influenced random draw with jitter to avoid identical stuff"""
@@ -325,6 +520,115 @@ class BABYBOT_DISCORD(commands.Bot):
             # Keep the loop alive unless we were cancelled intentionally
             if not task.cancelled():
                 self._ensure_random_task()
+
+    def _get_icharis2_pipeline_config(self):
+        try:
+            import CONFIG_trainingData as ctd
+        except Exception:
+            return None
+        if not getattr(ctd, "icharis2_user_text", False):
+            return None
+        if not getattr(ctd, "icharis2_use_pipeline_exports", False):
+            return None
+        if not getattr(ctd, "icharis2_defer_ingest", False):
+            return None
+        return ctd
+
+    def _maybe_refresh_icharis2_pipeline_exports(self, now: float) -> None:
+        ctd = self._get_icharis2_pipeline_config()
+        if ctd is None:
+            return
+        if self._icharis2_pipeline_ready:
+            return
+        if self._icharis2_pipeline_task is not None and not self._icharis2_pipeline_task.done():
+            return
+        idle_for = now - self.lastInteraction
+        if idle_for < self.idleTrainSeconds:
+            return
+        throttle = max(120.0, self.idleTrainSeconds * 2)
+        if (now - self._icharis2_pipeline_last_attempt) < throttle:
+            return
+        self._icharis2_pipeline_last_attempt = now
+        if hasattr(self, "loop"):
+            self._icharis2_pipeline_task = self.loop.create_task(self._refresh_icharis2_pipeline_exports())
+        else:
+            self._icharis2_pipeline_task = asyncio.create_task(self._refresh_icharis2_pipeline_exports())
+
+    async def _refresh_icharis2_pipeline_exports(self) -> None:
+        ctd = self._get_icharis2_pipeline_config()
+        if ctd is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            entries = await loop.run_in_executor(None, self._run_icharis2_pipeline_export_sync)
+            if entries:
+                applied = self._apply_icharis2_pipeline_entries(entries, ctd.icharis2_export_dir)
+                if applied:
+                    self._icharis2_pipeline_ready = True
+                    logger.info("INGEST", f"icharis2 pipeline exports loaded: {len(entries)} files")
+            else:
+                logger.info("INGEST", "icharis2 pipeline exports found no usable entries")
+        except Exception as e:
+            logger.error("INGEST", f"icharis2 pipeline export failed: {e}")
+            traceback.print_exc()
+
+    def _run_icharis2_pipeline_export_sync(self):
+        try:
+            import CONFIG_trainingData as ctd
+        except Exception:
+            return []
+        return build_pipeline_monthly_entries(
+            pipeline_dir=ctd.icharis2_pipeline_export_dir,
+            export_dir=ctd.icharis2_export_dir,
+            weight=ctd.icharis2_user_text_weight,
+            require_allow_keyword=not ctd.icharis2_allow_without_keyword,
+            months_limit=ctd.icharis2_export_months_limit,
+            limit=ctd.icharis2_pipeline_limit,
+        )
+
+    def _apply_icharis2_pipeline_entries(self, entries, export_dir: str | None) -> bool:
+        if not entries:
+            return False
+
+        new_paths = {path for _, path, _ in entries}
+        raw_entries = config_mod.rawDataFilepaths
+        filtered = []
+        export_root = None
+        if export_dir:
+            try:
+                export_root = Path(export_dir).expanduser().resolve()
+            except Exception:
+                export_root = None
+
+        for entry in raw_entries:
+            if len(entry) < 2:
+                continue
+            path = entry[1]
+            if path in new_paths:
+                continue
+            if export_root:
+                try:
+                    Path(path).expanduser().resolve().relative_to(export_root)
+                    continue
+                except Exception:
+                    pass
+            filtered.append(entry)
+
+        raw_entries[:] = entries + filtered
+        training_dict = config_mod.trainingFilePath_dict
+        training_dict[:] = [
+            {"type": ftype, "in": fname, "weight": weight, "out": config_mod.trainingFilePath}
+            for ftype, fname, weight in raw_entries
+        ]
+        weighted = config_mod.trainingFilePath_dict_weighted
+        weighted[:] = []
+        for entry in training_dict:
+            weight = entry.get("weight", 1)
+            if weight != 0:
+                entry["out"] = "trainingData.txt"
+                weighted.append(entry)
+        config_mod.trainingFileWeightTotal = sum([entry[2] for entry in raw_entries if len(entry) == 3])
+        return True
 
     class _VariedRNG:
         def __init__(self, seed: int):
@@ -448,10 +752,16 @@ class BABYBOT_DISCORD(commands.Bot):
                 with open(self.baby_state_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 self.babyFaveToken = data.get("babyFaveToken", "")
+                try:
+                    self.lessonMathsRange = max(0, int(data.get("lessonMathsRange", 0)))
+                except Exception:
+                    self.lessonMathsRange = 0
             except Exception:
                 self.babyFaveToken = ""
+                self.lessonMathsRange = 0
         else:
             self.babyFaveToken = ""
+            self.lessonMathsRange = 0
 
     def _save_baby_state(self):
         try:
@@ -460,6 +770,10 @@ class BABYBOT_DISCORD(commands.Bot):
                 with open(self.baby_state_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
             data["babyFaveToken"] = self.babyFaveToken
+            try:
+                data["lessonMathsRange"] = max(0, int(getattr(self, "lessonMathsRange", 0)))
+            except Exception:
+                data["lessonMathsRange"] = 0
             with open(self.baby_state_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
@@ -523,7 +837,29 @@ class BABYBOT_DISCORD(commands.Bot):
                     
                     user_text = data.get("text")
                     vue_username = data.get("author", "kevinonline420")
-                    fake_ctx, get_reply = create_fake_context(user_text, author = vue_username)
+                    captured_reply = {"text": ""}
+
+                    async def web_reply_sink(content="", embed=None, **kwargs):
+                        if content:
+                            captured_reply["text"] = (
+                                str(content.content) if hasattr(content, "content") else str(content)
+                            )
+                        elif embed is not None:
+                            captured_reply["text"] = str(
+                                getattr(embed, "description", "") or getattr(embed, "title", "") or ""
+                            )
+
+                    fake_ctx = create_platform_command_context(
+                        bot=self,
+                        platform="web",
+                        author_id=vue_username,
+                        author_name=vue_username,
+                        channel_id="web",
+                        message_content=str(user_text or ""),
+                        command_name="babyllm",
+                        reply_sink=web_reply_sink,
+                        send_sink=web_reply_sink,
+                    )
 
                     author_key = vue_username.lower()
                     mem = self.userMemory[author_key]
@@ -537,8 +873,12 @@ class BABYBOT_DISCORD(commands.Bot):
                         print("!!!![BBY_WEB_WATCHER] no BBYCOG!")
                         continue
                     
-                    _, reply_text = await cog.babyllm_command(fake_ctx)
-                    reply_text = get_reply() or "..."
+                    generation_result = await cog.babyllm_command(fake_ctx)
+                    reply_text = captured_reply["text"]
+                    if not reply_text and isinstance(generation_result, tuple) and len(generation_result) >= 2:
+                        reply_text = generation_result[1] or "..."
+                    elif not reply_text:
+                        reply_text = "..."
                     
                     # Ensure reply_text is always a string, never an object
                     if hasattr(reply_text, 'content'):
@@ -570,15 +910,136 @@ class BABYBOT_DISCORD(commands.Bot):
     async def _discord_reply(self, ctx, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): return await self._discord_send(ctx = ctx, message_content = message_content, embed = embed, is_reply = True, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_REPLY] -> ")
     async def _discord_spam(self, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): await self._discord_send(channel = self.get_channel(bby_spam), message_content = message_content, embed = embed, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_SPAM] -> ")
     async def _discord_debug(self, message_content = "", embed = None, to_buffer = False, buffer_str = None, debug_str = ""): await self._discord_send(channel = self.get_channel(bby_debug), message_content = message_content, embed = embed, to_buffer = to_buffer, buffer_str = buffer_str, debug_label = f"{debug_str}[_DISCORD_DEBUG] -> ")
+    def _terminal_render_text(self, text) -> str:
+        """Render text for terminal logs only; keep outgoing message content unchanged."""
+        rendered = str(text or "")
+        try:
+            if eos_replacement_token_str:
+                rendered = rendered.replace(eos_replacement_token_str, eos_token_str)
+            if sos_replacement_token_str:
+                rendered = rendered.replace(sos_replacement_token_str, sos_token_str)
+        except Exception:
+            pass
+        return rendered
+
+    async def _discord_debug_event(
+        self,
+        key: str,
+        message_content = "",
+        embed = None,
+        *,
+        cooldown_seconds: float = 300.0,
+        dedupe_window_seconds: Optional[float] = None,
+        force: bool = False,
+        to_buffer: bool = False,
+        buffer_str: Optional[str] = None,
+        debug_str: str = "",
+    ) -> bool:
+        """Post a high-signal event to debug room with cooldown + dedupe."""
+        try:
+            now = time.time()
+            event_key = str(key or "misc").strip().lower() or "misc"
+            cooldown = max(0.0, float(cooldown_seconds or 0.0))
+            if dedupe_window_seconds is None:
+                dedupe_window = max(cooldown, 300.0)
+            else:
+                dedupe_window = max(0.0, float(dedupe_window_seconds))
+
+            if not force and cooldown > 0.0:
+                last_ts = float(self._debug_event_last_ts.get(event_key, 0.0) or 0.0)
+                if (now - last_ts) < cooldown:
+                    return False
+
+            payload_hash = ""
+            if embed is not None:
+                embed_title = getattr(embed, "title", "") or ""
+                embed_desc = getattr(embed, "description", "") or ""
+                payload_hash = hashlib.sha1(f"{event_key}|{embed_title}|{embed_desc}".encode("utf-8", "ignore")).hexdigest()
+            else:
+                payload_hash = hashlib.sha1(f"{event_key}|{str(message_content or '')}".encode("utf-8", "ignore")).hexdigest()
+
+            if not force and dedupe_window > 0.0 and payload_hash:
+                last_hash = self._debug_event_last_hash.get(event_key, "")
+                last_hash_ts = float(self._debug_event_last_hash_ts.get(event_key, 0.0) or 0.0)
+                if last_hash == payload_hash and (now - last_hash_ts) < dedupe_window:
+                    return False
+
+            await self._discord_debug(
+                message_content=message_content,
+                embed=embed,
+                to_buffer=to_buffer,
+                buffer_str=buffer_str,
+                debug_str=debug_str,
+            )
+
+            self._debug_event_last_ts[event_key] = now
+            if payload_hash:
+                self._debug_event_last_hash[event_key] = payload_hash
+                self._debug_event_last_hash_ts[event_key] = now
+
+            # Lightweight cap to avoid unbounded key growth
+            if len(self._debug_event_last_ts) > 4096:
+                self._debug_event_last_ts.clear()
+                self._debug_event_last_hash.clear()
+                self._debug_event_last_hash_ts.clear()
+            return True
+        except Exception as e:
+            print(f"[_DISCORD_DEBUG_EVENT] failed for '{key}': {e}")
+            return False
+
+    async def _discord_debug_spam(
+        self,
+        message_content = "",
+        embed = None,
+        to_buffer = False,
+        buffer_str = None,
+        debug_str = "",
+    ):
+        """Backwards-compatible debug spam helper with mild anti-flood guard."""
+        await self._discord_debug_event(
+            key="debug_spam",
+            message_content=message_content,
+            embed=embed,
+            cooldown_seconds=30.0,
+            dedupe_window_seconds=300.0,
+            to_buffer=to_buffer,
+            buffer_str=buffer_str,
+            debug_str=debug_str,
+        )
     async def _discord_send(self, *, channel=None, ctx=None, message_content="", embed=None, is_reply=True, to_buffer=False, buffer_str=None, debug_label="", dm_overflow: bool = True):
         sent_message = None  # Variable to hold the message object we send/reply with
         try:
+            if embed is not None:
+                embed = normalise_embed_british_english(embed)
+            if isinstance(message_content, str):
+                message_content = to_british_english(message_content)
+            elif message_content is not None:
+                message_content = to_british_english(str(message_content))
+            else:
+                message_content = ""
+
+            # Failsafe: reserved EOS token should never be user-visible in chat output.
+            if eos_replacement_token_str and eos_replacement_token_str in message_content:
+                message_content = message_content.replace(eos_replacement_token_str, " ")
+                # Keep line breaks; only collapse horizontal whitespace.
+                message_content = re.sub(r"[ \t]{2,}", " ", message_content)
+                message_content = re.sub(r"[ \t]*\n[ \t]*", "\n", message_content).strip()
+            if sos_replacement_token_str and sos_replacement_token_str in message_content:
+                message_content = message_content.replace(sos_replacement_token_str, " ")
+                # Keep line breaks; only collapse horizontal whitespace.
+                message_content = re.sub(r"[ \t]{2,}", " ", message_content)
+                message_content = re.sub(r"[ \t]*\n[ \t]*", "\n", message_content).strip()
+
             terminal_debug_str = f"{debug_label}[_DISCORD_SEND] SENDING MESSAGE TO "
             target = ctx.channel if ctx else channel
             if not target:
                 print(f"!!!![_DISCORD_SEND] NO CHANNEL OR CTX PROVIDED")
                 return None # Return None on failure
             terminal_debug_str += f"{getattr(target, 'name', 'UNKNOWN')}:\n"
+
+            # Cross-platform fake contexts (e.g. Twitch/Web) should not attempt DM overflow.
+            if dm_overflow and ctx is not None and getattr(ctx, "platform", "discord") != "discord":
+                dm_overflow = False
 
             async def _send_with_fallback(*, content=None, embed=None, allow_reply=True):
                 nonlocal sent_message, terminal_debug_str
@@ -632,7 +1093,8 @@ class BABYBOT_DISCORD(commands.Bot):
                 if buffer_str is None: buffer_str = message_content
                 self._buffer_add(self.formatMessage(self.babyName, buffer_str))
 
-            print(terminal_debug_str + f"               ] COMPLETE MESSAGE SENT!\n               ] {message_content}\n")
+            terminal_preview = self._terminal_render_text(message_content)
+            print(terminal_debug_str + f"               ] COMPLETE MESSAGE SENT!\n               ] {terminal_preview}\n")
             
             # --- THIS IS THE CRITICAL FIX ---
             # Return the message object that was created
@@ -645,31 +1107,824 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"!!!![_DISCORD_SEND] {e}")
             return None # Return None on failure
         
-    def _is_high_quality(self, text: str) -> bool:
-        text_content = re.sub(r"^\s*([a-zA-Z0-9_]+):\s*", "", text).strip()
-        if not text_content: return False
+    def _line_quality_score(self, text: str) -> float:
+        text_content = re.sub(r"^\s*([a-zA-Z0-9_]+):\s*", "", str(text or "")).strip()
+        if not text_content:
+            return 0.0
+        lower_content = text_content.lower()
+        if TRAINING_URL_RE.search(text_content):
+            return 0.02
+        if TRAINING_HASH_RE.search(lower_content):
+            return 0.02
+        if TRAINING_PHONE_LINE_RE.match(text_content):
+            return 0.02
+        if self._has_training_garble_token(text_content):
+            return 0.02
+        if TRAINING_LONG_HTML_TAG_RE.search(text_content):
+            return 0.02
+        if self._looks_like_training_token_dump(text_content):
+            return 0.02
+        if re.search(r"(?i)^\s*(?:from|to|cc|bcc|subject|date|sent)\s*:", text_content):
+            return 0.02
         words = text_content.split()
         num_words = len(words)
         num_chars = len(text_content)
-        if num_words < 3 or num_chars < 15: return False
-        if num_words > 4200: return False
+        if num_words > 4200:
+            return 0.0
+
         alpha_chars = sum(1 for char in text_content if char.isalpha())
-        if num_chars > 0 and (alpha_chars / num_chars) < 0.7: return False
+        alpha_ratio = (alpha_chars / num_chars) if num_chars > 0 else 0.0
+
+        word_score = min(1.0, num_words / 12.0)
+        char_score = min(1.0, num_chars / 80.0)
+        alpha_score = min(1.0, alpha_ratio / 0.7) if num_chars > 0 else 0.0
+        score = (0.35 * word_score) + (0.25 * char_score) + (0.40 * alpha_score)
+
+        if num_chars < 8:
+            score *= (num_chars / 8.0)
+
         if num_words > 5:
             word_counts = Counter(word.lower() for word in words)
-            if word_counts.most_common(1)[0][1] > num_words * 0.5:
-                return False
+            most_common_count = word_counts.most_common(1)[0][1]
+            if most_common_count > num_words * 0.5:
+                score *= 0.5
+
+        if self._is_equation_like(text_content):
+            equation_bonus = min(0.35, num_chars / 400.0)
+            score = max(score, 0.20 + equation_bonus)
+
+        return max(0.0, min(1.0, float(score)))
+
+    def _is_equation_like(self, text: str) -> bool:
+        stripped = str(text or "").strip()
+        if not stripped or "=" not in stripped:
+            return False
+        if len(stripped) < 7:
+            return False
+        if re.search(r"[A-Za-z]{3,}", stripped):
+            return False
+        leftovers = re.sub(r"[0-9+\-*/=().,\s^%xX]", "", stripped)
+        return not leftovers
+
+    def _is_brief_conversational_line(self, text: str) -> bool:
+        text_content = re.sub(r"^\s*([a-zA-Z0-9_]+):\s*", "", str(text or "")).strip()
+        if not text_content or len(text_content) > 48:
+            return False
+        lower_content = text_content.lower()
+        if TRAINING_URL_RE.search(text_content):
+            return False
+        if TRAINING_HASH_RE.search(lower_content):
+            return False
+        if TRAINING_PHONE_LINE_RE.match(text_content):
+            return False
+        if self._has_training_garble_token(text_content):
+            return False
+        if TRAINING_LONG_HTML_TAG_RE.search(text_content):
+            return False
+        if self._looks_like_training_token_dump(text_content):
+            return False
+        words = re.findall(r"[a-z0-9']+", lower_content)
+        if not words or len(words) > 6:
+            return False
+        alpha_chars = sum(1 for char in text_content if char.isalpha())
+        return alpha_chars >= 3
+
+    def _line_similarity_ratio(self, a: str, b: str, *, max_chars: int = 400, max_length_delta: float = 0.45) -> float:
+        """Return a fuzzy similarity score in 0..1 for buffer de-duplication."""
+        if not a or not b:
+            return 0.0
+        if a == b:
+            return 1.0
+
+        len_a, len_b = len(a), len(b)
+        longer = max(len_a, len_b)
+        shorter = min(len_a, len_b)
+        if longer <= 0:
+            return 0.0
+        if (longer - shorter) / longer > max_length_delta:
+            return 0.0
+
+        def _trim(text: str) -> str:
+            text = str(text or "").strip()
+            if len(text) <= max_chars:
+                return text
+            half = max_chars // 2
+            return text[:half] + text[-half:]
+
+        matcher = difflib.SequenceMatcher(None, _trim(a), _trim(b), autojunk=False)
+        if matcher.real_quick_ratio() <= 0.0:
+            return 0.0
+        quick = matcher.quick_ratio()
+        if quick <= 0.0:
+            return 0.0
+        return max(0.0, min(1.0, float(matcher.ratio())))
+
+    def _recent_similarity_stats(self, text: str, recent_lines, *, base_threshold: float = 0.85, equation_threshold: float = 0.98) -> tuple[float, int]:
+        text_is_equation = self._is_equation_like(text)
+        max_similarity = 0.0
+        similar_hits = 0
+        for old_line in recent_lines:
+            threshold = equation_threshold if (text_is_equation and self._is_equation_like(old_line)) else base_threshold
+            similarity = self._line_similarity_ratio(text, old_line)
+            if similarity > max_similarity:
+                max_similarity = similarity
+            if similarity >= threshold:
+                similar_hits += 1
+        return max_similarity, similar_hits
+
+    def _repeat_admission_probability(self, text: str, recent_lines, *, for_training_buffer: bool = False) -> float:
+        """Lower keep probability as a line gets more similar to recent buffer content."""
+        max_similarity, similar_hits = self._recent_similarity_stats(text, recent_lines)
+        if max_similarity <= 0.70:
+            return 1.0
+
+        if self._is_equation_like(text):
+            base_prob = 0.12 if not for_training_buffer else 0.08
+        else:
+            scaled_similarity = max(0.0, min(1.0, (max_similarity - 0.70) / 0.30))
+            base_prob = 1.0 - (0.88 * scaled_similarity)
+            if for_training_buffer:
+                base_prob *= 0.75
+
+        if similar_hits > 1:
+            base_prob *= 0.55 ** (similar_hits - 1)
+
+        floor = 0.02 if not for_training_buffer else 0.01
+        return max(floor, min(1.0, float(base_prob)))
+
+    def _repetition_signature(self, text: str) -> str:
+        return re.sub(r"\s+", " ", str(text or "").strip().lower())
+
+    def _should_accept_line(self, text: str, recent_lines, *, for_training_buffer: bool = False) -> bool:
+        high_quality_threshold = 0.65
+        quality = self._line_quality_score(text)
+        if quality >= high_quality_threshold:
+            return True
+        if quality <= 0.02:
+            return False
+
+        chance = 0.05 + (0.30 * max(0.0, min(1.0, quality / high_quality_threshold)))
+        if for_training_buffer:
+            chance *= 0.7
+
+        if recent_lines:
+            low_recent = sum(1 for old in recent_lines if self._line_quality_score(old) < high_quality_threshold)
+            low_ratio = low_recent / max(1, len(recent_lines))
+        else:
+            low_ratio = 0.0
+
+        cap = 0.35 if not for_training_buffer else 0.25
+        if low_ratio > cap:
+            overflow = min(1.0, (low_ratio - cap) / max(1e-6, (1.0 - cap)))
+            chance *= (1.0 - (0.85 * overflow))
+
+        if self._is_equation_like(text):
+            equation_floor = 0.20 if not for_training_buffer else 0.08
+            chance = max(chance, equation_floor)
+
+        if self._is_brief_conversational_line(text):
+            brief_floor = 0.45 if not for_training_buffer else 0.30
+            chance = max(chance, brief_floor)
+
+        chance = max(0.0, min(0.60, chance))
+        return random.random() < chance
+
+    def _is_recent_duplicate(self, text: str, recent_lines, *, for_training_buffer: bool = False, base_threshold: float = 0.85, equation_threshold: float = 0.98) -> bool:
+        text_is_equation = self._is_equation_like(text)
+        similar_hits = 0
+        for old_line in recent_lines:
+            threshold = equation_threshold if (text_is_equation and self._is_equation_like(old_line)) else base_threshold
+            if self._is_brief_conversational_line(text) and self._is_brief_conversational_line(old_line):
+                threshold = max(threshold, 0.92)
+            if is_similar(text, old_line, threshold=threshold):
+                similar_hits += 1
+
+        if similar_hits <= 0:
+            return False
+        if text_is_equation:
+            return True
+        if self._is_brief_conversational_line(text):
+            # Let short conversational repeats land at least once or twice;
+            # periodic cleanup will expire the oldest similar lines first.
+            allowed_recent_hits = 2 if not for_training_buffer else 2
+            return similar_hits >= allowed_recent_hits
         return True
 
-    def _buffer_add(self, text_to_add: str):
-        # normalise excessive blank lines to avoid training with empty paragraphs
+    def _is_high_quality(self, text: str) -> bool:
+        return self._line_quality_score(text) >= 0.65
+
+    def _normalise_buffer_ingest_text(self, text: str) -> str:
+        """Normalise chat lines before they enter live prompt/training buffers.
+
+        - Collapse CRLF variants.
+        - Drop empty lines.
+        - Remove markdown/email quote prefixes (`>`, `>>`, etc.).
+        - Convert Discord custom emoji markup (`<:name:id>`) to `:name:`.
+        - Enforce lowercase-only buffer content.
+        """
+        raw_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+        if not raw_text:
+            return ""
+
+        cleaned_lines = []
+        for raw_line in raw_text.split("\n"):
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+            line = re.sub(r"^\s*(?:>\s*)+", "", line).strip()
+            line = DISCORD_CUSTOM_EMOJI_RE.sub(lambda m: f":{m.group(1).lower()}:", line)
+            line = line.lower()
+            line = TRAINING_TIME_TOKEN_RE.sub(
+                lambda m: f"{m.group(1)}:{m.group(2)}{':' + m.group(3) if m.group(3) else ''}",
+                line,
+            )
+            if not line:
+                continue
+            cleaned_lines.append(line)
+
+        return "\n".join(cleaned_lines).strip()
+
+    def _charis_training_name(self) -> str:
         try:
-            text_to_add = re.sub(r"\n{2,}", "\n", text_to_add)
+            nickname = (self.getNickname("childofanandroid") or "").strip().lower()
+        except Exception:
+            nickname = ""
+        if nickname and nickname not in {"childofanandroid", "[[childofanandroid]]", "self", "user", "me"}:
+            return nickname
+        return "charis"
+
+    def _strip_training_wrapper_quotes(self, text: str) -> str:
+        cleaned = str(text or "").strip()
+        if not cleaned:
+            return ""
+        cleaned = re.sub(r"^[`*_]+", "", cleaned)
+        cleaned = re.sub(r"[`*_]+$", "", cleaned).strip()
+        while len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'", "`"}:
+            inner = cleaned[1:-1].strip()
+            if not inner:
+                break
+            cleaned = inner
+            cleaned = re.sub(r"^[`*_]+", "", cleaned)
+            cleaned = re.sub(r"[`*_]+$", "", cleaned).strip()
+        return cleaned.strip()
+
+    def _join_training_name_list(self, names) -> str:
+        cleaned = [str(name or "").strip() for name in names if str(name or "").strip()]
+        if not cleaned:
+            return ""
+        if len(cleaned) == 1:
+            return cleaned[0]
+        if len(cleaned) == 2:
+            return f"{cleaned[0]} and {cleaned[1]}"
+        return f"{', '.join(cleaned[:-1])}, and {cleaned[-1]}"
+
+    def _rewrite_training_item_stats_text(self, text: str) -> str:
+        working = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not working or "just checked the stats on" not in working.lower():
+            return working
+
+        cleaned_lines = []
+        for raw_line in working.split("\n"):
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+            line = TRAINING_FAKE_COUNT_SPEAKER_RE.sub("", line)
+            cleaned_lines.append(line)
+        if not cleaned_lines:
+            return ""
+
+        joined = " ".join(cleaned_lines)
+        joined = re.sub(r"\s+", " ", joined).strip()
+
+        hoarder_match = re.search(
+            r"\band\s+1\.\s+(.+?)\s+is hoarding a lot of them\b",
+            joined,
+            re.IGNORECASE,
+        )
+        if hoarder_match:
+            hoarder_blob = hoarder_match.group(1)
+            names = []
+            for piece in re.split(r"\s+(?=\d+\.\s+)", hoarder_blob):
+                chunk = re.sub(r"^\d+\.\s*", "", piece).strip()
+                chunk = TRAINING_HOARDER_COUNT_RE.sub("", chunk).strip(" ,.;:")
+                if chunk:
+                    names.append(chunk)
+            if names:
+                joined = (
+                    joined[: hoarder_match.start()]
+                    + f"and the top hoarders are {self._join_training_name_list(names)}"
+                    + joined[hoarder_match.end() :]
+                )
+
+        joined = TRAINING_HOARDER_COUNT_RE.sub("", joined)
+        joined = re.sub(r"\s+", " ", joined).strip()
+        return joined
+
+    def _drop_legacy_training_scaffold_line(self, text: str) -> str:
+        line = str(text or "").strip()
+        if not line:
+            return ""
+        lower = line.lower()
+        if lower in {
+            "we played a quick quiz game together",
+            "lets practise maths together",
+            "maths lesson: one question",
+        }:
+            return ""
+        if lower.startswith("quiz time with ") or lower.endswith(" started a quiz round") or lower.startswith("quiz topic: "):
+            return ""
+        if TRAINING_LEGACY_QUESTION_RE.match(line):
+            return ""
+        if TRAINING_LEGACY_CORRECT_RE.match(line):
+            return ""
+        if TRAINING_LEGACY_SHORT_ANSWER_RE.match(line):
+            return ""
+        if TRAINING_LEGACY_QUIZ_RIGHT_RE.match(line):
+            return ""
+        if TRAINING_LEGACY_ANSWERED_RE.match(line):
+            return ""
+        if TRAINING_LEGACY_CHEER_RE.match(line):
+            return ""
+        return line
+
+    def _is_training_progress_line(self, text: str) -> bool:
+        line = str(text or "").strip()
+        if not line:
+            return False
+        return bool(TRAINING_PROGRESS_LINE_RE.match(line))
+
+    def _mask_training_phone_numbers(self, text: str) -> str:
+        cleaned = str(text or "").strip()
+        if not cleaned:
+            return ""
+        if TRAINING_PHONE_LINE_RE.match(cleaned):
+            return ""
+        return TRAINING_PHONE_INLINE_RE.sub("[phone]", cleaned)
+
+    def _clean_training_command_target(self, text: str) -> str:
+        target = self._strip_training_wrapper_quotes(text)
+        if not target:
+            return ""
+        target = re.sub(r"\s*//\s*.*$", "", target).strip()
+        target = target.lstrip("@").strip()
+        if target.count("(") > target.count(")"):
+            target = re.sub(r"\s+\([^)]*$", "", target).strip()
+        target = re.sub(r"\s+\([^)]{1,40}\)\s*$", "", target).strip()
+        target = re.sub(r"\s+", " ", target).strip(" ,.;:!?/\\|_-")
+        return target
+
+    def _clean_training_command_phrase(self, text: str) -> str:
+        phrase = self._strip_training_wrapper_quotes(text)
+        if not phrase:
+            return ""
+        phrase = re.sub(r"\s+", " ", phrase).strip(" ,.;:/\\|_-")
+        if re.fullmatch(r"![a-z0-9_]+", phrase):
+            phrase = phrase[1:]
+        return phrase
+
+    def _split_training_command_leading_arg(self, args: str):
+        working = str(args or "").strip()
+        if not working:
+            return "", ""
+        if working[0] in {'"', "'"}:
+            quote = working[0]
+            idx = 1
+            while idx < len(working):
+                if working[idx] == quote and working[idx - 1] != "\\":
+                    return self._strip_training_wrapper_quotes(working[: idx + 1]), working[idx + 1 :].strip()
+                idx += 1
+        parts = working.split(None, 1)
+        if len(parts) == 1:
+            return self._strip_training_wrapper_quotes(parts[0]), ""
+        return self._strip_training_wrapper_quotes(parts[0]), parts[1].strip()
+
+    def _split_training_gift_command_args(self, args: str):
+        cleaned = re.sub(r"\s+", " ", str(args or "").strip())
+        if not cleaned:
+            return "", "", None
+
+        tokens = cleaned.split()
+        for idx, token in enumerate(tokens):
+            if not re.fullmatch(r"\d{1,5}", token):
+                continue
+            if idx <= 0:
+                continue
+            target = self._clean_training_command_target(" ".join(tokens[:idx]))
+            item = self._clean_training_command_phrase(" ".join(tokens[idx + 1 :])) if idx + 1 < len(tokens) else ""
+            if target:
+                return target, item, token
+
+        if cleaned.startswith("@") and len(tokens) >= 2:
+            best = None
+            for item_len in range(1, min(4, len(tokens))):
+                raw_target = " ".join(tokens[:-item_len])
+                raw_item = " ".join(tokens[-item_len:])
+                target = self._clean_training_command_target(raw_target)
+                item = self._clean_training_command_phrase(raw_item)
+                if not target or not item:
+                    continue
+
+                score = 0
+                if raw_target.lstrip().startswith("@"):
+                    score += 3
+                if raw_target.rstrip().endswith(")"):
+                    score += 2
+                if raw_target.count("(") > raw_target.count(")") and target != raw_target.lstrip("@").strip():
+                    score += 2
+                if raw_item.count("(") > raw_item.count(")"):
+                    score -= 3
+                if raw_item.lstrip().startswith("@"):
+                    score -= 2
+                score -= max(0, len(item.split()) - 3)
+                if best is None or score > best[0]:
+                    best = (score, target, item)
+
+            if best:
+                return best[1], best[2], None
+
+        target = self._clean_training_command_target(tokens[0])
+        item = self._clean_training_command_phrase(" ".join(tokens[1:])) if len(tokens) > 1 else ""
+        return target, item, None
+
+    def _rewrite_training_command_line(self, line: str) -> str:
+        raw = str(line or "").strip()
+        if not raw:
+            return ""
+
+        speaker = ""
+        body = raw
+        match = TRAINING_SPEAKER_LINE_RE.match(raw)
+        if match and self._is_plausible_training_speaker_label(match.group(1), match.group(2)):
+            candidate_body = self._strip_training_wrapper_quotes(match.group(2))
+            if candidate_body.startswith(self.command_prefix):
+                speaker = self._normalise_training_speaker_label(match.group(1))
+                body = candidate_body
+
+        body = self._strip_training_wrapper_quotes(body)
+        if not body.startswith(self.command_prefix):
+            return raw
+
+        command_match = re.match(
+            r"^" + re.escape(self.command_prefix) + r"([a-z0-9_]+)(?:\s+(.*))?$",
+            body,
+            re.IGNORECASE,
+        )
+        if not command_match:
+            return raw
+
+        command = str(command_match.group(1) or "").lower()
+        args = str(command_match.group(2) or "").strip()
+        subject = speaker or "someone"
+
+        if command in {"bbygift", "bgiveitem", "bgift", "bbygive"}:
+            target, item, quantity = self._split_training_gift_command_args(args)
+            if not target and not item:
+                return ""
+            item_phrase = item or "a gift"
+            if quantity:
+                item_phrase = f"{quantity} {item}" if item else f"{quantity} gifts"
+            if target:
+                return f"{subject} tried giving {item_phrase} to {target}"
+            return f"{subject} tried giving {item_phrase}"
+
+        if command in {"bbyteach", "btx"}:
+            term, definition = self._split_training_command_leading_arg(args)
+            term = self._clean_training_command_phrase(term)
+            definition = self._clean_training_command_phrase(definition)
+            if term.startswith(self.command_prefix) and re.fullmatch(r"![a-z0-9_]+", term):
+                term = term[1:]
+            if term and definition:
+                return f"{term} means {definition}"
+            return definition
+
+        if command in {"bbymaths", "bmaths", "bbymath"}:
+            return f"{subject} played bbymaths"
+
+        if command in {"bbyfave", "bbyfav", "bfave"}:
+            item = self._clean_training_command_phrase(args)
+            if item:
+                return f"{item} is a favourite item"
+            return ""
+
+        if command in {"bbysign", "bsign", "bbysig", "bsig", "bbybook_sign"}:
+            target, message = self._split_training_command_leading_arg(args)
+            target = self._clean_training_command_target(target)
+            message = self._clean_training_command_phrase(message)
+            if target and message:
+                return f"{subject} signed {target}'s bbybook saying {message}"
+            if target:
+                return f"{subject} signed {target}'s bbybook"
+            return ""
+
+        if command in {"bbyrant"}:
+            rant = self._clean_training_command_phrase(args)
+            if rant:
+                return f"{subject} wrote a bbyrant about {rant}"
+            return ""
+
+        return ""
+
+    def _unwrap_training_command_narration(self, line: str) -> str:
+        raw = str(line or "").strip()
+        if not raw:
+            return ""
+
+        match = TRAINING_SPEAKER_LINE_RE.match(raw)
+        if not match or not self._is_plausible_training_speaker_label(match.group(1), match.group(2)):
+            return raw
+
+        outer_speaker = self._normalise_training_speaker_label(match.group(1))
+        body = self._strip_training_wrapper_quotes(match.group(2))
+        narration = re.match(
+            r"^([a-z0-9_ .()'/+-]{1,40})\s+(tried giving|signed|wrote a bbyrant|played bbymaths)\b",
+            body,
+            re.IGNORECASE,
+        )
+        if not narration:
+            return raw
+
+        inner_speaker = self._normalise_training_speaker_label(narration.group(1))
+        if not inner_speaker or inner_speaker == outer_speaker:
+            return raw
+        return body
+
+    def _has_training_garble_token(self, text: str) -> bool:
+        raw = str(text or "").strip()
+        if not raw:
+            return False
+        return bool(TRAINING_GARBLE_TOKEN_RE.search(raw))
+
+    def _looks_like_training_token_dump(self, text: str) -> bool:
+        raw = str(text or "").strip()
+        if not raw or not TRAINING_TOKEN_LIST_RE.match(raw):
+            return False
+        tokens = re.findall(r"['\"]([^'\"]{1,40})['\"]", raw)
+        if len(tokens) < 6:
+            return False
+        if any("ġ" in tok or "Ġ" in tok for tok in tokens):
+            return True
+        short_tokens = sum(1 for tok in tokens if len(tok) <= 3)
+        return short_tokens >= max(4, len(tokens) // 2)
+
+    def _is_plausible_training_speaker_label(self, raw_label: str, body: str = "") -> bool:
+        label = str(raw_label or "").strip()
+        if not label:
+            return False
+        lower = re.sub(r"\[\[\s*([^\[\]\n]{1,80})\s*\]\]", r"\1", label)
+        lower = re.sub(r"[`*_]", "", lower).strip(" '\"")
+        lower = re.sub(r"\s+", " ", lower.lower()).strip()
+        if not lower:
+            return False
+        if lower in TRAINING_METADATA_LABELS:
+            return False
+        if any(ch in lower for ch in ",;!?[]{}<>|"):
+            return False
+        if sum(1 for ch in lower if ch.isalpha()) == 0:
+            return False
+
+        words = [w for w in re.split(r"\s+", lower) if w]
+        if len(words) > 4:
+            return False
+
+        stripped_body = str(body or "").strip().lower()
+        if re.search(r"\b\d{1,2}$", lower) and re.fullmatch(r"\d{2}(?::\d{2})?(?:\s*[ap]m)?[!?.,]*", stripped_body):
+            return False
+
+        return True
+
+    def _normalise_training_speaker_label(self, raw_label: str) -> str:
+        label = str(raw_label or "").strip()
+        label = re.sub(r"\[\[\s*([^\[\]\n]{1,80})\s*\]\]", r"\1", label)
+        label = re.sub(r"[`*_]", "", label).strip(" '\"")
+        label = re.sub(r"\s+", " ", label.lower()).strip()
+        while label.endswith(" says"):
+            label = label[:-5].strip()
+        if not label:
+            return ""
+        if label in {
+            "childofagamingdroid",
+            "child of an android",
+            "childofanandroid",
+            "childo",
+            "coaa",
+            "self",
+            "me",
+            "user",
+            "you said",
+            "u said",
+            "i said",
+        }:
+            return self._charis_training_name()
+        if label == "babyllm":
+            return "babyllm"
+        return label
+
+    def _is_training_metadata_line(self, line: str) -> bool:
+        raw = str(line or "").strip()
+        if not raw:
+            return True
+        lower = raw.lower()
+        if self._is_training_progress_line(raw):
+            return True
+        if re.fullmatch(r"[a-z0-9_ .()'\-]{1,48}:\s*", lower):
+            return True
+        if TRAINING_TRANSCRIPT_DROP_RE.match(raw):
+            return True
+        if TRAINING_EXPORT_METADATA_RE.match(raw):
+            return True
+        if TRAINING_EXPORT_METADATA_TRAILER_RE.match(raw):
+            return True
+        if TRAINING_ORPHAN_NUMERIC_ID_RE.match(raw):
+            return True
+        if TRAINING_PHONE_LINE_RE.match(raw):
+            return True
+        if HTMLISH_TAG.search(raw) or ANGLE_TAG.search(raw) or TRAINING_LONG_HTML_TAG_RE.search(raw):
+            return True
+        if self._has_training_garble_token(raw):
+            return True
+        if self._looks_like_training_token_dump(raw):
+            return True
+        if "!important" in lower or re.search(r"[.#a-z0-9_-]+\s*\{[^{}]*:[^{}]*\}", lower):
+            return True
+
+        match = TRAINING_SPEAKER_LINE_RE.match(raw)
+        if match:
+            speaker_raw = str(match.group(1) or "").strip().lower()
+            speaker = self._normalise_training_speaker_label(speaker_raw)
+            body = str(match.group(2) or "").strip()
+            if not self._is_plausible_training_speaker_label(speaker_raw, body):
+                return False
+            if speaker_raw in TRAINING_METADATA_LABELS or speaker in TRAINING_METADATA_LABELS:
+                return True
+            if TRAINING_EXPORT_METADATA_RE.match(body):
+                return True
+
+        trailing = TRAINING_TRAILING_TAG_RE.match(raw)
+        if trailing:
+            tag = str(trailing.group(2) or trailing.group(3) or "").strip().lower()
+            tag = self._normalise_training_speaker_label(tag)
+            if tag in TRAINING_METADATA_LABELS:
+                return True
+
+        return False
+
+    def _normalise_training_dialogue_line(self, line: str, *, depth: int = 0) -> str:
+        raw = str(line or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not raw:
+            return ""
+        raw = re.sub(r"^[`*_]+", "", raw)
+        raw = re.sub(r"[`*_]+$", "", raw)
+        raw = re.sub(r"\s+", " ", raw).strip()
+        raw = self._mask_training_phone_numbers(raw)
+        raw = self._unwrap_training_command_narration(raw)
+        raw = self._rewrite_training_command_line(raw)
+        raw = self._drop_legacy_training_scaffold_line(raw)
+        if not raw or self._is_training_metadata_line(raw):
+            return ""
+
+        match = TRAINING_SPEAKER_LINE_RE.match(raw)
+        if match and self._is_plausible_training_speaker_label(match.group(1), match.group(2)):
+            speaker = self._normalise_training_speaker_label(match.group(1))
+            body = self._mask_training_phone_numbers(self._strip_training_wrapper_quotes(match.group(2)))
+            if not body:
+                return ""
+            if (
+                HTMLISH_TAG.search(body)
+                or ANGLE_TAG.search(body)
+                or TRAINING_LONG_HTML_TAG_RE.search(body)
+                or self._has_training_garble_token(body)
+            ):
+                return ""
+            if depth < 1 and TRAINING_NESTED_TRANSCRIPT_RE.match(body):
+                nested = self._normalise_training_dialogue_line(body, depth=depth + 1)
+                if nested:
+                    return nested
+            if not speaker or speaker in TRAINING_METADATA_LABELS or self._is_training_metadata_line(body):
+                return ""
+            return f"{speaker}: {body}"
+
+        trailing = TRAINING_TRAILING_TAG_RE.match(raw)
+        if trailing:
+            tag = self._normalise_training_speaker_label(trailing.group(2) or trailing.group(3) or "")
+            body = self._mask_training_phone_numbers(self._strip_training_wrapper_quotes(trailing.group(1)))
+            if not body or not tag or tag in TRAINING_METADATA_LABELS:
+                return ""
+            if (
+                HTMLISH_TAG.search(body)
+                or ANGLE_TAG.search(body)
+                or TRAINING_LONG_HTML_TAG_RE.search(body)
+                or self._has_training_garble_token(body)
+            ):
+                return ""
+            if depth < 1 and TRAINING_NESTED_TRANSCRIPT_RE.match(body):
+                nested = self._normalise_training_dialogue_line(body, depth=depth + 1)
+                if nested:
+                    if ":" in nested:
+                        return nested
+                    body = nested
+            return f"{tag}: {body}"
+
+        if TRAINING_LONG_HTML_TAG_RE.search(raw) or self._has_training_garble_token(raw):
+            return ""
+        return self._mask_training_phone_numbers(self._strip_training_wrapper_quotes(raw))
+
+    def _sanitise_training_buffer_text(self, text: str) -> str:
+        working = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not working:
+            return ""
+        working = self._rewrite_training_item_stats_text(working)
+        if not working:
+            return ""
+
+        lines = [ln.strip() for ln in working.split("\n") if ln.strip()]
+        for _ in range(2):
+            changed = False
+            cleaned_lines = []
+            for raw_line in lines:
+                normalised = self._normalise_training_dialogue_line(raw_line)
+                if not normalised:
+                    changed = True
+                    continue
+                if normalised != raw_line:
+                    changed = True
+                for candidate in str(normalised).split("\n"):
+                    candidate = self._normalise_buffer_ingest_text(candidate)
+                    if not candidate or self._is_training_metadata_line(candidate):
+                        continue
+                    cleaned_lines.append(candidate)
+            lines = cleaned_lines
+            if not changed:
+                break
+
+        collapsed_lines = []
+        last_tagged_speaker = None
+        for line in lines:
+            match = TRAINING_SPEAKER_LINE_RE.match(line)
+            if not match or not self._is_plausible_training_speaker_label(match.group(1), match.group(2)):
+                collapsed_lines.append(line)
+                last_tagged_speaker = None
+                continue
+
+            speaker = self._normalise_training_speaker_label(match.group(1))
+            body = self._strip_training_wrapper_quotes(match.group(2))
+            if not speaker or not body:
+                last_tagged_speaker = None
+                continue
+            if last_tagged_speaker and speaker == last_tagged_speaker:
+                collapsed_lines.append(body)
+            else:
+                collapsed_lines.append(f"{speaker}: {body}")
+            last_tagged_speaker = speaker
+        lines = collapsed_lines
+
+        deduped = []
+        last = None
+        for line in lines:
+            if line == last:
+                continue
+            deduped.append(line)
+            last = line
+        return "\n".join(deduped).strip()
+
+    def _clean_training_file_text(self, text: str) -> str:
+        """Clean file-derived text before appending to training buffer."""
+        raw = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not raw:
+            return ""
+        try:
+            cleaned = clean_text(raw.lower())
+        except Exception:
+            cleaned = raw.lower()
+        # Strip ingest/export metadata that should never become language targets.
+        cleaned = re.sub(r"(?is)\n*\s*###\s*ingest warnings\b.*$", "", cleaned).strip()
+        cleaned = re.sub(r"(?is)\n*\s*###\s*attachments\b.*$", "", cleaned).strip()
+        cleaned = re.sub(r"(?im)^\s*-\s*missing_attachment\s*:.*$", "", cleaned)
+        cleaned = re.sub(r"(?im)^\s*missing_attachment\s*:.*$", "", cleaned)
+        cleaned = re.sub(r"(?im)^\s*-\s*timestamp_fallback\s*$", "", cleaned)
+        cleaned = re.sub(r"(?im)^\s*timestamp_fallback\s*$", "", cleaned)
+        cleaned = re.sub(r"(?i)\[\s*no textual content\s*\]", "", cleaned)
+        cleaned = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", cleaned)  # markdown image/file stubs
+        try:
+            cleaned = strip_artifact_lines(cleaned)
         except Exception:
             pass
-        if not self._is_high_quality(text_to_add): return False
+
+        cleaned = self._normalise_buffer_ingest_text(cleaned)
+        cleaned = self._sanitise_training_buffer_text(cleaned)
+        # Drop pure speaker labels left behind after metadata stripping.
+        if re.fullmatch(r"[a-z0-9_ .()'\-]{1,48}:\s*", cleaned or ""):
+            return ""
+        return cleaned
+
+    def _buffer_add(self, text_to_add: str, *, mirror_to_training: Optional[bool] = None):
+        text_to_add = self._normalise_buffer_ingest_text(text_to_add)
+        if not text_to_add:
+            return False
         recent_lines = list(self.buffer)[-30:]
-        if any(is_similar(text_to_add, old_line, threshold=0.85) for old_line in recent_lines):
+        if not self._should_accept_line(text_to_add, recent_lines, for_training_buffer=False):
+            return False
+        repeat_keep_prob = self._repeat_admission_probability(text_to_add, recent_lines, for_training_buffer=False)
+        if random.random() > repeat_keep_prob:
             return False
         self.buffer.append(text_to_add)
         if len(self.buffer) > self.rollingContextSize:
@@ -677,8 +1932,25 @@ class BABYBOT_DISCORD(commands.Bot):
         logger.debug("BUFFER_ADD", f"added: \"{text_to_add[:50]}...\"")
         # also mirror a cleaned line into the separate training buffer for augmentation
         try:
-            tb_entry = clean_text(text_to_add.lower().strip())
-            self._training_buffer_add(tb_entry)
+            if mirror_to_training is None:
+                # Keep bot-self voice in training as a tiny trickle to avoid
+                # overwhelming the buffer with self-generated phrasing.
+                bot_self_line = False
+                speaker_match = re.match(r"^\s*([^:\n]{1,64})\s*:\s*(.+)$", text_to_add)
+                if speaker_match:
+                    speaker = str(speaker_match.group(1) or "").strip().lower()
+                    bot_self_line = self.is_bot_identity(speaker)
+                if bot_self_line:
+                    mirror_chance = 0.01
+                else:
+                    low_quality = self._line_quality_score(text_to_add) < 0.65
+                    mirror_chance = 0.35 if low_quality else 1.0
+                should_mirror = random.random() < mirror_chance
+            else:
+                should_mirror = bool(mirror_to_training)
+            if should_mirror:
+                tb_entry = clean_text(text_to_add.lower().strip())
+                self._training_buffer_add(tb_entry)
         except Exception:
             pass
         return True
@@ -690,10 +1962,28 @@ class BABYBOT_DISCORD(commands.Bot):
                     data = json.load(f)
                 if not isinstance(data, list):
                     data = list(data) if data is not None else []
+                normalised_data = []
+                changed = False
+                for entry in data:
+                    original = str(entry)
+                    normalised = self._normalise_timeline_training_line(original)
+                    normalised = self._normalise_buffer_ingest_text(normalised)
+                    try:
+                        normalised = strip_artifact_lines(normalised)
+                    except Exception:
+                        pass
+                    normalised = self._normalise_buffer_ingest_text(normalised)
+                    normalised = self._sanitise_training_buffer_text(normalised)
+                    if normalised != original:
+                        changed = True
+                    if normalised:
+                        normalised_data.append(normalised)
                 self.training_buffer = deque(
-                    data[-self.training_buffer_size :],
+                    normalised_data[-self.training_buffer_size :],
                     maxlen=self.training_buffer_size,
                 )
+                if changed:
+                    self._save_training_buffer()
             else:
                 self.training_buffer = deque(maxlen=self.training_buffer_size)
         except Exception:
@@ -712,42 +2002,150 @@ class BABYBOT_DISCORD(commands.Bot):
         except Exception:
             pass
 
+    def _normalise_timeline_training_line(self, line: str) -> str:
+        text = str(line or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not text:
+            return ""
+
+        # Normalise legacy timeline format:
+        # **From:** [[name]]
+        # <message>
+        from_match = re.match(r"(?is)^\s*\*\*from:\*\*\s*(.+?)\s*\n+\s*(.+)$", text)
+        if from_match:
+            speaker = self._normalise_timeline_participant(from_match.group(1))
+            message = from_match.group(2).strip()
+            message = re.sub(r"(?im)^\s*###\s*message\s*$", "", message).strip()
+            if message:
+                return f"{speaker}: {message}"
+            return ""
+
+        # Fallback: unwrap simple bracketed labels in-place.
+        text = re.sub(r"\[\[\s*([^\[\]\n]{1,80})\s*\]\]", r"\1", text)
+        return text
+
     def _format_for_training_buffer(self, line: str) -> str:
-        """Reduce the model's bias toward "name: " while still teaching names.
-
-        If a line begins with a speaker tag like "name: message", emit a
-        varied form most of the time:
-          - 60%: "message"
-          - 20%: "message - name"
-          - 15%: "message from name"
-          - 4%:  "name said message"
-          - 1%:  keep original "name: message"
-
-        For non-matching lines, return unchanged.
-        """
+        """Preserve speaker changes while collapsing repeated same-speaker runs."""
         try:
-            m = re.match(r"^\s*([^:\n]{1,24})\s*:\s*(.+)$", line)
-            if not m:
-                return line
-            name, msg = m.group(1).strip(), m.group(2).strip()
-            # Avoid empty content after stripping
-            if not msg:
-                return line
-            r = random.random()
-            if r < 0.60:
-                return msg
-            elif r < 0.80:
-                return f"{msg} - {name}"
-            elif r < 0.90:
-                return f"{msg} from {name}"
-            elif r < 0.95:
-                return f"{name} said {msg}"
-            else:
-                return line
-        except Exception:
-            return line
+            text = str(line or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+            if not text:
+                return ""
 
-    def _training_buffer_add(self, text_to_add: str) -> bool:
+            raw_lines = [
+                re.sub(r"[ \t]+", " ", ln.strip())
+                for ln in text.split("\n")
+                if ln.strip()
+            ]
+            if not raw_lines:
+                return ""
+
+            formatted_lines = []
+            last_tagged_speaker = None
+            for compact in raw_lines:
+                m = re.match(r"^\s*([^:\n]{1,40})\s*:\s*(.+)$", compact)
+                if not m or not self._is_plausible_training_speaker_label(m.group(1), m.group(2)):
+                    formatted_lines.append(compact)
+                    last_tagged_speaker = None
+                    continue
+
+                name = re.sub(r"[ \t]+", " ", m.group(1).strip().lower())
+                msg = re.sub(r"[ \t]+", " ", m.group(2).strip())
+                if not msg:
+                    continue
+
+                if last_tagged_speaker and name == last_tagged_speaker:
+                    formatted_lines.append(msg)
+                else:
+                    formatted_lines.append(f"{name}: {msg}")
+                last_tagged_speaker = name
+
+            return "\n".join(formatted_lines).strip()
+        except Exception:
+            return str(line or "").strip()
+
+    def _normalise_repetitive_training_signature(self, line: str) -> str:
+        """Collapse known repetitive templates so near-duplicates can be filtered."""
+        text = re.sub(r"\s+", " ", str(line or "").strip().lower())
+        if not text:
+            return ""
+
+        # Nickname change boilerplate often repeats with only the nick text changed.
+        nick_change = re.search(
+            r"(?:^|:\s*)i (?:changed|change|renamed) my nick on discord to .+?"
+            r"(?:\s+(?:because|cuz|cause|'cause)\s+i believe in myself!?|[.!?]$)",
+            text,
+        )
+        if nick_change:
+            return "template:nick_change_discord_selfbelief"
+
+        clock_sig = self._clock_line_signature(text)
+        if clock_sig and self._is_clock_rant_signature(clock_sig):
+            return "template:clock_rant"
+
+        return ""
+
+    def _clock_line_signature(self, line: str) -> str:
+        """Normalise clock lines so template repeats can be throttled."""
+        text = str(line or "").strip().lower()
+        if not text:
+            return ""
+        match = TRAINING_SPEAKER_LINE_RE.match(text)
+        if match and self._is_plausible_training_speaker_label(match.group(1), match.group(2)):
+            text = str(match.group(2) or "").strip()
+        # Collapse concrete time/day values to template markers.
+        text = re.sub(r"\b\d{1,2}:\d{2}(?:\s*[ap]m)?\b", "<time>", text)
+        text = re.sub(r"\b(mon|tues|tue|wed|thu|thur|thurs|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", "<day>", text)
+        text = re.sub(r"\b\d{1,2}\s*o['’]clock\b", "<hour> o'clock", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def _is_clock_rant_signature(self, signature: str) -> bool:
+        sig = str(signature or "").strip().lower()
+        if not sig:
+            return False
+        return any(marker in sig for marker in CLOCK_RANT_MARKERS)
+
+    def _has_recent_clock_line_gap(self, *, min_other_lines: int = 10) -> bool:
+        recent = list(getattr(self, "buffer", []) or [])
+        if not recent:
+            return True
+
+        other_lines = 0
+        for old in reversed(recent):
+            old_text = str(old or "")
+            old_sig = self._clock_line_signature(old_text)
+            if old_sig and self._is_clock_rant_signature(old_sig):
+                return other_lines >= min_other_lines
+
+            non_empty_lines = [ln for ln in old_text.split("\n") if str(ln or "").strip()]
+            other_lines += max(1, len(non_empty_lines))
+
+        return True
+
+    def _can_emit_clock_line(self, clock_line: str) -> bool:
+        sig = self._clock_line_signature(clock_line)
+        if not sig:
+            return False
+        if not self._is_clock_rant_signature(sig):
+            return False
+        if sig in self._recent_clock_signatures:
+            return False
+        if not self._has_recent_clock_line_gap(min_other_lines=10):
+            return False
+        recent = list(self.buffer)[-80:]
+        for old in recent:
+            old_sig = self._clock_line_signature(old)
+            if old_sig and self._is_clock_rant_signature(old_sig) and old_sig == sig:
+                return False
+        return True
+
+    def _schedule_next_clock_announce(self, now: float, *, emitted: bool) -> None:
+        # If we just emitted, wait longer; otherwise retry sooner but still not spammy.
+        if emitted:
+            self.nextClockAnnounceAt = now + pyrandom.randint(3600, 21600)  # 1h-6h
+        else:
+            self.nextClockAnnounceAt = now + pyrandom.randint(900, 5400)    # 15m-90m
+
+    def _training_buffer_add(self, text_to_add: str, *, apply_clean: bool = False) -> bool:
         """Append a single cleaned line to the separate training buffer JSON.
 
         Keeps entries compact, dedups against recent, and persists to disk.
@@ -757,18 +2155,46 @@ class BABYBOT_DISCORD(commands.Bot):
             if not isinstance(text_to_add, str):
                 return False
             line = text_to_add.replace("\r\n", "\n").replace("\r", "\n").strip()
+            if apply_clean:
+                line = self._clean_training_file_text(line)
+            else:
+                line = self._normalise_buffer_ingest_text(line)
+            line = self._normalise_timeline_training_line(line)
+            line = self._normalise_buffer_ingest_text(line)
             if not line:
                 return False
             # Soften "name: message" dominance when mirroring into training buffer
             line = self._format_for_training_buffer(line)
+            line = self._sanitise_training_buffer_text(line)
+            if not line:
+                return False
             # length clamp
             if len(line) > 2000:
                 line = line[:2000]
+
+            # Pattern-level guard: keep only a tiny trickle of known boilerplate templates.
+            template_sig = self._normalise_repetitive_training_signature(line)
+            if template_sig:
+                recent = list(self.training_buffer)[-240:]
+                seen = 0
+                for old_line in recent:
+                    if self._normalise_repetitive_training_signature(old_line) == template_sig:
+                        seen += 1
+                # Allow a tiny ongoing trickle so the template is represented
+                # without dominating the buffer.
+                if template_sig == "template:clock_rant":
+                    keep_prob = 0.08 if seen == 0 else 0.03 if seen == 1 else 0.01 if seen <= 3 else 0.0
+                else:
+                    keep_prob = 0.30 if seen == 0 else 0.12 if seen == 1 else 0.04 if seen <= 3 else 0.01
+                if random.random() >= keep_prob:
+                    return False
+
             # quality & dedup
-            if not self._is_high_quality(line):
-                return False
             recent = list(self.training_buffer)[-30:]
-            if any(is_similar(line, old, threshold=0.85) for old in recent):
+            if not self._should_accept_line(line, recent, for_training_buffer=True):
+                return False
+            repeat_keep_prob = self._repeat_admission_probability(line, recent, for_training_buffer=True)
+            if random.random() > repeat_keep_prob:
                 return False
             self.training_buffer.append(line)
             if len(self.training_buffer) > self.training_buffer_size:
@@ -786,26 +2212,266 @@ class BABYBOT_DISCORD(commands.Bot):
             logger.error("TRAINING_BUFFER", f"failed: {e}")
             return False
 
-    async def _buffer_clean(self):
-        MAX_LINE_DUPLICATES = 2
-        buffer_list = list(self.buffer)
-        line_counts = Counter(buffer_list)
-        cleaned_count = 0
-        for i in range(len(buffer_list) - 1, -1, -1):
-            line = buffer_list[i]
-            if line_counts[line] > MAX_LINE_DUPLICATES:
-                del buffer_list[i]
-                line_counts[line] -= 1
-                cleaned_count += 1
+    # ------------------------------------------------------------------
+    # TIME-MATCHED MEMORY — "on this day" echo from previous years
+    # ------------------------------------------------------------------
+    _TIME_MEMORY_TIMELINE = Path("/Users/charis/Dropbox/00_Icharis/07_TIMELINE")
+    _TIME_MEMORY_CATEGORIES = {"discord", "apple_notes", "email", "ios_messages"}
 
-        seen = []
-        for i in range(len(buffer_list) - 1, -1, -1):
-            line = buffer_list[i]
-            if any(is_similar(line, other) for other in seen):
-                del buffer_list[i]
-                cleaned_count += 1
+    def _tm_build_daily_cache(self) -> None:
+        """Scan TIMELINE for _SENT.md files whose month-day matches today
+        across all previous years.  Stores a dict keyed by HH:MM -> list of
+        (filepath, year) so the idle loop can do instant lookups."""
+        now = datetime.now()
+        today_md = f"{now.month:02d}-{now.day:02d}"
+        cache: dict[str, list[tuple[Path, int]]] = {}
+
+        for year_dir in sorted(self._TIME_MEMORY_TIMELINE.iterdir()):
+            if not year_dir.is_dir():
+                continue
+            try:
+                year_int = int(year_dir.name)
+            except ValueError:
+                continue
+            if year_int >= now.year:
+                continue  # only past years
+
+            # YYYY/YYYY-MM/YYYY-MM-DD/
+            month_dir = year_dir / f"{year_int}-{today_md[:2]}"
+            if not month_dir.is_dir():
+                continue
+            day_dir = month_dir / f"{year_int}-{today_md}"
+            if not day_dir.is_dir():
+                continue
+
+            for cat_dir in day_dir.iterdir():
+                if not cat_dir.is_dir():
+                    continue
+                if cat_dir.name not in self._TIME_MEMORY_CATEGORIES:
+                    continue
+                for f in cat_dir.iterdir():
+                    if not f.name.endswith("_SENT.md"):
+                        continue
+                    # filename starts with YYYY-MM-DDTHH-MM-SSZ
+                    m = re.match(r"\d{4}-\d{2}-\d{2}T(\d{2})-(\d{2})-\d{2}Z", f.name)
+                    if m:
+                        hhmm = f"{m.group(1)}:{m.group(2)}"
+                        cache.setdefault(hhmm, []).append((f, year_int))
+
+        self._tm_cache = cache
+        self._tm_cache_date = today_md
+        self._tm_injected: set[str] = getattr(self, "_tm_injected", set())
+        # flat list of all matched file paths for corpus injection
+        self._tm_corpus_paths: list[Path] = [
+            fpath for entries in cache.values() for fpath, _ in entries
+        ]
+        total = sum(len(v) for v in cache.values())
+        logger.info("TIME_MEMORY", f"cached {total} SENT entries across {len(cache)} distinct minutes for {today_md}")
+
+        # write daily schedule as .md for human review
+        self._tm_write_schedule_md(cache, today_md, now.year)
+
+    def _tm_write_schedule_md(self, cache: dict, today_md: str, year: int) -> None:
+        """Write today's time-matched memory schedule to a .md in the TIMELINE."""
+        try:
+            out_dir = self._TIME_MEMORY_TIMELINE / "icharis2" / "time_memory"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / f"time_memory_{year}-{today_md}.md"
+
+            lines = [
+                f"# Time-Matched Memories for {year}-{today_md}",
+                f"*{sum(len(v) for v in cache.values())} entries across {len(cache)} distinct minutes*\n",
+            ]
+
+            for hhmm in sorted(cache.keys()):
+                entries = cache[hhmm]
+                lines.append(f"## {hhmm}")
+                for fpath, src_year in entries:
+                    years_ago = year - src_year
+                    cat = fpath.parent.name
+                    try:
+                        raw = fpath.read_text(encoding="utf-8", errors="replace")
+                        body = self._tm_extract_body(raw)
+                        preview = body[:200].replace("\n", " ").strip() if body else "(empty)"
+                    except Exception:
+                        preview = "(unreadable)"
+                    lines.append(f"- **{src_year}** ({years_ago}y ago) `{cat}` — {preview}")
+                lines.append("")
+
+            out_path.write_text("\n".join(lines), encoding="utf-8")
+            logger.info("TIME_MEMORY", f"wrote schedule: {out_path}")
+        except Exception as e:
+            logger.error("TIME_MEMORY", f"failed to write schedule md: {e}")
+
+    def _normalise_timeline_participant(self, raw_label: str) -> str:
+        label = str(raw_label or "").strip()
+        label = re.sub(r"\[\[\s*([^\[\]\n]{1,80})\s*\]\]", r"\1", label)
+        label = re.sub(r"[`*_]", "", label).strip(" '\"")
+        label = re.sub(r"\s+", " ", label.lower()).strip()
+        if not label:
+            return "someone"
+
+        if label in {"childofagamingdroid", "child of an android", "childofanandroid", "childo", "coaa", "self", "me", "user"}:
+            return self._charis_training_name()
+
+        return label
+
+    def _tm_extract_body(self, content: str) -> str:
+        """Extract chat text from timeline markdown and preserve speaker identity."""
+        parts = content.split("---", 2)
+        if len(parts) < 3:
+            return ""
+        body = parts[2].strip()
+
+        # Preferred path for discord-like markdown exports:
+        # **From:** [[name]]
+        # ### Message
+        # <message>
+        from_match = re.search(r"(?im)^\s*\*\*from:\*\*\s*(.+?)\s*$", body)
+        message_split = re.split(r"(?im)^\s*###\s*message\s*$", body, maxsplit=1)
+        if len(message_split) == 2:
+            message_lines = []
+            for ln in message_split[1].splitlines():
+                stripped = ln.strip()
+                if not stripped:
+                    if message_lines and message_lines[-1] != "":
+                        message_lines.append("")
+                    continue
+                if re.match(r"(?i)^(?:###\s*)?(reactions?|attachments?)\s*:?\s*$", stripped):
+                    break
+                if self._is_training_metadata_line(stripped):
+                    continue
+                message_lines.append(stripped)
+            message = "\n".join(message_lines).strip()
+            if message:
+                if from_match:
+                    speaker = self._normalise_timeline_participant(from_match.group(1))
+                    return self._sanitise_training_buffer_text(f"{speaker}: {message}")
+                return self._sanitise_training_buffer_text(message)
+
+        # cut ingest warnings section
+        for marker in ("### Ingest warnings", "### ingest warnings"):
+            idx = body.find(marker)
+            if idx != -1:
+                body = body[:idx].strip()
+
+        # Fallback path: keep only body-like lines and unwrap bracketed labels.
+        lines = []
+        current_speaker = None
+        for ln in body.splitlines():
+            stripped = ln.strip()
+            if stripped.startswith("#"):
+                continue  # skip header lines
+            if not stripped:
+                continue
+
+            from_line = re.match(r"(?i)^\s*\*\*from:\*\*\s*(.+?)\s*$", stripped)
+            if from_line:
+                current_speaker = self._normalise_timeline_participant(from_line.group(1))
+                continue
+
+            corr_line = re.match(r"(?i)^\s*correspondent_label\s*:\s*(.+?)\s*$", stripped)
+            if corr_line:
+                current_speaker = self._normalise_timeline_participant(corr_line.group(1))
+                continue
+
+            if re.match(r"(?i)^(?:###\s*)?(reactions?|attachments?)\s*:?\s*$", stripped):
+                break
+
+            stripped = re.sub(r"\[\[\s*([^\[\]\n]{1,80})\s*\]\]", r"\1", stripped)
+            if self._is_training_metadata_line(stripped):
+                continue
+            if current_speaker:
+                lines.append(f"{current_speaker}: {stripped}")
             else:
-                seen.append(line)
+                lines.append(stripped)
+
+        body = "\n".join(lines).strip()
+        return self._sanitise_training_buffer_text(body)
+
+    async def _tm_check_and_inject(self) -> None:
+        """Called each idle tick.  If current HH:MM matches a cached SENT
+        entry, extract the body and push it to the training buffer."""
+        now = datetime.now()
+        today_md = f"{now.month:02d}-{now.day:02d}"
+
+        # rebuild cache at midnight / first call / date change
+        if not hasattr(self, "_tm_cache") or getattr(self, "_tm_cache_date", "") != today_md:
+            self._tm_build_daily_cache()
+
+        hhmm = f"{now.hour:02d}:{now.minute:02d}"
+        entries = self._tm_cache.get(hhmm, [])
+        if not entries:
+            return
+
+        for fpath, year in entries:
+            key = str(fpath)
+            if key in self._tm_injected:
+                continue
+            self._tm_injected.add(key)
+
+            try:
+                raw = fpath.read_text(encoding="utf-8", errors="replace")
+                body = self._tm_extract_body(raw)
+                if not body or len(body) < 20:
+                    continue
+                # clean up for training: collapse whitespace, cap length
+                body = re.sub(r"\n{3,}", "\n\n", body).strip()
+                if len(body) > 5000:
+                    body = body[:5000]
+
+                added = self._training_buffer_add(body, apply_clean=True)
+                if added:
+                    years_ago = now.year - year
+                    logger.info(
+                        "TIME_MEMORY",
+                        f"injected {years_ago}y-old memory from {hhmm} ({fpath.parent.name}): {body[:80]}..."
+                    )
+                    # also push to training queue so it trains on it right away
+                    if self.training_queue.qsize() < 15:
+                        await self.training_queue.put({"type": "time_memory", "text": body[:10000]})
+            except Exception as e:
+                logger.error("TIME_MEMORY", f"failed to read {fpath}: {e}")
+
+    def _prune_repetitive_lines(self, lines, *, similarity_threshold: float = 0.85, max_exact_kept: int = 2, max_similar_kept: int = 2):
+        """Keep the newest few members of repetitive clusters and expire older ones."""
+        kept_rev = []
+        exact_counts = Counter()
+        cleaned_count = 0
+
+        for raw_line in reversed(list(lines)):
+            line = self._normalise_buffer_ingest_text(str(raw_line or ""))
+            if not line:
+                cleaned_count += 1
+                continue
+
+            signature = self._repetition_signature(line)
+            if signature and exact_counts[signature] >= max_exact_kept:
+                cleaned_count += 1
+                continue
+
+            similar_hits = 0
+            for newer_line in kept_rev:
+                threshold = 0.98 if (self._is_equation_like(line) and self._is_equation_like(newer_line)) else similarity_threshold
+                if self._line_similarity_ratio(line, newer_line) >= threshold:
+                    similar_hits += 1
+                    if similar_hits >= max_similar_kept:
+                        cleaned_count += 1
+                        break
+            else:
+                kept_rev.append(line)
+                if signature:
+                    exact_counts[signature] += 1
+
+        return list(reversed(kept_rev)), cleaned_count
+
+    async def _buffer_clean(self):
+        buffer_list, cleaned_count = self._prune_repetitive_lines(
+            self.buffer,
+            similarity_threshold=0.85,
+            max_exact_kept=2,
+            max_similar_kept=2,
+        )
 
         cleaned_buffer = killExcessTags(buffer_list)
         self.buffer = deque(cleaned_buffer, maxlen=self.rollingContextSize)
@@ -813,6 +2479,18 @@ class BABYBOT_DISCORD(commands.Bot):
         if cleaned_count > 0:
             print(f"[_BUFFER_CLEAN] CLEANED {cleaned_count} DUPLICATE BUFFER LINES ")
             self._save_json(chatBufferFilepath, self.buffer, "_BUFFER_CLEAN")
+
+    def _training_buffer_clean(self):
+        cleaned_buffer, cleaned_count = self._prune_repetitive_lines(
+            self.training_buffer,
+            similarity_threshold=0.88,
+            max_exact_kept=2,
+            max_similar_kept=2,
+        )
+        self.training_buffer = deque(cleaned_buffer[-self.training_buffer_size :], maxlen=self.training_buffer_size)
+        if cleaned_count > 0:
+            print(f"[_TRAINING_BUFFER_CLEAN] CLEANED {cleaned_count} REPETITIVE TRAINING LINES ")
+            self._save_training_buffer()
 
     def _load_user_data(self):
         print("[_LOAD_USER_DATA] LOADING USER DATA... ")
@@ -838,6 +2516,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
     async def _save_user_data_worker(self, debounce: float):
         await asyncio.sleep(debounce)
+        self.prune_non_opt_user_memory(reason="save")
         data_to_save = {}
         for user_id, mem in self.userMemory.items():
             serialisable_mem = mem.copy()
@@ -859,8 +2538,24 @@ class BABYBOT_DISCORD(commands.Bot):
         return
 
     async def handle_wtf_reply(self, message, sess, ctx=None):
-        task = sess.get('task')
-        if task and not task.done(): task.cancel()
+        ref_id = getattr(getattr(message, "reference", None), "message_id", None)
+        if ref_id is not None:
+            if self.cog and hasattr(self.cog, "_close_lex_session"):
+                try:
+                    await self.cog._close_lex_session(ref_id)
+                except Exception:
+                    pass
+            elif ref_id in self.lex_sessions:
+                task = sess.get("task")
+                if task and not task.done():
+                    task.cancel()
+                countdown_stop = sess.get("countdown_stop")
+                if countdown_stop is not None:
+                    try:
+                        countdown_stop.set()
+                    except Exception:
+                        pass
+                del self.lex_sessions[ref_id]
 
         word = sess.get('word')
         guess = sess.get('guess')
@@ -883,10 +2578,6 @@ class BABYBOT_DISCORD(commands.Bot):
                     timestamp=time.time(),
                     debug_str="[BBYWTF_REPLY]"
                 )
-        
-        ref_id = message.reference.message_id
-        if ref_id in self.lex_sessions:
-            del self.lex_sessions[ref_id]
 
     def getNickname(self, author):
         if not author: return "someone"
@@ -894,6 +2585,43 @@ class BABYBOT_DISCORD(commands.Bot):
         mem = self.userMemory.get(user_key, {})
         name = mem.get("nickname") or mem.get("display_name") or str(author)
         return escape_markdown(name)
+
+    @staticmethod
+    def _is_auto_visit_fact(fact: dict) -> bool:
+        if not isinstance(fact, dict):
+            return False
+        if "visit_count" in fact:
+            return True
+        value = str(fact.get("value", "") or "").lower()
+        return (
+            (" has visited " in value and " times total" in value)
+            or (" had their first chat on " in value)
+        )
+
+    def _resolve_visit_fact_key(self, author: str, nickname: str) -> str:
+        """Pick a safe, stable key for auto-visit facts without clobbering taught defs."""
+        author_key = str(author or "").strip().lower()
+        nick_key = str(nickname or "").strip()
+        if nick_key:
+            existing = self.bbyfacts.get(nick_key)
+            if isinstance(existing, dict):
+                existing_author = str(existing.get("author", "") or "").strip().lower()
+                if existing_author == author_key and self._is_auto_visit_fact(existing):
+                    return nick_key
+
+        # Fallback to per-user stable key to avoid collision loops.
+        base = f"visits of {author_key}"
+        candidate = base
+        suffix = 2
+        while candidate in self.bbyfacts:
+            existing = self.bbyfacts.get(candidate)
+            if isinstance(existing, dict):
+                existing_author = str(existing.get("author", "") or "").strip().lower()
+                if existing_author == author_key and self._is_auto_visit_fact(existing):
+                    return candidate
+            candidate = f"{base} {suffix}"
+            suffix += 1
+        return candidate
 
     def formatMessage(self, user, text): return f"{self.getNickname(user)}: {text}"
 
@@ -918,11 +2646,46 @@ class BABYBOT_DISCORD(commands.Bot):
         context = "\n".join(list(self.buffer))
         return context[-max_chars:]
 
+    def _build_chat_training_snippet(self, text: str = "", *, max_lines: Optional[int] = None, max_chars: Optional[int] = None) -> str:
+        """Condense chat into a small recent snippet for training seasoning."""
+        try:
+            line_cap = max(1, int(max_lines if max_lines is not None else training_chat_mix_max_lines))
+        except Exception:
+            line_cap = 12
+        try:
+            char_cap = max(64, int(max_chars if max_chars is not None else training_chat_mix_max_chars))
+        except Exception:
+            char_cap = 1200
+
+        source_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+        source_lines = [line for line in source_text.split("\n") if str(line).strip()]
+        if not source_lines and getattr(self, "buffer", None):
+            source_lines = [line for line in list(self.buffer) if isinstance(line, str) and line.strip()]
+
+        cleaned_lines = []
+        for raw_line in source_lines:
+            line = self._normalise_buffer_ingest_text(str(raw_line))
+            if line:
+                cleaned_lines.append(line)
+
+        if not cleaned_lines:
+            return ""
+
+        snippet = "\n".join(cleaned_lines[-line_cap:])
+        return snippet[-char_cap:]
+
     def build_training_context(self, *, max_chars: int = 10000, include_external: bool = True) -> str:
-        """Assemble training context from chat buffer (and optional training buffer)."""
-        parts = list(self.buffer)
+        """Assemble training context with training buffer as the main source."""
+        parts = []
         if include_external and hasattr(self, "training_buffer") and self.training_buffer:
             parts.extend(list(self.training_buffer))
+
+        chat_snippet = self._build_chat_training_snippet(max_lines=training_chat_mix_max_lines, max_chars=min(max_chars, training_chat_mix_max_chars))
+        if chat_snippet:
+            parts.append(chat_snippet)
+        elif not parts:
+            parts.extend(list(self.buffer)[-max(1, int(training_chat_mix_max_lines)):])
+
         context = "\n".join(parts)
         return context[-max_chars:]
     
@@ -950,7 +2713,7 @@ class BABYBOT_DISCORD(commands.Bot):
             if already_seen or past_repeats > 0:
                 repeat_score = past_repeats + (1 if already_seen else 0)
                 penalty = 0.001 * repeat_score
-                self.updateBBY(user, -penalty)
+                self.apply_tax_with_collection(user, penalty, source=f"repeat_filter:{user}")
                 
                 keep_chance = 0.5 ** repeat_score
                 if random.random() < keep_chance:
@@ -975,11 +2738,185 @@ class BABYBOT_DISCORD(commands.Bot):
             "spamMax": 0.8,
             "display_name": "",
             "messages": 0,
-            "last_seen": time.time()
+            "last_seen": time.time(),
+            "web_explicit_opt_out": False,
         }
 
+    def get_bot_identity_key(self) -> str:
+        return str(getattr(self, "bot_identity_key", "babyllm")).strip().lower() or "babyllm"
+
+    def is_bot_identity(self, user_key: str) -> bool:
+        key = str(user_key or "").strip().lower()
+        if not key:
+            return False
+        if "(babyllm" in key:
+            return True
+        aliases = {self.get_bot_identity_key(), "babyllm", str(self.babyName).strip().lower()}
+        user_obj = getattr(self, "user", None)
+        if user_obj is not None:
+            runtime_name = getattr(user_obj, "name", None)
+            if runtime_name:
+                aliases.add(str(runtime_name).strip().lower())
+        canonical_mem = self.userMemory.get(self.get_bot_identity_key(), {})
+        if isinstance(canonical_mem, dict):
+            for alias in canonical_mem.get("bot_aliases", []) or []:
+                alias_key = str(alias or "").strip().lower()
+                if alias_key:
+                    aliases.add(alias_key)
+        return key in aliases
+
+    def normalise_user_identity(self, user_key: str) -> str:
+        key = str(user_key or "").strip().lower()
+        if not key:
+            return key
+        # Guard against placeholder/non-user identifiers leaking into economy keys.
+        if key in {"none", "null", "undefined", "nan", "unknown"}:
+            return ""
+        return self.get_bot_identity_key() if self.is_bot_identity(key) else key
+
+    def is_user_opted_in(self, user_key: str) -> bool:
+        key = self.normalise_user_identity(user_key)
+        return bool(key) and key in self.AIoptInUsers
+
+    def should_persist_user_state(self, user_key: str) -> bool:
+        key = self.normalise_user_identity(user_key)
+        if not key:
+            return False
+        if self.is_bot_identity(key):
+            return True
+        return key in self.AIoptInUsers
+
+    def prune_non_opt_user_memory(self, reason: str = "", include_non_opt: bool = False) -> int:
+        removed_users = []
+        for raw_key in list(self.userMemory.keys()):
+            key = self.normalise_user_identity(raw_key)
+            if not key:
+                removed_users.append(str(raw_key))
+                self.userMemory.pop(raw_key, None)
+                continue
+            if not include_non_opt:
+                continue
+            if self.should_persist_user_state(key):
+                continue
+            removed_users.append(str(raw_key))
+            self.userMemory.pop(raw_key, None)
+
+        if removed_users:
+            preview = ", ".join(sorted(removed_users)[:5])
+            suffix = "..." if len(removed_users) > 5 else ""
+            reason_part = f" ({reason})" if reason else ""
+            logger.info(
+                "PRIVACY",
+                f"pruned {len(removed_users)} non-opt user entries{reason_part}: {preview}{suffix}",
+            )
+        return len(removed_users)
+
+    def is_smink_token_holder_banned(self, user_key: str) -> bool:
+        key = self.normalise_user_identity(str(user_key or "").strip().lower())
+        if not key:
+            return False
+        if self.is_bot_identity(key):
+            return True
+        return key in {"buttsbot"}
+
+    def register_bot_alias(self, alias: str):
+        alias_key = str(alias or "").strip().lower()
+        if not alias_key:
+            return
+        canonical = self.get_bot_identity_key()
+        canonical_mem = self.userMemory.setdefault(canonical, self._get_default_user_memory())
+        aliases = {
+            canonical,
+            "babyllm",
+            str(self.babyName).strip().lower(),
+        }
+        existing_aliases = canonical_mem.get("bot_aliases", [])
+        if isinstance(existing_aliases, list):
+            aliases.update(str(a).strip().lower() for a in existing_aliases if str(a).strip())
+        aliases.add(alias_key)
+        canonical_mem["bot_aliases"] = sorted(aliases)
+        canonical_mem["is_bot_identity"] = True
+        if not canonical_mem.get("display_name"):
+            canonical_mem["display_name"] = self.babyName
+        data_manager.request_save("user_data")
+
+    def _merge_bot_identity_entries(self):
+        """Merge any known BBY aliases into one canonical userMemory entry."""
+        canonical = self.get_bot_identity_key()
+        canonical_mem = self.userMemory.setdefault(canonical, self._get_default_user_memory())
+        aliases = {canonical, "babyllm", str(self.babyName).strip().lower()}
+        runtime_user = getattr(self, "user", None)
+        if runtime_user is not None and getattr(runtime_user, "name", None):
+            aliases.add(str(runtime_user.name).strip().lower())
+        stored_aliases = canonical_mem.get("bot_aliases", [])
+        if isinstance(stored_aliases, list):
+            aliases.update(str(a).strip().lower() for a in stored_aliases if str(a).strip())
+        # Historical self-renames use the suffix "(babyLLM)"; fold those into canonical identity.
+        for existing_key in list(self.userMemory.keys()):
+            key_l = str(existing_key or "").strip().lower()
+            if "(babyllm" in key_l:
+                aliases.add(key_l)
+
+        canonical_inventory = canonical_mem.get("inventory")
+        if not isinstance(canonical_inventory, dict):
+            canonical_inventory = {}
+            canonical_mem["inventory"] = canonical_inventory
+
+        merged_any = False
+        for alias in list(aliases):
+            if not alias or alias == canonical:
+                continue
+            source_mem = self.userMemory.get(alias)
+            if not isinstance(source_mem, dict):
+                continue
+
+            # Merge additive numeric stats where safe.
+            for field in ("BBY", "message_count", "messages", "loyalty", "wins", "losses", "draws"):
+                source_val = source_mem.get(field, 0)
+                target_val = canonical_mem.get(field, 0)
+                if isinstance(source_val, (int, float)) and isinstance(target_val, (int, float)):
+                    canonical_mem[field] = target_val + source_val
+
+            # Keep freshest metadata.
+            source_last_seen = source_mem.get("last_seen", 0)
+            target_last_seen = canonical_mem.get("last_seen", 0)
+            if isinstance(source_last_seen, (int, float)) and source_last_seen > target_last_seen:
+                canonical_mem["last_seen"] = source_last_seen
+            if not canonical_mem.get("display_name") and source_mem.get("display_name"):
+                canonical_mem["display_name"] = source_mem.get("display_name")
+
+            source_inventory = source_mem.get("inventory", {})
+            if isinstance(source_inventory, dict):
+                for item_name, count in source_inventory.items():
+                    if isinstance(count, (int, float)):
+                        canonical_inventory[item_name] = canonical_inventory.get(item_name, 0) + count
+
+            del self.userMemory[alias]
+            merged_any = True
+            print(f"[BOT_IDENTITY] merged alias '{alias}' into '{canonical}'")
+
+            # Remove merged aliases from opt-in lists to avoid phantom users.
+            if alias in self.AIoptInUsers:
+                try:
+                    self.AIoptInUsers.remove(alias)
+                except ValueError:
+                    pass
+
+        canonical_mem["bot_aliases"] = sorted(aliases)
+        canonical_mem["is_bot_identity"] = True
+        self.userMemory[canonical] = canonical_mem
+        if merged_any:
+            data_manager.request_save("user_data", urgent=True)
+
     def updateBBY(self, author, BBY, is_decay=False):
-        author = str(author).lower()
+        raw_author = str(author or "").strip().lower()
+        author = self.normalise_user_identity(raw_author)
+        if not author:
+            logger.warn("UPDATEBBY", f"skipping BBY update for invalid recipient: {author!r} (raw={raw_author!r})")
+            return
+        if not self.should_persist_user_state(author):
+            # Don't retain per-user economy for non-opted identities.
+            return
         try:
             validated_bby = safety.validate_bby_transaction(BBY, f"updateBBY for {author}", allow_large_negative=is_decay)
             if validated_bby is None: return
@@ -988,7 +2925,10 @@ class BABYBOT_DISCORD(commands.Bot):
                 logger.info("UPDATEBBY", f"deleted user {author} cause not opted in and charis still hasn't found a better way")
                 del self.userMemory[author]
             else:
-                mem = self.userMemory[author]
+                mem = self.userMemory.get(author)
+                if not isinstance(mem, dict):
+                    mem = self._get_default_user_memory()
+                    self.userMemory[author] = mem
                 old_bby = mem.get("BBY", 0.0)
                 new_bby = old_bby + validated_bby
                 # Safety validation for total BBY using centralized system
@@ -1003,7 +2943,139 @@ class BABYBOT_DISCORD(commands.Bot):
             if author in self.userMemory: self.userMemory[author]["BBY"] = 0.0
     
     def getBBY(self, author):
-        return round(self.userMemory.get(str(author).lower(), {}).get("BBY", 0.0), 4)
+        key = self.normalise_user_identity(str(author).lower())
+        return round(self.userMemory.get(key, {}).get("BBY", 0.0), 4)
+
+    def collect_tax_to_baby(self, amount: float, source: str = "") -> float:
+        """Credit positive tax amount directly to BBY's canonical account."""
+        try:
+            tax_amount = float(amount)
+        except (TypeError, ValueError):
+            return 0.0
+        if not math.isfinite(tax_amount) or tax_amount <= 0:
+            return 0.0
+
+        baby_key = self.get_bot_identity_key()
+        self.userMemory.setdefault(baby_key, self._get_default_user_memory())
+        self.updateBBY(baby_key, tax_amount, is_decay=True)
+        if source:
+            print(f"[TAX_TO_BABY] +ᛒ{tax_amount:.4f} from {source}")
+        return tax_amount
+
+    def apply_tax_with_collection(self, payer: str, amount: float, *, source: str = "", is_decay: bool = False) -> float:
+        """Deduct a tax/penalty from payer and route it straight to baby treasury."""
+        try:
+            tax_amount = float(amount)
+        except (TypeError, ValueError):
+            return 0.0
+        if not math.isfinite(tax_amount) or tax_amount <= 0:
+            return 0.0
+
+        payer_key = self.normalise_user_identity(str(payer or "").strip().lower())
+        if not payer_key or self.is_bot_identity(payer_key):
+            return 0.0
+        if not self.should_persist_user_state(payer_key):
+            return 0.0
+
+        self.updateBBY(payer_key, -tax_amount, is_decay=is_decay)
+        source_tag = source or payer_key
+        self.collect_tax_to_baby(tax_amount, source=source_tag)
+        return tax_amount
+
+    def pay_bonus_from_baby_treasury(self, recipient: str, amount: float, *, is_decay: bool = False) -> float:
+        """Pay bonus to a user from BBY treasury, capped by available BBY balance."""
+        try:
+            requested = float(amount)
+        except (TypeError, ValueError):
+            return 0.0
+        if not math.isfinite(requested) or requested <= 0:
+            return 0.0
+
+        target = self.normalise_user_identity(str(recipient or "").strip().lower())
+        if not target or self.is_bot_identity(target):
+            return 0.0
+        if not self.should_persist_user_state(target):
+            return 0.0
+
+        baby_key = self.get_bot_identity_key()
+        baby_mem = self.userMemory.setdefault(baby_key, self._get_default_user_memory())
+        available = max(0.0, float(baby_mem.get("BBY", 0.0)))
+        payout = min(requested, available)
+        if payout <= 0:
+            return 0.0
+
+        self.updateBBY(baby_key, -payout, is_decay=is_decay)
+        self.updateBBY(target, payout, is_decay=is_decay)
+        return payout
+
+    def grant_bonus_with_treasury(
+        self,
+        recipient: str,
+        amount: float,
+        *,
+        source: str = "",
+        treasury_ratio: float = 0.9,
+        mint_floor_ratio: float = 0.1,
+        is_decay: bool = False,
+    ):
+        """Grant a positive bonus, funding some share from BBY treasury.
+
+        Returns a tuple:
+          (applied_total, paid_from_treasury, minted_amount)
+        """
+        try:
+            requested = float(amount)
+        except (TypeError, ValueError):
+            return (0.0, 0.0, 0.0)
+        if not math.isfinite(requested) or requested <= 0:
+            return (0.0, 0.0, 0.0)
+
+        target = self.normalise_user_identity(str(recipient or "").strip().lower())
+        if not target:
+            return (0.0, 0.0, 0.0)
+        if not self.should_persist_user_state(target):
+            return (0.0, 0.0, 0.0)
+
+        # If the recipient is baby, this is internal treasury growth/mint path.
+        if self.is_bot_identity(target):
+            self.updateBBY(target, requested, is_decay=is_decay)
+            return (requested, 0.0, requested)
+
+        try:
+            treasury_r = float(treasury_ratio)
+        except (TypeError, ValueError):
+            treasury_r = 0.9
+        treasury_r = max(0.0, min(1.0, treasury_r))
+
+        try:
+            mint_r = float(mint_floor_ratio)
+        except (TypeError, ValueError):
+            mint_r = 0.1
+        mint_r = max(0.0, min(1.0, mint_r))
+
+        # Keep payout <= requested unless explicitly over-configured.
+        ratio_sum = treasury_r + mint_r
+        if ratio_sum > 1.0 and ratio_sum > 0.0:
+            treasury_r /= ratio_sum
+            mint_r /= ratio_sum
+
+        treasury_target = requested * treasury_r
+        treasury_paid = 0.0
+        if treasury_target > 0:
+            treasury_paid = self.pay_bonus_from_baby_treasury(target, treasury_target, is_decay=is_decay)
+
+        minted = requested * mint_r
+        if minted > 0:
+            self.updateBBY(target, minted, is_decay=is_decay)
+
+        applied_total = min(requested, treasury_paid + minted)
+        sacrificed = max(0.0, requested - applied_total)
+        if source:
+            print(
+                f"[BONUS_FUNDING] {source} -> {target}: "
+                f"ᛒ{applied_total:.4f} (treasury {treasury_paid:.4f}, minted {minted:.4f}, sacrificed {sacrificed:.4f})"
+            )
+        return (applied_total, treasury_paid, minted)
 
     def get_brain_colour(self):
         """Get Discord colour based on babyLLM's current brain state (RGB values)"""
@@ -1053,31 +3125,39 @@ class BABYBOT_DISCORD(commands.Bot):
             command_entry = self.command_stats[command_name]
             command_entry["total_uses"] += 1
 
-            author_lower = author.lower()
+            author_lower = self.normalise_user_identity(str(author or "").strip().lower())
+            if not author_lower:
+                return
+            should_persist = self.should_persist_user_state(author_lower)
             unique_users = command_entry.get("unique_users")
 
-            if isinstance(unique_users, set):
-                unique_users.add(author_lower)
-            elif isinstance(unique_users, list):
-                # Preserve historical users that were stored as JSON lists
-                unique_users = {str(user).lower() for user in unique_users}
-                unique_users.add(author_lower)
-                command_entry["unique_users"] = unique_users
-            else:
-                # Unknown type (e.g. None or str); reset to the current author
-                command_entry["unique_users"] = {author_lower}
+            if should_persist:
+                if isinstance(unique_users, set):
+                    unique_users.add(author_lower)
+                elif isinstance(unique_users, list):
+                    # Preserve historical users that were stored as JSON lists
+                    unique_users = {str(user).lower() for user in unique_users}
+                    unique_users.add(author_lower)
+                    command_entry["unique_users"] = unique_users
+                else:
+                    # Unknown type (e.g. None or str); reset to the current author
+                    command_entry["unique_users"] = {author_lower}
 
-            # User stats
-            user_mem = self.userMemory[author_lower]
-            if "command_usage" not in user_mem:
-                user_mem["command_usage"] = {}
-            user_mem["command_usage"][command_name] = user_mem["command_usage"].get(command_name, 0) + 1
+                # User stats
+                user_mem = self.userMemory.get(author_lower)
+                if not isinstance(user_mem, dict):
+                    user_mem = self._get_default_user_memory()
+                    self.userMemory[author_lower] = user_mem
+                if "command_usage" not in user_mem:
+                    user_mem["command_usage"] = {}
+                user_mem["command_usage"][command_name] = user_mem["command_usage"].get(command_name, 0) + 1
             
             # Save stats periodically (every 10th command)
             if sum(data["total_uses"] for data in self.command_stats.values()) % 10 == 0:
                 # Use centralised, batched saver to avoid event-loop spam
                 data_manager.request_save("command_stats")
-                data_manager.request_save("user_data")
+                if should_persist:
+                    data_manager.request_save("user_data")
                 
         except Exception as e:
             print(f"[TRACK_COMMAND_USAGE] Error: {e}")
@@ -1101,6 +3181,7 @@ class BABYBOT_DISCORD(commands.Bot):
         WEALTH_TAX_BASE_RATE_DAILY, WEALTH_TAX_MULTIPLIER = 0.0420, 4206.420
         ACTIVE_BONUS_PER_YEAR, ACTIVE_BONUS_PER_MONTH, ACTIVE_BONUS_PER_WEEK = 42069.69, 6969.69, 4200.0
         ACTIVE_BONUS_PER_DAY, ACTIVE_BONUS_PER_HOUR, ACTIVE_BONUS_PER_MINUTE = 420.0, 69.69, 42.0
+        LINKED_CHANNEL_BONUS_PER_DAY = 69.69
         SHARE_OF_VOICE_INFLUENCE, HEARTBEAT_MIN, HEARTBEAT_MAX = 0.069, -0.000420, 0.00420
         
         # Calculate total money in circulation and set decay floor as total/100
@@ -1145,7 +3226,7 @@ class BABYBOT_DISCORD(commands.Bot):
             protection_factor = 1.0 - (LOYALTY_DECAY_PROTECTION * percentile)
             final_decay_amount = decay_per_interval * protection_factor
             BBY_change_this_interval -= final_decay_amount
-            debug_log.append(f"decay: {-final_decay_amount:.4f}")
+            debug_log.append(f"📉: {-final_decay_amount:.4f}")
 
             # --- CREATIVE OR SPAMMER? ---
             combo_bonus = 0.0005 * current_combo * interval_multiplier
@@ -1158,19 +3239,19 @@ class BABYBOT_DISCORD(commands.Bot):
             
             # --- EAT THE RICH BITCHES!!! ---
             tax_per_interval = 0
-            if current_BBY > 0:
+            if current_BBY > 0 and not self.is_bot_identity(author):
                 share_of_wealth = current_BBY / total_positive_BBY
-                wealth_penalty = share_of_wealth ** 4.20
+                wealth_penalty = share_of_wealth ** (4.20 * (self.random3 + self.random4))
                 dynamic_tax_rate_daily = WEALTH_TAX_BASE_RATE_DAILY * (1.0 + wealth_penalty * WEALTH_TAX_MULTIPLIER)
                 tax_amount_per_day = current_BBY * dynamic_tax_rate_daily
                 tax_per_interval = tax_amount_per_day / (SECONDS_PER_DAY / SECONDS_PER_INTERVAL)
                 BBY_change_this_interval -= tax_per_interval
-                debug_log.append(f"eat the rich tax: {-tax_per_interval:.4f}")
+                debug_log.append(f"🤑: {-tax_per_interval:.4f}")
 
             # --- ACTIVITY ---
             heartbeat_bonus = random.uniform(HEARTBEAT_MIN, HEARTBEAT_MAX) * interval_multiplier
             BBY_change_this_interval += heartbeat_bonus
-            debug_log.append(f"heartbeat: {heartbeat_bonus:.4f}")
+            debug_log.append(f"💓: {heartbeat_bonus:.4f}")
             
             bonus_per_interval = 0
             if time_since_last_seen <= 31556952:
@@ -1185,10 +3266,27 @@ class BABYBOT_DISCORD(commands.Bot):
                 bonus_per_interval = quietKid / (SECONDS_PER_DAY / SECONDS_PER_INTERVAL)
                 if memory.get("message_count", 0) == 0:
                     BBY_change_this_interval -= bonus_per_interval
-                    debug_log.append(f"active: {-bonus_per_interval:.4f}")
+                    debug_log.append(f"⛹ {-bonus_per_interval:.4f}")
                 else:
                     BBY_change_this_interval += bonus_per_interval
-                    debug_log.append(f"active: {bonus_per_interval:.4f}")
+                    debug_log.append(f"💃🏻 {bonus_per_interval:.4f}")
+
+            linked_channels = memory.get("linked_twitch_channels", [])
+            linked_count = 0
+            if isinstance(linked_channels, list):
+                linked_count = len({
+                    str(ch).strip().lstrip("#").lower()
+                    for ch in linked_channels
+                    if str(ch).strip()
+                })
+            elif memory.get("is_twitch_linked"):
+                linked_count = max(1, int(memory.get("linked_channel_count", 1) or 1))
+
+            if linked_count > 0:
+                linked_bonus_daily = LINKED_CHANNEL_BONUS_PER_DAY * min(linked_count, 3)
+                linked_bonus_interval = linked_bonus_daily / (SECONDS_PER_DAY / SECONDS_PER_INTERVAL)
+                BBY_change_this_interval += linked_bonus_interval
+                debug_log.append(f"🎥: {linked_bonus_interval:.4f}")
 
             negative_bonus = 0.0
             new_BBY = current_BBY + BBY_change_this_interval
@@ -1197,15 +3295,36 @@ class BABYBOT_DISCORD(commands.Bot):
             if new_BBY < -42069: negative_bonus += 420.0 * interval_multiplier
             if new_BBY < -420690: negative_bonus += 4206.9 * interval_multiplier
             BBY_change_this_interval += negative_bonus
-            debug_log.append(f"boost: {negative_bonus:.4f}")
+            debug_log.append(f"⬆️: {negative_bonus:.4f}")
 
             # --- CLAMP ---
             if BBY_change_this_interval < DECAY_FLOOR: BBY_change_this_interval = DECAY_FLOOR
 
-            final_BBY = current_BBY + BBY_change_this_interval
-            self.updateBBY(author, BBY_change_this_interval, is_decay=True)
-            per_user_interval_delta[author] = BBY_change_this_interval
-            debug_log.insert(0, f"total: {BBY_change_this_interval:+.4f}")
+            if BBY_change_this_interval > 0:
+                applied_total, treasury_paid, minted = self.grant_bonus_with_treasury(
+                    author,
+                    BBY_change_this_interval,
+                    source="decay_interval_bonus",
+                    treasury_ratio=0.9,
+                    mint_floor_ratio=0.1,
+                    is_decay=True,
+                )
+                BBY_change_applied = applied_total
+                if treasury_paid > 0:
+                    debug_log.append(f"🏦bonus←baby: {treasury_paid:.4f}")
+                if minted > 0:
+                    debug_log.append(f"🪙minted: {minted:.4f}")
+            else:
+                self.updateBBY(author, BBY_change_this_interval, is_decay=True)
+                BBY_change_applied = BBY_change_this_interval
+            if tax_per_interval > 0:
+                self.collect_tax_to_baby(tax_per_interval, source=author)
+                debug_log.append(f"🏦tax→baby: {tax_per_interval:.4f}")
+            final_BBY = self.getBBY(author)
+            if not math.isfinite(final_BBY):
+                final_BBY = round(current_BBY + BBY_change_applied, 2)
+            per_user_interval_delta[author] = BBY_change_applied
+            debug_log.insert(0, f"total: {BBY_change_applied:+.4f}")
             memory["last_decay_debug"] = debug_log
             memory["spamMax"] = max(0.001, min(0.8, memory.get("spamMax", 0.8) * (0.99999 ** interval_multiplier)))
 
@@ -1280,7 +3399,12 @@ class BABYBOT_DISCORD(commands.Bot):
                         if basis > 0:
                             burn = basis * burn_ratio
                             # Apply additional burn; mark as decay to pass safety
-                            self.updateBBY(u, -burn, is_decay=True)
+                            self.apply_tax_with_collection(
+                                u,
+                                burn,
+                                source=f"open_market_burn:{u}",
+                                is_decay=True,
+                            )
                     print(f"[OPEN_MARKET] Burned {excess:.4f} BBY globally to target growth {target_interval_change:.4f}.")
             # record last-interval stats for commands to show trends
             self.last_world_bby_delta = world_delta
@@ -1333,6 +3457,20 @@ class BABYBOT_DISCORD(commands.Bot):
             
             data_manager.request_save("user_data")
 
+    def check_year_boundary(self):
+        current_year = datetime.now(timezone.utc).year
+        stored_year = self.world_state.get("era")
+
+        if stored_year != current_year:
+            # DO NOTHING DESTRUCTIVE
+            print(f"[ERA] Year changed: {stored_year} → {current_year}")
+
+            self.world_state["era"] = current_year
+            self.world_state["last_checked"] = datetime.now(timezone.utc).isoformat() + "Z"
+
+            with open(self.world_state_path, "w") as f:
+                json.dump(self.world_state, f, indent=2)
+
     def calculate_smink_bonus(self, now, is_rival):
         PRECISION_WINDOW_SECONDS = 42      # spike only within +/- 42 seconds of 4:20
         PEAK_WINDOW_DURATION = 18000       # positive half of the cycle 3h before/after a peak
@@ -1347,18 +3485,25 @@ class BABYBOT_DISCORD(commands.Bot):
         
         all_peaks = []
         all_troughs = []
+        peak_hours = (0, 4, 16)
+        trough_hours = (2, 10, 20)
+        peak_seconds = (0, 20)
         for day_offset in [-1, 0, 1]:
             day = effective_now + timedelta(days = day_offset)
-            all_peaks.append(day.replace    (hour = 0,  minute = 20, second = 4, microsecond = 20))
-            all_troughs.append(day.replace  (hour = 2,  minute = 20, second = 4, microsecond = 20))
-            all_peaks.append(day.replace    (hour = 4,  minute = 20, second = 4, microsecond = 20))
-            all_troughs.append(day.replace  (hour = 10, minute = 20, second = 4, microsecond = 20))
-            all_peaks.append(day.replace    (hour = 16, minute = 20, second = 4, microsecond = 20))
-            all_troughs.append(day.replace  (hour = 20, minute = 20, second = 4, microsecond = 20))
+            for h in peak_hours:
+                for sec in peak_seconds:
+                    all_peaks.append(day.replace(hour=h, minute=20, second=sec, microsecond=0))
+            for h in trough_hours:
+                for sec in peak_seconds:
+                    all_troughs.append(day.replace(hour=h, minute=20, second=sec, microsecond=0))
             
         diff_to_peak = min([abs((t - effective_now).total_seconds()) for t in all_peaks])
         diff_to_trough = min([abs((t - effective_now).total_seconds()) for t in all_troughs])
-        diff_to_hourly = abs((now.minute * 60 + now.second) - (20 * 60))
+        second_of_hour = (now.minute * 60) + now.second
+        diff_to_hourly = min(
+            abs(second_of_hour - (20 * 60)),
+            abs(second_of_hour - ((20 * 60) + 20)),
+        )
 
         # --- UK 420 ---
         precision_bonus = 0
@@ -1385,17 +3530,440 @@ class BABYBOT_DISCORD(commands.Bot):
         return (mega_bonus + hourly_bonus + precision_bonus) * subtle_chaos
 
     def checkBestie(self):
-        BBYd_users = {u: m["BBY"] for u, m in self.userMemory.items() if "BBY" in m}
+        """Simple BBY-based bestie calculation"""
+        BBYd_users = {
+            u: m["BBY"]
+            for u, m in self.userMemory.items()
+            if "BBY" in m and not self.is_bot_identity(u)
+        }
         if not BBYd_users: return None, 0
         bestie = max(BBYd_users, key = BBYd_users.get)
         return bestie, BBYd_users[bestie]
-    
+
     def checkRival(self):
-        BBYd_users = {u: m["BBY"] for u, m in self.userMemory.items() if "BBY" in m}
+        """Simple BBY-based rival calculation"""
+        BBYd_users = {
+            u: m["BBY"]
+            for u, m in self.userMemory.items()
+            if "BBY" in m and not self.is_bot_identity(u)
+        }
         if not BBYd_users: return None, 0
         # Pick rival based on who's been meanest (lowest BBY = meanest to baby!)
         rival = min(BBYd_users, key = BBYd_users.get)
         return rival, BBYd_users[rival]
+
+    def _finite_float(self, value, default: float = 0.0) -> float:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return float(default)
+        if not math.isfinite(numeric):
+            return float(default)
+        return numeric
+
+    def _build_system_eval_snapshot(self):
+        tutor = getattr(self, "tutor", None)
+        model = getattr(self, "babyLLM", None)
+
+        # --- model/training ---
+        training_step = int(getattr(tutor, "trainingStepCounter", 0) or 0)
+        total_runs = int(getattr(tutor, "totalRuns", 0) or 0)
+        turns_awake = int(getattr(tutor, "totalTurnsAwake", 0) or 0)
+        avg_recent_loss = self._finite_float(getattr(tutor, "averageRecentLoss", 0.0))
+        total_avg_loss = self._finite_float(getattr(tutor, "totalAvgLoss", 0.0))
+        total_avg_delta = self._finite_float(getattr(tutor, "totalAvgDelta", 0.0))
+        perfectionist_pass_rate = self._finite_float(getattr(tutor, "perfectionistPassRate", 0.0))
+        total_token_perfect_rate = self._finite_float(getattr(tutor, "totalTokenPerfectRate", 0.0))
+        repetition_penalty = self._finite_float(getattr(tutor, "repetitionPenalty", 0.0))
+        repetition_window = self._finite_float(getattr(tutor, "repWinYo", 0.0))
+        temperature = self._finite_float(getattr(tutor, "temperature", 0.0))
+        learning_rate = self._finite_float(getattr(tutor, "learningRate", 0.0))
+
+        ce_loss = self._finite_float(getattr(model, "CEloss_used", 0.0))
+        aux_loss_cos = self._finite_float(getattr(model, "AUXlossCos_used", 0.0))
+        aux_loss_kl = self._finite_float(getattr(model, "AUXlossKL_used", 0.0))
+        word_loss = ce_loss + aux_loss_cos + aux_loss_kl
+        pixel_loss = (
+            self._finite_float(getattr(model, "pixelLoss_used", 0.0))
+            + self._finite_float(getattr(tutor, "pixelDistLoss_used", 0.0))
+        )
+
+        # --- memory/input mix (same logic used by !bbystats) ---
+        memory_scale = 0.0
+        input_scale = 0.0
+        try:
+            mem1 = getattr(model, "memory", None)
+            mem2 = getattr(model, "memory2", None)
+            memory_scale = (
+                self._finite_float(getattr(mem1, "mem_used", 0.0))
+                + self._finite_float(getattr(mem2, "mem_used", 0.0))
+            )
+            input_scale = (
+                self._finite_float(getattr(mem1, "act_used", 0.0))
+                + self._finite_float(getattr(mem2, "act_used", 0.0))
+            )
+
+            if self._finite_float(getattr(mem1, "longDecay_used", 0.0)) > 0.01:
+                memory_scale += self._finite_float(getattr(mem1, "long_used", 0.0))
+            else:
+                input_scale += self._finite_float(getattr(mem1, "long_used", 0.0))
+
+            if self._finite_float(getattr(mem1, "shortDecay_used", 0.0)) > 0.01:
+                memory_scale += self._finite_float(getattr(mem1, "short_used", 0.0))
+            else:
+                input_scale += self._finite_float(getattr(mem1, "short_used", 0.0))
+
+            if self._finite_float(getattr(mem2, "longDecay_used", 0.0)) > 0.01:
+                memory_scale += self._finite_float(getattr(mem2, "long_used", 0.0))
+            else:
+                input_scale += self._finite_float(getattr(mem2, "long_used", 0.0))
+
+            if self._finite_float(getattr(mem2, "shortDecay_used", 0.0)) > 0.01:
+                memory_scale += self._finite_float(getattr(mem2, "short_used", 0.0))
+            else:
+                input_scale += self._finite_float(getattr(mem2, "short_used", 0.0))
+        except Exception:
+            pass
+
+        total_scale = memory_scale + input_scale
+        memory_pct = (memory_scale / total_scale) * 100 if total_scale > 0 else 0.0
+        input_pct = (input_scale / total_scale) * 100 if total_scale > 0 else 0.0
+
+        # --- buffers/queue ---
+        training_queue_size = int(getattr(self, "training_queue", asyncio.Queue()).qsize())
+        live_buffer = getattr(self, "buffer", None)
+        train_buffer = getattr(self, "training_buffer", None)
+        live_buffer_len = len(live_buffer) if live_buffer is not None else 0
+        live_buffer_cap = int(getattr(live_buffer, "maxlen", 0) or 0)
+        train_buffer_len = len(train_buffer) if train_buffer is not None else 0
+        train_buffer_cap = int(
+            getattr(train_buffer, "maxlen", 0)
+            or getattr(self, "training_buffer_size", 0)
+            or 0
+        )
+
+        # --- economy/users ---
+        human_rows = []
+        for raw_user, mem in self.userMemory.items():
+            if not isinstance(mem, dict):
+                continue
+            user = self.normalise_user_identity(raw_user)
+            if not user or self.is_bot_identity(user):
+                continue
+            score = self._finite_float(mem.get("BBY", 0.0))
+            human_rows.append((user, score))
+
+        human_rows.sort(key=lambda x: x[1], reverse=True)
+        richest_user = human_rows[0][0] if human_rows else ""
+        richest_bby = human_rows[0][1] if human_rows else 0.0
+        poorest_user = min(human_rows, key=lambda x: x[1])[0] if human_rows else ""
+        poorest_bby = min((score for _, score in human_rows), default=0.0)
+        economy_abs_total = sum(abs(score) for _, score in human_rows)
+        economy_positive_total = sum(max(0.0, score) for _, score in human_rows)
+
+        baby_key = self.get_bot_identity_key()
+        baby_treasury = self._finite_float(self.getBBY(baby_key))
+
+        # --- command/fact coverage ---
+        command_total_uses = 0
+        unique_command_users = set()
+        for _, data in self.command_stats.items():
+            if not isinstance(data, dict):
+                continue
+            command_total_uses += max(0, int(data.get("total_uses", 0) or 0))
+            unique_users = data.get("unique_users", [])
+            if isinstance(unique_users, set):
+                iter_users = unique_users
+            elif isinstance(unique_users, list):
+                iter_users = unique_users
+            else:
+                iter_users = []
+            for u in iter_users:
+                u_key = self.normalise_user_identity(str(u or "").strip().lower())
+                if u_key and not self.is_bot_identity(u_key):
+                    unique_command_users.add(u_key)
+
+        # --- process/system ---
+        system_stats = {}
+        try:
+            system_stats = perf_monitor.get_system_stats()
+        except Exception:
+            system_stats = {}
+
+        cpu_percent = self._finite_float(system_stats.get("cpu_percent", 0.0))
+        memory_mb = self._finite_float(system_stats.get("memory_mb", 0.0))
+        uptime_hours = self._finite_float(system_stats.get("uptime_hours", 0.0))
+
+        return {
+            "training_step": training_step,
+            "total_runs": total_runs,
+            "turns_awake": turns_awake,
+            "avg_recent_loss": avg_recent_loss,
+            "total_avg_loss": total_avg_loss,
+            "total_avg_delta": total_avg_delta,
+            "perfectionist_pass_rate": perfectionist_pass_rate,
+            "total_token_perfect_rate": total_token_perfect_rate,
+            "word_loss": word_loss,
+            "pixel_loss": pixel_loss,
+            "repetition_penalty": repetition_penalty,
+            "repetition_window": repetition_window,
+            "temperature": temperature,
+            "learning_rate": learning_rate,
+            "memory_pct": memory_pct,
+            "input_pct": input_pct,
+            "training_queue_size": training_queue_size,
+            "live_buffer_len": live_buffer_len,
+            "live_buffer_cap": live_buffer_cap,
+            "train_buffer_len": train_buffer_len,
+            "train_buffer_cap": train_buffer_cap,
+            "window_max": int(getattr(self, "chatWindowMAX", 0) or 0),
+            "data_stride": int(getattr(self, "dataStride", 0) or 0),
+            "opt_in_users": len(getattr(self, "AIoptInUsers", []) or []),
+            "human_user_count": len(human_rows),
+            "facts_count": len(self.bbyfacts) if isinstance(self.bbyfacts, dict) else 0,
+            "command_total_uses": command_total_uses,
+            "command_unique_users": len(unique_command_users),
+            "baby_treasury": baby_treasury,
+            "economy_abs_total": economy_abs_total,
+            "economy_positive_total": economy_positive_total,
+            "richest_user": richest_user,
+            "richest_bby": richest_bby,
+            "poorest_user": poorest_user,
+            "poorest_bby": poorest_bby,
+            "cpu_percent": cpu_percent,
+            "memory_mb": memory_mb,
+            "uptime_hours": uptime_hours,
+        }
+
+    def _build_420_system_eval_lines(self, reset_key: str):
+        store = self._json_load(self.system_eval_path, default_type={})
+        if not isinstance(store, dict):
+            store = {}
+
+        previous_entry = store.get("latest")
+        previous_snapshot = None
+        if isinstance(previous_entry, dict):
+            maybe_prev = previous_entry.get("snapshot")
+            if isinstance(maybe_prev, dict):
+                previous_snapshot = maybe_prev
+
+        snapshot = self._build_system_eval_snapshot()
+
+        def _delta(key: str, fmt: str = "{:+.3f}") -> str:
+            if not previous_snapshot:
+                return "new"
+            prev = self._finite_float(previous_snapshot.get(key, 0.0))
+            cur = self._finite_float(snapshot.get(key, 0.0))
+            return fmt.format(cur - prev)
+
+        richest_nic = self.getNickname(snapshot.get("richest_user", "")) if snapshot.get("richest_user") else "n/a"
+        poorest_nic = self.getNickname(snapshot.get("poorest_user", "")) if snapshot.get("poorest_user") else "n/a"
+
+        lines = [
+            "",
+            f"🤖 **baby system eval** (`{reset_key}`)",
+            (
+                f"model: step `{snapshot['training_step']}` | runs `{snapshot['total_runs']}` | "
+                f"awake turns `{snapshot['turns_awake']}`"
+            ),
+            (
+                f"loss: recent `{snapshot['avg_recent_loss']:.3f}` ({_delta('avg_recent_loss')}) | "
+                f"avg `{snapshot['total_avg_loss']:.3f}` ({_delta('total_avg_loss')}) | "
+                f"drift `{snapshot['total_avg_delta']:+.3f}`"
+            ),
+            (
+                f"quality: pass `{snapshot['perfectionist_pass_rate']:.2f}%` ({_delta('perfectionist_pass_rate', '{:+.2f}')}) | "
+                f"token-perfect `{snapshot['total_token_perfect_rate']:.3f}%` ({_delta('total_token_perfect_rate')}) | "
+                f"word `{snapshot['word_loss']:.3f}` | pixel `{snapshot['pixel_loss']:.3f}`"
+            ),
+            (
+                f"decode: temp `{snapshot['temperature']:.3f}` | lr `{snapshot['learning_rate']:.6f}` | "
+                f"rep penalty `{snapshot['repetition_penalty']:.3f}` | rep window `{snapshot['repetition_window']:.2f}`"
+            ),
+            (
+                f"memory mix: memory `{snapshot['memory_pct']:.1f}%` / input `{snapshot['input_pct']:.1f}%` | "
+                f"queue `{snapshot['training_queue_size']}`"
+            ),
+            (
+                f"buffers: live `{snapshot['live_buffer_len']}/{snapshot['live_buffer_cap']}` | "
+                f"train `{snapshot['train_buffer_len']}/{snapshot['train_buffer_cap']}` | "
+                f"window `{snapshot['window_max']}` | stride `{snapshot['data_stride']}`"
+            ),
+            (
+                f"world: treasury `{format_bby_amount(snapshot['baby_treasury'])}` ({_delta('baby_treasury')}) | "
+                f"economy `{format_bby_amount(snapshot['economy_abs_total'])}` | "
+                f"opt-in `{snapshot['opt_in_users']}` | facts `{snapshot['facts_count']}` | "
+                f"cmd uses `{snapshot['command_total_uses']}`"
+            ),
+            (
+                f"edges: richest `{richest_nic}` {format_bby_amount(snapshot['richest_bby'])} | "
+                f"poorest `{poorest_nic}` {format_bby_amount(snapshot['poorest_bby'])}"
+            ),
+            (
+                f"system: cpu `{snapshot['cpu_percent']:.1f}%` | "
+                f"ram `{snapshot['memory_mb']:.1f}MB` | "
+                f"uptime `{snapshot['uptime_hours']:.1f}h`"
+            ),
+        ]
+
+        entry = {
+            "reset_key": reset_key,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "snapshot": snapshot,
+        }
+        history = store.get("history", [])
+        if not isinstance(history, list):
+            history = []
+        history.append(entry)
+        store["latest"] = entry
+        store["history"] = history[-420:]
+        self._save_json(self.system_eval_path, store, "_SAVE_SYSTEM_EVAL", ensure_ascii=False, indent=2)
+        return lines
+
+    async def _post_420_reset_top5s(self, trigger_author: str = ""):
+        """Post a once-per-reset high-signal top-5 digest to debug room."""
+        uk_tz = pytz.timezone("Europe/London")
+        now_uk = datetime.now(uk_tz)
+        day_start_420 = now_uk.replace(hour=4, minute=20, second=0, microsecond=0)
+        if now_uk < day_start_420:
+            day_start_420 -= timedelta(days=1)
+        reset_key = day_start_420.strftime("%Y-%m-%d")
+
+        def _fmt_user_row(idx: int, user_id: str, score: float):
+            nic = self.getNickname(user_id)
+            return f"{idx}. {nic} ({format_bby_amount(score)})"
+
+        # Top and bottom BBY (exclude baby identity)
+        bby_rows = [
+            (u, float(m.get("BBY", 0.0)))
+            for u, m in self.userMemory.items()
+            if isinstance(m, dict) and not self.is_bot_identity(u)
+        ]
+        bby_rows.sort(key=lambda x: x[1], reverse=True)
+        top_bby = bby_rows[:5]
+        bottom_bby = list(reversed(bby_rows[-5:])) if bby_rows else []
+
+        # Top tutor authors by number of facts authored
+        tutor_counts = defaultdict(int)
+        for _, fact in self.bbyfacts.items():
+            if not isinstance(fact, dict):
+                continue
+            author = str(fact.get("author", "")).strip().lower()
+            if not author or self.is_bot_identity(author):
+                continue
+            tutor_counts[author] += 1
+        top_tutors = sorted(tutor_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        # Top item values by teach_bonus
+        top_items = []
+        for fact_name, fact in self.bbyfacts.items():
+            if not isinstance(fact, dict):
+                continue
+            try:
+                value = float(fact.get("teach_bonus", 0.0))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(value):
+                continue
+            top_items.append((str(fact_name), value))
+        top_items.sort(key=lambda x: x[1], reverse=True)
+        top_items = top_items[:5]
+
+        # Top used commands
+        command_rows = []
+        for cmd, data in self.command_stats.items():
+            if not isinstance(data, dict):
+                continue
+            total_uses = int(data.get("total_uses", 0) or 0)
+            if total_uses <= 0:
+                continue
+            command_rows.append((str(cmd), total_uses))
+        command_rows.sort(key=lambda x: x[1], reverse=True)
+        command_rows = command_rows[:5]
+
+        # Top inventory hoarders by total item count
+        hoarder_rows = []
+        for u, m in self.userMemory.items():
+            if self.is_bot_identity(u):
+                continue
+            inv = m.get("inventory", {}) if isinstance(m, dict) else {}
+            if not isinstance(inv, dict):
+                continue
+            total_items = 0
+            for _, count in inv.items():
+                if isinstance(count, (int, float)):
+                    total_items += max(0, int(count))
+            if total_items > 0:
+                hoarder_rows.append((u, total_items))
+        hoarder_rows.sort(key=lambda x: x[1], reverse=True)
+        hoarder_rows = hoarder_rows[:5]
+
+        trigger_nic = self.getNickname(trigger_author) if trigger_author else "unknown"
+        lines = [
+            f"📊 **4:20 reset top 5 digest** (`{reset_key}`)",
+            f"triggered by: {trigger_nic}",
+            "",
+            "**Top 5 BBY**",
+        ]
+        if top_bby:
+            lines.extend([_fmt_user_row(i, u, score) for i, (u, score) in enumerate(top_bby, 1)])
+        else:
+            lines.append("no data yet")
+
+        lines.append("")
+        lines.append("**Bottom 5 BBY**")
+        if bottom_bby:
+            lines.extend([_fmt_user_row(i, u, score) for i, (u, score) in enumerate(bottom_bby, 1)])
+        else:
+            lines.append("no data yet")
+
+        lines.append("")
+        lines.append("**Top 5 Tutors (fact count)**")
+        if top_tutors:
+            for i, (u, count) in enumerate(top_tutors, 1):
+                lines.append(f"{i}. {self.getNickname(u)} ({count} facts)")
+        else:
+            lines.append("no data yet")
+
+        lines.append("")
+        lines.append("**Top 5 Item Values**")
+        if top_items:
+            for i, (fact_name, value) in enumerate(top_items, 1):
+                lines.append(f"{i}. {fact_name} ({format_bby_amount(value)})")
+        else:
+            lines.append("no data yet")
+
+        lines.append("")
+        lines.append("**Top 5 Commands**")
+        if command_rows:
+            for i, (cmd, total_uses) in enumerate(command_rows, 1):
+                lines.append(f"{i}. !{cmd} ({total_uses} uses)")
+        else:
+            lines.append("no data yet")
+
+        lines.append("")
+        lines.append("**Top 5 Hoarders (inventory size)**")
+        if hoarder_rows:
+            for i, (u, total_items) in enumerate(hoarder_rows, 1):
+                lines.append(f"{i}. {self.getNickname(u)} ({total_items} items)")
+        else:
+            lines.append("no data yet")
+
+        try:
+            lines.extend(self._build_420_system_eval_lines(reset_key=reset_key))
+        except Exception as eval_error:
+            lines.extend([
+                "",
+                "🤖 **baby system eval**",
+                f"failed to build daily eval ({type(eval_error).__name__})",
+            ])
+
+        await self._discord_debug_event(
+            key=f"reset_top5:{reset_key}",
+            message_content="\n".join(lines),
+            cooldown_seconds=86400.0,
+            dedupe_window_seconds=172800.0,
+        )
     
     async def _get_http(self) -> aiohttp.ClientSession:
         if not hasattr(self, "_http_session") or self._http_session is None or getattr(self._http_session, "closed", True):
@@ -1628,6 +4196,12 @@ class BABYBOT_DISCORD(commands.Bot):
         print("cog is ready :)")
         helloMessage = ("ʕっʘ‿ʘʔっ hello! i am awake!")
         await self.update_avatar_from_snapshots()
+
+        # Keep BBY as one canonical entity even if display names/nicks change.
+        self.register_bot_alias(self.babyName)
+        self.register_bot_alias(getattr(self.user, "name", ""))
+        self._merge_bot_identity_entries()
+
         bestie_username, bestie_score = self.checkBestie()
         self.current_bestie = bestie_username
         self.bestie_score = bestie_score
@@ -1646,7 +4220,8 @@ class BABYBOT_DISCORD(commands.Bot):
         self._buffer_add(self.formatMessage(self.babyName, helloMessage))
         self.last_logged_author = self.babyName.lower()
         if self.idle_task is None: self.idle_task = self.loop.create_task(self.idleTrainChecker())
-        if self.web_task is None: self.web_task = self.loop.create_task(self.bby_web_watcher())
+        if self.web_task is None and "web" not in getattr(self, "platforms", {}):
+            self.web_task = self.loop.create_task(self.bby_web_watcher())
         if self.training_worker is None: self.training_worker = self.loop.create_task(self.background_training_loop())
         self._ensure_random_task()
         if self.monthly_task is None: self.monthly_task = self.loop.create_task(self.monthly_bbybook_loop())
@@ -1658,32 +4233,89 @@ class BABYBOT_DISCORD(commands.Bot):
 
 
     async def on_message(self, message):
+        self.check_year_boundary()
         message_start_time = time.time()
         content = message.clean_content
-        author = str(message.author.name).lower()
+        author = self.normalise_user_identity(str(message.author.name).lower())
         print(f"\n[Message] From {author}: {content}")
         is_opted_in = False
         if author in self.temp_not_opt: return
-        if message.author == self.user: 
+        if message.author != self.user and not getattr(message.author, "bot", False):
+            if hasattr(self, "tutor") and getattr(self.tutor, "sensory_bus", None):
+                self.tutor.sensory_bus.mark_interaction()
+        if message.author == self.user:
             if self.random3 > 0.999:
                 if author == self.last_logged_author: message_for_buffer = content
                 else: message_for_buffer = self.formatMessage(author, content)
                 if self._buffer_add(message_for_buffer): self.last_logged_author = author
-        else:
+            return  # Bot messages don't participate in BBY mechanics
+
+        # Only non-bot messages continue from here
+
+        # PRIVACY: Check opt-in status and spam room
+        is_opted_in = author in self.AIoptInUsers
+        is_spam_room = message.channel.id == bby_spam
+        is_command = content.strip().startswith(self.command_prefix)
+        is_mention = self.user in message.mentions
+
+        # Determine if message should be recorded
+        should_record = False
+        if is_spam_room:
+            # Spam room: everyone's messages are recorded
+            should_record = True
+        elif is_opted_in:
+            # Opted user in normal room: record everything
+            should_record = True
+        elif is_command:
+            # Commands are always recorded (even non-opted users)
+            should_record = True
+        elif is_mention and not is_opted_in:
+            # Non-opted user @mentioned baby: tell them to opt in (DON'T record)
+            try:
+                await message.reply(
+                    to_british_english(
+                        f"hey {author}! gotta opt in first with !bbyoptin if you want me to chat! commands still work tho ʕ·ᴥ·ʔ"
+                    )
+                )
+            except:
+                pass
+            return  # Don't process further
+        # else: non-opted user regular chat in normal room - don't record
+
+        # Record message if allowed
+        if should_record:
             if author == self.last_logged_author: message_for_buffer = content
             else: message_for_buffer = self.formatMessage(author, content)
             if self._buffer_add(message_for_buffer): self.last_logged_author = author
 
         used_fave_token = bool(self.babyFaveToken and self.babyFaveToken in content.lower())
-        mem = self.userMemory.setdefault(author, self._get_default_user_memory())
+        persist_user_state = self.should_persist_user_state(author)
+        if persist_user_state:
+            mem = self.userMemory.get(author)
+            if not isinstance(mem, dict):
+                mem = self._get_default_user_memory()
+                self.userMemory[author] = mem
+        else:
+            mem = self._get_default_user_memory()
         
         # Validate and repair user memory using centralized safety system
         mem = safety.validate_user_memory(mem, author)
+        smink_token_banned = self.is_smink_token_holder_banned(author)
+        if smink_token_banned:
+            inventory = mem.setdefault("inventory", {})
+            if "smink token" in inventory:
+                inventory.pop("smink token", None)
+                data_manager.request_save("user_data")
         mem["display_name"] = message.author.display_name.lower()
         if used_fave_token:
             mem["fave_token_usage"] = mem.get("fave_token_usage", 0) + 1
             try: await message.add_reaction("❤️")
             except discord.errors.Forbidden: pass
+
+        # Calculate friendship status early for bonuses
+        is_bestie = (author == self.current_bestie)
+        is_rival = (author == self.current_rival)
+
         if isinstance(mem.get('last_message_words'), list): mem['last_message_words'] = set(mem['last_message_words'])
         current_words = set(re.findall(r'\b\w{3,}\b', content.lower()))
         if len(current_words) > 1:
@@ -1696,8 +4328,17 @@ class BABYBOT_DISCORD(commands.Bot):
                 mem["creative_combo"] = mem.get("creative_combo", 1) + 1
                 combo_bonus = 420.69 * mem["creative_combo"] # a real bonus!
                 combo_bonus = self.apply_fave_bonus(combo_bonus, used_fave_token)
-                self.updateBBY(author, combo_bonus)
-                print(f"[CreativeCombo] {author:<15}: Combo UP to x{mem['creative_combo']}! +ᛒ{combo_bonus:.2f}")
+                combo_paid, combo_treasury, _ = self.grant_bonus_with_treasury(
+                    author,
+                    combo_bonus,
+                    source="creative_combo_bonus",
+                    treasury_ratio=0.9,
+                    mint_floor_ratio=0.1,
+                )
+                print(
+                    f"[CreativeCombo] {author:<15}: Combo UP to x{mem['creative_combo']}! "
+                    f"+ᛒ{combo_paid:.2f} (treasury {combo_treasury:.2f})"
+                )
                 if mem["creative_combo"] in [10, 42.0, 69, 420, 690, 840, 4200, 6969, 42069, 69420, 420420]:
                     try: await self._discord_spam(f"{self.getNickname(author)} hit x{mem['creative_combo']} creativity! {random.choice(self.faveEmotes)}")
                     except discord.errors.Forbidden: pass
@@ -1712,7 +4353,8 @@ class BABYBOT_DISCORD(commands.Bot):
                 mem["spammer"] = mem.get("spammer", 1) + 1
                 spam_bonus = -420.69 * mem["spammer"] # a real penalty!
                 spam_bonus = self.apply_fave_bonus(spam_bonus, used_fave_token)
-                self.updateBBY(author, spam_bonus)
+                spam_tax = abs(float(spam_bonus))
+                self.apply_tax_with_collection(author, spam_tax, source=f"spammer_penalty:{author}")
                 # spammer poke (rarer + cooldown)
                 spam_level = mem.get("spammer", 1)
                 poke_cooldown = 60 * 60  # 1 hour
@@ -1750,8 +4392,153 @@ class BABYBOT_DISCORD(commands.Bot):
                 mem["creative_combo"] = max(1, mem.get("creative_combo", 1) - max(1, int(2 * self.random + self.random2)))
             mem["last_message_words"] = current_words
 
-        is_bestie = (author == self.current_bestie)
+        # Recalculate friendship metrics for integrated mechanics
         is_creative = (mem.get("creative_combo", 1) > 10)
+        current_bby = mem.get("BBY", 420.0)
+        now = time.time()
+        mem["last_message_time"] = now
+
+        # === INTEGRATED CROSS-PLAYER MECHANICS ===
+
+        # 1. Shared 420 timing synergy - if multiple people hit timing bonuses together
+        timing_bonus = self.calculate_smink_bonus(datetime.now(), is_rival=False)
+        if timing_bonus > 10:  # Significant timing bonus
+            # Check if bestie or rival also messaged recently (within 60 seconds)
+            recent_threshold = 60
+            if is_bestie and self.current_bestie:
+                bestie_mem = self.userMemory.get(self.current_bestie, {})
+                bestie_last_msg = bestie_mem.get("last_message_time", 0)
+                if now - bestie_last_msg < recent_threshold:
+                    # Synergy! Both hit good timing together
+                    synergy_bonus = timing_bonus * 0.42  # 42% of timing bonus
+                    author_paid, author_treasury, _ = self.grant_bonus_with_treasury(
+                        author,
+                        synergy_bonus,
+                        source="bestie_synergy_author",
+                        treasury_ratio=0.9,
+                        mint_floor_ratio=0.1,
+                    )
+                    bestie_paid, bestie_treasury, _ = self.grant_bonus_with_treasury(
+                        self.current_bestie,
+                        synergy_bonus,
+                        source="bestie_synergy_bestie",
+                        treasury_ratio=0.9,
+                        mint_floor_ratio=0.1,
+                    )
+                    print(
+                        f"[BESTIE_SYNERGY] {author} + {self.current_bestie} synced 420 timing! "
+                        f"+ᛒ{author_paid:.0f}/+ᛒ{bestie_paid:.0f} (treasury {author_treasury + bestie_treasury:.0f})"
+                    )
+
+            if is_rival and self.current_rival:
+                rival_mem = self.userMemory.get(self.current_rival, {})
+                rival_last_msg = rival_mem.get("last_message_time", 0)
+                if now - rival_last_msg < recent_threshold:
+                    # Awkward rivalry clash!
+                    clash_penalty = timing_bonus * 0.69  # Both lose 69% of the bonus
+                    self.apply_tax_with_collection(author, clash_penalty, source=f"rival_clash:{author}")
+                    self.apply_tax_with_collection(self.current_rival, clash_penalty, source=f"rival_clash:{self.current_rival}")
+                    print(f"[RIVAL_CLASH] {author} + {self.current_rival} clashed on 420 timing! -ᛒ{clash_penalty:.0f} each")
+
+        # 2. BBY Disparity Drama - jealousy/disappointment based on BBY gaps
+        if is_bestie and self.current_bestie and self.get_varied_random() < 0.003:  # 0.3% chance per message
+            bestie_mem = self.userMemory.get(self.current_bestie, {})
+            bestie_bby = bestie_mem.get("BBY", 420.0)
+            bby_gap = current_bby - bestie_bby
+
+            def _maths_level_from_mem(user_mem):
+                try:
+                    return max(1, int(user_mem.get("maths_level", 1)))
+                except Exception:
+                    return 1
+
+            # Mild maths influence on "eat the rich" tax:
+            # +0.2% tax per level advantage for collector, -0.2% per level for taxed user.
+            # Clamped to +/-8% so it stays subtle.
+            author_maths_level = _maths_level_from_mem(mem)
+            bestie_maths_level = _maths_level_from_mem(bestie_mem)
+
+            if bby_gap > 10000:  # Author way richer than bestie
+                # Disappointment - take some BBY from rich friend
+                level_shift = (bestie_maths_level - author_maths_level) * 0.002
+                tax_multiplier = 1.0 + max(-0.08, min(0.08, level_shift))
+                disappointment_tax = bby_gap * 0.042 * tax_multiplier  # 4.2% of gap, mildly maths-influenced
+                self.apply_tax_with_collection(author, disappointment_tax, source=f"bby_disparity:{author}")
+                paid_back = self.pay_bonus_from_baby_treasury(self.current_bestie, disappointment_tax * 0.69)
+                print(
+                    f"[BBY_DISPARITY] Disappointment: {author} too rich vs bestie {self.current_bestie}. "
+                    f"Redistributing ᛒ{disappointment_tax:.0f} (tax x{tax_multiplier:.3f}, maths {bestie_maths_level}>{author_maths_level}, paid {paid_back:.0f})"
+                )
+
+            elif bby_gap < -10000:  # Bestie way richer
+                # Jealousy - bestie gets taxed
+                level_shift = (author_maths_level - bestie_maths_level) * 0.002
+                tax_multiplier = 1.0 + max(-0.08, min(0.08, level_shift))
+                jealousy_tax = abs(bby_gap) * 0.042 * tax_multiplier
+                self.apply_tax_with_collection(self.current_bestie, jealousy_tax, source=f"bby_disparity:{self.current_bestie}")
+                paid_back = self.pay_bonus_from_baby_treasury(author, jealousy_tax * 0.69)
+                print(
+                    f"[BBY_DISPARITY] Jealousy: bestie {self.current_bestie} too rich vs {author}. "
+                    f"Stealing ᛒ{jealousy_tax:.0f} (tax x{tax_multiplier:.3f}, maths {author_maths_level}>{bestie_maths_level}, paid {paid_back:.0f})"
+                )
+
+        # 3. Rivalry chaos - rivals can trigger item theft or BBY sabotage
+        if is_rival and self.current_rival and self.cog and self.get_varied_random() < 0.005:  # 0.5% chance
+            chaos_type = random.choice(["item_steal", "bby_sabotage", "mutual_loss"])
+
+            if chaos_type == "item_steal":
+                # Try to steal an item from rival
+                author_inv = mem.get("inventory", {})
+                rival_inv = self.userMemory.get(self.current_rival, {}).get("inventory", {})
+
+                if rival_inv:
+                    stealable = [item for item, count in rival_inv.items() if count > 0]
+                    if stealable:
+                        stolen_item = random.choice(stealable)
+                        steal_qty = min(rival_inv[stolen_item], random.randint(1, 2))
+                        await self.cog._award_fact(self.current_rival, stolen_item, ctx=None, num=-steal_qty)
+                        await self.cog._award_fact(author, stolen_item, ctx=None, num=steal_qty)
+                        print(f"[RIVAL_CHAOS] Item steal: {author} stole {steal_qty}x {stolen_item} from {self.current_rival}")
+
+            elif chaos_type == "bby_sabotage":
+                # One rival sabotages the other's BBY
+                sabotage_amount = abs(current_bby) * 0.069  # 6.9% loss
+                self.apply_tax_with_collection(author, sabotage_amount, source=f"rival_sabotage:{author}")
+                print(f"[RIVAL_CHAOS] BBY sabotage: {self.current_rival} sabotaged {author} for -ᛒ{sabotage_amount:.0f}")
+
+            elif chaos_type == "mutual_loss":
+                # Rivalry gets too toxic, both lose
+                author_loss = abs(current_bby) * 0.042
+                rival_loss = abs(self.userMemory.get(self.current_rival, {}).get("BBY", 420.0)) * 0.042
+                self.apply_tax_with_collection(author, author_loss, source=f"rival_toxic:{author}")
+                self.apply_tax_with_collection(self.current_rival, rival_loss, source=f"rival_toxic:{self.current_rival}")
+                print(f"[RIVAL_CHAOS] Mutual loss: {author} & {self.current_rival} rivalry too toxic, both lose BBY")
+
+        # Bestie gets occasional love
+        if is_bestie and self.get_varied_random() < 0.01:  # 1% chance
+            bestie_reactions = ["💖", "✨", "🌟", "💫", "🎀"]
+            try:
+                await message.add_reaction(random.choice(bestie_reactions))
+            except discord.errors.Forbidden:
+                pass
+
+        # Rival gets occasional shade
+        if is_rival and self.get_varied_random() < 0.008:  # 0.8% chance
+            rival_reactions = ["🙄", "💀", "🤨", "😒"]
+            try:
+                await message.add_reaction(random.choice(rival_reactions))
+            except discord.errors.Forbidden:
+                pass
+
+        # Friendship level milestones - track silently
+        bby_milestones = [690, 1000, 2000, 4200, 6900, 10000, 42000, 69420]
+        last_milestone = mem.get("last_bby_milestone", 0)
+        for milestone in bby_milestones:
+            if last_milestone < milestone <= current_bby:
+                mem["last_bby_milestone"] = milestone
+                print(f"[BBY_MILESTONE] {author} reached {milestone} BBY!")
+                break
+
         # Check for message milestones
         msg_count = mem.get("message_count", 0)
         is_chatty_milestone = (msg_count > 0 and msg_count % 42 == 0)
@@ -1777,7 +4564,8 @@ class BABYBOT_DISCORD(commands.Bot):
         
         # Final safety validation after all calculations
         mem = safety.validate_user_memory(mem, author)
-        self.userMemory[author] = mem
+        if persist_user_state:
+            self.userMemory[author] = mem
         
         # Record message processing performance
         processing_time = time.time() - message_start_time
@@ -1851,8 +4639,6 @@ class BABYBOT_DISCORD(commands.Bot):
             if sess and sess.get('mode') == 'wtf':
                 await self.handle_wtf_reply(message, sess, ctx=ctx)
 
-        if message.author == self.user: return
-
         # If a translate session is active in this channel, record guesses
         def _latest_translate_session_in_channel(cid: int):
             candidates = [s for s in self.lex_sessions.values() if s.get('mode') == 'translate' and s.get('channel_id') == cid]
@@ -1870,6 +4656,7 @@ class BABYBOT_DISCORD(commands.Bot):
                         'guess': content.strip().lower(),
                         'timestamp': time.time()
                     }
+                    tsess['last_activity_ts'] = time.monotonic()
 
         if not message.content.startswith(self.command_prefix):
             if is_opted_in:
@@ -1906,64 +4693,120 @@ class BABYBOT_DISCORD(commands.Bot):
         
         if last_seen_timestamp < day_start_420am.timestamp():
             mem["loyalty"] = mem.get("loyalty", 0) + 1
-            if "inventory" not in mem: mem["inventory"] = {}
-            current_tokens = mem["inventory"].get("smink token", 0)
-            mem["inventory"]["smink token"] = current_tokens + 20
+            if "inventory" not in mem:
+                mem["inventory"] = {}
+            if not smink_token_banned:
+                current_tokens = mem["inventory"].get("smink token", 0)
+                mem["inventory"]["smink token"] = current_tokens + 20
+            else:
+                mem["inventory"].pop("smink token", None)
             loyalty_bonus = 69.69 * mem["loyalty"]
-            self.updateBBY(author, loyalty_bonus)
-            print(f"[Loyalty] {self.getNickname(author)} logged in for a new day! Day {mem['loyalty']}, +ᛒ{loyalty_bonus:.0f}")
+            loyalty_paid, loyalty_treasury, _ = self.grant_bonus_with_treasury(
+                author,
+                loyalty_bonus,
+                source="daily_loyalty_bonus",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
+            print(
+                f"[Loyalty] {self.getNickname(author)} logged in for a new day! "
+                f"Day {mem['loyalty']}, +ᛒ{loyalty_paid:.0f} (treasury {loyalty_treasury:.0f})"
+            )
 
             today_key = day_start_420am.strftime('%Y-%m-%d')
             event_key = f"first chat on {today_key}"
 
             if event_key not in self.bbyfacts:
-                self.updateBBY(author, 42069.0)
-                print(f"[Event] {self.getNickname(author)} is the FIRST chatter of the day! +ᛒ42069.00")
+                first_paid, first_treasury, _ = self.grant_bonus_with_treasury(
+                    author,
+                    42069.0,
+                    source="daily_first_chatter_bonus",
+                    treasury_ratio=0.9,
+                    mint_floor_ratio=0.1,
+                )
+                print(
+                    f"[Event] {self.getNickname(author)} is the FIRST chatter of the day! "
+                    f"+ᛒ{first_paid:.2f} (treasury {first_treasury:.2f})"
+                )
                 mem["got_first_chatter_bonus"] = True
                 await self.cog._set_bbyfact(key = event_key, author = author, value = f"the first person to chat on this day was {self.getNickname(author)}.")
                 ctx = await self.get_context(message)
-                self.cog._award_fact(author, f"{event_key}", ctx, 1)
+                await self.cog._award_fact(author, f"{event_key}", ctx, 1)
+                try:
+                    await self._post_420_reset_top5s(trigger_author=author)
+                except Exception as reset_log_error:
+                    print(f"[RESET_TOP5] failed to post debug digest: {reset_log_error}")
                 await self._discord_spam(f"👑 {self.getNickname(author)}... you are the first to return after the holy 4:20 reset! 👑 (double sminks for you today!!)")
             else:
                 mem["got_first_chatter_bonus"] = False
                 if mem["loyalty"] in [42.0, 69, 420, 690, 840, 4200, 6969, 42069, 69420, 420420]:
-                    try: await self._discord_spam(f"hey {self.getNickname(author)}! {random.choice(self.faveEmotes)} thats {mem['loyalty']} days i've seen you now, in total! lol this calls for free sminks... (+{mem['loyalty']} smink tokens)")
-                    except discord.errors.Forbidden: pass
-                    if "inventory" not in mem: mem["inventory"] = {}
-                    current_tokens = mem["inventory"].get("smink token", 0)
-                    mem["inventory"]["smink token"] = current_tokens + int(mem["loyalty"])
+                    if not smink_token_banned:
+                        try:
+                            await self._discord_spam(
+                                f"hey {self.getNickname(author)}! {random.choice(self.faveEmotes)} thats {mem['loyalty']} days i've seen you now, in total! lol this calls for free sminks... (+{mem['loyalty']} smink tokens)"
+                            )
+                        except discord.errors.Forbidden:
+                            pass
+                        if "inventory" not in mem:
+                            mem["inventory"] = {}
+                        current_tokens = mem["inventory"].get("smink token", 0)
+                        mem["inventory"]["smink token"] = current_tokens + int(mem["loyalty"])
+                    else:
+                        mem.setdefault("inventory", {}).pop("smink token", None)
                 nickname = self.getNickname(author)
-                if nickname not in self.bbyfacts:
-                    await self.cog._set_bbyfact(key = nickname, author = author, value = f"{nickname} had their {event_key}")
+                visit_key = self._resolve_visit_fact_key(author, nickname)
+                if visit_key not in self.bbyfacts:
+                    await self.cog._set_bbyfact(
+                        key=visit_key,
+                        author=author,
+                        value=f"{nickname} had their {event_key}"
+                    )
                 else:
-                    fact = self.bbyfacts[nickname]
-                    # Use visit counter instead of appending text
-                    if "visit_count" not in fact: fact["visit_count"] = 1
-                    fact["visit_count"] += 1
-                    # Update the base value to reflect total visits, not append every date
-                    if fact["visit_count"] == 2:
-                        fact["value"] = f"{nickname} has visited {fact['visit_count']} times total"
-                    elif fact["visit_count"] > 2:
-                        fact["value"] = f"{nickname} has visited {fact['visit_count']} times total"
-                    
+                    fact = self.bbyfacts[visit_key]
+                    # Use a bounded counter to avoid runaway recursive value growth.
+                    prior_count = int(fact.get("visit_count", 1) or 1)
+                    fact["visit_count"] = max(1, prior_count + 1)
+                    fact["value"] = f"{nickname} has visited {fact['visit_count']} times total"
+
                     original_bonus = fact.get("teach_bonus", 420.00)
                     fact["teach_bonus"] = (original_bonus * 0.99) + ((original_bonus * (self.random4 + self.random2)) * 0.011)
 
                     ctx = await self.get_context(message)
-                    self.cog._award_fact(author, nickname, ctx, 1)
+                    await self.cog._award_fact(author, visit_key, ctx, 1)
 
             data_manager.request_save("user_data")
             data_manager.request_save("bbyfacts")
             await self.update_avatar_from_snapshots()
 
         lower_content = content.lower()
-        if any(w in lower_content for w in ["shut up", "you suck"]): self.updateBBY(author, -6969.0)
-        if any(w in lower_content for w in ["good bot", "clever baby"]): self.updateBBY(author, 6969)
+        if any(w in lower_content for w in ["shut up", "you suck"]):
+            self.apply_tax_with_collection(author, 6969.0, source=f"toxicity_penalty:{author}")
+        if any(w in lower_content for w in ["good bot", "clever baby"]):
+            self.grant_bonus_with_treasury(
+                author,
+                6969.0,
+                source="kindness_bonus",
+                treasury_ratio=0.9,
+                mint_floor_ratio=0.1,
+            )
         for name, fact in self.bbyfacts.items():
             if name in lower_content:
-                original_author = fact.get("original_author", None)
-                self.updateBBY(author, 69.69) # nice, simple reward
-                self.updateBBY(original_author, 42.0)
+                original_author = fact.get("original_author") or fact.get("author")
+                self.grant_bonus_with_treasury(
+                    author,
+                    69.69,
+                    source="fact_reference_bonus",
+                    treasury_ratio=0.9,
+                    mint_floor_ratio=0.1,
+                ) # nice, simple reward
+                if original_author:
+                    self.grant_bonus_with_treasury(
+                        original_author,
+                        42.0,
+                        source="fact_author_reference_bonus",
+                        treasury_ratio=0.9,
+                        mint_floor_ratio=0.1,
+                    )
                 original_bonus = self.bbyfacts[name]["teach_bonus"]
                 self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.999) + ((original_bonus * (self.random + self.random2 + self.random3 + self.random4) * 0.0001))  # Much gentler price increase
                 data_manager.request_save("bbyfacts")
@@ -1975,6 +4818,16 @@ class BABYBOT_DISCORD(commands.Bot):
             potential_command = content.split()[0][len(self.command_prefix):].lower()
         if potential_command in main_llm_aliases:
             print(f"[LLM Trigger] Matched in #{message.channel.name} (Main Command or Mention)")
+            self.idles = round(self.idles * 0.5)
+            ctx = await self.get_context(message)
+            cog = self.get_cog("BBYCOG")
+            if not cog: return
+            await cog.babyllm_command(ctx)
+            return
+        elif is_bby_mentioned and not content.startswith(self.command_prefix):
+            # @mention trigger for conversational response
+            # Privacy check already done earlier (opted users or spam room)
+            print(f"[Mention Trigger] Baby mentioned in #{message.channel.name} by {author}")
             self.idles = round(self.idles * 0.5)
             ctx = await self.get_context(message)
             cog = self.get_cog("BBYCOG")
@@ -2011,6 +4864,10 @@ class BABYBOT_DISCORD(commands.Bot):
                         print(f"[Bot Command Error] Failed to invoke command '{command_name}' from {author}. Error: {e}")
                 return
         await self.process_commands(message)
+        if content.startswith(self.command_prefix):
+            removed = self.prune_non_opt_user_memory(reason="post_command")
+            if removed > 0:
+                data_manager.request_save("user_data")
 
     async def on_raw_reaction_add(self, payload):
         try:
@@ -2148,9 +5005,18 @@ class BABYBOT_DISCORD(commands.Bot):
                                     
                                     # Give them a special BBY bonus for being a top tutor
                                     bonus_bby = 42069 * (4 - i)  # 1st: 30k, 2nd: 20k, 3rd: 10k
-                                    self.updateBBY(teacher, bonus_bby)
+                                    paid, treasury_paid, _ = self.grant_bonus_with_treasury(
+                                        teacher,
+                                        bonus_bby,
+                                        source="monthly_bbybook_auto_bonus",
+                                        treasury_ratio=0.9,
+                                        mint_floor_ratio=0.1,
+                                    )
                                     
-                                    print(f"[MONTHLY_BBYBOOK] Auto-signed for {nickname} (rank {i+1}) with ᛒ{bonus_bby:,} bonus")
+                                    print(
+                                        f"[MONTHLY_BBYBOOK] Auto-signed for {nickname} (rank {i+1}) with "
+                                        f"ᛒ{paid:,.0f} bonus (treasury {treasury_paid:,.0f})"
+                                    )
                                 
                                 print(f"[MONTHLY_BBYBOOK] Completed monthly awards for {month_year}")
                 
@@ -2298,9 +5164,157 @@ class BABYBOT_DISCORD(commands.Bot):
             # Sleep for 3 hours between decay cycles
             await asyncio.sleep(10690)  # 3 hours in seconds
 
+    def _line_eos_probability(self, line: str, *, base_prob: float, index: int, total: int, prev_had_eos: bool) -> float:
+        """Adaptive per-line EOS probability so EOS is stochastic and context-sensitive."""
+        text = str(line or "").strip()
+        if not text:
+            return 0.0
+
+        # Keep config as the primary knob, but avoid hard deterministic behaviour.
+        p = 0.04 + (0.72 * max(0.0, min(1.0, float(base_prob))))
+
+        quality = self._line_quality_score(text)
+        if quality >= 0.80:
+            p += 0.12
+        elif quality >= 0.62:
+            p += 0.06
+        elif quality < 0.35:
+            p -= 0.18
+        elif quality < 0.50:
+            p -= 0.08
+
+        # Natural sentence endings are stronger EOS candidates.
+        if re.search(r"[.!?]['\")\]]?\s*$", text):
+            p += 0.09
+        elif text.endswith((",", ";", ":", "-", "—")):
+            p -= 0.10
+
+        word_count = len(text.split())
+        if word_count <= 2:
+            p -= 0.15
+        elif word_count <= 5:
+            p -= 0.08
+        elif word_count >= 18:
+            p += 0.05
+
+        # Bias slightly toward closing boundaries near the end of the sample.
+        if total > 1 and index == total - 1:
+            p += 0.10
+        elif total > 4 and index >= int(total * 0.85):
+            p += 0.05
+
+        # Avoid long EOS streaks across consecutive lines.
+        if prev_had_eos:
+            p *= 0.62
+
+        # Small stochastic jitter so boundaries are not perfectly predictable.
+        p += pyrandom.uniform(-0.08, 0.08)
+
+        return max(0.02, min(0.90, p))
+
+    def _tokenize_training_text(self, text: str):
+        """Tokenize training text and apply optional SOS/EOS markers with per-line EOS."""
+        text_clean = clean_text(str(text or ""))
+        try:
+            text_clean = strip_artifact_lines(text_clean)
+        except Exception:
+            pass
+        if not text_clean:
+            return []
+
+        lines = [line.strip() for line in text_clean.split("\n") if line.strip()]
+        if not lines:
+            lines = [text_clean.strip()]
+
+        eos_token = None
+        eos_prob = 1.0
+        sos_token = None
+        sos_prob = 1.0
+        try:
+            if enable_train_append_eos and eos_replacement_token_str:
+                if eos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {}):
+                    eos_token = eos_replacement_token_str
+                    eos_prob = max(0.0, min(1.0, float(eos_append_probability)))
+        except Exception:
+            eos_token = None
+            eos_prob = 1.0
+        try:
+            if enable_train_prepend_sos and sos_replacement_token_str:
+                if sos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {}):
+                    sos_token = sos_replacement_token_str
+                    sos_prob = max(0.0, min(1.0, float(sos_prepend_probability)))
+        except Exception:
+            sos_token = None
+            sos_prob = 1.0
+
+        tokens = []
+        newline_tokens = self.librarian.tokenizeText("\n")
+        eos_count = 0
+        sos_added = False
+        eos_prob_sum = 0.0
+        eos_prob_n = 0
+        prev_had_eos = False
+        for idx, line in enumerate(lines):
+            line_tokens = self.librarian.tokenizeText(line)
+            if not line_tokens:
+                continue
+
+            if sos_token and not sos_added and random.random() < sos_prob:
+                line_tokens = [sos_token] + line_tokens
+                sos_added = True
+                snippet = line[:64] if line else text_clean[:64]
+                if len(snippet) == 64:
+                    snippet += "..."
+                print(
+                    f"[SOS][TRAIN] prepended <SOS> at line 1/{len(lines)} "
+                    f"({len(lines)} line(s) total): <SOS> {snippet}"
+                )
+
+            tokens.extend(line_tokens)
+
+            append_eos = False
+            if eos_token:
+                line_prob = self._line_eos_probability(
+                    line,
+                    base_prob=eos_prob,
+                    index=idx,
+                    total=len(lines),
+                    prev_had_eos=prev_had_eos,
+                )
+                eos_prob_sum += line_prob
+                eos_prob_n += 1
+                if random.random() < line_prob:
+                    append_eos = True
+
+            if append_eos:
+                tokens.append(eos_token)
+                eos_count += 1
+                prev_had_eos = True
+            else:
+                prev_had_eos = False
+
+            if idx < len(lines) - 1 and newline_tokens:
+                tokens.extend(newline_tokens)
+
+        if not tokens:
+            return []
+
+        if eos_token and eos_count:
+            tail = lines[-1][:64] if lines else text_clean[:64]
+            if len(tail) == 64:
+                tail += "..."
+            avg_prob = (eos_prob_sum / eos_prob_n) if eos_prob_n else 0.0
+            print(
+                f"[EOS][TRAIN] appended <EOS> on {eos_count}/{len(lines)} line(s) "
+                f"(avg p={avg_prob:.2f}): {tail} <EOS>"
+            )
+
+        return tokens
+
     async def _train_on_item(self, item): 
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
         # Build chat and training sources
+        item_type = str(item.get("type", "") or "").lower()
         chat_text = "\n".join(item["text"]) if isinstance(item.get("text"), list) else item.get("text", "")
         training_tail = (
             list(self.training_buffer)[-self.N:]
@@ -2308,11 +5322,35 @@ class BABYBOT_DISCORD(commands.Bot):
             else []
         )
         training_text = "\n".join(training_tail)
-        # 50/50 selection between chat vs training (fallback to chat if empty)
-        use_training = (random.random() < 0.5) and bool(training_tail)
-        text = training_text if use_training else chat_text
-        textCLEAN = clean_text(text)
-        tokensToLibrarian = self.librarian.tokenizeText(textCLEAN)
+        used_training_buffer = False
+
+        if item_type == "chat":
+            chat_snippet = self._build_chat_training_snippet(chat_text)
+
+            try:
+                direct_chat_probability = max(0.0, min(1.0, float(training_direct_chat_probability)))
+            except Exception:
+                direct_chat_probability = 0.10
+
+            use_chat_direct = bool(chat_snippet) and (not training_tail or random.random() < direct_chat_probability)
+            used_training_buffer = bool(training_tail) and not use_chat_direct
+
+            if used_training_buffer:
+                text = training_text
+                if chat_snippet:
+                    text = f"{text}\n{chat_snippet}"
+                training_source = "training+chat" if chat_snippet else "training"
+            else:
+                text = chat_snippet or chat_text
+                training_source = "chat"
+        else:
+            text = chat_text or training_text
+            if not text:
+                text = self.build_training_context(max_chars=10000, include_external=True)
+            training_source = item_type or "context"
+
+        print(f"[TRAINING_SOURCE] {training_source}")
+        tokensToLibrarian = self._tokenize_training_text(text)
         token_count = len(tokensToLibrarian)
         if token_count < self.chatWindowMAX * 2 + 1:
             print(f"\n\nnot enough tokens ({token_count}) for training. skipping.\n\n")
@@ -2337,7 +5375,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
         # If we trained from the training buffer, drop the oldest entry
         try:
-            if use_training and self.training_buffer:
+            if used_training_buffer and self.training_buffer:
                 self.training_buffer.popleft()
                 self._save_training_buffer()
         except Exception:
@@ -2355,6 +5393,13 @@ class BABYBOT_DISCORD(commands.Bot):
             now = time.time()
             # Apply brain influence to randoms here too
             self._refresh_brain_randoms()
+            self._maybe_refresh_icharis2_pipeline_exports(now)
+
+            # --- TIME-MATCHED MEMORY: inject "on this day" echoes ---
+            try:
+                await self._tm_check_and_inject()
+            except Exception as e:
+                logger.error("TIME_MEMORY", f"check_and_inject raised: {e}")
 
             if time.time() >= self.next_translate_time and self.cog:
                 # Only auto-start if no active translate sessions exist anywhere
@@ -2396,19 +5441,40 @@ class BABYBOT_DISCORD(commands.Bot):
                             f"{emote} beep boop; {emote}\n **{item_name}** has {direction_str} "
                             f"it's gone from {format_bby_amount(current_value)} to {format_bby_amount(new_value)}!")
 
+            # Check if current bestie has gone inactive - disappointment mechanic
+            if self.current_bestie:
+                bestie_mem = self.userMemory.get(self.current_bestie, {})
+                bestie_last_seen = bestie_mem.get("last_message_time", 0)
+                inactive_threshold = 3600 * 24  # 24 hours
+                time_since_bestie = now - bestie_last_seen
+
+                if time_since_bestie > inactive_threshold and self.get_varied_random() < 0.1:  # 10% chance when checking
+                    # Bestie has been gone too long - disappointment penalty
+                    disappointment_penalty = bestie_mem.get("BBY", 420.0) * 0.069  # 6.9% penalty
+                    self.apply_tax_with_collection(
+                        self.current_bestie,
+                        disappointment_penalty,
+                        source=f"bestie_inactive:{self.current_bestie}",
+                    )
+                    hours_gone = int(time_since_bestie / 3600)
+                    print(f"[BESTIE_INACTIVE] {self.current_bestie} inactive for {hours_gone}h, disappointment penalty -ᛒ{disappointment_penalty:.0f}")
+
             new_bestie, new_bestie_score = self.checkBestie()
             new_rival, new_rival_score = self.checkRival()
             print(f"checked rival and bestie")
 
             try:
                 if new_bestie and new_bestie != self.current_bestie and abs(new_bestie_score) >= 10:
-                    
+
                     old_bestie_nic = self.getNickname(self.current_bestie) if self.current_bestie else "the void"
                     new_bestie_nic = self.getNickname(new_bestie)
-                    announcement = random.choice([f"friendship ended with {old_bestie_nic}, now {new_bestie_nic} is my best friend", f"wait... i think... i love {new_bestie_nic} more than {old_bestie_nic} now... oops."])
+                    announcement = random.choice([
+                        f"friendship ended with {old_bestie_nic}, now {new_bestie_nic} is my best friend",
+                        f"wait... i think... i love {new_bestie_nic} more than {old_bestie_nic} now... oops."
+                    ])
                     await self._discord_spam(announcement)
                     self._buffer_add(self.formatMessage(self.babyName, announcement))
-                    self.current_bestie = new_bestie 
+                    self.current_bestie = new_bestie
 
                 if new_rival and new_rival != self.current_rival and abs(new_rival_score) >= 10:
                     old_rival_nic = self.getNickname(self.current_rival) if self.current_rival else "the void"
@@ -2420,14 +5486,29 @@ class BABYBOT_DISCORD(commands.Bot):
                     self.current_rival = new_rival
 
                 await self._buffer_clean()
+                self._training_buffer_clean()
 
-                if now - self.lastClockAnnounce > pyrandom.randint(60, 36969):
+                if now >= float(getattr(self, "nextClockAnnounceAt", 0.0) or 0.0):
+                    emitted_clock = False
+                    clock_line = ""
+                    for _ in range(6):
+                        candidate = getTimeRant(self.AIoptInUsers)
+                        if not self._can_emit_clock_line(candidate):
+                            continue
+                        if not self._buffer_add(candidate, mirror_to_training=False):
+                            continue
+                        clock_line = candidate
+                        sig = self._clock_line_signature(candidate)
+                        if sig:
+                            self._recent_clock_signatures.append(sig)
+                        emitted_clock = True
+                        break
                     self.lastClockAnnounce = now
-                    clock_line = getTimeRant(self.AIoptInUsers)
-                    self._buffer_add(clock_line)
-                    if len(self.buffer) > self.rollingContextSize:
-                        self.buffer.popleft()
-                    print(f"[IDLETRAINCHECKER] BABYLLM CHECKED THE TIME: {clock_line}")
+                    self._schedule_next_clock_announce(now, emitted=emitted_clock)
+                    if emitted_clock:
+                        if len(self.buffer) > self.rollingContextSize:
+                            self.buffer.popleft()
+                        print(f"[IDLETRAINCHECKER] BABYLLM CHECKED THE TIME: {clock_line}")
 
                 if (now - self.lastInteraction > self.idleTrainSeconds):
                     self.idles += 1
@@ -2449,18 +5530,22 @@ class BABYBOT_DISCORD(commands.Bot):
                         self.buffer = deque(recent_buffer, maxlen=self.rollingContextSize)
                     
                     if self.training_queue.qsize() < 10:
-                        # Prefer augmented buffer (chat + training buffer), occasionally fall back to raw corpus
-                        aug_context = "\n".join(self.buffer)
-                        if getattr(self, "training_buffer", None):
-                            training_tail = list(self.training_buffer)[-self.N:]
-                            if training_tail:
-                                aug_context = f"{aug_context}\n" + "\n".join(training_tail)
-                        try:
-                            with open(trainingFilePathCLEANED, "r", encoding = "utf-8") as f:
-                                training_data_contents = f.read().strip().lower()
-                        except Exception:
-                            training_data_contents = ""
-                        fullContext = pyrandom.choice([aug_context, training_data_contents or aug_context])
+                        # Prefer cleaned training context with only a small recent chat snippet.
+                        aug_context = self.build_training_context(max_chars=10000, include_external=True)
+                        # Sample fresh text from weighted corpus sources via autonomy planner
+                        corpus_text = ""
+                        if hasattr(self, "autonomy") and self.autonomy:
+                            try:
+                                sources = self.autonomy._sample_weighted_sources(k=2)
+                                for src in sources:
+                                    chunk = self.autonomy._load_source_text(src, max_chars=10000)
+                                    if chunk:
+                                        corpus_text = (corpus_text + "\n" + chunk).strip()
+                                        if len(corpus_text) >= 8000:
+                                            break
+                            except Exception:
+                                pass
+                        fullContext = pyrandom.choice([aug_context, corpus_text or aug_context])
                         await self.training_queue.put({"type": "context", "text": fullContext[:10000]})
 
                 # opportunistic, stats-guided autonomous micro‑training
@@ -2472,19 +5557,44 @@ class BABYBOT_DISCORD(commands.Bot):
                 await asyncio.sleep(0.5)
 
     def get_next_smink_window(self, now, is_rival):
-        base_times = [(0, 20), (4,20), (16,20)]
+        base_times = [
+            (0, 20, 0), (0, 20, 20),
+            (4, 20, 0), (4, 20, 20),
+            (16, 20, 0), (16, 20, 20),
+        ]
         if is_rival:
-            base_times = [((h+3)%24, m) for h, m in base_times]
+            base_times = [((h + 3) % 24, m, s) for h, m, s in base_times]
 
-        smink_times = [now.replace(hour = h, minute = m, second = 0, microsecond = 0) for h, m in base_times]
+        smink_times = [
+            now.replace(hour=h, minute=m, second=s, microsecond=0)
+            for h, m, s in base_times
+        ]
         smink_times = [t if t > now else t + timedelta(days = 1) for t in smink_times]
         next_time = min(smink_times)
         delta = (next_time - now).total_seconds()
-        nature = "" if is_rival else ""
+        nature = "rival-shifted" if is_rival else "main"
         return next_time, delta, nature
 
     async def close(self):
         try:
+            # Stop extra platform adapters first so background tasks drain cleanly.
+            for platform_name, adapter in list(getattr(self, "platforms", {}).items()):
+                if platform_name == "discord":
+                    continue
+                try:
+                    await adapter.stop()
+                except Exception as e:
+                    print(f"[CLOSE] Warning: failed to stop {platform_name} adapter: {e}")
+
+            if self.web_task and not self.web_task.done():
+                self.web_task.cancel()
+                try:
+                    await self.web_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    print(f"[CLOSE] Warning: web task shutdown error: {e}")
+
             if hasattr(self, '_http_session') and self._http_session and not getattr(self._http_session, 'closed', True):
                 await self._http_session.close()
         finally:

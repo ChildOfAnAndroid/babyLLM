@@ -14,6 +14,7 @@ import json
 import asyncio
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from utils.helpers import get_grad_stats, empty_mps_cache
+from brain.LAYERS.sensory_bus import SensoryBus
 
 class TUTOR:
     def __init__(self, _counsellor, _calligraphist, _scribe, _librarian, _model, _model_thread_lock = None,
@@ -39,6 +40,20 @@ class TUTOR:
         self.librarian                  = _librarian
         self.device                     = _device
         self.model                      = _model
+        self.sensory_bus                = SensoryBus(
+            vision_device_index=vision_device_index,
+            vision_backend=vision_backend,
+            vision_probe_indices=vision_probe_indices,
+            vision_skip_indices=vision_skip_indices,
+            vision_downsample=vision_downsample,
+            vision_step_interval=vision_step_interval,
+            audio_device_index=audio_device_index,
+            audio_sample_rate=audio_sample_rate,
+            audio_frames_per_buffer=audio_frames_per_buffer,
+            audio_rms_scale=audio_rms_scale,
+            audio_step_interval=audio_step_interval,
+            temp_step_interval=temp_step_interval,
+        )
         lock = _model_thread_lock or getattr(_model, "model_thread_lock", None)
         if lock is None:
             lock = threading.Lock()
@@ -88,9 +103,14 @@ class TUTOR:
         self.reflectionFreq             = reflectionFreq
         self.stats                      = {}
         self.stringStats                = {}
+        self._layer_stats_cache         = {}   # persists layer stats between log steps
+        self._layer_string_stats_cache  = {}
+        self._pixel_float_rgb           = (0.0, 0.0, 0.0)  # cached Python floats from last getPixelForStep
         self.trainingStepCounter        = 0
         self.totalTurns                 = 0
         self.totalTurnAttempts          = 0
+        self.token_event_history        = []
+        self.token_event_counter        = 0
         self.numTokensPerStep           = _numTokensPerStep
         self.learningRate               = learningRate
         self.stepLossFloat              = 0
@@ -124,6 +144,7 @@ class TUTOR:
         self.nnnn   = 0
 
         self.rgbBar = ""
+        self.sensoryBar = ""
 
         #model.to(self.device)
         self.hesJustABaby = "oops! no stats collected! such a shame! well... day off for me! ;) "
@@ -146,6 +167,22 @@ class TUTOR:
 
         self.pixelNow = None #torch.tensor([0.5, 0.1, 0.5,], device = self.device)
         self.pixelNext = None #torch.tensor([0.6, 0.0, 0.6,], device = self.device)
+        # Reusable pixel buffers — avoids per-token MPS alloc in getPixelForStep.
+        # _pixel_cpu is filled with plain scalar writes (no alloc), then copied to
+        # _pixel_buf in one CPU→MPS transfer. clamp() (non-in-place) then returns
+        # a fresh independent tensor — no clone needed at the call site.
+        self._pixel_buf = torch.zeros(3, device=self.device)
+        self._pixel_cpu = torch.zeros(3)
+        # External colour cache — read from babyStateFilePath once per step, not per token.
+        # TODO: this is meant to blend bby's colour with the live website/bot sprite colour
+        #       (currentColour set by Discord/web frontend). Currently the per-token JSON
+        #       write overwrites the file without preserving currentColour, so this cache
+        #       almost always holds the default. Fix: write currentColour back into liveState,
+        #       and re-read only when mtime changes significantly (external process wrote it).
+        self._ext_col_cache = {"R": 128, "G": 128, "B": 128}
+        # Persistent token buffer — reused across steps to avoid per-step MPS alloc.
+        # Resized lazily if numTokensPerStep grows.
+        self._token_buffer = torch.zeros(self.numTokensPerStep, dtype=torch.long, device=self.device)
 
     @whocalled
     def makeStatRecord(self):
@@ -188,6 +225,50 @@ class TUTOR:
             elif value is not None:
                 self.stringStats[key] = value
 
+    def _build_token_event(self, token_text, token_raw, token_id, rgb_triplet, token_loss=None):
+        stats = {}
+        try:
+            with torch.no_grad():
+                embed_vector = getattr(self.model.embed, "embedVector", None)
+                if embed_vector is not None:
+                    stats["embed_vector_norm"] = embed_vector.norm().detach().item()
+                    stats["embed_vector_mean"] = embed_vector.mean().abs().detach().item()
+                embed_final = getattr(self.model.embed, "embedFinal", None)
+                if embed_final is not None:
+                    stats["embed_final_norm"] = embed_final.norm().detach().item()
+                    stats["embed_final_mean"] = embed_final.mean().abs().detach().item()
+        except Exception:
+            pass
+
+        attn_stats = getattr(self.model.attention, "stats", {})
+        stats["attn_gate"] = float(attn_stats.get("2A_gateScale", 0.0))
+        stats["attn_out_norm"] = float(attn_stats.get("2A_0_attnOut_norm", 0.0))
+        stats["attn_final_norm"] = float(attn_stats.get("2A_x_final_norm", 0.0))
+        try:
+            stats["token_freq"] = float(self.tokenCounts.get(token_raw, 0.0))
+        except Exception:
+            stats["token_freq"] = 0.0
+        if token_loss is not None:
+            stats["token_loss"] = float(token_loss)
+        for key, value in list(stats.items()):
+            if not isinstance(value, (int, float)) or not math.isfinite(value):
+                stats[key] = 0.0
+
+        self.token_event_counter += 1
+        event_id = f"{self.totalTurns}-{self.currentTokenIndex}-{self.token_event_counter}"
+
+        return {
+            "id": event_id,
+            "timestamp": time.time(),
+            "turn": self.totalTurns,
+            "pos": self.currentTokenIndex,
+            "token_id": int(token_id),
+            "token": token_text,
+            "token_raw": token_raw,
+            "rgb": {"r": int(rgb_triplet[0]), "g": int(rgb_triplet[1]), "b": int(rgb_triplet[2])},
+            "stats": stats,
+        }
+
     @whocalled
     def loadIntro(self, path="school/library/charisStudies/forbbyllm.txt"):
         try:
@@ -210,6 +291,28 @@ class TUTOR:
         if include_prefix:
             msg = f"here's how i'm doing: {msg}"
         return msg
+
+    def _format_sensory_bar(self, pred_values, true_values):
+        labels = [
+            "global_light_delta",
+            "noise_delta",
+            "time_of_day_delta",
+            "interaction_recency_delta",
+            "training_age_delta",
+            "global_motion_delta",
+            "left_right_bias_delta",
+            "top_bottom_bias_delta",
+            "contrast_intrusion_delta",
+            "device_temp_c_delta",
+        ]
+        pred_parts = []
+        true_parts = []
+        for idx, label in enumerate(labels):
+            pred_val = pred_values[idx] if idx < len(pred_values) else 0.0
+            true_val = true_values[idx] if idx < len(true_values) else 0.0
+            pred_parts.append(f"{label}={pred_val:.4f}")
+            true_parts.append(f"{label}={true_val:.4f}")
+        return f"SENS PRED: {' '.join(pred_parts)}\nSENS TRUE: {' '.join(true_parts)}"
         
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
     @whocalled
@@ -307,6 +410,10 @@ class TUTOR:
 
                         """ --- --- -*- BACKWARDS COMPLETE -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- -*- --- --- """
                         
+                        # Model-critical: commit memory state from forward pass — must run every step
+                        if not skipMemory:
+                            self.model.memory.updateMemoryBuffers()
+                            self.model.memory2.updateMemoryBuffers()
                         if debugPrints: ʕっʘ‿ʘʔっ("♥collectTurnStats")
                         self.stats, self.stringStats, self.guessedTokenSeq = self.collectTurnStats()
                         # latestLossDelta is already calculated in trainStep with proper rolling average
@@ -468,6 +575,8 @@ class TUTOR:
                 if self.totalTurns > 0:
                     self.saveFreqActions()
                 print("--- tutoring complete! ---")
+                if self.sensory_bus is not None:
+                    self.sensory_bus.cleanup()
         return
 
     def startTurnActions(self, _inputSeq, _targetSeq, _lastTurnLossDelta):
@@ -500,14 +609,30 @@ class TUTOR:
             self.avgPixelDist = 0
             self.predictedTokenIndices  = []
             inputSeqPredictions = list(_inputTokenIndices)  # start with input context, create a COPY!
-            buffer = torch.zeros(self.numTokensPerStep, dtype = torch.long, device = self.device) # creates buffer/step instead of recreating tensors inside loop
-            buffer[:len(inputSeqPredictions)] = torch.as_tensor(inputSeqPredictions, device = self.device)
+            # Reuse persistent token buffer — resize only if window grew
+            if self.numTokensPerStep > len(self._token_buffer):
+                self._token_buffer = torch.zeros(self.numTokensPerStep, dtype=torch.long, device=self.device)
+            buffer = self._token_buffer
+            buffer[:len(inputSeqPredictions)] = torch.as_tensor(inputSeqPredictions, device=self.device)
             self.logitSeq = [] # raw output of each prediction
             cumulativeLoss = torch.tensor(0.0, device = self.device) # sum of token losses for THIS sequence - averaged at the end
+
+            # Read external colour once per step (not per token — 269x reduction).
+            # currentColour is set by the web/Discord frontend to blend bby's colour
+            # with the live sprite. We cache it here; getPixelForStep uses self._ext_col_cache.
+            try:
+                with open(babyStateFilePath, 'r') as f:
+                    _step_state = json.load(f)
+                if "currentColour" in _step_state:
+                    self._ext_col_cache = _step_state["currentColour"]
+            except (FileNotFoundError, json.JSONDecodeError, IOError):
+                pass
 
             self.rgbPredictionBar = ""
             self.rgbTargetBar     = ""
             self.rgbPromptBar     = ""
+            self.rgbBar           = ""
+            self.sensoryBar       = ""
 
             self.tokenLevelCorrect = []
             self.tokenLevelLosses = []
@@ -516,6 +641,17 @@ class TUTOR:
             DI = 0.0
             MF = 0.0
             LS = 0.0
+            r = g = b = 0
+            JSONtokenCorrect = False
+            token_event = None
+
+            if self.sensory_bus is not None:
+                self.sensory_bus.step(self.totalTurns)
+                self.model.cached_sensory = self.sensory_bus.get_tensor(self.device)
+                self.model.cached_device_temp_c = self.sensory_bus.get_device_temp_c_tensor(self.device)
+            else:
+                self.model.cached_sensory = None
+                self.model.cached_device_temp_c = None
 
             if not skipPixels:
                 # pre-filling next for step 0
@@ -524,6 +660,7 @@ class TUTOR:
 
             for j in range(self.numTokensPerStep): # predict multiple tokens in a sequence, one at a time
                 self.currentTokenIndex = j
+                stepLoss = None
                 if not skipPixels:
                     #pixel = torch.rand(3, device = self.device)  # random RGB for now
                     if False:
@@ -537,7 +674,8 @@ class TUTOR:
                                                   self.totalAvgAbsDelta * 1., 
                                                   self.perfectionistPassRate * 1.,], device = self.device)
                     else:
-                        self.pixelNow = self.pixelNext.clone()
+                        self.pixelNow = self.pixelNext  # no clone needed — getPixelForStep returns a fresh tensor via clamp()
+                        _prev_pixel_rgb = self._pixel_float_rgb  # capture before call updates it
                         self.pixelNext = self.getPixelForStep(j)
                         if debugPrints: print(f"now: {self.pixelNow}, next: {self.pixelNext}", end="")
                     self.model.nextPixelTarget = self.pixelNext
@@ -576,25 +714,41 @@ class TUTOR:
                 if debugPrints:
                     print("nextToken: ")
                     print(predy, end = "")
-                nextyToky = self.librarian.indexToToken.get(predy, self.librarian.tokenToIndex["<UNK>"])
-                self.toktoktok = nextyToky.replace('Ġ', ' ')
+                nextyToky = self.librarian.indexToToken.get(
+                    predy,
+                    getattr(self.librarian, "unkToken", "<UNK>"),
+                )
+                nextyToky = str(nextyToky)
+                try:
+                    eos_id = self.librarian.tokenToIndex.get(eos_replacement_token_str) if eos_replacement_token_str else None
+                except Exception:
+                    eos_id = None
+                if eos_id is not None and predy == int(eos_id):
+                    token_for_terminal = eos_token_str
+                else:
+                    token_for_terminal = nextyToky.replace('Ġ', ' ')
+                self.toktoktok = self.calligraphist.S_renderTerminalText(token_for_terminal)
                 print(f"{self.toktoktok}", end = "", flush = True)
                 if debugPrints: print("token index:", predictedTokenIndex.item())
                 if debugPrints: print(f"[j={j}] inputLen={len(inputTensor)} → predicted {predictedTokenIndex.item()}")
 
                 if debugPrints: ʕっʘ‿ʘʔっ("inputSeqPredictions")
-                predicted_index = int(predictedTokenIndex.item())
+                predicted_index = predy  # already computed above — avoid second GPU→CPU sync
                 self.predictedTokenIndices.append(predicted_index)
 
                 # -- RGB visual tracker --
                 if not skipPixels and (hasattr(self.model, "latestTokenEmbed") and hasattr(self.model, "pixelPupil") and hasattr(self.model, "nextPixelTarget")):
                     # last token's RGB prediction
-                    promptPixel = self.pixelNow
-                    targetPixel = self.model.nextPixelTarget
-
-                    rp, gp, bp = (promptPixel * 255).int().tolist()
+                    # rp/gp/bp: prompt pixel = previous iter's getPixelForStep floats (no GPU sync needed)
+                    # rt/gt/bt: target pixel = current iter's getPixelForStep floats (no GPU sync needed)
+                    # r/g/b: model's predicted colour — still needs GPU→CPU sync for JSON write
+                    rp = int(_prev_pixel_rgb[0] * 255)
+                    gp = int(_prev_pixel_rgb[1] * 255)
+                    bp = int(_prev_pixel_rgb[2] * 255)
                     r, g, b = (predictedRGB * 255).int().tolist()
-                    rt, gt, bt = (targetPixel * 255).int().tolist()
+                    rt = int(self._pixel_float_rgb[0] * 255)
+                    gt = int(self._pixel_float_rgb[1] * 255)
+                    bt = int(self._pixel_float_rgb[2] * 255)
 
                     slice1 = self.char1
                     slice2 = self.char2
@@ -639,33 +793,6 @@ class TUTOR:
                     self.rgbPredictionBar += pred_block
                     self.rgbTargetBar     += tgt_block
 
-                    try:
-                        JSONtokenCorrect = self.tokenLevelCorrect[-1] if len(self.tokenLevelCorrect)>0 else False
-                        if True: #j == 0:
-                            CL = self.model.cerebralLoad
-                            DI = self.model.dreamIntensity
-                            MF = self.model.memoryFlux
-                            LS = self.totalAvgAbsDelta
-                        babyState = {
-                            "timestamp": time.time(),
-                            "R": r,
-                            "G": g,
-                            "B": b, 
-                            "cerebralLoad": CL,
-                            "dreamIntensity": DI,
-                            "memoryFlux": MF, 
-                            "learningStability": LS,
-                            "correct": JSONtokenCorrect,
-                        }
-                        # Atomic write using temporary file
-                        import tempfile
-                        temp_path = babyStateFilePath + ".tmp"
-                        with open(temp_path, 'w') as f:
-                            json.dump(babyState, f, indent = 2)
-                        os.replace(temp_path, babyStateFilePath)  # Atomic on Unix
-                    except Exception as e:
-                        print(f"could not write to {babyStateFilePath}: {e}")
-
                 sampledTokens = scheduledSampling and random.random() < self.scheduledSamplingRate
                 if j == 0:
                     self.sampledFlags = []  # Only clear at start
@@ -703,10 +830,82 @@ class TUTOR:
                     self.tokenLevelLosses.append(stepLoss.item())
                     if debugPrints: print(f"self.tokenLevelLosses = {self.tokenLevelLosses}")
 
+                try:
+                    JSONtokenCorrect = bool(isCorrect)
+                    if True: #j == 0:
+                        CL = self.model.cerebralLoad
+                        DI = self.model.dreamIntensity
+                        MF = self.model.memoryFlux
+                        LS = self.totalAvgAbsDelta
+                    # reuse already-computed value — avoids a second GPU→CPU sync per token
+                    token_loss_value = float(self.tokenLevelLosses[-1]) if self.tokenLevelLosses else 0.0
+                    token_event = self._build_token_event(
+                        self.toktoktok,
+                        nextyToky,
+                        predicted_index,
+                        (r, g, b),
+                        token_loss=token_loss_value,
+                    )
+                    self.token_event_history.append(token_event)
+                    if len(self.token_event_history) > tokenEventHistoryLimit:
+                        del self.token_event_history[:-tokenEventHistoryLimit]
+                    # Per-token live colour write — omits token_events history list so each
+                    # write is ~200 bytes (not ~100KB). Full history is written once per step
+                    # after the loop. Compact JSON (no indent) for speed.
+                    liveState = {
+                        "timestamp": time.time(),
+                        "R": r, "G": g, "B": b,
+                        "cerebralLoad": CL,
+                        "dreamIntensity": DI,
+                        "memoryFlux": MF,
+                        "learningStability": LS,
+                        "correct": JSONtokenCorrect,
+                        "token_event": token_event,
+                    }
+                    temp_path = babyStateFilePath + ".tmp"
+                    with open(temp_path, 'w') as f:
+                        json.dump(liveState, f)  # compact — no indent
+                    os.replace(temp_path, babyStateFilePath)
+                except Exception as e:
+                    print(f"could not write live token state: {e}")
+
+            # Write babyState once per step (was once per token — 269x per step previously)
+            try:
+                if token_event is not None:
+                    babyState = {
+                        "timestamp": time.time(),
+                        "R": r,
+                        "G": g,
+                        "B": b,
+                        "cerebralLoad": CL,
+                        "dreamIntensity": DI,
+                        "memoryFlux": MF,
+                        "learningStability": LS,
+                        "correct": JSONtokenCorrect,
+                        "token_event": token_event,
+                        "token_events": self.token_event_history,
+                    }
+                    temp_path = babyStateFilePath + ".tmp"
+                    with open(temp_path, 'w') as f:
+                        json.dump(babyState, f, indent=2)
+                    os.replace(temp_path, babyStateFilePath)
+            except Exception as e:
+                print(f"could not write to {babyStateFilePath}: {e}")
+
             self.inputSeqPredictions = inputSeqPredictions  # So we can access it in collectTurnStats
             self.inputSampledFlags = self.sampledFlags.copy()
             if not skipPixels:
                 self.rgbBar = f"PRED: {self.rgbPredictionBar}\nTRUE: {self.rgbTargetBar}"
+            pred_sensory = getattr(self.model, "predSensory", None)
+            true_sensory = getattr(self.model, "targetSensory", None)
+            if pred_sensory is not None and true_sensory is not None:
+                pred_vals = pred_sensory.detach().cpu().tolist()
+                true_vals = true_sensory.detach().cpu().tolist()
+                self.sensoryBar = self._format_sensory_bar(pred_vals, true_vals)
+                if self.rgbBar:
+                    self.rgbBar = f"{self.rgbBar}\n{self.sensoryBar}"
+                else:
+                    self.rgbBar = self.sensoryBar
 
             triesInfluence = 0.0005 
             triesLossModifier = (1 + (self.totalTries - 1)/10)
@@ -730,12 +929,22 @@ class TUTOR:
             if windowEntropyBonus:
                 WEloss = BACKWARDloss
                 # entropy above the minimum
-                WEloss -= 0.00001 * torch.relu(0.02 - self.model.interneuronNetwork.entropyBonus)
-                WEloss -= 0.00010 * torch.relu(0.20 - self.model.interneuronNetwork.windowSizeEntropy)
+                WEloss += 0.00010 * torch.relu(0.02 - self.model.interneuronNetwork.entropyBonus)
+                WEloss += 0.00100 * torch.relu(0.20 - self.model.interneuronNetwork.windowSizeEntropy)
                 rangePenalty = self.model.interneuronNetwork.rangePenalty
-                WEloss += 0.0010 * rangePenalty
+                WEloss += 0.01000 * rangePenalty
                 meanPenalty = self.model.interneuronNetwork.meanPenalty
-                WEloss -= 0.0050 * meanPenalty
+                WEloss += 0.01000 * meanPenalty
+                # revive memory decay
+                target_short_decay = 0.65
+                target_long_decay = 0.92
+
+                short_decay = torch.sigmoid(self.model.memory.shortTermDecay)
+                long_decay = torch.sigmoid(self.model.memory.longTermDecay)
+                short_decay_penalty = (short_decay - target_short_decay) ** 2
+                long_decay_penalty = (long_decay - target_long_decay) ** 2
+
+                WEloss += 0.10000 * (short_decay_penalty + long_decay_penalty)
                 BACKWARDloss = WEloss
             if not torch.isfinite(BACKWARDloss): 
                 print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
@@ -800,14 +1009,16 @@ class TUTOR:
             #self.INN_cerebellum             = self.model.interneuronNetwork.cerebellum.detach().cpu().item()
             #self.INN_cerebellumMean         = self.model.interneuronNetwork.cerebellum.mean().cpu().item()
 
-            if self.device.type == 'mps':
-                if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
-                empty_mps_cache()
-
             if 'BACKWARDloss' in locals(): del BACKWARDloss
-            gc.collect()
-            if hasattr(torch, "mps") and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                torch.mps.empty_cache()
+            # Throttled: flush every 25 steps instead of every step.
+            # empty_mps_cache() already includes gc.collect() + synchronise + empty_cache,
+            # so the redundant standalone gc.collect() and torch.mps.empty_cache() are removed.
+            if self.totalTurns % 25 == 0:
+                if self.device.type == 'mps':
+                    if debugPrints: ʕっʘ‿ʘʔっ("emptyCache (mps)")
+                    empty_mps_cache()
+                else:
+                    gc.collect()
 
             ids = [int(idx) for idx in self.predictedTokenIndices]
             self.predictedTokenIndices = ids
@@ -817,13 +1028,10 @@ class TUTOR:
     
     @whocalled
     def getPixelForStep(self, j):
-        babyState = {}
-        try:
-            with open(babyStateFilePath, 'r') as f:
-                babyState = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError, IOError):
-            # its okay if we miss a frame.
-            pass 
+        # External colour is read once per step in trainStep and cached in self._ext_col_cache.
+        # (Was: read babyStateFilePath every token — 269 file reads per step, mostly wasted
+        #  because our own per-token write overwrites the file without preserving currentColour.)
+        babyState = {"currentColour": self._ext_col_cache} if self._ext_col_cache else {}
 
         x = (j + 1) / (self.numTokensPerStep + self.trainingStepCounter%10)
 
@@ -882,7 +1090,22 @@ class TUTOR:
             green   = green * (1 - blend_factor) + ext_g * blend_factor
             blue    = blue  * (1 - blend_factor) + ext_b * blend_factor
 
-        pixelPret   = torch.tensor([red, green, blue], device = self.device).clamp(0, 1)
+        if self.sensory_bus is not None:
+            light_delta = self.sensory_bus.state.get("global_light_delta")
+            if light_delta is not None:
+                light_shift = (float(light_delta) - 0.5) * 2.0
+                brightness = 1.0 + (light_shift * 0.1)
+                red = min(max(red * brightness, 0.0), 1.0)
+                green = min(max(green * brightness, 0.0), 1.0)
+                blue = min(max(blue * brightness, 0.0), 1.0)
+
+        # Fill CPU scratch buffer (no alloc) → single copy to MPS → fresh tensor via clamp()
+        self._pixel_cpu[0] = red
+        self._pixel_cpu[1] = green
+        self._pixel_cpu[2] = blue
+        self._pixel_buf.copy_(self._pixel_cpu)
+        pixelPret   = self._pixel_buf.clamp(0, 1)  # non-in-place: returns independent tensor
+        self._pixel_float_rgb = (red, green, blue)  # cache Python floats — avoids GPU→CPU sync in main loop
 
         if debugPrints:
             print(f"perf {perf}, stepLoss {stepLoss}, correct {correct}, tokenLoss {tokenLoss}//{j} {len(self.tokenLevelLosses)} ({(j <= len(self.tokenLevelLosses)-1)}), delta {delta}, pulseSpeed {pulseSpeed}")
@@ -1138,7 +1361,7 @@ class TUTOR:
                 _detailedLogging = _detailedLogging,
                 _saveLog = _saveLog
             )
-            print(f"{self.decodedTokenIndices}")
+            print(self.calligraphist.S_renderTerminalText(self.decodedTokenIndices))
             with open(babyLogPathFull, "a", encoding="utf-8") as f: f.write(self.calligraphist.S_stripForLogging(self.decodedTokenIndices) + "\n")
 
 
@@ -1288,46 +1511,62 @@ class TUTOR:
                     self.stats["avgPixelDist"]          = self.avgPixelDist
                     self.stats["totalAvgPixelDist"]     = self.totalAvgPixelDist
 
-                if embed_collectStats:
-                    if debugPrints: ʕっʘ‿ʘʔっ("♥if embed_collectStats")
-                    self._merge_stats_dict(self.model.embed.getEmbedStats())
+                # Tier 1 — layer .item() stats (embed, attention, memory, INN, baby)
+                # updateMemoryBuffers() moved to training loop (runs unconditionally before this call)
+                if self.totalTurns % 5 == 0:
+                    if embed_collectStats:
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥if embed_collectStats")
+                        self._merge_stats_dict(self.model.embed.getEmbedStats())
 
-                if attention_collectStats:
-                    if debugPrints: ʕっʘ‿ʘʔっ("♥if attention_collectStats")
-                    self._merge_stats_dict(self.model.attention.getAttentionStats())
+                    if attention_collectStats:
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥if attention_collectStats")
+                        self._merge_stats_dict(self.model.attention.getAttentionStats())
+                        # Also collect attention2 stats (operates on interneuron output)
+                        self._merge_stats_dict(self.model.attention2.getAttentionStats())
+                        # Collect tangling stats (reuses attention2 at multiple stages)
+                        self._merge_stats_dict(self.model.tangling.getTanglingStats())
+                        # Collect scratchpad stats (working memory)
+                        self._merge_stats_dict(self.model.scratchpad.getScratchpadStats())
 
-                if logit_collectStats:
-                    if debugPrints: ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
-                    logitStats = self.model.logits.getLogitStats()
-                    self._merge_stats_dict(logitStats, accumulate=True)
-                    #if self.stats["logitSeq"]:
-                    #    if debugPrints: ʕっʘ‿ʘʔっ("♥logit max & min")
-                    #    self.stats["logitMin"] = self.logitSeq[-1].min(dim=-1).values.mean()
-                    #    self.stats["logitMax"] = self.logitSeq[-1].max(dim=-1).values.mean()
+                    if logit_collectStats:
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥if logit_collectStats♥")
+                        logitStats = self.model.logits.getLogitStats()
+                        self._merge_stats_dict(logitStats, accumulate=True)
+                        #if self.stats["logitSeq"]:
+                        #    if debugPrints: ʕっʘ‿ʘʔっ("♥logit max & min")
+                        #    self.stats["logitMin"] = self.logitSeq[-1].min(dim=-1).values.mean()
+                        #    self.stats["logitMax"] = self.logitSeq[-1].max(dim=-1).values.mean()
 
-                #self.stats.update(self.wobble.getWobbleStats())
+                    #self.stats.update(self.wobble.getWobbleStats())
 
-                if skipMemory:
-                    if debugPrints: ʕっʘ‿ʘʔっ("♥skipMemory")
-                    pass
-                else:
-                    self.model.memory.updateMemoryBuffers()
-                    self.model.memory2.updateMemoryBuffers()
-                    if memory_collectStats:
+                    if not skipMemory and memory_collectStats:
                         if debugPrints: ʕっʘ‿ʘʔっ("♥if memory_collectStats")
                         self._merge_stats_dict({f"5M_memory_{k}": v for k, v in self.model.memory.getMemoryStats().items()})
                         self._merge_stats_dict({f"6M_memory2_{k}": v for k, v in self.model.memory2.getMemoryStats().items()})
 
-                if debugPrints: ʕっʘ‿ʘʔっ("♥INN_collectStats")
-                INN_stats, INN_cerebellum_str = self.model.interneuronNetwork.INN_getStats()
-                self._merge_stats_dict(INN_stats)
-                self._merge_stats_dict(self.model.getBabyStats())
-                INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str)}
-                self.stringStats.update(INN_stringStats)
-                #self.stringStats.update({"topTokens": str(topTokens)})
-                self.collectAllTimeStats()
-                if self.totalTurnsAwake % (self.reflectionFreq-1) == 0:
-                    self.hesJustABaby = self.mapStatsToFeelings()
+                    if debugPrints: ʕっʘ‿ʘʔっ("♥INN_collectStats")
+                    INN_stats, INN_cerebellum_str = self.model.interneuronNetwork.INN_getStats()
+                    self._merge_stats_dict(INN_stats)
+                    self._merge_stats_dict(self.model.getBabyStats())
+                    # Append MINI_INN_TANGLING cerebellum display (present when useMiniINN_Tangling=True)
+                    if hasattr(self.model.tangling, "getMiniTangleCerebellumStr"):
+                        if debugPrints: ʕっʘ‿ʘʔっ("♥MINI_TANGLE_cerebellumStr")
+                        mini_tangle_str = self.model.tangling.getMiniTangleCerebellumStr()
+                        if mini_tangle_str:
+                            INN_cerebellum_str = INN_cerebellum_str + "\n\n--- MINI_INN_TANGLING ---\n" + mini_tangle_str
+                    INN_stringStats = {"INN_cerebellum_str": str(INN_cerebellum_str)}
+                    self.stringStats.update(INN_stringStats)
+                    #self.stringStats.update({"topTokens": str(topTokens)})
+                    # Rolling averages — pure Python/CPU, no GPU syncs, cheap enough for Tier 1
+                    self.collectAllTimeStats()
+                    # Snapshot for persistent display on non-Tier-1 steps
+                    self._layer_stats_cache = dict(self.stats)
+                    self._layer_string_stats_cache = dict(self.stringStats)
+
+                # Tier 2 — reflection only (infrequent, already gated internally too)
+                if self.totalTurns % self.trainingLogFreq_A == 0:
+                    if self.totalTurnsAwake % (self.reflectionFreq-1) == 0:
+                        self.hesJustABaby = self.mapStatsToFeelings()
 
                 """try:
                     babyState = {
@@ -1442,6 +1681,9 @@ class TUTOR:
                     print(key, self.ʕっෆ‿ෆʔっ[key])
             self.stats.clear()
             self.stringStats.clear()
+            # Restore cached layer stats so display stays populated on non-log steps
+            self.stats.update(self._layer_stats_cache)
+            self.stringStats.update(self._layer_string_stats_cache)
             self.tokenPerfectRate = 0
             self.stats['sampledTokens'] = 0
             self.totalTokenEvaluations = 0

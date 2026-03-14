@@ -3,7 +3,7 @@
 # BABYLLM // babyLLM.py
 # v1.12
 
-import random, os, threading
+import random, os, threading, time
 from collections import deque
 from contextlib import nullcontext
 import torch
@@ -20,6 +20,8 @@ from brain.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
 from brain.LAYERS.logits import LOGITS
 from brain.LAYERS.memory import MEMORY
 from brain.LAYERS.attention import GATED_MHA
+from brain.LAYERS.tangling import TANGLING, MINI_INN_TANGLING
+from brain.LAYERS.scratchpad import SCRATCHPAD
 # Creative modules removed
 #from brain.LAYERS.sensoryWobble import WOBBLE
 from config import *
@@ -59,6 +61,10 @@ class BABYLLM(nn.Module):
         self.normalisedActivations = 0
         self.rollingTokenTotals_tensor = torch.zeros(len(self.librarian.vocabList), device=self.device)
         self.gumBellend = 0
+        self.last_forward_had_nonfinite = False
+        self.nonfinite_forward_count = 0
+        self.nonfinite_forward_last_log = 0.0
+        self.nonfinite_recovery_count = 0
         self.pixelLoss_used = 0
         self.PIXELloss = 0
         self.CEloss_used = 0.0
@@ -141,7 +147,23 @@ class BABYLLM(nn.Module):
         self.memory = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.memory2 = MEMORY(_counsellor = self.counsellor, _device = self.device, _numTokensPerStep = self.numTokensPerStep)
         self.pixelPupil = PIXEL(embedDimension, embedDimension, 3, _device=self.device)
-        
+
+        # Tangling: causal window mixer (MINI_INN_TANGLING) or attention2-reuse (TANGLING)
+        if useMiniINN_Tangling:
+            self.tangling = MINI_INN_TANGLING(
+                _counsellor       = self.counsellor,
+                _numTokensPerStep = self.numTokensPerStep,
+                _calligraphist    = self.calligraphist,
+                _device           = self.device,
+            )
+        else:
+            self.tangling = TANGLING(
+                _counsellor          = self.counsellor,
+                _attention2_reference = self.attention2,
+                _device              = self.device,
+            )
+        self.scratchpad = SCRATCHPAD(_counsellor = self.counsellor, _device = self.device)
+
         # Creative modules removed
 
         """LEARNABLE LEARNING PARAMETERS"""
@@ -158,6 +180,52 @@ class BABYLLM(nn.Module):
         self.memoryLength = log_param_to_length(self.logMemoryLength)
         self.memory2Length = log_param_to_length(self.logMemory2Length)
 
+        self.freeze_legacy_pixel_embed = True
+        if self.freeze_legacy_pixel_embed:
+            self.embed.pixelEmbed.requires_grad_(False)
+
+        self.sensory_dim = 9
+        self.sensory_pred_dim = self.sensory_dim + 1
+        self.sensory_scale = nn.Parameter(torch.ones(self.sensory_dim, device=self.device))
+        self.sensory_bias = nn.Parameter(torch.zeros(self.sensory_dim, device=self.device))
+        self.sensoryEmbed = nn.Sequential(
+            nn.Linear(self.sensory_dim, embedDimension // 2),
+            nn.Tanh(),
+            nn.Linear(embedDimension // 2, embedDimension),
+        )
+        # Output normalization (matches MEMORY/SCRATCHPAD pattern, separate so checkpoint-compatible)
+        self.sensoryEmbed_norm = nn.LayerNorm(embedDimension, device=self.device)
+        self.sensoryPupil = nn.Linear(embedDimension, self.sensory_pred_dim, device=self.device)
+        sensory_gate_init = math.log(0.01 / 0.99)
+        self.sensory_gate = nn.Parameter(torch.tensor(sensory_gate_init, device=self.device))
+        self.sensory_gate_used = 0.0
+        self.cached_sensory = None
+        self.cached_device_temp_c = None
+        self.latest_sensory_vector = None
+        self.latest_device_temp_c = None
+        self.predSensory = None
+        self.targetSensory = None
+        self.sensoryLoss_used = 0.0
+        self.latestTokenEmbed_raw = None
+        self.prevSensoryPredEmbed_raw = None
+        self.nextSensoryPredEmbed_raw = None
+        self.sensory_temp_scale = 1.0
+
+        self.temperature_scale = nn.Parameter(torch.tensor(1.0, device=self.device))
+        self.temperature_bias = nn.Parameter(torch.tensor(0.0, device=self.device))
+        self.temperature_vector = nn.Parameter(torch.zeros(embedDimension, device=self.device))
+
+        with torch.no_grad():
+            self.sensory_scale.fill_(1e-5)
+            self.sensory_bias.zero_()
+            for layer in self.sensoryEmbed:
+                if isinstance(layer, nn.Linear):
+                    layer.weight.fill_(1e-5)
+                    if layer.bias is not None:
+                        layer.bias.zero_()
+            self.temperature_scale.fill_(1e-5)
+            self.temperature_bias.zero_()
+            self.temperature_vector.fill_(1e-5)
         """self.transformer_block = nn.TransformerEncoderLayer(
             d_model=embedDimension, 
             nhead=8,  # A reasonable number of attention heads
@@ -194,7 +262,14 @@ class BABYLLM(nn.Module):
             betas=(0.965, 0.99), rho=0.04, weight_decay=0.05)
         else:
             optimizerClass = getattr(optim, optimizerName)
-            self.optimizer = optimizerClass(self.parameters(), lr = learningRate, weight_decay = 0.05, fused = True)
+            optimizer_kwargs = {"lr": learningRate, "weight_decay": 0.05}
+            if getattr(self.device, "type", None) == "cuda":
+                optimizer_kwargs["fused"] = True
+            try:
+                self.optimizer = optimizerClass(self.parameters(), **optimizer_kwargs)
+            except TypeError:
+                optimizer_kwargs.pop("fused", None)
+                self.optimizer = optimizerClass(self.parameters(), **optimizer_kwargs)
         #print("!!! RUNNING WITH SGD OPTIMIZER !!!")
         #self.optimizer = optim.SGD(self.parameters(), lr=learningRate, momentum=0.9)
 
@@ -232,6 +307,27 @@ class BABYLLM(nn.Module):
                 break
         return snapshot
 
+    def _sensory_nudge(self, vector, index: int, max_pct: float = 0.02) -> float:
+        try:
+            if vector is None:
+                return 1.0
+            val = vector[index]
+            if torch.is_tensor(val):
+                if not torch.isfinite(val):
+                    return 1.0
+                val = float(val.detach().item())
+            else:
+                val = float(val)
+            shift = (val - 0.5) * 2.0
+            shift = max(-1.0, min(1.0, shift))
+            max_pct = float(max_pct)
+            factor = 1.0 + (max_pct * shift)
+            lower = 1.0 - max_pct
+            upper = 1.0 + max_pct
+            return max(lower, min(upper, factor))
+        except Exception:
+            return 1.0
+
     @whocalled
     def forward(self, _inputSeq = None, _pixel = None, _use_lock: bool = True):
         with self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ: # processes input sequence of tokens (str) to generate logits to predict the next token
@@ -244,9 +340,48 @@ class BABYLLM(nn.Module):
                     tensor_snitch(self.embed, "babyllm forward start")
                     tensor_snitch(self.interneuronNetwork, "babyllm forward start")
                     tensor_snitch(self.logits, "babyllm forward start")
-                self.temperature = torch.exp(self.logTemp)
-                self.interneuronNetwork.temperature = self.temperature
                 self.pixel = _pixel
+                self.prevSensoryPredEmbed_raw = self.nextSensoryPredEmbed_raw
+                self.nextSensoryPredEmbed_raw = None
+                sensory_source = self.cached_sensory
+                motion_scale = self._sensory_nudge(sensory_source, 5, 0.02)
+                attention_scale = self._sensory_nudge(sensory_source, 8, 0.02)
+                self.sensory_temp_scale = motion_scale
+                self.attention.gate_nudge = attention_scale
+                self.attention2.gate_nudge = attention_scale
+                self.temperature = torch.exp(self.logTemp) * motion_scale
+                self.interneuronNetwork.temperature = self.temperature
+                if self.cached_sensory is not None:
+                    sensory_vector = self.cached_sensory
+                    sensory_scale_used = torch.sigmoid(self.sensory_scale) * 10.0  # [0, 10]
+                    sensory_bias_used = (torch.sigmoid(self.sensory_bias) - 0.5) * 10.0  # [-5, 5]
+                    sensory_adjusted = (sensory_vector * sensory_scale_used) + sensory_bias_used
+                    sensory_embed = self.sensoryEmbed(sensory_adjusted)
+                    sensory_embed = self.sensoryEmbed_norm(sensory_embed)  # Normalize before gating (matches SCRATCHPAD)
+                    sensory_embed = torch.tanh(sensory_embed) * 10.0  # [-10, 10] bounded output
+                    gate = torch.sigmoid(self.sensory_gate)
+                    self.latest_sensory_vector = sensory_vector.detach()
+                    self.sensory_gate_used = gate.detach().item()
+                else:
+                    sensory_embed = 0.0
+                    gate = 0.0
+                    self.latest_sensory_vector = None
+                    self.sensory_gate_used = 0.0
+
+                if self.cached_device_temp_c is not None:
+                    temp_value = self.cached_device_temp_c
+                    temp_scale_used = torch.sigmoid(self.temperature_scale) * 5.0  # [0, 5]
+                    temp_bias_used = (torch.sigmoid(self.temperature_bias) - 0.5) * 5.0  # [-2.5, 2.5]
+                    temp_vec_used = torch.sigmoid(self.temperature_vector) * 5.0  # [0, 5]
+                    temp_scaled = (temp_value * temp_scale_used) + temp_bias_used
+                    temp_embed = temp_scaled * temp_vec_used
+                    if torch.is_tensor(sensory_embed):
+                        sensory_embed = sensory_embed + temp_embed
+                    else:
+                        sensory_embed = temp_embed
+                    self.latest_device_temp_c = temp_value.detach()
+                else:
+                    self.latest_device_temp_c = None
 
                 if debugPrints: ʕっʘ‿ʘʔっ("B0: inputEmbeds") # convert indices to embeddings
                 tokenEmbed = self.embed(_tokenIndex = _inputSeq)
@@ -277,6 +412,10 @@ class BABYLLM(nn.Module):
                 # 5. Project to final shape
                 # [1024, 128] -> [1024, 1024]
                 charEmbed = self.char_projector(char_vector_batch)
+
+                char_scale = self._sensory_nudge(sensory_source, 7)
+                if char_scale != 1.0:
+                    charEmbed = charEmbed * char_scale
                 
                 self.charEmbedHistory.append(charEmbed.norm().item())
                 # --- END: SUPER-FAST CHARACTER EMBEDDING LOGIC ---
@@ -285,12 +424,21 @@ class BABYLLM(nn.Module):
                 pos_indices = torch.arange(seq_len, device = tokenEmbed.device)
                 posEmbed = self.embed.posEmbedding(pos_indices)
                 posEmbed = self.embed.posDropout(posEmbed * self.embed.scale)  # [seq_len, embed_dim]
+                pos_scale = self._sensory_nudge(sensory_source, 6)
+                if pos_scale != 1.0:
+                    posEmbed = posEmbed * pos_scale
 
                 all_blend_weights = torch.cat([self.inputBlend, self.charBlendWeight], dim=0)
                 blend = F.softmax(all_blend_weights, dim = 0) 
+                noise_scale = self._sensory_nudge(sensory_source, 1, 0.02)
+                if noise_scale != 1.0:
+                    blend = blend.clone()
+                    blend[2] = blend[2] * noise_scale
+                    blend = blend / blend.sum().clamp_min(1e-6)
                 
                 if not skipPixels and (_pixel is not None):
-                    rgbEmbed = self.embed(_pixel = _pixel)
+                    legacy_rgb_embed = self.embed(_pixel = _pixel)
+                    rgbEmbed = ((1 - gate) * legacy_rgb_embed + gate * (legacy_rgb_embed + sensory_embed))
                     debug_print("tokenEmbed:", tokenEmbed.shape)
                     debug_print("posEmbed:", posEmbed.shape)
                     debug_print("rgbEmbed:", rgbEmbed.shape)
@@ -311,11 +459,18 @@ class BABYLLM(nn.Module):
                 # --- END: BLEND ---
                 
                 token_embed_for_pixel = inputEmbeds
+                self.latestTokenEmbed_raw = token_embed_for_pixel
                 self.latestTokenEmbed = token_embed_for_pixel.detach()
+                self.nextSensoryPredEmbed_raw = token_embed_for_pixel.detach()
                 if hasattr(self, "pixelPupil") and len(self.latestTokenEmbed.shape) == 1:
                     debug_print(f"[DEBUG] latestTokenEmbed is 1D with shape {self.latestTokenEmbed.shape}")
                 
                 inputEmbeds = self.attention(inputEmbeds)
+
+                # TANGLING STAGE 1: Refine embeddings (1024-dim) via attention2
+                if enableTangling:
+                    inputEmbeds = inputEmbeds + self.tangling.refine(inputEmbeds, stage_name="embed")
+
                 debug_print(f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]")
 
                 if debugPrints: ʕっʘ‿ʘʔっ("B1: interneuronNetworkOutput")
@@ -323,7 +478,15 @@ class BABYLLM(nn.Module):
                 if True:
                     interneuron_output = self.interneuronNetwork.forward(inputEmbeds)
                     INNOutput = interneuron_output + self.attention2(interneuron_output)
-                    debug_print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}") 
+
+                    # TANGLING STAGE 2: Refine neurons (10k-dim) via attention2
+                    if enableTangling:
+                        INNOutput = INNOutput + self.tangling.refine(INNOutput, stage_name="neuron")
+
+                    # SCRATCH PAD: Working memory before permanent storage
+                    INNOutput = INNOutput + self.scratchpad(INNOutput)
+
+                    debug_print(f"Debug BABYLLM.forward: interneuronNetworkOutput length: {len(INNOutput)}")
                     debug_print("combinedActivationsTensor.requires_grad:", INNOutput.requires_grad)
                     debug_print("combinedActivationsTensor.grad_fn:", INNOutput.grad_fn)
 
@@ -333,6 +496,11 @@ class BABYLLM(nn.Module):
                         memoryOutput = INNOutput
                     else:
                         memoryOutput = self.memory.forward(INNOutput) + INNOutput
+
+                        # TANGLING STAGE 3: Refine memory output (1024-dim) via attention2
+                        if enableTangling:
+                            memoryOutput = memoryOutput + self.tangling.refine(memoryOutput, stage_name="memory")
+
                         memory2Input = (INNOutput * 0.5) + (memoryOutput * 0.5)
                         memory2Output = self.memory2.forward(memory2Input) + memory2Input
                     
@@ -372,11 +540,11 @@ class BABYLLM(nn.Module):
                     blend_vals_detached = blend.detach().cpu().tolist()
                     
                     self.FINALlogitsHistory.append(FINALlogits.norm().item())
-                    
+
                     if len(self.FINALlogitsHistory) >= self.numTokensPerStep:
                         self.forwardStats = {
                             "7B_x_FINALlogits_norm": sum(self.FINALlogitsHistory) / len(self.FINALlogitsHistory),
-                            
+
                             # --- ADDING YOUR NEW STATS ---
                             # 1. The average norm of the mini-layer's *output*
                             "B_charEmbed_OUT_norm": sum(self.charEmbedHistory) / len(self.charEmbedHistory),
@@ -385,11 +553,40 @@ class BABYLLM(nn.Module):
                             # 3. The norm of the mini-layer's *projector weights*
                             "B_charProj_W_norm": self.char_projector.weight.norm().item(),
                         }
-                        
+
+                        self.forwardStats["B_sensory_gate"] = self.sensory_gate_used
+                        _fwd_stats = torch.stack([
+                            (torch.sigmoid(self.sensory_scale) * 10.0).mean(),
+                            ((torch.sigmoid(self.sensory_bias) - 0.5) * 10.0).mean(),
+                            self.sensoryEmbed[0].weight.norm(),
+                            self.sensoryPupil.weight.norm(),
+                            torch.sigmoid(self.temperature_scale) * 5.0,
+                            (torch.sigmoid(self.temperature_bias) - 0.5) * 5.0,
+                            (torch.sigmoid(self.temperature_vector) * 5.0).norm(),
+                        ]).tolist()
+                        self.forwardStats["B_sensory_scale_mean"]   = _fwd_stats[0]
+                        self.forwardStats["B_sensory_bias_mean"]    = _fwd_stats[1]
+                        self.forwardStats["B_sensory_embed_w_norm"] = _fwd_stats[2]
+                        self.forwardStats["B_sensory_pupil_w_norm"] = _fwd_stats[3]
+                        self.forwardStats["B_temp_scale"]           = _fwd_stats[4]
+                        self.forwardStats["B_temp_bias"]            = _fwd_stats[5]
+                        self.forwardStats["B_temp_vec_norm"]        = _fwd_stats[6]
+                        if self.latest_sensory_vector is not None:
+                            _sens_keys = [
+                                "S_global_light_delta", "S_noise_delta", "S_time_of_day_delta",
+                                "S_interaction_recency_delta", "S_training_age_delta",
+                                "S_global_motion_delta", "S_left_right_bias_delta",
+                                "S_top_bottom_bias_delta", "S_contrast_intrusion_delta",
+                            ]
+                            for _k, _v in zip(_sens_keys, self.latest_sensory_vector.tolist()):
+                                self.forwardStats[_k] = _v
+                        if self.latest_device_temp_c is not None:
+                            self.forwardStats["S_device_temp_c_delta"] = self.latest_device_temp_c.item()
+
                         # Log blend weights
                         self.forwardStats["B_blendToken"] = blend_vals_detached[0]
                         self.forwardStats["B_blendPos"] = blend_vals_detached[1]
-                        
+
                         if not skipPixels and (_pixel is not None):
                             self.forwardStats["B_blendPixel"] = blend_vals_detached[2]
                             self.forwardStats["B_blendChar"] = blend_vals_detached[3]
@@ -400,8 +597,16 @@ class BABYLLM(nn.Module):
                             debug_print(f"token {blend_vals_detached[0]:.2f}, pos {blend_vals_detached[1]:.2f}, char {blend_vals_detached[3]:.2f} (no pixel)")
                         # --- END: MODIFIED STATS LOGIC ---
 
+                        # Collect tangling and scratchpad stats
+                        if enableTangling:
+                            tangling_stats = self.tangling.getTanglingStats()
+                            self.forwardStats.update(tangling_stats)
+
+                        scratchpad_stats = self.scratchpad.getScratchpadStats()
+                        self.forwardStats.update(scratchpad_stats)
+
                         self.stats.update(self.forwardStats)
-                        
+
                         self.inputEmbedsHistory.clear()
                         self.INNOutputHistory.clear()
                         self.memoryOutputHistory.clear()
@@ -419,7 +624,62 @@ class BABYLLM(nn.Module):
                     tensor_snitch(self.embed, "babyllm forward end")
                     tensor_snitch(self.interneuronNetwork, "babyllm forward end")
                     tensor_snitch(self.logits, "babyllm forward end")
+
+            # Safety check for numerical stability
+            if not torch.isfinite(FINALlogits).all():
+                self.last_forward_had_nonfinite = True
+                self.nonfinite_forward_count += 1
+                self._recover_after_nonfinite_forward()
+                now = time.time()
+                if (now - self.nonfinite_forward_last_log) >= 2.0:
+                    print(
+                        "⚠️ Non-finite logits detected in forward pass! "
+                        f"(count={self.nonfinite_forward_count}, recoveries={self.nonfinite_recovery_count})"
+                    )
+                    try:
+                        logit_norm = FINALlogits.norm()
+                        print(f"   Logit norm: {logit_norm.item()}")
+                    except Exception:
+                        print("   Logit norm: [unavailable]")
+                    self.nonfinite_forward_last_log = now
+                FINALlogits = torch.nan_to_num(FINALlogits, nan=0.0, posinf=80.0, neginf=-80.0)
+            else:
+                self.last_forward_had_nonfinite = False
+
             return FINALlogits
+
+    def _recover_after_nonfinite_forward(self):
+        with torch.no_grad():
+            self.nonfinite_recovery_count += 1
+            try:
+                self.logTemp.data.clamp_(math.log(0.1), math.log(5.0))
+            except Exception:
+                pass
+            try:
+                self.logLR.data.clamp_(math.log(1e-6), math.log(1e-2))
+            except Exception:
+                pass
+            try:
+                self.logGradClip.data.clamp_(math.log(0.1), math.log(50.0))
+            except Exception:
+                pass
+            try:
+                max_window = max(1.0, float(self.numTokensPerStep))
+                self.logRepetitionWindow.data.clamp_(math.log(1.0), math.log(max_window))
+            except Exception:
+                pass
+            try:
+                self.repetitionPenalty.data.clamp_(0.5, 3.0)
+            except Exception:
+                pass
+            try:
+                self.memory.resetMemory(1.0)
+            except Exception:
+                pass
+            try:
+                self.memory2.resetMemory(1.0)
+            except Exception:
+                pass
 
     """computes the cross-entropy loss between the models logits and the target token, essentially checking how good the models prediction was"""        
     @whocalled
@@ -514,7 +774,9 @@ class BABYLLM(nn.Module):
                 if debugPrints: ʕっʘ‿ʘʔっ("RGB regression loss with creative synesthetic enhancement")
 
                 # Handle different tensor shapes properly
-                token_embed_for_pixel = getattr(self, "latestTokenEmbed", None)
+                token_embed_for_pixel = getattr(self, "latestTokenEmbed_raw", None)
+                if token_embed_for_pixel is None:
+                    token_embed_for_pixel = getattr(self, "latestTokenEmbed", None)
                 if token_embed_for_pixel is None:
                     debug_print("latestTokenEmbed is None; using zero embedding for pixel loss")
                     token_embed_for_pixel = torch.zeros(self.pixelPupil.linear1.in_features, device=self.device)
@@ -579,10 +841,6 @@ class BABYLLM(nn.Module):
                 if debugPrints: self.print_rgb_block(self.nextPixelTarget, "truth")
                 debug_print(f"{rgbLoss} + rgb")
                 debug_print(f"{self.PIXELloss} + pixel")
-                # Detach the token embedding once it's no longer needed for gradient computation
-                if self.latestTokenEmbed is not None:
-                    self.latestTokenEmbed = self.latestTokenEmbed.detach()
-
             else:
                 FINALloss = loss
                 debug_print(f"{FINALloss} + final")
@@ -598,6 +856,64 @@ class BABYLLM(nn.Module):
                 # +4 Delta (worse) > 0 > -4 Delta (better)
                 # [0-25]x0.1 > 0 > [0-1]
                 # 0-2.5 > 0 > 0-1
+            if self.cached_sensory is not None and hasattr(self, "sensoryPupil"):
+                token_embed_for_sensory = getattr(self, "prevSensoryPredEmbed_raw", None)
+                if token_embed_for_sensory is None:
+                    self.sensoryLoss_used = 0.0
+                    self.predSensory = None
+                    self.targetSensory = None
+                else:
+                    if len(token_embed_for_sensory.shape) == 1:
+                        embedding = token_embed_for_sensory
+                    elif len(token_embed_for_sensory.shape) == 2:
+                        embedding = token_embed_for_sensory[-1]
+                    else:
+                        embedding = token_embed_for_sensory.flatten()
+                    if embedding.size(0) != self.sensoryPupil.in_features:
+                        if embedding.size(0) > self.sensoryPupil.in_features:
+                            embedding = embedding[:self.sensoryPupil.in_features]
+                        else:
+                            padding_size = self.sensoryPupil.in_features - embedding.size(0)
+                            embedding = torch.cat([embedding, torch.zeros(padding_size, device=embedding.device)])
+
+                    sensory_logits = self.sensoryPupil(embedding)
+                    sensory_logits = sensory_logits / (1.0 + sensory_logits.abs())
+                    sensory_pred = torch.sigmoid(sensory_logits * 3.0)
+                    if self.cached_device_temp_c is not None:
+                        sensory_target = torch.cat(
+                            [self.cached_sensory, self.cached_device_temp_c.view(1)],
+                            dim=0,
+                        )
+                    else:
+                        sensory_target = torch.cat(
+                            [self.cached_sensory, torch.zeros(1, device=self.cached_sensory.device)],
+                            dim=0,
+                        )
+
+                    sensory_loss = F.mse_loss(sensory_pred, sensory_target)
+                    if not torch.isfinite(sensory_loss):
+                        sensory_loss = torch.tensor(0.0, device=self.device)
+                    sensory_weight = torch.sigmoid(self.sensory_gate).detach()
+                    sensory_loss_scaled = ((sensory_loss * 0.1) * (sensory_weight * 0.01))
+                    FINALloss += sensory_loss_scaled
+                    self.sensoryLoss_used = sensory_loss_scaled.detach().item()
+                    self.predSensory = sensory_pred.detach()
+                    self.targetSensory = sensory_target.detach()
+                    debug_print(f"{sensory_loss} sensory ({sensory_loss_scaled}) + final")
+            else:
+                self.sensoryLoss_used = 0.0
+                self.predSensory = None
+                self.targetSensory = None
+
+            # Detach the token embedding once it's no longer needed for gradient computation
+            if self.latestTokenEmbed is not None:
+                self.latestTokenEmbed = self.latestTokenEmbed.detach()
+            if self.latestTokenEmbed_raw is not None:
+                self.latestTokenEmbed_raw = self.latestTokenEmbed_raw.detach()
+            if self.prevSensoryPredEmbed_raw is not None:
+                self.prevSensoryPredEmbed_raw = self.prevSensoryPredEmbed_raw.detach()
+            if self.nextSensoryPredEmbed_raw is not None:
+                self.nextSensoryPredEmbed_raw = self.nextSensoryPredEmbed_raw.detach()
             if not skipPixels and (self.nextPixelTarget is not None and hasattr(self, "pixelPupil")): 
                 FINALloss += (self.PIXELloss * 0.5)
                 self.pixelLoss_used = (self.PIXELloss * 0.5)
@@ -658,6 +974,16 @@ class BABYLLM(nn.Module):
                         if debugPrints: ʕっʘ‿ʘʔっ("print yes grads")
                         print(f"before = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}")
                         debug_print("Loss:", _loss.item())
+
+            # If the forward pass had non-finite logits, nan_to_num patched the *value*
+            # but NaN is already baked into the computation graph — backward() would
+            # propagate NaN gradients to every parameter and destroy all weights in one
+            # optimizer step.  Skip the entire backward instead.
+            if self.last_forward_had_nonfinite:
+                print("⚠️ [BACKWARD SKIP] forward pass had non-finite logits — skipping backward + step to protect weights")
+                self.optimizer.zero_grad()
+                self.last_forward_had_nonfinite = False
+                return False
 
             if debugPrints: ʕっʘ‿ʘʔっ("loss.backward")
             debug_print(f"windowMAX: {self.numTokensPerStep}")
@@ -739,6 +1065,11 @@ class BABYLLM(nn.Module):
                 self.memoryLength = torch.sigmoid((self.totalTurns - torch.exp(self.logMemoryLength)) * 0.5)
                 if debugPrints: ʕっʘ‿ʘʔっ("set self.memoryLength2")
                 self.memory2Length = torch.sigmoid((self.totalTurns - torch.exp(self.logMemory2Length)) * 0.5)
+                mem_source = self.latest_sensory_vector if self.latest_sensory_vector is not None else self.cached_sensory
+                mem_scale = self._sensory_nudge(mem_source, 3, 0.02)
+                if mem_scale != 1.0:
+                    self.memoryLength = (self.memoryLength * mem_scale).clamp(0.0, 1.0)
+                    self.memory2Length = (self.memory2Length * mem_scale).clamp(0.0, 1.0)
                 if debugPrints: ʕっʘ‿ʘʔっ("set learnedLR")
                 learnedLR = torch.exp(self.logLR).item()
                 for g in self.optimizer.param_groups:
@@ -750,20 +1081,58 @@ class BABYLLM(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("clip_grad_norm")
             with torch.no_grad():
-                base_clip = 5.0
-                sensitivity = 2.5 
+                base_clip = 1.5  # was 5.0 — restored to safer range
+                sensitivity = 0.5  # was 2.5 — less reactive to loss swings
 
                 lossDelta_tensor = torch.tensor(_lossDelta, device=self.device)
                 adjustment = (lossDelta_tensor * sensitivity)
-                clipValue = (base_clip + adjustment).clamp(min=1.0, max=2.5)
+                clipValue = (base_clip + adjustment).clamp(min=0.5, max=2.0)  # max was 10.0; back to ~2.0
 
             # Clip gradients BEFORE the lock to prevent NaNs
             total_grad_norm = torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=clipValue.item())
             self.gradientClipMaxNorm = clipValue.item()
 
+            # clip_grad_norm_ returns inf when any gradient contains NaN — it does NOT
+            # zero them out.  Check here so Adan never sees NaN inputs (which would corrupt
+            # all three momentum buffers and every parameter in one step).
+            if not torch.isfinite(total_grad_norm):
+                nan_params = [n for n, p in self.named_parameters()
+                              if p.grad is not None and not torch.isfinite(p.grad).all()]
+                print(f"⚠️ [STEP SKIP] NaN/Inf in gradients ({len(nan_params)} params) — "
+                      f"skipping optimizer.step() to protect weights. "
+                      f"First offenders: {nan_params[:5]}")
+                self.optimizer.zero_grad()
+                return False
+
             if debugPrints: ʕっʘ‿ʘʔっ("optimizer.step") # Acquire the lock only for the weight update step
             with self.model_thread_lock: self.optimizer.step()
             self.optimizer.zero_grad()
+
+            # CRITICAL: Clamp sensory/temperature parameters to prevent explosion
+            with torch.no_grad():
+                # Emergency reset if parameters have exploded beyond recovery
+                if self.sensory_scale.abs().max() > 100.0:
+                    print(f"⚠️ EMERGENCY: sensory_scale exploded to {self.sensory_scale.abs().max():.0f}, resetting!")
+                    self.sensory_scale.fill_(1e-5)
+                if self.sensory_bias.abs().max() > 100.0:
+                    print(f"⚠️ EMERGENCY: sensory_bias exploded to {self.sensory_bias.abs().max():.0f}, resetting!")
+                    self.sensory_bias.zero_()
+                if self.temperature_scale.abs() > 100.0:
+                    print(f"⚠️ EMERGENCY: temperature_scale exploded to {self.temperature_scale.abs():.0f}, resetting!")
+                    self.temperature_scale.fill_(1e-5)
+                if self.temperature_bias.abs() > 100.0:
+                    print(f"⚠️ EMERGENCY: temperature_bias exploded to {self.temperature_bias.abs():.0f}, resetting!")
+                    self.temperature_bias.zero_()
+                if self.temperature_vector.abs().max() > 100.0:
+                    print(f"⚠️ EMERGENCY: temperature_vector exploded to {self.temperature_vector.abs().max():.0f}, resetting!")
+                    self.temperature_vector.fill_(1e-5)
+
+                # Normal clamping for ongoing training
+                self.sensory_scale.clamp_(-10.0, 10.0)
+                self.sensory_bias.clamp_(-10.0, 10.0)
+                self.temperature_scale.clamp_(-10.0, 10.0)
+                self.temperature_bias.clamp_(-10.0, 10.0)
+                self.temperature_vector.clamp_(-10.0, 10.0)
 
             if collect_grad_stats:
                 grad_snapshot = self._snapshot_gradients()
@@ -778,12 +1147,13 @@ class BABYLLM(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("set backwardStats")
             if True:
+                _bwd_params = torch.stack([torch.exp(self.logMemoryLength), torch.exp(self.logMemory2Length), self.repetitionWindow, torch.exp(self.logTemp)]).tolist()
                 self.backwardStats = {
-                    "B_floatMemoryLength": torch.exp(self.logMemoryLength).item(),
-                    "B_floatMemory2Length": torch.exp(self.logMemory2Length).item(),
+                    "B_floatMemoryLength": _bwd_params[0],
+                    "B_floatMemory2Length": _bwd_params[1],
                     #"B_expWindow": repWindow.item(),
-                    "B_repetitionWindow": self.repetitionWindow.item(),
-                    "B_temperature": torch.exp(self.logTemp).item(),
+                    "B_repetitionWindow": _bwd_params[2],
+                    "B_temperature": _bwd_params[3],
                     "L_CEloss": self.CEloss_used,
                     "L_PIXELloss": self.PIXELloss,
                     "L_PIXELloss_scaled": self.pixelLoss_used,
@@ -793,6 +1163,7 @@ class BABYLLM(nn.Module):
                     "L_tempClamp": self.tempSoftClamp_used,
                     "L_repPenClamp": self.repPenSoftClamp_used,
                     "L_repLoss": self.repLoss_used,
+                    "L_sensoryLoss": self.sensoryLoss_used,
                     "B_gradClip": self.gradientClipMaxNorm,
                 }
                 if debugPrints: ʕっʘ‿ʘʔっ("update self.stats with self.backwardStats")
@@ -849,6 +1220,8 @@ class BABYLLM(nn.Module):
                 # Clamp temperature to a safe, non-zero range
                 raw_temp = torch.exp(self.logTemp)
                 safe_temp = raw_temp.clamp(min=0.1, max=5.0)
+                temp_scale = getattr(self, "sensory_temp_scale", 1.0)
+                safe_temp = (safe_temp * temp_scale).clamp(min=0.1, max=5.0)
                 # Keep attrs up-to-date for any downstream consumers
                 self.temperature = safe_temp
                 self.interneuronNetwork.temperature = safe_temp
@@ -873,52 +1246,51 @@ class BABYLLM(nn.Module):
                     debug_print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
                     base_probs = F.softmax(logits_scaled, dim=-1)
                 # Clamp and renormalise to avoid zeros that cause log(0) downstream
+                eps = 1e-8
+                base_probs = torch.nan_to_num(base_probs, nan=0.0)
+                base_probs = base_probs.clamp(min=eps)
+                base_probs = base_probs / base_probs.sum(dim=-1, keepdim=True).clamp_min(eps)
 
-            eps = 1e-8
-            base_probs = torch.nan_to_num(base_probs, nan=0.0)
-            base_probs = base_probs.clamp(min=eps)
-            base_probs = base_probs / base_probs.sum(dim=-1, keepdim=True)
-            
-            if _training:
-                self._lastSoftSample_for_loss = base_probs
+                if _training:
+                    self._lastSoftSample_for_loss = base_probs
                 self.lastSoftSample = base_probs.detach()
-                with torch.no_grad():
-                    # Existing creativity metrics
-                    eps = 1e-8
-                    a = self.memory.FINALmemory
-                    b = self.memory2.FINALmemory
-                    if a.dim() == 2 and a.size(0) > 1:
-                        a = a.mean(dim=0, keepdim=True)
-                    if b.dim() == 2 and b.size(0) > 1:
-                        b = b.mean(dim=0, keepdim=True)
-                    denom = (a.norm(dim=-1) * b.norm(dim=-1)).clamp_min(eps)
-                    cos_val = (a * b).sum(dim=-1) / denom
-                    cos_val = torch.nan_to_num(cos_val, nan=0.0)
-                    self.memoryFlux = (1 - cos_val).item()
-                    self.cerebralLoad = self.interneuronNetwork.cerebellum.std().item()
-                    self.learningStability = _totAvgAbsDelta
-                    self.dreamIntensity = (self.memoryFlux * 2.0) + (self.cerebralLoad * 5.0) + (self.learningStability * 1.0)
 
-                    # Simplified sampling without creative modules
-                    augmented_probs = base_probs
-                    base_p = 0.92
-                    top_p = base_p
-                    sorted_probs, sorted_indices = torch.sort(augmented_probs, descending=True)
-                    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-                    sorted_indices_to_remove = cumulative_probs > top_p
-                    sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-                    sorted_indices_to_remove[..., 0] = 0
-                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-                    augmented_probs[indices_to_remove] = 0
+                if _training:
+                    with torch.no_grad():
+                        # Existing creativity metrics
+                        a = self.memory.FINALmemory
+                        b = self.memory2.FINALmemory
+                        if a.dim() == 2 and a.size(0) > 1:
+                            a = a.mean(dim=0, keepdim=True)
+                        if b.dim() == 2 and b.size(0) > 1:
+                            b = b.mean(dim=0, keepdim=True)
+                        denom = (a.norm(dim=-1) * b.norm(dim=-1)).clamp_min(eps)
+                        cos_val = (a * b).sum(dim=-1) / denom
+                        cos_val = torch.nan_to_num(cos_val, nan=0.0)
+                        self.memoryFlux = (1 - cos_val).item()
+                        self.cerebralLoad = self.interneuronNetwork.cerebellum.std().item()
+                        self.learningStability = _totAvgAbsDelta
+                        self.dreamIntensity = (self.memoryFlux * 2.0) + (self.cerebralLoad * 5.0) + (self.learningStability * 1.0)
 
-                    if _training:
-                        # take the argmax from the *augmented* distribution - can still influence the training choice
-                        responseFromLogits = augmented_probs.argmax(dim=1, keepdim=True)
+                # Simplified sampling without creative modules
+                augmented_probs = base_probs.clone()
+                top_p = 0.92
+                sorted_probs, sorted_indices = torch.sort(augmented_probs, descending=True)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+                indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                augmented_probs[indices_to_remove] = 0
+
+                if _training:
+                    # take the argmax from the *augmented* distribution - can still influence the training choice
+                    responseFromLogits = augmented_probs.argmax(dim=1, keepdim=True)
+                else:
+                    if torch.sum(augmented_probs) > 0:
+                        responseFromLogits = torch.multinomial(augmented_probs, num_samples=1)
                     else:
-                        if torch.sum(augmented_probs) > 0:
-                            responseFromLogits = torch.multinomial(augmented_probs, num_samples=1)
-                        else:
-                            responseFromLogits = torch.topk(base_probs, 1).indices
+                        responseFromLogits = torch.topk(base_probs, 1).indices
 
                 repWindow = torch.exp(self.logRepetitionWindow).item()
                 effective_repWindow = repWindow / (1 + repWindow / self.numTokensPerStep)
@@ -940,6 +1312,656 @@ class BABYLLM(nn.Module):
                 _use_lock=False,
             )
         return logits, response
+
+    def _trace_clone_value(self, value):
+        if torch.is_tensor(value):
+            return value.detach().clone()
+        if isinstance(value, deque):
+            return deque(list(value), maxlen=value.maxlen)
+        if isinstance(value, list):
+            return list(value)
+        if isinstance(value, dict):
+            return dict(value)
+        return value
+
+    def _trace_scalar(self, value, default: float = 0.0) -> float:
+        if value is None:
+            return float(default)
+        if torch.is_tensor(value):
+            if value.numel() == 0:
+                return float(default)
+            detached = value.detach()
+            return float(detached.mean().item()) if detached.numel() > 1 else float(detached.item())
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
+
+    def _trace_tensor_norm(self, tensor) -> float:
+        if tensor is None or not torch.is_tensor(tensor) or tensor.numel() == 0:
+            return 0.0
+        return float(tensor.detach().norm().item())
+
+    def _trace_last_token_norm(self, tensor) -> float:
+        if tensor is None or not torch.is_tensor(tensor) or tensor.numel() == 0:
+            return 0.0
+        detached = tensor.detach()
+        if detached.dim() == 1:
+            focus = detached
+        elif detached.dim() == 2:
+            focus = detached[-1]
+        elif detached.dim() == 3:
+            focus = detached[0, -1]
+        else:
+            focus = detached.reshape(-1)
+        return float(focus.norm().item())
+
+    def _trace_per_token_norms(self, tensor):
+        if tensor is None or not torch.is_tensor(tensor) or tensor.numel() == 0:
+            return []
+        detached = tensor.detach()
+        if detached.dim() == 1:
+            return [float(detached.norm().item())]
+        if detached.dim() == 3:
+            detached = detached[0]
+        if detached.dim() != 2:
+            return [float(detached.reshape(-1).norm().item())]
+        return [float(row.norm().item()) for row in detached]
+
+    def _trace_snapshot_histories(self, owner, attr_names):
+        snapshot = {}
+        for attr in attr_names:
+            value = getattr(owner, attr, None)
+            if isinstance(value, deque):
+                snapshot[attr] = (list(value), value.maxlen)
+        return snapshot
+
+    def _trace_restore_histories(self, owner, snapshot):
+        for attr, (items, maxlen) in (snapshot or {}).items():
+            setattr(owner, attr, deque(items, maxlen=maxlen))
+
+    def _trace_snapshot_module_state(self, module, *, buffer_names=None, attr_names=None):
+        buffer_names = buffer_names or []
+        attr_names = attr_names or []
+        state = {
+            "stats": dict(getattr(module, "stats", {}) or {}),
+            "histories": self._trace_snapshot_histories(module, getattr(module, "_history_attrs", [])),
+            "buffers": {},
+            "attrs": {},
+        }
+        for name in buffer_names:
+            if hasattr(module, name):
+                state["buffers"][name] = self._trace_clone_value(getattr(module, name))
+        for name in attr_names:
+            state["attrs"][name] = self._trace_clone_value(getattr(module, name, None))
+        return state
+
+    def _trace_restore_module_state(self, module, state):
+        if not state:
+            return
+        if hasattr(module, "stats"):
+            module.stats = dict(state.get("stats", {}) or {})
+        self._trace_restore_histories(module, state.get("histories"))
+        with torch.no_grad():
+            for name, value in state.get("buffers", {}).items():
+                current = getattr(module, name, None)
+                if torch.is_tensor(current) and torch.is_tensor(value) and current.shape == value.shape:
+                    current.copy_(value.to(current.device))
+                else:
+                    setattr(module, name, self._trace_clone_value(value))
+            for name, value in state.get("attrs", {}).items():
+                setattr(module, name, self._trace_clone_value(value))
+
+    def trace_forward(
+        self,
+        _inputSeq,
+        _pixel=None,
+        top_k: int = 5,
+        include_distribution: bool = False,
+        include_vectors: bool = False,
+    ):
+        """Run a no-grad forward trace and restore mutable state afterwards."""
+
+        if _inputSeq is None:
+            raise ValueError("trace_forward needs input token ids")
+
+        with self.model_thread_lock:
+            with torch.no_grad():
+                input_seq = _inputSeq.to(device=self.device, dtype=torch.long).flatten()
+                if input_seq.numel() == 0:
+                    raise ValueError("trace_forward needs at least one token")
+
+                was_training = self.training
+                model_history_names = [
+                    "inputEmbedsHistory",
+                    "INNOutputHistory",
+                    "memoryOutputHistory",
+                    "memory2OutputHistory",
+                    "penalisedOutputHistory",
+                    "FINALlogitsHistory",
+                    "normalisedHistory",
+                    "charEmbedHistory",
+                ]
+                model_snapshot = {
+                    "stats": dict(self.stats or {}),
+                    "forwardStats": dict(getattr(self, "forwardStats", {}) or {}),
+                    "histories": self._trace_snapshot_histories(self, model_history_names),
+                    "recentGeneratedTokens": list(self.recentGeneratedTokens),
+                    "attrs": {
+                        name: self._trace_clone_value(getattr(self, name, None))
+                        for name in [
+                            "prevSensoryPredEmbed_raw",
+                            "nextSensoryPredEmbed_raw",
+                            "latestTokenEmbed_raw",
+                            "latestTokenEmbed",
+                            "predSensory",
+                            "targetSensory",
+                            "latest_sensory_vector",
+                            "latest_device_temp_c",
+                            "sensory_gate_used",
+                            "sensory_temp_scale",
+                            "temperature",
+                            "last_forward_had_nonfinite",
+                            "nonfinite_forward_count",
+                            "nonfinite_forward_last_log",
+                            "nonfinite_recovery_count",
+                        ]
+                    },
+                }
+                attention_snapshot = self._trace_snapshot_module_state(
+                    self.attention,
+                    attr_names=["gate_nudge"],
+                )
+                attention2_snapshot = self._trace_snapshot_module_state(
+                    self.attention2,
+                    attr_names=["gate_nudge"],
+                )
+                inn_snapshot = self._trace_snapshot_module_state(
+                    self.interneuronNetwork,
+                    attr_names=[
+                        "temperature",
+                        "entropyBonus",
+                        "windowTensor_used",
+                        "floatWindowSizes_used",
+                        "windowTensor_short_used",
+                        "floatWindowSizes_short_used",
+                        "short_gate_used",
+                        "softmax_temp_used",
+                        "softmax_temp_short_used",
+                        "cerebellumSoft",
+                        "cerebellumSoft_short",
+                        "windowSizeEntropy",
+                        "windowEntropy",
+                        "rangePenalty",
+                        "meanPenalty",
+                        "windowWeightSpread",
+                    ],
+                )
+                neuron_snapshot = self._trace_snapshot_module_state(self.interneuronNetwork.neurons)
+                memory_snapshot = self._trace_snapshot_module_state(
+                    self.memory,
+                    buffer_names=["shortTermMemory", "longTermMemory"],
+                    attr_names=[
+                        "newShort",
+                        "newLong",
+                        "activationsTensor",
+                        "gatedMemory",
+                        "FINALmemory",
+                        "short_used",
+                        "long_used",
+                        "act_used",
+                        "mem_used",
+                        "shortDecay_used",
+                        "longDecay_used",
+                    ],
+                )
+                memory2_snapshot = self._trace_snapshot_module_state(
+                    self.memory2,
+                    buffer_names=["shortTermMemory", "longTermMemory"],
+                    attr_names=[
+                        "newShort",
+                        "newLong",
+                        "activationsTensor",
+                        "gatedMemory",
+                        "FINALmemory",
+                        "short_used",
+                        "long_used",
+                        "act_used",
+                        "mem_used",
+                        "shortDecay_used",
+                        "longDecay_used",
+                    ],
+                )
+                scratchpad_snapshot = self._trace_snapshot_module_state(
+                    self.scratchpad,
+                    buffer_names=["buffer", "slot_usage"],
+                )
+                tangling_snapshot = self._trace_snapshot_module_state(
+                    self.tangling,
+                    attr_names=["current_stage", "floatWindowSizes_used", "windowTensor_used"],
+                )
+                logits_snapshot = self._trace_snapshot_module_state(self.logits)
+
+                try:
+                    self.eval()
+
+                    sensory_source = self.cached_sensory
+                    motion_scale = self._sensory_nudge(sensory_source, 5, 0.02)
+                    attention_scale = self._sensory_nudge(sensory_source, 8, 0.02)
+                    char_scale = self._sensory_nudge(sensory_source, 7)
+                    pos_scale = self._sensory_nudge(sensory_source, 6)
+                    noise_scale = self._sensory_nudge(sensory_source, 1, 0.02)
+
+                    self.sensory_temp_scale = motion_scale
+                    self.attention.gate_nudge = attention_scale
+                    self.attention2.gate_nudge = attention_scale
+                    self.temperature = torch.exp(self.logTemp) * motion_scale
+                    self.interneuronNetwork.temperature = self.temperature
+
+                    if self.cached_sensory is not None:
+                        sensory_vector = self.cached_sensory
+                        sensory_scale_used = torch.sigmoid(self.sensory_scale) * 10.0
+                        sensory_bias_used = (torch.sigmoid(self.sensory_bias) - 0.5) * 10.0
+                        sensory_adjusted = (sensory_vector * sensory_scale_used) + sensory_bias_used
+                        sensory_embed = self.sensoryEmbed(sensory_adjusted)
+                        sensory_embed = self.sensoryEmbed_norm(sensory_embed)
+                        sensory_embed = torch.tanh(sensory_embed) * 10.0
+                        gate = torch.sigmoid(self.sensory_gate)
+                    else:
+                        sensory_embed = 0.0
+                        gate = 0.0
+
+                    if self.cached_device_temp_c is not None:
+                        temp_value = self.cached_device_temp_c
+                        temp_scale_used = torch.sigmoid(self.temperature_scale) * 5.0
+                        temp_bias_used = (torch.sigmoid(self.temperature_bias) - 0.5) * 5.0
+                        temp_vec_used = torch.sigmoid(self.temperature_vector) * 5.0
+                        temp_scaled = (temp_value * temp_scale_used) + temp_bias_used
+                        temp_embed = temp_scaled * temp_vec_used
+                        if torch.is_tensor(sensory_embed):
+                            sensory_embed = sensory_embed + temp_embed
+                        else:
+                            sensory_embed = temp_embed
+
+                    tokenEmbed = self.embed(_tokenIndex=input_seq)
+                    seq_len = int(tokenEmbed.shape[0])
+
+                    padded_byte_tensor = F.embedding(input_seq, self.char_lookup_data)
+                    attention_mask = F.embedding(input_seq, self.char_mask_data)
+                    embedded_chars = self.char_embed(padded_byte_tensor)
+                    embedded_chars = embedded_chars * attention_mask.unsqueeze(-1)
+                    summed_vectors = embedded_chars.sum(dim=1)
+                    real_lengths = attention_mask.sum(dim=1, keepdim=True).clamp(min=1.0)
+                    char_vector_batch = summed_vectors / real_lengths
+                    charEmbed = self.char_projector(char_vector_batch)
+                    if char_scale != 1.0:
+                        charEmbed = charEmbed * char_scale
+
+                    pos_indices = torch.arange(seq_len, device=tokenEmbed.device)
+                    posEmbed = self.embed.posEmbedding(pos_indices)
+                    posEmbed = self.embed.posDropout(posEmbed * self.embed.scale)
+                    if pos_scale != 1.0:
+                        posEmbed = posEmbed * pos_scale
+
+                    all_blend_weights = torch.cat([self.inputBlend, self.charBlendWeight], dim=0)
+                    blend = F.softmax(all_blend_weights, dim=0)
+                    if noise_scale != 1.0:
+                        blend = blend.clone()
+                        blend[2] = blend[2] * noise_scale
+                        blend = blend / blend.sum().clamp_min(1e-6)
+
+                    if not skipPixels and (_pixel is not None):
+                        legacy_rgb_embed = self.embed(_pixel=_pixel)
+                        rgbEmbed = ((1 - gate) * legacy_rgb_embed + gate * (legacy_rgb_embed + sensory_embed))
+                        blendedInput = (
+                            blend[0] * tokenEmbed +
+                            blend[1] * posEmbed +
+                            blend[2] * rgbEmbed +
+                            blend[3] * charEmbed
+                        )
+                        rgb_sequence_norm = self._trace_tensor_norm(rgbEmbed)
+                        rgb_last_norm = self._trace_last_token_norm(rgbEmbed)
+                    else:
+                        rgbEmbed = None
+                        blendedInput = (
+                            blend[0] * tokenEmbed +
+                            blend[1] * posEmbed +
+                            blend[3] * charEmbed
+                        )
+                        rgb_sequence_norm = 0.0
+                        rgb_last_norm = 0.0
+
+                    attention1Output = self.attention(blendedInput)
+                    if enableTangling:
+                        tangle_embed = self.tangling.refine(attention1Output, stage_name="embed")
+                        post_embed = attention1Output + tangle_embed
+                    else:
+                        tangle_embed = None
+                        post_embed = attention1Output
+
+                    inn_core = self.interneuronNetwork.forward(post_embed)
+                    attention2_add = self.attention2(inn_core)
+                    inn_after_attention2 = inn_core + attention2_add
+
+                    if enableTangling:
+                        tangle_neuron = self.tangling.refine(inn_after_attention2, stage_name="neuron")
+                        inn_after_tangle = inn_after_attention2 + tangle_neuron
+                    else:
+                        tangle_neuron = None
+                        inn_after_tangle = inn_after_attention2
+
+                    scratch_add = self.scratchpad(inn_after_tangle)
+                    inn_after_scratch = inn_after_tangle + scratch_add
+
+                    if skipMemory:
+                        memory_base = inn_after_scratch
+                        memory_out = inn_after_scratch
+                        memory_tangle = None
+                        memory2_input = inn_after_scratch
+                        memory2_base = inn_after_scratch
+                        memory2_out = inn_after_scratch
+                    else:
+                        memory_base = self.memory.forward(inn_after_scratch)
+                        memory_out = memory_base + inn_after_scratch
+                        if enableTangling:
+                            memory_tangle = self.tangling.refine(memory_out, stage_name="memory")
+                            memory_out = memory_out + memory_tangle
+                        else:
+                            memory_tangle = None
+                        memory2_input = (inn_after_scratch * 0.5) + (memory_out * 0.5)
+                        memory2_base = self.memory2.forward(memory2_input)
+                        memory2_out = memory2_base + memory2_input
+
+                    scaledActsTensor = memory2_out + self.logits.activationNorm(memory2_out)
+                    rawLogitOutput = (scaledActsTensor @ self.logits.l_weights) + self.logits.l_bias
+                    logitsBeforePenalty = self.logits.forward(memory2_out)
+                    finalLogits = self.applyRepetitionPenalty(logitsBeforePenalty, input_seq)
+                    finalLogits = torch.nan_to_num(finalLogits, nan=0.0, posinf=80.0, neginf=-80.0)
+
+                    logits_view = finalLogits[-1] if finalLogits.dim() > 1 else finalLogits
+                    raw_temp = torch.exp(self.logTemp)
+                    safe_temp = raw_temp.clamp(min=0.1, max=5.0)
+                    safe_temp = (safe_temp * motion_scale).clamp(min=0.1, max=5.0)
+                    scaled_logits = torch.nan_to_num(logits_view / safe_temp, nan=0.0, posinf=1e3, neginf=-1e3)
+                    scaled_logits = scaled_logits.clamp(min=-80.0, max=80.0)
+                    probs = F.softmax(scaled_logits, dim=-1)
+
+                    top_count = max(1, min(int(top_k), int(probs.shape[-1])))
+                    top_probs, top_idx = torch.topk(probs, top_count)
+                    top_predictions = []
+                    for prob, idx in zip(top_probs.tolist(), top_idx.tolist()):
+                        idx = int(idx)
+                        top_predictions.append({
+                            "token_id": idx,
+                            "prob": float(prob),
+                            "logit": float(logits_view[idx].item()),
+                            "scaled_logit": float(scaled_logits[idx].item()),
+                        })
+
+                    eos_id = None
+                    eos_prob = None
+                    eos_rank = None
+                    eos_logit = None
+                    if eos_replacement_token_str:
+                        eos_id = self.librarian.tokenToIndex.get(eos_replacement_token_str)
+                    if eos_id is not None and 0 <= int(eos_id) < int(probs.shape[-1]):
+                        eos_id = int(eos_id)
+                        eos_prob = float(probs[eos_id].item())
+                        eos_logit = float(logits_view[eos_id].item())
+                        eos_rank = int((probs > probs[eos_id]).sum().item()) + 1
+
+                    active_blend = {
+                        "token": float(blend[0].item()),
+                        "pos": float(blend[1].item()),
+                        "char": float(blend[3].item()) if blend.numel() > 3 else 0.0,
+                        "pixel": float(blend[2].item()) if blend.numel() > 2 else 0.0,
+                    }
+                    if rgbEmbed is None:
+                        active_total = active_blend["token"] + active_blend["pos"] + active_blend["char"]
+                        if active_total > 0:
+                            active_blend["token"] /= active_total
+                            active_blend["pos"] /= active_total
+                            active_blend["char"] /= active_total
+                        active_blend["pixel"] = 0.0
+                    else:
+                        active_total = sum(active_blend.values())
+                        if active_total > 0:
+                            for key in active_blend:
+                                active_blend[key] /= active_total
+
+                    def _window_pairs(size_tensor, weight_tensor):
+                        if not torch.is_tensor(size_tensor) or not torch.is_tensor(weight_tensor):
+                            return []
+                        if size_tensor.numel() == 0 or weight_tensor.numel() == 0:
+                            return []
+                        count = min(int(size_tensor.numel()), int(weight_tensor.numel()))
+                        pairs = []
+                        for idx in range(count):
+                            pairs.append({
+                                "size": float(size_tensor[idx].item()),
+                                "weight": float(weight_tensor[idx].item()),
+                            })
+                        return pairs
+
+                    trace = {
+                        "sequence_length": seq_len,
+                        "input_ids": [int(idx) for idx in input_seq.tolist()],
+                        "decoded_prompt": self.librarian.decodeIDs([int(idx) for idx in input_seq.tolist()]),
+                        "temperature": float(safe_temp.item()),
+                        "pixel_active": rgbEmbed is not None,
+                        "blend": {
+                            "token": float(blend[0].item()),
+                            "pos": float(blend[1].item()),
+                            "pixel": float(blend[2].item()) if blend.numel() > 2 else 0.0,
+                            "char": float(blend[3].item()) if blend.numel() > 3 else 0.0,
+                        },
+                        "active_blend": active_blend,
+                        "sensory": {
+                            "gate": self._trace_scalar(gate),
+                            "motion_scale": float(motion_scale),
+                            "attention_scale": float(attention_scale),
+                            "char_scale": float(char_scale),
+                            "pos_scale": float(pos_scale),
+                            "noise_scale": float(noise_scale),
+                        },
+                        "gates": {
+                            "attention1": self._trace_scalar(torch.sigmoid(self.attention.logit_gate) * attention_scale),
+                            "attention2": self._trace_scalar(torch.sigmoid(self.attention2.logit_gate) * attention_scale),
+                            "memory1_short": self._trace_scalar(getattr(self.memory, "short_used", 0.0)),
+                            "memory1_long": self._trace_scalar(getattr(self.memory, "long_used", 0.0)),
+                            "memory1_act": self._trace_scalar(getattr(self.memory, "act_used", 0.0)),
+                            "memory1_mem": self._trace_scalar(getattr(self.memory, "mem_used", 0.0)),
+                            "memory2_short": self._trace_scalar(getattr(self.memory2, "short_used", 0.0)),
+                            "memory2_long": self._trace_scalar(getattr(self.memory2, "long_used", 0.0)),
+                            "memory2_act": self._trace_scalar(getattr(self.memory2, "act_used", 0.0)),
+                            "memory2_mem": self._trace_scalar(getattr(self.memory2, "mem_used", 0.0)),
+                            "scratch_write": float(self.scratchpad.stats.get("SCRATCH_write_amount", 0.0)),
+                            "scratch_erase": float(self.scratchpad.stats.get("SCRATCH_erase_amount", 0.0)),
+                            "scratch_read": float(self.scratchpad.stats.get("SCRATCH_read_amount", 0.0)),
+                            "inn_short_window_gate": self._trace_scalar(getattr(self.interneuronNetwork, "short_gate_used", 0.0)),
+                        },
+                        "memory": {
+                            "memory1_short_decay": self._trace_scalar(getattr(self.memory, "shortDecay_used", 0.0)),
+                            "memory1_long_decay": self._trace_scalar(getattr(self.memory, "longDecay_used", 0.0)),
+                            "memory2_short_decay": self._trace_scalar(getattr(self.memory2, "shortDecay_used", 0.0)),
+                            "memory2_long_decay": self._trace_scalar(getattr(self.memory2, "longDecay_used", 0.0)),
+                            "memory1_pending_short_norm": self._trace_tensor_norm(getattr(self.memory, "newShort", None)),
+                            "memory1_pending_long_norm": self._trace_tensor_norm(getattr(self.memory, "newLong", None)),
+                            "memory2_pending_short_norm": self._trace_tensor_norm(getattr(self.memory2, "newShort", None)),
+                            "memory2_pending_long_norm": self._trace_tensor_norm(getattr(self.memory2, "newLong", None)),
+                        },
+                        "scratchpad": {
+                            "write_strength": float(self.scratchpad.stats.get("SCRATCH_write_strength", 0.0)),
+                            "erase_strength": float(self.scratchpad.stats.get("SCRATCH_erase_strength", 0.0)),
+                            "buffer_norm": float(self.scratchpad.stats.get("SCRATCH_buffer_norm", 0.0)),
+                            "retrieved_norm": float(self.scratchpad.stats.get("SCRATCH_retrieved_norm", 0.0)),
+                            "integrated_norm": float(self.scratchpad.stats.get("SCRATCH_integrated_norm", 0.0)),
+                            "slot_usage_max": float(self.scratchpad.stats.get("SCRATCH_slot_usage_max", 0.0)),
+                            "slot_usage_mean": float(self.scratchpad.stats.get("SCRATCH_slot_usage_mean", 0.0)),
+                        },
+                        "stages": {
+                            "token_embed": {
+                                "sequence_norm": self._trace_tensor_norm(tokenEmbed),
+                                "last_token_norm": self._trace_last_token_norm(tokenEmbed),
+                            },
+                            "pos_embed": {
+                                "sequence_norm": self._trace_tensor_norm(posEmbed),
+                                "last_token_norm": self._trace_last_token_norm(posEmbed),
+                            },
+                            "char_embed": {
+                                "sequence_norm": self._trace_tensor_norm(charEmbed),
+                                "last_token_norm": self._trace_last_token_norm(charEmbed),
+                            },
+                            "pixel_embed": {
+                                "sequence_norm": rgb_sequence_norm,
+                                "last_token_norm": rgb_last_norm,
+                            },
+                            "blended_input": {
+                                "sequence_norm": self._trace_tensor_norm(blendedInput),
+                                "last_token_norm": self._trace_last_token_norm(blendedInput),
+                            },
+                            "attention1": {
+                                "sequence_norm": self._trace_tensor_norm(attention1Output),
+                                "last_token_norm": self._trace_last_token_norm(attention1Output),
+                            },
+                            "tangle_embed": {
+                                "sequence_norm": self._trace_tensor_norm(tangle_embed),
+                                "last_token_norm": self._trace_last_token_norm(tangle_embed),
+                            },
+                            "inn_core": {
+                                "sequence_norm": self._trace_tensor_norm(inn_core),
+                                "last_token_norm": self._trace_last_token_norm(inn_core),
+                            },
+                            "attention2_add": {
+                                "sequence_norm": self._trace_tensor_norm(attention2_add),
+                                "last_token_norm": self._trace_last_token_norm(attention2_add),
+                            },
+                            "inn_after_attention2": {
+                                "sequence_norm": self._trace_tensor_norm(inn_after_attention2),
+                                "last_token_norm": self._trace_last_token_norm(inn_after_attention2),
+                            },
+                            "tangle_neuron": {
+                                "sequence_norm": self._trace_tensor_norm(tangle_neuron),
+                                "last_token_norm": self._trace_last_token_norm(tangle_neuron),
+                            },
+                            "scratchpad_add": {
+                                "sequence_norm": self._trace_tensor_norm(scratch_add),
+                                "last_token_norm": self._trace_last_token_norm(scratch_add),
+                            },
+                            "inn_after_scratch": {
+                                "sequence_norm": self._trace_tensor_norm(inn_after_scratch),
+                                "last_token_norm": self._trace_last_token_norm(inn_after_scratch),
+                            },
+                            "memory1_base": {
+                                "sequence_norm": self._trace_tensor_norm(memory_base),
+                                "last_token_norm": self._trace_last_token_norm(memory_base),
+                            },
+                            "memory1_out": {
+                                "sequence_norm": self._trace_tensor_norm(memory_out),
+                                "last_token_norm": self._trace_last_token_norm(memory_out),
+                            },
+                            "tangle_memory": {
+                                "sequence_norm": self._trace_tensor_norm(memory_tangle),
+                                "last_token_norm": self._trace_last_token_norm(memory_tangle),
+                            },
+                            "memory2_input": {
+                                "sequence_norm": self._trace_tensor_norm(memory2_input),
+                                "last_token_norm": self._trace_last_token_norm(memory2_input),
+                            },
+                            "memory2_base": {
+                                "sequence_norm": self._trace_tensor_norm(memory2_base),
+                                "last_token_norm": self._trace_last_token_norm(memory2_base),
+                            },
+                            "memory2_out": {
+                                "sequence_norm": self._trace_tensor_norm(memory2_out),
+                                "last_token_norm": self._trace_last_token_norm(memory2_out),
+                            },
+                            "logits_pre_penalty": {
+                                "sequence_norm": self._trace_tensor_norm(logitsBeforePenalty),
+                                "last_token_norm": self._trace_last_token_norm(logitsBeforePenalty),
+                            },
+                            "final_logits": {
+                                "sequence_norm": self._trace_tensor_norm(finalLogits),
+                                "last_token_norm": self._trace_last_token_norm(finalLogits),
+                            },
+                        },
+                        "per_token": {
+                            "token_embed": self._trace_per_token_norms(tokenEmbed),
+                            "pos_embed": self._trace_per_token_norms(posEmbed),
+                            "char_embed": self._trace_per_token_norms(charEmbed),
+                            "blended_input": self._trace_per_token_norms(blendedInput),
+                            "attention1": self._trace_per_token_norms(attention1Output),
+                        },
+                        "inn": {
+                            "window_entropy": self._trace_scalar(getattr(self.interneuronNetwork, "windowSizeEntropy", 0.0)),
+                            "window_spread": self._trace_scalar(getattr(self.interneuronNetwork, "windowWeightSpread", 0.0)),
+                            "range_penalty": self._trace_scalar(getattr(self.interneuronNetwork, "rangePenalty", 0.0)),
+                            "mean_penalty": self._trace_scalar(getattr(self.interneuronNetwork, "meanPenalty", 0.0)),
+                        },
+                        "windows": {
+                            "long": _window_pairs(
+                                getattr(self.interneuronNetwork, "floatWindowSizes_used", None),
+                                getattr(self.interneuronNetwork, "cerebellumSoft", None),
+                            ),
+                            "short": _window_pairs(
+                                getattr(self.interneuronNetwork, "floatWindowSizes_short_used", None),
+                                getattr(self.interneuronNetwork, "cerebellumSoft_short", None),
+                            ),
+                        },
+                        "top_predictions": top_predictions,
+                        "eos": {
+                            "token_id": eos_id,
+                            "rank": eos_rank,
+                            "prob": eos_prob,
+                            "logit": eos_logit,
+                        },
+                    }
+                    if include_distribution:
+                        trace["distribution"] = {
+                            "probs": probs.detach().cpu(),
+                            "scaled_logits": scaled_logits.detach().cpu(),
+                        }
+                    if include_vectors:
+                        def _last_row_cpu(tensor):
+                            if not torch.is_tensor(tensor) or tensor.numel() == 0:
+                                return None
+                            detached = tensor.detach()
+                            if detached.dim() == 1:
+                                row = detached
+                            elif detached.dim() == 2:
+                                row = detached[-1]
+                            elif detached.dim() == 3:
+                                row = detached[0, -1]
+                            else:
+                                row = detached.reshape(-1)
+                            return row.cpu()
+
+                        trace["vectors"] = {
+                            "memory2_last": _last_row_cpu(memory2_out),
+                            "scaled_acts_last": _last_row_cpu(scaledActsTensor),
+                            "raw_logits_last": _last_row_cpu(rawLogitOutput),
+                        }
+                    return trace
+                finally:
+                    self.stats = dict(model_snapshot.get("stats", {}) or {})
+                    self.forwardStats = dict(model_snapshot.get("forwardStats", {}) or {})
+                    self.recentGeneratedTokens = list(model_snapshot.get("recentGeneratedTokens", []))
+                    self._trace_restore_histories(self, model_snapshot.get("histories"))
+                    for name, value in model_snapshot.get("attrs", {}).items():
+                        setattr(self, name, self._trace_clone_value(value))
+                    self._trace_restore_module_state(self.attention, attention_snapshot)
+                    self._trace_restore_module_state(self.attention2, attention2_snapshot)
+                    self._trace_restore_module_state(self.interneuronNetwork, inn_snapshot)
+                    self._trace_restore_module_state(self.interneuronNetwork.neurons, neuron_snapshot)
+                    self._trace_restore_module_state(self.memory, memory_snapshot)
+                    self._trace_restore_module_state(self.memory2, memory2_snapshot)
+                    self._trace_restore_module_state(self.scratchpad, scratchpad_snapshot)
+                    self._trace_restore_module_state(self.tangling, tangling_snapshot)
+                    self._trace_restore_module_state(self.logits, logits_snapshot)
+                    if was_training:
+                        self.train()
+                    else:
+                        self.eval()
             
     @whocalled    
     def applyRepetitionPenalty(self, _logits, _contextTokens = None):
@@ -1014,6 +2036,25 @@ class BABYLLM(nn.Module):
     @whocalled    
     def saveModel(self, _trainingStepCounter, _totalAvgLoss, _first, filePath = modelFilePath, _newStartIndex = trainingStartIndex):
         with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
+            # Refuse to save if any parameter OR memory buffer contains NaN/Inf.
+            # A corrupted checkpoint is worse than no save — it would overwrite the last clean one.
+            nan_params = [(n, tuple(p.shape)) for n, p in self.named_parameters()
+                          if torch.is_floating_point(p) and not torch.isfinite(p).all()]
+            if nan_params:
+                print(f"⚠️ [SAVE BLOCKED] {len(nan_params)} NaN/Inf parameter(s) detected — refusing to overwrite checkpoint!")
+                print(f"   First offenders: {[n for n, _ in nan_params[:5]]}")
+                return
+            # Also check memory buffers (these are not nn.Parameter so named_parameters() misses them)
+            mem_bufs = {
+                "memory.shortTermMemory": self.memory.shortTermMemory,
+                "memory.longTermMemory": self.memory.longTermMemory,
+                "memory2.shortTermMemory": self.memory2.shortTermMemory,
+                "memory2.longTermMemory": self.memory2.longTermMemory,
+            }
+            nan_bufs = [k for k, v in mem_bufs.items() if not torch.isfinite(v).all()]
+            if nan_bufs:
+                print(f"⚠️ [SAVE BLOCKED] NaN/Inf in memory buffers {nan_bufs} — refusing to overwrite checkpoint!")
+                return
             with open(stepCheckpointFilePath, "w") as f:
                 if debugPrints or True: print(f"HELLO I AM SAVEMODEL STEPCOUNTER IS {_trainingStepCounter} AND START INDEX IS {_newStartIndex} I SHOULD WRITE {str(_trainingStepCounter+_newStartIndex)} to {stepCheckpointFilePath}")
                 f.write(str(_trainingStepCounter+_newStartIndex)) # THIS ISNT REAL, FIX LATER, MAYBE MOVE SAVE AND LOAD TO WAKEUP?
@@ -1059,7 +2100,9 @@ class BABYLLM(nn.Module):
                 self.temperature = torch.exp(self.logTemp)  # TORCH.exp keeps gradient path!
                 self.interneuronNetwork.temperature = self.temperature
                 print(f"loading model from path: {filePath}") 
-                self.load_state_dict(torch.load(filePath, map_location=self.device), strict = saveStrict)
+                state_dict = torch.load(filePath, map_location=self.device)
+                state_dict = self._upgrade_sensory_state_dict(state_dict)
+                self.load_state_dict(state_dict, strict = saveStrict)
                 # try loading optimizer separately
                 if hasattr(self, "optimizer"):
                     optimPath = filePath + ".optim"
@@ -1082,11 +2125,21 @@ class BABYLLM(nn.Module):
                 if os.path.exists(buffers_path):
                     try:
                         memory_buffers_state = torch.load(buffers_path, map_location = self.device) # Load to current device
-                        self.memory.shortTermMemory.data.copy_(memory_buffers_state['memory1_short'])
-                        self.memory.longTermMemory.data.copy_(memory_buffers_state['memory1_long'])
-                        self.memory2.shortTermMemory.data.copy_(memory_buffers_state['memory2_short'])
-                        self.memory2.longTermMemory.data.copy_(memory_buffers_state['memory2_long'])
-                        print(f"Memory buffers restored from {buffers_path}")
+                        # Guard: if any buffer is NaN/Inf, refuse to load and zero everything.
+                        nan_bufs = [k for k, v in memory_buffers_state.items()
+                                    if isinstance(v, torch.Tensor) and not torch.isfinite(v).all()]
+                        if nan_bufs:
+                            print(f"⚠️ [MEMBUFF] NaN/Inf detected in {nan_bufs} — refusing to load corrupted memory buffers, initializing to zeros.")
+                            self.memory.shortTermMemory.zero_()
+                            self.memory.longTermMemory.zero_()
+                            self.memory2.shortTermMemory.zero_()
+                            self.memory2.longTermMemory.zero_()
+                        else:
+                            self.memory.shortTermMemory.data.copy_(memory_buffers_state['memory1_short'])
+                            self.memory.longTermMemory.data.copy_(memory_buffers_state['memory1_long'])
+                            self.memory2.shortTermMemory.data.copy_(memory_buffers_state['memory2_short'])
+                            self.memory2.longTermMemory.data.copy_(memory_buffers_state['memory2_long'])
+                            print(f"Memory buffers restored from {buffers_path}")
                     except Exception as e:
                         print(f"Failed to load memory buffers: {e}. Initializing to zeros.")
                         # Ensure they are zeroed if loading fails
@@ -1106,6 +2159,47 @@ class BABYLLM(nn.Module):
                 print(f"memory device set to {self.device}!")
                 
             except FileNotFoundError: print("no saved model found")
+
+    def _upgrade_sensory_state_dict(self, state_dict):
+        """Expand sensory tensors when older checkpoints have smaller dims."""
+
+        target_dim = int(self.sensory_dim)
+        target_pred_dim = int(self.sensory_pred_dim)
+
+        def _expand_1d(name, target_len, fill_value):
+            tensor = state_dict.get(name)
+            if tensor is None or tensor.dim() != 1 or tensor.numel() == target_len:
+                return
+            new_tensor = tensor.new_full((target_len,), fill_value)
+            copy_len = min(tensor.numel(), target_len)
+            new_tensor[:copy_len] = tensor[:copy_len]
+            state_dict[name] = new_tensor
+
+        def _expand_2d_cols(name, target_cols, fill_value):
+            tensor = state_dict.get(name)
+            if tensor is None or tensor.dim() != 2 or tensor.shape[1] == target_cols:
+                return
+            new_tensor = tensor.new_full((tensor.shape[0], target_cols), fill_value)
+            copy_cols = min(tensor.shape[1], target_cols)
+            new_tensor[:, :copy_cols] = tensor[:, :copy_cols]
+            state_dict[name] = new_tensor
+
+        def _expand_2d_rows(name, target_rows, fill_value):
+            tensor = state_dict.get(name)
+            if tensor is None or tensor.dim() != 2 or tensor.shape[0] == target_rows:
+                return
+            new_tensor = tensor.new_full((target_rows, tensor.shape[1]), fill_value)
+            copy_rows = min(tensor.shape[0], target_rows)
+            new_tensor[:copy_rows] = tensor[:copy_rows]
+            state_dict[name] = new_tensor
+
+        _expand_1d("sensory_scale", target_dim, 1e-5)
+        _expand_1d("sensory_bias", target_dim, 0.0)
+        _expand_2d_cols("sensoryEmbed.0.weight", target_dim, 1e-5)
+        _expand_2d_rows("sensoryPupil.weight", target_pred_dim, 1e-5)
+        _expand_1d("sensoryPupil.bias", target_pred_dim, 0.0)
+
+        return state_dict
 
     def generate(self, _prompt, _numTokens, _temperature):
         """
@@ -1137,8 +2231,9 @@ class BABYLLM(nn.Module):
                 input_tensor = torch.tensor(input_ids, dtype=torch.long, device=self.device)
                 logits, next_token_tensor = self.forward_and_sample(input_tensor, _training=False)
                 next_token_id = next_token_tensor.item()
-                # Real EOS: accept only if not requiring a speaker change
-                if eos_id is not None and i + 1 >= min_tokens_before_stop and next_token_id == eos_id and not eos_require_speaker_change:
+                # Real EOS: treat reserved EOS as a true message boundary once minimum
+                # length has been reached.
+                if eos_id is not None and i + 1 >= min_tokens_before_stop and next_token_id == eos_id:
                     break
                 # Otherwise accept and check for speaker-tag change to stop cleanly
                 gen_token_ids.append(next_token_id)
@@ -1149,7 +2244,14 @@ class BABYLLM(nn.Module):
                     try:
                         # decode a small tail safely
                         tail_ids = response_ids[-min(len(response_ids), 64):]
-                        tail_text = self.librarian.decodeIDs([int(idx) for idx in tail_ids]).replace("Ġ", " ")
+                        tail_text = self.librarian.decodeIDs([int(idx) for idx in tail_ids])
+                        tail_text = (
+                            tail_text
+                            .replace("Ġ", " ")
+                            .replace("▁", " ")
+                            .replace("Ċ", "\n")
+                            .replace("ĉ", "\t")
+                        )
                         import re as _re
                         m = _re.search(r'(?:^|\n)([^\n:]{1,24}):\s?$', tail_text)
                         if m:
@@ -1160,7 +2262,13 @@ class BABYLLM(nn.Module):
         
         # Decode the generated IDs back into a string
         out_text = self.librarian.decodeIDs(response_ids)
-        out_text = out_text.replace("Ġ", " ")
+        out_text = (
+            out_text
+            .replace("Ġ", " ")
+            .replace("▁", " ")
+            .replace("Ċ", "\n")
+            .replace("ĉ", "\t")
+        )
         if strip_trailing_tag and out_text:
             try:
                 import re as _re

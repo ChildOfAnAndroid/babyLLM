@@ -102,6 +102,79 @@ def wakeup(windowMAX, dataStride, passRateSTART, lrGoal = learningRateGOAL, trai
                 # create a bot instance, pass in the staff etc
                 run_discord_bot(babyLLM, tutor, librarian, scribe, calligraphist, SECRETdiscordTokenSECRET)
 
+            elif mode == "unified":
+                print("=" * 60)
+                print("LAUNCHING UNIFIED MULTI-PLATFORM BOT (Discord + Twitch + Web)")
+                print("=" * 60)
+                if debugPrints: ʕっʘ‿ʘʔっ("starting unified multi-platform bot!")
+
+                import asyncio
+                from phone.discord_bot.bot import BABYBOT_DISCORD
+
+                # Create bot instance
+                bot = BABYBOT_DISCORD(
+                    babyLLM=babyLLM,
+                    tutor=tutor,
+                    librarian=librarian,
+                    scribe=scribe,
+                    calligraphist=calligraphist,
+                    discordToken=SECRETdiscordTokenSECRET,
+                    discordChannel=bby_spam_channel_id,
+                )
+
+                async def run_unified():
+                    # Set up bot
+                    await bot.setup_bot()
+
+                    # Enable Twitch
+                    print("[UNIFIED] Enabling Twitch integration...")
+                    try:
+                        await bot.enable_twitch()  # Reads from config.twitch_channels
+                        print(f"[UNIFIED] Twitch enabled for channels: {twitch_channels}")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to enable Twitch: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        print("[UNIFIED] Continuing without Twitch...")
+
+                    # Enable Web API
+                    print("[UNIFIED] Enabling Web API integration...")
+                    try:
+                        await bot.enable_web(port=4420)
+                        print(f"[UNIFIED] Web API enabled on http://127.0.0.1:4420")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to enable Web API: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        print("[UNIFIED] Continuing without Web API...")
+
+                    # Start Discord bot
+                    print("\n[UNIFIED] Starting Discord bot...")
+                    print("=" * 60)
+                    print("UNIFIED MULTI-PLATFORM BOT IS NOW RUNNING")
+                    print("Platforms: Discord + Twitch + Web API")
+                    print("Press Ctrl+C to stop")
+                    print("=" * 60)
+
+                    # Load model
+                    babyLLM.loadModel()
+                    babyLLM.to(modelDevice)
+
+                    try:
+                        await bot.start(SECRETdiscordTokenSECRET)
+                    except KeyboardInterrupt:
+                        print("\n[SHUTDOWN] Stopping unified bot...")
+                    finally:
+                        if hasattr(bot, 'disable_twitch'):
+                            await bot.disable_twitch()
+                        if hasattr(bot, 'disable_web'):
+                            await bot.disable_web()
+                        await bot.close()
+                        print("[SHUTDOWN] Unified bot stopped")
+
+                # Run the unified bot
+                asyncio.run(run_unified())
+
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")
                 if first == True: newStartIndex = openingQuestions(_counsellor=counsellor, _librarian=librarian, _windowMAX=windowMAX, _first=True)
@@ -193,18 +266,24 @@ def main():
     logFreq_A           = trainingLogFreq_A
     learnRateGoal       = learningRateGOAL
 
-    if len(sys.argv) > 1 and sys.argv[1].lower() == "bot":
-        run_mode = "twitch"
+    if len(sys.argv) > 1:
+        arg = sys.argv[1].lower()
+        if arg == "bot": run_mode = "twitch"
+        elif arg in ("unified", "u", "all"): run_mode = "unified"
+        elif arg in ("discord", "d"): run_mode = "discord"
+        elif arg in ("twitch", "t"): run_mode = "twitch"
+        else: run_mode = "train"
     else:
-        choice = input("run in train mode, [d]iscord, or as [t]witch bot? ").lower()
-        
+        choice = input("run in train mode, [d]iscord, [t]witch, or [u]nified (discord+twitch)? ").lower()
+
         if choice.startswith('t'): run_mode = "twitch"
         elif choice.startswith('d'): run_mode = "discord"
+        elif choice.startswith('u'): run_mode = "unified"
         else: run_mode = "train"
 
         print(f"Choice {choice} run_mode => {run_mode}")
 
-    if run_mode in ["twitch", "discord"]: 
+    if run_mode in ["twitch", "discord", "unified"]: 
         wakeup(windowMAX            = windowMAX, 
                 dataStride          = dataStride, 
                 totalTurnsAwake     = totalTurnsAwake, 

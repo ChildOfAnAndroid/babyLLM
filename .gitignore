@@ -1,6 +1,4 @@
-# ===================================
 # CHARIS CAT 2025 - babyLLM .gitignore
-# ===================================
 
 # System Files
 .DS_Store
@@ -55,6 +53,7 @@ trainingDataNOW.txt
 trainingData*.txt
 lineSortedData.txt
 similarity_matrix.csv
+scribeSays.txt
 
 # JSON State Files
 babyLove.json
@@ -63,31 +62,28 @@ userNicknames.json
 chatHistory.json
 bbybook.json
 bby_request.json
+autonomy.json
+babyState.json
+bby_request.json
+command_stats.json
+smink_*.json
+
+# SAFE JSON & TXT DESTROYERRRR
+*.json
+*.txt
 
 # Archive & Old Code
 archive/
 archive*/
 **/archive/
 ARCHIVE_*/
+utils/
 
-# SHKAIRA System (mostly generated)
+# System Generated
+school/library/*
 SHKAIRA/statistics/
 SHKAIRA/soul/
 SHKAIRA/vocabCache/
-
-# School System Generated
-school/library/trainingData*
-school/library/charisStudies/
-school/library/logic.txt
-school/library/pt*.txt
-school/library/curriculum.txt
-school/library/f.f.
-school/statistics/LOGS/
-
-# Brain System
-brain/soul/
-brain/*.json
-brain/*.gif
 
 # Images & Media
 *.aseprite
@@ -101,12 +97,10 @@ brain/*.gif
 *.log
 logs/
 
-# Temporary Scripts (auto-generated)
+# Temporary Scripts
 temp_*.py
 test_*.py
 *_test.py
-migrate.py
-presenceCheck.py
 
 # SECRETS - NEVER COMMIT!
 secret.py
@@ -115,17 +109,9 @@ secret.py
 *.key
 *.pem
 credentials.json
+.tio.tokens.json
 
 # Mac Specific
 .AppleDouble
 .LSOverride
 Icon?
-
-# Windows Specific  
-ehthumbs.db
-Desktop.ini
-
-# Linux Specific
-*~
-.fuse_hidden*
-.nfs*

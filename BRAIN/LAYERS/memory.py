@@ -32,6 +32,11 @@ class MEMORY(nn.Module):
                                 nn.LayerNorm(numNeurons, device = self.device)            # final safety net
                                 )
 
+        # Output normalization and gating (for safe integration with rest of architecture)
+        self.output_norm = nn.LayerNorm(numNeurons, device = self.device)
+        gate_init = -4.0  # sigmoid(-4.0) ≈ 0.018, starts small to preserve existing training
+        self.output_gate = nn.Parameter(torch.tensor(gate_init, device = self.device))
+
         # buffers to store memory (outside gradient)
         self.register_buffer("shortTermMemory", torch.zeros(1, numNeurons, device=self.device))
         self.register_buffer("longTermMemory", torch.zeros(1, numNeurons, device=self.device))
@@ -108,15 +113,26 @@ class MEMORY(nn.Module):
 
             if debugPrints: ʕっʘ‿ʘʔっ("shortTermDecay")
             shortDecay = torch.sigmoid(self.shortTermDecay)
-            #with torch.no_grad(): self.shortTermDecay.clamp_(-5, 5) # keeps sigmoid ~[0.0067, 0.9933], so memory doesnt vanish or freeze forever
+            with torch.no_grad(): self.shortTermDecay.clamp_(-5, 5) # keeps sigmoid ~[0.0067, 0.9933], so memory doesnt vanish or freeze forever
             if debugPrints: ʕっʘ‿ʘʔっ("longTermDecay")
             longDecay = torch.sigmoid(self.longTermDecay)
-            #with torch.no_grad(): self.longTermDecay.clamp_(-5, 5)
+            with torch.no_grad(): self.longTermDecay.clamp_(-5, 5) # prevents total decay collapse (was the root cause of the Feb 26 NaN event)
 
             if debugPrints: ʕっʘ‿ʘʔっ("newShortTermMemory")
-            newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * _activationsTensor)
+            # Clamp input activations to prevent unbounded accumulation.
+            # NOTE: must check isfinite() FIRST — NaN > 1000.0 == False, so the norm
+            # check alone silently passes NaN straight through.
+            safe_activations = _activationsTensor
+            if not torch.isfinite(safe_activations).all():
+                safe_activations = torch.zeros_like(safe_activations)  # NaN input → zero memory update
+            else:
+                act_norm = safe_activations.norm()
+                if act_norm > 1000.0:  # Emergency clamp if activations are exploding
+                    safe_activations = safe_activations / act_norm * 1000.0
+
+            newShort = (shortDecay * self.shortTermMemory) + ((1 - shortDecay) * safe_activations)
             if debugPrints: ʕっʘ‿ʘʔっ("newLongTermMemory")
-            newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * _activationsTensor)
+            newLong  = (longDecay * self.longTermMemory) + ((1 - longDecay) * safe_activations)
 
             if debugPrints: ʕっʘ‿ʘʔっ("self.inputReducer")
             reducedInput = self.inputReducer(_activationsTensor)
@@ -170,25 +186,28 @@ class MEMORY(nn.Module):
                 (actGateScale * _activationsTensor) +
                 (memGateScale * memoryGate)
             )
-            self.FINALmemory = self.gatedMemory
+
+            # Apply output normalization and gating with residual connection
+            if debugPrints: ʕっʘ‿ʘʔっ("output norm + gate + residual")
+            normalized_memory = self.output_norm(self.gatedMemory)
+            gated = torch.sigmoid(self.output_gate) * normalized_memory
+            self.FINALmemory = self.gatedMemory + gated  # residual connection!
 
             if debugPrints: ʕっʘ‿ʘʔっ("shortGateScale stats")
-            self.shortGateScaleHistory.append(shortGateScale.mean().item()) # 1
-            self.short_used = shortGateScale.mean().item()
+            _gate_stats = torch.stack([shortGateScale.mean(), longGateScale.mean(), actGateScale.mean(), memGateScale.mean()]).tolist()
+            self.short_used = _gate_stats[0];  self.shortGateScaleHistory.append(_gate_stats[0]) # 1
             self.shortDecay_used = shortDecay.detach().item()
-            self.longGateScaleHistory.append(longGateScale.mean().item()) # 2
-            self.long_used = longGateScale.mean().item()
+            self.long_used = _gate_stats[1];   self.longGateScaleHistory.append(_gate_stats[1]) # 2
             self.longDecay_used = longDecay.detach().item()
-            self.activationsGateScaleHistory.append(actGateScale.mean().item()) # 0
-            self.act_used = actGateScale.mean().item()
-            self.memGateScaleHistory.append(memGateScale.mean().item()) # 7
-            self.mem_used = memGateScale.mean().item()
+            self.act_used = _gate_stats[2];    self.activationsGateScaleHistory.append(_gate_stats[2]) # 0
+            self.mem_used = _gate_stats[3];    self.memGateScaleHistory.append(_gate_stats[3]) # 7
 
             if debugPrints: ʕっʘ‿ʘʔっ("raw activation stats")
-            self.rawActivationsNormHistory.append(_activationsTensor.norm().item()) # 0
-            self.rawActivationsHistory.append(_activationsTensor.mean().item()) # 0
-            self.rawActivationsMaxHistory.append( _activationsTensor.max().item()) # 0
-            self.rawActivationsMinHistory.append( _activationsTensor.min().item()) # 0
+            _raw_stats = torch.stack([_activationsTensor.norm(), _activationsTensor.mean(), _activationsTensor.max(), _activationsTensor.min()]).tolist()
+            self.rawActivationsNormHistory.append(_raw_stats[0]) # 0
+            self.rawActivationsHistory.append(_raw_stats[1]) # 0
+            self.rawActivationsMaxHistory.append(_raw_stats[2]) # 0
+            self.rawActivationsMinHistory.append(_raw_stats[3]) # 0
 
             """if debugPrints: ʕっʘ‿ʘʔっ("STM stats")
             self.shortTermMemoryNormHistory.append(self.shortTermMemory.norm().item()) # 1
@@ -233,27 +252,31 @@ class MEMORY(nn.Module):
             self.memoryGateMinHistory.append(memoryGate.min().item()) # 7"""
 
             if debugPrints: ʕっʘ‿ʘʔっ("final memory stats")
-            self.FINALmemoryNormHistory.append(self.FINALmemory.norm().item())
-            self.FINALmemoryHistory.append(self.FINALmemory.mean().item())
-            self.FINALmemoryMaxHistory.append(self.FINALmemory.max().item())
-            self.FINALmemoryMinHistory.append(self.FINALmemory.min().item())
+            _fin_stats = torch.stack([self.FINALmemory.norm(), self.FINALmemory.mean(), self.FINALmemory.max(), self.FINALmemory.min()]).tolist()
+            self.FINALmemoryNormHistory.append(_fin_stats[0])
+            self.FINALmemoryHistory.append(_fin_stats[1])
+            self.FINALmemoryMaxHistory.append(_fin_stats[2])
+            self.FINALmemoryMinHistory.append(_fin_stats[3])
 
             if len(self.shortGateScaleHistory) >= self.numTokensPerStep:
                 if debugPrints: ʕっʘ‿ʘʔっ("updateStats if short gate scale history >= self.numTokensPerStep")
                 statShortDecay = torch.sigmoid(self.shortTermDecay).item()
                 statLongDecay = torch.sigmoid(self.longTermDecay).item()
-                raw_norm = self._history_mean(self.rawActivationsNormHistory, 0.001)
-                raw_mean = self._history_mean(self.rawActivationsHistory, 0.001)
-                raw_max = self._history_mean(self.rawActivationsMaxHistory, 0.001)
-                raw_min = self._history_mean(self.rawActivationsMinHistory, 0.001)
-                final_norm = self._history_mean(self.FINALmemoryNormHistory, 0.001)
-                final_mean = self._history_mean(self.FINALmemoryHistory, 0.001)
-                final_max = self._history_mean(self.FINALmemoryMaxHistory, 0.001)
-                final_min = self._history_mean(self.FINALmemoryMinHistory, 0.001)
-                short_gate = self._history_mean(self.shortGateScaleHistory, 0.001)
-                long_gate = self._history_mean(self.longGateScaleHistory, 0.001)
-                act_gate = self._history_mean(self.activationsGateScaleHistory, 0.001)
-                mem_gate = self._history_mean(self.memGateScaleHistory, 0.001)
+                _flush_means = torch.stack([
+                    torch.as_tensor(list(self.rawActivationsNormHistory),    dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.rawActivationsHistory),        dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.rawActivationsMaxHistory),     dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.rawActivationsMinHistory),     dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.FINALmemoryNormHistory),       dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.FINALmemoryHistory),           dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.FINALmemoryMaxHistory),        dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.FINALmemoryMinHistory),        dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.shortGateScaleHistory),        dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.longGateScaleHistory),         dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.activationsGateScaleHistory),  dtype=torch.float32, device=self.device),
+                    torch.as_tensor(list(self.memGateScaleHistory),          dtype=torch.float32, device=self.device),
+                ]).mean(dim=1).add_(0.001).tolist()
+                raw_norm, raw_mean, raw_max, raw_min, final_norm, final_mean, final_max, final_min, short_gate, long_gate, act_gate, mem_gate = _flush_means
                 self.stats = {
                     "4M_0_rawActs_norm": raw_norm,
                     "4M_0_rawActs_mean": raw_mean,
@@ -326,10 +349,16 @@ class MEMORY(nn.Module):
             with torch.no_grad():
                 if new_short is not None:
                     if debugPrints: ʕっʘ‿ʘʔっ("self.shortTermMemory.copy_")
-                    self.shortTermMemory.copy_(new_short.detach())
+                    if torch.isfinite(new_short).all():
+                        self.shortTermMemory.copy_(new_short.detach())
+                    else:
+                        print("⚠️ [MEMORY] NaN in new_short — skipping buffer update to protect shortTermMemory")
                 if new_long is not None:
                     if debugPrints: ʕっʘ‿ʘʔっ("self.longTermMemory.copy_")
-                    self.longTermMemory.copy_(new_long.detach())
+                    if torch.isfinite(new_long).all():
+                        self.longTermMemory.copy_(new_long.detach())
+                    else:
+                        print("⚠️ [MEMORY] NaN in new_long — skipping buffer update to protect longTermMemory")
 
             self.newShort = None
             self.newLong = None
