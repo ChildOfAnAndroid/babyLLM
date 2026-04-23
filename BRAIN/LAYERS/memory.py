@@ -390,4 +390,12 @@ class MEMORY(nn.Module):
 
     @whocalled
     def clearStats(self):
-        self._init_history_buffers()
+        self.stats = {}
+        self._reset_history_buffers()
+        with torch.no_grad():
+            self.reducedInputBuf.zero_()
+            self.gateLogitsBuf.zero_()
+        self.newShort = None
+        self.newLong = None
+        if hasattr(self, "activationsTensor"):
+            self.activationsTensor = None
