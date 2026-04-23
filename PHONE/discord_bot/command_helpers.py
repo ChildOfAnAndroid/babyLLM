@@ -16,11 +16,12 @@ Classes:
     - RandomGenerator: Simplified RNG interface
 """
 
-import random
-from typing import Optional, Dict, Any, List
-from discord.ext import commands
+from typing import Any, Dict, List, Optional
+
 import discord
-from .utils import to_british_english, normalise_embed_british_english
+from discord.ext import commands
+
+from .utils import normalise_embed_british_english, to_british_english
 
 
 class CommandContext:
@@ -87,7 +88,7 @@ class CommandContext:
         import re
 
         # Handle Discord mention format
-        mention_match = re.match(r'<@!?(\d+)>', target)
+        mention_match = re.match(r"<@!?(\d+)>", target)
         if mention_match:
             return mention_match.group(1)
 
@@ -98,8 +99,8 @@ class CommandContext:
         # Handle username lookup
         target_lower = target.lower()
         for uid, user_data in self.bot.baby_users.items():
-            username = user_data.get('username', '').lower()
-            display_name = user_data.get('display_name', '').lower()
+            username = user_data.get("username", "").lower()
+            display_name = user_data.get("display_name", "").lower()
             if username == target_lower or display_name == target_lower:
                 return uid
 
@@ -114,7 +115,9 @@ class CommandContext:
         await self.reply(message)
         self._reset_cooldown()
 
-    async def reply(self, content: str = "", embed: discord.Embed = None) -> discord.Message:
+    async def reply(
+        self, content: str = "", embed: discord.Embed = None
+    ) -> discord.Message:
         """Send a reply to the command."""
         content = to_british_english(str(content or ""))
         embed = normalise_embed_british_english(embed)
@@ -123,16 +126,16 @@ class CommandContext:
     def _reset_cooldown(self):
         """Reset command cooldown for this context."""
         try:
-            if hasattr(self.cog, 'reset_command_cooldown'):
+            if hasattr(self.cog, "reset_command_cooldown"):
                 self.cog.reset_command_cooldown(self.ctx)
         except Exception as e:
             print(f"[CommandContext] Failed to reset cooldown: {e}")
 
-    def get_user_data(self) -> 'UserData':
+    def get_user_data(self) -> "UserData":
         """Get a UserData wrapper for the command author."""
         return UserData(self.author, self.cog)
 
-    def get_target_user_data(self) -> Optional['UserData']:
+    def get_target_user_data(self) -> Optional["UserData"]:
         """Get a UserData wrapper for the target user (if any)."""
         if not self.target:
             return None
@@ -169,7 +172,7 @@ class UserData:
 
     def _load_data(self):
         """Load user data from bot.baby_users."""
-        if not hasattr(self.bot, 'baby_users'):
+        if not hasattr(self.bot, "baby_users"):
             self._data = {}
             return
 
@@ -178,13 +181,13 @@ class UserData:
         # If user doesn't exist, create minimal entry
         if not self._data:
             self._data = {
-                'username': '',
-                'display_name': '',
-                'bby': 0,
-                'inventory': {},
-                'facts_awarded': 0,
-                'last_daily': 0,
-                'message_count': 0,
+                "username": "",
+                "display_name": "",
+                "bby": 0,
+                "inventory": {},
+                "facts_awarded": 0,
+                "last_daily": 0,
+                "message_count": 0,
             }
             self.bot.baby_users[self.user_id] = self._data
 
@@ -243,7 +246,7 @@ class UserData:
         Returns:
             Item count
         """
-        inventory = self.get('inventory', {})
+        inventory = self.get("inventory", {})
         return inventory.get(item, default)
 
     def has_item(self, item: str, amount: int = 1) -> bool:
@@ -267,22 +270,22 @@ class UserData:
     @property
     def username(self) -> str:
         """Get username."""
-        return self.get('username', '')
+        return self.get("username", "")
 
     @property
     def display_name(self) -> str:
         """Get display name."""
-        return self.get('display_name', '')
+        return self.get("display_name", "")
 
     @property
     def bby(self) -> float:
         """Get BBY currency amount."""
-        return self.get('bby', 0)
+        return self.get("bby", 0)
 
     @bby.setter
     def bby(self, value: float):
         """Set BBY currency amount."""
-        self.set('bby', value)
+        self.set("bby", value)
 
 
 class InventoryManager:
@@ -313,7 +316,7 @@ class InventoryManager:
 
     def get_inventory(self) -> Dict[str, int]:
         """Get full inventory dict."""
-        return self.user_data.get('inventory', {})
+        return self.user_data.get("inventory", {})
 
     def get_item_count(self, item: str) -> int:
         """Get count of specific item."""
@@ -340,7 +343,7 @@ class InventoryManager:
         inventory = self.get_inventory()
         current = inventory.get(item, 0)
         inventory[item] = current + amount
-        self.user_data.set('inventory', inventory)
+        self.user_data.set("inventory", inventory)
         return True
 
     def remove_item(self, item: str, amount: int = 1) -> bool:
@@ -370,7 +373,7 @@ class InventoryManager:
         else:
             inventory[item] = new_amount
 
-        self.user_data.set('inventory', inventory)
+        self.user_data.set("inventory", inventory)
         return True
 
     def set_item(self, item: str, amount: int) -> bool:
@@ -393,11 +396,13 @@ class InventoryManager:
         else:
             inventory[item] = amount
 
-        self.user_data.set('inventory', inventory)
+        self.user_data.set("inventory", inventory)
         return True
 
     @staticmethod
-    def transfer_item(item: str, amount: int, from_user: UserData, to_user: UserData, cog) -> bool:
+    def transfer_item(
+        item: str, amount: int, from_user: UserData, to_user: UserData, cog
+    ) -> bool:
         """
         Transfer item between users (atomic operation).
 
@@ -509,7 +514,9 @@ class RandomGenerator:
         """
         self._rng.get_varied_choice().shuffle(x)
 
-    def choices(self, population: List[Any], weights: List[float] = None, k: int = 1) -> List[Any]:
+    def choices(
+        self, population: List[Any], weights: List[float] = None, k: int = 1
+    ) -> List[Any]:
         """
         Choose k elements with replacement (with optional weights).
 
@@ -525,7 +532,9 @@ class RandomGenerator:
 
 
 # Convenience functions for backward compatibility
-def create_command_context(ctx: commands.Context, cog, target: Optional[str] = None) -> CommandContext:
+def create_command_context(
+    ctx: commands.Context, cog, target: Optional[str] = None
+) -> CommandContext:
     """Create a CommandContext instance."""
     return CommandContext(ctx, cog, target)
 
@@ -546,12 +555,12 @@ def create_random_generator(varied_random) -> RandomGenerator:
 
 
 __all__ = [
-    'CommandContext',
-    'UserData',
-    'InventoryManager',
-    'RandomGenerator',
-    'create_command_context',
-    'create_user_data',
-    'create_inventory_manager',
-    'create_random_generator',
+    "CommandContext",
+    "UserData",
+    "InventoryManager",
+    "RandomGenerator",
+    "create_command_context",
+    "create_user_data",
+    "create_inventory_manager",
+    "create_random_generator",
 ]

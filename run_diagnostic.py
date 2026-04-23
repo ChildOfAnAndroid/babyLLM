@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 # Standalone diagnostic that loads the model like wakeup.py does
 
+
 import torch
-import sys
+
 from babyLLM import BABYLLM
-from school.staffroom.counsellor import COUNSELLOR
-from school.staffroom.calligraphist import S_OUTPUT
-from school.staffroom.librarian import LIBRARIAN
-from school.staffroom.HE_IS_SCRIBE import SCRIBE
 from config import *
+from school.staffroom.calligraphist import S_OUTPUT
+from school.staffroom.counsellor import COUNSELLOR
+from school.staffroom.HE_IS_SCRIBE import SCRIBE
+from school.staffroom.librarian import LIBRARIAN
 
 print("=" * 80)
 print("ATTENTION2 EXPLOSION DIAGNOSTIC")
@@ -19,20 +20,32 @@ print("\n[1/5] Initializing counsellor...")
 counsellor = COUNSELLOR("diagnostic", _debug=False, _durations=False)
 
 print("[2/5] Initializing librarian...")
-librarian = LIBRARIAN(_counsellor=counsellor, _baseTokenizerPath=None, _forceRetrain=False)
+librarian = LIBRARIAN(
+    _counsellor=counsellor, _baseTokenizerPath=None, _forceRetrain=False
+)
 
 print("[3/5] Initializing calligraphist...")
 calligraphist = S_OUTPUT(_counsellor=counsellor)
 
 print("[4/5] Initializing scribe...")
-scribe = SCRIBE(_counsellor=counsellor, _calligraphist=calligraphist,
-                _librarian=librarian, _numTokensPerStep=264)
+scribe = SCRIBE(
+    _counsellor=counsellor,
+    _calligraphist=calligraphist,
+    _librarian=librarian,
+    _numTokensPerStep=264,
+)
 
 print("[5/5] Loading babyLLM...")
-model = BABYLLM(_counsellor=counsellor, _calligraphist=calligraphist,
-                _scribe=scribe, _librarian=librarian,
-                _device=modelDevice, _numTokensPerStep=264,
-                _first=True, _learningRateGOAL=learningRateGOAL)
+model = BABYLLM(
+    _counsellor=counsellor,
+    _calligraphist=calligraphist,
+    _scribe=scribe,
+    _librarian=librarian,
+    _device=modelDevice,
+    _numTokensPerStep=264,
+    _first=True,
+    _learningRateGOAL=learningRateGOAL,
+)
 
 print("\n" + "=" * 80)
 print("RUNNING DIAGNOSTICS")
@@ -66,12 +79,24 @@ for name, param in model.attention2.attn.named_parameters():
 # DIAGNOSTIC 2: Check expansion weights
 # ============================================================================
 print("\n2. Checking EXPANSION module weights...")
-print(f"   Tangling.project_up norm: {model.tangling.project_up.weight.norm().item():.2e}")
-print(f"   Tangling.project_down norm: {model.tangling.project_down.weight.norm().item():.2e}")
-print(f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_tangle_gate).item():.6f}")
-print(f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_tangle_gate).item():.6f}")
-print(f"   Scratchpad.write_strength: {torch.sigmoid(model.scratchpad.write_strength).item():.6f}")
-print(f"   Scratchpad.erase_strength: {torch.sigmoid(model.scratchpad.erase_strength).item():.6f}")
+print(
+    f"   Tangling.project_up norm: {model.tangling.project_up.weight.norm().item():.2e}"
+)
+print(
+    f"   Tangling.project_down norm: {model.tangling.project_down.weight.norm().item():.2e}"
+)
+print(
+    f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_tangle_gate).item():.6f}"
+)
+print(
+    f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_tangle_gate).item():.6f}"
+)
+print(
+    f"   Scratchpad.write_strength: {torch.sigmoid(model.scratchpad.write_strength).item():.6f}"
+)
+print(
+    f"   Scratchpad.erase_strength: {torch.sigmoid(model.scratchpad.erase_strength).item():.6f}"
+)
 
 # ============================================================================
 # DIAGNOSTIC 3: Test attention2 on clean input
@@ -87,14 +112,14 @@ with torch.no_grad():
         print(f"   Attention2 output norm: {out_norm:.2e}")
 
         if out_norm > 1e9:
-            print(f"   🔥 EXPLOSION CONFIRMED!")
+            print("   🔥 EXPLOSION CONFIRMED!")
             print(f"      Contains NaN: {torch.isnan(out).any().item()}")
             print(f"      Contains Inf: {torch.isinf(out).any().item()}")
             print(f"      Max value: {out.max().item():.2e}")
             print(f"      Min value: {out.min().item():.2e}")
             explosion_detected = True
         else:
-            print(f"   ✓ Output is reasonable")
+            print("   ✓ Output is reasonable")
     except Exception as e:
         print(f"   ❌ ERROR: {e}")
         explosion_detected = True
@@ -121,19 +146,19 @@ with torch.no_grad():
     try:
         output = model(test_input)
         stats = model.getForwardStats()
-        att2_norm = stats.get('4A_1_0_attnOut_norm', 'N/A')
-        mem_norm = stats.get('5M_memory_4M_x_FINAL_norm', 'N/A')
+        att2_norm = stats.get("4A_1_0_attnOut_norm", "N/A")
+        mem_norm = stats.get("5M_memory_4M_x_FINAL_norm", "N/A")
 
         print(f"   Attention2 attnOut_norm: {att2_norm}")
         print(f"   Memory FINAL_norm: {mem_norm}")
 
         if isinstance(att2_norm, (int, float)) and att2_norm > 1e9:
-            print(f"   🔥 ATTENTION2 EXPLODES EVEN WITHOUT EXPANSION!")
-            print(f"   → This is a PRE-EXISTING issue, not caused by new modules")
+            print("   🔥 ATTENTION2 EXPLODES EVEN WITHOUT EXPANSION!")
+            print("   → This is a PRE-EXISTING issue, not caused by new modules")
             explosion_detected = True
         else:
-            print(f"   ✓ Model is stable when expansion disabled")
-            print(f"   → Explosion is CAUSED BY NEW MODULES")
+            print("   ✓ Model is stable when expansion disabled")
+            print("   → Explosion is CAUSED BY NEW MODULES")
     except Exception as e:
         print(f"   ❌ ERROR during forward pass: {e}")
         explosion_detected = True
@@ -157,14 +182,14 @@ with torch.no_grad():
     try:
         output = model(test_input)
         stats = model.getForwardStats()
-        att2_norm = stats.get('4A_1_0_attnOut_norm', 'N/A')
+        att2_norm = stats.get("4A_1_0_attnOut_norm", "N/A")
 
         print(f"   Attention2 attnOut_norm: {att2_norm}")
 
         if isinstance(att2_norm, (int, float)) and att2_norm > 1e9:
-            print(f"   🔥 TANGLING CAUSES EXPLOSION!")
+            print("   🔥 TANGLING CAUSES EXPLOSION!")
         else:
-            print(f"   ✓ Tangling alone is stable")
+            print("   ✓ Tangling alone is stable")
     except Exception as e:
         print(f"   ❌ ERROR: {e}")
 

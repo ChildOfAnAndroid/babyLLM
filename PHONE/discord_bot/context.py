@@ -1,31 +1,47 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔっ --- 
+# --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // phone/discord_bot/context.py
 # v1.1
 
-from types import SimpleNamespace
 import inspect
+from types import SimpleNamespace
 from typing import Optional
 
+
 class FakeTyping:
-    async def __aenter__(self): pass
-    async def __aexit__(self, exc_type, exc_val, exc_tb): pass
+    async def __aenter__(self):
+        pass
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 class FakeMessage:
-    def __init__(self, content, author, channel=None, guild=None, mentions=None, message_id=0):
+    def __init__(
+        self, content, author, channel=None, guild=None, mentions=None, message_id=0
+    ):
         self.content = content
         self.author = author
-        self.channel = channel or SimpleNamespace(name='web_channel', id=0)
+        self.channel = channel or SimpleNamespace(name="web_channel", id=0)
         self.guild = guild
         self.mentions = mentions or []
         self.reactions = []
         self.id = message_id
 
-    async def add_reaction(self, emoji): print(f"[FAKE_CONTEXT] ignored attempt to add reaction: {emoji}")
- 
-def create_fake_context(bot=None, author_id: str = None, author_name: str = 'kevinonline420',
-                        channel_id: str = '0', message_content: str = '', platform: str = 'web',
-                        user_text: str = None, reply_sink=None):
+    async def add_reaction(self, emoji):
+        print(f"[FAKE_CONTEXT] ignored attempt to add reaction: {emoji}")
+
+
+def create_fake_context(
+    bot=None,
+    author_id: str = None,
+    author_name: str = "kevinonline420",
+    channel_id: str = "0",
+    message_content: str = "",
+    platform: str = "web",
+    user_text: str = None,
+    reply_sink=None,
+):
     """
     Create a fake context for testing or cross-platform command routing
 
@@ -49,26 +65,30 @@ def create_fake_context(bot=None, author_id: str = None, author_name: str = 'kev
         nonlocal captured_reply
         if content:
             # Ensure we always capture as string, never as object
-            if hasattr(content, 'content'):
-                captured_reply = str(content.content)  # Extract content from message objects
+            if hasattr(content, "content"):
+                captured_reply = str(
+                    content.content
+                )  # Extract content from message objects
             else:
                 captured_reply = str(content)
         elif embed is not None:
-            captured_reply = str(getattr(embed, "description", "") or getattr(embed, "title", "") or "")
+            captured_reply = str(
+                getattr(embed, "description", "") or getattr(embed, "title", "") or ""
+            )
 
         # Optional sink for cross-platform adapters (e.g., Twitch) to actually send replies.
         if reply_sink is not None:
             sink_result = reply_sink(content=content, embed=embed)
             if inspect.isawaitable(sink_result):
                 await sink_result
-        return FakeMessage(captured_reply, SimpleNamespace(name='babyLLM'))
+        return FakeMessage(captured_reply, SimpleNamespace(name="babyLLM"))
 
     async def fake_send_func(content="", embed=None, **kwargs):
         # Mirror Discord's ctx.send/content+embed shape for cross-platform calls.
         return await fake_reply_func(content=content, embed=embed, **kwargs)
 
     fake_channel = SimpleNamespace(
-        name=f'{platform}_channel',
+        name=f"{platform}_channel",
         id=channel_id,
         send=fake_send_func,
     )
@@ -98,14 +118,24 @@ def create_fake_context(bot=None, author_id: str = None, author_name: str = 'kev
         id=author_id or 0,
         display_name=author_name,
         bot=False,
-        is_mod=False
+        is_mod=False,
     )
-    fake_message = FakeMessage(message_content, fake_author, channel=fake_channel, guild=fake_guild, mentions=[])
+    fake_message = FakeMessage(
+        message_content,
+        fake_author,
+        channel=fake_channel,
+        guild=fake_guild,
+        mentions=[],
+    )
 
     # Extract command name from message if it starts with !
-    command_name = 'babyllm'
-    if message_content.startswith('!'):
-        command_name = message_content.split()[0][1:] if ' ' in message_content else message_content[1:]
+    command_name = "babyllm"
+    if message_content.startswith("!"):
+        command_name = (
+            message_content.split()[0][1:]
+            if " " in message_content
+            else message_content[1:]
+        )
 
     fake_command = SimpleNamespace(name=command_name)
 
@@ -165,9 +195,13 @@ def create_platform_command_context(
     async def platform_reply(content="", embed=None, **kwargs):
         nonlocal captured_reply
         if content:
-            captured_reply = str(content.content) if hasattr(content, "content") else str(content)
+            captured_reply = (
+                str(content.content) if hasattr(content, "content") else str(content)
+            )
         elif embed is not None:
-            captured_reply = str(getattr(embed, "description", "") or getattr(embed, "title", "") or "")
+            captured_reply = str(
+                getattr(embed, "description", "") or getattr(embed, "title", "") or ""
+            )
 
         await _emit_via_sink(reply_sink, content=content, embed=embed, **kwargs)
         return FakeMessage(
@@ -180,9 +214,13 @@ def create_platform_command_context(
     async def platform_send(content="", embed=None, **kwargs):
         nonlocal captured_reply
         if content:
-            captured_reply = str(content.content) if hasattr(content, "content") else str(content)
+            captured_reply = (
+                str(content.content) if hasattr(content, "content") else str(content)
+            )
         elif embed is not None:
-            captured_reply = str(getattr(embed, "description", "") or getattr(embed, "title", "") or "")
+            captured_reply = str(
+                getattr(embed, "description", "") or getattr(embed, "title", "") or ""
+            )
 
         sink = send_sink or reply_sink
         await _emit_via_sink(sink, content=content, embed=embed, **kwargs)
@@ -247,5 +285,11 @@ def create_platform_command_context(
         bot=bot,
         platform=platform,
     )
- 
-__all__ = ["FakeTyping", "FakeMessage", "create_fake_context", "create_platform_command_context"]
+
+
+__all__ = [
+    "FakeTyping",
+    "FakeMessage",
+    "create_fake_context",
+    "create_platform_command_context",
+]

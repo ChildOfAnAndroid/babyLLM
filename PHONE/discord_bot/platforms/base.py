@@ -3,16 +3,18 @@
 # BABYLLM PLATFORM BASE // phone/discord_bot/platforms/base.py
 # v1.0
 
-from abc import ABC, abstractmethod
-from typing import Optional, Any, Dict
-from dataclasses import dataclass
 import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Optional
+
 from ..utils import to_british_english
 
 
 @dataclass
 class PlatformMessage:
     """Unified message representation across platforms"""
+
     content: str
     author_id: str
     author_display_name: str
@@ -32,6 +34,7 @@ class PlatformMessage:
 @dataclass
 class PlatformContext:
     """Unified context for command execution"""
+
     message: PlatformMessage
     bot: Any
     command: Optional[str] = None
@@ -41,12 +44,14 @@ class PlatformContext:
     @property
     def author(self):
         """Convenience property to access author info"""
+
         class Author:
             def __init__(self, msg):
                 self.name = msg.author_id
                 self.display_name = msg.author_display_name
                 self.id = msg.author_id
                 self.is_mod = msg.is_mod
+
         return Author(self.message)
 
     async def send(self, content: str):

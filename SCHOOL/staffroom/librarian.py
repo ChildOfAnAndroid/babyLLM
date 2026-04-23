@@ -1,29 +1,41 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
+# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # VOCAB: TRAINING GENERATION AND TOKENIZATION
 # brain/LAYERS/vocab.py
 # v1.1
 
-from collections import Counter, deque
-from config import *
-from transformers import PreTrainedTokenizerFast
-from tokenizers import Tokenizer, models, trainers, pre_tokenizers, ByteLevelBPETokenizer
-from tokenizers.processors import ByteLevel
-from tokenizers.decoders import ByteLevel as ByteLevelDecoder
-import os, re, json, random, torch, itertools
-from SHKAIRA.notebook.tools.genBoi import *
-from collections import defaultdict
-from textCleaningTool import clean_text
 import csv
-import numpy as np
-from numpy.lib.format import open_memmap
+import itertools
+import json
+import os
+import random
+import re
+from collections import defaultdict, deque
 from typing import Callable, Iterator, Sequence
+
+import numpy as np
+import torch
+from numpy.lib.format import open_memmap
+from tokenizers import (
+    Tokenizer,
+    models,
+    pre_tokenizers,
+    trainers,
+)
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
+from transformers import PreTrainedTokenizerFast
+
+from config import *
+from SHKAIRA.notebook.tools.genBoi import *
+from textCleaningTool import clean_text
 
 _BRACKETED_CHILD_HANDLE = re.compile(
     r"\[\[\s*(?:childofagamingdroid|child of an android|childofanandroid|childo|coaa)\s*\]\]",
     re.IGNORECASE,
 )
-_BRACKETED_SIMPLE_LABEL = re.compile(r"\[\[\s*([a-z0-9 _.'-]{1,48})\s*\]\]", re.IGNORECASE)
+_BRACKETED_SIMPLE_LABEL = re.compile(
+    r"\[\[\s*([a-z0-9 _.'-]{1,48})\s*\]\]", re.IGNORECASE
+)
 
 
 def _normalize_bracketed_handles_for_training(text: str) -> str:
@@ -92,7 +104,7 @@ class _MemmapTokenSequence:
                 arr, local_idx = self._locate(idx)
                 seg_len = len(arr)
                 take = min(stop - idx, seg_len - local_idx)
-                view = arr[local_idx:local_idx + take]
+                view = arr[local_idx : local_idx + take]
                 if hasattr(view, "tolist"):
                     out.extend(view.tolist())
                 else:
@@ -144,6 +156,7 @@ class _TrainingPairStream:
         length = self._length if self._length is not None else "?"
         return f"<TrainingPairStream{desc} len={length}>"
 
+
 """
 Handles vocab creation, loading, and tokenization.
 
@@ -156,8 +169,17 @@ This class:
 - Generates training data pairs (input sequence, target token).
 - Saves and loads vocab data to/from files.
 """
+
+
 class LIBRARIAN:
-    def __init__(self, _counsellor, _vocabSize = vocabSize, _vocabPath = None, _baseTokenizerPath = None, _forceRetrain = False):
+    def __init__(
+        self,
+        _counsellor,
+        _vocabSize=vocabSize,
+        _vocabPath=None,
+        _baseTokenizerPath=None,
+        _forceRetrain=False,
+    ):
         self.v_counsellor = _counsellor
         self.vocabSize = _vocabSize
         self.unkToken = "<UNK>"
@@ -165,12 +187,22 @@ class LIBRARIAN:
         self.vocabFilename = f"vocab{_vocabSize}_{minTokenFreq}"
 
         self.tokenizerFilename = f"tokenizer_{_vocabSize}.json"
-        self.tokenizerPath = _vocabPath or os.path.join(self.vocabCache, self.tokenizerFilename)
-        self.tokenizerLockFile = os.path.join(self.vocabCache, f"{self.tokenizerFilename}.lock")
+        self.tokenizerPath = _vocabPath or os.path.join(
+            self.vocabCache, self.tokenizerFilename
+        )
+        self.tokenizerLockFile = os.path.join(
+            self.vocabCache, f"{self.tokenizerFilename}.lock"
+        )
 
-        self.vocabListFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_list.json")
-        self.tokenToIndexFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_index.json")
-        self.indexToTokenFile = os.path.join(self.vocabCache, f"{self.vocabFilename}_to_token.json")
+        self.vocabListFile = os.path.join(
+            self.vocabCache, f"{self.vocabFilename}_list.json"
+        )
+        self.tokenToIndexFile = os.path.join(
+            self.vocabCache, f"{self.vocabFilename}_to_index.json"
+        )
+        self.indexToTokenFile = os.path.join(
+            self.vocabCache, f"{self.vocabFilename}_to_token.json"
+        )
 
         self.vocabList = []
         self.tokenToIndex = {}
@@ -178,7 +210,7 @@ class LIBRARIAN:
 
         self.baseTokenizerPath = _baseTokenizerPath
 
-        os.makedirs(self.vocabCache, exist_ok = True)
+        os.makedirs(self.vocabCache, exist_ok=True)
 
         # small LRU-ish cache for per-file tokens to avoid re-tokenizing
         # during autonomy; keep bounded to prevent memory growth
@@ -191,18 +223,22 @@ class LIBRARIAN:
         self._training_token_count_estimate: int | None = None
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
-
-            shouldTrain = _forceRetrain or not os.path.exists(self.tokenizerPath) or not os.path.exists(self.tokenizerLockFile)
+            shouldTrain = (
+                _forceRetrain
+                or not os.path.exists(self.tokenizerPath)
+                or not os.path.exists(self.tokenizerLockFile)
+            )
 
             if shouldTrain:
-                if debugPrints: ʕっʘ‿ʘʔっ("TRAINING NEW TOKENIZER")
+                if debugPrints:
+                    ʕっʘ‿ʘʔっ("TRAINING NEW TOKENIZER")
                 print("training new tokenizer...")
-                tokenizerModel = Tokenizer(models.BPE(unk_token = self.unkToken))
+                tokenizerModel = Tokenizer(models.BPE(unk_token=self.unkToken))
                 tokenizerModel.pre_tokenizer = pre_tokenizers.ByteLevel()
                 trainer = trainers.BpeTrainer(
-                    vocab_size = self.vocabSize,
-                    min_frequency = minTokenFreq,
-                    special_tokens=[self.unkToken]
+                    vocab_size=self.vocabSize,
+                    min_frequency=minTokenFreq,
+                    special_tokens=[self.unkToken],
                 )
 
                 with open(trainingFilePath, "r", encoding="utf-8") as f:
@@ -211,26 +247,32 @@ class LIBRARIAN:
                 tokenizerModel.save(self.tokenizerPath)
 
                 with open(self.tokenizerLockFile, "w") as f:
-                    f.write("LOCKED") # avoid retraining by accident lol
+                    f.write("LOCKED")  # avoid retraining by accident lol
 
             if debugPrints and not shouldTrain:
                 ʕっʘ‿ʘʔっ("LOADING EXISTING TOKENIZER")
                 print("loading existing tokenizer...")
 
-            self.tokenizer = PreTrainedTokenizerFast(tokenizer_file=self.tokenizerPath, unk_token=self.unkToken, add_prefix_space=True,)
+            self.tokenizer = PreTrainedTokenizerFast(
+                tokenizer_file=self.tokenizerPath,
+                unk_token=self.unkToken,
+                add_prefix_space=True,
+            )
             # byte-level decoder so decoded text is plain
             self.tokenizer.backend_tokenizer.decoder = ByteLevelDecoder()
 
             self.buildVocabMap()
 
             if self.loadVocab():
-                if debugPrints: ʕっʘ‿ʘʔっ("loaded vocab from files...")
+                if debugPrints:
+                    ʕっʘ‿ʘʔっ("loaded vocab from files...")
                 # Do NOT pre-load full training corpora into memory.
                 # Maintain an empty base token buffer; call sites should
                 # pass tokens explicitly or use tokens_from_file.
                 self.tokens: list[str] = []
             else:
-                if debugPrints: ʕっʘ‿ʘʔっ("building vocab from tokenizer...")
+                if debugPrints:
+                    ʕっʘ‿ʘʔっ("building vocab from tokenizer...")
                 self.buildVocabMap()
                 self.saveVocab()
                 print(f"saved vocab data to {self.vocabCache}!")
@@ -242,8 +284,10 @@ class LIBRARIAN:
             if debugPrints:
                 print(f"tokenizing: {_text}")
                 print(f"token ids: {ids}")
-            return [self.indexToToken.get(idx, self.unkToken) for idx in ids]  # Convert indexs back to strings
-        
+            return [
+                self.indexToToken.get(idx, self.unkToken) for idx in ids
+            ]  # Convert indexs back to strings
+
     def decodeIDs(self, _ids):
         with self.v_counsellor.infodump("decodeIDs") as ʕっʘ‿ʘʔっ:
             decoded = self.tokenizer.decode(_ids)
@@ -252,18 +296,24 @@ class LIBRARIAN:
                 print(f"decoding: {_ids}")
                 print(f"decoded: {decoded}")
             return decoded
-        
+
     def buildVocabMap(self):
         with self.v_counsellor.infodump("buildVocabMap") as ʕっʘ‿ʘʔっ:
-            if debugPrints: ʕっʘ‿ʘʔっ("getting vocab dictionary from tokenizer...")
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("getting vocab dictionary from tokenizer...")
             invVocab = self.tokenizer.get_vocab()
-            if debugPrints: ʕっʘ‿ʘʔっ("ordering by index...")
-            sortedTokens = sorted(invVocab.items(), key = lambda item: item[1])  # sort by index
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("ordering by index...")
+            sortedTokens = sorted(
+                invVocab.items(), key=lambda item: item[1]
+            )  # sort by index
             self.vocabList = [token for token, idx in sortedTokens]
-            if debugPrints: ʕっʘ‿ʘʔっ("mapping vocab dicts...")
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("mapping vocab dicts...")
             self.tokenToIndex = {token: idx for token, idx in sortedTokens}
             self.indexToToken = {idx: token for token, idx in sortedTokens}
-            if debugPrints: ʕっʘ‿ʘʔっ("ensuring <UNK> is in the vocab...")
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("ensuring <UNK> is in the vocab...")
             if self.unkToken not in self.tokenToIndex:
                 self.vocabList.append(self.unkToken)
                 unk_index = len(self.vocabList) - 1
@@ -272,9 +322,12 @@ class LIBRARIAN:
             print(f"final vocab size: {len(self.vocabList)}")
             print(f"first 20 tokens: {self.vocabList[:20]}")
 
-    def huggingTokenizer(self, _text): return self.tokenizer.tokenize(_text)
+    def huggingTokenizer(self, _text):
+        return self.tokenizer.tokenize(_text)
 
-    def loadTrainingData(self, _filepaths, _chunkSize = V_chunkSizeLoadData, _dataCharactersToLoad = 900000):
+    def loadTrainingData(
+        self, _filepaths, _chunkSize=V_chunkSizeLoadData, _dataCharactersToLoad=900000
+    ):
         with self.v_counsellor.infodump("loadTrainingData") as ʕっʘ‿ʘʔっ:
             self._token_stream_factories = []
             memmaps: list[np.memmap] = []
@@ -357,14 +410,16 @@ class LIBRARIAN:
             print("[WARN] No training data sources available to load")
             return ""
 
-    def _iter_memmap_tokens(self, mmap_arr: np.memmap, block_size: int = 131072) -> Iterator[int]:
+    def _iter_memmap_tokens(
+        self, mmap_arr: np.memmap, block_size: int = 131072
+    ) -> Iterator[int]:
         block_size = max(1, int(block_size))
         try:
             length = int(len(mmap_arr))
         except Exception:
             length = int(mmap_arr.shape[0])
         for start in range(0, length, block_size):
-            block = mmap_arr[start:start + block_size]
+            block = mmap_arr[start : start + block_size]
             for val in block:
                 yield val.item() if hasattr(val, "item") else val
 
@@ -404,7 +459,9 @@ class LIBRARIAN:
                 while True:
                     if remaining is not None and remaining <= 0:
                         break
-                    to_read = chunk_size if remaining is None else min(chunk_size, remaining)
+                    to_read = (
+                        chunk_size if remaining is None else min(chunk_size, remaining)
+                    )
                     chunk = f.read(to_read)
                     if not chunk:
                         break
@@ -420,7 +477,9 @@ class LIBRARIAN:
                         continue
                     if overlap:
                         tail_text = text[-overlap:]
-                        tail_tokens = self.tokenizer.encode(tail_text) if tail_text else []
+                        tail_tokens = (
+                            self.tokenizer.encode(tail_text) if tail_text else []
+                        )
                         emit_count = len(tokens) - len(tail_tokens)
                         if emit_count > 0:
                             for tok in tokens[:emit_count]:
@@ -462,7 +521,9 @@ class LIBRARIAN:
     ) -> int | None:
         if length_estimate is None:
             return None
-        total = max(0, int(length_estimate)) + (len(dynamic_tokens) if dynamic_tokens else 0)
+        total = max(0, int(length_estimate)) + (
+            len(dynamic_tokens) if dynamic_tokens else 0
+        )
         required = window * 2
         if total < start + required:
             return 0
@@ -470,7 +531,7 @@ class LIBRARIAN:
         if available < 0:
             positions = 0
         else:
-            positions = (available // stride)
+            positions = available // stride
         positions = max(0, positions)
         if limit is not None:
             positions = min(positions, limit)
@@ -510,7 +571,8 @@ class LIBRARIAN:
                     ):
                         yield (input_seq, target_seq)
                     elif all(
-                        t in token_lookup for t in itertools.chain(input_seq, target_seq)
+                        t in token_lookup
+                        for t in itertools.chain(input_seq, target_seq)
                     ):
                         yield (input_seq, target_seq)
                     else:
@@ -528,7 +590,14 @@ class LIBRARIAN:
 
         return factory
 
-    def loadSingleFile(self, path: str, ftype: str = "text", *, max_chars: int = 900000, strategy: str = "head") -> str:
+    def loadSingleFile(
+        self,
+        path: str,
+        ftype: str = "text",
+        *,
+        max_chars: int = 900000,
+        strategy: str = "head",
+    ) -> str:
         """Load and clean a single file according to its type.
 
         Supported types: 'text', 'json', 'discord_json', 'discord_txt',
@@ -540,7 +609,9 @@ class LIBRARIAN:
             typ = (ftype or "text").lower()
             if typ == "discord_json":
                 # Stream JSON array of strings to avoid loading whole file
-                raw = self._load_json_array_windowed(path, max_chars=max_chars, strategy=strategy)
+                raw = self._load_json_array_windowed(
+                    path, max_chars=max_chars, strategy=strategy
+                )
             elif typ == "discord_txt":
                 # Efficient windowed read: head/tail/random chunk from file
                 size = os.path.getsize(path)
@@ -568,7 +639,9 @@ class LIBRARIAN:
                         raw = self._reflow_to_lines(text, max_chars)
                     elif len(joined) > max_chars:
                         # reflow to keep line sizes reasonable and within budget
-                        raw = self._reflow_to_lines(joined[: max_chars + 512], max_chars)
+                        raw = self._reflow_to_lines(
+                            joined[: max_chars + 512], max_chars
+                        )
                     else:
                         raw = joined
                 else:
@@ -576,7 +649,9 @@ class LIBRARIAN:
                     raw = self._reflow_to_lines(text, max_chars)
             elif typ == "json":
                 # Try streaming if it's a JSON array of strings; otherwise fallback
-                streamed = self._load_json_array_windowed(path, max_chars=max_chars, strategy=strategy, soft=True)
+                streamed = self._load_json_array_windowed(
+                    path, max_chars=max_chars, strategy=strategy, soft=True
+                )
                 if streamed is not None:
                     raw = streamed
                 else:
@@ -593,7 +668,7 @@ class LIBRARIAN:
                     rdr = csv.DictReader(f)
                     bodies = []
                     for row in rdr:
-                        body = (row.get('body', '') or '').strip()
+                        body = (row.get("body", "") or "").strip()
                         if body:
                             bodies.append(body)
                     raw = "\n".join(bodies)
@@ -621,7 +696,9 @@ class LIBRARIAN:
                     if not joined.strip():
                         raw = self._reflow_to_lines(text, max_chars)
                     elif len(joined) > max_chars:
-                        raw = self._reflow_to_lines(joined[: max_chars + 512], max_chars)
+                        raw = self._reflow_to_lines(
+                            joined[: max_chars + 512], max_chars
+                        )
                     else:
                         raw = joined
                 else:
@@ -637,9 +714,11 @@ class LIBRARIAN:
             return clean_text(raw)
         except Exception:
             # Fallback: minimal clean
-            return re.sub(r'[ \t]+', ' ', raw).strip().lower()
+            return re.sub(r"[ \t]+", " ", raw).strip().lower()
 
-    def _reflow_to_lines(self, text: str, max_chars: int, max_line_len: int = 240, min_line_len: int = 20) -> str:
+    def _reflow_to_lines(
+        self, text: str, max_chars: int, max_line_len: int = 240, min_line_len: int = 20
+    ) -> str:
         """Reflow long, newline-free text into short lines for snippet mining.
 
         Produces lines in [min_line_len, max_line_len] where possible and caps
@@ -711,10 +790,10 @@ class LIBRARIAN:
                         pos += 1
                     if pos >= length:
                         break
-                    if buf[pos] == ',':
+                    if buf[pos] == ",":
                         pos += 1
                         continue
-                    if buf[pos] == ']':
+                    if buf[pos] == "]":
                         return
                     try:
                         value, next_pos = decoder.raw_decode(buf, pos)
@@ -730,7 +809,9 @@ class LIBRARIAN:
                         buf = buf[pos:]
                         pos = 0
 
-    def _load_json_array_windowed(self, path: str, *, max_chars: int, strategy: str, soft: bool = False) -> str | None:
+    def _load_json_array_windowed(
+        self, path: str, *, max_chars: int, strategy: str, soft: bool = False
+    ) -> str | None:
         """Load a window from a JSON array of strings without full load.
 
         - strategy: 'head'|'tail'|'random'
@@ -752,7 +833,7 @@ class LIBRARIAN:
                         ln = str(ln)
                     if total + len(ln) + 1 > max_chars:
                         if total == 0 and len(ln) >= 1:
-                            out.append(ln[: max_chars])
+                            out.append(ln[:max_chars])
                             total = max_chars
                         break
                     out.append(ln)
@@ -776,6 +857,7 @@ class LIBRARIAN:
 
             if strategy == "tail":
                 from collections import deque
+
                 dq: deque[str] = deque()
                 total = 0
                 seen_any = False
@@ -852,9 +934,19 @@ class LIBRARIAN:
                 return 0
             # Optional: append EOS token at the end of a chat line to teach end-of-sequence behavior
             try:
-                from config import enable_train_append_eos, eos_replacement_token_str, eos_append_probability
-                if enable_train_append_eos and eos_replacement_token_str and isinstance(text, str):
+                from config import (
+                    enable_train_append_eos,
+                    eos_append_probability,
+                    eos_replacement_token_str,
+                )
+
+                if (
+                    enable_train_append_eos
+                    and eos_replacement_token_str
+                    and isinstance(text, str)
+                ):
                     import random as _r
+
                     if _r.random() < float(eos_append_probability):
                         if not toks or toks[-1] != eos_replacement_token_str:
                             toks = list(toks) + [eos_replacement_token_str]
@@ -868,7 +960,14 @@ class LIBRARIAN:
         except Exception:
             return 0
 
-    def genTrainingData(self, _windowMAX = numTokensPerStepSTART, _startIndex = trainingStartIndex, _trainingDataPairNumber = 1, _stride = trainingDataStride, _tokens=None):
+    def genTrainingData(
+        self,
+        _windowMAX=numTokensPerStepSTART,
+        _startIndex=trainingStartIndex,
+        _trainingDataPairNumber=1,
+        _stride=trainingDataStride,
+        _tokens=None,
+    ):
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             if isinstance(_windowMAX, torch.Tensor):
                 _windowMAX = int(_windowMAX.item())
@@ -885,7 +984,9 @@ class LIBRARIAN:
 
             if _tokens is not None:
                 base_tokens = _tokens
-                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(base_tokens)
+                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(
+                    base_tokens
+                )
 
                 def base_iter_factory() -> Iterator:
                     return iter(base_tokens)
@@ -912,7 +1013,9 @@ class LIBRARIAN:
                 description = "stream"
             else:
                 base_tokens = self.tokens if self.tokens is not None else []
-                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(base_tokens)
+                tokens_are_indices = tokens_are_indices or self._sequence_is_indices(
+                    base_tokens
+                )
 
                 def base_iter_factory() -> Iterator:
                     return iter(base_tokens)
@@ -930,7 +1033,11 @@ class LIBRARIAN:
             if isinstance(start_index, torch.Tensor):
                 start_index = int(start_index.item())
             if start_index == "random":
-                estimate = length_estimate if length_estimate is not None else self.training_token_count_estimate()
+                estimate = (
+                    length_estimate
+                    if length_estimate is not None
+                    else self.training_token_count_estimate()
+                )
                 if estimate and estimate > window * 2:
                     start_index = random.randint(0, max(0, estimate - window * 2))
                 else:
@@ -972,18 +1079,20 @@ class LIBRARIAN:
                 start=start_index,
             )
 
-            return _TrainingPairStream(pair_factory, estimated_pairs, description=description)
+            return _TrainingPairStream(
+                pair_factory, estimated_pairs, description=description
+            )
 
     def genTrainingData_weighted(self, _windowMAX, _trainingDataPairNumber):
         # 1. Create a "pool" of training pairs for each data source type
         source_pools = defaultdict(list)
         print("Generating training pairs from each data source...")
-        
+
         # This assumes trainingFilePath_dict_weighted is available to the librarian
         for source_info in trainingFilePath_dict_weighted:
-            source_type = source_info['type']
-            source_path = source_info['in']
-            
+            source_type = source_info["type"]
+            source_path = source_info["in"]
+
             # Load and tokenize text for this specific file
             # (You'd need a way to load single files, modifying your loadTrainingData)
             text = self.loadSingleFile(source_path)
@@ -995,61 +1104,76 @@ class LIBRARIAN:
                 inputSeq = tokens[i : i + _windowMAX]
                 targetSeq = tokens[i + _windowMAX : i + _windowMAX * 2]
                 source_pools[source_type].append((inputSeq, targetSeq))
-                i += 1 # Using a stride of 1 here to get all pairs
+                i += 1  # Using a stride of 1 here to get all pairs
 
         # 2. Create the final list by sampling from pools based on weights
         final_training_pairs = []
-        source_weights = {info['type']: info['weight'] for info in trainingFilePath_dict_weighted}
-        
+        source_weights = {
+            info["type"]: info["weight"] for info in trainingFilePath_dict_weighted
+        }
+
         # normalise weights to get probabilities
         total_weight = sum(source_weights.values())
-        source_probs = {source: weight / total_weight for source, weight in source_weights.items()}
-        
+        source_probs = {
+            source: weight / total_weight for source, weight in source_weights.items()
+        }
+
         source_types = list(source_probs.keys())
         source_p_values = list(source_probs.values())
 
         print("Sampling from source pools to build final training set...")
         for _ in range(_trainingDataPairNumber):
             # Choose a source type based on its weight
-            chosen_source = random.choices(source_types, weights=source_p_values, k=1)[0]
-            
+            chosen_source = random.choices(source_types, weights=source_p_values, k=1)[
+                0
+            ]
+
             # Pick a random training pair from that source's pool
             if source_pools[chosen_source]:
                 pair = random.choice(source_pools[chosen_source])
                 final_training_pairs.append(pair)
-                
-        random.shuffle(final_training_pairs) # Final shuffle of the sampled pairs
+
+        random.shuffle(final_training_pairs)  # Final shuffle of the sampled pairs
         return final_training_pairs
 
     def saveVocab(self):
         with self.v_counsellor.infodump("saveVocab") as ʕっʘ‿ʘʔっ:
-            os.makedirs(self.vocabCache, exist_ok = True)  # Ensure directory exists
+            os.makedirs(self.vocabCache, exist_ok=True)  # Ensure directory exists
             with open(self.vocabListFile, "w", encoding="utf-8") as f:
-                if debugPrints: ʕっʘ‿ʘʔっ("save vocabList")
-                json.dump(self.vocabList, f, indent = 4)
+                if debugPrints:
+                    ʕっʘ‿ʘʔっ("save vocabList")
+                json.dump(self.vocabList, f, indent=4)
             with open(self.tokenToIndexFile, "w", encoding="utf-8") as f:
-                if debugPrints: ʕっʘ‿ʘʔっ("save tokenToIndex")
-                json.dump(self.tokenToIndex, f, indent = 4)
+                if debugPrints:
+                    ʕっʘ‿ʘʔっ("save tokenToIndex")
+                json.dump(self.tokenToIndex, f, indent=4)
             with open(self.indexToTokenFile, "w", encoding="utf-8") as f:
-                if debugPrints: ʕっʘ‿ʘʔっ("save indexToToken")
-                json.dump(self.indexToToken, f, indent = 4)
+                if debugPrints:
+                    ʕっʘ‿ʘʔっ("save indexToToken")
+                json.dump(self.indexToToken, f, indent=4)
 
     def loadVocab(self):
         with self.v_counsellor.infodump("loadVocab") as ʕっʘ‿ʘʔっ:
             try:
-                with open(self.vocabListFile, 'r', encoding='utf-8') as f:
-                    if debugPrints: ʕっʘ‿ʘʔっ("load vocabList")
+                with open(self.vocabListFile, "r", encoding="utf-8") as f:
+                    if debugPrints:
+                        ʕっʘ‿ʘʔっ("load vocabList")
                     self.vocabList = json.load(f)
-                with open(self.tokenToIndexFile, 'r', encoding='utf-8') as f:
-                    if debugPrints: ʕっʘ‿ʘʔっ("load tokenToIndex")
+                with open(self.tokenToIndexFile, "r", encoding="utf-8") as f:
+                    if debugPrints:
+                        ʕっʘ‿ʘʔっ("load tokenToIndex")
                     self.tokenToIndex = json.load(f)
-                with open(self.indexToTokenFile, 'r', encoding='utf-8') as f:
-                    if debugPrints: ʕっʘ‿ʘʔっ("load indexToToken")
-                    self.indexToToken = {int(k): v for k, v in json.load(f).items()} # ensures that keys are integers!
+                with open(self.indexToTokenFile, "r", encoding="utf-8") as f:
+                    if debugPrints:
+                        ʕっʘ‿ʘʔっ("load indexToToken")
+                    self.indexToToken = {
+                        int(k): v for k, v in json.load(f).items()
+                    }  # ensures that keys are integers!
                 print("vocab files loaded successfully!")
                 return bool(self.vocabList and self.tokenToIndex and self.indexToToken)
             except (FileNotFoundError, json.JSONDecodeError):
                 print("vocab files not found or invalid... rebuilding vocab...")
                 return False
+
 
 # __main__ test harness removed (legacy)

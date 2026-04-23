@@ -1,19 +1,21 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔっ --- 
+# --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // phone/command_utils.py
 # v1.1
 
 import re
 
-ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-_number_token = re.compile(r'(?<![\w.])(-?\d[\d,]*)(?![\w.])')
+ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+_number_token = re.compile(r"(?<![\w.])(-?\d[\d,]*)(?![\w.])")
 
 
 def strip_ansi(text: str) -> str:
-    return ansi_escape.sub('', text)
+    return ansi_escape.sub("", text)
+
 
 def _compact_large_numbers(text: str) -> str:
     """Compact large integers for chat readability (e.g. 10,532 -> 11k)."""
+
     def repl(match: re.Match[str]) -> str:
         raw = match.group(1)
         try:

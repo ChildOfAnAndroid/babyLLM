@@ -162,7 +162,9 @@ class VisionBus:
                 fallback_cam.set(self._cv2.CAP_PROP_BUFFERSIZE, 1)
             except Exception:
                 pass
-            print(f"[VisionBus] Camera sensor active (index {self.device_index}, probe fallback).")
+            print(
+                f"[VisionBus] Camera sensor active (index {self.device_index}, probe fallback)."
+            )
             return
         print("[VisionBus] Camera sensor unavailable.")
 
@@ -192,7 +194,12 @@ class VisionBus:
             return None
 
     def _read_frame(self):
-        if not self.has_camera or self.camera is None or self._cv2 is None or np is None:
+        if (
+            not self.has_camera
+            or self.camera is None
+            or self._cv2 is None
+            or np is None
+        ):
             return None
         return self._read_frame_from(self.camera)
 
@@ -221,7 +228,11 @@ class VisionBus:
             dynamic = float(frame.max() - frame.min())
         except Exception:
             return False
-        if not math.isfinite(mean) or not math.isfinite(std) or not math.isfinite(dynamic):
+        if (
+            not math.isfinite(mean)
+            or not math.isfinite(std)
+            or not math.isfinite(dynamic)
+        ):
             return False
         if dynamic < 0.02 and std < 0.01:
             return False

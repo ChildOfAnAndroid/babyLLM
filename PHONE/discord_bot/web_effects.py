@@ -8,6 +8,7 @@ helper functions for discord commands to affect web baby state
 import and use these in any command to animateee
 """
 
+
 def set_web_color(bot, r: int, g: int, b: int):
     """Set baby's color on website
 
@@ -15,13 +16,14 @@ def set_web_color(bot, r: int, g: int, b: int):
         bot: Bot instance
         r, g, b: RGB values (0-255)
     """
-    if hasattr(bot, '_web_R'):
+    if hasattr(bot, "_web_R"):
         bot._web_R = max(0, min(255, r))
         bot._web_G = max(0, min(255, g))
         bot._web_B = max(0, min(255, b))
         print(f"[Discord→Web] Color changed to RGB({r}, {g}, {b})")
         return True
     return False
+
 
 def set_web_emotion(bot, emotion: str):
     """Set baby's emotion on website
@@ -30,33 +32,33 @@ def set_web_emotion(bot, emotion: str):
         bot: Bot instance
         emotion: 'happy', 'sad', 'blushing', 'excited', 'normal'
     """
-    if not hasattr(bot, '_web_eyes'):
+    if not hasattr(bot, "_web_eyes"):
         return False
 
     emotion = emotion.lower()
 
-    if emotion == 'happy':
+    if emotion == "happy":
         bot._web_eyes = 5  # Wide eyes
         bot._web_mouth = 1  # Smile
         bot._web_cheeks = True
         bot._web_tears = False
         print("[Discord→Web] Emotion: happy")
 
-    elif emotion == 'sad':
+    elif emotion == "sad":
         bot._web_eyes = 3  # Sad eyes
         bot._web_mouth = 0  # Frown
         bot._web_tears = True
         bot._web_cheeks = False
         print("[Discord→Web] Emotion: sad")
 
-    elif emotion == 'blushing':
+    elif emotion == "blushing":
         bot._web_eyes = 1  # Closed/shy eyes
         bot._web_mouth = 1  # Small smile
         bot._web_cheeks = True
         bot._web_tears = False
         print("[Discord→Web] Emotion: blushing")
 
-    elif emotion == 'excited':
+    elif emotion == "excited":
         bot._web_eyes = 5  # Wide eyes
         bot._web_mouth = 2  # Big smile
         bot._web_jumping = True
@@ -73,6 +75,7 @@ def set_web_emotion(bot, emotion: str):
 
     return True
 
+
 def trigger_web_animation(bot, animation: str, duration: float = 3.0):
     """Trigger temporary animation on website
 
@@ -81,7 +84,7 @@ def trigger_web_animation(bot, animation: str, duration: float = 3.0):
         animation: 'jump', 'blush', 'cry', 'celebrate'
         duration: How long animation lasts (seconds)
     """
-    if not hasattr(bot, '_web_jumping'):
+    if not hasattr(bot, "_web_jumping"):
         return False
 
     import threading
@@ -89,34 +92,37 @@ def trigger_web_animation(bot, animation: str, duration: float = 3.0):
 
     animation = animation.lower()
 
-    if animation == 'jump':
+    if animation == "jump":
         bot._web_jumping = True
 
         def stop_jumping():
             time.sleep(duration)
             bot._web_jumping = False
+
         threading.Thread(target=stop_jumping, daemon=True).start()
         print(f"[Discord→Web] Jumping for {duration}s")
 
-    elif animation == 'blush':
+    elif animation == "blush":
         bot._web_cheeks = True
 
         def stop_blushing():
             time.sleep(duration)
             bot._web_cheeks = False
+
         threading.Thread(target=stop_blushing, daemon=True).start()
         print(f"[Discord→Web] Blushing for {duration}s")
 
-    elif animation == 'cry':
+    elif animation == "cry":
         bot._web_tears = True
 
         def stop_crying():
             time.sleep(duration)
             bot._web_tears = False
+
         threading.Thread(target=stop_crying, daemon=True).start()
         print(f"[Discord→Web] Crying for {duration}s")
 
-    elif animation == 'celebrate':
+    elif animation == "celebrate":
         original_r, original_g, original_b = bot._web_R, bot._web_G, bot._web_B
         bot._web_jumping = True
         bot._web_cheeks = True
@@ -124,12 +130,12 @@ def trigger_web_animation(bot, animation: str, duration: float = 3.0):
         # Rainbow colors!
         def celebrate():
             colors = [
-                (255, 0, 0),    # Red
+                (255, 0, 0),  # Red
                 (255, 127, 0),  # Orange
                 (255, 255, 0),  # Yellow
-                (0, 255, 0),    # Green
-                (0, 0, 255),    # Blue
-                (75, 0, 130),   # Indigo
+                (0, 255, 0),  # Green
+                (0, 0, 255),  # Blue
+                (75, 0, 130),  # Indigo
                 (148, 0, 211),  # Violet
             ]
             end_time = time.time() + duration

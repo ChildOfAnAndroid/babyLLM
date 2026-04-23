@@ -3,10 +3,11 @@
 # BABYLLM DISCORD ADAPTER // phone/discord_bot/platforms/discord_adapter.py
 # v1.0
 
+
 import discord
-from typing import Optional
-from .base import PlatformAdapter, PlatformMessage, PlatformContext
+
 from ..utils import to_british_english
+from .base import PlatformAdapter, PlatformContext, PlatformMessage
 
 
 class DiscordAdapter(PlatformAdapter):
@@ -24,7 +25,7 @@ class DiscordAdapter(PlatformAdapter):
 
     async def stop(self):
         """Stop Discord bot"""
-        if hasattr(self.bot, 'close'):
+        if hasattr(self.bot, "close"):
             await self.bot.close()
 
     async def send_message(self, channel_id: str, content: str):
@@ -66,7 +67,9 @@ class DiscordAdapter(PlatformAdapter):
             timestamp=discord_msg.created_at.timestamp(),
             raw_message=discord_msg,
             is_bot=discord_msg.author.bot,
-            is_mod=discord_msg.author.guild_permissions.administrator if hasattr(discord_msg, 'guild') and discord_msg.guild else False,
+            is_mod=discord_msg.author.guild_permissions.administrator
+            if hasattr(discord_msg, "guild") and discord_msg.guild
+            else False,
         )
 
     @staticmethod
@@ -77,6 +80,6 @@ class DiscordAdapter(PlatformAdapter):
             message=platform_msg,
             bot=ctx.bot,
             command=ctx.command.name if ctx.command else None,
-            args=ctx.args if hasattr(ctx, 'args') else None,
+            args=ctx.args if hasattr(ctx, "args") else None,
             platform_ctx=ctx,
         )

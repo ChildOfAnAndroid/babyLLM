@@ -1,17 +1,23 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ --- 
+# --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # NICE TERMINAL OUTPUT AND LOGGING STYLING SHEET THING
 # brain/LAYERS/S_output.py
 # v1.1
 
-from config import *
+import math
+import operator
+import random
+import re
 from datetime import datetime
-import re, torch, operator, random, math
+
+import torch
+
+from config import *
+
 
 class S_OUTPUT:
-
     def __init__(self, _counsellor):
-        #self.counsellor = COUNSELLOR("S_OUTPUT", debug = debugPrints, durations = durationLogging)
+        # self.counsellor = COUNSELLOR("S_OUTPUT", debug = debugPrints, durations = durationLogging)
         self.counsellor = _counsellor
         self.rollingAverages = None
         self.S_statBands = None  # Lazy-load this later
@@ -19,21 +25,21 @@ class S_OUTPUT:
         self.allKeys = None
 
         """TERMINAL CODES"""
-        RESET = "\033[0m" # normal terminal
+        RESET = "\033[0m"  # normal terminal
         BOLD = "\033[1m"
-        DIM = "\033[2m" # reduces intensity of text colour
+        DIM = "\033[2m"  # reduces intensity of text colour
         UNDERLINE = "\033[4m"
         FLASH = "\033[5m"
         ITALIC = "\033[3m"
 
         """COLOURS!!!"""
         PURPLE = "\033[94m"
-        PURPLE_PALE = "\033[38;5;225m" #256 colour palette
+        PURPLE_PALE = "\033[38;5;225m"  # 256 colour palette
         MAGENTA = "\033[35m"
         BLUE = "\033[34m"
 
-        ORANGE = "\033[38;5;52m" #256 colour palette
-        RED = "\033[38;5;124m" #256 colour palette
+        ORANGE = "\033[38;5;52m"  # 256 colour palette
+        RED = "\033[38;5;124m"  # 256 colour palette
         RED_BRIGHT = "\033[91m"
 
         """red-blue scale"""
@@ -62,69 +68,155 @@ class S_OUTPUT:
 
         """TERMINAL OUTPUT STYLES - CATEGORY MAPPING"""
         self.S_types = {
-
-            "TOP":  ["\033[93m"], #"TOP":  [GOLD],            # new top score ever // if above max
-            "0.2":  ["\033[38;5;39m"], #"perfect":       [N],                    # 0.2 // -4.8 top score ever // if below max and above almost perf
-
-            "5":    ["\033[38;5;33m"], #"almostPerfect": [M],   #[PINKPINK_],               #[BOLD, MAGENTA],   # 5 // -5
-            "10":   ["\033[38;5;27m"], #"superGreat":    [L],   #[PINK_],                   #[MAGENTA],         # 10 // -5
-            "15":   ["\033[38;5;63m"], #"great":         [K],   #[PURPPINK_],               #[BOLD, PURPLE],    # 15 // -5
-            "20":   ["\033[38;5;99m"], #"good":          [J],   #[PURP_],                   #[PURPLE],          # 20 // -15
-
-            "35":   ["\033[38;5;135m"], #"fine":          [I],   #[BLUEPURP_],               #[PURPLE],          # 35 // -15
-            "50":   ["\033[38;5;134m"], #"almostFine":    [H],   #[BLUE_],                   #[BOLD, BLUE],      # 50 //
-            "65":   ["\033[38;5;127m"], #"average":       [G],   #[PURPBLUE_],               #[BLUE],            # 65 // +15
-
-            "80":   ["\033[38;5;164m"], #"meh":           [F],   #[PURPRED_],                #[BOLD, CYAN],      # 80 // +15
-            "85":   ["\033[38;5;163m"], #"bad":           [E],   #[PURPRED_],                #[CYAN],            # 85 // +5
-            "90":   ["\033[38;5;162m"], #"worse":         [D],   #[REDPURP_],                #[ORANGE],          # 90 // +5
-            "95":   ["\033[38;5;161m"], #"wtf":           [C],   #[REDPURP_],                #[BOLD, ORANGE],    # 95 // +5
-
-            "99.8": ["\033[38;5;160m"],               #"omg":           [B],   #[RED_],                                        # 99.8 // +4.8
-            "BOTTOM":        [REDRED_], #"omgwtf":        [A],   #[REDRED_],         # 100.00 // bottom score ever // if above min and below omg
-            #"omgwtf!":       [BOLD, REDRED_],   #[CYAN],                    # new bottom score ever // if below min
-
-            "emergency":     [BOLD, GREEN],
-            "italic":        [ITALIC],
-            "underline":     [UNDERLINE],
-            "reset":         [RESET],                   # normal terminal
-            "dim":           [RESET, DIM],              # dim style for background elements - arrows, colons, etc.
-            "bold":          [BOLD],
-            "match":         [BOLD, WHITE],
-            "static":        [DIM, PURPLE_PALE],
-            "boldWhite":     ["\033[1;37m"],
-            "reverse":       ["\033[7m"],
-
+            "TOP": [
+                "\033[93m"
+            ],  # "TOP":  [GOLD],            # new top score ever // if above max
+            "0.2": [
+                "\033[38;5;39m"
+            ],  # "perfect":       [N],                    # 0.2 // -4.8 top score ever // if below max and above almost perf
+            "5": [
+                "\033[38;5;33m"
+            ],  # "almostPerfect": [M],   #[PINKPINK_],               #[BOLD, MAGENTA],   # 5 // -5
+            "10": [
+                "\033[38;5;27m"
+            ],  # "superGreat":    [L],   #[PINK_],                   #[MAGENTA],         # 10 // -5
+            "15": [
+                "\033[38;5;63m"
+            ],  # "great":         [K],   #[PURPPINK_],               #[BOLD, PURPLE],    # 15 // -5
+            "20": [
+                "\033[38;5;99m"
+            ],  # "good":          [J],   #[PURP_],                   #[PURPLE],          # 20 // -15
+            "35": [
+                "\033[38;5;135m"
+            ],  # "fine":          [I],   #[BLUEPURP_],               #[PURPLE],          # 35 // -15
+            "50": [
+                "\033[38;5;134m"
+            ],  # "almostFine":    [H],   #[BLUE_],                   #[BOLD, BLUE],      # 50 //
+            "65": [
+                "\033[38;5;127m"
+            ],  # "average":       [G],   #[PURPBLUE_],               #[BLUE],            # 65 // +15
+            "80": [
+                "\033[38;5;164m"
+            ],  # "meh":           [F],   #[PURPRED_],                #[BOLD, CYAN],      # 80 // +15
+            "85": [
+                "\033[38;5;163m"
+            ],  # "bad":           [E],   #[PURPRED_],                #[CYAN],            # 85 // +5
+            "90": [
+                "\033[38;5;162m"
+            ],  # "worse":         [D],   #[REDPURP_],                #[ORANGE],          # 90 // +5
+            "95": [
+                "\033[38;5;161m"
+            ],  # "wtf":           [C],   #[REDPURP_],                #[BOLD, ORANGE],    # 95 // +5
+            "99.8": [
+                "\033[38;5;160m"
+            ],  # "omg":           [B],   #[RED_],                                        # 99.8 // +4.8
+            "BOTTOM": [
+                REDRED_
+            ],  # "omgwtf":        [A],   #[REDRED_],         # 100.00 // bottom score ever // if above min and below omg
+            # "omgwtf!":       [BOLD, REDRED_],   #[CYAN],                    # new bottom score ever // if below min
+            "emergency": [BOLD, GREEN],
+            "italic": [ITALIC],
+            "underline": [UNDERLINE],
+            "reset": [RESET],  # normal terminal
+            "dim": [
+                RESET,
+                DIM,
+            ],  # dim style for background elements - arrows, colons, etc.
+            "bold": [BOLD],
+            "match": [BOLD, WHITE],
+            "static": [DIM, PURPLE_PALE],
+            "boldWhite": ["\033[1;37m"],
+            "reverse": ["\033[7m"],
         }
-        for key, pkey in {"TOP": 0.0, # this works to show top record in perfect direction, as it will be less than the min value
-                            "0.2": 0.2, "5": 5,     "10": 10,   "15": 15,   "20": 20,
-                            "35": 35,   "50": 50,   "65": 65,
-                            "80": 80,   "85": 85,   "90": 90,   "95": 95,   "99.8": 99.8,
-                            "BOTTOM": 100.0,}.items(): # this uses infinite fallback for omgwtf! in getDynamicPercentileBands so that it can show 'worst ever'
+        for key, pkey in {
+            "TOP": 0.0,  # this works to show top record in perfect direction, as it will be less than the min value
+            "0.2": 0.2,
+            "5": 5,
+            "10": 10,
+            "15": 15,
+            "20": 20,
+            "35": 35,
+            "50": 50,
+            "65": 65,
+            "80": 80,
+            "85": 85,
+            "90": 90,
+            "95": 95,
+            "99.8": 99.8,
+            "BOTTOM": 100.0,
+        }.items():  # this uses infinite fallback for omgwtf! in getDynamicPercentileBands so that it can show 'worst ever'
             self.S_types[pkey] = self.S_types[key]
-
 
         """PERCENTILE CALCS"""
         # new top score ever        #TOP
         # top score ever            #0.2
-        ෆp97    = 97.5              #almostPerfect
-        ෆp95    = 95                #superGreat
-        ෆp90    = 90                #great
-        ෆp80    = 80                #good
-        ෆp70    = 70                #fine
-        ෆp60    = 60                #almostFine
-        ෆp50    = 50                #average
-        ෆp40    = 40                #meh
-        ෆp30    = 30                #bad
-        ෆp20    = 20                #worse
-        ෆp10    = 10                #wtf
-        ෆp5     = 5                 #omg
+        ෆp97 = 97.5  # almostPerfect
+        ෆp95 = 95  # superGreat
+        ෆp90 = 90  # great
+        ෆp80 = 80  # good
+        ෆp70 = 70  # fine
+        ෆp60 = 60  # almostFine
+        ෆp50 = 50  # average
+        ෆp40 = 40  # meh
+        ෆp30 = 30  # bad
+        ෆp20 = 20  # worse
+        ෆp10 = 10  # wtf
+        ෆp5 = 5  # omg
         # bottom score ever         #omgwtf
         # lower than bottom ever    #omgwtf!
 
-        self.avgPlz = ["embedNormMean", "B_PIXELloss_scaled", "B_PIXELloss", "embedNormStd", "embedNormMax", "embedDimensionMean", "embedDimensionSparsity", "embeddingDrift", "logitWeightNormMean", "logitWeightNormStd", "logitWeightNormMax", "logitWeightSparsity", "logitWeightDrift", "logitBiasMean", "logitBiasStd", "logitBiasMax", "logitMin", "shortDecay", "longDecay", "n_weightMean", "n_weightStd", "n_weightMin", "n_weightMax", "n_weightNormMean", "n_weightNormMin", "n_weightNormMax", "n_biasesMean", "n_biasesStd", "n_biasesMin", "n_biasesMax", "n_sparsity", "4INN_cerebellumMean", "4INN_cerebellumStd", "7L_logitMax", "7L_logitMin", "7L_logitMean", "7L_logitStd", "7L_logitEntropy", "2A_0_attnOut_norm", "2A_1_gated_norm", "2A_x_final_norm", "2A_gateScale"]
-        self.avgPlz.extend(["4A_1_0_attnOut_norm", "4A_1_1_gated_norm", "4A_1_x_final_norm", "4A_1_gateScale"])
-
+        self.avgPlz = [
+            "embedNormMean",
+            "B_PIXELloss_scaled",
+            "B_PIXELloss",
+            "embedNormStd",
+            "embedNormMax",
+            "embedDimensionMean",
+            "embedDimensionSparsity",
+            "embeddingDrift",
+            "logitWeightNormMean",
+            "logitWeightNormStd",
+            "logitWeightNormMax",
+            "logitWeightSparsity",
+            "logitWeightDrift",
+            "logitBiasMean",
+            "logitBiasStd",
+            "logitBiasMax",
+            "logitMin",
+            "shortDecay",
+            "longDecay",
+            "n_weightMean",
+            "n_weightStd",
+            "n_weightMin",
+            "n_weightMax",
+            "n_weightNormMean",
+            "n_weightNormMin",
+            "n_weightNormMax",
+            "n_biasesMean",
+            "n_biasesStd",
+            "n_biasesMin",
+            "n_biasesMax",
+            "n_sparsity",
+            "4INN_cerebellumMean",
+            "4INN_cerebellumStd",
+            "7L_logitMax",
+            "7L_logitMin",
+            "7L_logitMean",
+            "7L_logitStd",
+            "7L_logitEntropy",
+            "2A_0_attnOut_norm",
+            "2A_1_gated_norm",
+            "2A_x_final_norm",
+            "2A_gateScale",
+        ]
+        self.avgPlz.extend(
+            [
+                "4A_1_0_attnOut_norm",
+                "4A_1_1_gated_norm",
+                "4A_1_x_final_norm",
+                "4A_1_gateScale",
+            ]
+        )
 
         self.statSections = [
             ("EMBED STATS", re.compile(r"1E_")),
@@ -138,24 +230,45 @@ class S_OUTPUT:
             ("MEMORY2 STATS", re.compile(r"6M_memory2_4M_")),
             ("LOGIT STATS", re.compile(r"7L_")),
             ("SENSORY BUS STATS", re.compile(r"S_")),
-            ("BABYLLM STATS", re.compile(r"([0-9]B_|B_)")), # <-- This now matches "B_" AND "7B_"
+            (
+                "BABYLLM STATS",
+                re.compile(r"([0-9]B_|B_)"),
+            ),  # <-- This now matches "B_" AND "7B_"
             ("LOSS STATS", re.compile(r"L_")),
         ]
 
         return
-    
+
     @whocalled
     def S_generateStatBands(self):
 
-        softmaxBands = {"BOTTOM": -float('inf'),      
-            "99.8": 0.0020, "95":   0.0500,
-            "90":   0.1000, "85":   0.1500, "80":   0.2000,     
-            "65":   0.3500, "50":   0.5000, "35":   0.6500,      
-            "20":   0.8000, "15":   0.8500, "10":   0.9000,      
-            "5":    0.9500, "0.2":  0.9980, "TOP":  float('inf'),}
-        
-        staticBand = {"fine":   float('inf')}
-        return {v: self.getDynamicPercentileBands(v) for v in ((mostImportantStats + allRecordedOtherStats) if self.allKeys is None else self.allKeys)}
+        softmaxBands = {
+            "BOTTOM": -float("inf"),
+            "99.8": 0.0020,
+            "95": 0.0500,
+            "90": 0.1000,
+            "85": 0.1500,
+            "80": 0.2000,
+            "65": 0.3500,
+            "50": 0.5000,
+            "35": 0.6500,
+            "20": 0.8000,
+            "15": 0.8500,
+            "10": 0.9000,
+            "5": 0.9500,
+            "0.2": 0.9980,
+            "TOP": float("inf"),
+        }
+
+        staticBand = {"fine": float("inf")}
+        return {
+            v: self.getDynamicPercentileBands(v)
+            for v in (
+                (mostImportantStats + allRecordedOtherStats)
+                if self.allKeys is None
+                else self.allKeys
+            )
+        }
 
     @whocalled
     def getDynamicPercentileBands(self, statKey):
@@ -164,14 +277,22 @@ class S_OUTPUT:
             if self.cantPrint > 10:
                 print("ʕっ-ᴥ-ʔっ no stat buffers found x10!")
                 self.cantPrint = 0
-            return {"dim": -float('inf')}
+            return {"dim": -float("inf")}
 
         values = self.rollingAverages.get(statKey, [])
         if len(values) < 2:
-            return {"dim": -float('inf')}
+            return {"dim": -float("inf")}
 
-        if statKey in mostImportantStats or statKey.startswith("INN_cerebellum_W") or statKey.startswith("INN_cerebellum_SHORT_W"): #values is dict:
-            keyList = {f"{printFreq}": printFreq, f"{trainingLogFreq_A}": trainingLogFreq_A, f"BIG{trainingLogFreq_A}": trainingLogFreq_A}
+        if (
+            statKey in mostImportantStats
+            or statKey.startswith("INN_cerebellum_W")
+            or statKey.startswith("INN_cerebellum_SHORT_W")
+        ):  # values is dict:
+            keyList = {
+                f"{printFreq}": printFreq,
+                f"{trainingLogFreq_A}": trainingLogFreq_A,
+                f"BIG{trainingLogFreq_A}": trainingLogFreq_A,
+            }
             requiredKey = list(keyList.keys())[0]
             for key, freq in keyList.items():
                 if key in values and len(values[key]) >= freq:
@@ -186,20 +307,32 @@ class S_OUTPUT:
                 print(f"BANDS for {statKey}:")
                 for k, v in bands.items():
                     print(f"  {k}: {v:.4f}")
-            return dict(sorted(bands.items(), key = lambda item: item[1]), reversed = True)
+            return dict(sorted(bands.items(), key=lambda item: item[1]), reversed=True)
         else:
-
             stat = sorted(values)
-            if debugPrints: print(f"→ Generating bands for '{statKey}'")
-            if debugPrints: print(f"   values: {values}")
+            if debugPrints:
+                print(f"→ Generating bands for '{statKey}'")
+            if debugPrints:
+                print(f"   values: {values}")
 
-            return{"TOP": -float('inf'),      # MAKE SAME AS THE OTHERS LOL
-                "0.2":  self.getP(stat, 0.002),     "5":    self.getP(stat, 0.05),      "10":   self.getP(stat, 0.1000), # PURPLE_PALE      
-                "15":   self.getP(stat, 0.1500),    "20":   self.getP(stat, 0.2000),    "35":   self.getP(stat, 0.3500),     
-                "50":   self.getP(stat, 0.5000),    "65":   self.getP(stat, 0.6500),    "80":   self.getP(stat, 0.8000),      
-                "85":   self.getP(stat, 0.8500),    "90":   self.getP(stat, 0.9000),    "95":   self.getP(stat, 0.9500),      
-                "99.8": self.getP(stat, 0.9980), "BOTTOM":  float('inf'),}
-        
+            return {
+                "TOP": -float("inf"),  # MAKE SAME AS THE OTHERS LOL
+                "0.2": self.getP(stat, 0.002),
+                "5": self.getP(stat, 0.05),
+                "10": self.getP(stat, 0.1000),  # PURPLE_PALE
+                "15": self.getP(stat, 0.1500),
+                "20": self.getP(stat, 0.2000),
+                "35": self.getP(stat, 0.3500),
+                "50": self.getP(stat, 0.5000),
+                "65": self.getP(stat, 0.6500),
+                "80": self.getP(stat, 0.8000),
+                "85": self.getP(stat, 0.8500),
+                "90": self.getP(stat, 0.9000),
+                "95": self.getP(stat, 0.9500),
+                "99.8": self.getP(stat, 0.9980),
+                "BOTTOM": float("inf"),
+            }
+
     @whocalled
     def S_getStat(self, _statType, _statVal):
         with self.counsellor.infodump("S_getStat") as ʕっʘ‿ʘʔっ:
@@ -217,7 +350,7 @@ class S_OUTPUT:
                 if isinstance(val, list) and len(val) > maxLen:
                     buffer = val
                     maxLen = len(val)
-            
+
             if buffer and len(buffer) >= 2:
                 max_val = max(buffer)
                 min_val = min(buffer)
@@ -225,7 +358,7 @@ class S_OUTPUT:
                     return "TOP"
                 if _statVal == min_val:
                     return "BOTTOM"
-                
+
             if not buffer or len(buffer) < 2:
                 return "dim"
 
@@ -236,15 +369,23 @@ class S_OUTPUT:
             bands = self.S_statBands.get(_statType, {})
             for label, limit in bands.items():
                 if _statVal <= limit:
-                    if _statType == "loss" and debugPrints: print(f"ok here is the selected label: {label} for value {_statVal} and bands: {bands}")
+                    if _statType == "loss" and debugPrints:
+                        print(
+                            f"ok here is the selected label: {label} for value {_statVal} and bands: {bands}"
+                        )
                     return label
-            if debugPrints: print(f"returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})")
+            if debugPrints:
+                print(
+                    f"returning an emergency color for stat {_statType} and value {_statVal} (bands is {bands})"
+                )
             return "emergency"
 
-    @whocalled        
+    @whocalled
     def refreshStatBands(self, _rollingAverages):
         self.rollingAverages = _rollingAverages
-        if self.rollingAverages and all(len(v) > 1 for v in self.rollingAverages.values()):
+        if self.rollingAverages and all(
+            len(v) > 1 for v in self.rollingAverages.values()
+        ):
             self.S_statBands = self.S_generateStatBands()
         else:
             print("ʕっ•ᴥ•ʔっ not enough data to refresh stat bands yet")
@@ -257,14 +398,16 @@ class S_OUTPUT:
                 return value.detach().item()
             return value.detach().cpu().tolist()
         try:
-            if hasattr(value, "item") and not isinstance(value, (str, bytes, list, tuple, dict)):
+            if hasattr(value, "item") and not isinstance(
+                value, (str, bytes, list, tuple, dict)
+            ):
                 return value.item()
         except (TypeError, ValueError):
             pass
         return value
 
     @whocalled
-    def S_apply(self, _S_type, _text): 
+    def S_apply(self, _S_type, _text):
         with self.counsellor.infodump("S_apply") as ʕっʘ‿ʘʔっ:
             style = self.S_types.get(_S_type, [])
             if not isinstance(style, list):
@@ -275,7 +418,7 @@ class S_OUTPUT:
                 style = [str(s) for s in style if isinstance(s, str)]
             return "".join(style) + str(_text) + "".join(self.S_types.get("reset", []))
 
-    @whocalled    
+    @whocalled
     def S_renderTerminalText(self, _text):
         with self.counsellor.infodump("S_renderTerminalText") as ʕっʘ‿ʘʔっ:
             rendered = "" if _text is None else str(_text)
@@ -288,11 +431,11 @@ class S_OUTPUT:
                 rendered = rendered.replace(sos_replacement_token_str, sos_token_str)
             return rendered
 
-    @whocalled    
+    @whocalled
     def S_stripForLogging(self, _text):
         with self.counsellor.infodump("S_stripForLogging") as ʕっʘ‿ʘʔっ:
             rendered = self.S_renderTerminalText(_text)
-            return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', rendered)
+            return re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", rendered)
 
     @whocalled
     def groupStatsBySection(self, avgStats):
@@ -301,89 +444,147 @@ class S_OUTPUT:
         for k in sorted(avgStats.keys()):
             if k not in mostImportantStats or avgStats[k] in (None, ""):
                 continue
-            label = next((label for label, pattern in self.statSections if re.match(pattern, k)), None)
+            label = next(
+                (label for label, pattern in self.statSections if re.match(pattern, k)),
+                None,
+            )
             if label:
                 grouped[label].append((k, avgStats[k]))
             else:
                 misc.append((k, avgStats[k]))
-        ordered = [(label, grouped[label]) for label, _ in self.statSections if grouped[label]]
+        ordered = [
+            (label, grouped[label]) for label, _ in self.statSections if grouped[label]
+        ]
         if misc:
             ordered.append(("MISC", misc))
         return ordered
 
     @whocalled
-    def S_colourPrintTraining(self, _step, _inputSeq, _guessedSeq_str, _targetSeq_str, _loss, _recentLoss, _latestLossDelta, _totalLoss = None, _totalTokenCount = None):
+    def S_colourPrintTraining(
+        self,
+        _step,
+        _inputSeq,
+        _guessedSeq_str,
+        _targetSeq_str,
+        _loss,
+        _recentLoss,
+        _latestLossDelta,
+        _totalLoss=None,
+        _totalTokenCount=None,
+    ):
         with self.counsellor.infodump("S_colourPrintTraining") as ʕっʘ‿ʘʔっ:
-            #self.refreshStatBands(_rollingAverages = self.rollingAverages)
+            # self.refreshStatBands(_rollingAverages = self.rollingAverages)
             S_type = self.S_getStat("loss", _loss)
             S_avgType = self.S_getStat("avgLoss", _recentLoss)
             S_delta = _latestLossDelta
             S_deltaType = self.S_getStat("latestLossDelta", _latestLossDelta)
             S_bold = "".join(self.S_types["bold"])
 
-            if debugPrints: ʕっʘ‿ʘʔっ("conditionalFormatGuess+truth")
-            reset = "".join(self.S_types.get('reset'))
-            dim = "".join(self.S_types.get('dim'))
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("conditionalFormatGuess+truth")
+            reset = "".join(self.S_types.get("reset"))
+            dim = "".join(self.S_types.get("dim"))
 
             guess = [
-                f"{S_bold}{t}{reset}" if i < len(_targetSeq_str) and t == _targetSeq_str[i]
+                f"{S_bold}{t}{reset}"
+                if i < len(_targetSeq_str) and t == _targetSeq_str[i]
                 else self.S_apply(S_type, t)
                 for i, t in enumerate(_guessedSeq_str)
             ]
 
             truth = [
-                f"{S_bold}{dim}{t}{reset}" if i < len(_guessedSeq_str) and t == _guessedSeq_str[i]
+                f"{S_bold}{dim}{t}{reset}"
+                if i < len(_guessedSeq_str) and t == _guessedSeq_str[i]
                 else f"{dim}{self.S_apply(S_type, t)}"
                 for i, t in enumerate(_targetSeq_str)
             ]
 
-            if debugPrints: ʕっʘ‿ʘʔっ("createTextStrings")
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("createTextStrings")
             guess_str = self.S_renderTerminalText("".join(guess).replace("Ġ", " "))
             truth_str = self.S_renderTerminalText("".join(truth).replace("Ġ", " "))
             match = guess_str.strip() == truth_str.strip()
-            if match: S_type = "match"
+            if match:
+                S_type = "match"
 
-            prompt_str = self.S_renderTerminalText(''.join(_inputSeq).replace("Ġ", " ").strip()[-printPromptLength:])
+            prompt_str = self.S_renderTerminalText(
+                "".join(_inputSeq).replace("Ġ", " ").strip()[-printPromptLength:]
+            )
             delta_str = ""
 
-            if debugPrints: ʕっʘ‿ʘʔっ("calculateLossDelta") # Calculate delta
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("calculateLossDelta")  # Calculate delta
             if _recentLoss is not None:
                 delta = _recentLoss - _loss
                 delta_str = f"{self.S_apply('dim', 'Δ')}{self.S_apply(S_deltaType, f'{S_delta: .4f}')}{'↗' if S_delta < 0 else '↘'}"
 
             rollingAvgLoss_str = ""
-            #if self.rollingAverages and "loss" in self.rollingAverages:
+            # if self.rollingAverages and "loss" in self.rollingAverages:
             #    losses = self.rollingAverages["loss"]
             #    if losses:
             #        rollingAvgLoss = sum(losses) / len(losses)
             #        rollingAvgLoss_str = f"{self.S_apply(S_type, f'{rollingAvgLoss:.3f}')}{self.S_apply('dim', 'mean ')}"
 
-            if debugPrints: ʕっʘ‿ʘʔっ("printGuess+truth")
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("printGuess+truth")
             print(
-                self.S_apply('dim', f'trainingStep: {_step}') + " | " +
-                self.S_apply('dim', 'loss: ') + self.S_apply(S_type, f'{_loss:.4f}') + self.S_apply('dim', '/1 ') +
-                (self.S_apply(S_avgType, f'{_recentLoss:.4f}') + self.S_apply('dim', f'/{trainingLogFreq_A} ') if _recentLoss else "") +
-                rollingAvgLoss_str + delta_str + "|\n" +
-                self.S_apply('dim', 'prompt → ') + self.S_apply('dim', prompt_str) + "\n" +
-                self.S_apply('dim', 'guess  → ') + guess_str + "\n" +
-                self.S_apply('dim', 'truth  → ') + truth_str
+                self.S_apply("dim", f"trainingStep: {_step}")
+                + " | "
+                + self.S_apply("dim", "loss: ")
+                + self.S_apply(S_type, f"{_loss:.4f}")
+                + self.S_apply("dim", "/1 ")
+                + (
+                    self.S_apply(S_avgType, f"{_recentLoss:.4f}")
+                    + self.S_apply("dim", f"/{trainingLogFreq_A} ")
+                    if _recentLoss
+                    else ""
+                )
+                + rollingAvgLoss_str
+                + delta_str
+                + "|\n"
+                + self.S_apply("dim", "prompt → ")
+                + self.S_apply("dim", prompt_str)
+                + "\n"
+                + self.S_apply("dim", "guess  → ")
+                + guess_str
+                + "\n"
+                + self.S_apply("dim", "truth  → ")
+                + truth_str
             )
-            if debugPrints: print(f"→ style applied for {_loss=} = {S_type}")
-            #with open(babyLogPathFull, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
+            if debugPrints:
+                print(f"→ style applied for {_loss=} = {S_type}")
+            # with open(babyLogPathFull, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(guess_str) + "\n")
 
     @whocalled
-    def S_logTraining(self, _trainingLogPath, _trainingStepCounter, _stats, _frequency, _detailedLogging, _saveLog, 
-                      _LR = learningRate, _INN_cerebellum_str="", _topTokens_str="", _prompt="", _guess="", _truth="", _otherInfo_str=""):
+    def S_logTraining(
+        self,
+        _trainingLogPath,
+        _trainingStepCounter,
+        _stats,
+        _frequency,
+        _detailedLogging,
+        _saveLog,
+        _LR=learningRate,
+        _INN_cerebellum_str="",
+        _topTokens_str="",
+        _prompt="",
+        _guess="",
+        _truth="",
+        _otherInfo_str="",
+    ):
         with self.counsellor.infodump("S_logTraining") as ʕっʘ‿ʘʔっ:
             logOutput = ""
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             delimiter = self.S_apply("dim", " | ")
             newLineDelim = self.S_apply("dim", " | \n")
 
-            if debugPrints: ʕっʘ‿ʘʔっ("avgStats")
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("avgStats")
             clean_stats = {k: self._to_plain_value(v) for k, v in _stats.items()}
             avgStats = {
-                k: (v / _frequency if _frequency else 0) if self.willItAverage(k, v) else v
+                k: (v / _frequency if _frequency else 0)
+                if self.willItAverage(k, v)
+                else v
                 for k, v in sorted(clean_stats.items())
                 if k != "embedDimensionMean" and k != "latestMemoryGates"
             }
@@ -395,12 +596,26 @@ class S_OUTPUT:
                 #     1 for the decimal dot and
                 #     1 for the fact that log is missing 1 (i.e. log10([100-1000[) is in [2,3[, when 100 takes 3 chars)
                 decLen = 6
-                statTopLen = math.trunc(decLen + 1 + 1 + 1 + math.log(max(max(avgStats.values()), abs(min(avgStats.values()))), 10))
+                statTopLen = math.trunc(
+                    decLen
+                    + 1
+                    + 1
+                    + 1
+                    + math.log(
+                        max(max(avgStats.values()), abs(min(avgStats.values()))), 10
+                    )
+                )
             except Exception as e:
                 statTopLen = 10
                 print(f"Failed getting statTopLen for avgStats: {avgStats} {e}")
 
-            stampAndStep = delimiter.join([self.S_apply("dim", timestamp), self.S_apply("dim", f"{_trainingStepCounter:.0f}"), self.S_apply("dim", f"LR{_LR:.12f}")])
+            stampAndStep = delimiter.join(
+                [
+                    self.S_apply("dim", timestamp),
+                    self.S_apply("dim", f"{_trainingStepCounter:.0f}"),
+                    self.S_apply("dim", f"LR{_LR:.12f}"),
+                ]
+            )
             logOutput = stampAndStep
             littleLogOutput = stampAndStep
             newLineLittle = stampAndStep
@@ -411,25 +626,33 @@ class S_OUTPUT:
                         if v.numel() == 1:
                             v = v.item()  # convert scalar tensor
                         else:
-                            return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"<tensor[{v.shape}]>")
+                            return self.S_apply("dim", f"{k}:") + self.S_apply(
+                                "dim", f"<tensor[{v.shape}]>"
+                            )
                     if isinstance(v, (list, tuple)):
-                        return self.S_apply("dim", f"{k}:") + self.S_apply("dim", str(v))
-                    return self.S_apply("dim", f"{k}:") + self.S_apply(self.S_getStat(k, v), f"{v:.{decLen}f}")
+                        return self.S_apply("dim", f"{k}:") + self.S_apply(
+                            "dim", str(v)
+                        )
+                    return self.S_apply("dim", f"{k}:") + self.S_apply(
+                        self.S_getStat(k, v), f"{v:.{decLen}f}"
+                    )
                 except Exception as e:
-                    return self.S_apply("dim", f"{k}:") + self.S_apply("dim", f"ERR:{str(e)} key:{k} value:{v}")
+                    return self.S_apply("dim", f"{k}:") + self.S_apply(
+                        "dim", f"ERR:{str(e)} key:{k} value:{v}"
+                    )
 
-            logOutput += delimiter + delimiter.join([
-                format_stat(k, v)
-                for k, v in avgStats.items()
-                if v not in (None, "")
-            ])
+            logOutput += delimiter + delimiter.join(
+                [format_stat(k, v) for k, v in avgStats.items() if v not in (None, "")]
+            )
 
-            littleLogOutput += delimiter + delimiter.join([
-                format_stat(k, v)
-                for k, v in avgStats.items()
-                if k in mostImportantStats
-                if v not in (None, "")
-            ])
+            littleLogOutput += delimiter + delimiter.join(
+                [
+                    format_stat(k, v)
+                    for k, v in avgStats.items()
+                    if k in mostImportantStats
+                    if v not in (None, "")
+                ]
+            )
 
             """newLineLittle += newLineDelim.join([
                 self.S_apply(self.S_getStat(k, v), f"{v: {statTopLen}.{decLen}f}") + " " + self.S_apply("dim", k)
@@ -438,13 +661,13 @@ class S_OUTPUT:
                 if v not in (None, "")
             ]) + newLineDelim"""
             maxKeyLen = 20  # Increased from 12 to show full stat names
-            maxCols = 5     # 5 columns for better layout
+            maxCols = 5  # 5 columns for better layout
             cellWidth = statTopLen + decLen + maxKeyLen - 1
 
             statSections = self.statSections
 
             def truncate_key(k, max_len):
-                return (k[:max_len - 1] + "…") if len(k) > max_len else k
+                return (k[: max_len - 1] + "…") if len(k) > max_len else k
 
             def visible_len(s):
                 return len(self.S_stripForLogging(s))
@@ -452,17 +675,19 @@ class S_OUTPUT:
             def pad_ansi(s, width):
                 raw_len = visible_len(s)
                 return s + " " * max(0, width - raw_len - 2)
-            
+
             def format_header(label):
                 headerText = f"{label}"  # no colon, no line
-                padded = " " * (statTopLen - decLen - 1) + self.S_apply("bold", headerText)
+                padded = " " * (statTopLen - decLen - 1) + self.S_apply(
+                    "bold", headerText
+                )
                 return pad_ansi(padded, cellWidth)
-            
+
             def strip_stat_key(k):
                 # remove section prefix like "1E_", "7L_", etc.
                 for _, pattern in statSections:
                     if pattern.match(k):
-                        k = pattern.sub("", k, count = 1)
+                        k = pattern.sub("", k, count=1)
                         break
                 k = re.sub(r"^\d+_", "", k)
                 k = re.sub(r"^x_", "", k)
@@ -492,12 +717,14 @@ class S_OUTPUT:
 
             # Add window weights to grid if available
             if _INN_cerebellum_str:
-                flatEntries.append((f"__HEADER__WINDOW WEIGHTS", None))
+                flatEntries.append(("__HEADER__WINDOW WEIGHTS", None))
                 # Parse window weight lines
-                for line in _INN_cerebellum_str.strip().split('\n'):
+                for line in _INN_cerebellum_str.strip().split("\n"):
                     if line.strip():
                         # Each line is already formatted, just add it
-                        flatEntries.append(("window_weight", self.S_apply('dim', line.strip())))
+                        flatEntries.append(
+                            ("window_weight", self.S_apply("dim", line.strip()))
+                        )
 
             # Format each entry
             formattedCells = []
@@ -523,26 +750,40 @@ class S_OUTPUT:
             rows = list(zip(*columns))
 
             # Combine into grid
-            newLineLittle += "\n" + "\n".join("".join(cell for cell in row) for row in rows) + f"{self.S_apply('reset', '')}"
+            newLineLittle += (
+                "\n"
+                + "\n".join("".join(cell for cell in row) for row in rows)
+                + f"{self.S_apply('reset', '')}"
+            )
 
             # Window weights are now integrated into the grid above
             if _INN_cerebellum_str:
-                if debugPrints: ʕっʘ‿ʘʔっ("INN_cerebellum_str")
-                cerebellum = delimiter + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
+                if debugPrints:
+                    ʕっʘ‿ʘʔっ("INN_cerebellum_str")
+                cerebellum = (
+                    delimiter
+                    + f"windowWeights{self.S_apply('reset', _INN_cerebellum_str)}"
+                )
                 logOutput += cerebellum
                 littleLogOutput += cerebellum
                 # Removed: newLineLittle += "\n" + f"windowWeights\n{_INN_cerebellum_str}"
                 # (now in grid)
 
-            if debugPrints: ʕっʘ‿ʘʔっ("topTokens_str")
-            if _topTokens_str: 
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("topTokens_str")
+            if _topTokens_str:
                 rendered_top_tokens = self.S_renderTerminalText(_topTokens_str)
-                topTokens = delimiter + f"topTokens{self.S_apply('reset', rendered_top_tokens)}"
+                topTokens = (
+                    delimiter + f"topTokens{self.S_apply('reset', rendered_top_tokens)}"
+                )
                 logOutput += topTokens
                 littleLogOutput += topTokens
-                newLineLittle += "\n" + f"topTokens{self.S_apply('reset', rendered_top_tokens)}"
+                newLineLittle += (
+                    "\n" + f"topTokens{self.S_apply('reset', rendered_top_tokens)}"
+                )
 
-            if debugPrints: ʕっʘ‿ʘʔっ("prompt+otherInfo")
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("prompt+otherInfo")
             rendered_prompt = self.S_renderTerminalText(_prompt)
             rendered_guess = self.S_renderTerminalText(_guess)
             rendered_truth = self.S_renderTerminalText(_truth)
@@ -555,73 +796,85 @@ class S_OUTPUT:
                 )
             if rendered_other_info:
                 logOutput += f"{delimiter}{self.S_apply('reset', rendered_other_info)}"
-                littleLogOutput += f"{delimiter}{self.S_apply('reset', rendered_other_info)}"
-                newLineLittle += f"\n{delimiter}{self.S_apply('reset', rendered_other_info)}"
+                littleLogOutput += (
+                    f"{delimiter}{self.S_apply('reset', rendered_other_info)}"
+                )
+                newLineLittle += (
+                    f"\n{delimiter}{self.S_apply('reset', rendered_other_info)}"
+                )
 
-
-            if debugPrints: ʕっʘ‿ʘʔっ("logOutput")
-            if _detailedLogging == True: 
-                print(logOutput + "".join(self.S_types.get('reset')))
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("logOutput")
+            if _detailedLogging == True:
+                print(logOutput + "".join(self.S_types.get("reset")))
                 if _saveLog == True:
-                    with open(trainingLogPath_1000, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(logOutput) + "\n")
+                    with open(trainingLogPath_1000, "a", encoding="utf-8") as f:
+                        f.write(self.S_stripForLogging(logOutput) + "\n")
 
-            if debugPrints: ʕっʘ‿ʘʔっ("littleLogOutput")   
-            if _detailedLogging == False: 
+            if debugPrints:
+                ʕっʘ‿ʘʔっ("littleLogOutput")
+            if _detailedLogging == False:
                 if _saveLog == True:
-                    with open(trainingLogPath_100, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+                    with open(trainingLogPath_100, "a", encoding="utf-8") as f:
+                        f.write(self.S_stripForLogging(littleLogOutput) + "\n")
                 if newLineBetweenStats:
-                    print(newLineLittle + "".join(self.S_types.get('reset')))  
+                    print(newLineLittle + "".join(self.S_types.get("reset")))
                 else:
-                    print(littleLogOutput + "".join(self.S_types.get('reset')))  
-
+                    print(littleLogOutput + "".join(self.S_types.get("reset")))
 
             if dontSaveEveryPrint:
-                if _trainingStepCounter % saveFreq_littleLog == 0:      
-                    with open(trainingLogPath_100, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+                if _trainingStepCounter % saveFreq_littleLog == 0:
+                    with open(trainingLogPath_100, "a", encoding="utf-8") as f:
+                        f.write(self.S_stripForLogging(littleLogOutput) + "\n")
             else:
-                with open(trainingLogPath_100, "a", encoding="utf-8") as f: f.write(self.S_stripForLogging(littleLogOutput) + "\n")
+                with open(trainingLogPath_100, "a", encoding="utf-8") as f:
+                    f.write(self.S_stripForLogging(littleLogOutput) + "\n")
 
     @whocalled
     def willItAverage(self, k, v):
         if k in self.avgPlz:
-            if isinstance(v, (int, float)): return True
-            if isinstance(v, torch.Tensor) and v.numel() == 1: return True
+            if isinstance(v, (int, float)):
+                return True
+            if isinstance(v, torch.Tensor) and v.numel() == 1:
+                return True
         return False
-    
+
     @whocalled
-    def chaosMaths(self, _firstNumbers, _secondNumbers = None, _torch = False, _operator = True):
+    def chaosMaths(
+        self, _firstNumbers, _secondNumbers=None, _torch=False, _operator=True
+    ):
         self.t = _torch
         self.o = _operator
-    
+
         operatorMathsForTwo = {
-            "add":     (operator.add, 2),
-            "sub":     (operator.sub, 2),
-            "mul":     (operator.mul, 2),
-            "div":     (operator.truediv, 2),
-            #"floordiv":(operator.floordiv, 2),
-            #"mod":     (operator.mod, 2),
-            #"pow":     (operator.pow, 2),
+            "add": (operator.add, 2),
+            "sub": (operator.sub, 2),
+            "mul": (operator.mul, 2),
+            "div": (operator.truediv, 2),
+            # "floordiv":(operator.floordiv, 2),
+            # "mod":     (operator.mod, 2),
+            # "pow":     (operator.pow, 2),
         }
         operatorMathsForOne = {
-            "neg":     (operator.neg, 1),
+            "neg": (operator.neg, 1),
         }
 
         torchMathsForTwo = {
-            "torch_add":     (torch.add, 2),
-            "torch_sub":     (torch.sub, 2),
-            "torch_mul":     (torch.mul, 2),
-            "torch_div":     (torch.div, 2),
-            "torch_pow":     (torch.pow, 2),
-            "torch_max":     (torch.maximum, 2),
-            "torch_min":     (torch.minimum, 2),
+            "torch_add": (torch.add, 2),
+            "torch_sub": (torch.sub, 2),
+            "torch_mul": (torch.mul, 2),
+            "torch_div": (torch.div, 2),
+            "torch_pow": (torch.pow, 2),
+            "torch_max": (torch.maximum, 2),
+            "torch_min": (torch.minimum, 2),
         }
         torchMathsForOne = {
-            "torch_abs":     (torch.abs, 1),
-            "torch_sin":     (torch.sin, 1),
-            "torch_cos":     (torch.cos, 1),
-            "torch_tanh":    (torch.tanh, 1),
-            "torch_log":     (torch.log1p, 1),   # safer than log(x)
-            "torch_relu":    (torch.relu, 1),
+            "torch_abs": (torch.abs, 1),
+            "torch_sin": (torch.sin, 1),
+            "torch_cos": (torch.cos, 1),
+            "torch_tanh": (torch.tanh, 1),
+            "torch_log": (torch.log1p, 1),  # safer than log(x)
+            "torch_relu": (torch.relu, 1),
             "torch_sigmoid": (torch.sigmoid, 1),
         }
 
@@ -632,8 +885,8 @@ class S_OUTPUT:
                 self.maths = torchMathsForTwo
             if self.o:
                 self.maths = operatorMathsForTwo
-    
-        else: 
+
+        else:
             if self.t and self.o:
                 self.maths = {**torchMathsForOne, **operatorMathsForOne}
             if self.t:
@@ -642,29 +895,61 @@ class S_OUTPUT:
                 self.maths = operatorMathsForOne
 
         chosenName, (chosenFunction, _) = random.choice(list(self.maths.items()))
-        if _secondNumbers is not None and _secondNumbers.numel() > 0: 
+        if _secondNumbers is not None and _secondNumbers.numel() > 0:
             result = chosenFunction(_firstNumbers, _secondNumbers)
-        else: 
+        else:
             result = chosenFunction(_firstNumbers)
 
         return result, chosenName
-    
+
     @whocalled
-    def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes, windowTensor, per_window_style = False):
+    def S_formatWindowBiasTriplets(
+        self,
+        label,
+        rawTensor,
+        softTensor,
+        windowSizes,
+        windowTensor,
+        per_window_style=False,
+    ):
         try:
-            triplets = sorted(zip(windowSizes, windowTensor, rawTensor, softTensor), key = lambda x: x[3], reverse = True)
+            triplets = sorted(
+                zip(windowSizes, windowTensor, rawTensor, softTensor),
+                key=lambda x: x[3],
+                reverse=True,
+            )
             formatted = []
             for w, t, raw, soft in triplets:
                 floatVal = w.item() if isinstance(w, torch.Tensor) else w
                 tensorVal = t.item() if isinstance(t, torch.Tensor) else t
                 weightVal = raw.item() if isinstance(raw, torch.Tensor) else raw
-                softmaxWeightVal = soft.item() if isinstance(soft, torch.Tensor) else soft
+                softmaxWeightVal = (
+                    soft.item() if isinstance(soft, torch.Tensor) else soft
+                )
                 dim = "\033[2m"
 
-                floatStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}_float", floatVal)
-                tensorStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}_tensor", tensorVal)
-                weightStyle = self.S_getStat(f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}", weightVal)
-                softmaxWeightStyle = self.S_getStat(f"{label}Soft" if not per_window_style else f"{label}_W{int(floatVal)}", softmaxWeightVal)
+                floatStyle = self.S_getStat(
+                    f"{label}"
+                    if not per_window_style
+                    else f"{label}_W{int(floatVal)}_float",
+                    floatVal,
+                )
+                tensorStyle = self.S_getStat(
+                    f"{label}"
+                    if not per_window_style
+                    else f"{label}_W{int(floatVal)}_tensor",
+                    tensorVal,
+                )
+                weightStyle = self.S_getStat(
+                    f"{label}" if not per_window_style else f"{label}_W{int(floatVal)}",
+                    weightVal,
+                )
+                softmaxWeightStyle = self.S_getStat(
+                    f"{label}Soft"
+                    if not per_window_style
+                    else f"{label}_W{int(floatVal)}",
+                    softmaxWeightVal,
+                )
 
                 chunk = (
                     f"{self.S_apply(weightStyle, f'{weightVal: .4f}')} "
@@ -676,7 +961,7 @@ class S_OUTPUT:
             return "\n".join(formatted)
         except Exception as e:
             return f"<ERR in S_formatWindowBiasTriplets: {e}>"
-    
+
     """FLAT STRING VERSION"""
     """def S_formatWindowBiasTriplets(self, label, rawTensor, softTensor, windowSizes):
         try:
@@ -697,5 +982,6 @@ class S_OUTPUT:
             return 0.0
         index = min(int(_percentile * len(_sortedStat)), len(_sortedStat) - 1)
         return _sortedStat[index]
+
 
 # __main__ test harness removed (legacy)

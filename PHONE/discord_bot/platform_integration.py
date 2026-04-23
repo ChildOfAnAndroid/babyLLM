@@ -12,11 +12,18 @@ import asyncio
 import inspect
 import shlex
 from collections import deque
-from typing import Dict, Optional, Any
-from .platforms import PlatformAdapter, PlatformMessage, PlatformContext
-from .platforms import DiscordAdapter, TwitchAdapter, WebAdapter
+from typing import Any, Dict
+
+
 from .context import create_platform_command_context
-from textCleaningTool import clean_text
+from .platforms import (
+    DiscordAdapter,
+    PlatformAdapter,
+    PlatformContext,
+    PlatformMessage,
+    TwitchAdapter,
+    WebAdapter,
+)
 from .utils import to_british_english
 
 
@@ -73,6 +80,7 @@ class PlatformIntegrationMixin:
         # Support both single channel and list
         if channels is None:
             from config import twitch_channels
+
             channels = twitch_channels
         elif isinstance(channels, str):
             channels = [channels]
@@ -126,6 +134,7 @@ class PlatformIntegrationMixin:
 
         # Update user memory
         if author_id not in self.userMemory:
+
             def get_default():
                 return {
                     "nickname": None,
@@ -154,12 +163,13 @@ class PlatformIntegrationMixin:
                     "last_fact_time": 0,
                     "web_explicit_opt_out": False,
                 }
+
             self.userMemory[author_id] = get_default()
 
         mem = self.userMemory[author_id]
-        mem['display_name'] = platform_msg.author_display_name
-        mem['last_seen'] = platform_msg.timestamp
-        mem['message_count'] = mem.get('message_count', 0) + 1
+        mem["display_name"] = platform_msg.author_display_name
+        mem["last_seen"] = platform_msg.timestamp
+        mem["message_count"] = mem.get("message_count", 0) + 1
 
         # Add to buffer - privacy checks already done by platform adapters
         # Web users are TREATED as opted in by default
@@ -168,7 +178,9 @@ class PlatformIntegrationMixin:
         is_opted_in = author_id in self.AIoptInUsers
 
         # Explicit opt-out is persisted separately so "never opted in" isn't treated as opt-out.
-        has_explicitly_opted_out = is_web_user and self.has_explicit_web_opt_out(author_id)
+        has_explicitly_opted_out = is_web_user and self.has_explicit_web_opt_out(
+            author_id
+        )
 
         # Web users: treated as opted in UNLESS they've explicitly opted out
         if is_opted_in or (is_web_user and not has_explicitly_opted_out):
@@ -180,18 +192,22 @@ class PlatformIntegrationMixin:
 
                 # Trim buffer if needed
                 if not isinstance(self.buffer, deque):
-                    self.buffer = deque(list(self.buffer), maxlen=self.rollingContextSize)
+                    self.buffer = deque(
+                        list(self.buffer), maxlen=self.rollingContextSize
+                    )
                 if len(self.buffer) > self.rollingContextSize:
                     while len(self.buffer) > self.rollingContextSize:
                         self.buffer.popleft()
 
                 # Queue for training
-                if hasattr(self, 'training_queue') and self.training_queue.qsize() < 20:
-                    await self.training_queue.put({
-                        "type": "chat",
-                        "text": formatted,
-                        "platform": platform_msg.platform
-                    })
+                if hasattr(self, "training_queue") and self.training_queue.qsize() < 20:
+                    await self.training_queue.put(
+                        {
+                            "type": "chat",
+                            "text": formatted,
+                            "platform": platform_msg.platform,
+                        }
+                    )
 
     async def handle_platform_command(self, platform_ctx: PlatformContext):
         """Handle command from any platform"""
@@ -206,7 +222,9 @@ class PlatformIntegrationMixin:
 
         # Check if command is allowed on this platform
         if not adapter.is_command_allowed(command_name):
-            await platform_ctx.reply(f"sorry! !{command_name} is too complex for {platform}. try it on discord! :)")
+            await platform_ctx.reply(
+                f"sorry! !{command_name} is too complex for {platform}. try it on discord! :)"
+            )
             return
 
         if not self.cog:
@@ -214,18 +232,26 @@ class PlatformIntegrationMixin:
             return
 
         try:
-            resolved_name, callback = self._resolve_platform_command(command_name, platform)
+            resolved_name, callback = self._resolve_platform_command(
+                command_name, platform
+            )
             if callback is None:
-                await platform_ctx.reply(f"sorry! !{command_name} isn't available right now")
+                await platform_ctx.reply(
+                    f"sorry! !{command_name} isn't available right now"
+                )
                 return
 
             if platform == "twitch":
                 source_command = (command_name or "").lower()
                 message_content_for_ctx = platform_ctx.message.content
                 if source_command == "bbyskunk":
-                    legacy_arg_text = self._extract_command_arg_text(platform_ctx.message.content)
+                    legacy_arg_text = self._extract_command_arg_text(
+                        platform_ctx.message.content
+                    )
                     if legacy_arg_text:
-                        message_content_for_ctx = f"!babyllm $skunkllm {legacy_arg_text}"
+                        message_content_for_ctx = (
+                            f"!babyllm $skunkllm {legacy_arg_text}"
+                        )
                     else:
                         message_content_for_ctx = "!babyllm $skunkllm"
                 reply_budget = {"sent": 0, "notice_sent": False}
@@ -252,7 +278,11 @@ class PlatformIntegrationMixin:
                             parts.append(value)
 
                     footer = getattr(embed, "footer", None)
-                    footer_text = str(getattr(footer, "text", "") or "").strip() if footer is not None else ""
+                    footer_text = (
+                        str(getattr(footer, "text", "") or "").strip()
+                        if footer is not None
+                        else ""
+                    )
                     if footer_text:
                         parts.append(footer_text)
 
@@ -268,7 +298,9 @@ class PlatformIntegrationMixin:
                             if not reply_budget["notice_sent"]:
                                 reply_budget["notice_sent"] = True
                                 notice = "…this command is long; use Discord for the full output."
-                                reply_method = getattr(platform_ctx.platform_ctx, "reply", None)
+                                reply_method = getattr(
+                                    platform_ctx.platform_ctx, "reply", None
+                                )
                                 if callable(reply_method):
                                     await reply_method(notice)
                                 else:
@@ -293,7 +325,11 @@ class PlatformIntegrationMixin:
 
                 raw_message = platform_ctx.message.raw_message
                 message_id = (
-                    str(getattr(raw_message, "id", None) or getattr(raw_message, "message_id", None) or "")
+                    str(
+                        getattr(raw_message, "id", None)
+                        or getattr(raw_message, "message_id", None)
+                        or ""
+                    )
                     or None
                 )
 
@@ -312,8 +348,12 @@ class PlatformIntegrationMixin:
                 )
 
                 arg_text = self._extract_command_arg_text(platform_ctx.message.content)
-                positional_args, keyword_args = self._parse_command_arguments(callback, arg_text)
-                await self._invoke_platform_callback(callback, fake_ctx, positional_args, keyword_args)
+                positional_args, keyword_args = self._parse_command_arguments(
+                    callback, arg_text
+                )
+                await self._invoke_platform_callback(
+                    callback, fake_ctx, positional_args, keyword_args
+                )
             else:
                 # Keep Discord path straightforward.
                 if inspect.ismethod(callback):
@@ -324,6 +364,7 @@ class PlatformIntegrationMixin:
         except Exception as e:
             print(f"[PlatformIntegration] Error executing command {command_name}: {e}")
             import traceback
+
             traceback.print_exc()
             await platform_ctx.reply(f"oops! something broke: {str(e)[:100]}")
 
@@ -331,7 +372,9 @@ class PlatformIntegrationMixin:
         """Resolve a platform command to an executable callback."""
         normalized_name = command_name.lower()
         if platform == "twitch":
-            normalized_name = self._TWITCH_COMMAND_ALIASES.get(normalized_name, normalized_name)
+            normalized_name = self._TWITCH_COMMAND_ALIASES.get(
+                normalized_name, normalized_name
+            )
 
         # Prefer Discord's command registry (handles aliases).
         if hasattr(self, "get_command"):
@@ -393,10 +436,15 @@ class PlatformIntegrationMixin:
         keyword_args = {}
 
         for param in command_params:
-            if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+            if param.kind in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ):
                 if tokens:
                     raw_value = tokens.pop(0)
-                    positional_args.append(self._coerce_argument(raw_value, param.annotation))
+                    positional_args.append(
+                        self._coerce_argument(raw_value, param.annotation)
+                    )
                 elif param.default is inspect._empty:
                     raise ValueError(f"missing required argument: {param.name}")
             elif param.kind == inspect.Parameter.VAR_POSITIONAL:
@@ -407,13 +455,17 @@ class PlatformIntegrationMixin:
                 if tokens:
                     raw_rest = " ".join(tokens)
                     tokens = []
-                    keyword_args[param.name] = self._coerce_argument(raw_rest, param.annotation)
+                    keyword_args[param.name] = self._coerce_argument(
+                        raw_rest, param.annotation
+                    )
                 elif param.default is inspect._empty:
                     raise ValueError(f"missing required argument: {param.name}")
 
         return positional_args, keyword_args
 
-    async def _invoke_platform_callback(self, callback, fake_ctx, positional_args, keyword_args):
+    async def _invoke_platform_callback(
+        self, callback, fake_ctx, positional_args, keyword_args
+    ):
         if inspect.ismethod(callback):
             await callback(fake_ctx, *positional_args, **keyword_args)
             return
@@ -425,7 +477,9 @@ class PlatformIntegrationMixin:
         if adapter:
             await adapter.send_message(channel_id, content)
 
-    async def platform_reply_message(self, platform: str, message: PlatformMessage, content: str):
+    async def platform_reply_message(
+        self, platform: str, message: PlatformMessage, content: str
+    ):
         """Reply to a message on a specific platform"""
         adapter = self.platforms.get(platform)
         if adapter:

@@ -116,3 +116,11 @@ credentials.json
 .LSOverride
 Icon?
 PHONE/discord_bot/babyState.json
+utils/icharis2_ingest.py
+.probe_cache/probe_seq_cats.npz
+.probe_cache/probe_seq_hello.npz
+.probe_cache/probe_w269.npz
+
+.probe_cache/
+
+.probe_cache/
