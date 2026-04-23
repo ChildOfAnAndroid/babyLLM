@@ -390,4 +390,5 @@ class MEMORY(nn.Module):
 
     @whocalled
     def clearStats(self):
-        self._init_history_buffers()
+        self.stats = {}
+        self._reset_history_buffers()
