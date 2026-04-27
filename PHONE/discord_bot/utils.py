@@ -1,23 +1,26 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔっ --- 
+# --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // phone/discord_bot/utils.py
 # v1.1
 
+import difflib
 import random
 import re
 import time
-from collections import Counter
-from datetime import datetime
-import difflib
-import regex
 import unicodedata
+from datetime import datetime
+
+import pytz
+import regex
 
 try:
     from discord.utils import escape_markdown as _escape_markdown
 except Exception:  # pragma: no cover - fallback when discord isn't available
-    _MARKDOWN_RE = re.compile(r'([`*_~\[\]()>#|\\])')
+    _MARKDOWN_RE = re.compile(r"([`*_~\[\]()>#|\\])")
 
-    def _escape_markdown(text: str, *, as_needed: bool = False, ignore_links: bool = True) -> str:
+    def _escape_markdown(
+        text: str, *, as_needed: bool = False, ignore_links: bool = True
+    ) -> str:
         """Basic markdown escaper used if discord.py is unavailable.
 
         This escapes common Discord markdown characters by prefixing them with a
@@ -86,9 +89,23 @@ _AMERICAN_TO_BRITISH = {
     "favorites": "favourites",
     "favorited": "favourited",
     "favoriting": "favouriting",
+    "favor": "favour",
+    "favors": "favours",
+    "favored": "favoured",
+    "favoring": "favouring",
     "gray": "grey",
     "humor": "humour",
     "humors": "humours",
+    "honor": "honour",
+    "honors": "honours",
+    "honored": "honoured",
+    "honoring": "honouring",
+    "honorable": "honourable",
+    "honorably": "honourably",
+    "labor": "labour",
+    "labors": "labours",
+    "labored": "laboured",
+    "laboring": "labouring",
     "license": "licence",
     "licenses": "licences",
     "licensing": "licencing",
@@ -124,6 +141,12 @@ _AMERICAN_TO_BRITISH = {
     "synchronization": "synchronisation",
     "theater": "theatre",
     "theaters": "theatres",
+    "rumor": "rumour",
+    "rumors": "rumours",
+    "savor": "savour",
+    "savors": "savours",
+    "savored": "savoured",
+    "savoring": "savouring",
     "traveled": "travelled",
     "traveling": "travelling",
     "traveler": "traveller",
@@ -131,7 +154,11 @@ _AMERICAN_TO_BRITISH = {
 }
 
 _AMERICAN_TO_BRITISH_RE = re.compile(
-    r"\b(" + "|".join(sorted(map(re.escape, _AMERICAN_TO_BRITISH.keys()), key=len, reverse=True)) + r")\b",
+    r"\b("
+    + "|".join(
+        sorted(map(re.escape, _AMERICAN_TO_BRITISH.keys()), key=len, reverse=True)
+    )
+    + r")\b",
     flags=re.IGNORECASE,
 )
 
@@ -204,7 +231,9 @@ def normalise_embed_british_english(embed):
             field_name = to_british_english(str(getattr(field, "name", "")))
             field_value = to_british_english(str(getattr(field, "value", "")))
             field_inline = bool(getattr(field, "inline", False))
-            embed.set_field_at(i, name=field_name, value=field_value, inline=field_inline)
+            embed.set_field_at(
+                i, name=field_name, value=field_value, inline=field_inline
+            )
     except Exception:
         pass
 
@@ -249,11 +278,13 @@ def howLongAgo(t):
         return random.choice(["never", "not yet", "no record"])
     s = time.time() - t
     if s < 60:
-        return random.choice([
-            "less than a minute ago",
-            "just moments ago",
-            "under a minute back",
-        ])
+        return random.choice(
+            [
+                "less than a minute ago",
+                "just moments ago",
+                "under a minute back",
+            ]
+        )
     m = int(round(s / 60 / 3) * 3)
     if m < 60:
         prefix = random.choice(["maybe", "roughly", "around", "like"])
@@ -305,12 +336,12 @@ def strip_broken_graphemes(text: str, debug: bool = True) -> str:
 
 def clean_baby_output(text: str, keep_poetry=True, max_linebreaks=10) -> str:
     text = strip_broken_graphemes(text)
-    text = re.sub(r'([,:;])\1{2,}', r'\1', text)
-    text = re.sub(r'(?<![!?])([.])\1{3,}', r'\1\1\1', text)
-    text = re.sub(r'([.,?])(?=\w)', r'\1 ', text)
-    text = re.sub(r'\b(\w+)( \1\b){2,}', r'\1 \1', text)
-    text = re.sub(r'[ \t]{2,}', ' ', text)
-    text = re.sub(r'nigger', '', text, flags=re.IGNORECASE)
+    text = re.sub(r"([,:;])\1{2,}", r"\1", text)
+    text = re.sub(r"(?<![!?])([.])\1{3,}", r"\1\1\1", text)
+    text = re.sub(r"([.,?])(?=\w)", r"\1 ", text)
+    text = re.sub(r"\b(\w+)( \1\b){2,}", r"\1 \1", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"nigger", "", text, flags=re.IGNORECASE)
     if keep_poetry:
         lines = text.splitlines()
         if len(lines) > max_linebreaks:
@@ -321,7 +352,9 @@ def clean_baby_output(text: str, keep_poetry=True, max_linebreaks=10) -> str:
 def killExcessTags(buffer):
     cleaned, prev_speaker = [], None
     for line in buffer:
-        match = re.match(r"^\s*([^:]{0,16}):", line) # remove anything thats not a colon before 16 characters, if its followed by a colon
+        match = re.match(
+            r"^\s*([^:]{0,16}):", line
+        )  # remove anything thats not a colon before 16 characters, if its followed by a colon
         if match:
             speaker = match.group(1)
             if speaker == prev_speaker:
@@ -330,6 +363,7 @@ def killExcessTags(buffer):
                 prev_speaker = speaker
         cleaned.append(line)
     return cleaned
+
 
 def strSplitValueName(args_str: str):
     parts = args_str.strip().split()
@@ -360,7 +394,7 @@ def style_loss(text: str) -> str:
 def format_bby_amount(amount: float) -> str:
     """Format BBY amount consistently with ᛒ symbol and smart number formatting.
     Shows up to 13 digits before suffix, no decimal places, with comma separators.
-    
+
     Examples:
     - 1,234 -> ᛒ1,234
     - 123,456,789 -> ᛒ123,456,789
@@ -370,7 +404,7 @@ def format_bby_amount(amount: float) -> str:
     """
     abs_amount = abs(int(amount))  # Convert to int to remove decimals
     sign = "-" if amount < 0 else ""
-    
+
     if abs_amount < 10000000000000:  # Up to 9,999,999,999,999 (13 digits)
         # Show full amount with commas, no decimals
         formatted = f"{sign}{abs_amount:,}"
@@ -378,7 +412,9 @@ def format_bby_amount(amount: float) -> str:
         # Show as k with up to 13 digits before k, no decimals
         k_value = abs_amount // 1000
         formatted = f"{sign}{k_value:,}k"
-    elif abs_amount < 10000000000000000000:  # Up to 9,999,999,999,999,999,999 (show as m)
+    elif (
+        abs_amount < 10000000000000000000
+    ):  # Up to 9,999,999,999,999,999,999 (show as m)
         # Show as m with up to 13 digits before m, no decimals
         m_value = abs_amount // 1000000
         formatted = f"{sign}{m_value:,}m"
@@ -386,12 +422,47 @@ def format_bby_amount(amount: float) -> str:
         # Show as b with up to 13 digits before b, no decimals
         b_value = abs_amount // 1000000000
         formatted = f"{sign}{b_value:,}b"
-    
+
     return f"ᛒ{formatted}"
 
 
-def getTimeRant(ai_opt_in_users):
-    now = datetime.now()
+DEFAULT_BBY_TIMEZONE = "Europe/London"
+_BBY_TIMEZONE_ALIASES = {
+    "uk": DEFAULT_BBY_TIMEZONE,
+    "london": DEFAULT_BBY_TIMEZONE,
+    "gmt": DEFAULT_BBY_TIMEZONE,
+    "bst": DEFAULT_BBY_TIMEZONE,
+}
+
+
+def resolve_bby_timezone_name(
+    tz_name: str | None, fallback: str = DEFAULT_BBY_TIMEZONE
+) -> str:
+    tz_raw = str(tz_name or "").strip()
+    tz_lookup = _BBY_TIMEZONE_ALIASES.get(tz_raw.lower(), tz_raw or fallback)
+    try:
+        return pytz.timezone(tz_lookup).zone
+    except pytz.UnknownTimeZoneError:
+        lower_lookup = tz_lookup.lower()
+        match = next(
+            (zone for zone in pytz.all_timezones if zone.lower() == lower_lookup), None
+        )
+        return match or fallback
+
+
+def get_bby_now(tz_name: str | None = DEFAULT_BBY_TIMEZONE) -> datetime:
+    tz = pytz.timezone(resolve_bby_timezone_name(tz_name))
+    return datetime.now(tz)
+
+
+def getTimeRant(
+    ai_opt_in_users,
+    tz_name: str | None = DEFAULT_BBY_TIMEZONE,
+    *,
+    include_timezone_hint: bool = False,
+):
+    resolved_tz_name = resolve_bby_timezone_name(tz_name)
+    now = get_bby_now(resolved_tz_name)
     hour_24 = now.strftime("%H")
     hour_12 = now.strftime("%I").lstrip("0")
     minute = now.strftime("%M")
@@ -448,17 +519,26 @@ def getTimeRant(ai_opt_in_users):
         "my internal clock",
         "a passing cloud",
     ] + ai_opt_in_users
-    return f"{random.choice(usernames)}: {random.choice(approx_phrases)} "
+    rant = f"{random.choice(usernames)}: {random.choice(approx_phrases)}"
+    if include_timezone_hint:
+        timezone_hint = (
+            "UK time" if resolved_tz_name == DEFAULT_BBY_TIMEZONE else resolved_tz_name
+        )
+        rant = f"{rant} ({timezone_hint})"
+    return f"{rant} "
 
 
 __all__ = [
+    "DEFAULT_BBY_TIMEZONE",
     "escape_markdown",
+    "get_bby_now",
     "is_similar",
     "howLongAgo",
     "strip_broken_graphemes",
     "clean_baby_output",
     "killExcessTags",
     "strSplitValueName",
+    "resolve_bby_timezone_name",
     "style_gain",
     "style_loss",
     "getTimeRant",

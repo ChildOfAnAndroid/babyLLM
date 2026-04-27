@@ -153,16 +153,28 @@ class SensoryBus:
 
         raw_values = {
             "global_light": self._safe_value(
-                vision_raw.get("global_light"), self.ema["global_light"], min_val=0.0, max_val=1.0
+                vision_raw.get("global_light"),
+                self.ema["global_light"],
+                min_val=0.0,
+                max_val=1.0,
             ),
             "global_motion": self._safe_value(
-                vision_raw.get("global_motion"), self.ema["global_motion"], min_val=0.0, max_val=1.0
+                vision_raw.get("global_motion"),
+                self.ema["global_motion"],
+                min_val=0.0,
+                max_val=1.0,
             ),
             "left_right_bias": self._safe_value(
-                vision_raw.get("left_right_bias"), self.ema["left_right_bias"], min_val=-1.0, max_val=1.0
+                vision_raw.get("left_right_bias"),
+                self.ema["left_right_bias"],
+                min_val=-1.0,
+                max_val=1.0,
             ),
             "top_bottom_bias": self._safe_value(
-                vision_raw.get("top_bottom_bias"), self.ema["top_bottom_bias"], min_val=-1.0, max_val=1.0
+                vision_raw.get("top_bottom_bias"),
+                self.ema["top_bottom_bias"],
+                min_val=-1.0,
+                max_val=1.0,
             ),
             "contrast_intrusion": self._safe_value(
                 vision_raw.get("contrast_intrusion"),
@@ -170,13 +182,24 @@ class SensoryBus:
                 min_val=0.0,
                 max_val=1.0,
             ),
-            "noise": self._safe_value(raw_noise, self.ema["noise"], min_val=0.0, max_val=1.0),
-            "time_of_day": self._safe_value(time_of_day, self.ema["time_of_day"], min_val=0.0, max_val=1.0),
-            "interaction_recency": self._safe_value(
-                interaction_recency, self.ema["interaction_recency"], min_val=0.0, max_val=1.0
+            "noise": self._safe_value(
+                raw_noise, self.ema["noise"], min_val=0.0, max_val=1.0
             ),
-            "training_age": self._safe_value(training_age, self.ema["training_age"], min_val=0.0, max_val=1.0),
-            "device_temp_c": self._safe_value(raw_temp_c, self.ema["device_temp_c"], min_val=-10.0, max_val=120.0),
+            "time_of_day": self._safe_value(
+                time_of_day, self.ema["time_of_day"], min_val=0.0, max_val=1.0
+            ),
+            "interaction_recency": self._safe_value(
+                interaction_recency,
+                self.ema["interaction_recency"],
+                min_val=0.0,
+                max_val=1.0,
+            ),
+            "training_age": self._safe_value(
+                training_age, self.ema["training_age"], min_val=0.0, max_val=1.0
+            ),
+            "device_temp_c": self._safe_value(
+                raw_temp_c, self.ema["device_temp_c"], min_val=-10.0, max_val=120.0
+            ),
         }
 
         if not self._ema_initialized:
@@ -214,7 +237,7 @@ class SensoryBus:
             "top_bottom_bias": 0.9,
             "contrast_intrusion": 0.9,
             "noise": 0.9,
-            "time_of_day": 0.999,       # Keep slow (it IS slow)
+            "time_of_day": 0.999,  # Keep slow (it IS slow)
             "interaction_recency": 0.9,
         }
 
@@ -237,7 +260,12 @@ class SensoryBus:
             self.ema[key] = (alpha * prev) + ((1.0 - alpha) * raw)
 
             k_base = K.get(key, 2.0)
-            prior = self._safe_value(self.state.get(delta_keys.get(key, ""), 0.5), 0.5, min_val=0.0, max_val=1.0)
+            prior = self._safe_value(
+                self.state.get(delta_keys.get(key, ""), 0.5),
+                0.5,
+                min_val=0.0,
+                max_val=1.0,
+            )
             delta_hint = abs(prior - 0.5) * 2.0
             k = (k_base * 0.9) + (delta_hint * 0.1)
             delta_raw = raw - self.ema[key]
@@ -268,7 +296,9 @@ class SensoryBus:
         )
 
     def get_device_temp_c_tensor(self, device):
-        return torch.tensor(self.state["device_temp_c_delta"], device=device, dtype=torch.float32)
+        return torch.tensor(
+            self.state["device_temp_c_delta"], device=device, dtype=torch.float32
+        )
 
     def get_temperature_tensor(self, device):
         """Deprecated: use get_device_temp_c_tensor for clarity."""
@@ -317,7 +347,9 @@ class SensoryBus:
         if self.audio_stream is None:
             return None
         try:
-            data = self.audio_stream.read(self.audio_frames_per_buffer, exception_on_overflow=False)
+            data = self.audio_stream.read(
+                self.audio_frames_per_buffer, exception_on_overflow=False
+            )
 
             count = len(data) / 2
             if count <= 0:

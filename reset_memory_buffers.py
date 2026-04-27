@@ -2,9 +2,11 @@
 # Reset exploded memory buffers WITHOUT touching learned weights
 # These buffers accumulated extreme values and cause slowdown
 
-import torch
 import shutil
 from datetime import datetime
+
+import torch
+
 from config import *
 
 print("=" * 80)
@@ -12,7 +14,9 @@ print("MEMORY BUFFER RESET")
 print("=" * 80)
 
 checkpoint_path = modelFilePath
-backup_path = checkpoint_path.replace('.pth', f'_BEFORE_MEMORY_RESET_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pth')
+backup_path = checkpoint_path.replace(
+    ".pth", f"_BEFORE_MEMORY_RESET_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth"
+)
 
 print(f"\nCheckpoint: {checkpoint_path}")
 print(f"Backup: {backup_path}")
@@ -21,7 +25,7 @@ print(f"Backup: {backup_path}")
 print("\n[1/3] Creating backup...")
 try:
     shutil.copy2(checkpoint_path, backup_path)
-    print(f"✓ Backup saved")
+    print("✓ Backup saved")
 except Exception as e:
     print(f"❌ Backup failed: {e}")
     exit(1)
@@ -29,7 +33,7 @@ except Exception as e:
 # 2. Load
 print("\n[2/3] Loading checkpoint...")
 try:
-    state_dict = torch.load(checkpoint_path, map_location='cpu')
+    state_dict = torch.load(checkpoint_path, map_location="cpu")
     print(f"✓ Loaded {len(state_dict)} parameters")
 except Exception as e:
     print(f"❌ Load failed: {e}")
@@ -39,11 +43,11 @@ except Exception as e:
 print("\n[3/3] Resetting memory buffers...")
 
 buffers_to_reset = [
-    'memory.shortTermMemory',
-    'memory.longTermMemory',
-    'memory2.shortTermMemory',
-    'memory2.longTermMemory',
-    'scratchpad.buffer',  # Also reset scratchpad if it exists
+    "memory.shortTermMemory",
+    "memory.longTermMemory",
+    "memory2.shortTermMemory",
+    "memory2.longTermMemory",
+    "scratchpad.buffer",  # Also reset scratchpad if it exists
 ]
 
 reset_count = 0
@@ -69,12 +73,12 @@ else:
 print("\nSaving modified checkpoint...")
 try:
     torch.save(state_dict, checkpoint_path)
-    print(f"✓ Checkpoint saved")
+    print("✓ Checkpoint saved")
 except Exception as e:
     print(f"❌ Save failed: {e}")
-    print(f"   Restoring backup...")
+    print("   Restoring backup...")
     shutil.copy2(backup_path, checkpoint_path)
-    print(f"   ✓ Backup restored")
+    print("   ✓ Backup restored")
     exit(1)
 
 print("\n" + "=" * 80)

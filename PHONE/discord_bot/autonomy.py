@@ -1,19 +1,19 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔっ --- 
+# --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // phone/discord_bot/autonomy.py
 # v1.1
 
-import os
-import json
-import time
-import random
 import asyncio
+import json
+import os
+import random
 import re
+import time
 from collections import Counter
 from glob import glob
 from typing import List
 
-from config import trainingFilePathCLEANED, trainingFilePath_dict_weighted
+from config import trainingFilePath_dict_weighted, trainingFilePathCLEANED
 
 
 class AutonomyPlanner:
@@ -29,6 +29,9 @@ class AutonomyPlanner:
         self.bot = bot
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.state_path = state_path or os.path.join(base_dir, "autonomy.json")
+        self._candidate_paths_cache: list[str] = []
+        self._candidate_paths_cached_at = 0.0
+        self._candidate_paths_cache_ttl = 900.0
         self.state = {
             "enabled": True,
             "last_tick": 0.0,
@@ -46,7 +49,9 @@ class AutonomyPlanner:
                 with open(self.state_path, "r", encoding="utf-8") as f:
                     data = json.load(f) or {}
                 if isinstance(data, dict):
-                    self.state.update({k: data.get(k, v) for k, v in self.state.items()})
+                    self.state.update(
+                        {k: data.get(k, v) for k, v in self.state.items()}
+                    )
         except Exception:
             pass
 
@@ -94,7 +99,9 @@ class AutonomyPlanner:
             else:
                 changed = True
         if len(hist) > 128:
-            for key, _ in sorted(hist.items(), key=lambda kv: kv[1], reverse=True)[128:]:
+            for key, _ in sorted(hist.items(), key=lambda kv: kv[1], reverse=True)[
+                128:
+            ]:
                 hist.pop(key, None)
             changed = True
         self.state["recent_line_signatures"] = hist
@@ -133,7 +140,11 @@ class AutonomyPlanner:
             "buffer_len": 0,
         }
         try:
-            out["queue_len"] = self.bot.training_queue.qsize() if hasattr(self.bot, "training_queue") else 0
+            out["queue_len"] = (
+                self.bot.training_queue.qsize()
+                if hasattr(self.bot, "training_queue")
+                else 0
+            )
         except Exception:
             out["queue_len"] = 0
         try:
@@ -178,34 +189,66 @@ class AutonomyPlanner:
         # Primary angle: attention gate
         if isinstance(g, (int, float)):
             if g < 0.15:
-                lines.append(f"attention feels narrow (gate {g:.2f}); i’ll practise soft‑opening while i read my own notes")
+                lines.append(
+                    "recent chat feels cramped, so i'm reopening attention with one slower reread"
+                )
             elif g > 0.75:
-                lines.append(f"attention is wide (gate {g:.2f}); trying a tighter focus pass on recent lines to avoid drifting")
+                lines.append(
+                    "recent chat is tugging me in too many directions, so i'm narrowing down to one thread"
+                )
             else:
-                lines.append(random.choice([
-                    f"attention feels balanced (gate {g:.2f}); doing one compact focus/refocus rep",
-                    f"gate {g:.2f} looks steady; a tiny attention tidy-up now",
-                    f"attention is comfy (gate {g:.2f}); short focus pass, then back to listening",
-                ]))
+                lines.append(
+                    random.choice(
+                        [
+                            "recent chat feels steady, so i'm keeping one thread warm instead of hopping",
+                            "the last few lines feel stable, so i'm doing one tidy pass through them",
+                            "things feel balanced right now, so i'm practising one short clean turn",
+                        ]
+                    )
+                )
 
         # Memory & load flavour
         if isinstance(mf, (int, float)) and isinstance(cl, (int, float)):
             if mf > 0.35 and cl > 0.3:
-                lines.append("lots of cross‑links buzzing; i’ll pin a couple clean examples into my training buffer")
+                lines.append(
+                    "too many cross-links are buzzing at once, so i'm pinning one clean example before they blur"
+                )
             elif mf < 0.2 and cl < 0.25:
-                lines.append(random.choice([
-                    "quiet brain; i'll skim my library for one neat snippet to rehearse",
-                    "quiet brain right now; i'll pick one short snippet and practise it cleanly",
-                    "brain is calm; i'll practise one tiny snippet from my notes",
-                    "low-noise moment; one clean line rehearsal should do",
-                    "head is quiet, so i'm grabbing one small snippet for a tidy rep",
-                ]))
+                lines.append(
+                    random.choice(
+                        [
+                            "it's quiet enough to rehearse one short line that matches what's happening",
+                            "the room feels calm, so i'm practising one small line from nearby context",
+                            "low-noise moment, so i'm tucking one clean example into place",
+                            "things are calm enough for one tidy rehearsal line",
+                            "i have enough breathing room to rehearse one small situation cleanly",
+                        ]
+                    )
+                )
         elif isinstance(st, (int, float)) and st > 0:
-            lines.append(f"learning stability around {st:.2f}; tiny tidy reps")
+            lines.append(
+                "learning feels steady enough for one small tidy pass through recent lines"
+            )
 
         if not lines:
-            lines.append("tiny self‑lesson: re‑read my own buffer then echo a shorter, cleaner line back")
-        return lines[:2]
+            lines.append(
+                "quiet moment between chats, so i'm rereading a recent line and trimming it into something cleaner"
+            )
+        return self._dedupe_reflection_lines(lines)[:2]
+
+    def _dedupe_reflection_lines(self, lines: List[str]) -> List[str]:
+        out: List[str] = []
+        seen: set[str] = set()
+        for raw_line in lines:
+            line = re.sub(r"\s+", " ", str(raw_line or "").strip())
+            if not line:
+                continue
+            sig = self._line_signature(line)
+            if not sig or sig in seen:
+                continue
+            seen.add(sig)
+            out.append(line)
+        return out
 
     def _line_signature(self, line: str) -> str:
         sig = str(line or "").strip().lower()
@@ -225,7 +268,9 @@ class AutonomyPlanner:
             return False
         hist[sig] = now_ts
         if len(hist) > 128:
-            for key, _ in sorted(hist.items(), key=lambda kv: kv[1], reverse=True)[128:]:
+            for key, _ in sorted(hist.items(), key=lambda kv: kv[1], reverse=True)[
+                128:
+            ]:
                 hist.pop(key, None)
         return True
 
@@ -235,7 +280,9 @@ class AutonomyPlanner:
             return s
         return s[: max_len - 3].rstrip() + "..."
 
-    def _contextualise_reflection_line(self, line: str, sig: dict, related: List[str]) -> str:
+    def _contextualise_reflection_line(
+        self, line: str, sig: dict, related: List[str]
+    ) -> str:
         """Wrap reflection lines with lightweight context to avoid rote standalone spam."""
         base = re.sub(r"\s+", " ", str(line or "").strip())
         if not base:
@@ -244,41 +291,43 @@ class AutonomyPlanner:
         ctx_text = self._get_context_text(20)
         keys = self._extract_keywords(ctx_text, k=4)
         prefixes: list[str] = []
+        related_keys = self._extract_keywords(" ".join(related), k=3) if related else []
 
         if len(keys) >= 2:
             prefixes.extend(
                 [
                     f"chat keeps circling {keys[0]} and {keys[1]}, so ",
-                    f"after seeing {keys[0]} pop up again, ",
-                    f"while {keys[0]} drifts through recent chat, ",
+                    f"{keys[0]} and {keys[1]} are still active in chat, so ",
+                    f"after {keys[0]} brushed against {keys[1]} again, ",
                 ]
             )
         elif len(keys) == 1:
             prefixes.extend(
                 [
-                    f"with {keys[0]} still in my head, ",
-                    f"because chat keeps poking {keys[0]}, ",
+                    f"with {keys[0]} still sitting in recent chat, ",
+                    f"because {keys[0]} keeps surfacing again, ",
                 ]
             )
 
-        if related:
-            sample = self._clip_context_snippet(related[0], max_len=84)
-            if sample:
-                prefixes.extend(
-                    [
-                        f"i just skimmed a snippet saying \"{sample}\", so ",
-                        f"one line i found was \"{sample}\", and now ",
-                    ]
-                )
-
-        g = sig.get("attn_gate")
-        if isinstance(g, (int, float)):
-            prefixes.append(f"gate check says {float(g):.2f}, so ")
+        if len(related_keys) >= 2:
+            prefixes.extend(
+                [
+                    f"after rereading an older line about {related_keys[0]} and {related_keys[1]}, ",
+                    f"an older note about {related_keys[0]} and {related_keys[1]} is still echoing, so ",
+                ]
+            )
+        elif len(related_keys) == 1:
+            prefixes.extend(
+                [
+                    f"after rereading an older line about {related_keys[0]}, ",
+                    f"an older note about {related_keys[0]} is still hanging around, so ",
+                ]
+            )
 
         if not prefixes:
             prefixes = [
-                "tiny self-check between chats: ",
-                "quick context-aware rehearsal: ",
+                "between chats, ",
+                "during a quiet patch, ",
             ]
 
         return f"{random.choice(prefixes)}{base}".strip()
@@ -292,7 +341,9 @@ class AutonomyPlanner:
         if not self.enabled:
             return
         now = time.time()
-        if (now - float(self.state.get("last_tick", 0.0))) < float(self.state.get("min_interval_sec", 420.0)):
+        if (now - float(self.state.get("last_tick", 0.0))) < float(
+            self.state.get("min_interval_sec", 420.0)
+        ):
             return
 
         sig = self._read_signals()
@@ -303,14 +354,12 @@ class AutonomyPlanner:
         # gather related snippets first so reflection lines can include context.
         related = []
         try:
-            related = self._find_related_snippets(max_snippets=2)
+            related = await asyncio.to_thread(self._find_related_snippets, 2)
         except Exception:
             related = []
 
         # build reflective lines and commit
         lines = self._compose_reflection(sig)
-        if len(lines) > 1:
-            lines = [random.choice(lines)]
         used_lines = []
         for ln in lines:
             try:
@@ -319,32 +368,32 @@ class AutonomyPlanner:
                     continue
                 if not self._allow_reflection_line(contextual, now):
                     continue
-                buf_line = self.bot.formatMessage(self.bot.babyName, contextual)
-                if self.bot._buffer_add(buf_line):
+                added = self.bot._training_buffer_add(
+                    contextual,
+                    apply_clean=True,
+                    prefer_keep=True,
+                )
+                if added:
                     used_lines.append(contextual)
-                # feed cleaned contextual lines into the training buffer.
-                self.bot._training_buffer_add(contextual, apply_clean=True)
             except Exception:
                 continue
 
-        # also feed related snippets into training memory
-        for snip in related:
+        # opportunistically enqueue a compact context that keeps the new
+        # action/state lines without dumping raw mined snippets back in.
+        if (
+            used_lines
+            and sig.get("queue_len", 0) < 10
+            and hasattr(self.bot, "training_queue")
+        ):
             try:
-                self.bot._training_buffer_add(snip, apply_clean=True)
-            except Exception:
-                continue
-
-        # opportunistically enqueue a compact context that includes the fresh lines
-        if (used_lines or related) and sig.get("queue_len", 0) < 8 and hasattr(self.bot, "training_queue"):
-            try:
-                tail = "\n".join(list(self.bot.buffer)[-64:])
-                compact_lines = used_lines + related
-                compact = tail + "\n" + "\n".join(compact_lines)
-                await self.bot.training_queue.put({"type": "context", "text": compact[-8000:]})
+                compact = self._compose_queue_context(used_lines)
+                await self.bot.training_queue.put(
+                    {"type": "context", "text": compact[-8000:]}
+                )
             except Exception:
                 pass
 
-        if used_lines or related:
+        if used_lines:
             self.state["last_tick"] = now
             self._save_state()
 
@@ -358,12 +407,44 @@ class AutonomyPlanner:
 
     def _extract_keywords(self, text: str, k: int = 6) -> List[str]:
         stops = {
-            "the","and","that","with","have","this","from","there","their","about","just","like","your","into","been","were","they",
-            "you","for","are","but","not","was","what","when","will","would","could","should","them","then","than","some","also",
+            "the",
+            "and",
+            "that",
+            "with",
+            "have",
+            "this",
+            "from",
+            "there",
+            "their",
+            "about",
+            "just",
+            "like",
+            "your",
+            "into",
+            "been",
+            "were",
+            "they",
+            "you",
+            "for",
+            "are",
+            "but",
+            "not",
+            "was",
+            "what",
+            "when",
+            "will",
+            "would",
+            "could",
+            "should",
+            "them",
+            "then",
+            "than",
+            "some",
+            "also",
         }
         words = re.findall(r"\b[a-zA-Z][a-zA-Z0-9_]{2,}\b", (text or "").lower())
         cnt = Counter(w for w in words if w not in stops)
-        top = [w for w,_ in cnt.most_common(k)]
+        top = [w for w, _ in cnt.most_common(k)]
         # add favourite token if present
         try:
             fave = (self.bot.babyFaveToken or "").strip().lower()
@@ -375,6 +456,14 @@ class AutonomyPlanner:
 
     def _candidate_training_paths(self) -> List[str]:
         """Legacy local text candidates as a fallback when weighted sources fail."""
+        now = time.time()
+        if (
+            self._candidate_paths_cache
+            and (now - self._candidate_paths_cached_at)
+            < self._candidate_paths_cache_ttl
+        ):
+            return list(self._candidate_paths_cache)
+
         paths = []
         try:
             # primary cleaned training corpus
@@ -396,14 +485,22 @@ class AutonomyPlanner:
                 if p not in seen:
                     seen.add(p)
                     uniq.append(p)
-            return uniq[:15]
+            cached = uniq[:15]
+            self._candidate_paths_cache = list(cached)
+            self._candidate_paths_cached_at = now
+            return cached
         except Exception:
-            return paths[:1]
+            fallback = paths[:1]
+            self._candidate_paths_cache = list(fallback)
+            self._candidate_paths_cached_at = now
+            return fallback
 
     def _sample_weighted_sources(self, k: int = 3) -> List[dict]:
         """Sample up to k entries from trainingFilePath_dict_weighted by weight."""
         try:
-            pop = [e for e in (trainingFilePath_dict_weighted or []) if isinstance(e, dict)]
+            pop = [
+                e for e in (trainingFilePath_dict_weighted or []) if isinstance(e, dict)
+            ]
             if not pop:
                 return []
             weights = [max(0.0, float(e.get("weight", 1.0) or 1.0)) for e in pop]
@@ -422,7 +519,9 @@ class AutonomyPlanner:
         except Exception:
             return []
 
-    def _load_source_text(self, entry: dict, max_chars: int = 150_000, retries: int = 5) -> str:
+    def _load_source_text(
+        self, entry: dict, max_chars: int = 150_000, retries: int = 5
+    ) -> str:
         """Load text from a weighted training entry using librarian when available.
 
         On failure, retries with different random entries (up to `retries`).
@@ -438,9 +537,15 @@ class AutonomyPlanner:
                     return ""
                 lib = getattr(self.bot, "librarian", None)
                 if lib and hasattr(lib, "loadSingleFile"):
-                    strat = "random" if typ in ("text", "discord_txt", "discord_json", "json") else "head"
+                    strat = (
+                        "random"
+                        if typ in ("text", "discord_txt", "discord_json", "json")
+                        else "head"
+                    )
                     try:
-                        txt = lib.loadSingleFile(path, typ, max_chars=max_chars, strategy=strat)
+                        txt = lib.loadSingleFile(
+                            path, typ, max_chars=max_chars, strategy=strat
+                        )
                         if txt:
                             return txt.strip().lower()
                     except Exception:
@@ -459,7 +564,9 @@ class AutonomyPlanner:
             return txt
         tried_paths.add(entry.get("in"))
 
-        pool = [e for e in (trainingFilePath_dict_weighted or []) if isinstance(e, dict)]
+        pool = [
+            e for e in (trainingFilePath_dict_weighted or []) if isinstance(e, dict)
+        ]
         attempts = 1
         while attempts < max(1, retries) and pool:
             candidate = random.choice(pool)
@@ -473,6 +580,43 @@ class AutonomyPlanner:
             if txt:
                 return txt
         return ""
+
+    def _is_useful_related_snippet(self, line: str) -> bool:
+        text = re.sub(r"\s+", " ", str(line or "").strip().lower())
+        if len(text) < 20 or len(text) > 240:
+            return False
+        if text.count(">") >= 1 or text.count("*") >= 4:
+            return False
+        if re.match(
+            r"^\*?(from|to|cc|bcc|subject|date|sent|attachments?|service|direction|guid|rowid|parser(?:_version)?|processing_ok)\*?\s*:",
+            text,
+        ):
+            return False
+        if (
+            "outside your organisation" in text
+            or "message has originated from outside" in text
+        ):
+            return False
+        return True
+
+    def _compose_queue_context(self, used_lines: List[str]) -> str:
+        lines = [re.sub(r"\s+", " ", str(line or "").strip()) for line in used_lines]
+        lines = [line for line in lines if line]
+        if not lines:
+            return ""
+
+        try:
+            tail_lines = [
+                re.sub(r"\s+", " ", str(line or "").strip())
+                for line in list(self.bot.buffer)[-24:]
+            ]
+        except Exception:
+            tail_lines = []
+        tail_lines = [line for line in tail_lines if line]
+        tail = "\n".join(tail_lines[-12:])
+        if tail:
+            return tail + "\n" + "\n".join(lines)
+        return "\n".join(lines)
 
     def _find_related_snippets(self, max_snippets: int = 2) -> List[str]:
         ctx = self._get_context_text(48)
@@ -491,7 +635,7 @@ class AutonomyPlanner:
                 continue
             for line in txt.splitlines():
                 s = line.strip().lower()
-                if len(s) < 20 or len(s) > 240:
+                if not self._is_useful_related_snippet(line):
                     continue
                 hit = sum(1 for k in keys if k in s)
                 if hit <= 0:
@@ -506,7 +650,7 @@ class AutonomyPlanner:
                     with open(path, "r", encoding="utf-8", errors="ignore") as f:
                         for line in f:
                             s = line.strip().lower()
-                            if len(s) < 20 or len(s) > 240:
+                            if not self._is_useful_related_snippet(line):
                                 continue
                             hit = sum(1 for k in keys if k in s)
                             if hit <= 0:

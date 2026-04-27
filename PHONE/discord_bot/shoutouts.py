@@ -1,5 +1,5 @@
 # CHARIS CAT 2025
-# --- ʕっʘ‿ʘʔっ --- 
+# --- ʕっʘ‿ʘʔっ ---
 # BABYLLM // phone/discord_bot/shoutouts.py
 # v1.2
 
@@ -121,10 +121,12 @@ SHOUTOUT_PROMPTS = [
     "this entire place is just a test stream for {name}.",
 ]
 
+
 def get_shoutout_prompts(name, colour=None, role_text=None):
     prompts = [p.format(name=name) for p in SHOUTOUT_PROMPTS]
     if colour is not None and role_text is not None:
         prompts.append(f"they show up in chat as {colour}, and {role_text}. ")
     return prompts
+
 
 __all__ = ["get_shoutout_prompts"]

@@ -7,23 +7,25 @@ import asyncio
 import json
 import os
 import re
+import time
 from datetime import datetime
+
+import aiohttp
 from twitchio import eventsub
 from twitchio.ext import commands as twitch_commands
-from typing import Optional
-from .base import PlatformAdapter, PlatformMessage, PlatformContext
+
 from config import twitch_channel
 from secret import SECRETtwitchTokenSECRET
-import time
-import aiohttp
-from ..utils import to_british_english, normalise_embed_british_english
+
+from ..utils import normalise_embed_british_english, to_british_english
+from .base import PlatformAdapter, PlatformContext, PlatformMessage
 
 # Try to import new required Twitch credentials (TwitchIO v3+)
 try:
     from secret import (
+        SECRETtwitchBotIdSECRET,
         SECRETtwitchClientIdSECRET,
         SECRETtwitchClientSecretSECRET,
-        SECRETtwitchBotIdSECRET,
     )
 except ImportError:
     # Fallback to None if not defined
@@ -92,62 +94,98 @@ def _colourise_twitch_command_log(message: str) -> str:
 # Twitch command whitelist - only simple, short commands
 TWITCH_ALLOWED_COMMANDS = {
     # Core commands
-    "babyllm", "bby", "b", "ai", "bbylim", "babylim", "bbyskunk",
-
+    "babyllm",
+    "bby",
+    "b",
+    "ai",
+    "bbylim",
+    "babylim",
+    "bbyskunk",
     # Opt-in/out
-    "bbyoptin", "aioptin", "bbyoptout", "aioptout", "bbyoptcheck", "aioptcheck",
-
+    "bbyoptin",
+    "aioptin",
+    "bbyoptout",
+    "aioptout",
+    "bbyoptcheck",
+    "aioptcheck",
     # Simple social commands
-    "bbyhug", "bbyfite", "bbygift", "bbyfeed", "bbytip",
-    "bbybook_sign", "bbysig", "bsig", "bbysign", "bsign",
-
+    "bbyhug",
+    "bbyfite",
+    "bbygift",
+    "bbyfeed",
+    "bbytip",
+    "bbybook_sign",
+    "bbysig",
+    "bsig",
+    "bbysign",
+    "bsign",
     # User info
-    "bbybag", "bbynick", "bby", "bbydictionary", "bbywords", "bwords",
-    "bbytimer", "bbysetzone",
-    "bbybby", "bbyscore", "bbylove", "bbby",
+    "bbybag",
+    "bbynick",
+    "bby",
+    "bbydictionary",
+    "bbywords",
+    "bwords",
+    "bbytimer",
+    "bbysetzone",
+    "bbybby",
+    "bbyscore",
+    "bbylove",
+    "bbby",
     "bbyfaves",
-
     # Facts (short responses)
-    "bbyteach", "bbyforget",
-
+    "bbyteach",
+    "bbyforget",
     # Help and status
-    "bbyhelp", "bbywiki", "bbystatus", "bbythought",
-
+    "bbyhelp",
+    "bbywiki",
+    "bbystatus",
+    "bbythought",
     # Fun short commands
-    "bbyrant", "bbyshoutout", "bbycolour", "bbycolor",
-    "bbytranslate", "btranslate",
-    "bbyship", "bship", "bcouple", "bbycouple",
-
+    "bbyrant",
+    "bbyshoutout",
+    "bbycolour",
+    "bbycolor",
+    "bbytranslate",
+    "btranslate",
+    "bbyship",
+    "bship",
+    "bcouple",
+    "bbycouple",
     # Smink / timing bonuses
-    "bbysminks", "bbysmink", "sminks", "bsmink", "bbycheers",
-    "bbysminkboard", "sminkboard", "bsminkboard",
-
+    "bbysminks",
+    "bbysmink",
+    "sminks",
+    "bsmink",
+    "bbycheers",
+    "bbysminkboard",
+    "sminkboard",
+    "bsminkboard",
     # Save
     "bbysave",
-
     # NOTE: bbyjoin/bbyleave aliases are registered dynamically in _register_commands()
     # and handled in TwitchAdapter for Twitch-specific authorization logic.
 }
 
 # Commands NOT allowed on Twitch (too complex/long responses)
 TWITCH_BLOCKED_COMMANDS = {
-    "bbycraft",      # Complex crafting system
-    "bbybook",       # Can be very long
-    "bbyleaderboard", # Long output
+    "bbycraft",  # Complex crafting system
+    "bbybook",  # Can be very long
+    "bbyleaderboard",  # Long output
     "bbyinventory",  # Can be very long
-    "bbytokens",     # Technical, long
+    "bbytokens",  # Technical, long
     "bbysentiment",  # Technical, long
-    "bbyreact",      # Relies on Discord reactions
-    "bbydeclarewar", # Discord-only spam/game behaviour
-    "bbywtf",        # Discord-only word-definition flow
-    "bbyspace",      # Discord-only profile page feature
-    "bbyfriends",    # Discord-only list output
-    "bbyrivals",     # Discord-only list output
-    "bbytrain",      # Admin/queue workflow
-    "babytrain",     # Admin alias
-    "bbyschool",     # Admin alias
-    "bbyqueue",      # Admin queue inspection
-    "bqueue",        # Admin alias
+    "bbyreact",  # Relies on Discord reactions
+    "bbydeclarewar",  # Discord-only spam/game behaviour
+    "bbywtf",  # Discord-only word-definition flow
+    "bbyspace",  # Discord-only profile page feature
+    "bbyfriends",  # Discord-only list output
+    "bbyrivals",  # Discord-only list output
+    "bbytrain",  # Admin/queue workflow
+    "babytrain",  # Admin alias
+    "bbyschool",  # Admin alias
+    "bbyqueue",  # Admin queue inspection
+    "bqueue",  # Admin alias
 }
 
 # Twitch management commands that are handled directly in the adapter.
@@ -176,25 +214,31 @@ class TwitchBot(twitch_commands.Bot):
             bot_id_str = str(bot_id_int)
             print(f"[TwitchBot] ✅ bot_id is numeric: {bot_id_int}")
         except (ValueError, TypeError):
-            print(f"[TwitchBot] ❌ CRITICAL: bot_id must be numeric user ID, not username!")
-            print(f"[TwitchBot] Get it from: https://api.twitch.tv/helix/users?login=babyllm")
+            print(
+                "[TwitchBot] ❌ CRITICAL: bot_id must be numeric user ID, not username!"
+            )
+            print(
+                "[TwitchBot] Get it from: https://api.twitch.tv/helix/users?login=babyllm"
+            )
             raise ValueError(f"bot_id must be numeric, got: {SECRETtwitchBotIdSECRET}")
 
         # Build kwargs for TwitchIO v3+ initialization
         runtime_login_token = adapter.get_runtime_login_token()
         init_kwargs = {
-            'token': runtime_login_token,
-            'prefix': '!',
-            'initial_channels': channels,
-            'client_id': SECRETtwitchClientIdSECRET,
-            'client_secret': SECRETtwitchClientSecretSECRET,
-            'bot_id': bot_id_str,  # Keep string for TwitchIO/EventSub condition payloads.
+            "token": runtime_login_token,
+            "prefix": "!",
+            "initial_channels": channels,
+            "client_id": SECRETtwitchClientIdSECRET,
+            "client_secret": SECRETtwitchClientSecretSECRET,
+            "bot_id": bot_id_str,  # Keep string for TwitchIO/EventSub condition payloads.
         }
 
         super().__init__(**init_kwargs)
         self.platform_adapter = adapter
         self.baby_name = self.platform_adapter.bot.babyName
-        self.joined_channels = channels  # Don't override self.channels - TwitchIO owns it!
+        self.joined_channels = (
+            channels  # Don't override self.channels - TwitchIO owns it!
+        )
 
     @staticmethod
     def _is_broadcaster_user(user_obj) -> bool:
@@ -218,7 +262,9 @@ class TwitchBot(twitch_commands.Bot):
         refresh = self.platform_adapter.get_runtime_refresh_token()
 
         if not token:
-            print("[TwitchBot] WARNING: No Twitch user access token available for EventSub auth.")
+            print(
+                "[TwitchBot] WARNING: No Twitch user access token available for EventSub auth."
+            )
             await self._subscribe_initial_channels()
             return
 
@@ -226,16 +272,27 @@ class TwitchBot(twitch_commands.Bot):
             # Register the bot user token so `subscribe_websocket(..., as_bot=True)` can resolve token_for=bot_id.
             await self.add_token(token, refresh or "")
         except Exception as e:
-            print(f"[TwitchBot] WARNING: Could not add Twitch user token to token store: {e}")
-            refreshed_ok, refresh_note = await self.platform_adapter.refresh_runtime_token_if_possible(reason_hint=str(e))
+            print(
+                f"[TwitchBot] WARNING: Could not add Twitch user token to token store: {e}"
+            )
+            (
+                refreshed_ok,
+                refresh_note,
+            ) = await self.platform_adapter.refresh_runtime_token_if_possible(
+                reason_hint=str(e)
+            )
             if refreshed_ok:
                 token = self.platform_adapter.get_runtime_access_token()
                 refresh = self.platform_adapter.get_runtime_refresh_token()
                 try:
                     await self.add_token(token, refresh or "")
-                    print("[TwitchBot] Refreshed Twitch token and registered it successfully.")
+                    print(
+                        "[TwitchBot] Refreshed Twitch token and registered it successfully."
+                    )
                 except Exception as second_error:
-                    print(f"[TwitchBot] WARNING: Refreshed token registration failed: {second_error}")
+                    print(
+                        f"[TwitchBot] WARNING: Refreshed token registration failed: {second_error}"
+                    )
             try:
                 validated = await self._http.validate_token(token)
                 token_user_id = getattr(validated, "user_id", None)
@@ -246,9 +303,13 @@ class TwitchBot(twitch_commands.Bot):
                         "refresh": refresh or "",
                         "last_validated": datetime.now().isoformat(),
                     }
-                    print(f"[TwitchBot] Registered fallback token for user_id={token_user_id} without refresh token.")
+                    print(
+                        f"[TwitchBot] Registered fallback token for user_id={token_user_id} without refresh token."
+                    )
             except Exception as fallback_error:
-                print(f"[TwitchBot] WARNING: Could not register fallback Twitch token: {fallback_error}")
+                print(
+                    f"[TwitchBot] WARNING: Could not register fallback Twitch token: {fallback_error}"
+                )
 
         await self._subscribe_initial_channels()
 
@@ -256,23 +317,39 @@ class TwitchBot(twitch_commands.Bot):
         if not self.joined_channels:
             return
 
-        normalized = [ch.strip().lstrip("#").lower() for ch in self.joined_channels if ch and ch.strip()]
+        normalized = [
+            ch.strip().lstrip("#").lower()
+            for ch in self.joined_channels
+            if ch and ch.strip()
+        ]
         if not normalized:
             return
 
         for channel_login in normalized:
-            ok, info = await self.platform_adapter.subscribe_channel_live(channel_login, startup=True)
+            ok, info = await self.platform_adapter.subscribe_channel_live(
+                channel_login, startup=True
+            )
             if not ok:
-                print(f"[TwitchBot] WARNING: Startup subscription failed for #{channel_login}: {info}")
+                print(
+                    f"[TwitchBot] WARNING: Startup subscription failed for #{channel_login}: {info}"
+                )
 
     async def event_ready(self):
         """Called when Twitch bot is ready"""
         # TwitchIO v3+ uses self.user.name instead of self.nick
-        bot_name = self.user.name if (hasattr(self, 'user') and self.user) else 'babyllm'
-        bot_id = (self.user.id if (hasattr(self, "user") and self.user and hasattr(self.user, "id")) else "unknown")
-        print(f'[TwitchBot] Logged in as {bot_name} (ID: {bot_id})')
-        print(f'[TwitchBot] TwitchIO v3+ ready! Channels: {self.joined_channels}')
-        print(f'[TwitchBot] Bot should now be visible in chat and able to receive messages')
+        bot_name = (
+            self.user.name if (hasattr(self, "user") and self.user) else "babyllm"
+        )
+        bot_id = (
+            self.user.id
+            if (hasattr(self, "user") and self.user and hasattr(self.user, "id"))
+            else "unknown"
+        )
+        print(f"[TwitchBot] Logged in as {bot_name} (ID: {bot_id})")
+        print(f"[TwitchBot] TwitchIO v3+ ready! Channels: {self.joined_channels}")
+        print(
+            "[TwitchBot] Bot should now be visible in chat and able to receive messages"
+        )
 
     async def event_raid(self, data):
         """Called when channel gets raided (TwitchIO v3)."""
@@ -281,14 +358,18 @@ class TwitchBot(twitch_commands.Bot):
             or getattr(data, "raider_name", None)
             or "unknown_raider"
         )
-        viewer_count = int(getattr(data, "viewer_count", getattr(data, "raider_viewer_count", 0)) or 0)
+        viewer_count = int(
+            getattr(data, "viewer_count", getattr(data, "raider_viewer_count", 0)) or 0
+        )
         channel_name = (
             getattr(getattr(data, "to_broadcaster", None), "name", None)
             or getattr(data, "channel_name", None)
             or "unknown_channel"
         )
 
-        print(f'[TwitchBot] RAID! {raider_name} brought {viewer_count} viewers to {channel_name}!')
+        print(
+            f"[TwitchBot] RAID! {raider_name} brought {viewer_count} viewers to {channel_name}!"
+        )
 
         # Generate AI shoutout for the raider
         try:
@@ -299,11 +380,19 @@ class TwitchBot(twitch_commands.Bot):
 
             async def raid_reply_sink(content="", embed=None, **kwargs):
                 if embed is not None:
-                    text = str(getattr(embed, "description", "") or getattr(embed, "title", "") or "").strip()
+                    text = str(
+                        getattr(embed, "description", "")
+                        or getattr(embed, "title", "")
+                        or ""
+                    ).strip()
                     if text:
-                        await self.platform_adapter.send_message(channel_name, text[:499])
+                        await self.platform_adapter.send_message(
+                            channel_name, text[:499]
+                        )
                 elif content:
-                    await self.platform_adapter.send_message(channel_name, str(content)[:499])
+                    await self.platform_adapter.send_message(
+                        channel_name, str(content)[:499]
+                    )
 
             # Create platform context for AI generation
             fake_ctx = create_platform_command_context(
@@ -320,11 +409,11 @@ class TwitchBot(twitch_commands.Bot):
             )
 
             # Generate personalized AI response
-            if hasattr(self.platform_adapter.bot, 'cog'):
+            if hasattr(self.platform_adapter.bot, "cog"):
                 print(f"[TwitchBot] Generating AI shoutout for {raider_name}...")
                 await self.platform_adapter.bot.cog.babyllm_command(fake_ctx)
             else:
-                print(f"[TwitchBot] Warning: No cog available for raid response")
+                print("[TwitchBot] Warning: No cog available for raid response")
 
         except Exception as e:
             print(f"[TwitchBot] Error generating raid shoutout: {e}")
@@ -334,9 +423,10 @@ class TwitchBot(twitch_commands.Bot):
         await self.platform_adapter.notify_raid(raider_name, viewer_count, channel_name)
 
         # Celebrate on web!
-        if hasattr(self.platform_adapter.bot, '_web_jumping'):
+        if hasattr(self.platform_adapter.bot, "_web_jumping"):
             from ..web_effects import trigger_web_animation
-            trigger_web_animation(self.platform_adapter.bot, 'celebrate', duration=10.0)
+
+            trigger_web_animation(self.platform_adapter.bot, "celebrate", duration=10.0)
 
     async def event_channel_raid(self, data):
         """Backward-compatible alias."""
@@ -347,7 +437,9 @@ class TwitchBot(twitch_commands.Bot):
         # CRITICAL DEBUG: Confirm this fires
         print("[Twitch] EVENT_MESSAGE FIRED")
 
-        author_obj = getattr(message, "author", None) or getattr(message, "chatter", None)
+        author_obj = getattr(message, "author", None) or getattr(
+            message, "chatter", None
+        )
         if author_obj is None:
             return
 
@@ -358,7 +450,9 @@ class TwitchBot(twitch_commands.Bot):
             return
 
         tags = getattr(message, "tags", {}) or {}
-        content = (getattr(message, "content", None) or getattr(message, "text", None) or "").strip()
+        content = (
+            getattr(message, "content", None) or getattr(message, "text", None) or ""
+        ).strip()
         channel_obj = getattr(message, "channel", None)
         self.platform_adapter.remember_live_channel(channel_obj)
 
@@ -386,34 +480,40 @@ class TwitchBot(twitch_commands.Bot):
         print(f"[Twitch] Message from {author_id}: {content}")
 
         # Extra guard: ignore any echo/self-identity messages even if Twitch ID checks miss.
-        if hasattr(self.platform_adapter.bot, "is_bot_identity") and self.platform_adapter.bot.is_bot_identity(author_id):
+        if hasattr(
+            self.platform_adapter.bot, "is_bot_identity"
+        ) and self.platform_adapter.bot.is_bot_identity(author_id):
             return
 
         # Track chat intensity for web emotions (OK for all messages - just counting)
         self.platform_adapter.track_message(content)
 
         # Check if message is a command or mention
-        is_command = content.strip().startswith('!')
+        is_command = content.strip().startswith("!")
         # TwitchIO v3+ uses self.user.name instead of self.nick
-        bot_name = self.user.name.lower() if hasattr(self, 'user') and self.user else 'babyllm'
-        is_mention = '@babyllm' in content.lower() or bot_name in content.lower()
+        bot_name = (
+            self.user.name.lower() if hasattr(self, "user") and self.user else "babyllm"
+        )
+        is_mention = "@babyllm" in content.lower() or bot_name in content.lower()
 
         # Translate game guesses should work in Twitch chat even for non-opted users.
         # We capture guess text for active sessions, but this does not add chat to training data.
         if not is_command and content:
             try:
                 candidates = [
-                    s for s in self.platform_adapter.bot.lex_sessions.values()
-                    if s.get('mode') == 'translate' and str(s.get('channel_id')) == str(channel_name)
+                    s
+                    for s in self.platform_adapter.bot.lex_sessions.values()
+                    if s.get("mode") == "translate"
+                    and str(s.get("channel_id")) == str(channel_name)
                 ]
                 if candidates:
-                    latest = max(candidates, key=lambda s: s.get('created_at', 0.0))
-                    extra = latest.setdefault('extra', {})
-                    guesses = extra.setdefault('guesses', {})
+                    latest = max(candidates, key=lambda s: s.get("created_at", 0.0))
+                    extra = latest.setdefault("extra", {})
+                    guesses = extra.setdefault("guesses", {})
                     if author_id not in guesses:
                         guesses[author_id] = {
-                            'guess': content.strip().lower(),
-                            'timestamp': time.time(),
+                            "guess": content.strip().lower(),
+                            "timestamp": time.time(),
                         }
             except Exception as guess_error:
                 print(f"[Twitch] translate-guess capture error: {guess_error}")
@@ -425,7 +525,7 @@ class TwitchBot(twitch_commands.Bot):
         mem = self.platform_adapter.bot.userMemory.get(author_id, {})
         if author_id not in self.platform_adapter.bot.userMemory:
             # Initialize new user with opt_in = False
-            from collections import defaultdict
+
             self.platform_adapter.bot.userMemory[author_id] = {
                 "nickname": None,
                 "display_name": author_display,
@@ -434,9 +534,9 @@ class TwitchBot(twitch_commands.Bot):
                 "last_seen": time.time(),
             }
         else:
-            mem['display_name'] = author_display
-            mem['colour'] = tags.get("color", mem.get('colour', "#007bff"))
-            mem['last_seen'] = time.time()
+            mem["display_name"] = author_display
+            mem["colour"] = tags.get("color", mem.get("colour", "#007bff"))
+            mem["last_seen"] = time.time()
 
         # Check if user is opted in
         is_opted_in = author_id in self.platform_adapter.bot.AIoptInUsers
@@ -458,7 +558,10 @@ class TwitchBot(twitch_commands.Bot):
             should_generate_response = False
         elif is_mention and not is_opted_in:
             # Non-opted user @mention: Tell them to opt in (NOT recorded)
-            await self.platform_adapter.send_message(channel_name, f"@{author_id} hey! gotta opt in first with !bbyoptin if you want me to chat! commands still work tho ʕ·ᴥ·ʔ")
+            await self.platform_adapter.send_message(
+                channel_name,
+                f"@{author_id} hey! gotta opt in first with !bbyoptin if you want me to chat! commands still work tho ʕ·ᴥ·ʔ",
+            )
             return
         elif is_mention and is_opted_in:
             # Opted user @mention (not a command): RECORD + RESPOND
@@ -480,7 +583,9 @@ class TwitchBot(twitch_commands.Bot):
                 author_display_name=author_display,
                 channel_id=channel_name,
                 platform="twitch",
-                timestamp=message.timestamp.timestamp() if hasattr(message, 'timestamp') else time.time(),
+                timestamp=message.timestamp.timestamp()
+                if hasattr(message, "timestamp")
+                else time.time(),
                 raw_message=message,
                 author_colour=tags.get("color"),
                 is_bot=False,
@@ -497,11 +602,19 @@ class TwitchBot(twitch_commands.Bot):
             from ..context import create_platform_command_context
 
             # Create context for response generation
-            reply_to_id = str(getattr(message, "id", None) or getattr(message, "message_id", None) or "")
+            reply_to_id = str(
+                getattr(message, "id", None)
+                or getattr(message, "message_id", None)
+                or ""
+            )
 
             async def mention_reply_sink(content="", embed=None, **kwargs):
                 if embed is not None:
-                    text = str(getattr(embed, "description", "") or getattr(embed, "title", "") or "").strip()
+                    text = str(
+                        getattr(embed, "description", "")
+                        or getattr(embed, "title", "")
+                        or ""
+                    ).strip()
                     if text:
                         if reply_to_id:
                             await self.platform_adapter._send_to_channel(
@@ -510,7 +623,9 @@ class TwitchBot(twitch_commands.Bot):
                                 reply_to_message_id=reply_to_id,
                             )
                         else:
-                            await self.platform_adapter.send_message(channel_name, text[:499])
+                            await self.platform_adapter.send_message(
+                                channel_name, text[:499]
+                            )
                 elif content:
                     if reply_to_id:
                         await self.platform_adapter._send_to_channel(
@@ -519,7 +634,9 @@ class TwitchBot(twitch_commands.Bot):
                             reply_to_message_id=reply_to_id,
                         )
                     else:
-                        await self.platform_adapter.send_message(channel_name, str(content)[:499])
+                        await self.platform_adapter.send_message(
+                            channel_name, str(content)[:499]
+                        )
 
             fake_ctx = create_platform_command_context(
                 bot=self.platform_adapter.bot,
@@ -536,13 +653,17 @@ class TwitchBot(twitch_commands.Bot):
             )
 
             # Generate response
-            if hasattr(self.platform_adapter.bot, 'cog'):
+            if hasattr(self.platform_adapter.bot, "cog"):
                 try:
                     # Use babyllm command to generate response
                     await self.platform_adapter.bot.cog.babyllm_command(fake_ctx)
                 except Exception as e:
                     print(f"[Twitch] Error generating @mention response: {e}")
-                    reply_to_id = str(getattr(message, "id", None) or getattr(message, "message_id", None) or "")
+                    reply_to_id = str(
+                        getattr(message, "id", None)
+                        or getattr(message, "message_id", None)
+                        or ""
+                    )
                     if reply_to_id:
                         await self.platform_adapter._send_to_channel(
                             channel_name,
@@ -550,7 +671,9 @@ class TwitchBot(twitch_commands.Bot):
                             reply_to_message_id=reply_to_id,
                         )
                     else:
-                        await self.platform_adapter.send_message(channel_name, f"@{author_id} (oops, my brain glitched!)")
+                        await self.platform_adapter.send_message(
+                            channel_name, f"@{author_id} (oops, my brain glitched!)"
+                        )
 
         # 🚨 REQUIRED for TwitchIO v3: Commands do NOT auto-dispatch without this!
         await self.process_commands(message)
@@ -562,17 +685,27 @@ class TwitchBot(twitch_commands.Bot):
             exc = getattr(payload, "exception", payload)
             cmd = getattr(ctx, "command", None) if ctx else None
             cmd_name = getattr(cmd, "name", str(cmd)) if cmd else "unknown"
-            print(_colourise_twitch_command_log(f"[TwitchBot] Command error in '{cmd_name}': {exc}"))
+            print(
+                _colourise_twitch_command_log(
+                    f"[TwitchBot] Command error in '{cmd_name}': {exc}"
+                )
+            )
         except Exception as e:
-            print(_colourise_twitch_command_log(f"[TwitchBot] Command error handler failed: {e}"))
+            print(
+                _colourise_twitch_command_log(
+                    f"[TwitchBot] Command error handler failed: {e}"
+                )
+            )
 
-    @twitch_commands.command(name='bbyjoin')
+    @twitch_commands.command(name="bbyjoin")
     async def cmd_bbyjoin(self, ctx):
         """Allow streamers to add their channel"""
         user_name = ctx.author.name.lower()
         # Join command always targets the requester's own channel login.
         target_channel = user_name
-        success, message = await self.platform_adapter.authorize_channel(target_channel, user_name)
+        success, message = await self.platform_adapter.authorize_channel(
+            target_channel, user_name
+        )
         reply_method = getattr(ctx, "reply", None)
         text = to_british_english(f"@{user_name} {message}")
         if callable(reply_method):
@@ -580,13 +713,15 @@ class TwitchBot(twitch_commands.Bot):
         else:
             await ctx.send(text)
 
-    @twitch_commands.command(name='bbyleave')
+    @twitch_commands.command(name="bbyleave")
     async def cmd_bbyleave(self, ctx):
         """Allow streamers to remove their channel"""
         user_name = ctx.author.name.lower()
         # Leave command always targets the requester's own channel login.
         target_channel = user_name
-        success, message = await self.platform_adapter.deauthorize_channel(target_channel)
+        success, message = await self.platform_adapter.deauthorize_channel(
+            target_channel
+        )
         reply_method = getattr(ctx, "reply", None)
         text = to_british_english(f"@{user_name} {message}")
         if callable(reply_method):
@@ -594,13 +729,13 @@ class TwitchBot(twitch_commands.Bot):
         else:
             await ctx.send(text)
 
-    @twitch_commands.command(name='bbyfuckoff')
+    @twitch_commands.command(name="bbyfuckoff")
     async def cmd_bbyfuckoff(self, ctx):
         """Rude but effective way to make baby leave"""
         # Just call bbyleave
         await self.cmd_bbyleave(ctx)
 
-    @twitch_commands.command(name='bbygtfo')
+    @twitch_commands.command(name="bbygtfo")
     async def cmd_bbygtfo(self, ctx):
         """Another rude way to make baby leave"""
         # Just call bbyleave
@@ -625,15 +760,19 @@ class TwitchAdapter(PlatformAdapter):
 
         # Load authorised channels from file and merge
         authorized = self.load_authorized_channels()
-        authorized_names = [ch['name'] for ch in authorized]
+        authorized_names = [ch["name"] for ch in authorized]
 
         # Merge config channels with authorised channels (deduplicate)
         all_channels = list(set(channels + authorized_names))
 
         self.channels = all_channels
-        self.channel = all_channels[0] if all_channels else "childofanandroid"  # Legacy compatibility
+        self.channel = (
+            all_channels[0] if all_channels else "childofanandroid"
+        )  # Legacy compatibility
 
-        print(f"[TwitchAdapter] Loaded {len(all_channels)} channels ({len(authorized_names)} authorised, {len(channels)} from config)")
+        print(
+            f"[TwitchAdapter] Loaded {len(all_channels)} channels ({len(authorized_names)} authorised, {len(channels)} from config)"
+        )
         self.twitch_bot = None
         self.allowed_commands = set(TWITCH_ALLOWED_COMMANDS)
         self.blocked_commands = set(TWITCH_BLOCKED_COMMANDS)
@@ -651,7 +790,9 @@ class TwitchAdapter(PlatformAdapter):
         self.intensity_update_task = None
 
         # Runtime auth (supports refresh-token rotation and persistence)
-        self._runtime_access_token = self._normalise_access_token(SECRETtwitchTokenSECRET)
+        self._runtime_access_token = self._normalise_access_token(
+            SECRETtwitchTokenSECRET
+        )
         self._runtime_refresh_token = (SECRETtwitchRefreshTokenSECRET or "").strip()
         self._runtime_scopes = []
         self._runtime_token_expires_at = 0.0
@@ -665,14 +806,14 @@ class TwitchAdapter(PlatformAdapter):
         return value
 
     def _get_auth_state_file(self):
-        return os.path.join(os.path.dirname(__file__), '..', 'twitch_auth.json')
+        return os.path.join(os.path.dirname(__file__), "..", "twitch_auth.json")
 
     def _load_runtime_auth_state(self):
         try:
             path = self._get_auth_state_file()
             if not os.path.exists(path):
                 return
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 data = json.load(f)
             if not isinstance(data, dict):
                 return
@@ -697,7 +838,7 @@ class TwitchAdapter(PlatformAdapter):
                 "updated_at": datetime.now().isoformat(),
             }
             path = self._get_auth_state_file()
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump(payload, f, indent=2)
         except Exception as e:
             print(f"[TwitchAdapter] Warning: couldn't save twitch auth cache: {e}")
@@ -709,7 +850,9 @@ class TwitchAdapter(PlatformAdapter):
         return self._runtime_refresh_token
 
     def get_runtime_login_token(self) -> str:
-        token = self._runtime_access_token or self._normalise_access_token(SECRETtwitchTokenSECRET)
+        token = self._runtime_access_token or self._normalise_access_token(
+            SECRETtwitchTokenSECRET
+        )
         if not token:
             return ""
         return f"oauth:{token}"
@@ -722,7 +865,9 @@ class TwitchAdapter(PlatformAdapter):
             return "", "missing colour value"
 
         # Accept RGB triplets e.g. "255 122 255" or "255,122,255".
-        rgb_match = re.fullmatch(r"\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*", raw)
+        rgb_match = re.fullmatch(
+            r"\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*", raw
+        )
         if rgb_match:
             r, g, b = [int(rgb_match.group(i)) for i in (1, 2, 3)]
             if any(v < 0 or v > 255 for v in (r, g, b)):
@@ -760,7 +905,9 @@ class TwitchAdapter(PlatformAdapter):
         if not bot_user_id:
             return False, "missing twitch bot user id"
 
-        normalised_colour, colour_error = self._normalise_twitch_chat_colour(colour_value)
+        normalised_colour, colour_error = self._normalise_twitch_chat_colour(
+            colour_value
+        )
         if colour_error:
             return False, colour_error
 
@@ -772,20 +919,28 @@ class TwitchAdapter(PlatformAdapter):
             }
             params = {"user_id": bot_user_id, "color": normalised_colour}
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.put("https://api.twitch.tv/helix/chat/color", headers=headers, params=params) as resp:
+                async with session.put(
+                    "https://api.twitch.tv/helix/chat/color",
+                    headers=headers,
+                    params=params,
+                ) as resp:
                     body = await resp.text()
                     return resp.status, body
 
         token = (self._runtime_access_token or "").strip()
         if not token:
-            refreshed, _ = await self.refresh_runtime_token_if_possible(reason_hint="chat colour set")
+            refreshed, _ = await self.refresh_runtime_token_if_possible(
+                reason_hint="chat colour set"
+            )
             token = (self._runtime_access_token or "").strip()
             if not refreshed or not token:
                 return False, "no valid twitch user token available"
 
         status, body = await _attempt(token)
         if status == 401:
-            refreshed, note = await self.refresh_runtime_token_if_possible(reason_hint="chat colour 401")
+            refreshed, note = await self.refresh_runtime_token_if_possible(
+                reason_hint="chat colour 401"
+            )
             if not refreshed:
                 return False, f"token refresh failed: {note}"
             token = (self._runtime_access_token or "").strip()
@@ -808,12 +963,24 @@ class TwitchAdapter(PlatformAdapter):
 
         body_excerpt = (body or "").strip().replace("\n", " ")[:180]
         if status == 400:
-            return False, f"twitch rejected the colour ({body_excerpt or 'bad request'})"
+            return (
+                False,
+                f"twitch rejected the colour ({body_excerpt or 'bad request'})",
+            )
         if status == 401:
-            return False, "twitch auth failed; token likely missing user:manage:chat_color"
+            return (
+                False,
+                "twitch auth failed; token likely missing user:manage:chat_color",
+            )
         if status == 403:
-            return False, "twitch denied colour update; ensure token has user:manage:chat_color"
-        return False, f"twitch colour update failed ({status}): {body_excerpt or 'unknown error'}"
+            return (
+                False,
+                "twitch denied colour update; ensure token has user:manage:chat_color",
+            )
+        return (
+            False,
+            f"twitch colour update failed ({status}): {body_excerpt or 'unknown error'}",
+        )
 
     async def _validate_runtime_access_token(self):
         token = self._runtime_access_token
@@ -824,7 +991,9 @@ class TwitchAdapter(PlatformAdapter):
             timeout = aiohttp.ClientTimeout(total=8)
             headers = {"Authorization": f"OAuth {token}"}
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get("https://id.twitch.tv/oauth2/validate", headers=headers) as resp:
+                async with session.get(
+                    "https://id.twitch.tv/oauth2/validate", headers=headers
+                ) as resp:
                     if resp.status != 200:
                         return False, None
                     data = await resp.json()
@@ -848,10 +1017,16 @@ class TwitchAdapter(PlatformAdapter):
                 "refresh_token": refresh_token,
             }
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post("https://id.twitch.tv/oauth2/token", data=form) as resp:
+                async with session.post(
+                    "https://id.twitch.tv/oauth2/token", data=form
+                ) as resp:
                     data = await resp.json(content_type=None)
                     if resp.status != 200:
-                        message = data.get("message", str(data)) if isinstance(data, dict) else str(data)
+                        message = (
+                            data.get("message", str(data))
+                            if isinstance(data, dict)
+                            else str(data)
+                        )
                         return False, f"refresh failed ({resp.status}): {message}"
 
             access_token = self._normalise_access_token(data.get("access_token", ""))
@@ -872,7 +1047,10 @@ class TwitchAdapter(PlatformAdapter):
             return False, f"refresh exception: {e}"
 
     async def refresh_runtime_token_if_possible(self, reason_hint: str = ""):
-        refresh = self._runtime_refresh_token or (SECRETtwitchRefreshTokenSECRET or "").strip()
+        refresh = (
+            self._runtime_refresh_token
+            or (SECRETtwitchRefreshTokenSECRET or "").strip()
+        )
         if not refresh:
             return False, "no refresh token configured"
         ok, note = await self._refresh_runtime_access_token(refresh)
@@ -885,7 +1063,9 @@ class TwitchAdapter(PlatformAdapter):
         if valid:
             return True
 
-        refreshed, note = await self.refresh_runtime_token_if_possible(reason_hint="startup validation")
+        refreshed, note = await self.refresh_runtime_token_if_possible(
+            reason_hint="startup validation"
+        )
         if refreshed:
             print("[TwitchAdapter] Refreshed Twitch user token from refresh token.")
             return True
@@ -921,16 +1101,19 @@ class TwitchAdapter(PlatformAdapter):
     async def _run_twitch_bot(self):
         """Run Twitch bot in background"""
         try:
-            print(f"[TwitchAdapter] Starting TwitchIO v3+ bot...")
+            print("[TwitchAdapter] Starting TwitchIO v3+ bot...")
             await self.twitch_bot.start()
         except Exception as e:
             import traceback
+
             print(f"[TwitchAdapter] CRITICAL ERROR running Twitch bot: {e}")
             if "address already in use" in str(e).lower() and "4343" in str(e):
-                print("[TwitchAdapter] NOTE: TwitchIO adapter port 4343 is busy. Another bot process is probably running.")
-            print(f"[TwitchAdapter] Full traceback:")
+                print(
+                    "[TwitchAdapter] NOTE: TwitchIO adapter port 4343 is busy. Another bot process is probably running."
+                )
+            print("[TwitchAdapter] Full traceback:")
             traceback.print_exc()
-            print(f"[TwitchAdapter] Bot will not function on Twitch!")
+            print("[TwitchAdapter] Bot will not function on Twitch!")
 
     async def stop(self):
         """Stop Twitch bot"""
@@ -954,10 +1137,14 @@ class TwitchAdapter(PlatformAdapter):
             timeout = aiohttp.ClientTimeout(total=8)
             headers = {"Authorization": f"OAuth {token}"}
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get("https://id.twitch.tv/oauth2/validate", headers=headers) as resp:
+                async with session.get(
+                    "https://id.twitch.tv/oauth2/validate", headers=headers
+                ) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        print(f"[TwitchAdapter] WARNING: Twitch token validation failed ({resp.status}): {body[:120]}")
+                        print(
+                            f"[TwitchAdapter] WARNING: Twitch token validation failed ({resp.status}): {body[:120]}"
+                        )
                         return
                     data = await resp.json()
 
@@ -965,37 +1152,69 @@ class TwitchAdapter(PlatformAdapter):
             token_user_id = data.get("user_id")
             scopes = set(data.get("scopes") or [])
 
-            if SECRETtwitchClientIdSECRET and token_client_id and token_client_id != SECRETtwitchClientIdSECRET:
-                print("[TwitchAdapter] WARNING: SECRETtwitchClientIdSECRET does not match the OAuth token's client_id.")
-                print("[TwitchAdapter] This can cause Twitch API auth failures and no chat events.")
+            if (
+                SECRETtwitchClientIdSECRET
+                and token_client_id
+                and token_client_id != SECRETtwitchClientIdSECRET
+            ):
+                print(
+                    "[TwitchAdapter] WARNING: SECRETtwitchClientIdSECRET does not match the OAuth token's client_id."
+                )
+                print(
+                    "[TwitchAdapter] This can cause Twitch API auth failures and no chat events."
+                )
 
-            if SECRETtwitchBotIdSECRET and token_user_id and str(token_user_id) != str(SECRETtwitchBotIdSECRET):
-                print("[TwitchAdapter] WARNING: SECRETtwitchBotIdSECRET does not match the OAuth token user_id.")
-                print("[TwitchAdapter] This can cause the bot to appear connected but miss chat events.")
+            if (
+                SECRETtwitchBotIdSECRET
+                and token_user_id
+                and str(token_user_id) != str(SECRETtwitchBotIdSECRET)
+            ):
+                print(
+                    "[TwitchAdapter] WARNING: SECRETtwitchBotIdSECRET does not match the OAuth token user_id."
+                )
+                print(
+                    "[TwitchAdapter] This can cause the bot to appear connected but miss chat events."
+                )
 
             missing_scopes = {"chat:read", "chat:edit"} - scopes
             if missing_scopes:
-                print(f"[TwitchAdapter] WARNING: Twitch token is missing scopes: {sorted(missing_scopes)}")
+                print(
+                    f"[TwitchAdapter] WARNING: Twitch token is missing scopes: {sorted(missing_scopes)}"
+                )
 
             if "user:read:chat" not in scopes:
-                print("[TwitchAdapter] WARNING: Twitch token is missing user:read:chat.")
-                print("[TwitchAdapter] Incoming chat events (EVENT_MESSAGE) will fail without this scope.")
+                print(
+                    "[TwitchAdapter] WARNING: Twitch token is missing user:read:chat."
+                )
+                print(
+                    "[TwitchAdapter] Incoming chat events (EVENT_MESSAGE) will fail without this scope."
+                )
 
             if "user:write:chat" not in scopes:
-                print("[TwitchAdapter] WARNING: Twitch token is missing user:write:chat.")
-                print("[TwitchAdapter] Outbound API chat sends may fail on TwitchIO v3.")
+                print(
+                    "[TwitchAdapter] WARNING: Twitch token is missing user:write:chat."
+                )
+                print(
+                    "[TwitchAdapter] Outbound API chat sends may fail on TwitchIO v3."
+                )
 
             if "user:bot" not in scopes:
                 print("[TwitchAdapter] WARNING: Twitch token is missing user:bot.")
-                print("[TwitchAdapter] EventSub chat subscriptions can fail without user:bot.")
+                print(
+                    "[TwitchAdapter] EventSub chat subscriptions can fail without user:bot."
+                )
 
             if "user:manage:chat_color" not in scopes:
                 print("[TwitchAdapter] NOTE: token lacks user:manage:chat_color.")
-                print("[TwitchAdapter] !bbycolour can still update web/discord, but Twitch chat colour updates will fail.")
+                print(
+                    "[TwitchAdapter] !bbycolour can still update web/discord, but Twitch chat colour updates will fail."
+                )
 
             if "channel:bot" not in scopes:
                 print("[TwitchAdapter] NOTE: token lacks channel:bot.")
-                print("[TwitchAdapter] For channels where babyllm is not broadcaster/moderator, broadcasters must authorise channel:bot for reliable chat events.")
+                print(
+                    "[TwitchAdapter] For channels where babyllm is not broadcaster/moderator, broadcasters must authorise channel:bot for reliable chat events."
+                )
         except Exception as e:
             # Never block startup on validation errors.
             print(f"[TwitchAdapter] Credential validation skipped: {e}")
@@ -1003,13 +1222,14 @@ class TwitchAdapter(PlatformAdapter):
     def track_message(self, content: str):
         """Track message for chat intensity calculation"""
         import time
+
         now = time.time()
 
         # Add to recent messages
         self.recent_messages.append(now)
 
         # Track !bbyhug commands specifically
-        if 'bbyhug' in content.lower():
+        if "bbyhug" in content.lower():
             self.recent_hugs.append(now)
 
         # Keep only last 60 seconds
@@ -1019,12 +1239,12 @@ class TwitchAdapter(PlatformAdapter):
 
     async def _update_web_intensity(self):
         """Periodically update web state based on Twitch chat intensity"""
-        import time
+
         while True:
             try:
                 await asyncio.sleep(5)  # Update every 5 seconds
 
-                if not hasattr(self.bot, '_web_jumping'):
+                if not hasattr(self.bot, "_web_jumping"):
                     continue  # Web adapter not enabled
 
                 messages_per_minute = len(self.recent_messages)
@@ -1047,7 +1267,7 @@ class TwitchAdapter(PlatformAdapter):
                 # Blush if lots of hugs!
                 if hugs_per_minute > 3:
                     self.bot._web_cheeks = True
-                    print(f"[Twitch→Web] Many hugs: baby blushing!")
+                    print("[Twitch→Web] Many hugs: baby blushing!")
                 elif hugs_per_minute == 0:
                     self.bot._web_cheeks = False
 
@@ -1058,8 +1278,10 @@ class TwitchAdapter(PlatformAdapter):
         """Notify Discord about Twitch raid"""
         try:
             # Get Discord channel
-            if not hasattr(self.bot, 'bby_spam_channel_id'):
-                print("[TwitchAdapter] No Discord channel configured for raid notifications")
+            if not hasattr(self.bot, "bby_spam_channel_id"):
+                print(
+                    "[TwitchAdapter] No Discord channel configured for raid notifications"
+                )
                 return
 
             discord_channel = self.bot.get_channel(self.bot.bby_spam_channel_id)
@@ -1070,15 +1292,16 @@ class TwitchAdapter(PlatformAdapter):
             # Try to import Discord Embed
             try:
                 from discord import Embed
+
                 embed = Embed(
                     title="🎉 Twitch Raid!",
                     description=f"**{raider_name}** raided **{channel_name}** with **{viewer_count}** viewers!",
-                    color=0x9146FF  # Twitch purple
+                    color=0x9146FF,  # Twitch purple
                 )
                 embed.set_footer(text="Twitch → Discord")
                 embed = normalise_embed_british_english(embed)
                 await discord_channel.send(embed=embed)
-                print(f"[Twitch→Discord] Raid notification sent!")
+                print("[Twitch→Discord] Raid notification sent!")
 
             except ImportError:
                 # Fallback to plain text
@@ -1093,16 +1316,17 @@ class TwitchAdapter(PlatformAdapter):
     def get_channels_file(self):
         """Get path to authorised channels file"""
         import os
-        return os.path.join(os.path.dirname(__file__), '..', 'twitch_channels.json')
+
+        return os.path.join(os.path.dirname(__file__), "..", "twitch_channels.json")
 
     def load_authorized_channels(self):
         """Load authorised channels from JSON file"""
         try:
             file_path = self.get_channels_file()
             if os.path.exists(file_path):
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     data = json.load(f)
-                    return data.get('authorized_channels', [])
+                    return data.get("authorized_channels", [])
             return []
         except Exception as e:
             print(f"[TwitchAdapter] Error loading channels: {e}")
@@ -1112,8 +1336,8 @@ class TwitchAdapter(PlatformAdapter):
         """Save authorised channels to JSON file"""
         try:
             file_path = self.get_channels_file()
-            with open(file_path, 'w') as f:
-                json.dump({'authorized_channels': channels}, f, indent=2)
+            with open(file_path, "w") as f:
+                json.dump({"authorized_channels": channels}, f, indent=2)
             print(f"[TwitchAdapter] Saved {len(channels)} authorised channels")
             return True
         except Exception as e:
@@ -1123,7 +1347,15 @@ class TwitchAdapter(PlatformAdapter):
     def _normalise_link_owner(self, owner: str) -> str:
         return (owner or "").strip().lower()
 
-    async def _notify_link_debug(self, *, action: str, channel_name: str, owner: str = "", status: str = "ok", note: str = ""):
+    async def _notify_link_debug(
+        self,
+        *,
+        action: str,
+        channel_name: str,
+        owner: str = "",
+        status: str = "ok",
+        note: str = "",
+    ):
         if not hasattr(self.bot, "_discord_debug"):
             return
 
@@ -1178,7 +1410,9 @@ class TwitchAdapter(PlatformAdapter):
             try:
                 await self.bot._save_user_data()
             except Exception as e:
-                print(f"[TwitchAdapter] Warning: couldn't persist linked-channel state: {e}")
+                print(
+                    f"[TwitchAdapter] Warning: couldn't persist linked-channel state: {e}"
+                )
 
     async def _sync_linked_users_from_storage(self):
         """Mirror persisted Twitch channel authorisations into user memory."""
@@ -1219,7 +1453,9 @@ class TwitchAdapter(PlatformAdapter):
             try:
                 await self.bot._save_user_data()
             except Exception as e:
-                print(f"[TwitchAdapter] Warning: couldn't save synced linked users: {e}")
+                print(
+                    f"[TwitchAdapter] Warning: couldn't save synced linked users: {e}"
+                )
 
     async def _resolve_channel_user(self, channel_name: str):
         if not self.twitch_bot:
@@ -1245,14 +1481,14 @@ class TwitchAdapter(PlatformAdapter):
 
             if (
                 sub_type == eventsub.SubscriptionType.ChannelChatMessage
-                and str(condition.get("broadcaster_user_id", "")) == str(broadcaster_user_id)
+                and str(condition.get("broadcaster_user_id", ""))
+                == str(broadcaster_user_id)
                 and (not bot_id or str(condition.get("user_id", "")) == bot_id)
             ):
                 result["chat"] = sub_id
-            elif (
-                sub_type == eventsub.SubscriptionType.ChannelRaid
-                and str(condition.get("to_broadcaster_user_id", "")) == str(broadcaster_user_id)
-            ):
+            elif sub_type == eventsub.SubscriptionType.ChannelRaid and str(
+                condition.get("to_broadcaster_user_id", "")
+            ) == str(broadcaster_user_id):
                 result["raid"] = sub_id
 
         return result
@@ -1277,7 +1513,9 @@ class TwitchAdapter(PlatformAdapter):
         broadcaster_user_id = str(user.id)
 
         try:
-            existing = self._find_live_subscription_ids_for_broadcaster(broadcaster_user_id)
+            existing = self._find_live_subscription_ids_for_broadcaster(
+                broadcaster_user_id
+            )
             raid_error = None
 
             if existing["chat"] is None:
@@ -1286,20 +1524,31 @@ class TwitchAdapter(PlatformAdapter):
                     user_id=self.twitch_bot.bot_id,
                 )
                 try:
-                    await self.twitch_bot.subscribe_websocket(payload=chat_payload, as_bot=True)
+                    await self.twitch_bot.subscribe_websocket(
+                        payload=chat_payload, as_bot=True
+                    )
                 except Exception as chat_error:
                     return False, f"chat subscription failed for #{login}: {chat_error}"
 
             if existing["raid"] is None:
-                raid_payload = eventsub.ChannelRaidSubscription(to_broadcaster_user_id=user.id)
+                raid_payload = eventsub.ChannelRaidSubscription(
+                    to_broadcaster_user_id=user.id
+                )
                 try:
-                    await self.twitch_bot.subscribe_websocket(payload=raid_payload, as_bot=True)
+                    await self.twitch_bot.subscribe_websocket(
+                        payload=raid_payload, as_bot=True
+                    )
                 except Exception as e:
                     raid_error = str(e)
 
-            current = self._find_live_subscription_ids_for_broadcaster(broadcaster_user_id)
+            current = self._find_live_subscription_ids_for_broadcaster(
+                broadcaster_user_id
+            )
             if current["chat"] is None:
-                return False, f"chat subscription missing for #{login} after subscribe attempt"
+                return (
+                    False,
+                    f"chat subscription missing for #{login} after subscribe attempt",
+                )
 
             if login not in self.channels:
                 self.channels.append(login)
@@ -1307,7 +1556,9 @@ class TwitchAdapter(PlatformAdapter):
                 self.twitch_bot.joined_channels.append(login)
 
             if current["raid"] is None and raid_error:
-                print(f"[TwitchAdapter] NOTE: Raid subscription disabled for #{login}: {raid_error}")
+                print(
+                    f"[TwitchAdapter] NOTE: Raid subscription disabled for #{login}: {raid_error}"
+                )
 
             if not startup:
                 print(
@@ -1336,7 +1587,9 @@ class TwitchAdapter(PlatformAdapter):
             return False, f"couldn't find twitch channel '{login}'"
 
         broadcaster_user_id = str(user.id)
-        subscription_ids = self._find_live_subscription_ids_for_broadcaster(broadcaster_user_id)
+        subscription_ids = self._find_live_subscription_ids_for_broadcaster(
+            broadcaster_user_id
+        )
         removed = []
         errors = []
 
@@ -1351,7 +1604,10 @@ class TwitchAdapter(PlatformAdapter):
                 errors.append(f"{key}:{e}")
 
         if errors:
-            return False, f"failed to remove some live subscriptions ({'; '.join(errors)})"
+            return (
+                False,
+                f"failed to remove some live subscriptions ({'; '.join(errors)})",
+            )
 
         if login in self.channels:
             self.channels.remove(login)
@@ -1374,7 +1630,7 @@ class TwitchAdapter(PlatformAdapter):
 
         # Check if already authorised
         for ch in channels:
-            if ch['name'].lower() == channel_name.lower():
+            if ch["name"].lower() == channel_name.lower():
                 await self._notify_link_debug(
                     action="link",
                     channel_name=channel_name,
@@ -1385,12 +1641,14 @@ class TwitchAdapter(PlatformAdapter):
                 return False, "Channel already authorised!"
 
         # Add new channel
-        channels.append({
-            'name': channel_name,
-            'authorized_at': datetime.now().isoformat(),
-            'authorized_by': authorized_by,
-            'permanent': False
-        })
+        channels.append(
+            {
+                "name": channel_name,
+                "authorized_at": datetime.now().isoformat(),
+                "authorized_by": authorized_by,
+                "permanent": False,
+            }
+        )
 
         if self.save_authorized_channels(channels):
             # Join the channel
@@ -1410,17 +1668,25 @@ class TwitchAdapter(PlatformAdapter):
                     if hasattr(self.twitch_bot, "join_channels"):
                         try:
                             await self.twitch_bot.join_channels([channel_name])
-                            print(f"[TwitchAdapter] Joined channel via join_channels: {channel_name}")
+                            print(
+                                f"[TwitchAdapter] Joined channel via join_channels: {channel_name}"
+                            )
                         except Exception as join_err:
-                            print(f"[TwitchAdapter] join_channels warning for #{channel_name}: {join_err}")
+                            print(
+                                f"[TwitchAdapter] join_channels warning for #{channel_name}: {join_err}"
+                            )
 
                     join_hello = "hello! i am awake ʕっʘ‿ʘʔっ 🫂"
                     try:
                         await self._send_to_channel(channel_name, join_hello)
                     except Exception as hello_err:
-                        print(f"[TwitchAdapter] hello-on-join warning for #{channel_name}: {hello_err}")
+                        print(
+                            f"[TwitchAdapter] hello-on-join warning for #{channel_name}: {hello_err}"
+                        )
 
-                    await self._set_owner_link_state(authorized_by, channel_name, linked=True)
+                    await self._set_owner_link_state(
+                        authorized_by, channel_name, linked=True
+                    )
                     await self._notify_link_debug(
                         action="link",
                         channel_name=channel_name,
@@ -1428,7 +1694,10 @@ class TwitchAdapter(PlatformAdapter):
                         status="ok",
                         note="joined live",
                     )
-                    return True, f"ʕっʘ‿ʘʔっ okay! i joined your channel! (you have to add me as a mod for me to answer commands though)"
+                    return (
+                        True,
+                        "ʕっʘ‿ʘʔっ okay! i joined your channel! (you have to add me as a mod for me to answer commands though)",
+                    )
                 except Exception as e:
                     print(f"[TwitchAdapter] Error joining channel: {e}")
                     await self._notify_link_debug(
@@ -1447,7 +1716,10 @@ class TwitchAdapter(PlatformAdapter):
                 status="ok",
                 note="queued (bot offline)",
             )
-            return True, "Channel authorised (live join will happen once twitch bot is running)"
+            return (
+                True,
+                "Channel authorised (live join will happen once twitch bot is running)",
+            )
         await self._notify_link_debug(
             action="link",
             channel_name=channel_name,
@@ -1467,8 +1739,8 @@ class TwitchAdapter(PlatformAdapter):
         removed_owner = ""
         new_channels = []
         for ch in channels:
-            if ch['name'].lower() == channel_name.lower():
-                if ch.get('permanent', False):
+            if ch["name"].lower() == channel_name.lower():
+                if ch.get("permanent", False):
                     return False, "This is a permanent channel (can't leave)"
                 found = True
                 removed_owner = self._normalise_link_owner(ch.get("authorized_by", ""))
@@ -1489,7 +1761,9 @@ class TwitchAdapter(PlatformAdapter):
             # Leave the channel
             if self.twitch_bot:
                 try:
-                    live_ok, live_msg = await self.unsubscribe_channel_live(channel_name)
+                    live_ok, live_msg = await self.unsubscribe_channel_live(
+                        channel_name
+                    )
                     if not live_ok:
                         await self._notify_link_debug(
                             action="unlink",
@@ -1503,12 +1777,18 @@ class TwitchAdapter(PlatformAdapter):
                     if hasattr(self.twitch_bot, "part_channels"):
                         try:
                             await self.twitch_bot.part_channels([channel_name])
-                            print(f"[TwitchAdapter] Left channel via part_channels: {channel_name}")
+                            print(
+                                f"[TwitchAdapter] Left channel via part_channels: {channel_name}"
+                            )
                         except Exception as part_err:
-                            print(f"[TwitchAdapter] part_channels warning for #{channel_name}: {part_err}")
+                            print(
+                                f"[TwitchAdapter] part_channels warning for #{channel_name}: {part_err}"
+                            )
 
                     if removed_owner:
-                        await self._set_owner_link_state(removed_owner, channel_name, linked=False)
+                        await self._set_owner_link_state(
+                            removed_owner, channel_name, linked=False
+                        )
                     await self._notify_link_debug(
                         action="unlink",
                         channel_name=channel_name,
@@ -1516,7 +1796,10 @@ class TwitchAdapter(PlatformAdapter):
                         status="ok",
                         note="left live",
                     )
-                    return True, "ʕっʘ︵ʘʔっ oh.. ok, uh, bye! thanks for having me! left live."
+                    return (
+                        True,
+                        "ʕっʘ︵ʘʔっ oh.. ok, uh, bye! thanks for having me! left live.",
+                    )
                 except Exception as e:
                     print(f"[TwitchAdapter] Error leaving channel: {e}")
                     await self._notify_link_debug(
@@ -1528,7 +1811,9 @@ class TwitchAdapter(PlatformAdapter):
                     )
                     return False, f"Error leaving channel: {str(e)[:50]}"
             if removed_owner:
-                await self._set_owner_link_state(removed_owner, channel_name, linked=False)
+                await self._set_owner_link_state(
+                    removed_owner, channel_name, linked=False
+                )
             await self._notify_link_debug(
                 action="unlink",
                 channel_name=channel_name,
@@ -1589,7 +1874,9 @@ class TwitchAdapter(PlatformAdapter):
         self._channel_sender_cache[login] = sender
         return sender
 
-    async def _send_to_channel(self, channel_name: str, content: str, reply_to_message_id: str | None = None):
+    async def _send_to_channel(
+        self, channel_name: str, content: str, reply_to_message_id: str | None = None
+    ):
         content = to_british_english(str(content or ""))
         login = self._normalize_channel_name(channel_name)
         sender = await self._get_channel_sender(channel_name)
@@ -1623,9 +1910,10 @@ class TwitchAdapter(PlatformAdapter):
 
                     elif msg_type == "reply":
                         message, content = args
-                        reply_to = (
-                            getattr(getattr(message, "raw_message", None), "id", None)
-                            or getattr(getattr(message, "raw_message", None), "message_id", None)
+                        reply_to = getattr(
+                            getattr(message, "raw_message", None), "id", None
+                        ) or getattr(
+                            getattr(message, "raw_message", None), "message_id", None
                         )
                         if reply_to:
                             await self._send_to_channel(
@@ -1634,7 +1922,10 @@ class TwitchAdapter(PlatformAdapter):
                                 reply_to_message_id=str(reply_to),
                             )
                         else:
-                            await self._send_to_channel(message.channel_id, f"@{message.author_display_name} {content}")
+                            await self._send_to_channel(
+                                message.channel_id,
+                                f"@{message.author_display_name} {content}",
+                            )
 
                     # Rate limiting
                     await asyncio.sleep(self.message_delay)
@@ -1690,7 +1981,9 @@ class TwitchAdapter(PlatformAdapter):
         # Create a generic command handler
         async def twitch_command_handler(ctx):
             """Generic handler that routes to main bot's command system"""
-            command_name = (getattr(getattr(ctx, "command", None), "name", "") or "").lower()
+            command_name = (
+                getattr(getattr(ctx, "command", None), "name", "") or ""
+            ).lower()
             author_obj = getattr(ctx, "author", None)
             author_name = (
                 getattr(author_obj, "name", None)
@@ -1722,7 +2015,11 @@ class TwitchAdapter(PlatformAdapter):
                 ).lower()
                 target_channel = user_name
                 if not target_channel or target_channel == "unknown":
-                    await _reply_or_send(to_british_english("@unknown i couldn't work out your channel name from twitch auth."))
+                    await _reply_or_send(
+                        to_british_english(
+                            "@unknown i couldn't work out your channel name from twitch auth."
+                        )
+                    )
                     return
 
                 action = TWITCH_MANAGEMENT_COMMANDS[command_name]
@@ -1745,11 +2042,17 @@ class TwitchAdapter(PlatformAdapter):
                 return
 
             # Convert to platform context
-            raw_text = getattr(ctx.message, "content", None) or getattr(ctx.message, "text", None) or ""
+            raw_text = (
+                getattr(ctx.message, "content", None)
+                or getattr(ctx.message, "text", None)
+                or ""
+            )
             platform_msg = PlatformMessage(
                 content=raw_text,
                 author_id=ctx.author.name.lower(),
-                author_display_name=(getattr(ctx.author, "display_name", None) or ctx.author.name),
+                author_display_name=(
+                    getattr(ctx.author, "display_name", None) or ctx.author.name
+                ),
                 channel_id=ctx.channel.name,
                 platform="twitch",
                 timestamp=time.time(),
@@ -1781,7 +2084,9 @@ class TwitchAdapter(PlatformAdapter):
                         self.allowed_commands.add(alias_name)
 
         # Register all allowed commands plus Twitch management aliases.
-        command_names = set(self.allowed_commands) | set(TWITCH_MANAGEMENT_COMMANDS.keys())
+        command_names = set(self.allowed_commands) | set(
+            TWITCH_MANAGEMENT_COMMANDS.keys()
+        )
         if hasattr(self.bot, "get_command"):
             expanded = set(command_names)
             for command_name in list(command_names):

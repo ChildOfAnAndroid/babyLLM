@@ -10,16 +10,18 @@ Runs Flask in background threads while sharing bot state in memory.
 
 import asyncio
 import concurrent.futures
+import inspect
+import logging
+import os
 import threading
 import time
-import logging
-import inspect
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from .base import PlatformAdapter, PlatformMessage
+
 from ..context import create_platform_command_context
 from ..utils import to_british_english
-import os
+from .base import PlatformAdapter, PlatformMessage
 
 
 class WebAdapter(PlatformAdapter):
@@ -77,7 +79,9 @@ class WebAdapter(PlatformAdapter):
             getattr(command_obj, "brief", None),
             getattr(command_obj, "help", None),
             getattr(command_obj, "description", None),
-            inspect.getdoc(getattr(command_obj, "callback", None)) if getattr(command_obj, "callback", None) else None,
+            inspect.getdoc(getattr(command_obj, "callback", None))
+            if getattr(command_obj, "callback", None)
+            else None,
         ]
 
         for candidate in candidates:
@@ -86,7 +90,9 @@ class WebAdapter(PlatformAdapter):
             text = str(candidate).strip()
             if not text:
                 continue
-            first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+            first_line = next(
+                (line.strip() for line in text.splitlines() if line.strip()), ""
+            )
             if first_line:
                 return to_british_english(first_line)
         return ""
@@ -110,7 +116,11 @@ class WebAdapter(PlatformAdapter):
             aliases = []
             for alias in list(getattr(command_obj, "aliases", []) or []):
                 alias_name = str(alias or "").strip().lower()
-                if alias_name and alias_name != command_name and alias_name not in aliases:
+                if (
+                    alias_name
+                    and alias_name != command_name
+                    and alias_name not in aliases
+                ):
                     aliases.append(alias_name)
 
             signature = str(getattr(command_obj, "signature", "") or "").strip()
@@ -120,21 +130,26 @@ class WebAdapter(PlatformAdapter):
 
             description = self._extract_command_description(command_obj)
 
-            entries.append({
-                "name": command_name,
-                "aliases": aliases,
-                "signature": signature,
-                "usage": usage,
-                "description": description,
-                "cog": str(getattr(getattr(command_obj, "cog", None), "qualified_name", "") or ""),
-                "hidden": bool(getattr(command_obj, "hidden", False)),
-                "twitch_allowed": (
-                    bool(twitch_adapter.is_command_allowed(command_name))
-                    if twitch_adapter is not None
-                    else None
-                ),
-                "web_allowed": True,
-            })
+            entries.append(
+                {
+                    "name": command_name,
+                    "aliases": aliases,
+                    "signature": signature,
+                    "usage": usage,
+                    "description": description,
+                    "cog": str(
+                        getattr(getattr(command_obj, "cog", None), "qualified_name", "")
+                        or ""
+                    ),
+                    "hidden": bool(getattr(command_obj, "hidden", False)),
+                    "twitch_allowed": (
+                        bool(twitch_adapter.is_command_allowed(command_name))
+                        if twitch_adapter is not None
+                        else None
+                    ),
+                    "web_allowed": True,
+                }
+            )
 
         entries.sort(key=lambda item: item["name"])
         return entries
@@ -161,7 +176,9 @@ class WebAdapter(PlatformAdapter):
                 parts.append(value)
 
         footer = getattr(embed, "footer", None)
-        footer_text = str(getattr(footer, "text", "") or "").strip() if footer is not None else ""
+        footer_text = (
+            str(getattr(footer, "text", "") or "").strip() if footer is not None else ""
+        )
         if footer_text:
             parts.append(footer_text)
 
@@ -180,38 +197,46 @@ class WebAdapter(PlatformAdapter):
             """Get baby's current state"""
             with self.state_lock:
                 state = {
-                    "eyes": getattr(self.bot, '_web_eyes', 5),
-                    "mouth": getattr(self.bot, '_web_mouth', 1),
-                    "cheeks_on": getattr(self.bot, '_web_cheeks', False),
-                    "tears_on": getattr(self.bot, '_web_tears', False),
-                    "jumping": getattr(self.bot, '_web_jumping', False),
-                    "isSpeaking": getattr(self.bot, '_web_speaking', False),
-                    "speechText": getattr(self.bot, '_web_speech_text', ""),
-                    "R": getattr(self.bot, '_web_R', 133),
-                    "G": getattr(self.bot, '_web_G', 239),
-                    "B": getattr(self.bot, '_web_B', 238),
+                    "eyes": getattr(self.bot, "_web_eyes", 5),
+                    "mouth": getattr(self.bot, "_web_mouth", 1),
+                    "cheeks_on": getattr(self.bot, "_web_cheeks", False),
+                    "tears_on": getattr(self.bot, "_web_tears", False),
+                    "jumping": getattr(self.bot, "_web_jumping", False),
+                    "isSpeaking": getattr(self.bot, "_web_speaking", False),
+                    "speechText": getattr(self.bot, "_web_speech_text", ""),
+                    "R": getattr(self.bot, "_web_R", 133),
+                    "G": getattr(self.bot, "_web_G", 239),
+                    "B": getattr(self.bot, "_web_B", 238),
                     # Add stretch/squish states
-                    "stretch_left": getattr(self.bot, '_web_stretch_left', False),
-                    "stretch_right": getattr(self.bot, '_web_stretch_right', False),
-                    "stretch_up": getattr(self.bot, '_web_stretch_up', False),
-                    "stretch_down": getattr(self.bot, '_web_stretch_down', False),
-                    "squish_left": getattr(self.bot, '_web_squish_left', False),
-                    "squish_right": getattr(self.bot, '_web_squish_right', False),
-                    "squish_up": getattr(self.bot, '_web_squish_up', False),
-                    "squish_down": getattr(self.bot, '_web_squish_down', False),
+                    "stretch_left": getattr(self.bot, "_web_stretch_left", False),
+                    "stretch_right": getattr(self.bot, "_web_stretch_right", False),
+                    "stretch_up": getattr(self.bot, "_web_stretch_up", False),
+                    "stretch_down": getattr(self.bot, "_web_stretch_down", False),
+                    "squish_left": getattr(self.bot, "_web_squish_left", False),
+                    "squish_right": getattr(self.bot, "_web_squish_right", False),
+                    "squish_up": getattr(self.bot, "_web_squish_up", False),
+                    "squish_down": getattr(self.bot, "_web_squish_down", False),
                     # Emotional metrics from bot if available
-                    "cerebralLoad": getattr(self.bot.tutor, 'totalAvgAbsDelta', 0.0) if hasattr(self.bot, 'tutor') else 0.0,
-                    "dreamIntensity": getattr(self.bot, '_web_dream_intensity', 10.0),
-                    "memoryFlux": getattr(self.bot, '_web_memory_flux', 0.0),
-                    "learningStability": getattr(self.bot.tutor, 'perfectionistPassRate', 0.0) if hasattr(self.bot, 'tutor') else 0.0,
-                    "metabolicRate": getattr(self.bot, '_web_metabolic_rate', 0.1),
+                    "cerebralLoad": getattr(self.bot.tutor, "totalAvgAbsDelta", 0.0)
+                    if hasattr(self.bot, "tutor")
+                    else 0.0,
+                    "dreamIntensity": getattr(self.bot, "_web_dream_intensity", 10.0),
+                    "memoryFlux": getattr(self.bot, "_web_memory_flux", 0.0),
+                    "learningStability": getattr(
+                        self.bot.tutor, "perfectionistPassRate", 0.0
+                    )
+                    if hasattr(self.bot, "tutor")
+                    else 0.0,
+                    "metabolicRate": getattr(self.bot, "_web_metabolic_rate", 0.1),
                     "lastUpdated": time.time(),
                     "timestamp": time.time(),
                 }
 
                 # Add token events if available
-                if hasattr(self.bot, '_web_token_events'):
-                    state["token_events"] = self.bot._web_token_events[-10:]  # Last 10 events
+                if hasattr(self.bot, "_web_token_events"):
+                    state["token_events"] = self.bot._web_token_events[
+                        -10:
+                    ]  # Last 10 events
 
                 return jsonify(state)
 
@@ -270,18 +295,24 @@ class WebAdapter(PlatformAdapter):
             has_opted_out = (
                 self.bot.has_explicit_web_opt_out(author)
                 if hasattr(self.bot, "has_explicit_web_opt_out")
-                else bool((self.bot.userMemory.get(author, {}) or {}).get("web_explicit_opt_out", False))
+                else bool(
+                    (self.bot.userMemory.get(author, {}) or {}).get(
+                        "web_explicit_opt_out", False
+                    )
+                )
             )
             if has_opted_out and not is_opt_in_command:
                 print(f"[WebAdapter] User {author} has opted out - rejecting message")
                 return jsonify(
                     status="opted_out",
-                    reply="You've opted out! Use !bbyoptin if you want to chat with me again ʕ·ᴥ·ʔ"
+                    reply="You've opted out! Use !bbyoptin if you want to chat with me again ʕ·ᴥ·ʔ",
                 ), 200
 
             try:
                 reply = self._run_on_bot_loop(
-                    self._handle_web_chat_async(author=author, text=text, raw_data=data),
+                    self._handle_web_chat_async(
+                        author=author, text=text, raw_data=data
+                    ),
                     timeout=185,
                 )
 
@@ -300,10 +331,13 @@ class WebAdapter(PlatformAdapter):
                 return jsonify(status="ok", reply=reply)
 
             except concurrent.futures.TimeoutError:
-                return jsonify(status="error", reply="... (thinking too hard, sorry!)"), 504
+                return jsonify(
+                    status="error", reply="... (thinking too hard, sorry!)"
+                ), 504
             except Exception as e:
                 print(f"[WebAdapter] Error generating response: {e}")
                 import traceback
+
                 traceback.print_exc()
                 return jsonify(status="error", reply=f"oops! {str(e)[:100]}"), 500
 
@@ -312,7 +346,7 @@ class WebAdapter(PlatformAdapter):
             """Get facts database"""
             try:
                 # Return bot's bbyfacts
-                if hasattr(self.bot, 'bbyfacts'):
+                if hasattr(self.bot, "bbyfacts"):
                     return jsonify(self.bot.bbyfacts)
                 else:
                     return jsonify({})
@@ -325,15 +359,17 @@ class WebAdapter(PlatformAdapter):
             try:
                 users = []
                 for user_id, data in self.bot.userMemory.items():
-                    users.append({
-                        "username": data.get("display_name") or user_id,
-                        "user_id": user_id,
-                        "bby": data.get("BBY", 0),
-                        "wins": data.get("wins", 0),
-                        "losses": data.get("losses", 0),
-                        "message_count": data.get("message_count", 0),
-                        "loyalty": data.get("loyalty", 1),
-                    })
+                    users.append(
+                        {
+                            "username": data.get("display_name") or user_id,
+                            "user_id": user_id,
+                            "bby": data.get("BBY", 0),
+                            "wins": data.get("wins", 0),
+                            "losses": data.get("losses", 0),
+                            "message_count": data.get("message_count", 0),
+                            "loyalty": data.get("loyalty", 1),
+                        }
+                    )
 
                 # Sort by BBY descending
                 users.sort(key=lambda x: x["bby"], reverse=True)
@@ -342,13 +378,17 @@ class WebAdapter(PlatformAdapter):
                 total_bby = sum(u["bby"] for u in users)
                 total_messages = sum(u["message_count"] for u in users)
 
-                return jsonify({
-                    "leaderboard": users[:50],  # Top 50
-                    "total_users": len(users),
-                    "total_bby_in_circulation": total_bby,
-                    "total_messages": total_messages,
-                    "platforms": list(self.bot.platforms.keys()) if hasattr(self.bot, 'platforms') else ["discord"]
-                })
+                return jsonify(
+                    {
+                        "leaderboard": users[:50],  # Top 50
+                        "total_users": len(users),
+                        "total_bby_in_circulation": total_bby,
+                        "total_messages": total_messages,
+                        "platforms": list(self.bot.platforms.keys())
+                        if hasattr(self.bot, "platforms")
+                        else ["discord"],
+                    }
+                )
             except Exception as e:
                 return jsonify(error=str(e)), 500
 
@@ -357,12 +397,14 @@ class WebAdapter(PlatformAdapter):
             """Get canonical command registry (one command with alias list)."""
             try:
                 commands_payload = self._build_live_command_registry()
-                return jsonify({
-                    "source": "discord_registry",
-                    "count": len(commands_payload),
-                    "updated_at": time.time(),
-                    "commands": commands_payload,
-                })
+                return jsonify(
+                    {
+                        "source": "discord_registry",
+                        "count": len(commands_payload),
+                        "updated_at": time.time(),
+                        "commands": commands_payload,
+                    }
+                )
             except Exception as e:
                 return jsonify(error=str(e)), 500
 
@@ -374,7 +416,7 @@ class WebAdapter(PlatformAdapter):
         self._init_web_state()
 
         # Disable Flask request logging (too noisy!)
-        log = logging.getLogger('werkzeug')
+        log = logging.getLogger("werkzeug")
         log.setLevel(logging.ERROR)
 
         # Add before_request hook to count requests
@@ -386,7 +428,9 @@ class WebAdapter(PlatformAdapter):
 
         # Start Flask in background thread
         def run_flask():
-            self.app.run(host="127.0.0.1", port=self.port, debug=False, use_reloader=False)
+            self.app.run(
+                host="127.0.0.1", port=self.port, debug=False, use_reloader=False
+            )
 
         self.flask_thread = threading.Thread(target=run_flask, daemon=True)
         self.flask_thread.start()
@@ -394,7 +438,7 @@ class WebAdapter(PlatformAdapter):
         # Start animation loops
         self._start_animation_loops()
 
-        print(f"[WebAdapter] Web API started successfully")
+        print("[WebAdapter] Web API started successfully")
 
     async def stop(self):
         """Stop Flask server"""
@@ -471,9 +515,17 @@ class WebAdapter(PlatformAdapter):
 
                     with self.state_lock:
                         if stim_choice == "random":
-                            keys = ["_web_stretch_left", "_web_stretch_right",
-                                   "_web_squish_up", "_web_squish_down"]
-                            setattr(self.bot, random.choice(keys), random.choice([True, False]))
+                            keys = [
+                                "_web_stretch_left",
+                                "_web_stretch_right",
+                                "_web_squish_up",
+                                "_web_squish_down",
+                            ]
+                            setattr(
+                                self.bot,
+                                random.choice(keys),
+                                random.choice([True, False]),
+                            )
                         elif stim_choice == "blushy":
                             if self.bot._web_cheeks:
                                 self.bot._web_cheeks = random.choice([True, False])
@@ -493,7 +545,9 @@ class WebAdapter(PlatformAdapter):
                     with self.request_lock:
                         total = sum(self.request_counts.values())
                         if total >= last_total + 100:
-                            print(f"[WebAdapter] Request summary (last {total - last_total} requests):")
+                            print(
+                                f"[WebAdapter] Request summary (last {total - last_total} requests):"
+                            )
                             for endpoint, count in sorted(self.request_counts.items()):
                                 print(f"  {endpoint}: {count}")
                             last_total = total
@@ -507,7 +561,9 @@ class WebAdapter(PlatformAdapter):
                 time.sleep(3)  # Check every 3 seconds
                 try:
                     # Track messages across ALL platforms
-                    current_buffer_size = len(self.bot.buffer) if hasattr(self.bot, 'buffer') else 0
+                    current_buffer_size = (
+                        len(self.bot.buffer) if hasattr(self.bot, "buffer") else 0
+                    )
                     now = time.time()
 
                     # If buffer grew, messages were added!
@@ -527,7 +583,9 @@ class WebAdapter(PlatformAdapter):
 
                     # Clean old activity (keep last 60 seconds)
                     cutoff = now - 60
-                    self.recent_activity = [t for t in self.recent_activity if t > cutoff]
+                    self.recent_activity = [
+                        t for t in self.recent_activity if t > cutoff
+                    ]
 
                     # Calculate activity level
                     messages_per_minute = len(self.recent_activity)
@@ -547,7 +605,9 @@ class WebAdapter(PlatformAdapter):
                     if self.bot._web_mouth != new_mouth:
                         self.bot._web_mouth = new_mouth
                         moods = {0: "sad (quiet)", 1: "normal", 2: "happy (active!)"}
-                        print(f"[Activity→Web] Mouth: {moods.get(new_mouth, 'unknown')} ({messages_per_minute} msg/min)")
+                        print(
+                            f"[Activity→Web] Mouth: {moods.get(new_mouth, 'unknown')} ({messages_per_minute} msg/min)"
+                        )
 
                 except Exception as e:
                     print(f"[WebAdapter] Activity monitor error: {e}")
@@ -565,7 +625,9 @@ class WebAdapter(PlatformAdapter):
                 _cfg_url = ""
             push_url_base = os.environ.get("BBY_PUBLIC_URL", _cfg_url).rstrip("/")
             if not push_url_base:
-                print("[WebAdapter] BBY_PUBLIC_URL not set — state push disabled (website will poll as fallback)")
+                print(
+                    "[WebAdapter] BBY_PUBLIC_URL not set — state push disabled (website will poll as fallback)"
+                )
                 return
 
             push_url = f"{push_url_base}/api/brain_push"
@@ -580,14 +642,19 @@ class WebAdapter(PlatformAdapter):
             # Only watch attrs that represent meaningful emotional/visual state.
             # Micro-animation attrs (stretch/squish) are excluded intentionally.
             WATCHED = [
-                '_web_R', '_web_G', '_web_B',
-                '_web_eyes', '_web_mouth',
-                '_web_cheeks', '_web_tears',
-                '_web_jumping',
-                '_web_speaking', '_web_speech_text',
-                '_web_dream_intensity',
-                '_web_memory_flux',
-                '_web_metabolic_rate',
+                "_web_R",
+                "_web_G",
+                "_web_B",
+                "_web_eyes",
+                "_web_mouth",
+                "_web_cheeks",
+                "_web_tears",
+                "_web_jumping",
+                "_web_speaking",
+                "_web_speech_text",
+                "_web_dream_intensity",
+                "_web_memory_flux",
+                "_web_metabolic_rate",
             ]
 
             last_snapshot = {}
@@ -599,19 +666,19 @@ class WebAdapter(PlatformAdapter):
                         continue
 
                     payload = {
-                        "eyes":           snapshot.get('_web_eyes', 5),
-                        "mouth":          snapshot.get('_web_mouth', 1),
-                        "cheeks_on":      snapshot.get('_web_cheeks', False),
-                        "tears_on":       snapshot.get('_web_tears', False),
-                        "jumping":        snapshot.get('_web_jumping', False),
-                        "isSpeaking":     snapshot.get('_web_speaking', False),
-                        "speechText":     snapshot.get('_web_speech_text', ''),
-                        "R":              snapshot.get('_web_R', 133),
-                        "G":              snapshot.get('_web_G', 239),
-                        "B":              snapshot.get('_web_B', 238),
-                        "dreamIntensity": snapshot.get('_web_dream_intensity', 10.0),
-                        "memoryFlux":     snapshot.get('_web_memory_flux', 0.0),
-                        "metabolicRate":  snapshot.get('_web_metabolic_rate', 0.1),
+                        "eyes": snapshot.get("_web_eyes", 5),
+                        "mouth": snapshot.get("_web_mouth", 1),
+                        "cheeks_on": snapshot.get("_web_cheeks", False),
+                        "tears_on": snapshot.get("_web_tears", False),
+                        "jumping": snapshot.get("_web_jumping", False),
+                        "isSpeaking": snapshot.get("_web_speaking", False),
+                        "speechText": snapshot.get("_web_speech_text", ""),
+                        "R": snapshot.get("_web_R", 133),
+                        "G": snapshot.get("_web_G", 239),
+                        "B": snapshot.get("_web_B", 238),
+                        "dreamIntensity": snapshot.get("_web_dream_intensity", 10.0),
+                        "memoryFlux": snapshot.get("_web_memory_flux", 0.0),
+                        "metabolicRate": snapshot.get("_web_metabolic_rate", 0.1),
                     }
 
                     _req.post(push_url, json=payload, timeout=2)
@@ -642,7 +709,9 @@ class WebAdapter(PlatformAdapter):
         future = asyncio.run_coroutine_threadsafe(coro, loop)
         return future.result(timeout=timeout)
 
-    async def _handle_web_chat_async(self, *, author: str, text: str, raw_data: dict) -> str:
+    async def _handle_web_chat_async(
+        self, *, author: str, text: str, raw_data: dict
+    ) -> str:
         """Async work for /api/say executed on the Discord bot event loop."""
         author_key = str(author or "").strip().lower() or "web_user"
         command_name = self._extract_command_name(text)
@@ -694,13 +763,21 @@ class WebAdapter(PlatformAdapter):
             )
 
             try:
-                resolved_name, callback = self.bot._resolve_platform_command(command_name, "web")
+                resolved_name, callback = self.bot._resolve_platform_command(
+                    command_name, "web"
+                )
                 if callback is None:
-                    return to_british_english(f"sorry! !{command_name} isn't available right now")
+                    return to_british_english(
+                        f"sorry! !{command_name} isn't available right now"
+                    )
 
                 arg_text = self.bot._extract_command_arg_text(text)
-                positional_args, keyword_args = self.bot._parse_command_arguments(callback, arg_text)
-                await self.bot._invoke_platform_callback(callback, fake_ctx, positional_args, keyword_args)
+                positional_args, keyword_args = self.bot._parse_command_arguments(
+                    callback, arg_text
+                )
+                await self.bot._invoke_platform_callback(
+                    callback, fake_ctx, positional_args, keyword_args
+                )
             except Exception as e:
                 print(f"[WebAdapter] Command error in '{command_name}': {e}")
                 return to_british_english(f"oops! something broke: {str(e)[:120]}")
@@ -727,12 +804,14 @@ class WebAdapter(PlatformAdapter):
                 if not response_future.done():
                     response_future.set_result(self._extract_generation_text(result))
 
-            await self.bot.generation_queue.put((
-                fake_ctx,
-                text,
-                50,  # num tokens for web (medium length)
-                set_result
-            ))
+            await self.bot.generation_queue.put(
+                (
+                    fake_ctx,
+                    text,
+                    50,  # num tokens for web (medium length)
+                    set_result,
+                )
+            )
             try:
                 reply = await asyncio.wait_for(response_future, timeout=180)
             except asyncio.TimeoutError:

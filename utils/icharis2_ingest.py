@@ -236,12 +236,19 @@ def _finalise_training_text(text: str, min_chars: int = 60) -> str:
     # keep the latest self-authored block and drop prior thread context.
     lines = [ln.strip() for ln in cleaned.splitlines() if ln.strip()]
     self_labels = {"charis", "childofanandroid", "child of an android", "coaa"}
+    _sig_handle_re = re.compile(r'^[a-z0-9 _.\'-]{1,40}\s*//\s*[a-z0-9 _.\'-]{1,60}$', re.IGNORECASE)
+    # Strip trailing signature lines (e.g. "charis // child of an android", standalone handle)
+    while lines and (lines[-1].lower() in self_labels or _sig_handle_re.match(lines[-1])):
+        lines.pop()
+    # Email-thread heuristic: keep only the latest self-authored block
     keep_from = None
     for idx, line in enumerate(lines[:-1]):
         if line.lower() in self_labels and (len(lines) - idx) >= 4:
             keep_from = idx + 1
     if keep_from is not None and keep_from < len(lines):
         cleaned = "\n".join(lines[keep_from:]).strip()
+    else:
+        cleaned = "\n".join(lines).strip()
 
     if len(cleaned) < min_chars:
         return ""
