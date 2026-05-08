@@ -1,11 +1,51 @@
+import json
 import math
+import os
 import random
 import time
+from pathlib import Path
 
 try:
     import numpy as np
 except Exception:  # pragma: no cover - optional dependency
     np = None
+
+
+# Where we remember "camera unavailable" between runs. Probing OpenCV indices
+# 1, 2, 3, 0 with no camera permission costs ~600ms per startup (4× AVFoundation
+# auth-request roundtrips). After the first failure we cache the negative
+# result with a TTL so subsequent startups skip the probe entirely. Set the env
+# var BBY_VISION_CACHE_DISABLE=1 to bypass the cache, or BBY_VISION_DISABLE=1
+# to skip vision entirely.
+_PROBE_CACHE_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "SHKAIRA" / "soul" / ".vision_probe_cache.json"
+)
+_PROBE_CACHE_TTL_SECONDS = 3600.0  # 1 hour — long enough to skip routine restarts
+
+
+def _read_probe_cache() -> "dict | None":
+    if os.environ.get("BBY_VISION_CACHE_DISABLE", "").strip() in {"1", "true", "yes"}:
+        return None
+    try:
+        if not _PROBE_CACHE_PATH.exists():
+            return None
+        payload = json.loads(_PROBE_CACHE_PATH.read_text())
+        ts = float(payload.get("timestamp") or 0)
+        if (time.time() - ts) > _PROBE_CACHE_TTL_SECONDS:
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def _write_probe_cache(payload: dict) -> None:
+    try:
+        _PROBE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PROBE_CACHE_PATH.write_text(
+            json.dumps({**payload, "timestamp": time.time()})
+        )
+    except Exception:
+        pass
 
 
 class VisionBus:
@@ -37,6 +77,23 @@ class VisionBus:
         self._last_reopen = 0.0
         self._reopen_cooldown = 2.0
 
+        # Hard-disable lever — useful for headless runs / CI.
+        if os.environ.get("BBY_VISION_DISABLE", "").strip() in {"1", "true", "yes"}:
+            print("[VisionBus] Camera disabled via BBY_VISION_DISABLE.")
+            return
+
+        # If we previously confirmed no camera permission within the cache TTL,
+        # don't redo the 4× OpenCV/AVFoundation probe — that's the entire point
+        # of the cache. The user can grant permission later and clear the cache
+        # (or it expires after _PROBE_CACHE_TTL_SECONDS).
+        cached = _read_probe_cache()
+        if cached and not cached.get("has_camera", False):
+            print(
+                "[VisionBus] Camera sensor unavailable (cached; clear "
+                f"{_PROBE_CACHE_PATH.name} or unset BBY_VISION_CACHE_DISABLE to re-probe)."
+            )
+            return
+
         try:
             import cv2 as _cv2
 
@@ -44,6 +101,15 @@ class VisionBus:
             self._open_camera()
         except Exception:
             print("[VisionBus] Camera sensor unavailable.")
+            _write_probe_cache({"has_camera": False, "reason": "import_error"})
+
+        # Persist the probe outcome so the next startup can skip the cost.
+        _write_probe_cache(
+            {
+                "has_camera": bool(self.has_camera),
+                "device_index": self.device_index if self.has_camera else None,
+            }
+        )
 
     def step(self):
         frame = self._read_frame()

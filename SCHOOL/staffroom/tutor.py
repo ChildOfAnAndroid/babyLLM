@@ -350,13 +350,26 @@ class TUTOR:
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):  ###
         # async with self.training_lock:
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:  ###
+            # Barrier for async optimizer load (unified bot mode kicks off
+            # optimizer load in a background thread to keep startup snappy).
+            # In sync-load mode the model has no _optimizer_ready_event and
+            # this is a free no-op.
+            if hasattr(self.model, "wait_for_optimizer_ready"):
+                self.model.wait_for_optimizer_ready()
             if debugPrints:
                 ʕっʘ‿ʘʔっ(
                     "trainableParams = sum(p.numel() for p in self.model.parameters() if p.requires_grad)"
                 )
-            trainableParams = sum(
-                p.numel() for p in self.model.parameters() if p.requires_grad
-            )
+            # Cache trainable-param count: it's a 636M-parameter sweep that
+            # never changes between trainModel calls within a single bot
+            # session. Recomputing it on every queue item was pure waste.
+            cached_trainable = getattr(self.model, "_cached_trainable_params", None)
+            if cached_trainable is None:
+                cached_trainable = sum(
+                    p.numel() for p in self.model.parameters() if p.requires_grad
+                )
+                setattr(self.model, "_cached_trainable_params", cached_trainable)
+            trainableParams = cached_trainable
             print(f"Trainable parameters: {trainableParams:,}")
             self.startIndex = _startIndex
             if debugPrints:
@@ -366,10 +379,14 @@ class TUTOR:
                 print(
                     f"Debug tokenToIndex (First 20): {list(self.librarian.tokenToIndex.items())[:20]}"
                 )
+            # Per-call dump of every named parameter and device used to fire
+            # unconditionally — for a model with hundreds of named tensors,
+            # that's hundreds of stdout writes on every queue item. Keep it
+            # debug-gated like the other diagnostics in this method.
             if debugPrints:
                 ʕっʘ‿ʘʔっ("print named parameters and device")
-            for name, param in self.model.named_parameters():
-                print(name, param.device)
+                for name, param in self.model.named_parameters():
+                    print(name, param.device)
             if debugPrints:
                 ʕっʘ‿ʘʔっ("COUNTERS INIT")
             self.trainingStepCounter = 1

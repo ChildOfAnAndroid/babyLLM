@@ -208,8 +208,11 @@ def wakeup(
                     print("Press Ctrl+C to stop")
                     print("=" * 60)
 
-                    # Load model
-                    babyLLM.loadModel()
+                    # Load model. The optimizer (5GB on disk) loads in a
+                    # background thread so Discord/Twitch/Web setup overlaps
+                    # with optim I/O. Tutor.trainModel calls
+                    # babyLLM.wait_for_optimizer_ready() before stepping.
+                    babyLLM.loadModel(async_optimizer=True)
                     babyLLM.to(modelDevice)
 
                     try:

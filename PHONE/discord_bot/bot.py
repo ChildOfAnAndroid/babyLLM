@@ -6965,8 +6965,24 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 treasury_ratio=0.9,
                 mint_floor_ratio=0.1,
             )
+        # Fact-mention sweep. Iterating ~3.7k facts on every message; the
+        # original code did N x request_save inside the loop and re-looked-up
+        # self.bbyfacts[name] when we already have `fact` in hand. Hoist the
+        # save out (it's a set-add anyway, but this matches intent), and use
+        # `fact` directly. Caps matches at a sane upper bound — a single
+        # message granting 100+ bonuses means the user typed a list, not a
+        # genuine reference, and the log spam was hurting more than the
+        # economy.
+        bonus_random_sum = self.random + self.random2 + self.random3 + self.random4
+        any_match = False
+        match_cap = 25
+        match_count = 0
         for name, fact in self.bbyfacts.items():
+            if match_count >= match_cap:
+                break
             if name in lower_content:
+                match_count += 1
+                any_match = True
                 original_author = fact.get("original_author") or fact.get("author")
                 self.grant_bonus_with_treasury(
                     author,
@@ -6983,13 +6999,12 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                         treasury_ratio=0.9,
                         mint_floor_ratio=0.1,
                     )
-                original_bonus = self.bbyfacts[name]["teach_bonus"]
-                self.bbyfacts[name]["teach_bonus"] = (original_bonus * 0.999) + (
-                    original_bonus
-                    * (self.random + self.random2 + self.random3 + self.random4)
-                    * 0.0001
+                original_bonus = fact["teach_bonus"]
+                fact["teach_bonus"] = (original_bonus * 0.999) + (
+                    original_bonus * bonus_random_sum * 0.0001
                 )  # Much gentler price increase
-                data_manager.request_save("bbyfacts")
+        if any_match:
+            data_manager.request_save("bbyfacts")
         in_baby_channel = message.channel.id == bby_spam
         is_bby_mentioned = self.user in message.mentions
         if is_bby_mentioned and not is_command:

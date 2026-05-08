@@ -5,6 +5,7 @@
 
 import asyncio
 import calendar
+import contextlib
 import functools
 import inspect
 import json
@@ -432,6 +433,23 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         "baby": (133, 239, 238),
     }
 
+    @staticmethod
+    @contextlib.asynccontextmanager
+    async def _safe_typing(ctx):
+        """Drop-in replacement for ``async with ctx.typing()`` that survives
+        Discord 5xx on the underlying ``send_typing`` HTTP call. The typing
+        indicator is purely cosmetic — better to skip it than to lose the
+        user's reply."""
+        try:
+            async with ctx.typing():
+                yield
+        except discord.errors.DiscordServerError as exc:
+            print(
+                f"[_safe_typing] ctx.typing() failed ({exc}); continuing "
+                f"without typing indicator."
+            )
+            yield
+
     def __init__(self, bot: "BABYBOT_DISCORD"):
         self.bot = bot
         # lightweight gallery cache so we don't hammer the site
@@ -593,7 +611,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             url = "https://childofanandroid.co.uk/api/gallery"
             by_label = {}
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=10) as resp:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status != 200:
                         return
                     data = await resp.json()
@@ -827,12 +845,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         for key, fact in self.bot.bbyfacts.items():
             if not isinstance(fact, dict):
                 continue
-            try:
-                current_id = int(fact.get("id"))
-            except Exception:
-                continue
-            if current_id == wanted_id:
-                return str(key).strip().lower(), fact
+            current_id = fact.get("id")
+            if current_id is not None:
+                try:
+                    if int(current_id) == wanted_id:
+                        return str(key).strip().lower(), fact
+                except (ValueError, TypeError):
+                    continue
         return None, None
 
     def _resolve_bbyfact_reference(
@@ -6744,7 +6763,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(
                 f"[_generate_and_reply] requesting {num_tokens_to_gen} tokens for generation."
             )
-            async with ctx.typing():
+            try:
+                async with ctx.typing():
+                    babyllm_text, generation_error = await self._generate_response_async(
+                        prompt_text, num_tokens_to_gen
+                    )
+            except discord.errors.DiscordServerError as typing_err:
+                # ctx.typing() opens with an HTTP send_typing call. When
+                # Discord's gateway 5xx's, the manager raises before our
+                # generation body runs and we lose the whole reply. The
+                # typing indicator is purely cosmetic — drop it and keep
+                # serving the user.
+                print(
+                    f"[_generate_and_reply] ctx.typing() failed ({typing_err}); "
+                    f"generating without typing indicator."
+                )
                 babyllm_text, generation_error = await self._generate_response_async(
                     prompt_text, num_tokens_to_gen
                 )
@@ -6793,7 +6826,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         f"[_generate_and_reply] empty generation output; "
                         f"retry {retry_idx}/{max_empty_retries}."
                     )
-                    async with ctx.typing():
+                    try:
+                        async with ctx.typing():
+                            retry_text, retry_error = await self._generate_response_async(
+                                prompt_text, num_tokens_to_gen
+                            )
+                    except discord.errors.DiscordServerError:
                         retry_text, retry_error = await self._generate_response_async(
                             prompt_text, num_tokens_to_gen
                         )
@@ -13506,7 +13544,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         verdict = ""
         child_text = ""
-        async with ctx.typing():
+        # See _generate_and_reply: ctx.typing() can 5xx on the typing-indicator
+        # HTTP call. Drop the indicator on failure rather than killing the cmd.
+        typing_cm = self._safe_typing(ctx)
+        async with typing_cm:
             if fallback_note:
                 verdict = fallback_note
             else:

@@ -2761,7 +2761,18 @@ class BABYLLM(nn.Module):
             print(f"Memory buffers successfully saved to {buffers_path}!")
 
     @whocalled
-    def loadModel(self, filePath=modelFilePath):
+    def loadModel(self, filePath=modelFilePath, *, async_optimizer: bool = False):
+        """Load model + optimizer + memory buffers from a checkpoint.
+
+        Set ``async_optimizer=True`` to defer optimizer state loading to a
+        background daemon thread. The model is ready as soon as this method
+        returns; the optimizer becomes ready some time later. Any code that
+        needs the optimizer (i.e. before calling ``optimizer.step()`` or
+        anything that mutates optimizer state) must call
+        ``self.wait_for_optimizer_ready()`` first. This is the safe path for
+        bot modes (twitch / discord / unified) where startup latency matters
+        more than first-training-step latency.
+        """
         with self.counsellor.infodump("loadModel") as ʕっʘ‿ʘʔっ:
             try:
                 if debugPrints:
@@ -2782,17 +2793,10 @@ class BABYLLM(nn.Module):
                 if hasattr(self, "optimizer"):
                     optimPath = filePath + ".optim"
                     if os.path.exists(optimPath):
-                        try:
-                            self.optimizer.load_state_dict(
-                                torch.load(optimPath, map_location=self.device)
-                            )
-                            for state in self.optimizer.state.values():
-                                for k, v in state.items():
-                                    if isinstance(v, torch.Tensor):
-                                        state[k] = v.to(self.device)
-                            print(f"optimizer restored from {optimPath}")
-                        except Exception as e:
-                            print(f"failed to load optimizer: {e}")
+                        if async_optimizer:
+                            self._start_async_optimizer_load(optimPath)
+                        else:
+                            self._load_optimizer_state(optimPath)
                 print(f"model loaded from {filePath}!")
                 self.to(self.device)
                 print(f"device set to {self.device}!")
@@ -2858,6 +2862,75 @@ class BABYLLM(nn.Module):
             except FileNotFoundError:
                 print("no saved model found")
 
+    def _load_optimizer_state(self, optimPath):
+        """Synchronous optimizer load. Re-uploads tensors to self.device because
+        torch.load(..., map_location=device) drops them on the right device but
+        the load_state_dict copy can land on CPU when the optimizer was created
+        before any tensors moved to the GPU."""
+        try:
+            self.optimizer.load_state_dict(
+                torch.load(optimPath, map_location=self.device)
+            )
+            for state in self.optimizer.state.values():
+                for k, v in state.items():
+                    if isinstance(v, torch.Tensor):
+                        state[k] = v.to(self.device)
+            print(f"optimizer restored from {optimPath}")
+        except Exception as e:
+            print(f"failed to load optimizer: {e}")
+
+    def _start_async_optimizer_load(self, optimPath):
+        """Kick off optimizer loading in a daemon thread. The 5GB optim file
+        I/O overlaps with Discord/Twitch/Web bot startup so the user-visible
+        latency drops to whatever the slower of the two is. Code that needs
+        the optimizer (e.g. tutor.trainModel) must call
+        wait_for_optimizer_ready() first; we set that as a barrier in the
+        training entry points."""
+        import threading
+
+        if not hasattr(self, "_optimizer_ready_event"):
+            self._optimizer_ready_event = threading.Event()
+        else:
+            self._optimizer_ready_event.clear()
+        self._optimizer_load_error = None
+
+        def _worker():
+            try:
+                self._load_optimizer_state(optimPath)
+            except Exception as exc:
+                self._optimizer_load_error = exc
+                print(f"[ASYNC OPTIM] load failed: {exc}")
+            finally:
+                self._optimizer_ready_event.set()
+
+        thread = threading.Thread(
+            target=_worker, name="async-optim-load", daemon=True
+        )
+        thread.start()
+        print(
+            f"[ASYNC OPTIM] optimizer load started in background thread "
+            f"(file: {optimPath})"
+        )
+
+    def wait_for_optimizer_ready(self, timeout: float | None = None) -> bool:
+        """Block until async optimizer load finishes. Returns True if ready,
+        False if a timeout was hit. Cheap when load was synchronous (the event
+        attribute won't exist) — returns True immediately."""
+        event = getattr(self, "_optimizer_ready_event", None)
+        if event is None:
+            return True
+        if event.is_set():
+            return True
+        import time
+
+        t0 = time.perf_counter()
+        ready = event.wait(timeout=timeout)
+        if ready:
+            elapsed = time.perf_counter() - t0
+            if elapsed > 0.05:
+                print(f"[ASYNC OPTIM] waited {elapsed:.2f}s for optimizer ready")
+        return ready
+
     def _upgrade_sensory_state_dict(self, state_dict):
         """Expand sensory tensors when older checkpoints have smaller dims."""
 
@@ -2911,7 +2984,9 @@ class BABYLLM(nn.Module):
 
         response_ids = []
 
-        with torch.no_grad():  # We don't need to calculate gradients during generation
+        # inference_mode is strictly faster than no_grad on PyTorch 1.9+ — it
+        # skips view tracking on the result tensors. Safe for pure inference.
+        with torch.inference_mode():
             # EOS settings from config
             from config import (
                 eos_min_tokens_absolute,
@@ -2930,7 +3005,26 @@ class BABYLLM(nn.Module):
                 eos_min_tokens_absolute, int(_numTokens * eos_min_tokens_fraction)
             )
 
+            # The speaker-tag stop check decodes the last 64 tokens and runs a
+            # regex on every step after `min_tokens_before_stop`. That's wasted
+            # work — speaker tags only matter when the last decoded token can
+            # plausibly contribute to one (a colon char or newline). Cheap
+            # gate: scan only every N tokens, or sooner if the most recent
+            # token id is one we know decodes to a colon-ish or newline-ish
+            # piece. Pre-resolve those once outside the loop.
+            speaker_tag_check_stride = 4
+            colon_like_token_ids: set[int] = set()
+            try:
+                t2i = self.librarian.tokenToIndex
+                for tk in (":", " :", ":\n", "Ċ:", " :\n", "Ċ"):
+                    tid = t2i.get(tk)
+                    if isinstance(tid, int):
+                        colon_like_token_ids.add(tid)
+            except Exception:
+                colon_like_token_ids = set()
+
             strip_trailing_tag = False
+            speaker_tag_re = None  # lazy compile on first use
             for i in range(_numTokens):
                 # The context window is the last `numTokensPerStep` tokens
                 input_ids = gen_token_ids[-self.numTokensPerStep :]
@@ -2955,26 +3049,36 @@ class BABYLLM(nn.Module):
 
                 # Stricter stop: if a speaker tag is formed at the end of output, stop (and strip it)
                 if i + 1 >= min_tokens_before_stop and eos_require_speaker_change:
-                    try:
-                        # decode a small tail safely
-                        tail_ids = response_ids[-min(len(response_ids), 64) :]
-                        tail_text = self.librarian.decodeIDs(
-                            [int(idx) for idx in tail_ids]
-                        )
-                        tail_text = (
-                            tail_text.replace("Ġ", " ")
-                            .replace("▁", " ")
-                            .replace("Ċ", "\n")
-                            .replace("ĉ", "\t")
-                        )
-                        import re as _re
-
-                        m = _re.search(r"(?:^|\n)([^\n:]{1,24}):\s?$", tail_text)
-                        if m:
-                            strip_trailing_tag = True
-                            break
-                    except Exception:
-                        pass
+                    # Cheap pre-filter: only run the decode+regex when the
+                    # latest token could plausibly close a speaker tag, OR
+                    # every `speaker_tag_check_stride` tokens as a safety net.
+                    needs_check = (
+                        next_token_id in colon_like_token_ids
+                        or (i % speaker_tag_check_stride == 0)
+                    )
+                    if needs_check:
+                        try:
+                            # decode a small tail safely
+                            tail_ids = response_ids[-min(len(response_ids), 64) :]
+                            tail_text = self.librarian.decodeIDs(
+                                [int(idx) for idx in tail_ids]
+                            )
+                            tail_text = (
+                                tail_text.replace("Ġ", " ")
+                                .replace("▁", " ")
+                                .replace("Ċ", "\n")
+                                .replace("ĉ", "\t")
+                            )
+                            if speaker_tag_re is None:
+                                import re as _re
+                                speaker_tag_re = _re.compile(
+                                    r"(?:^|\n)([^\n:]{1,24}):\s?$"
+                                )
+                            if speaker_tag_re.search(tail_text):
+                                strip_trailing_tag = True
+                                break
+                        except Exception:
+                            pass
 
         # Decode the generated IDs back into a string
         out_text = self.librarian.decodeIDs(response_ids)
