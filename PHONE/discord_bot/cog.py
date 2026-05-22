@@ -1110,6 +1110,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
         eos_hits_before_min = 0
         stopped_on_hard_eos = False
+        stop_reason = "budget"
         nonfinite_streak = 0
         oom_error_message = None
         try:
@@ -1173,6 +1174,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 f"[EOS][GEN] hard stop on <EOS> at generated token "
                                 f"{len(responseSeqId) + 1} (min {min_tokens_before_stop})"
                             )
+                            stop_reason = "hard_eos"
                             stopped_on_hard_eos = True
                             break
                         # Soft EOS: optional, newline-based
@@ -1181,6 +1183,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             and len(responseSeqId) >= min_tokens_before_stop
                             and nextTokenID == newline_id
                         ):
+                            stop_reason = "soft_eos"
                             break
                         # Otherwise accept the token
                         genSeqIDs.append(nextTokenID)
@@ -1213,6 +1216,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                         name in speaker_whitelist
                                     ):
                                         strip_trailing_tag = True
+                                        stop_reason = "speaker_tag"
                                         break
                             except Exception:
                                 pass
@@ -1226,6 +1230,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 "[_GENERATE_RESPONSE_BLOCKING] CAUGHT OUT OF MEMORY! Breaking generation loop."
                             )
                             oom_error_message = f"ERROR: Ran out of memory after generating {len(responseSeqId)} tokens."
+                            stop_reason = "oom"
                             break
                         else:
                             raise mem_error
@@ -1285,6 +1290,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             babyllm_text = re.sub(r"\n{3,}", "\n\n", babyllm_text)
             babyllm_text = re.sub(r"  ", r" ", babyllm_text)
             generation_time = time.time() - start_time
+            print(
+                f"[GEN_STOP] reason={stop_reason} "
+                f"tokens={len(responseSeqId)}/{numTokensToGen} "
+                f"early_eos_suppressed={eos_hits_before_min}"
+            )
             perf_monitor.record_metric("generation_time", generation_time)
             perf_monitor.record_metric("tokens_generated", len(responseSeqId))
             perf_monitor.record_metric(
