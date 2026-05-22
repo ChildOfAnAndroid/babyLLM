@@ -1291,8 +1291,8 @@ class TUTOR:
                 if len(_targetTokenIndexSeq) > 0
                 else torch.tensor(0.0, device=self.device)
             )
-            self.triesLoss_used = BACKWARDloss * (BACKWARDtriesMod - 1.0)
-            self.perfLoss_used = BACKWARDloss * (BACKWARDperfMod - 1.0)
+            self.triesLoss_used = (BACKWARDloss * (BACKWARDtriesMod - 1.0)).detach().item()
+            self.perfLoss_used = (BACKWARDloss * (BACKWARDperfMod - 1.0)).detach().item()
             BACKWARDloss = BACKWARDloss * BACKWARDtriesMod * BACKWARDperfMod
             BACKWARDloss = BACKWARDloss + pixelDistLoss
 

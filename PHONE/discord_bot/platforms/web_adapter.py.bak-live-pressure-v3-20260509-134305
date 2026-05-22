@@ -20,7 +20,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from ..context import create_platform_command_context
-from ..live_pressure import patch_cog_generation, pressure_snapshot, try_queue_generation
 from ..utils import to_british_english
 from .base import PlatformAdapter, PlatformMessage
 
@@ -191,10 +190,6 @@ class WebAdapter(PlatformAdapter):
         @self.app.get("/api/ping")
         def ping():
             return jsonify(ok=True, msg="hello from unified bot web API")
-
-        @self.app.get("/api/pressure")
-        def pressure():
-            return jsonify(pressure_snapshot(self.bot))
 
         @self.app.get("/api/state")
         @self.app.get("/api/babystate")  # CORS-friendly alias
@@ -809,7 +804,7 @@ class WebAdapter(PlatformAdapter):
                 if not response_future.done():
                     response_future.set_result(self._extract_generation_text(result))
 
-            await try_queue_generation(self.bot, 
+            await self.bot.generation_queue.put(
                 (
                     fake_ctx,
                     text,
@@ -823,7 +818,6 @@ class WebAdapter(PlatformAdapter):
                 reply = "... (thinking too hard, sorry!)"
         else:
             if hasattr(self.bot, "cog"):
-                patch_cog_generation(self.bot)
                 result = await self.bot.cog._generate_and_reply(fake_ctx, text, 50)
                 reply = self._extract_generation_text(result)
             else:

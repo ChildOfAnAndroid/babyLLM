@@ -188,26 +188,16 @@ class PlatformIntegrationMixin:
             adapter = self.platforms.get(platform_msg.platform)
             if adapter:
                 formatted = adapter.format_message(author_id, platform_msg.content)
-                self.buffer.append(formatted)
-
-                # Trim buffer if needed
-                if not isinstance(self.buffer, deque):
-                    self.buffer = deque(
-                        list(self.buffer), maxlen=self.rollingContextSize
-                    )
-                if len(self.buffer) > self.rollingContextSize:
-                    while len(self.buffer) > self.rollingContextSize:
-                        self.buffer.popleft()
-
-                # Queue for training
-                if hasattr(self, "training_queue") and self.training_queue.qsize() < 20:
-                    await self.training_queue.put(
-                        {
-                            "type": "chat",
-                            "text": formatted,
-                            "platform": platform_msg.platform,
-                        }
-                    )
+                if self._buffer_add(formatted, speaker_hint=author_id):
+                    # Queue for training
+                    if hasattr(self, "training_queue") and self.training_queue.qsize() < 20:
+                        await self.training_queue.put(
+                            {
+                                "type": "chat",
+                                "text": formatted,
+                                "platform": platform_msg.platform,
+                            }
+                        )
 
     async def handle_platform_command(self, platform_ctx: PlatformContext):
         """Handle command from any platform"""

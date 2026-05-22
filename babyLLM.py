@@ -917,7 +917,7 @@ class BABYLLM(nn.Module):
                 f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}"
             )
 
-            self.CELossDelta = loss - (
+            self.CELossDelta = loss_value - (
                 (self.lastLossBaby) if self.lastLossBaby is not None else 0
             )
 
@@ -1517,8 +1517,8 @@ class BABYLLM(nn.Module):
                     "B_repetitionWindow": _bwd_params[2],
                     "B_temperature": _bwd_params[3],
                     "L_CEloss": self.CEloss_used,
-                    "L_PIXELloss": self.PIXELloss,
-                    "L_PIXELloss_scaled": self.pixelLoss_used,
+                    "L_PIXELloss": self.PIXELloss.detach().item() if torch.is_tensor(self.PIXELloss) else self.PIXELloss,
+                    "L_PIXELloss_scaled": self.pixelLoss_used.detach().item() if torch.is_tensor(self.pixelLoss_used) else self.pixelLoss_used,
                     "L_AUXlossCos": self.AUXlossCos_used,
                     "L_AUXlossKL": self.AUXlossKL_used,
                     "L_LRclamp": self.lrSoftClamp_used,
@@ -1566,6 +1566,10 @@ class BABYLLM(nn.Module):
                     print("\n--- Gradient Snapshot ---\n(no gradients recorded)")
             # self.log_all_learnable_params(prefix="BACKWARD_")
             self.pixelLoss_used = 0
+            if hasattr(self, "predPixel") and self.predPixel is not None:
+                self.predPixel = self.predPixel.detach()
+            if torch.is_tensor(self.PIXELloss):
+                self.PIXELloss = self.PIXELloss.detach().item()
 
             # with torch.no_grad(): # FORCE RESET THE MEMORY GATES IF OVER USING LONG
             # self.memory.currentGate.data = self.memory.currentGate.data.abs()
@@ -2986,7 +2990,7 @@ class BABYLLM(nn.Module):
 
         # inference_mode is strictly faster than no_grad on PyTorch 1.9+ — it
         # skips view tracking on the result tensors. Safe for pure inference.
-        with torch.inference_mode():
+        with torch.no_grad():  # live-pressure-v3: Baby is stateful; avoid inference tensors
             # EOS settings from config
             from config import (
                 eos_min_tokens_absolute,

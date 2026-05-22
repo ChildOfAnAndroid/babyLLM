@@ -41,11 +41,6 @@ from .autonomy import AutonomyPlanner
 from .context import create_platform_command_context
 from .data_manager import data_manager
 from .logger import logger
-from .live_pressure import (
-    configure_generation_queue,
-    patch_cog_generation,
-    try_queue_generation,
-)
 from .performance import perf_monitor
 from .platform_integration import PlatformIntegrationMixin
 from .safety import safety
@@ -204,7 +199,6 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             ) = await self.generation_queue.get()
             result = (None, None)
             try:
-                patch_cog_generation(self)
                 result = await self.cog._generate_and_reply(
                     ctx, prompt_text, num_tokens_to_gen
                 )
@@ -303,10 +297,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         self.bbycraft_recipes = {}
 
         # --- Global generation queue ---
-        self.generation_queue = asyncio.Queue(
-            maxsize=int(os.environ.get("BBY_MAX_GENERATION_QUEUE", "2"))
-        )
-        configure_generation_queue(self)
+        self.generation_queue = asyncio.Queue()
 
         self.faveEmotes = (
             "😭",
@@ -4333,37 +4324,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             return False
         if self.is_bot_identity(key):
             return True
-        if key in self.AIoptInUsers:
-            return True
-
-        # Check if user has active economy/game state
-        mem = self.userMemory.get(key)
-        if isinstance(mem, dict):
-            if abs(mem.get("BBY", 0.0)) > 0.001:
-                return True
-            for field in [
-                "wins",
-                "losses",
-                "draws",
-                "translate_wins",
-                "translate_losses",
-                "maths_wins",
-                "maths_losses",
-                "maths_streak",
-            ]:
-                if mem.get(field, 0.0) > 0:
-                    return True
-            inventory = mem.get("inventory")
-            if inventory and isinstance(inventory, dict) and len(inventory) > 0:
-                return True
-            bbybook = mem.get("bbybook")
-            if bbybook and isinstance(bbybook, list) and len(bbybook) > 0:
-                return True
-            if mem.get("maths_best_level", 1) > 1:
-                return True
-            if mem.get("loyalty", 1) > 1:
-                return True
-        return False
+        return key in self.AIoptInUsers
 
     def should_persist_duel_state(self, user_key: str) -> bool:
         key = self.normalise_user_identity(user_key)
@@ -4376,7 +4337,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         return True
 
     def prune_non_opt_user_memory(
-        self, reason: str = "", include_non_opt: bool = True
+        self, reason: str = "", include_non_opt: bool = False
     ) -> int:
         removed_users = []
         for raw_key in list(self.userMemory.keys()):
