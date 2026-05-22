@@ -1082,6 +1082,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # Speaker change whitelist built from recent buffer + baby name
         try:
             speaker_whitelist = {
+                "babyllm",
+                "bby",
+                "baby",
                 self.bot.getNickname(self.bot.babyName).lower(),
                 str(self.bot.babyName).lower(),
             }
@@ -6721,7 +6724,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             prompt_text = ""
 
         stripped = prompt_text.rstrip()
-        baby_prefix = f"{self.bot.babyName.lower()}:"
+        # Use a stable internal speaker tag for generation.
+        # Do not use the live Discord nickname here: Baby can rename himself to
+        # long/weird phrases, and those words then contaminate the next prompt.
+        baby_prefix = "babyllm:"
         baby_prefix_with_space = f"{baby_prefix} "
 
         if not stripped:
