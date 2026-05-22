@@ -1157,19 +1157,22 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             print(f"[_GENERATE_RESPONSE_BLOCKING] {err}")
                             return ("", err)
 
-                        # Hard EOS: reserved token always ends the reply.
+                        # Hard EOS: reserved token ends the reply only after the
+                        # minimum token threshold. Before that, suppress it so
+                        # early EOS does not become an empty/ultra-short reply.
                         if eos_id is not None and nextTokenID == eos_id:
                             if len(responseSeqId) < min_tokens_before_stop:
                                 eos_hits_before_min += 1
                                 print(
-                                    f"[EOS][GEN] early hard stop on <EOS> at generated token "
+                                    f"[EOS][GEN] suppressed early <EOS> at generated token "
                                     f"{len(responseSeqId) + 1} (below min {min_tokens_before_stop})"
                                 )
-                            else:
-                                print(
-                                    f"[EOS][GEN] hard stop on <EOS> at generated token "
-                                    f"{len(responseSeqId) + 1} (min {min_tokens_before_stop})"
-                                )
+                                continue
+
+                            print(
+                                f"[EOS][GEN] hard stop on <EOS> at generated token "
+                                f"{len(responseSeqId) + 1} (min {min_tokens_before_stop})"
+                            )
                             stopped_on_hard_eos = True
                             break
                         # Soft EOS: optional, newline-based
