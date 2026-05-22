@@ -35,6 +35,7 @@ from .data_manager import data_manager
 from .logger import logger
 from .performance import perf_monitor
 from .safety import safety
+from .live_pressure import try_queue_generation
 from .shoutouts import get_shoutout_prompts
 from .ULTIMATE_MASTER_token_sentiment_map import (
     get_master_analyser,
@@ -7205,9 +7206,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         async def callback(result):
             fut.set_result(result)
 
-        await self.bot.generation_queue.put(
-            (ctx, prompt_text, num_tokens_to_gen, callback)
+        queued = await try_queue_generation(
+            self.bot,
+            (ctx, prompt_text, num_tokens_to_gen, callback),
         )
+        if not queued:
+            return await fut
         return await fut
 
     @commands.command(name="bbyqueue", aliases=["bqueue"])
