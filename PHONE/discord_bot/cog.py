@@ -663,27 +663,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         await self._ensure_gallery_cache()
         return self._gallery_cache.get("by_label", {}).get(label.strip().lower())
 
-    @staticmethod
-    def _compact_number_uk(n: float) -> str:
-        try:
-            if n is None:
-                return "—"
-            sign = "-" if n < 0 else ""
-            a = abs(float(n))
-
-            def trim(s: str) -> str:
-                return s[:-2] if s.endswith(".0") else s
-
-            if a < 1_000:
-                return sign + f"{a:.0f}"
-            if a < 1_000_000:
-                return sign + trim(f"{a / 1_000:.1f}") + "k"
-            if a < 1_000_000_000:
-                return sign + trim(f"{a / 1_000_000:.1f}") + "m"
-            return sign + trim(f"{a / 1_000_000_000:.1f}") + "b"
-        except Exception:
-            return "—"
-
     def _parse_colour_input(self, raw_value: str):
         """Parse named colours, hex, or RGB triplets into (r, g, b, label)."""
         raw = (raw_value or "").strip().lower()
@@ -967,14 +946,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             item_name = self.get_varied_choice().choice(list(spendable_items.keys()))
 
         return quantity, item_name.lower().strip(), None
-
-    async def _getItemTotals(self):
-        itemTotals = defaultdict(int)
-        for user_mem in self.bot.userMemory.values():
-            inventory = user_mem.get("inventory", {})
-            for item_name, count in inventory.items():
-                itemTotals[item_name] += count
-        return itemTotals
 
     async def _get_available_items(self) -> Dict[str, int]:
         """
@@ -2218,24 +2189,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     def _get_fact_id(self, fact=None):
         return self.bot.bbyfacts.get(fact, {}).get("id")
-
-    def _check_fact_cap(self, fact=None, num_to_award=1):
-        return (
-            self._get_fact_total_world(fact) + num_to_award
-        ) > self._get_fact_num_produced(fact)
-
-    def _check_fact_hoarding_user(self, fact=None):
-        top_user, top_count = None, 0
-        for user_id in self.bot.userMemory:
-            count = self._get_fact_total_user(user=user_id, fact=fact)
-            if count > top_count:
-                top_user, top_count = user_id, count
-        top_str = (
-            f"{self.bot.getNickname(top_user)} (with x{top_count})"
-            if top_user
-            else "no one... yet!"
-        )
-        return top_user, top_count, top_str
     
     def _get_top_hoarders(self, fact=None, limit=3):
         """Get top N hoarders of a specific item"""
@@ -2439,12 +2392,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             f"{debug_str}[_SET_BBYFACT_ERRORS] -> ",
         )
 
-    async def _archive_as_fact(self, user: str):
-        await self._set_bbyfact(
-            key=f"the ghost of {user}",
-            value="was here for a bit, but something happened... ",
-        )
-
     async def _discover_fact(self, key, author, value=None):
         fact_value = (
             value
@@ -2456,9 +2403,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
 
     # --* bbyfact getters
-    def _get_bbyfact(self, key):
-        return self.bot.bbyfacts.get(key, {})
-
     def _get_bbyfact_random(self):
         fact_title = self.get_varied_choice().choice(list(self.bot.bbyfacts.keys()))
         fact_data = self.bot.bbyfacts.get(fact_title, {})
@@ -2473,13 +2417,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             if isinstance(raw_id, int) and raw_id > 0:
                 existing_ids.append(raw_id)
         return max(existing_ids, default=0) + 1
-
-    def _format_conn_line(self, name: str, items: list[str]) -> str:
-        """If no items, show '[name] ..?' (NO ARROW). Otherwise use arrow.
-        Tokens are literal (preserve spaces) and bracketed as [TOKEN].
-        """
-        label = f"[{escape_markdown(name)}]"
-        return f"{label} ..?" if not items else f"{label} → {', '.join(items)}"
 
     def _trace_raw_token(self, tid: int) -> str:
         token = ""
@@ -2995,37 +2932,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return "???"
         return "".join(parts)
 
-    def _get_random_strong_pair(
-        self, min_similarity: float = 0.9, max_attempts: int = 50
-    ):
-        """Return a pair of token strings with cosine similarity >= ``min_similarity``.
-
-        Randomly samples tokens from the vocabulary until a sufficiently
-        similar partner is found or ``max_attempts`` is reached. Returns
-        ``None`` if no pair meets the threshold.
-        """
-        all_vecs = self.bot.babyLLM.embed.e_weights
-        vocab_size = all_vecs.size(0)
-        unk_token = self.bot.librarian.unkToken
-
-        for _ in range(max_attempts):
-            idx1 = random.randrange(vocab_size)
-            with torch.no_grad():
-                vec1 = all_vecs[idx1]
-                sims = torch.nn.functional.cosine_similarity(
-                    all_vecs, vec1.unsqueeze(0), dim=1
-                )
-                sims[idx1] = -1.0  # exclude self
-                val, idx2 = torch.max(sims, dim=0)
-            if val.item() < min_similarity:
-                continue
-            word1 = self.bot.librarian.decodeIDs([idx1])
-            word2 = self.bot.librarian.decodeIDs([idx2.item()])
-            if unk_token in (word1, word2):
-                continue
-            return word1, word2, val.item()
-        return None
-
     def _get_top_strong_pairs(self, top_n: int = 100):
         """Return a list of the top ``top_n`` strongest token links.
 
@@ -3064,50 +2970,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         pairs.sort(key=lambda x: x[2], reverse=True)
         self._cached_top_pairs = pairs
         return pairs[:top_n]
-
-    def _format_token_usage(self, token, total_bot=None, total_user=None):
-        """Return a readable token and usage percentages.
-
-        Parameters
-        ----------
-        token: str
-            The token to look up.
-        total_bot: float, optional
-            Total number of tokens generated by bby. If ``None`` it will be
-            calculated from the tutor's token counts.
-        total_user: float, optional
-            Total number of tokens generated by opted-in users. If ``None`` it
-            will be calculated from the opt-in token usage counter.
-
-        Returns
-        -------
-        tuple[str, float, float]
-            A tuple of the tidied token string and the usage percentages for
-            bby and opted-in users respectively.
-        """
-
-        tutor = getattr(self.bot, "tutor", None)
-        user_counter = getattr(self.bot, "opt_in_token_usage", None)
-
-        tidy = token
-        bot_count = user_count = 0
-
-        if tutor:
-            if total_bot is None:
-                total_bot = sum(tutor.tokenCounts.values())
-            bot_count = tutor.tokenCounts.get(token, 0)
-            if hasattr(tutor, "tidy_token"):
-                tidy = tutor.tidy_token(token)
-
-        if user_counter:
-            if total_user is None:
-                total_user = sum(user_counter.values())
-            user_count = user_counter.get(token, 0)
-
-        bot_pct = (bot_count / total_bot * 100) if total_bot else 0.0
-        user_pct = (user_count / total_user * 100) if total_user else 0.0
-
-        return tidy, bot_pct, user_pct
 
     def createFakeWordFromVector(self, word: str, top_n: int = 5) -> str:
         """Blend nearby tokens to craft a fake but plausible word.
@@ -6882,7 +6744,10 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         # === Case 3: Full Success! All original logic now executes. ===
         try:
-            babyllm_message = await self.bot._discord_reply(ctx, babyllm_text)
+            force_tts = bool(getattr(ctx, "force_tts_reply", False))
+            babyllm_message = await self.bot._discord_reply(
+                ctx, babyllm_text, tts=force_tts
+            )
             terminal_baby_text = (
                 self.bot._terminal_render_text(babyllm_text)
                 if hasattr(self.bot, "_terminal_render_text")
@@ -7131,7 +6996,18 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     @commands.command(name="babyllm", aliases=["bby", "bbyllm", "b"])
     @track_command
     async def babyllm_command(self, ctx: commands.Context):
+        return await self._babyllm_chat_command(ctx)
+
+    @commands.command(name="tts")
+    @track_command
+    async def tts_command(self, ctx: commands.Context):
+        return await self._babyllm_chat_command(ctx, force_tts=True)
+
+    async def _babyllm_chat_command(
+        self, ctx: commands.Context, *, force_tts: bool = False
+    ):
         print(f"\n\n[babyllm_command] Received command from {ctx.author.name}")
+        setattr(ctx, "force_tts_reply", force_tts)
         # Track bonding: directly chatting with BBY
         self._track_hidden_stat(ctx.author.name.lower(), "bonding", 1.0)
 
@@ -7173,11 +7049,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             user_input = user_input[9:]
         elif lower_input.startswith("!bbyllm "):
             user_input = user_input[8:]
+        elif lower_input.startswith("!tts "):
+            user_input = user_input[5:]
         elif lower_input.startswith("!bby "):
             user_input = user_input[5:]
         elif lower_input.startswith("!b "):
             user_input = user_input[3:]
-        elif lower_input in {"!babyllm", "!bbyllm", "!bby", "!b"}:
+        elif lower_input in {"!babyllm", "!bbyllm", "!tts", "!bby", "!b"}:
             user_input = ""
 
         # Always include the live user turn in prompt construction, even if
@@ -7334,20 +7212,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 else f"{self._number_to_words(mil)} million {self._number_to_words(rem)}"
             )
         return str(n)
-
-    def _advance_maths_lesson_range(self) -> int:
-        try:
-            current = int(getattr(self.bot, "lessonMathsRange", 0))
-        except Exception:
-            current = 0
-        current = max(0, current)
-        next_range = current + 1
-        self.bot.lessonMathsRange = next_range
-        try:
-            self.bot._save_baby_state()
-        except Exception:
-            pass
-        return next_range
 
     def _maths_unlocked_ops(self, maths_range: int):
         level = max(1, int(maths_range))
@@ -10600,12 +10464,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
         return bbybook_signatures
 
-    async def _sign_monthly_bbybook(self, top_tutors, current_date):
-        """Compatibility wrapper for older internal callers."""
-        return await self._award_monthly_tutor_bbybook(
-            top_tutors, current_date, source="manual"
-        )
-
     @commands.command(name="bbytutor", aliases=["btutor", "btutors", "bbyteachers"])
     @track_command
     async def bbytutor_awards(self, ctx):
@@ -13433,35 +13291,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             merged = (part1 + part2).strip()
             if merged:
                 special_ship = f"{prefix_word} {merged}".strip()
-
-        def _core_word(text: str) -> str:
-            tokens = re.findall(r"[a-zA-Z0-9']+", text)
-            if not tokens:
-                return text.replace(" ", "")
-            tokens = [t.lower() for t in tokens]
-            fillers = {
-                "the",
-                "a",
-                "an",
-                "and",
-                "of",
-                "my",
-                "ur",
-                "your",
-                "ya",
-                "yo",
-                "da",
-                "ma",
-                "our",
-            }
-            candidates = [t for t in tokens if t not in fillers]
-            pool = candidates if candidates else tokens
-            longest = max(len(t) for t in pool)
-            # prefer the last longest token (often the meaningful noun)
-            for t in reversed(pool):
-                if len(t) == longest:
-                    return t
-            return pool[-1]
 
         def _compress_phrase(text: str) -> str:
             """Squash long phrases down to a strong blend seed."""

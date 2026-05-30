@@ -300,9 +300,7 @@ class SensoryBus:
             self.state["device_temp_c_delta"], device=device, dtype=torch.float32
         )
 
-    def get_temperature_tensor(self, device):
-        """Deprecated: use get_device_temp_c_tensor for clarity."""
-        return self.get_device_temp_c_tensor(device)
+
 
     def cleanup(self):
         if self.vision_bus is not None:

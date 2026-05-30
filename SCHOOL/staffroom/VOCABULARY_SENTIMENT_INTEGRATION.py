@@ -49,66 +49,6 @@ class BabyNeuralSentimentIntegration:
             # Fallback to fragment analysis
             return self.sentiment_analyser.analyse_text_with_fragments(text)
 
-    def get_token_sentiment_with_context(self, token_id: int) -> Dict:
-        """Get detailed sentiment info for a specific token"""
-
-        base_sentiment = self.sentiment_analyser.get_token_sentiment(token_id)
-        category = self.sentiment_analyser.get_token_category(token_id)
-
-        # Get token text from baby's vocab if available
-        token_text = "unknown"
-        if token_id in self.sentiment_analyser.vocab:
-            token_text = self.sentiment_analyser.vocab[token_id]["clean"]
-
-        return {
-            "token_id": token_id,
-            "token_text": token_text,
-            "base_sentiment": base_sentiment,
-            "category": category,
-            "is_amplifier": token_id in self.sentiment_analyser.amplifiers,
-            "is_diminisher": token_id in self.sentiment_analyser.diminishers,
-            "is_negation": token_id in self.sentiment_analyser.negation_tokens,
-            "amplification_factor": self.sentiment_analyser.amplifiers.get(
-                token_id, 1.0
-            ),
-        }
-
-    def compare_neural_vs_vocabulary_sentiment(self, text: str) -> Dict:
-        """Compare baby's neural sentiment with vocabulary-based sentiment"""
-
-        vocab_result = self.analyse_baby_tokens(text)
-
-        # Try to get neural sentiment if available
-        neural_sentiment = 0.0
-        neural_available = False
-
-        if (
-            self.baby
-            and hasattr(self.baby, "brain")
-            and hasattr(self.baby.brain, "sentiment")
-        ):
-            try:
-                # This would depend on baby's actual neural sentiment method
-                # Placeholder for actual implementation
-                neural_sentiment = 0.0  # baby.brain.sentiment.analyse(text)
-                neural_available = False  # Set to True when implemented
-            except:
-                pass
-
-        return {
-            "text": text,
-            "vocabulary_sentiment": vocab_result["sentiment"],
-            "vocabulary_confidence": vocab_result["confidence"],
-            "vocabulary_analysis": vocab_result["analysis"],
-            "neural_sentiment": neural_sentiment,
-            "neural_available": neural_available,
-            "sentiment_agreement": abs(vocab_result["sentiment"] - neural_sentiment)
-            < 0.2
-            if neural_available
-            else None,
-            "detailed_tokens": vocab_result.get("token_details", []),
-        }
-
     def get_sentiment_explanation(self, text: str, detailed: bool = False) -> str:
         """Get a natural explanation of sentiment analysis in baby's style"""
 

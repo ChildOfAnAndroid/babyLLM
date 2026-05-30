@@ -322,8 +322,7 @@ class LIBRARIAN:
             print(f"final vocab size: {len(self.vocabList)}")
             print(f"first 20 tokens: {self.vocabList[:20]}")
 
-    def huggingTokenizer(self, _text):
-        return self.tokenizer.tokenize(_text)
+
 
     def loadTrainingData(
         self, _filepaths, _chunkSize=V_chunkSizeLoadData, _dataCharactersToLoad=900000
@@ -1083,58 +1082,7 @@ class LIBRARIAN:
                 pair_factory, estimated_pairs, description=description
             )
 
-    def genTrainingData_weighted(self, _windowMAX, _trainingDataPairNumber):
-        # 1. Create a "pool" of training pairs for each data source type
-        source_pools = defaultdict(list)
-        print("Generating training pairs from each data source...")
 
-        # This assumes trainingFilePath_dict_weighted is available to the librarian
-        for source_info in trainingFilePath_dict_weighted:
-            source_type = source_info["type"]
-            source_path = source_info["in"]
-
-            # Load and tokenize text for this specific file
-            # (You'd need a way to load single files, modifying your loadTrainingData)
-            text = self.loadSingleFile(source_path)
-            tokens = self.tokenizeText(text)
-
-            # Generate all possible pairs from this source
-            i = 0
-            while i < len(tokens) - (_windowMAX * 2):
-                inputSeq = tokens[i : i + _windowMAX]
-                targetSeq = tokens[i + _windowMAX : i + _windowMAX * 2]
-                source_pools[source_type].append((inputSeq, targetSeq))
-                i += 1  # Using a stride of 1 here to get all pairs
-
-        # 2. Create the final list by sampling from pools based on weights
-        final_training_pairs = []
-        source_weights = {
-            info["type"]: info["weight"] for info in trainingFilePath_dict_weighted
-        }
-
-        # normalise weights to get probabilities
-        total_weight = sum(source_weights.values())
-        source_probs = {
-            source: weight / total_weight for source, weight in source_weights.items()
-        }
-
-        source_types = list(source_probs.keys())
-        source_p_values = list(source_probs.values())
-
-        print("Sampling from source pools to build final training set...")
-        for _ in range(_trainingDataPairNumber):
-            # Choose a source type based on its weight
-            chosen_source = random.choices(source_types, weights=source_p_values, k=1)[
-                0
-            ]
-
-            # Pick a random training pair from that source's pool
-            if source_pools[chosen_source]:
-                pair = random.choice(source_pools[chosen_source])
-                final_training_pairs.append(pair)
-
-        random.shuffle(final_training_pairs)  # Final shuffle of the sampled pairs
-        return final_training_pairs
 
     def saveVocab(self):
         with self.v_counsellor.infodump("saveVocab") as ʕっʘ‿ʘʔっ:

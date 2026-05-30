@@ -917,7 +917,7 @@ class BABYLLM(nn.Module):
                 f"crossentropy raw loss: {F.cross_entropy(_logits, targetTensor)}"
             )
 
-            self.CELossDelta = loss_value - (
+            self.CELossDelta = loss - (
                 (self.lastLossBaby) if self.lastLossBaby is not None else 0
             )
 
@@ -1517,8 +1517,8 @@ class BABYLLM(nn.Module):
                     "B_repetitionWindow": _bwd_params[2],
                     "B_temperature": _bwd_params[3],
                     "L_CEloss": self.CEloss_used,
-                    "L_PIXELloss": self.PIXELloss.detach().item() if torch.is_tensor(self.PIXELloss) else self.PIXELloss,
-                    "L_PIXELloss_scaled": self.pixelLoss_used.detach().item() if torch.is_tensor(self.pixelLoss_used) else self.pixelLoss_used,
+                    "L_PIXELloss": self.PIXELloss,
+                    "L_PIXELloss_scaled": self.pixelLoss_used,
                     "L_AUXlossCos": self.AUXlossCos_used,
                     "L_AUXlossKL": self.AUXlossKL_used,
                     "L_LRclamp": self.lrSoftClamp_used,
@@ -1566,10 +1566,6 @@ class BABYLLM(nn.Module):
                     print("\n--- Gradient Snapshot ---\n(no gradients recorded)")
             # self.log_all_learnable_params(prefix="BACKWARD_")
             self.pixelLoss_used = 0
-            if hasattr(self, "predPixel") and self.predPixel is not None:
-                self.predPixel = self.predPixel.detach()
-            if torch.is_tensor(self.PIXELloss):
-                self.PIXELloss = self.PIXELloss.detach().item()
 
             # with torch.no_grad(): # FORCE RESET THE MEMORY GATES IF OVER USING LONG
             # self.memory.currentGate.data = self.memory.currentGate.data.abs()
@@ -2990,7 +2986,7 @@ class BABYLLM(nn.Module):
 
         # inference_mode is strictly faster than no_grad on PyTorch 1.9+ — it
         # skips view tracking on the result tensors. Safe for pure inference.
-        with torch.no_grad():  # live-pressure-v3: Baby is stateful; avoid inference tensors
+        with torch.inference_mode():
             # EOS settings from config
             from config import (
                 eos_min_tokens_absolute,
@@ -3184,7 +3180,11 @@ class BABYLLM(nn.Module):
                     self.memory2.resetMemory(_memoryLength=self.memory2Length)
                     self.stepsSinceMemory2Reset = 0
 
-
+    @whocalled
+    def setLearningRate(self, _newLearningRate):
+        self.learningRate = max(1e-6, min(_newLearningRate, 0.01))  # clamp it a bit
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = self.learningRate
 
     @whocalled
     def print_rgb_block(self, rgb_tensor, label="RGB"):
@@ -3211,7 +3211,25 @@ class BABYLLM(nn.Module):
             self.librarian.indexToToken[int(i)]: float(counts[int(i)]) for i in non_zero
         }
 
-
+    @torch.no_grad()
+    def updateRollingTokenTotals(self, token_indices):
+        """Accumulate token usage counts on-device without Python loops."""
+        if token_indices is None:
+            return
+        if not isinstance(token_indices, torch.Tensor):
+            token_tensor = torch.as_tensor(token_indices, device=self.device)
+        else:
+            token_tensor = token_indices.to(self.device, non_blocking=True)
+        if token_tensor.numel() == 0:
+            return
+        token_tensor = token_tensor.long()
+        vocab_limit = self.rollingTokenTotals_tensor.shape[0] - 1
+        if vocab_limit >= 0:
+            token_tensor = token_tensor.clamp_(0, vocab_limit)
+        updates = torch.ones_like(
+            token_tensor, dtype=self.rollingTokenTotals_tensor.dtype
+        )
+        self.rollingTokenTotals_tensor.scatter_add_(0, token_tensor, updates)
 
     """def log_all_learnable_params(self, prefix="PARAM_"):
         Logs all learnable scalar parameters and basic stats for tensors in self.stats dict.

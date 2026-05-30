@@ -155,6 +155,39 @@ def wakeup(
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("starting unified multi-platform bot!")
 
+                import os
+                import subprocess
+
+                # Ensure BBY_PUBLIC_URL is set so the bot reactively pushes state updates to the website
+                if "BBY_PUBLIC_URL" not in os.environ:
+                    os.environ["BBY_PUBLIC_URL"] = "https://childofanandroid.co.uk"
+                    print(f"[UNIFIED] Auto-configured BBY_PUBLIC_URL: {os.environ['BBY_PUBLIC_URL']}")
+
+                # Check if SSH tunnel on port 4420 is already established, otherwise establish it
+                try:
+                    result = subprocess.run(["pgrep", "-f", "ssh.*4420"], capture_output=True, text=True)
+                    tunnel_exists = bool(result.stdout.strip())
+                except Exception:
+                    try:
+                        ps_res = subprocess.run(["ps", "-ef"], capture_output=True, text=True)
+                        tunnel_exists = any("ssh" in line and "4420" in line for line in ps_res.stdout.splitlines())
+                    except Exception:
+                        tunnel_exists = False
+
+                if tunnel_exists:
+                    print("[UNIFIED] ssh tunnel for LLM server already established.")
+                else:
+                    print("[UNIFIED] establishing ssh tunnel for LLM server...")
+                    try:
+                        # ssh -f forks into the background, so subprocess.run returns immediately
+                        subprocess.run(
+                            ["ssh", "-f", "-N", "-R", "1420:127.0.0.1:4420", "midgard.loveangel1337.ovh"],
+                            check=True
+                        )
+                        print("[UNIFIED] ssh tunnel established successfully.")
+                    except subprocess.CalledProcessError as e:
+                        print(f"[ERROR] Failed to establish ssh tunnel: {e}")
+
                 import asyncio
 
                 from phone.discord_bot.bot import BABYBOT_DISCORD

@@ -839,68 +839,7 @@ class S_OUTPUT:
                 return True
         return False
 
-    @whocalled
-    def chaosMaths(
-        self, _firstNumbers, _secondNumbers=None, _torch=False, _operator=True
-    ):
-        self.t = _torch
-        self.o = _operator
 
-        operatorMathsForTwo = {
-            "add": (operator.add, 2),
-            "sub": (operator.sub, 2),
-            "mul": (operator.mul, 2),
-            "div": (operator.truediv, 2),
-            # "floordiv":(operator.floordiv, 2),
-            # "mod":     (operator.mod, 2),
-            # "pow":     (operator.pow, 2),
-        }
-        operatorMathsForOne = {
-            "neg": (operator.neg, 1),
-        }
-
-        torchMathsForTwo = {
-            "torch_add": (torch.add, 2),
-            "torch_sub": (torch.sub, 2),
-            "torch_mul": (torch.mul, 2),
-            "torch_div": (torch.div, 2),
-            "torch_pow": (torch.pow, 2),
-            "torch_max": (torch.maximum, 2),
-            "torch_min": (torch.minimum, 2),
-        }
-        torchMathsForOne = {
-            "torch_abs": (torch.abs, 1),
-            "torch_sin": (torch.sin, 1),
-            "torch_cos": (torch.cos, 1),
-            "torch_tanh": (torch.tanh, 1),
-            "torch_log": (torch.log1p, 1),  # safer than log(x)
-            "torch_relu": (torch.relu, 1),
-            "torch_sigmoid": (torch.sigmoid, 1),
-        }
-
-        if _secondNumbers is not None and _secondNumbers.numel() > 0:
-            if self.t and self.o:
-                self.maths = {**torchMathsForTwo, **operatorMathsForTwo}
-            if self.t:
-                self.maths = torchMathsForTwo
-            if self.o:
-                self.maths = operatorMathsForTwo
-
-        else:
-            if self.t and self.o:
-                self.maths = {**torchMathsForOne, **operatorMathsForOne}
-            if self.t:
-                self.maths = torchMathsForOne
-            if self.o:
-                self.maths = operatorMathsForOne
-
-        chosenName, (chosenFunction, _) = random.choice(list(self.maths.items()))
-        if _secondNumbers is not None and _secondNumbers.numel() > 0:
-            result = chosenFunction(_firstNumbers, _secondNumbers)
-        else:
-            result = chosenFunction(_firstNumbers)
-
-        return result, chosenName
 
     @whocalled
     def S_formatWindowBiasTriplets(

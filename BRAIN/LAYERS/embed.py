@@ -149,8 +149,4 @@ class EMBED(nn.Module):
 
                 return self.stats
 
-    @whocalled
-    def cosineSimilarity(self, _idx1, _idx2):
-        e1 = self.e_weights[_idx1]
-        e2 = self.e_weights[_idx2]
-        return torch.nn.functional.cosine_similarity(e1.unsqueeze(0), e2.unsqueeze(0))
+

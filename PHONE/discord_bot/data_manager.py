@@ -91,18 +91,6 @@ class DataManager:
             logger.error("DATA_SAVE", f"Failed to save {data_type}: {e}")
             return False
 
-    def get_save_frequency(self, data_type: str) -> Optional[float]:
-        """Get how often this data type is being saved"""
-        if data_type not in self.last_save_times:
-            return None
-        return time.time() - self.last_save_times[data_type]
-
-    async def emergency_save_all(self):
-        """Emergency save of all registered data types"""
-        logger.emergency("DATA_SAVE", "Performing emergency save of all data")
-        for data_type in self._save_callbacks:
-            self._immediate_save(data_type)
-
 
 # Global data manager instance
 data_manager = DataManager()

@@ -107,15 +107,7 @@ class SCRIBE:
         tokenString = "".join(_inputTokens).replace("Ġ", " ")
         return tokenString
 
-    @whocalled
-    def interviewBaby(self, _model, _prompt, _vibe="writes"):
-        """Scribe asks BabyLLM a question and records the reply."""
-        _prompt = "how are you feeling today, baby? :)"
-        self.scribeSay(f"Asking BabyLLM: '{_prompt}'", _vibe)
-        encodedIDs = self.librarian.tokenizer.encode(_prompt)
-        guess = self.librarian.getNextToken(encodedIDs[-self.numTokensPerStep :])
-        guessWord = self.librarian.indexToToken.get(guess, "<UNK>")
-        self.scribeSay(f"BabyLLM replies: '{guessWord}'", "impressed")
+
 
     @whocalled
     def babySay(self, _input=None, _babyName=babyName):

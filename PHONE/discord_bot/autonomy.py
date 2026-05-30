@@ -274,12 +274,6 @@ class AutonomyPlanner:
                 hist.pop(key, None)
         return True
 
-    def _clip_context_snippet(self, text: str, max_len: int = 96) -> str:
-        s = re.sub(r"\s+", " ", str(text or "").strip())
-        if len(s) <= max_len:
-            return s
-        return s[: max_len - 3].rstrip() + "..."
-
     def _contextualise_reflection_line(
         self, line: str, sig: dict, related: List[str]
     ) -> str:

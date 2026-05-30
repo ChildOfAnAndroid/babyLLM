@@ -1419,6 +1419,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         to_buffer=False,
         buffer_str=None,
         debug_str="",
+        tts=False,
     ):
         return await self._discord_send(
             ctx=ctx,
@@ -1428,6 +1429,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             to_buffer=to_buffer,
             buffer_str=buffer_str,
             debug_label=f"{debug_str}[_DISCORD_REPLY] -> ",
+            tts=tts,
         )
 
     async def _discord_spam(
@@ -1581,6 +1583,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         buffer_str=None,
         debug_label="",
         dm_overflow: bool = True,
+        tts: bool = False,
     ):
         sent_message = None  # Variable to hold the message object we send/reply with
         try:
@@ -1635,7 +1638,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 dm_overflow = False
 
             async def _send_with_fallback(
-                *, content=None, embed=None, allow_reply=True
+                *, content=None, embed=None, allow_reply=True, tts=False
             ):
                 nonlocal sent_message, terminal_debug_str
                 if allow_reply and ctx:
@@ -1644,6 +1647,8 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                         try:
                             if embed is not None:
                                 sent_message = await reply_method(embed=embed)
+                            elif tts:
+                                sent_message = await reply_method(content, tts=True)
                             else:
                                 sent_message = await reply_method(content)
                             return sent_message
@@ -1651,6 +1656,8 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                             terminal_debug_str += f"              !] reply failed ({type(reply_error).__name__}), fallback to send\n"
                 if embed is not None:
                     sent_message = await target.send(embed=embed)
+                elif tts:
+                    sent_message = await target.send(content, tts=True)
                 else:
                     sent_message = await target.send(content)
                 return sent_message
@@ -1672,7 +1679,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                         "              a] SENDING MESSAGE PART 0... (channel)\n"
                     )
                     sent_message = await _send_with_fallback(
-                        content=chunks[0], allow_reply=is_reply
+                        content=chunks[0], allow_reply=is_reply, tts=tts
                     )
                     try:
                         user_dm = await ctx.author.create_dm()
@@ -1695,7 +1702,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                             f"              a] SENDING MESSAGE PART {i}...\n"
                         )
                         sent_message = await _send_with_fallback(
-                            content=chunk, allow_reply=(is_reply and i == 0)
+                            content=chunk,
+                            allow_reply=(is_reply and i == 0),
+                            tts=(tts and i == 0),
                         )
 
             if to_buffer:
@@ -2257,9 +2266,6 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             allowed_recent_hits = 2 if not for_training_buffer else 2
             return similar_hits >= allowed_recent_hits
         return True
-
-    def _is_high_quality(self, text: str) -> bool:
-        return self._line_quality_score(text) >= 0.65
 
     def _normalise_buffer_ingest_text(self, text: str) -> str:
         """Normalise chat lines before they enter live prompt/training buffers.
@@ -4226,43 +4232,6 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
     ) -> None:
         if float(elapsed) >= float(threshold):
             logger.warn("IDLE", f"slow {label}: {elapsed:.2f}s")
-
-    def repeatAndDie(self, user, text_block):
-        seen_in_this_msg = set()
-        deduped_lines = []
-        mem = self.userMemory[user]
-
-        line_counts = defaultdict(int)
-        for entry in self.buffer:
-            if isinstance(entry, str):
-                for line in entry.strip().split("\n"):
-                    cleaned = line.strip().lower()
-                    if cleaned:
-                        line_counts[cleaned] += 1
-
-        for line in text_block.strip().split("\n"):
-            cleaned = line.strip().lower()
-            if not cleaned:
-                continue
-
-            already_seen = cleaned in seen_in_this_msg
-            past_repeats = line_counts[cleaned]
-
-            if already_seen or past_repeats > 0:
-                repeat_score = past_repeats + (1 if already_seen else 0)
-                penalty = 0.001 * repeat_score
-                self.apply_tax_with_collection(
-                    user, penalty, source=f"repeat_filter:{user}"
-                )
-
-                keep_chance = 0.5**repeat_score
-                if random.random() < keep_chance:
-                    deduped_lines.append(line)
-            else:
-                seen_in_this_msg.add(cleaned)
-                deduped_lines.append(line)
-
-        return "\n".join(deduped_lines)
 
     def getSpamLevel(self, author):
         return self.userMemory.get(str(author).lower(), {}).get("spamMax", 0.8)
