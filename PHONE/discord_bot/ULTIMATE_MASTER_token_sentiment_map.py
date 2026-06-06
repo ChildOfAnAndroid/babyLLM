@@ -327,22 +327,6 @@ def get_master_analyser():
     return _master_analyser
 
 
-def get_token_sentiment_value(token_id: int) -> float:
-    """Get sentiment value for a token ID (backward compatibility)"""
-    analyser = get_master_analyser()
-    return analyser.get_token_sentiment(token_id)
-
-
-def get_token_description(token_id: int) -> str:
-    """Get token description (backward compatibility)"""
-    analyser = get_master_analyser()
-    sentiment = analyser.get_token_sentiment(token_id)
-    text = analyser.get_token_text(token_id)
-    if sentiment != 0.0:
-        return f"{text} (sentiment: {sentiment:+.1f})"
-    return f"{text} (neutral)"
-
-
 def analyse_token_sequence(token_ids: List[int]) -> Tuple[float, List[str]]:
     """Analyse token sequence (backward compatibility)"""
     analyser = get_master_analyser()
@@ -358,18 +342,6 @@ def analyse_token_sequence(token_ids: List[int]) -> Tuple[float, List[str]]:
         token_matches.append(f"*{token['text']}#{token['id']}")
 
     return result["final_sentiment"], token_matches
-
-
-def analyse_token_sequence_natural(token_ids: List[int]) -> Dict:
-    """Natural analysis (backward compatibility)"""
-    analyser = get_master_analyser()
-    return analyser.analyse_token_sequence(token_ids)
-
-
-def get_natural_sentiment_summary() -> Dict:
-    """Get summary (backward compatibility)"""
-    analyser = get_master_analyser()
-    return analyser.get_sentiment_summary()
 
 
 # ==============================================================================

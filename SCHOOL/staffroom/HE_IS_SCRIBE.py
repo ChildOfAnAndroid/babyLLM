@@ -7,7 +7,6 @@ import random
 import time
 
 from config import *
-from SHKAIRA.notebook.tools.genBoi import *
 
 
 class SCRIBE:
@@ -89,18 +88,6 @@ class SCRIBE:
             ],
         }
 
-    @whocalled
-    def scribeSay(self, _message, _vibe="default", _scribeName="scribe"):
-        """Scribe delivers a message with random emote and timestamp."""
-        emote = random.choice(
-            self.scribeEmotes.get(_vibe, self.scribeEmotes["default"])
-        )
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        print(
-            f"\n\n--- BZZZZ - scribe incoming!! - BZZZZ ---\n\n{timestamp}|{emote} [{_scribeName.lower()}]: {_message}\n\n"
-        )
-        with open("scribeSays.txt", "a", encoding="utf-8") as f:
-            f.write(f"{timestamp}|{emote} {_scribeName.lower()} said: {_message}\n")
 
     @whocalled
     def guessTokensToString(self, _inputTokens):
@@ -109,33 +96,6 @@ class SCRIBE:
 
 
 
-    @whocalled
-    def babySay(self, _input=None, _babyName=babyName):
-
-        if _input is None:
-            # miniInput = "what will you do out there now?"
-            # miniInput = "i love you, this is good, music is life, i love you, this is good, music is life, i love you, this is good, music is life, hey! how are you?"
-            # miniInput = "what"
-            # miniInput = ""
-            miniInput = "i did it! i am happy! i know it! i did it! i am happy! i feel it! i know it! i did it! i know it! i am happy! i did it! i know it! i feel it! i am happy!"
-        else:
-            miniInput = _input
-
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        miniTokenizedIDs = self.librarian.tokenizer.encode(miniInput)
-
-        babyResponse = self.librarian.getNextToken(
-            miniTokenizedIDs[-self.numTokensPerStep :]
-        )
-        babyTokens = self.librarian.indexToToken.get(babyResponse, "<UNK>")
-        babySentence = self.guessTokensToString(babyTokens)
-        emote = makeDatBoi()
-
-        babySay = f"{timestamp}|{emote} {_babyName.lower()} said: {babySentence}"
-        print(babySay)
-
-        with open("scribeSays.txt", "a", encoding="utf-8") as f:
-            f.write(babySay)
 
     def softPadding(self, text, target_tokens, padWords=None):
         if padWords is None:

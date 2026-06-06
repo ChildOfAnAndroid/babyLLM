@@ -475,9 +475,3 @@ class PlatformIntegrationMixin:
         if adapter:
             await adapter.reply_message(message, content)
 
-    def format_platform_message(self, platform: str, user: str, text: str) -> str:
-        """Format a message for a specific platform"""
-        adapter = self.platforms.get(platform)
-        if adapter:
-            return adapter.format_message(user, text)
-        return f"{user}: {text}"

@@ -4109,7 +4109,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         return candidate
 
     def formatMessage(self, user, text):
-        return f"[{self.getNickname(user)}] {text}"
+        return f"{self.getNickname(user)}: {text}"
 
     # --- Context helpers required by cog ---
     def _get_fact_injection_settings(self):
@@ -4291,10 +4291,6 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         if key in {"none", "null", "undefined", "nan", "unknown"}:
             return ""
         return self.get_bot_identity_key() if self.is_bot_identity(key) else key
-
-    def is_user_opted_in(self, user_key: str) -> bool:
-        key = self.normalise_user_identity(user_key)
-        return bool(key) and key in self.AIoptInUsers
 
     def should_persist_user_state(self, user_key: str) -> bool:
         key = self.normalise_user_identity(user_key)
@@ -5884,6 +5880,16 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         """Update Discord avatar using the most recent snapshot.
         Prefers the new HTTP API, with a robust 'newest' scorer, and falls back to local files.
         """
+        # Proactively backup current Discord avatar before attempting any update
+        try:
+            backup_path = os.path.join(SCRIPT_DIR, "current_avatar_backup.png")
+            if not os.path.exists(backup_path) and self.user and self.user.avatar:
+                avatar_bytes = await self.user.avatar.read()
+                with open(backup_path, "wb") as f:
+                    f.write(avatar_bytes)
+                print(f"[UPDATE_AVATAR][BACKUP] Saved current Discord avatar bytes to: {backup_path}")
+        except Exception as backup_err:
+            print(f"[UPDATE_AVATAR][BACKUP][WARN] Could not save avatar backup: {backup_err}")
 
         def _to_epoch(ts_val):
             """Convert various timestamp-like values to a float epoch seconds."""
@@ -5965,7 +5971,8 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         try:
             # --- 1) Try the new API first ---
             base = os.environ.get(
-                "BBY_API_BASE", "https://childofanandroid.co.uk/api"
+                "BBY_SNAPSHOT_API_BASE",
+                os.environ.get("BBY_API_BASE", "https://childofanandroid.co.uk/api")
             ).rstrip("/")
             async with aiohttp.ClientSession() as session:
                 # Prefer a dedicated 'latest' if your API supports it (cheap try).
@@ -6022,9 +6029,12 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
 
                     avatar_bytes = await _get_bytes(session, png_url)
                     if avatar_bytes:
-                        await self.user.edit(avatar=avatar_bytes)
-                        print(f"[UPDATE_AVATAR] updated avatar from API: {png_url}")
-                        return
+                        if os.environ.get("BBY_DRY_RUN_AVATAR") == "1":
+                            print(f"[DRY_RUN][UPDATE_AVATAR] Would edit avatar from API: {png_url}")
+                        else:
+                            await self.user.edit(avatar=avatar_bytes)
+                            print(f"[UPDATE_AVATAR] updated avatar from API: {png_url}")
+                        return meta
 
                 print(
                     "[UPDATE_AVATAR] API path did not yield a png; falling back to local snapshots..."
@@ -6067,9 +6077,12 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 if not avatar_bytes:
                     print(f"[UPDATE_AVATAR] empty png: {png_path}")
                     continue
-                await self.user.edit(avatar=avatar_bytes)
-                print(f"[UPDATE_AVATAR] updated avatar from local: {png_path}")
-                return
+                if os.environ.get("BBY_DRY_RUN_AVATAR") == "1":
+                    print(f"[DRY_RUN][UPDATE_AVATAR] Would edit avatar from local: {png_path}")
+                else:
+                    await self.user.edit(avatar=avatar_bytes)
+                    print(f"[UPDATE_AVATAR] updated avatar from local: {png_path}")
+                return meta
 
             print("[UPDATE_AVATAR] no snapshot with png found (local)")
 

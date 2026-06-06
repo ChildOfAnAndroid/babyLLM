@@ -55,31 +55,3 @@ class DiscordAdapter(PlatformAdapter):
         """All commands allowed on Discord"""
         return True
 
-    @staticmethod
-    def convert_discord_message(discord_msg: discord.Message) -> PlatformMessage:
-        """Convert Discord message to PlatformMessage"""
-        return PlatformMessage(
-            content=discord_msg.content,
-            author_id=str(discord_msg.author.id),
-            author_display_name=discord_msg.author.display_name,
-            channel_id=str(discord_msg.channel.id),
-            platform="discord",
-            timestamp=discord_msg.created_at.timestamp(),
-            raw_message=discord_msg,
-            is_bot=discord_msg.author.bot,
-            is_mod=discord_msg.author.guild_permissions.administrator
-            if hasattr(discord_msg, "guild") and discord_msg.guild
-            else False,
-        )
-
-    @staticmethod
-    def convert_discord_context(ctx) -> PlatformContext:
-        """Convert Discord context to PlatformContext"""
-        platform_msg = DiscordAdapter.convert_discord_message(ctx.message)
-        return PlatformContext(
-            message=platform_msg,
-            bot=ctx.bot,
-            command=ctx.command.name if ctx.command else None,
-            args=ctx.args if hasattr(ctx, "args") else None,
-            platform_ctx=ctx,
-        )

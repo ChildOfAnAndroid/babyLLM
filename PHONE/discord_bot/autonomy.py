@@ -121,10 +121,6 @@ class AutonomyPlanner:
     def enabled(self) -> bool:
         return bool(self.state.get("enabled", True))
 
-    def set_enabled(self, val: bool):
-        self.state["enabled"] = bool(val)
-        self._save_state()
-
     # --- signals from model ---
     def _read_signals(self):
         """Collect gentle heuristics from the live model and buffers.

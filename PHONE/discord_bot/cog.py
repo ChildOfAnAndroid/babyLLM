@@ -320,36 +320,10 @@ class BabyTextHelpers:
         return message
 
     @staticmethod
-    def get_not_found_message(name, varied_random_func):
-        """Get a random 'user not found' message"""
-        return BabyTextHelpers.get_random_message(
-            BabyTextHelpers.NOT_FOUND_MESSAGES, varied_random_func, name=name
-        )
-
-    @staticmethod
-    def get_success_message(emote, varied_random_func):
-        """Get a random success message with emote"""
-        return BabyTextHelpers.get_random_message(
-            BabyTextHelpers.SUCCESS_MESSAGES, varied_random_func, emote=emote
-        )
-
-    @staticmethod
     def get_teach_response(key, value, varied_random_func):
         """Get a random teaching response"""
         return BabyTextHelpers.get_random_message(
             BabyTextHelpers.TEACH_RESPONSES, varied_random_func, key=key, value=value
-        )
-
-    @staticmethod
-    def get_bby_message(amount, is_gain, varied_random_func):
-        """Get a random BBY gain/loss message"""
-        messages = (
-            BabyTextHelpers.BBY_GAIN_MESSAGES
-            if is_gain
-            else BabyTextHelpers.BBY_LOSS_MESSAGES
-        )
-        return BabyTextHelpers.get_random_message(
-            messages, varied_random_func, amount=amount
         )
 
     @staticmethod
@@ -403,11 +377,6 @@ class BabyTextHelpers:
         else:
             return rng.choice(BabyTextHelpers.ERROR_MESSAGES)
 
-    @staticmethod
-    def get_thinking_message(thought, varied_random_func=None):
-        """Get a random thinking/contemplative message"""
-        rng = varied_random_func or random
-        return rng.choice(BabyTextHelpers.THINKING_MESSAGES).format(thought=thought)
 
 
 def _tok_display(tok: str, max_len: int = 18) -> str:
