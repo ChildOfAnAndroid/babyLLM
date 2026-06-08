@@ -5836,46 +5836,6 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             print(f"[SYNC][consent][ERR] {e}")
             return {"ok": False, "error": str(e)}
 
-    async def web_post_say(
-        self,
-        *,
-        text: str,
-        platform: str,
-        user_id: str,
-        handle: str,
-        display_name: str,
-        is_command: bool = False,
-    ):
-        http = await self._get_http()
-        base = (
-            os.environ.get("BBY_API_BASE", "https://childofanandroid.co.uk/api").rstrip(
-                "/"
-            )
-            + "/"
-        )
-        url = urljoin(base, "say")
-        payload = {
-            "text": text,
-            "platform": platform,
-            "user_id": user_id,
-            "handle": handle,
-            "display_name": display_name,
-            "is_command": bool(is_command),
-        }
-        try:
-            async with http.post(url, json=payload) as r:
-                data = await r.json(content_type=None)
-                if r.status != 200:
-                    print(f"[SYNC][say] {r.status} -> {data}")
-                return {
-                    "ok": r.status == 200,
-                    "status": r.status,
-                    **(data if isinstance(data, dict) else {}),
-                }
-        except Exception as e:
-            print(f"[SYNC][say][ERR] {e}")
-            return {"ok": False, "error": str(e)}
-
     async def update_avatar_from_snapshots(self):
         """Update Discord avatar using the most recent snapshot.
         Prefers the new HTTP API, with a robust 'newest' scorer, and falls back to local files.

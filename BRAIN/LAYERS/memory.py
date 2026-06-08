@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from config import *
+from utils.helpers import init_history_buffers
 
 """this makes a rolling buffer of past activations"""
 
@@ -99,7 +100,7 @@ class MEMORY(nn.Module):
             "memoryGateNormHistory",
             "mixedEmbedNormHistory",
         ]
-        self._init_history_buffers()
+        init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
         self.register_buffer(
             "reducedInputBuf", torch.zeros(1, embedDimension, device=self.device)
@@ -108,21 +109,14 @@ class MEMORY(nn.Module):
             "gateLogitsBuf", torch.zeros(4, numNeurons, device=self.device)
         )
 
-    def _init_history_buffers(self):
-        maxlen = max(1, self.numTokensPerStep)
-        for attr in self._history_attrs:
-            setattr(self, attr, deque(maxlen=maxlen))
+
 
     def _reset_history_buffers(self):
         """Clear history buffers once stats have been aggregated."""
         for attr in self._history_attrs:
             getattr(self, attr).clear()
 
-    def _history_mean(self, history, offset=0.0):
-        if not history:
-            return offset
-        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
-        return tensor.mean().item() + offset
+
 
     @whocalled
     def forward(self, _activationsTensor):

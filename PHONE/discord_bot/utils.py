@@ -528,6 +528,39 @@ def getTimeRant(
     return f"{rant} "
 
 
+def embed_to_plain_text(embed) -> str:
+    """Convert Discord embed payload into compact plain text."""
+    if embed is None:
+        return ""
+
+    parts = []
+    title = str(getattr(embed, "title", "") or "").strip()
+    description = str(getattr(embed, "description", "") or "").strip()
+    if title:
+        parts.append(title)
+    if description:
+        parts.append(description)
+
+    for field in list(getattr(embed, "fields", []) or [])[:5]:
+        name = str(getattr(field, "name", "") or "").strip()
+        value = str(getattr(field, "value", "") or "").strip()
+        if name and value:
+            parts.append(f"{name}: {value}")
+        elif value:
+            parts.append(value)
+
+    footer = getattr(embed, "footer", None)
+    footer_text = (
+        str(getattr(footer, "text", "") or "").strip()
+        if footer is not None
+        else ""
+    )
+    if footer_text:
+        parts.append(footer_text)
+
+    return "\n".join([p for p in parts if p]).strip()
+
+
 __all__ = [
     "DEFAULT_BBY_TIMEZONE",
     "escape_markdown",
@@ -542,4 +575,5 @@ __all__ = [
     "style_gain",
     "style_loss",
     "getTimeRant",
+    "embed_to_plain_text",
 ]

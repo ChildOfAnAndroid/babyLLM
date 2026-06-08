@@ -21,7 +21,7 @@ from flask_cors import CORS
 
 from ..context import create_platform_command_context
 from ..live_pressure import patch_cog_generation, pressure_snapshot, try_queue_generation
-from ..utils import to_british_english
+from ..utils import to_british_english, embed_to_plain_text
 from .base import PlatformAdapter, PlatformMessage
 
 
@@ -155,35 +155,6 @@ class WebAdapter(PlatformAdapter):
         entries.sort(key=lambda item: item["name"])
         return entries
 
-    @staticmethod
-    def _embed_to_plain_text(embed) -> str:
-        if embed is None:
-            return ""
-
-        parts = []
-        title = str(getattr(embed, "title", "") or "").strip()
-        description = str(getattr(embed, "description", "") or "").strip()
-        if title:
-            parts.append(title)
-        if description:
-            parts.append(description)
-
-        for field in list(getattr(embed, "fields", []) or [])[:5]:
-            name = str(getattr(field, "name", "") or "").strip()
-            value = str(getattr(field, "value", "") or "").strip()
-            if name and value:
-                parts.append(f"{name}: {value}")
-            elif value:
-                parts.append(value)
-
-        footer = getattr(embed, "footer", None)
-        footer_text = (
-            str(getattr(footer, "text", "") or "").strip() if footer is not None else ""
-        )
-        if footer_text:
-            parts.append(footer_text)
-
-        return "\n".join([part for part in parts if part]).strip()
 
     def _setup_routes(self):
         """Set up Flask API endpoints"""
@@ -744,7 +715,7 @@ class WebAdapter(PlatformAdapter):
 
             async def web_reply_sink(content="", embed=None, **kwargs):
                 if embed is not None:
-                    text_out = self._embed_to_plain_text(embed)
+                    text_out = embed_to_plain_text(embed)
                 elif content:
                     text_out = str(content)
                 else:

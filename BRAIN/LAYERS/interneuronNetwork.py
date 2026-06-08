@@ -14,7 +14,7 @@ from torch.nn.functional import gelu
 
 from config import *
 from school.staffroom.counsellor import COUNSELLOR
-from utils.helpers import clamp_param
+from utils.helpers import clamp_param, init_history_buffers, history_mean
 
 
 class NEURON(nn.Module):
@@ -61,7 +61,7 @@ class NEURON(nn.Module):
             "activatedOutputHistory_min",
             "activatedOutputHistory_max",
         ]
-        self._init_history_buffers()
+        init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
         # self.normedOutputHistory = []
         # self.normedOutputHistory_tokens = []
@@ -70,20 +70,9 @@ class NEURON(nn.Module):
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         # numNeuron, embedDimension, activationFunction, e
 
-    def _init_history_buffers(self):
-        maxlen = max(1, self.numTokensPerStep)
-        for attr in self._history_attrs:
-            setattr(self, attr, deque(maxlen=maxlen))
-
     def _clear_histories(self):
         for attr in self._history_attrs:
             getattr(self, attr).clear()
-
-    def _history_mean(self, history, offset=0.0):
-        if not history:
-            return offset
-        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
-        return tensor.mean().item() + offset
 
     @whocalled
     def forward(self, _inputEmbeds):  # embed: (batch_size, embed_size)
@@ -236,9 +225,7 @@ class NEURON(nn.Module):
 
         return activated
 
-    @whocalled
-    def getStats(self):
-        return self.stats
+
 
 
 """layer that applies the same set of neurons to each token embedding independently. - no sequence awareness!"""
@@ -286,7 +273,7 @@ class INTERNEURON_NETWORK(nn.Module):
             "logitHistory",
             "combiScaleHistory",
         ]
-        self._init_history_buffers()
+        init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
         # SELF ALLOWED - nn.parameter!
         self.neurons = NEURON(
@@ -373,20 +360,9 @@ class INTERNEURON_NETWORK(nn.Module):
         # MUST NOT BE ON SELF - global parameters that may be used by backward pass
         # numNeurons, embedDimension, activationFunction, allWindowSizes_new, etc
 
-    def _init_history_buffers(self):
-        maxlen = max(1, self.numTokensPerStep)
-        for attr in self._history_attrs:
-            setattr(self, attr, deque(maxlen=maxlen))
-
     def _clear_histories(self):
         for attr in self._history_attrs:
             getattr(self, attr).clear()
-
-    def _history_mean(self, history, offset=0.0):
-        if not history:
-            return offset
-        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
-        return tensor.mean().item() + offset
 
     @whocalled
     def forward(self, _inputEmbeds):
@@ -679,8 +655,8 @@ class INTERNEURON_NETWORK(nn.Module):
         if len(self.combHistory) >= self.numTokensPerStep:
             if debugPrints:
                 ʕっʘ‿ʘʔっ("add to self.stats")
-            raw_acts_mean = self._history_mean(self.activationsHistory)
-            refined_mean = self._history_mean(self.refHistory)
+            raw_acts_mean = history_mean(self.device, self.activationsHistory)
+            refined_mean = history_mean(self.device, self.refHistory)
             self.stats = {
                 "4INN_0_rawActs_norm": raw_acts_mean,
                 # "4INN_0_rawActs_norm_token": sum(self.activationsHistory_token) / len(self.activationsHistory_token),
@@ -903,6 +879,6 @@ class INTERNEURON_NETWORK(nn.Module):
 
     @whocalled
     def clearStats(self):
-        self._init_history_buffers()
+        init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
         if hasattr(self, "neurons"):
-            self.neurons._init_history_buffers()
+            init_history_buffers(self.neurons, self.neurons._history_attrs, self.neurons.numTokensPerStep)

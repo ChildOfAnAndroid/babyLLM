@@ -298,14 +298,6 @@ class SCRATCHPAD(nn.Module):
             # Return gated changes (caller will add residual, like MEMORY pattern)
             return gated_output
 
-    @whocalled
-    def clear_buffer(self):
-        """Clear the scratch pad buffer (e.g., between conversations)."""
-        with self.counsellor.infodump("clear_buffer") as ʕっʘ‿ʘʔっ:
-            self.buffer.zero_()
-            self.slot_usage.zero_()
-            if debugPrints:
-                ʕっʘ‿ʘʔっ("Scratch pad buffer cleared")
 
     @whocalled
     def getScratchpadStats(self):

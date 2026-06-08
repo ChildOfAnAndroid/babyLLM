@@ -9,7 +9,7 @@ import torch
 import os
 import json
 import hashlib
-from collections import OrderedDict
+from collections import OrderedDict, deque
 import gc
 import threading
 from typing import Iterable, Tuple, Callable, Any
@@ -36,16 +36,6 @@ def clamp_param(param: torch.Tensor, min_val: float, max_val: float) -> None:
 def debug_print(*args, **kwargs) -> None:
     if _debug_enabled: print(*args, **kwargs)
 
-# --- hook utilities ---
-def register_grad_hooks(
-    named_params: Iterable[Tuple[str, torch.Tensor]],
-    hook_fn_provider: Callable[[str], Callable[[torch.Tensor], None]],
-) -> list[torch.utils.hooks.RemovableHandle]:
-    handles: list[torch.utils.hooks.RemovableHandle] = []
-    for name, param in named_params:
-        if param.requires_grad:
-            handles.append(param.register_hook(hook_fn_provider(name)))
-    return handles
 
 # --- json cache ---
 _json_cache: "OrderedDict[str, tuple[int, bytes]]" = OrderedDict()
@@ -124,26 +114,24 @@ def empty_mps_cache() -> None:
             torch.mps.synchronise()
         torch.mps.empty_cache()
 
-# --- json utilities ---
-def load_json_if_exists(path: str, default: Any = None) -> Any:
-    """Load JSON from path if it exists and is valid; otherwise return default.
+# --- history buffer helpers ---
+def init_history_buffers(module: Any, attrs: Iterable[str], num_tokens: int) -> None:
+    maxlen = max(1, num_tokens)
+    for attr in attrs:
+        setattr(module, attr, deque(maxlen=maxlen))
 
-    Avoids raising on missing files or decode errors.
-    """
-    if not os.path.exists(path):
-        return default
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
+def history_mean(device: torch.device, history: Iterable[float], offset: float = 0.0) -> float:
+    if not history:
+        return offset
+    tensor = torch.as_tensor(history, dtype=torch.float32, device=device)
+    return tensor.mean().item() + offset
 
 __all__ = [
     "get_grad_stats",
     "clamp_param",
     "debug_print",
-    "register_grad_hooks",
     "save_json_if_changed",
-    "load_json_if_exists",
+    "init_history_buffers",
+    "history_mean",
     "empty_mps_cache",
 ]

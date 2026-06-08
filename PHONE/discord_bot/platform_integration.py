@@ -24,7 +24,7 @@ from .platforms import (
     TwitchAdapter,
     WebAdapter,
 )
-from .utils import to_british_english
+from .utils import to_british_english, embed_to_plain_text
 
 
 class PlatformIntegrationMixin:
@@ -246,38 +246,6 @@ class PlatformIntegrationMixin:
                         message_content_for_ctx = "!babyllm $skunkllm"
                 reply_budget = {"sent": 0, "notice_sent": False}
 
-                def _embed_to_twitch_text(embed) -> str:
-                    """Convert Discord embed payload into compact Twitch-safe plain text."""
-                    if embed is None:
-                        return ""
-
-                    parts = []
-                    title = str(getattr(embed, "title", "") or "").strip()
-                    description = str(getattr(embed, "description", "") or "").strip()
-                    if title:
-                        parts.append(title)
-                    if description:
-                        parts.append(description)
-
-                    for field in list(getattr(embed, "fields", []) or [])[:5]:
-                        name = str(getattr(field, "name", "") or "").strip()
-                        value = str(getattr(field, "value", "") or "").strip()
-                        if name and value:
-                            parts.append(f"{name}: {value}")
-                        elif value:
-                            parts.append(value)
-
-                    footer = getattr(embed, "footer", None)
-                    footer_text = (
-                        str(getattr(footer, "text", "") or "").strip()
-                        if footer is not None
-                        else ""
-                    )
-                    if footer_text:
-                        parts.append(footer_text)
-
-                    return "\n".join([p for p in parts if p]).strip()
-
                 async def twitch_reply_sink(content="", embed=None, **kwargs):
                     async def _send_twitch_text(text: str):
                         if not text:
@@ -307,7 +275,7 @@ class PlatformIntegrationMixin:
 
                     # Twitch doesn't support Discord embeds directly; send plain text fallback.
                     if embed is not None:
-                        fallback = _embed_to_twitch_text(embed)
+                        fallback = embed_to_plain_text(embed)
                         if fallback:
                             await _send_twitch_text(fallback)
                     elif content:

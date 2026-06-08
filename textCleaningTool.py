@@ -516,35 +516,6 @@ PATTERNS = [
 # Batch apply regex substitutions
 
 
-def remove_long_word_lines(text, max_len=5):
-    lines = text.split("\n")
-    keep = []
-    for line in lines:
-        words = re.findall(r"\b\w+\b", line)
-        if all(len(word) <= max_len for word in words):
-            keep.append(line)
-    return "\n".join(keep)
-
-
-def keep_only_emoji_lines(text):
-    emoji_regex = re.compile(
-        "[\U0001f600-\U0001f64f"  # emoticons
-        "\U0001f300-\U0001f5ff"  # symbols & pictographs
-        "\U0001f680-\U0001f6ff"  # transport & map
-        "\U0001f1e0-\U0001f1ff"  # flags
-        "\U00002700-\U000027bf"  # dingbats
-        "\U0001f900-\U0001f9ff"  # supplemental symbols
-        "\U00002600-\U000026ff"  # misc symbols
-        "\U0001fa70-\U0001faff"  # symbols & pictographs extended
-        "\U000025a0-\U000025ff"  # geometric shapes
-        "]+",
-        flags=re.UNICODE,
-    )
-
-    lines = text.split("\n")
-    keep = [line for line in lines if emoji_regex.search(line)]
-    return "\n".join(keep)
-
 
 def batch_sub(text, pattern_map):
     for pattern, replacement in pattern_map:

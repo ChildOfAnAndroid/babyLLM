@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from config import *
+from utils.helpers import init_history_buffers
 
 """
 Dimension-Adaptive Tangling: Reuses attention2's 400M params throughout the network
@@ -264,7 +265,7 @@ class MINI_INN_TANGLING(nn.Module):
             "memory_gate_hist",
             "memory_norm_hist",
         ]
-        self._init_history_buffers()
+        init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
         # ── Initialise projections very small so initial impact is negligible ──
         with torch.no_grad():
@@ -281,20 +282,9 @@ class MINI_INN_TANGLING(nn.Module):
 
     # ── History helpers (mirrors INN / NEURON pattern) ────────────────────────
 
-    def _init_history_buffers(self):
-        maxlen = max(1, self.numTokensPerStep)
-        for attr in self._history_attrs:
-            setattr(self, attr, deque(maxlen=maxlen))
-
     def _clear_histories(self):
         for attr in self._history_attrs:
             getattr(self, attr).clear()
-
-    def _history_mean(self, history, offset=0.0):
-        if not history:
-            return offset
-        tensor = torch.as_tensor(list(history), dtype=torch.float32, device=self.device)
-        return tensor.mean().item() + offset
 
     # ── Internal: window tensor construction ──────────────────────────────────
 

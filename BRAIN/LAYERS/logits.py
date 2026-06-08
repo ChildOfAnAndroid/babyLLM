@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 from config import *
-from utils.helpers import clamp_param
+from utils.helpers import clamp_param, init_history_buffers
 
 """final layer, maps neuron activations to logits for each token in the vocab"""
 
@@ -60,18 +60,9 @@ class LOGITS(nn.Module):
             "normLayerMaxHist",
             "finalMaxHist",
         ]
-        self._init_history_buffers()
+        init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
-    def _init_history_buffers(self):
-        maxlen = max(1, self.numTokensPerStep)
-        for attr in self._history_attrs:
-            setattr(self, attr, deque(maxlen=maxlen))
 
-    def _history_mean(self, history):
-        if not history:
-            return 0.0
-        tensor = torch.as_tensor(history, dtype=torch.float32, device=self.device)
-        return tensor.mean().item()
 
     @whocalled
     def forward(self, _meanActivationsTensor):
@@ -312,4 +303,4 @@ class LOGITS(nn.Module):
 
     @whocalled
     def clearStats(self):
-        self._init_history_buffers()
+        init_history_buffers(self, self._history_attrs, self.numTokensPerStep)

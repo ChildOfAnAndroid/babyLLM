@@ -125,9 +125,6 @@ class _MemmapTokenSequence:
             for val in arr:
                 yield val.item() if hasattr(val, "item") else val
 
-    @property
-    def segments(self) -> list[Sequence]:
-        return [arr for _, _, arr in self._segments]
 
 
 class _TrainingPairStream:
@@ -894,20 +891,6 @@ class LIBRARIAN:
                 return None
             raise
 
-    def tokens_from_file(self, path: str, ftype: str = "text"):
-        key = f"{ftype}::{path}"
-        if key in self._file_token_cache:
-            return self._file_token_cache[key]
-        txt = self.loadSingleFile(path, ftype)
-        toks = self.tokenizeText(txt) if txt else []
-        self._file_token_cache[key] = toks
-        # Prevent unbounded growth: drop an arbitrary cached entry if over limit
-        if len(self._file_token_cache) > 16:
-            try:
-                self._file_token_cache.pop(next(iter(self._file_token_cache)))
-            except Exception:
-                pass
-        return toks
 
     def _sequence_is_indices(self, seq) -> bool:
         try:
