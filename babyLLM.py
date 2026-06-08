@@ -1138,8 +1138,18 @@ class BABYLLM(nn.Module):
                             )
 
                     sensory_logits = self.sensoryPupil(embedding)
-                    sensory_logits = sensory_logits / (1.0 + sensory_logits.abs())
-                    sensory_pred = torch.sigmoid(sensory_logits * 3.0)
+                    # Plain sigmoid: avoids the double-saturating softsign*3 that
+                    # was slamming outputs to ~0.04 / ~0.95 with vanishing gradients.
+                    # Logits near zero now produce predictions near 0.5 (the true
+                    # stable-environment target), and gradients remain strong.
+                    sensory_pred = torch.sigmoid(sensory_logits)
+                    # --- Diagnostic: record raw logit stats for dashboard ---
+                    # If predictions are still ~0.95/~0.05 after the activation fix,
+                    # large values here confirm the checkpoint weights are the culprit.
+                    with torch.no_grad():
+                        self._sensory_logits_mean   = sensory_logits.mean().item()
+                        self._sensory_logits_std    = sensory_logits.std().item() if sensory_logits.numel() > 1 else 0.0
+                        self._sensory_logits_absmax = sensory_logits.abs().max().item()
                     if self.cached_device_temp_c is not None:
                         sensory_target = torch.cat(
                             [self.cached_sensory, self.cached_device_temp_c.view(1)],
@@ -1446,6 +1456,18 @@ class BABYLLM(nn.Module):
                 )  # Acquire the lock only for the weight update step
             with self.model_thread_lock:
                 self.optimizer.step()
+                with torch.no_grad():
+                    inn = self.interneuronNetwork
+
+                    # Replaces the old per-token clamps from NEURON/INN forward().
+                    weight_norm = inn.neurons.n_weights.norm(dim=1, keepdim=True)
+                    inn.neurons.n_weights.div_(
+                        weight_norm.clamp(min=1.0, max=100.0)
+                    )
+                    inn.windowFractionality.clamp_(-3.0, 3.0)
+                    inn.cerebellum.clamp_(0.01, 0.99)
+                    inn.windowFractionality_short.clamp_(-3.0, 3.0)
+                    inn.cerebellum_short.clamp_(0.01, 0.99)
             self.optimizer.zero_grad()
 
             # CRITICAL: Clamp sensory/temperature parameters to prevent explosion
@@ -1526,6 +1548,14 @@ class BABYLLM(nn.Module):
                     "L_repPenClamp": self.repPenSoftClamp_used,
                     "L_repLoss": self.repLoss_used,
                     "L_sensoryLoss": self.sensoryLoss_used,
+                    # Raw sensory-logit diagnostics — healthy range is roughly ±2.
+                    # Values ≫ 3 mean the sigmoid is saturated and predictions will
+                    # still read ~0.95 / ~0.05 regardless of the activation fix.
+                    "L_sens_logit_mean":   getattr(self, "_sensory_logits_mean",   0.0),
+                    "L_sens_logit_std":    getattr(self, "_sensory_logits_std",    0.0),
+                    "L_sens_logit_absmax": getattr(self, "_sensory_logits_absmax", 0.0),
+                    "L_sensPupil_w_norm":  self.sensoryPupil.weight.norm().item(),
+                    "L_sensPupil_b_norm":  self.sensoryPupil.bias.norm().item() if self.sensoryPupil.bias is not None else 0.0,
                     "B_gradClip": self.gradientClipMaxNorm,
                 }
                 if debugPrints:
@@ -2865,6 +2895,9 @@ class BABYLLM(nn.Module):
             print(f"optimizer restored from {optimPath}")
         except Exception as e:
             print(f"failed to load optimizer: {e}")
+            raise RuntimeError(
+                f"Refusing to continue with newly initialized optimizer state: {e}"
+            ) from e
 
     def _start_async_optimizer_load(self, optimPath):
         """Kick off optimizer loading in a daemon thread. The 5GB optim file
@@ -2907,15 +2940,21 @@ class BABYLLM(nn.Module):
         if event is None:
             return True
         if event.is_set():
-            return True
-        import time
+            ready = True
+        else:
+            import time
 
-        t0 = time.perf_counter()
-        ready = event.wait(timeout=timeout)
-        if ready:
-            elapsed = time.perf_counter() - t0
-            if elapsed > 0.05:
-                print(f"[ASYNC OPTIM] waited {elapsed:.2f}s for optimizer ready")
+            t0 = time.perf_counter()
+            ready = event.wait(timeout=timeout)
+            if ready:
+                elapsed = time.perf_counter() - t0
+                if elapsed > 0.05:
+                    print(f"[ASYNC OPTIM] waited {elapsed:.2f}s for optimizer ready")
+        if ready and self._optimizer_load_error is not None:
+            raise RuntimeError(
+                "Optimizer checkpoint restoration failed; training is blocked "
+                "to protect learned state."
+            ) from self._optimizer_load_error
         return ready
 
     def _upgrade_sensory_state_dict(self, state_dict):

@@ -63,6 +63,14 @@ class NEURON(nn.Module):
         ]
         init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
+        # Pre-computed scale factor: sqrt(embedDimension) stored as a buffer so we
+        # don't allocate a new scalar tensor on every forward call (Fix 7).
+        self.register_buffer(
+            "_scale",
+            torch.tensor(math.sqrt(embedDimension), device=self.device),
+            persistent=False,
+        )
+
         # self.normedOutputHistory = []
         # self.normedOutputHistory_tokens = []
         # self.normedOutputHistory_neurons = []
@@ -78,10 +86,8 @@ class NEURON(nn.Module):
     def forward(self, _inputEmbeds):  # embed: (batch_size, embed_size)
         with self.n_counsellor.infodump("forward") as ʕっʘ‿ʘʔっ:
             inputEmbeds = _inputEmbeds
-            with torch.no_grad():
-                weightNorm = self.n_weights.norm(dim=1, keepdim=True)
-                clippedWeights = self.n_weights / weightNorm.clamp(min=1.0, max=100.0)
-                self.n_weights.data = clippedWeights
+            # Weight-norm clamp moved to babyLLM.backward() (runs once per step,
+            # not once per token). 269× cheaper per training step. (Fix 3)
 
             if skipNeuron:
                 if debugPrints:
@@ -101,13 +107,9 @@ class NEURON(nn.Module):
                 ʕっʘ‿ʘʔっ(
                     "computeBatchedDotProduct+bias"
                 )  # Compute batched dot product + bias: (batch_size, num_neurons)
-            # rawOutput = torch.matmul(normedInput, self.n_weights.T) + self.n_biases  # shape: (seq_len, numNeurons)
-            # Use a tensor for scaling to avoid device placement issues on MPS
-            scale_value = math.sqrt(embedDimension)
-            scale = torch.tensor(scale_value, device=normedInput.device)
             rawOutput = (
                 torch.matmul(normedInput, self.n_weights.T) + self.n_biases
-            ) / scale
+            ) / self._scale  # reuse pre-computed buffer (Fix 7)
 
             if debugPrints:
                 ʕっʘ‿ʘʔっ(
@@ -375,7 +377,7 @@ class INTERNEURON_NETWORK(nn.Module):
                 ʕっʘ‿ʘʔっ("compute fresh floatWindowSizes & fractionality")
             # learnable fractionality, allows it to decide how descrite the windows should be
             fractionality = torch.sigmoid(self.windowFractionality)  # (numWindows,)
-            clamp_param(self.windowFractionality, -3.0, 3.0)
+            # clamp_param for windowFractionality moved to babyLLM.backward() (Fix 5)
 
             minWindowSize = 0.1
             maxWindowSize = float(self.numTokensPerStep)
@@ -449,7 +451,7 @@ class INTERNEURON_NETWORK(nn.Module):
             sigmoidWeights = torch.sigmoid(
                 cerebellum_scaled
             )  # reduced from 10 to 2 for better gradient flow
-            clamp_param(self.cerebellum, 0.01, 0.99)
+            # clamp_param for cerebellum moved to babyLLM.backward() (Fix 5)
 
             # Apply learnable softmax temperature (controls competition vs collaboration)
             # Temperature = exp(param), can be any positive value
@@ -482,7 +484,7 @@ class INTERNEURON_NETWORK(nn.Module):
             if debugPrints:
                 ʕっʘ‿ʘʔっ("SHORT WINDOWS: compute window sizes")
             fractionality_short = torch.sigmoid(self.windowFractionality_short)
-            clamp_param(self.windowFractionality_short, -3.0, 3.0)
+            # clamp_param for windowFractionality_short moved to babyLLM.backward() (Fix 5)
 
             minWindowSize_short = 0.1
             maxWindowSize_short = float(windowShortMAX)  # 132 tokens max
@@ -523,7 +525,7 @@ class INTERNEURON_NETWORK(nn.Module):
                 cerebellum_short_with_noise / temperature_for_sigmoid
             )
             sigmoidWeights_short = torch.sigmoid(cerebellum_short_scaled)
-            clamp_param(self.cerebellum_short, 0.01, 0.99)
+            # clamp_param for cerebellum_short moved to babyLLM.backward() (Fix 5)
 
             # Apply learnable softmax temperature for short windows
             # Starts at 0.5 (competitive) to encourage differentiation

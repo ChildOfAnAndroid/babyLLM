@@ -1207,22 +1207,26 @@ class TUTOR:
                     # Per-token live colour write — omits token_events history list so each
                     # write is ~200 bytes (not ~100KB). Full history is written once per step
                     # after the loop. Compact JSON (no indent) for speed.
-                    liveState = {
-                        "timestamp": time.time(),
-                        "R": r,
-                        "G": g,
-                        "B": b,
-                        "cerebralLoad": CL,
-                        "dreamIntensity": DI,
-                        "memoryFlux": MF,
-                        "learningStability": LS,
-                        "correct": JSONtokenCorrect,
-                        "token_event": token_event,
-                    }
-                    temp_path = babyStateFilePath + ".tmp"
-                    with open(temp_path, "w") as f:
-                        json.dump(liveState, f)  # compact — no indent
-                    os.replace(temp_path, babyStateFilePath)
+                    # Throttled to every 8 tokens: the dashboard refreshes at human-visible
+                    # speeds, sub-8-token resolution is invisible, and this cuts disk writes
+                    # from ~269/step to ~34/step (8× fewer syscalls).
+                    if j % 8 == 0:
+                        liveState = {
+                            "timestamp": time.time(),
+                            "R": r,
+                            "G": g,
+                            "B": b,
+                            "cerebralLoad": CL,
+                            "dreamIntensity": DI,
+                            "memoryFlux": MF,
+                            "learningStability": LS,
+                            "correct": JSONtokenCorrect,
+                            "token_event": token_event,
+                        }
+                        temp_path = babyStateFilePath + ".tmp"
+                        with open(temp_path, "w") as f:
+                            json.dump(liveState, f)  # compact — no indent
+                        os.replace(temp_path, babyStateFilePath)
                 except Exception as e:
                     print(f"could not write live token state: {e}")
 
