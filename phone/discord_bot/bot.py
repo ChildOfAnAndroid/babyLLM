@@ -304,7 +304,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
 
         # --- Global generation queue ---
         self.generation_queue = asyncio.Queue(
-            maxsize=int(os.environ.get("BBY_MAX_GENERATION_QUEUE", "2"))
+            maxsize=int(os.environ.get("BBY_MAX_GENERATION_QUEUE", "500"))
         )
         configure_generation_queue(self)
 
@@ -1690,7 +1690,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                             await user_dm.send(chunk)
                         # Small notice to channel
                         notice = "(i sent the rest to your dms)"
-                        await target.send(notice)
+                        orig_sent = sent_message
+                        await _send_with_fallback(content=notice, allow_reply=is_reply)
+                        sent_message = orig_sent
                     except discord.errors.Forbidden:
                         # fallback: send everything to channel
                         for i, chunk in enumerate(chunks[1:], start=1):

@@ -13,6 +13,7 @@ import gc
 import inspect
 import os
 import resource
+import random
 import sys
 import time
 from dataclasses import dataclass, field
@@ -66,7 +67,7 @@ def current_rss_gb() -> float:
 
 @dataclass
 class LivePressureGuard:
-    max_queue: int = field(default_factory=lambda: _env_int("BBY_MAX_GENERATION_QUEUE", 2, 1))
+    max_queue: int = field(default_factory=lambda: _env_int("BBY_MAX_GENERATION_QUEUE", 500, 1))
     max_active: int = field(default_factory=lambda: _env_int("BBY_MAX_ACTIVE_GENERATIONS", 1, 1))
     queue_put_timeout: float = field(default_factory=lambda: _env_float("BBY_QUEUE_PUT_TIMEOUT", 0.05, 0.0))
     soft_rss_gb: float = field(default_factory=lambda: _env_float("BBY_SOFT_RSS_GB", 48.0, 1.0))
@@ -148,6 +149,31 @@ def _pressure_reply(reason: str) -> str:
     )
 
 
+_last_spam_reaction_time: dict[str, float] = {}
+
+
+async def add_spam_reactions(ctx: Any) -> None:
+    try:
+        message_obj = getattr(ctx, "message", None)
+        if message_obj is not None and hasattr(message_obj, "add_reaction"):
+            angry_emojis = ["😡", "😠", "🤬", "👿", "👹", "👺", "😾"]
+            angry_emoji = random.choice(angry_emojis)
+            try:
+                await message_obj.add_reaction(angry_emoji)
+            except Exception:
+                pass
+            
+            spam_letters = ["🇸", "🇵", "🇦", "🇲"]
+            for letter in spam_letters:
+                await asyncio.sleep(0.4)
+                try:
+                    await message_obj.add_reaction(letter)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[LIVE_PRESSURE] add_spam_reactions failed: {e}")
+
+
 async def _notify_queue_callback(item: Any, message: str) -> None:
     callback = None
     try:
@@ -155,6 +181,39 @@ async def _notify_queue_callback(item: Any, message: str) -> None:
             callback = item[3]
     except Exception:
         callback = None
+
+    ctx = None
+    try:
+        if isinstance(item, (tuple, list)) and len(item) >= 1:
+            ctx = item[0]
+    except Exception:
+        pass
+
+    if ctx is not None:
+        try:
+            platform = getattr(ctx, "platform", "discord")
+            if platform != "web":
+                bot = getattr(ctx, "bot", None)
+                if "queued up" in message:
+                    try:
+                        user_name = bot.normalise_user_identity(ctx.author.name)
+                    except Exception:
+                        user_name = str(ctx.author.name).strip().lower()
+                    
+                    now = time.time()
+                    last_time = _last_spam_reaction_time.get(user_name, 0.0)
+                    if now - last_time >= 15.0:
+                        _last_spam_reaction_time[user_name] = now
+                        asyncio.create_task(add_spam_reactions(ctx))
+                else:
+                    if bot is not None and hasattr(bot, "_discord_reply"):
+                        await bot._discord_reply(ctx, message)
+                    elif hasattr(ctx, "reply"):
+                        await ctx.reply(message)
+                    elif hasattr(ctx, "send"):
+                        await ctx.send(message)
+        except Exception as e:
+            print(f"[LIVE_PRESSURE] Failed to send pressure notification to user: {e}")
 
     if callback is None:
         return
@@ -185,6 +244,60 @@ async def try_queue_generation(bot: Any, item: Any) -> bool:
         guard.last_reject_reason = reason
         await _notify_queue_callback(item, _pressure_reply(reason))
         guard.cleanup()
+        return False
+
+    try:
+        user_name = bot.normalise_user_identity(item[0].author.name)
+    except Exception:
+        try:
+            user_name = str(item[0].author.name).strip().lower()
+        except Exception:
+            user_name = "unknown"
+
+    # Count how many messages this user has in the queue
+    user_queued_count = 0
+    try:
+        for queued_item in getattr(queue, "_queue", []):
+            try:
+                try:
+                    q_user = bot.normalise_user_identity(queued_item[0].author.name)
+                except Exception:
+                    q_user = str(queued_item[0].author.name).strip().lower()
+                if q_user == user_name:
+                    user_queued_count += 1
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    allowed_limit = 5
+    try:
+        user_memory = getattr(bot, "userMemory", {})
+        users_with_bby = []
+        for u, m in user_memory.items():
+            if isinstance(m, dict):
+                bby_score = m.get("BBY", 0.0)
+                users_with_bby.append((u.lower(), bby_score))
+                
+        users_with_bby.sort(key=lambda x: x[1], reverse=True)
+        for idx, (uname, score) in enumerate(users_with_bby):
+            if uname == user_name:
+                rank_val = len(users_with_bby) - idx
+                allowed_limit = rank_val + 5
+                break
+    except Exception as e:
+        print(f"[LIVE_PRESSURE] Error calculating leaderboard rank limit: {e}")
+
+    allowed_limit = max(5, allowed_limit)
+
+    if user_queued_count >= allowed_limit:
+        reason = f"user {user_name} already has {user_queued_count}/{allowed_limit} messages queued"
+        guard.rejected_generations += 1
+        guard.last_reject_reason = reason
+        await _notify_queue_callback(
+            item, 
+            f"you already have {user_queued_count} generations queued up, wait a bit!"
+        )
         return False
 
     try:

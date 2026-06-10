@@ -111,7 +111,7 @@ def empty_mps_cache() -> None:
     if torch.backends.mps.is_available():
         gc.collect()
         if threading.current_thread() is threading.main_thread():
-            torch.mps.synchronise()
+            torch.mps.synchronize()
         torch.mps.empty_cache()
 
 # --- history buffer helpers ---
