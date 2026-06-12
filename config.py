@@ -865,3 +865,5 @@ for entry in trainingFilePath_dict:
 trainingFileWeightTotal = sum(
     [entry[2] for entry in rawDataFilepaths if len(entry) == 3]
 )
+
+trainingChunkSize = 32  # Chunk size for gradient accumulation. Set to 0 or None to disable.

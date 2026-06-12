@@ -508,7 +508,7 @@ class S_OUTPUT:
                 S_type = "match"
 
             prompt_str = self.S_renderTerminalText(
-                "".join(_inputSeq).replace("Ġ", " ").strip()[-printPromptLength:]
+                "".join(str(t) for t in _inputSeq).replace("Ġ", " ").strip()[-printPromptLength:]
             )
             delta_str = ""
 

@@ -902,9 +902,31 @@ class TUTOR:
                 inputSeqPredictions, device=self.device
             )
             self.logitSeq = []  # raw output of each prediction
-            cumulativeLoss = torch.tensor(
-                0.0, device=self.device
-            )  # sum of token losses for THIS sequence - averaged at the end
+
+            # Zero gradients at the start of the training step
+            self.model.optimizer.zero_grad()
+
+            # Read configuration chunk size
+            chunk_size = globals().get("trainingChunkSize", 32)
+            if chunk_size is None or chunk_size <= 0:
+                chunk_size = self.numTokensPerStep  # Disable chunking
+
+            triesInfluence = 0.0005
+            triesLossModifier = 1 + (self.totalTries - 1) / 10
+            BACKWARDtriesMod = (1.0 - triesInfluence) + (
+                triesInfluence * triesLossModifier
+            )
+
+            perfectInfluence = 0.5
+            perfectLossModifier = 1 / (1 + (self.tokenPerfectRate / 100))
+            BACKWARDperfMod = (1.0 - perfectInfluence) + (
+                perfectInfluence * perfectLossModifier
+            )
+
+            L = len(_targetTokenIndexSeq)
+            scale_factor = (BACKWARDtriesMod * BACKWARDperfMod) / L if L > 0 else 0.0
+
+            chunk_loss = None
 
             # Read external colour once per step (not per token — 269x reduction).
             # currentColour is set by the web/Discord frontend to blend bby's colour
@@ -1176,8 +1198,9 @@ class TUTOR:
 
                     if debugPrints:
                         ʕっʘ‿ʘʔっ("appendStepLoss")
-                    cumulativeLoss += stepLoss
                     self.tokenLevelLosses.append(stepLoss.item())
+                    scaled_loss = stepLoss * scale_factor
+                    chunk_loss = scaled_loss if chunk_loss is None else chunk_loss + scaled_loss
                     if debugPrints:
                         print(f"self.tokenLevelLosses = {self.tokenLevelLosses}")
 
@@ -1230,6 +1253,109 @@ class TUTOR:
                 except Exception as e:
                     print(f"could not write live token state: {e}")
 
+                # Backpropagate in chunks
+                if L > 0 and (j < L) and ((j + 1) % chunk_size == 0 or j == L - 1):
+                    is_last_loss_token = (j == L - 1)
+                    if is_last_loss_token:
+                        if debugPrints:
+                            print(f"[CHUNK] final backward at j={j}/{L-1}")
+                        
+                        # Compute pixelDistLoss at the end
+                        self.avgPixelDist = self.avgPixelDist / self.numTokensPerStep
+                        pixelDistLoss = min(1.5, self.avgPixelDist * 0.001)
+                        self.pixelDistLoss_used = pixelDistLoss
+                        
+                        # Add pixelDistLoss to chunk_loss
+                        if chunk_loss is None:
+                            chunk_loss = torch.tensor(pixelDistLoss, device=self.device)
+                        else:
+                            chunk_loss = chunk_loss + pixelDistLoss
+                            
+                        # Compute base BACKWARDloss value (without WE terms) for metrics logging
+                        BACKWARDloss_val = sum(self.tokenLevelLosses) / L if L > 0 else 0.0
+                        self.triesLoss_used = BACKWARDloss_val * (BACKWARDtriesMod - 1.0)
+                        self.perfLoss_used = BACKWARDloss_val * (BACKWARDperfMod - 1.0)
+                        BACKWARDloss_val = BACKWARDloss_val * BACKWARDtriesMod * BACKWARDperfMod + pixelDistLoss
+                        
+                        # WEloss/windowEntropyBonus:
+                        if windowEntropyBonus:
+                            # Let's compute WEloss terms directly
+                            WE_terms = torch.tensor(0.0, device=self.device)
+                            WE_terms = WE_terms + 0.00010 * torch.relu(
+                                0.02 - self.model.interneuronNetwork.entropyBonus
+                            )
+                            WE_terms = WE_terms + 0.00100 * torch.relu(
+                                0.20 - self.model.interneuronNetwork.windowSizeEntropy
+                            )
+                            rangePenalty = self.model.interneuronNetwork.rangePenalty
+                            WE_terms = WE_terms + 0.01000 * rangePenalty
+                            meanPenalty = self.model.interneuronNetwork.meanPenalty
+                            WE_terms = WE_terms + 0.01000 * meanPenalty
+                            
+                            short_decay = torch.sigmoid(self.model.memory.shortTermDecay)
+                            long_decay = torch.sigmoid(self.model.memory.longTermDecay)
+                            target_short_decay = 0.65
+                            target_long_decay = 0.92
+                            short_decay_penalty = (short_decay - target_short_decay) ** 2
+                            long_decay_penalty = (long_decay - target_long_decay) ** 2
+                            
+                            WE_terms = WE_terms + 0.10000 * (short_decay_penalty + long_decay_penalty)
+                            
+                            chunk_loss = chunk_loss + WE_terms
+                            BACKWARDloss_val = BACKWARDloss_val + WE_terms.item()
+                            
+                        if not torch.isfinite(chunk_loss):
+                            print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", chunk_loss)
+                            self.model.optimizer.zero_grad(set_to_none=True)
+                            empty_mps_cache()
+                            return [], []
+                        
+                        self.totalLoss += BACKWARDloss_val
+                        
+                        # Update rolling average loss with exponential decay
+                        if self.averageRecentLoss == 0:
+                            self.averageRecentLoss = BACKWARDloss_val
+                        else:
+                            alpha = 0.1
+                            self.averageRecentLoss = (1 - alpha) * self.averageRecentLoss + alpha * BACKWARDloss_val
+                        self.latestLossDelta = BACKWARDloss_val - self.averageRecentLoss
+                        self.stepLossFloat = BACKWARDloss_val
+                        self.stats["loss"] = self.stepLossFloat
+                        
+                        try:
+                            if profiler:
+                                with torch.profiler.profile(record_shapes=True) as prof:
+                                    self.model.backward(chunk_loss, self.latestLossDelta, _run_optimizer=True)
+                            elif mpsProfiler:
+                                with torch.mps.profiler.profile(
+                                    mode="interval", wait_until_completed=False
+                                ) as prof:
+                                    self.model.backward(chunk_loss, self.latestLossDelta, _run_optimizer=True)
+                            else:
+                                self.model.backward(chunk_loss, self.latestLossDelta, _run_optimizer=True)
+                        except RuntimeError as e:
+                            print("TUTOR.trainStep.backward failed!", e)
+                            self.model.optimizer.zero_grad(set_to_none=True)
+                            empty_mps_cache()
+                            return [], []
+                            
+                        if profiler:
+                            print(prof.key_averages().table())
+                            
+                        chunk_loss = None
+                    else:
+                        if chunk_loss is not None:
+                            if debugPrints:
+                                print(f"[CHUNK] intermediate backward chunk at j={j}")
+                            try:
+                                self.model.backward(chunk_loss, self.latestLossDelta, _run_optimizer=False)
+                            except RuntimeError as e:
+                                print(f"TUTOR.trainStep.backward intermediate chunk failed at j={j}!", e)
+                                self.model.optimizer.zero_grad(set_to_none=True)
+                                empty_mps_cache()
+                                return [], []
+                        chunk_loss = None
+
             # Write babyState once per step (was once per token — 269x per step previously)
             try:
                 if token_event is not None:
@@ -1272,137 +1398,11 @@ class TUTOR:
                 else:
                     self.rgbBar = self.sensoryBar
 
-            triesInfluence = 0.0005
-            triesLossModifier = 1 + (self.totalTries - 1) / 10
-            BACKWARDtriesMod = (1.0 - triesInfluence) + (
-                triesInfluence * triesLossModifier
-            )
-
-            perfectInfluence = 0.5
-            perfectLossModifier = 1 / (1 + (self.tokenPerfectRate / 100))
-            BACKWARDperfMod = (1.0 - perfectInfluence) + (
-                perfectInfluence * perfectLossModifier
-            )
-
-            self.avgPixelDist = self.avgPixelDist / self.numTokensPerStep
-            pixelDistLoss = min(1.5, self.avgPixelDist * 0.001)
-            self.pixelDistLoss_used = pixelDistLoss
-
-            if debugPrints:
-                ʕっʘ‿ʘʔっ("backward")
-            BACKWARDloss = (
-                cumulativeLoss / len(_targetTokenIndexSeq)
-                if len(_targetTokenIndexSeq) > 0
-                else torch.tensor(0.0, device=self.device)
-            )
-            self.triesLoss_used = (BACKWARDloss * (BACKWARDtriesMod - 1.0)).detach().item()
-            self.perfLoss_used = (BACKWARDloss * (BACKWARDperfMod - 1.0)).detach().item()
-            BACKWARDloss = BACKWARDloss * BACKWARDtriesMod * BACKWARDperfMod
-            BACKWARDloss = BACKWARDloss + pixelDistLoss
-
-            if windowEntropyBonus:
-                WEloss = BACKWARDloss
-                # entropy above the minimum
-                WEloss += 0.00010 * torch.relu(
-                    0.02 - self.model.interneuronNetwork.entropyBonus
-                )
-                WEloss += 0.00100 * torch.relu(
-                    0.20 - self.model.interneuronNetwork.windowSizeEntropy
-                )
-                rangePenalty = self.model.interneuronNetwork.rangePenalty
-                WEloss += 0.01000 * rangePenalty
-                meanPenalty = self.model.interneuronNetwork.meanPenalty
-                WEloss += 0.01000 * meanPenalty
-                # revive memory decay
-                target_short_decay = 0.65
-                target_long_decay = 0.92
-
-                short_decay = torch.sigmoid(self.model.memory.shortTermDecay)
-                long_decay = torch.sigmoid(self.model.memory.longTermDecay)
-                short_decay_penalty = (short_decay - target_short_decay) ** 2
-                long_decay_penalty = (long_decay - target_long_decay) ** 2
-
-                WEloss += 0.10000 * (short_decay_penalty + long_decay_penalty)
-                BACKWARDloss = WEloss
-            if not torch.isfinite(BACKWARDloss):
-                print("TUTOR.trainStep.backward !!! Loss is NaN or Inf:", BACKWARDloss)
-                return [], []
-            else:
-                if debugPrints:
-                    print(
-                        "TUTOR.trainStep.backward - loss is not NaN or Inf:",
-                        BACKWARDloss,
-                    )
-                self.totalLoss += BACKWARDloss.item()
-
-                # Update rolling average loss with exponential decay (alpha = 0.1 for smoother averaging)
-                current_loss = BACKWARDloss.item()
-                if self.averageRecentLoss == 0:  # First step initialization
-                    self.averageRecentLoss = current_loss
-                    if debugPrints:
-                        print(
-                            f"[DELTA FIX] initialised averageRecentLoss to {current_loss:.4f}"
-                        )
-                else:
-                    alpha = 0.1  # Learning rate for exponential moving average
-                    old_avg = self.averageRecentLoss
-                    self.averageRecentLoss = (
-                        1 - alpha
-                    ) * self.averageRecentLoss + alpha * current_loss
-                    if debugPrints and self.totalTurns % 100 == 0:
-                        print(
-                            f"[DELTA FIX] Updated averageRecentLoss: {old_avg:.4f} -> {self.averageRecentLoss:.4f}"
-                        )
-
-                self.latestLossDelta = current_loss - self.averageRecentLoss
-                if debugPrints and self.totalTurns % 100 == 0:
-                    print(
-                        f"[DELTA FIX] Delta = {current_loss:.4f} - {self.averageRecentLoss:.4f} = {self.latestLossDelta:.4f}"
-                    )
-
-            try:
-                if profiler:
-                    with torch.profiler.profile(record_shapes=True) as prof:
-                        self.model.backward(BACKWARDloss, self.latestLossDelta)
-                elif mpsProfiler:
-                    with torch.mps.profiler.profile(
-                        mode="interval", wait_until_completed=False
-                    ) as prof:
-                        self.model.backward(BACKWARDloss, self.latestLossDelta)
-                else:
-                    self.model.backward(BACKWARDloss, self.latestLossDelta)
-            except RuntimeError as e:
-                print("TUTOR.trainStep.backward failed!", e)
-                self.model.optimizer.zero_grad(set_to_none=True)
-                empty_mps_cache()
-                return [], []
-
-            if profiler:
-                print(prof.key_averages().table())
-
-            # Release references to tensors tied to the backward graph so Python's GC can
-            # promptly reclaim the memory.  Keep the model inputs and parameters intact.
-            if "inputTensor" in locals():
-                del inputTensor
-            if "logits" in locals():
-                del logits
-            if "buffer" in locals():
-                del buffer
-            if "cumulativeLoss" in locals():
-                del cumulativeLoss
-            if "stepLoss" in locals():
-                del stepLoss
-            if "WEloss" in locals():
-                del WEloss
-            if "predictedRGB" in locals():
-                del predictedRGB
-
+            # Old backward logic was removed (now run incrementally inside the loop at chunk boundaries).
             if debugPrints:
                 ʕっʘ‿ʘʔっ("actions after looping")
             self.avgPixelDistTotals += self.avgPixelDist
             self.totalAvgPixelDist = self.avgPixelDistTotals / max(1, self.totalTurns)
-            self.stepLossFloat = BACKWARDloss.detach().item()
-            self.stats["loss"] = self.stepLossFloat
             self.learningRate = math.exp(self.model.logLR.detach().item())
             self.memoryLength = self.model.memoryLength.detach().item()
             # self.gradientClipMaxNorm        = math.exp(self.model.logGradClip.detach().item())
@@ -1413,9 +1413,16 @@ class TUTOR:
 
             if "BACKWARDloss" in locals():
                 del BACKWARDloss
+            if "cumulativeLoss" in locals():
+                del cumulativeLoss
+            if "stepLoss" in locals():
+                del stepLoss
+            if "chunk_loss" in locals():
+                del chunk_loss
+            if "scaled_loss" in locals():
+                del scaled_loss
+
             # Throttled: flush every 25 steps instead of every step.
-            # empty_mps_cache() already includes gc.collect() + synchronise + empty_cache,
-            # so the redundant standalone gc.collect() and torch.mps.empty_cache() are removed.
             if self.totalTurns % 25 == 0:
                 if self.device.type == "mps":
                     if debugPrints:
@@ -1748,9 +1755,16 @@ class TUTOR:
             if debugPrints:
                 ʕっʘ‿ʘʔっ("calligraphist.S_colourPrintTraining")
 
+            # Ensure _inputSeq is a list of strings
+            input_seq_str = [
+                self.librarian.indexToToken.get(tok, str(tok)) if isinstance(tok, int)
+                else str(tok)
+                for tok in self.inputSeq
+            ]
+
             self.calligraphist.S_colourPrintTraining(
                 _step=(self.trainingStepCounter),
-                _inputSeq=self.inputSeq,
+                _inputSeq=input_seq_str,
                 _guessedSeq_str=self.stringStats.get(
                     "boldPerfects", self.guessedTokenSeq
                 ),

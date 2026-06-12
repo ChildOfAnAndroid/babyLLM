@@ -1223,7 +1223,7 @@ class BABYLLM(nn.Module):
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
 
     @whocalled
-    def backward(self, _loss, _lossDelta):
+    def backward(self, _loss, _lossDelta, _run_optimizer=True):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
             collect_grad_stats = self.totalTurns % 100 == 0
             grad_snapshot = None
@@ -1292,6 +1292,10 @@ class BABYLLM(nn.Module):
                 "Repetition penalty grad norm:", self.repetitionPenalty.grad.norm()
             )
             # print(next(self.parameters()).grad)
+
+            # Early return if we are accumulating gradients and not stepping the optimizer yet
+            if not _run_optimizer:
+                return True
 
             # --- MOVE GRAD SNAPSHOT/REPORTING HERE (after backward, before zero_grad) ---
             if collect_grad_stats:
