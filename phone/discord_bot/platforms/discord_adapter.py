@@ -6,7 +6,7 @@
 
 import discord
 
-from ..utils import to_british_english
+from ..utils import to_british_english, split_markdown_message
 from .base import PlatformAdapter, PlatformContext, PlatformMessage
 
 
@@ -33,8 +33,10 @@ class DiscordAdapter(PlatformAdapter):
         try:
             channel = self.bot.get_channel(int(channel_id))
             if channel:
-                # Discord has 2000 char limit
-                await channel.send(to_british_english(str(content or ""))[:2000])
+                text = to_british_english(str(content or ""))
+                chunks = split_markdown_message(text)
+                for chunk in chunks:
+                    await channel.send(chunk)
         except Exception as e:
             print(f"[DiscordAdapter] Error sending message: {e}")
 
@@ -43,7 +45,12 @@ class DiscordAdapter(PlatformAdapter):
         try:
             discord_msg = message.raw_message
             if isinstance(discord_msg, discord.Message):
-                await discord_msg.reply(to_british_english(str(content or ""))[:2000])
+                text = to_british_english(str(content or ""))
+                chunks = split_markdown_message(text)
+                if chunks:
+                    await discord_msg.reply(chunks[0])
+                    for chunk in chunks[1:]:
+                        await discord_msg.channel.send(chunk)
         except Exception as e:
             print(f"[DiscordAdapter] Error replying: {e}")
 

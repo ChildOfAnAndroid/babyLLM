@@ -947,6 +947,15 @@ class TUTOR:
 
             self.tokenLevelCorrect = []
             self.tokenLevelLosses = []
+            
+            # Diagnostic training-loss accumulators
+            diag_ce_losses = []
+            diag_aux_losses = []
+            diag_rep_losses = []
+            diag_pixel_losses = []
+            diag_sensory_losses = []
+            diag_token_entropies = []
+            diag_top1_confidences = []
 
             CL = 0.0
             DI = 0.0
@@ -1199,6 +1208,21 @@ class TUTOR:
                     if debugPrints:
                         ʕっʘ‿ʘʔっ("appendStepLoss")
                     self.tokenLevelLosses.append(stepLoss.item())
+                    
+                    # Accumulate diagnostic values
+                    diag_ce_losses.append(self.model.CEloss_used)
+                    diag_aux_losses.append(self.model.AUXlossKL_used + self.model.AUXlossCos_used)
+                    diag_rep_losses.append(self.model.repLoss_used)
+                    diag_pixel_losses.append(self.model.pixelLoss_used)
+                    diag_sensory_losses.append(self.model.sensoryLoss_used)
+                    
+                    if hasattr(self.model, "lastSoftSample") and self.model.lastSoftSample is not None:
+                        probs = self.model.lastSoftSample
+                        entropy = -(probs * torch.log(probs + 1e-8)).sum(dim=-1).mean().item()
+                        confidence = probs.max(dim=-1)[0].mean().item()
+                        diag_token_entropies.append(entropy)
+                        diag_top1_confidences.append(confidence)
+                    
                     scaled_loss = stepLoss * scale_factor
                     chunk_loss = scaled_loss if chunk_loss is None else chunk_loss + scaled_loss
                     if debugPrints:
@@ -1341,6 +1365,45 @@ class TUTOR:
                             
                         if profiler:
                             print(prof.key_averages().table())
+                            
+                        # --- Diagnostic Training-Loss Breakdown ---
+                        # Compute stats
+                        diag_ce_mean = sum(diag_ce_losses) / len(diag_ce_losses) if diag_ce_losses else 0.0
+                        diag_aux_mean = sum(diag_aux_losses) / len(diag_aux_losses) if diag_aux_losses else 0.0
+                        diag_rep_mean = sum(diag_rep_losses) / len(diag_rep_losses) if diag_rep_losses else 0.0
+                        diag_pixel_mean = sum(diag_pixel_losses) / len(diag_pixel_losses) if diag_pixel_losses else 0.0
+                        diag_sensory_mean = sum(diag_sensory_losses) / len(diag_sensory_losses) if diag_sensory_losses else 0.0
+                        diag_entropy_mean = sum(diag_token_entropies) / len(diag_token_entropies) if diag_token_entropies else 0.0
+                        diag_confidence_mean = sum(diag_top1_confidences) / len(diag_top1_confidences) if diag_top1_confidences else 0.0
+                        
+                        diag_rep_rate = 0.0
+                        if self.predictedTokenIndices:
+                            diag_rep_rate = (1.0 - len(set(self.predictedTokenIndices)) / len(self.predictedTokenIndices)) * 100.0
+
+                        # Get grad norms & actual LR from model
+                        diag_grad_before = getattr(self.model, "last_grad_norm_before_clip", 0.0)
+                        diag_grad_after = getattr(self.model, "last_grad_norm_after_clip", 0.0)
+                        diag_actual_lr = self.model.optimizer.param_groups[0]['lr'] if self.model.optimizer.param_groups else 0.0
+                        
+                        diag_we_total = WE_terms.item() if ('WE_terms' in locals() and WE_terms is not None) else 0.0
+
+                        print("\n" + "=" * 60)
+                        print("               TRAINING-LOSS BREAKDOWN")
+                        print("=" * 60)
+                        print(f" - raw language CE mean:                    {diag_ce_mean:.6f}")
+                        print(f" - aux loss mean:                           {diag_aux_mean:.6f}")
+                        print(f" - repetition loss mean:                    {diag_rep_mean:.6f}")
+                        print(f" - pixel loss mean:                         {diag_pixel_mean:.6f}")
+                        print(f" - sensory loss mean:                       {diag_sensory_mean:.6f}")
+                        print(f" - window entropy/range/memory penalty total: {diag_we_total:.6f}")
+                        print(f" - final backward loss:                     {BACKWARDloss_val:.6f}")
+                        print(f" - actual optimiser LR:                     {diag_actual_lr:.8f}")
+                        print(f" - gradient norm before clipping:           {diag_grad_before:.6f}")
+                        print(f" - gradient norm after clipping:            {diag_grad_after:.6f}")
+                        print(f" - token entropy:                           {diag_entropy_mean:.6f}")
+                        print(f" - top-1 confidence:                        {diag_confidence_mean:.2%}")
+                        print(f" - repetition rate:                         {diag_rep_rate:.2f}%")
+                        print("=" * 60 + "\n")
                             
                         chunk_loss = None
                     else:

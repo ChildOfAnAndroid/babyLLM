@@ -561,6 +561,362 @@ def embed_to_plain_text(embed) -> str:
     return "\n".join([p for p in parts if p]).strip()
 
 
+def get_code_ranges(text: str) -> list[tuple[int, int]]:
+    ranges = []
+    n = len(text)
+    i = 0
+    while i < n:
+        if text[i:i+3] == '```':
+            end_idx = text.find('```', i + 3)
+            if end_idx != -1:
+                ranges.append((i, end_idx + 3))
+                i = end_idx + 3
+            else:
+                ranges.append((i, n))
+                i = n
+        elif text[i] == '`':
+            end_idx = text.find('`', i + 1)
+            if end_idx != -1:
+                ranges.append((i, end_idx + 1))
+                i = end_idx + 1
+            else:
+                ranges.append((i, n))
+                i = n
+        else:
+            i += 1
+    return ranges
+
+
+def get_code_block_lang(text: str, start_idx: int) -> str:
+    n = len(text)
+    idx = start_idx + 3
+    lang = []
+    while idx < n and text[idx].isalnum():
+        lang.append(text[idx])
+        idx += 1
+    return "".join(lang)
+
+
+def get_balanced_pairs(text: str) -> list[dict]:
+    code_ranges = get_code_ranges(text)
+    all_pairs = []
+    
+    for r_start, r_end in code_ranges:
+        if text[r_start:r_start+3] == '```':
+            lang = get_code_block_lang(text, r_start)
+            # Determine if the fenced code block is closed
+            is_closed = (r_end >= r_start + 6 and text[r_end-3:r_end] == '```')
+            all_pairs.append({
+                'type': '```',
+                'start': r_start,
+                'end': r_end if not is_closed else r_end - 3,
+                'lang': lang
+            })
+            
+    # Track double-character formatting delimiters: spoiler, bold, underline, strikethrough.
+    # Note: we explicitly skip single asterisks '*' and underscores '_' to remain conservative
+    # and avoid over-clever formatting tracking that could break on list items or normal text.
+    delimiters = ['||', '**', '__', '~~']
+    for delim in delimiters:
+        d_len = len(delim)
+        n = len(text)
+        i = 0
+        start_idx = -1
+        while i <= n - d_len:
+            # Check if we are inside any code range
+            inside_code = False
+            for r_start, r_end in code_ranges:
+                if r_start <= i < r_end:
+                    i = r_end
+                    inside_code = True
+                    break
+            if inside_code:
+                continue
+                
+            if text[i:i+d_len] == delim:
+                if start_idx == -1:
+                    start_idx = i
+                else:
+                    all_pairs.append({
+                        'type': delim,
+                        'start': start_idx,
+                        'end': i
+                    })
+                    start_idx = -1
+                i += d_len
+            else:
+                i += 1
+                
+    all_pairs.sort(key=lambda x: x['start'])
+    return all_pairs
+
+
+def get_active_stack(idx: int, balanced_pairs: list[dict]) -> list[dict]:
+    stack = []
+    for pair in balanced_pairs:
+        d_len = 3 if pair['type'] == '```' else len(pair['type'])
+        if pair['start'] + d_len <= idx <= pair['end']:
+            stack.append(pair)
+    return stack
+
+
+def generate_close_markup(stack: list[dict]) -> str:
+    close_tags = []
+    for pair in reversed(stack):
+        if pair['type'] == '```':
+            close_tags.append('\n```')
+        else:
+            close_tags.append(pair['type'])
+    return "".join(close_tags)
+
+
+def generate_reopen_markup(stack: list[dict]) -> str:
+    reopen_tags = []
+    for pair in stack:
+        if pair['type'] == '```':
+            reopen_tags.append(f"```{pair['lang']}\n")
+        else:
+            reopen_tags.append(pair['type'])
+    return "".join(reopen_tags)
+
+
+def inside_ranges(idx: int, ranges: list[tuple[int, int]]) -> bool:
+    for r_start, r_end in ranges:
+        if r_start < idx < r_end:
+            return True
+        if idx <= r_start:
+            break
+    return False
+
+
+def find_best_split_index(
+    text: str,
+    start_idx: int,
+    max_end: int,
+    unbreakable_ranges: list[tuple[int, int]],
+    fenced_code_ranges: list[tuple[int, int]],
+) -> int:
+    slice_text = text[start_idx : max_end]
+    slice_len = len(slice_text)
+    if slice_len <= 1:
+        return max_end
+        
+    def is_fully_safe(idx: int) -> bool:
+        return not inside_ranges(idx, unbreakable_ranges) and not inside_ranges(idx, fenced_code_ranges)
+        
+    def is_partially_safe(idx: int) -> bool:
+        return not inside_ranges(idx, unbreakable_ranges)
+
+    # Prefer semantic breaks only when they use a reasonable amount of the
+    # available chunk. Otherwise a short heading followed by a blank line can
+    # become the entire first Discord message.
+    preferred_min_idx = start_idx + max(1, int(slice_len * 0.5))
+
+    # 1. Search for FULLY SAFE split points (outside code blocks/links)
+    # Double newlines (Paragraph breaks)
+    idx = slice_len
+    while idx > 0:
+        found = slice_text.rfind('\n\n', 0, idx)
+        if found == -1:
+            break
+        split_idx = start_idx + found + 2
+        if split_idx >= preferred_min_idx and is_fully_safe(split_idx):
+            return split_idx
+        idx = found
+
+    # Single newline (Line breaks)
+    idx = slice_len
+    while idx > 0:
+        found = slice_text.rfind('\n', 0, idx)
+        if found == -1:
+            break
+        split_idx = start_idx + found + 1
+        if split_idx >= preferred_min_idx and is_fully_safe(split_idx):
+            return split_idx
+        idx = found
+
+    # Sentence-ish breaks (. , ? , ! followed by whitespace)
+    import re
+    sentence_matches = list(re.finditer(r'[.?!]+\s+', slice_text))
+    for match in reversed(sentence_matches):
+        split_idx = start_idx + match.end()
+        if split_idx >= preferred_min_idx and is_fully_safe(split_idx):
+            return split_idx
+
+    # Spaces (Word breaks)
+    idx = slice_len
+    while idx > 0:
+        found = slice_text.rfind(' ', 0, idx)
+        if found == -1:
+            break
+        split_idx = start_idx + found + 1
+        if split_idx >= preferred_min_idx and is_fully_safe(split_idx):
+            return split_idx
+        idx = found
+
+    # 2. Search for PARTIALLY SAFE split points (allowing splitting inside fenced code blocks)
+    # Double newlines
+    idx = slice_len
+    while idx > 0:
+        found = slice_text.rfind('\n\n', 0, idx)
+        if found == -1:
+            break
+        split_idx = start_idx + found + 2
+        if split_idx >= preferred_min_idx and is_partially_safe(split_idx):
+            return split_idx
+        idx = found
+
+    # Single newline
+    idx = slice_len
+    while idx > 0:
+        found = slice_text.rfind('\n', 0, idx)
+        if found == -1:
+            break
+        split_idx = start_idx + found + 1
+        if split_idx >= preferred_min_idx and is_partially_safe(split_idx):
+            return split_idx
+        idx = found
+
+    # Sentence-ish breaks
+    for match in reversed(sentence_matches):
+        split_idx = start_idx + match.end()
+        if split_idx >= preferred_min_idx and is_partially_safe(split_idx):
+            return split_idx
+
+    # Spaces
+    idx = slice_len
+    while idx > 0:
+        found = slice_text.rfind(' ', 0, idx)
+        if found == -1:
+            break
+        split_idx = start_idx + found + 1
+        if split_idx >= preferred_min_idx and is_partially_safe(split_idx):
+            return split_idx
+        idx = found
+
+    # 3. Fallback: find the largest partially safe index in the slice
+    for r in range(slice_len, 0, -1):
+        split_idx = start_idx + r
+        if is_partially_safe(split_idx):
+            return split_idx
+
+    # 4. Absolute fallback: hard character split
+    return max_end
+
+
+def split_markdown_message(text: str, max_chunk_len: int = 1950) -> list[str]:
+    """Split a message into formatting-safe chunks of up to max_chunk_len characters.
+    
+    Guarantees:
+    - Every emitted chunk is <= max_chunk_len (default 1950, always <= 2000).
+    - Original text content is preserved in order.
+    - No chunk is empty.
+    - Does not split inside inline code or markdown links unless they exceed the limit.
+    - Properly closes open formatting (code blocks, bold, etc.) at the end of a chunk
+      and reopens it at the start of the next chunk.
+    """
+    max_chunk_len = min(max_chunk_len, 2000)
+    
+    if not text:
+        return []
+
+    n = len(text)
+    
+    # Precalculate code ranges
+    code_ranges = get_code_ranges(text)
+            
+    # Unbreakable ranges (inline code and markdown links)
+    unbreakable_ranges = []
+    for r_start, r_end in code_ranges:
+        # Fenced code blocks are NOT in unbreakable_ranges because we are allowed to split inside them.
+        if text[r_start:r_start+3] != '```':
+            unbreakable_ranges.append((r_start, r_end))
+            
+    # Find markdown links to add to unbreakable_ranges
+    import re
+    link_pattern = re.compile(r'\[[^\]]*\]\([^\)]*\)')
+    for match in link_pattern.finditer(text):
+        start, end = match.span()
+        overlap = False
+        for r_start, r_end in code_ranges:
+            if not (end <= r_start or start >= r_end):
+                overlap = True
+                break
+        if not overlap:
+            unbreakable_ranges.append((start, end))
+    unbreakable_ranges.sort(key=lambda x: x[0])
+    
+    # Fenced code block ranges
+    fenced_code_ranges = [r for r in code_ranges if text[r[0]:r[0]+3] == '```']
+    
+    # Balanced pairs
+    balanced_pairs = get_balanced_pairs(text)
+    
+    chunks = []
+    start_idx = 0
+    reopen_markup = ""
+    
+    while start_idx < n:
+        reopen_len = len(reopen_markup)
+        max_end = min(n, start_idx + max_chunk_len - reopen_len)
+        
+        # If the remaining text fits entirely, finish (closing any unclosed formatting at n)
+        if start_idx == 0 and n <= max_chunk_len:
+            active_stack = get_active_stack(n, balanced_pairs)
+            close_markup = generate_close_markup(active_stack)
+            chunk_content = text + close_markup
+            if len(chunk_content) <= max_chunk_len:
+                chunks.append(chunk_content)
+                break
+        if start_idx > 0 and (reopen_len + (n - start_idx) <= max_chunk_len):
+            active_stack = get_active_stack(n, balanced_pairs)
+            close_markup = generate_close_markup(active_stack)
+            chunk_content = reopen_markup + text[start_idx:] + close_markup
+            if len(chunk_content) <= max_chunk_len:
+                chunks.append(chunk_content)
+                break
+            
+        # Find best split index
+        split_idx = find_best_split_index(
+            text,
+            start_idx,
+            max_end,
+            unbreakable_ranges,
+            fenced_code_ranges
+        )
+        
+        # Ensure we always make forward progress
+        if split_idx <= start_idx:
+            split_idx = min(n, start_idx + 1)
+            
+        # Get active stack at this split index
+        active_stack = get_active_stack(split_idx, balanced_pairs)
+        close_markup = generate_close_markup(active_stack)
+        
+        # If the total length exceeds max_chunk_len due to close_markup, shrink split_idx
+        while split_idx > start_idx + 1 and (reopen_len + (split_idx - start_idx) + len(close_markup) > max_chunk_len):
+            split_idx -= 1
+            active_stack = get_active_stack(split_idx, balanced_pairs)
+            close_markup = generate_close_markup(active_stack)
+            
+        # Final build
+        chunk_content = reopen_markup + text[start_idx:split_idx] + close_markup
+        
+        # Degrade formatting: If it still exceeds, drop tags to ensure no content loss
+        if len(chunk_content) > max_chunk_len:
+            chunk_content = text[start_idx:split_idx]
+            active_stack = []
+            
+        if chunk_content:  # Only append non-empty chunks
+            chunks.append(chunk_content)
+        
+        # Next reopen_markup
+        reopen_markup = generate_reopen_markup(active_stack)
+        start_idx = split_idx
+        
+    return chunks
+
+
 __all__ = [
     "DEFAULT_BBY_TIMEZONE",
     "escape_markdown",
@@ -576,4 +932,5 @@ __all__ = [
     "style_loss",
     "getTimeRant",
     "embed_to_plain_text",
+    "split_markdown_message",
 ]

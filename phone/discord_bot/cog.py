@@ -12600,12 +12600,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"i tried to get u a present but it crashed :( an error happened: {error}",
             )
 
-    @commands.command(name="bbyitems", aliases=["bbytop", "bmarket", "bbyvalues"])
+    @commands.command(name="bbyitems", aliases=["bbytop", "bmarket", "bbyvalues", "bitems"])
     @track_command
-    async def bbyitems(self, ctx):
+    async def bbyitems(self, ctx, *, option: str = None):
         # Track earning: checking market prices and item values
         self._track_hidden_stat(ctx.author.name.lower(), "earning", 1.0)
-        """View the top 10 and bottom 10 BBYbook item values."""
+        """View the top and bottom BBYbook item values, with optional filters (e.g. top 20, bottom 40)."""
         if not self.bot.bbyfacts:
             return await self.bot._discord_reply(
                 ctx,
@@ -12631,27 +12631,60 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             )
 
         sorted_items = sorted(market_values.items(), key=lambda x: x[1], reverse=True)
-        top_items = sorted_items[:10]
-        bottom_items = sorted_items[-10:] if len(sorted_items) > 10 else []
+
+        # Parse option if provided
+        n = 10
+        is_top = False
+        is_bottom = False
+
+        if option:
+            try:
+                opt_lower = option.lower().strip()
+                is_top = "top" in opt_lower or re.search(r"\bt\b", opt_lower) is not None
+                is_bottom = "bottom" in opt_lower or re.search(r"\bb\b", opt_lower) is not None
+                
+                # Check for any integer in the string
+                num_match = re.search(r"\b\d+\b", opt_lower)
+                if num_match:
+                    n = max(1, min(int(num_match.group(0)), 42069))
+            except Exception as e:
+                print(f"Error parsing options in bbyitems: {e}")
+                n = 10
+                is_top = False
+                is_bottom = False
+
+        # If neither is_top nor is_bottom is explicitly specified, show both
+        if not is_top and not is_bottom:
+            top_items = sorted_items[:n]
+            bottom_items = sorted_items[-n:] if len(sorted_items) > n else []
+        else:
+            top_items = sorted_items[:n] if is_top else []
+            bottom_items = sorted_items[-n:] if is_bottom else []
 
         def fmt(name, val):
             return f"{name} is ᛒ{int(round(val)):,}"
 
-        top_list = "\n".join(
-            [f"{i + 1}. {fmt(n, v)}" for i, (n, v) in enumerate(top_items)]
-        )
-        bottom_start_index = len(sorted_items) - len(bottom_items)
-        bottom_list = "\n".join(
-            [
-                f"{bottom_start_index + i + 1}. {fmt(n, v)}"
-                for i, (n, v) in enumerate(bottom_items)
-            ]
-        )
+        top_list = ""
+        if top_items:
+            top_list = "\n".join(
+                [f"{i + 1}. {fmt(name, val)}" for i, (name, val) in enumerate(top_items)]
+            )
+
+        bottom_list = ""
+        if bottom_items:
+            bottom_start_index = len(sorted_items) - len(bottom_items)
+            bottom_list = "\n".join(
+                [
+                    f"{bottom_start_index + i + 1}. {fmt(name, val)}"
+                    for i, (name, val) in enumerate(bottom_items)
+                ]
+            )
 
         reply = f"item values! ({len(sorted_items)} total ranked items)\n\n"
-        reply += f"top 10: \n{top_list}\n\n"
-        if bottom_list:
-            reply += f"bottom 10: \n{bottom_list}"
+        if top_items:
+            reply += f"top {len(top_items)}: \n{top_list}\n\n"
+        if bottom_items:
+            reply += f"bottom {len(bottom_items)}: \n{bottom_list}"
 
         # Market volatility: Viewing the market can sometimes cause chaos!
         market_chaos = self.bot.get_brain_influence(

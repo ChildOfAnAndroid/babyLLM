@@ -59,6 +59,7 @@ from .utils import (
     killExcessTags,
     normalise_embed_british_english,
     to_british_english,
+    split_markdown_message,
 )
 
 bby_lounge = 1388782896084422788
@@ -1669,10 +1670,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 terminal_debug_str += "              b] EMBED MESSAGE SENT\n"
 
             elif message_content:
-                chunks = [
-                    message_content[j : j + 1990]
-                    for j in range(0, len(message_content), 1990)
-                ]
+                chunks = split_markdown_message(message_content)
                 if dm_overflow and ctx is not None and len(chunks) > 1:
                     # Send first chunk to channel/reply, rest via DM if possible
                     terminal_debug_str += (

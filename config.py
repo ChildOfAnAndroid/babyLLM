@@ -201,8 +201,8 @@ embedDropoutProb = 0.1
 memoryLengthGOAL = 3
 
 """optimizer"""
-learningRate = 0.00065  # // 0.0005 // 0.00005 // 0.0s001 //
-learningRateGOAL = 0.00065
+learningRate = 0.0005  # // 0.00065 // 0.00005 // 0.0s001 //
+learningRateGOAL = 0.0005
 temperatureGOAL = 1.0
 temperatureSoftClampStrength = 0.04  # was effectively 0.4 in loss; 5x weaker so temp can drift without getting pinned
 optimizerName = "Sophia"  # //"Adan" # // "Adam" //~decoupled weights adam, helps avoid erasing learning by overfitting etc. // "Adam" //~good for initial fast training, likely to do overfitting stuff

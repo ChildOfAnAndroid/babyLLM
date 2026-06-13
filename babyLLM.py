@@ -97,6 +97,8 @@ class BABYLLM(nn.Module):
         self.repPenSoftClamp_used = 0.0
         self.repLoss_used = 0.0
         self.targetTokenFromTutor = None
+        self.last_grad_norm_before_clip = 0.0
+        self.last_grad_norm_after_clip = 0.0
 
         self.stats = {}
         history_maxlen = max(1, self.numTokensPerStep)
@@ -1436,6 +1438,15 @@ class BABYLLM(nn.Module):
                 self.parameters(), max_norm=clipValue.item()
             )
             self.gradientClipMaxNorm = clipValue.item()
+            self.last_grad_norm_before_clip = total_grad_norm.item() if hasattr(total_grad_norm, "item") else float(total_grad_norm)
+            
+            # Compute gradient norm after clipping
+            total_grad_norm_after = 0.0
+            for p in self.parameters():
+                if p.grad is not None:
+                    param_norm = p.grad.data.norm(2)
+                    total_grad_norm_after += param_norm.item() ** 2
+            self.last_grad_norm_after_clip = total_grad_norm_after ** 0.5
 
             # clip_grad_norm_ returns inf when any gradient contains NaN — it does NOT
             # zero them out.  Check here so Adan never sees NaN inputs (which would corrupt

@@ -79,18 +79,16 @@ for name, param in model.attention2.attn.named_parameters():
 # DIAGNOSTIC 2: Check expansion weights
 # ============================================================================
 print("\n2. Checking EXPANSION module weights...")
-print(
-    f"   Tangling.project_up norm: {model.tangling.project_up.weight.norm().item():.2e}"
-)
-print(
-    f"   Tangling.project_down norm: {model.tangling.project_down.weight.norm().item():.2e}"
-)
-print(
-    f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_tangle_gate).item():.6f}"
-)
-print(
-    f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_tangle_gate).item():.6f}"
-)
+if hasattr(model.tangling, "project_up"):
+    print(f"   Tangling.project_up norm: {model.tangling.project_up.weight.norm().item():.2e}")
+    print(f"   Tangling.project_down norm: {model.tangling.project_down.weight.norm().item():.2e}")
+    print(f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_tangle_gate).item():.6f}")
+    print(f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_tangle_gate).item():.6f}")
+else:
+    print(f"   Tangling.embed_proj_up norm: {model.tangling.embed_proj_up.weight.norm().item():.2e}")
+    print(f"   Tangling.embed_proj_down norm: {model.tangling.embed_proj_down.weight.norm().item():.2e}")
+    print(f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_gate).item():.6f}")
+    print(f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_gate).item():.6f}")
 print(
     f"   Scratchpad.write_strength: {torch.sigmoid(model.scratchpad.write_strength).item():.6f}"
 )
@@ -130,14 +128,16 @@ with torch.no_grad():
 print("\n4. Testing with EXPANSION DISABLED...")
 with torch.no_grad():
     # Save original values
-    orig_embed = model.tangling.embed_tangle_gate.clone()
-    orig_memory = model.tangling.memory_tangle_gate.clone()
+    embed_gate = model.tangling.embed_tangle_gate if hasattr(model.tangling, "embed_tangle_gate") else model.tangling.embed_gate
+    memory_gate = model.tangling.memory_tangle_gate if hasattr(model.tangling, "memory_tangle_gate") else model.tangling.memory_gate
+    orig_embed = embed_gate.clone()
+    orig_memory = memory_gate.clone()
     orig_write = model.scratchpad.write_strength.clone()
     orig_erase = model.scratchpad.erase_strength.clone()
 
     # Disable expansion
-    model.tangling.embed_tangle_gate.fill_(-100)  # sigmoid(-100) ≈ 0
-    model.tangling.memory_tangle_gate.fill_(-100)
+    embed_gate.fill_(-100)  # sigmoid(-100) ≈ 0
+    memory_gate.fill_(-100)
     model.scratchpad.write_strength.fill_(-100)
     model.scratchpad.erase_strength.fill_(-100)
 
@@ -164,8 +164,8 @@ with torch.no_grad():
         explosion_detected = True
 
     # Restore values
-    model.tangling.embed_tangle_gate.copy_(orig_embed)
-    model.tangling.memory_tangle_gate.copy_(orig_memory)
+    embed_gate.copy_(orig_embed)
+    memory_gate.copy_(orig_memory)
     model.scratchpad.write_strength.copy_(orig_write)
     model.scratchpad.erase_strength.copy_(orig_erase)
 
