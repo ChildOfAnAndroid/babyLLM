@@ -1299,6 +1299,127 @@ class BABYLLM(nn.Module):
             if not _run_optimizer:
                 return True
 
+            if globals().get("diagnoseLogitHead", False):
+                def _grad_norm_or_zero(param):
+                    grad = getattr(param, "grad", None)
+                    if grad is None:
+                        return 0.0
+                    if not torch.isfinite(grad).all():
+                        return float("inf")
+                    return float(grad.detach().norm().item())
+
+                with torch.no_grad():
+                    self.logits.grad_stats = {
+                        "grad_norm_logits.l_weights": _grad_norm_or_zero(self.logits.l_weights),
+                        "grad_norm_logits.l_bias": _grad_norm_or_zero(self.logits.l_bias),
+                    }
+                    if hasattr(self.logits, "logitNorm"):
+                        if hasattr(self.logits.logitNorm, "weight") and self.logits.logitNorm.weight is not None:
+                            self.logits.grad_stats["grad_norm_logits.logitNorm.weight"] = _grad_norm_or_zero(self.logits.logitNorm.weight)
+                        if hasattr(self.logits.logitNorm, "bias") and self.logits.logitNorm.bias is not None:
+                            self.logits.grad_stats["grad_norm_logits.logitNorm.bias"] = _grad_norm_or_zero(self.logits.logitNorm.bias)
+
+            if globals().get("diagnoseGradientSources", False):
+                with torch.no_grad():
+                    groups = {
+                        "embed": [],
+                        "attention": [],
+                        "attention2": [],
+                        "interneuronNetwork.neurons": [],
+                        "interneuronNetwork.refinement2": [],
+                        "interneuronNetwork.window/cerebellum": [],
+                        "memory": [],
+                        "memory2": [],
+                        "scratchpad": [],
+                        "tangling": [],
+                        "logits": [],
+                        "pixelPupil": [],
+                        "sensoryPupil": [],
+                        "sensoryEmbed": [],
+                        "scalar/control": [],
+                        "other": []
+                    }
+
+                    control_param_names = {
+                        "logLR", "logGradClip", "scheduledSamplingRate", "temperature", "repetitionPenalty",
+                        "logMemoryLength", "logMemory2Length", "logRepetitionWindow", "sensory_scale", "sensory_bias",
+                        "temp_scale", "temp_bias", "logWindowSizes", "windowFractionality", "cerebellum",
+                        "windowFractionality_short", "cerebellum_short"
+                    }
+
+                    for name, p in self.named_parameters():
+                        if p.grad is None:
+                            continue
+                        
+                        group = "other"
+                        if any(k in name for k in control_param_names) or p.numel() == 1:
+                            group = "scalar/control"
+                        elif name.startswith("embed."):
+                            group = "embed"
+                        elif name.startswith("attention2."):
+                            group = "attention2"
+                        elif name.startswith("attention."):
+                            group = "attention"
+                        elif name.startswith("interneuronNetwork.neurons."):
+                            group = "interneuronNetwork.neurons"
+                        elif name.startswith("interneuronNetwork.refinement2."):
+                            group = "interneuronNetwork.refinement2"
+                        elif name.startswith("interneuronNetwork.") and any(x in name for x in ["window", "cerebellum", "Window", "Cerebellum"]):
+                            group = "interneuronNetwork.window/cerebellum"
+                        elif name.startswith("interneuronNetwork."):
+                            if "neurons" in name:
+                                group = "interneuronNetwork.neurons"
+                            elif "refinement2" in name:
+                                group = "interneuronNetwork.refinement2"
+                            else:
+                                group = "interneuronNetwork.window/cerebellum"
+                        elif name.startswith("memory2."):
+                            group = "memory2"
+                        elif name.startswith("memory."):
+                            group = "memory"
+                        elif name.startswith("scratchpad."):
+                            group = "scratchpad"
+                        elif name.startswith("tangling."):
+                            group = "tangling"
+                        elif name.startswith("logits."):
+                            group = "logits"
+                        elif name.startswith("pixelPupil."):
+                            group = "pixelPupil"
+                        elif name.startswith("sensoryPupil."):
+                            group = "sensoryPupil"
+                        elif name.startswith("sensoryEmbed."):
+                            group = "sensoryEmbed"
+                        else:
+                            parts = name.split(".")
+                            if parts:
+                                group = parts[0]
+                            else:
+                                group = "other"
+
+                        if group not in groups:
+                            groups[group] = []
+                        groups[group].append(p.grad.data)
+
+                    total_sq_norm = 0.0
+                    group_l2_norms = {}
+                    for group_name, grads in groups.items():
+                        if not grads:
+                            continue
+                        sq_sum = 0.0
+                        for g in grads:
+                            sq_sum += float(g.norm(2).item()) ** 2
+                        total_sq_norm += sq_sum
+                        group_l2_norms[group_name] = sq_sum ** 0.5
+
+                    global_l2_norm = total_sq_norm ** 0.5
+
+                    sorted_groups = sorted(group_l2_norms.items(), key=lambda x: x[1], reverse=True)
+
+                    self.gradient_leaderboard = []
+                    for group_name, norm_val in sorted_groups[:20]:
+                        pct = (norm_val / global_l2_norm * 100.0) if global_l2_norm > 0 else 0.0
+                        self.gradient_leaderboard.append((group_name, float(norm_val), float(pct)))
+
             # --- MOVE GRAD SNAPSHOT/REPORTING HERE (after backward, before zero_grad) ---
             if collect_grad_stats:
                 grad_snapshot = self._snapshot_gradients()
@@ -1432,6 +1553,12 @@ class BABYLLM(nn.Module):
                 clipValue = (base_clip + adjustment).clamp(
                     min=0.5, max=2.0
                 )  # max was 10.0; back to ~2.0
+
+            # --- EMBED GRAD DIAGNOSTIC (pre-clip) ---
+            for _name, _p in self.embed.named_parameters():
+                if _p.grad is not None:
+                    _g = _p.grad.detach()
+                    print(f"EMBED PARAM GRAD {_name}: norm={_g.norm().item():.6f} max={_g.abs().max().item():.6f} mean={_g.abs().mean().item():.6f} nonzero={_g.count_nonzero().item()} numel={_g.numel()}")
 
             # Clip gradients BEFORE the lock to prevent NaNs
             total_grad_norm = torch.nn.utils.clip_grad_norm_(
