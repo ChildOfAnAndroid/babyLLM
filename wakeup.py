@@ -163,30 +163,91 @@ def wakeup(
                     os.environ["BBY_PUBLIC_URL"] = "https://childofanandroid.co.uk"
                     print(f"[UNIFIED] Auto-configured BBY_PUBLIC_URL: {os.environ['BBY_PUBLIC_URL']}")
 
-                # Check if SSH tunnel on port 4420 is already established, otherwise establish it
+                # Reuse the established reverse-tunnel host for both BabyLLM and
+                # icharis2's focused phone scanner. The scanner remains the
+                # canonical icharis2 app and database; wakeup only keeps its
+                # existing process and transport alive.
+                icharis_root = os.environ.get(
+                    "ICHARIS2_ROOT",
+                    "/Users/charis/Dropbox/00_Icharis/02_LAB/icharis2",
+                )
                 try:
-                    result = subprocess.run(["pgrep", "-f", "ssh.*4420"], capture_output=True, text=True)
-                    tunnel_exists = bool(result.stdout.strip())
-                except Exception:
-                    try:
-                        ps_res = subprocess.run(["ps", "-ef"], capture_output=True, text=True)
-                        tunnel_exists = any("ssh" in line and "4420" in line for line in ps_res.stdout.splitlines())
-                    except Exception:
-                        tunnel_exists = False
+                    health = subprocess.run(
+                        [
+                            "curl",
+                            "--fail",
+                            "--silent",
+                            "--max-time",
+                            "2",
+                            "http://127.0.0.1:8765/_capture_review_health",
+                        ],
+                        check=False,
+                    )
+                    icharis_running = health.returncode == 0
+                except OSError:
+                    icharis_running = False
+                if not icharis_running and os.path.isdir(icharis_root):
+                    print("[UNIFIED] starting icharis2 art scanner on port 8765...")
+                    subprocess.Popen(
+                        [
+                            sys.executable,
+                            "-m",
+                            "apps.capture_review",
+                            "serve",
+                            "--host",
+                            "127.0.0.1",
+                            "--port",
+                            "8765",
+                        ],
+                        cwd=icharis_root,
+                        stdin=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
 
-                if tunnel_exists:
-                    print("[UNIFIED] ssh tunnel for LLM server already established.")
-                else:
-                    print("[UNIFIED] establishing ssh tunnel for LLM server...")
+                tunnel_specs = (
+                    ("1420:127.0.0.1:4420", "BabyLLM API"),
+                    ("18765:127.0.0.1:8765", "icharis2 art scanner"),
+                )
+                missing_specs = []
+                for reverse_spec, label in tunnel_specs:
+                    try:
+                        result = subprocess.run(
+                            ["pgrep", "-f", f"ssh.*{reverse_spec}"],
+                            capture_output=True,
+                            text=True,
+                        )
+                        tunnel_exists = bool(result.stdout.strip())
+                    except OSError:
+                        tunnel_exists = False
+                    if tunnel_exists:
+                        print(f"[UNIFIED] ssh tunnel for {label} already established.")
+                    else:
+                        missing_specs.append(reverse_spec)
+
+                if missing_specs:
+                    print("[UNIFIED] establishing missing ssh reverse tunnels...")
+                    command = [
+                        "ssh",
+                        "-f",
+                        "-N",
+                        "-o",
+                        "ExitOnForwardFailure=yes",
+                        "-o",
+                        "ServerAliveInterval=30",
+                        "-o",
+                        "ServerAliveCountMax=3",
+                    ]
+                    for reverse_spec in missing_specs:
+                        command.extend(["-R", reverse_spec])
+                    command.append("midgard.loveangel1337.ovh")
                     try:
                         # ssh -f forks into the background, so subprocess.run returns immediately
-                        subprocess.run(
-                            ["ssh", "-f", "-N", "-R", "1420:127.0.0.1:4420", "midgard.loveangel1337.ovh"],
-                            check=True
-                        )
-                        print("[UNIFIED] ssh tunnel established successfully.")
+                        subprocess.run(command, check=True)
+                        print("[UNIFIED] missing ssh reverse tunnels established successfully.")
                     except subprocess.CalledProcessError as e:
-                        print(f"[ERROR] Failed to establish ssh tunnel: {e}")
+                        print(f"[ERROR] Failed to establish ssh reverse tunnels: {e}")
 
                 import asyncio
 
