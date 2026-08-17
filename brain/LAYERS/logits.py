@@ -59,7 +59,7 @@ class LOGITS(nn.Module):
             "normLayerMaxHist",
             "finalMaxHist",
         ]
-        if globals().get("diagnoseLogitHead", False):
+        if diagnoseLogitHead:
             self._history_attrs.extend([
                 "rawLogitOutputNormHist", "rawLogitOutputMeanHist", "rawLogitOutputStdHist", "rawLogitOutputMinHist", "rawLogitOutputMaxHist",
                 "finalLogitNormHist", "finalLogitMeanHist", "finalLogitStdHist", "finalLogitMinHist", "finalLogitMaxHist",
@@ -155,7 +155,7 @@ class LOGITS(nn.Module):
             # self.normLayerMaxHist.append(logitNormed.max().item())
             self.finalMaxHist.append(_f_stats[3])
 
-            if globals().get("diagnoseLogitHead", False):
+            if diagnoseLogitHead:
                 with torch.no_grad():
                     lo_norm = float(logitOutput.detach().norm().item())
                     lo_mean = float(logitOutput.detach().mean().item())
@@ -275,7 +275,7 @@ class LOGITS(nn.Module):
                     "7L_x_final_max": final_max,
                 }
 
-                if globals().get("diagnoseLogitHead", False):
+                if diagnoseLogitHead:
                     def get_mean(hist):
                         return sum(hist) / len(hist) if hist else 0.0
 
@@ -323,24 +323,21 @@ class LOGITS(nn.Module):
     @whocalled
     def getLogitStats(self):
         with self.counsellor.infodump("getLogitStats") as ʕっʘ‿ʘʔっ:
-            if globals().get("diagnoseLogitHead", False):
+            if diagnoseLogitHead:
                 with torch.no_grad():
-                    if hasattr(self, "logitNorm"):
-                        if hasattr(self.logitNorm, "weight") and self.logitNorm.weight is not None:
-                            w = self.logitNorm.weight.detach()
-                            self.stats["7L_5_logitNorm_weight_norm"] = float(w.norm().item())
-                            self.stats["7L_5_logitNorm_weight_mean"] = float(w.mean().item())
-                            self.stats["7L_5_logitNorm_weight_std"] = float(w.std().item())
-                            self.stats["7L_5_logitNorm_weight_min"] = float(w.min().item())
-                            self.stats["7L_5_logitNorm_weight_max"] = float(w.max().item())
-                        if hasattr(self.logitNorm, "bias") and self.logitNorm.bias is not None:
-                            b = self.logitNorm.bias.detach()
-                            self.stats["7L_5_logitNorm_bias_norm"] = float(b.norm().item())
-                            self.stats["7L_5_logitNorm_bias_mean"] = float(b.mean().item())
-                            self.stats["7L_5_logitNorm_bias_std"] = float(b.std().item())
-                            self.stats["7L_5_logitNorm_bias_min"] = float(b.min().item())
-                            self.stats["7L_5_logitNorm_bias_max"] = float(b.max().item())
-                if hasattr(self, "grad_stats") and self.grad_stats:
+                    w = self.logitNorm.weight.detach()
+                    self.stats["7L_5_logitNorm_weight_norm"] = float(w.norm().item())
+                    self.stats["7L_5_logitNorm_weight_mean"] = float(w.mean().item())
+                    self.stats["7L_5_logitNorm_weight_std"] = float(w.std().item())
+                    self.stats["7L_5_logitNorm_weight_min"] = float(w.min().item())
+                    self.stats["7L_5_logitNorm_weight_max"] = float(w.max().item())
+                    b = self.logitNorm.bias.detach()
+                    self.stats["7L_5_logitNorm_bias_norm"] = float(b.norm().item())
+                    self.stats["7L_5_logitNorm_bias_mean"] = float(b.mean().item())
+                    self.stats["7L_5_logitNorm_bias_std"] = float(b.std().item())
+                    self.stats["7L_5_logitNorm_bias_min"] = float(b.min().item())
+                    self.stats["7L_5_logitNorm_bias_max"] = float(b.max().item())
+                if self.grad_stats:
                     self.stats.update(self.grad_stats)
 
         return self.stats

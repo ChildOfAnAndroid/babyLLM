@@ -254,9 +254,7 @@ class BABYLLM(nn.Module):
         self.memoryLength = log_param_to_length(self.logMemoryLength)
         self.memory2Length = log_param_to_length(self.logMemory2Length)
 
-        self.freeze_legacy_pixel_embed = True
-        if self.freeze_legacy_pixel_embed:
-            self.embed.pixelEmbed.requires_grad_(False)
+        self.embed.pixelEmbed.requires_grad_(False)
 
         self.sensory_dim = 9
         self.sensory_pred_dim = self.sensory_dim + 1
@@ -641,6 +639,15 @@ class BABYLLM(nn.Module):
         except Exception:
             return 1.0
 
+    def _encode_char_tokens(self, token_indices):
+        padded_bytes = F.embedding(token_indices, self.char_lookup_data)
+        byte_mask = F.embedding(token_indices, self.char_mask_data)
+        embedded_chars = self.char_embed(padded_bytes) * byte_mask.unsqueeze(-1)
+        char_vectors = embedded_chars.sum(dim=1) / byte_mask.sum(
+            dim=1, keepdim=True
+        ).clamp(min=1.0)
+        return self.char_projector(char_vectors)
+
     @whocalled
     def forward(
         self,
@@ -729,28 +736,7 @@ class BABYLLM(nn.Module):
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("B0.5: charEmbeds (Super-Fast)")
 
-                # 1. Look up the byte-IDs (e.g., [1024, 16])
-                # We use F.embedding to look up data from our non-trainable buffer
-                padded_byte_tensor = F.embedding(_inputSeq, self.char_lookup_data)
-
-                # 2. Look up the padding mask (e.g., [1024, 16])
-                attention_mask = F.embedding(_inputSeq, self.char_mask_data)
-
-                # 3. Run all bytes through mini-layer
-                # [1024, 16] -> [1024, 16, 128]
-                # This works now because padded_byte_tensor is torch.long
-                embedded_chars = self.char_embed(padded_byte_tensor)
-
-                # 4. Calculate masked mean (all fast GPU ops)
-                # ... (this logic is unchanged) ...
-                embedded_chars = embedded_chars * attention_mask.unsqueeze(-1)
-                summed_vectors = embedded_chars.sum(dim=1)
-                real_lengths = attention_mask.sum(dim=1, keepdim=True).clamp(min=1.0)
-                char_vector_batch = summed_vectors / real_lengths
-
-                # 5. Project to final shape
-                # [1024, 128] -> [1024, 1024]
-                charEmbed = self.char_projector(char_vector_batch)
+                charEmbed = self._encode_char_tokens(_inputSeq)
 
                 char_scale = self._sensory_nudge(sensory_source, 7)
                 if char_scale != 1.0:
@@ -805,37 +791,7 @@ class BABYLLM(nn.Module):
                         ).flatten().clone()
 
                     if ar_input.numel() > 0:
-                        # SAME byte lookup, SAME char embedding,
-                        # SAME char projector as Baby already knows.
-                        ar_padded_bytes = F.embedding(
-                            ar_input,
-                            self.char_lookup_data,
-                        )
-                        ar_byte_mask = F.embedding(
-                            ar_input,
-                            self.char_mask_data,
-                        )
-
-                        ar_embedded_chars = self.char_embed(
-                            ar_padded_bytes
-                        )
-                        ar_embedded_chars = (
-                            ar_embedded_chars
-                            * ar_byte_mask.unsqueeze(-1)
-                        )
-
-                        ar_summed_chars = ar_embedded_chars.sum(dim=1)
-                        ar_real_lengths = (
-                            ar_byte_mask.sum(dim=1, keepdim=True)
-                            .clamp(min=1.0)
-                        )
-                        ar_char_vectors = (
-                            ar_summed_chars / ar_real_lengths
-                        )
-
-                        rollingChar = self.char_projector(
-                            ar_char_vectors
-                        )
+                        rollingChar = self._encode_char_tokens(ar_input)
 
                         if char_scale != 1.0:
                             rollingChar = rollingChar * char_scale
@@ -1716,7 +1672,7 @@ class BABYLLM(nn.Module):
             if not _run_optimizer:
                 return True
 
-            if globals().get("diagnoseLogitHead", False):
+            if diagnoseLogitHead:
                 def _grad_norm_or_zero(param):
                     grad = getattr(param, "grad", None)
                     if grad is None:
@@ -1736,7 +1692,7 @@ class BABYLLM(nn.Module):
                         if hasattr(self.logits.logitNorm, "bias") and self.logits.logitNorm.bias is not None:
                             self.logits.grad_stats["grad_norm_logits.logitNorm.bias"] = _grad_norm_or_zero(self.logits.logitNorm.bias)
 
-            if globals().get("diagnoseGradientSources", False):
+            if diagnoseGradientSources:
                 with torch.no_grad():
                     groups = {
                         "embed": [],

@@ -7598,9 +7598,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
         response_text, _ = await self._generate_response_async(prompt, 8)
         guess = self._extract_numeric_answer(response_text)
-        res = guess == expected, guess, response_text
-        mps_trace("MATH_EVAL_AFTER", f"correct={res[0]} guess={guess}")
-        return res
+        correct = guess == expected
+        mps_trace("MATH_EVAL_AFTER", f"correct={correct} guess={guess}")
+        return correct, guess, response_text
 
     def _format_baby_maths_response_text(self, response_text: str) -> str:
         text = str(response_text or "")

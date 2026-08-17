@@ -1472,7 +1472,7 @@ class TUTOR:
                                 f"{self.model._ar_raw_last.norm().item():.4f} / "
                                 f"{self.model._ar_applied_last.norm().item():.4f}"
                             )
-                        if globals().get("diagnoseLogitHead", False):
+                        if diagnoseLogitHead:
                             logit_stats = self.model.logits.getLogitStats()
                             print(f" - LOGITS Head Diagnostics:")
                             print(f"   * Raw pre-LN logitOutput: mean={logit_stats.get('7L_3_rawLogitOutput_mean', 0.0):.6f}, std={logit_stats.get('7L_3_rawLogitOutput_std', 0.0):.6f}, norm={logit_stats.get('7L_3_rawLogitOutput_norm', 0.0):.6f}, min={logit_stats.get('7L_3_rawLogitOutput_min', 0.0):.6f}, max={logit_stats.get('7L_3_rawLogitOutput_max', 0.0):.6f}")
@@ -1486,7 +1486,7 @@ class TUTOR:
                             if "grad_norm_logits.logitNorm.weight" in logit_stats or "grad_norm_logits.logitNorm.bias" in logit_stats:
                                 print(f"     - logitNorm.weight:     {logit_stats.get('grad_norm_logits.logitNorm.weight', 0.0):.6f}")
                                 print(f"     - logitNorm.bias:       {logit_stats.get('grad_norm_logits.logitNorm.bias', 0.0):.6f}")
-                        if globals().get("diagnoseGradientSources", False) and hasattr(self.model, "gradient_leaderboard"):
+                        if diagnoseGradientSources and hasattr(self.model, "gradient_leaderboard"):
                             print(f" - Top Module Gradient Norms (Pre-Clipping):")
                             for idx, (group_name, norm_val, pct) in enumerate(self.model.gradient_leaderboard):
                                 print(f"   {idx+1:>2}. {group_name:<35}: {norm_val:.6f} ({pct:.2f}%)")

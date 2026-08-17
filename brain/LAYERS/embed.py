@@ -20,6 +20,7 @@ class EMBED(nn.Module):
         self.counsellor = _counsellor
         self.device = _device
         self.stats = {}
+        self._looking_glass = {}
 
         """creates the embedding weights matrix with random numbers initially"""
         self.e_weights = nn.Parameter(
@@ -75,13 +76,6 @@ class EMBED(nn.Module):
                 self.embedVector = self.e_weights[_tokenIndex]
             if debugPrints:
                 ʕっʘ‿ʘʔっ("E1_embedNormed")  # <- E1
-            # EXPERIMENT: complementary affine split.
-            # Learned gamma and beta both remain active and trainable, but
-            # never act on the same feature coordinate.
-            _affine_idx = torch.arange(
-                self.embedNorm.weight.numel(),
-                device=self.embedNorm.weight.device,
-            )
             # EXPERIMENT: shared beta detour.
             #
             # Gamma and beta are once again fully shared across ALL
@@ -132,8 +126,6 @@ class EMBED(nn.Module):
                     "norm2": _std_profile(normalized),
                 }
 
-                if not hasattr(self, "_looking_glass"):
-                    self._looking_glass = {}
                 self._looking_glass[kind] = trace
 
             self.embedFinal = self.embedVector + normalized
@@ -151,7 +143,7 @@ class EMBED(nn.Module):
                 self.stats = {}
 
                 # Latest detached token/pixel normalization geometry.
-                looking_glass = getattr(self, "_looking_glass", {})
+                looking_glass = self._looking_glass
                 for kind in ("token", "pixel"):
                     trace = looking_glass.get(kind)
                     if trace:
