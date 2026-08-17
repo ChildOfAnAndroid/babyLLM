@@ -30,6 +30,7 @@ from config import *
 from phone.command_utils import get_status_line, get_thought_line, strip_ansi
 from secret import *
 from textCleaningTool import *
+from utils.mps_trace import mps_trace
 
 from .data_manager import data_manager
 from .logger import logger
@@ -61,7 +62,6 @@ try:
     from school.staffroom.VOCABULARY_SENTIMENT_INTEGRATION import (
         BabyNeuralSentimentIntegration,
         analyse_message_sentiment_enhanced,
-        get_enhanced_token_sentiment,
     )
 
     ENHANCED_SENTIMENT_AVAILABLE = True
@@ -995,6 +995,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         Tokenizes and crops the prompt to MAXwindow before generation.
         Returns a tuple: (generated_text: str, error_message: Optional[str])
         """
+        mps_trace("GENERATION_START", f"prompt_len_chars={len(prompt_text)} num_tokens_to_gen={numTokensToGen}")
         start_time = time.time()
         # Tokenize and crop prompt to MAXwindow
         tokenizer = self.bot.librarian.tokenizer
@@ -1247,12 +1248,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             )
             if oom_error_message:
                 perf_monitor.record_metric("generation_oom_errors", 1)
+            mps_trace("GENERATION_END", f"generated_tokens={len(responseSeqId)} time={generation_time:.2f}s success=True")
             return (babyllm_text, oom_error_message)
         except Exception as e:
             generation_time = time.time() - start_time
             perf_monitor.record_metric("generation_errors", 1)
             logger.error("GENERATE", f"error during generation: {e}")
             traceback.print_exc()
+            mps_trace("GENERATION_END", f"time={generation_time:.2f}s success=False error={e}")
             return ("", f"ERROR: {e}")
 
     def _estimate_conversational_reply_budget(self, user_input: str) -> int:
@@ -7586,6 +7589,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
 
     async def _evaluate_baby_maths_answer(self, expr: str, expected: int):
+        mps_trace("MATH_EVAL_BEFORE", f"expr={expr} expected={expected}")
         question_line = self._format_maths_question_line(expr)
         prompt = (
             "maths test. answer with only the final number in digits.\n"
@@ -7594,7 +7598,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
         response_text, _ = await self._generate_response_async(prompt, 8)
         guess = self._extract_numeric_answer(response_text)
-        return guess == expected, guess, response_text
+        res = guess == expected, guess, response_text
+        mps_trace("MATH_EVAL_AFTER", f"correct={res[0]} guess={guess}")
+        return res
 
     def _format_baby_maths_response_text(self, response_text: str) -> str:
         text = str(response_text or "")
@@ -8865,6 +8871,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     async def _evaluate_baby_quiz_answer(self, question: dict):
         q = question if isinstance(question, dict) else {}
+        mps_trace("QUIZ_EVAL_BEFORE", f"prompt={q.get('prompt', '?')}")
         prompt = (
             "quiz time. answer in a short phrase only.\n"
             f"topic: {q.get('topic', 'general')}\n"
@@ -8873,6 +8880,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
         response_text, _ = await self._generate_response_async(prompt, 14)
         correct, parsed = self._score_bbyquiz_answer(q, response_text)
+        mps_trace("QUIZ_EVAL_AFTER", f"correct={correct} parsed={parsed}")
         return correct, parsed, response_text
 
     def _pick_bbyquiz_question(

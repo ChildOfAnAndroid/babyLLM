@@ -6,8 +6,8 @@
 
 import discord
 
-from ..utils import to_british_english, split_markdown_message
-from .base import PlatformAdapter, PlatformContext, PlatformMessage
+from ..utils import to_british_english, split_markdown_message, send_chunks_ordered
+from .base import PlatformAdapter, PlatformMessage
 
 
 class DiscordAdapter(PlatformAdapter):
@@ -35,8 +35,11 @@ class DiscordAdapter(PlatformAdapter):
             if channel:
                 text = to_british_english(str(content or ""))
                 chunks = split_markdown_message(text)
-                for chunk in chunks:
-                    await channel.send(chunk)
+                if chunks:
+                    async def _do_send(chks):
+                        for chunk in chks:
+                            await channel.send(chunk)
+                    await send_chunks_ordered(self.bot, channel.id, chunks, _do_send)
         except Exception as e:
             print(f"[DiscordAdapter] Error sending message: {e}")
 
@@ -48,9 +51,11 @@ class DiscordAdapter(PlatformAdapter):
                 text = to_british_english(str(content or ""))
                 chunks = split_markdown_message(text)
                 if chunks:
-                    await discord_msg.reply(chunks[0])
-                    for chunk in chunks[1:]:
-                        await discord_msg.channel.send(chunk)
+                    async def _do_reply(chks):
+                        await discord_msg.reply(chks[0])
+                        for chunk in chks[1:]:
+                            await discord_msg.channel.send(chunk)
+                    await send_chunks_ordered(self.bot, discord_msg.channel.id, chunks, _do_reply)
         except Exception as e:
             print(f"[DiscordAdapter] Error replying: {e}")
 

@@ -4,8 +4,6 @@
 # brain/LAYERS/logits.py
 # v1.1
 
-from collections import deque
-
 import torch
 import torch.nn as nn
 
@@ -33,6 +31,7 @@ class LOGITS(nn.Module):
 
         self.logitNorm = nn.LayerNorm(vocabSize, device=self.device)
 
+        self.grad_stats = {}
         self.stats = {}
         self._history_attrs = [
             "tensorNormHist",
@@ -60,6 +59,12 @@ class LOGITS(nn.Module):
             "normLayerMaxHist",
             "finalMaxHist",
         ]
+        if globals().get("diagnoseLogitHead", False):
+            self._history_attrs.extend([
+                "rawLogitOutputNormHist", "rawLogitOutputMeanHist", "rawLogitOutputStdHist", "rawLogitOutputMinHist", "rawLogitOutputMaxHist",
+                "finalLogitNormHist", "finalLogitMeanHist", "finalLogitStdHist", "finalLogitMinHist", "finalLogitMaxHist",
+                "rawToFinalNormRatioHist", "rawToFinalStdRatioHist"
+            ])
         init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
 
@@ -150,6 +155,38 @@ class LOGITS(nn.Module):
             # self.normLayerMaxHist.append(logitNormed.max().item())
             self.finalMaxHist.append(_f_stats[3])
 
+            if globals().get("diagnoseLogitHead", False):
+                with torch.no_grad():
+                    lo_norm = float(logitOutput.detach().norm().item())
+                    lo_mean = float(logitOutput.detach().mean().item())
+                    lo_std = float(logitOutput.detach().std().item())
+                    lo_min = float(logitOutput.detach().min().item())
+                    lo_max = float(logitOutput.detach().max().item())
+
+                    fl_norm = float(finalLogit.detach().norm().item())
+                    fl_mean = float(finalLogit.detach().mean().item())
+                    fl_std = float(finalLogit.detach().std().item())
+                    fl_min = float(finalLogit.detach().min().item())
+                    fl_max = float(finalLogit.detach().max().item())
+
+                    ratio_norm = lo_norm / fl_norm if fl_norm != 0 else 0.0
+                    ratio_std = lo_std / fl_std if fl_std != 0 else 0.0
+
+                    self.rawLogitOutputNormHist.append(lo_norm)
+                    self.rawLogitOutputMeanHist.append(lo_mean)
+                    self.rawLogitOutputStdHist.append(lo_std)
+                    self.rawLogitOutputMinHist.append(lo_min)
+                    self.rawLogitOutputMaxHist.append(lo_max)
+
+                    self.finalLogitNormHist.append(fl_norm)
+                    self.finalLogitMeanHist.append(fl_mean)
+                    self.finalLogitStdHist.append(fl_std)
+                    self.finalLogitMinHist.append(fl_min)
+                    self.finalLogitMaxHist.append(fl_max)
+
+                    self.rawToFinalNormRatioHist.append(ratio_norm)
+                    self.rawToFinalStdRatioHist.append(ratio_std)
+
             if len(self.tensorHist) >= self.numTokensPerStep:
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("clear rolling self.stats at end of window")
@@ -238,6 +275,27 @@ class LOGITS(nn.Module):
                     "7L_x_final_max": final_max,
                 }
 
+                if globals().get("diagnoseLogitHead", False):
+                    def get_mean(hist):
+                        return sum(hist) / len(hist) if hist else 0.0
+
+                    self.stats.update({
+                        "7L_3_rawLogitOutput_norm": get_mean(self.rawLogitOutputNormHist),
+                        "7L_3_rawLogitOutput_mean": get_mean(self.rawLogitOutputMeanHist),
+                        "7L_3_rawLogitOutput_std": get_mean(self.rawLogitOutputStdHist),
+                        "7L_3_rawLogitOutput_min": get_mean(self.rawLogitOutputMinHist),
+                        "7L_3_rawLogitOutput_max": get_mean(self.rawLogitOutputMaxHist),
+
+                        "7L_4_finalLogit_norm": get_mean(self.finalLogitNormHist),
+                        "7L_4_finalLogit_mean": get_mean(self.finalLogitMeanHist),
+                        "7L_4_finalLogit_std": get_mean(self.finalLogitStdHist),
+                        "7L_4_finalLogit_min": get_mean(self.finalLogitMinHist),
+                        "7L_4_finalLogit_max": get_mean(self.finalLogitMaxHist),
+
+                        "7L_6_raw_to_final_norm_ratio": get_mean(self.rawToFinalNormRatioHist),
+                        "7L_6_raw_to_final_std_ratio": get_mean(self.rawToFinalStdRatioHist),
+                    })
+
                 for attr in self._history_attrs:
                     getattr(self, attr).clear()
 
@@ -265,39 +323,25 @@ class LOGITS(nn.Module):
     @whocalled
     def getLogitStats(self):
         with self.counsellor.infodump("getLogitStats") as ʕっʘ‿ʘʔっ:
-            """with torch.no_grad():
-                if debugPrints: ʕっʘ‿ʘʔっ("weightNormStats")
-                weightNorms = torch.norm(self.l_weights.detach(), dim = 0)
-                self.stats["logitWeightNormMean"] = weightNorms.mean().item()
-                self.stats["logitWeightNormStd"] = weightNorms.std().item()
-                self.stats["logitWeightNormMax"] = weightNorms.max().item()
-
-                # scales (dont need on per token history as only updated in backward)
-                self.stats["7L_0_actsTensor_scale"] = self.rawActivationsScale.norm().item()
-                self.stats["7L_1_normActsTensor_scale"] = self.normedActivationsScale.norm().item()
-
-                if debugPrints: ʕっʘ‿ʘʔっ("sparsityStat")
-                sparsity = (self.l_weights.detach().abs() < 1e-5).float().mean().item()
-                self.stats["logitWeightSparsity"] = sparsity
-
-                if debugPrints: ʕっʘ‿ʘʔっ("weightDriftStat")
-                drift = torch.norm(self.l_weights.detach() - self.lastSavedWeights)
-                self.stats["logitWeightDrift"] = drift
-                self.lastSavedWeights = self.l_weights.clone().detach()
-
-                if debugPrints: ʕっʘ‿ʘʔっ("biasStats")
-                self.stats["logitBiasMean"] = self.l_bias.mean().item()
-                self.stats["logitBiasStd"] = self.l_bias.std().item()
-                self.stats["logitBiasMax"] = self.l_bias.max().item()
-
-                if hasattr(self, 'latestActivations'):
-                    if debugPrints: ʕっʘ‿ʘʔっ("activationStats")
-                    act = self.latestActivations
-                    self.stats["activationStd"] = act.std().item()
-                    self.stats["activationMean"] = act.mean().item()
-                    self.stats["activationMax"] = act.max().item()
-                    self.stats["activationMin"] = act.min().item()
-                    self.stats["activationSparsity"] = (act.abs() < 1e-6).float().mean().item()"""
+            if globals().get("diagnoseLogitHead", False):
+                with torch.no_grad():
+                    if hasattr(self, "logitNorm"):
+                        if hasattr(self.logitNorm, "weight") and self.logitNorm.weight is not None:
+                            w = self.logitNorm.weight.detach()
+                            self.stats["7L_5_logitNorm_weight_norm"] = float(w.norm().item())
+                            self.stats["7L_5_logitNorm_weight_mean"] = float(w.mean().item())
+                            self.stats["7L_5_logitNorm_weight_std"] = float(w.std().item())
+                            self.stats["7L_5_logitNorm_weight_min"] = float(w.min().item())
+                            self.stats["7L_5_logitNorm_weight_max"] = float(w.max().item())
+                        if hasattr(self.logitNorm, "bias") and self.logitNorm.bias is not None:
+                            b = self.logitNorm.bias.detach()
+                            self.stats["7L_5_logitNorm_bias_norm"] = float(b.norm().item())
+                            self.stats["7L_5_logitNorm_bias_mean"] = float(b.mean().item())
+                            self.stats["7L_5_logitNorm_bias_std"] = float(b.std().item())
+                            self.stats["7L_5_logitNorm_bias_min"] = float(b.min().item())
+                            self.stats["7L_5_logitNorm_bias_max"] = float(b.max().item())
+                if hasattr(self, "grad_stats") and self.grad_stats:
+                    self.stats.update(self.grad_stats)
 
         return self.stats
 

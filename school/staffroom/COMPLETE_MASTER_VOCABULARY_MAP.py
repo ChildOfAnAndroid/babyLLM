@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 def load_complete_baby_vocabulary():
     """Load baby's complete 4200 token vocabulary"""
     try:
-        vocab_path = "/Users/charis/Dropbox/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/vocabCache/vocab4200_20_to_token.json"
+        vocab_path = "/Users/charis/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/vocabCache/vocab4200_20_to_token.json"
         with open(vocab_path, "r") as f:
             vocab = json.load(f)
 

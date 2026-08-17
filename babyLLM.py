@@ -5,7 +5,6 @@
 
 import math
 import os
-import random
 import threading
 import time
 from collections import deque
@@ -99,6 +98,14 @@ class BABYLLM(nn.Module):
         self.targetTokenFromTutor = None
         self.last_grad_norm_before_clip = 0.0
         self.last_grad_norm_after_clip = 0.0
+
+        # BABY EXCITEMENT MICROSCOPE
+        # Pure telemetry: no parameters, no graph hooks, no loss changes.
+        # Token CE records accumulate across gradient-accumulation chunks and
+        # are cleared only after the optimiser step they belong to.
+        self._excite_threshold = 1.0
+        self._excite_token_losses = deque(maxlen=512)
+        self._excite_last_blend = None
 
         self.stats = {}
         history_maxlen = max(1, self.numTokensPerStep)
@@ -303,6 +310,43 @@ class BABYLLM(nn.Module):
             self.temperature_scale.fill_(1e-5)
             self.temperature_bias.zero_()
             self.temperature_vector.fill_(1e-5)
+        # === AR TEMPORAL TANGLE ==========================================
+        # Static/horizon Baby remains intact.
+        #
+        # Rolling chronology enters through the EXISTING character language,
+        # tangles with EXISTING position, compresses through a shared 512-D
+        # dialect, then fans into individually gated existing neurons.
+        self.ar_width = 512
+
+        self.ar_throat = nn.Linear(
+            embedDimension,
+            self.ar_width,
+            bias=False,
+            device=self.device,
+        )
+        self.ar_expand = nn.Linear(
+            self.ar_width,
+            numNeurons,
+            bias=False,
+            device=self.device,
+        )
+        self.ar_neuron_gate = nn.ParameterList(
+            [
+                nn.Parameter(
+                    torch.full(
+                        (numNeurons,),
+                        -4.5,
+                        device=self.device,
+                    )
+                )
+            ]
+        )
+
+        self._ar_braid_last = None
+        self._ar_raw_last = None
+        self._ar_applied_last = None
+        # === END AR TEMPORAL TANGLE =====================================
+
         """self.transformer_block = nn.TransformerEncoderLayer(
             d_model=embedDimension, 
             nhead=8,  # A reasonable number of attention heads
@@ -388,6 +432,194 @@ class BABYLLM(nn.Module):
                 break
         return snapshot
 
+    def _excite_token_name(self, token_id):
+        try:
+            token = self.librarian.indexToToken.get(int(token_id), f"<{int(token_id)}>")
+            return repr(str(token).replace("\n", "\\n"))
+        except Exception:
+            return repr(f"<{token_id}>")
+
+    def _excite_current_grad_norm(self):
+        """Measure current global L2 grad norm WITHOUT modifying gradients."""
+        total_sq = 0.0
+        with torch.no_grad():
+            for p in self.parameters():
+                if p.grad is None:
+                    continue
+                g = p.grad.detach()
+                if not torch.isfinite(g).all():
+                    return float("inf")
+                n = float(g.norm(2).item())
+                total_sq += n * n
+        return total_sq ** 0.5
+
+    def _print_excitement_report(self, preclip_norm, clip_value):
+        """Rare-event microscope. Called BEFORE clip_grad_norm_."""
+        try:
+            print("\n" + "=" * 74)
+            print("🚨 BABY EXCITEMENT — PRE-CLIP MICROSCOPE")
+            print("=" * 74)
+            print(
+                f"global preclip={preclip_norm:.6f} | "
+                f"clip target={float(clip_value):.6f} | "
+                f"would scale≈{min(1.0, float(clip_value) / max(preclip_norm, 1e-12)):.6f}"
+            )
+
+            # A. WHO IS SHOUTING? — top individual trainable parameters.
+            param_rows = []
+            with torch.no_grad():
+                for name, p in self.named_parameters():
+                    if p.grad is None:
+                        continue
+                    g = p.grad.detach()
+                    if not torch.isfinite(g).all():
+                        norm = float("inf")
+                        mx = float("inf")
+                    else:
+                        norm = float(g.norm().item())
+                        mx = float(g.abs().max().item())
+                    param_rows.append((norm, mx, name, p.numel()))
+
+            param_rows.sort(key=lambda row: row[0], reverse=True)
+
+            print("\nTOP INDIVIDUAL PARAMETER GRADIENTS")
+            for norm, mx, name, numel in param_rows[:15]:
+                pct = (norm / preclip_norm * 100.0) if preclip_norm > 0 else 0.0
+                print(
+                    f"  {name:<52} "
+                    f"norm={norm:>10.6f}  max={mx:>10.6f}  "
+                    f"{pct:>6.2f}%  n={numel}"
+                )
+
+            # B. EXACT INPUT-BLEND ARGUMENT.
+            print("\nINPUT NEGOTIATION")
+            blend_names = ("token", "position", "rgb/state")
+            blend_grad = getattr(self.inputBlend, "grad", None)
+            blend_now = self._excite_last_blend
+
+            if blend_grad is not None:
+                vals = blend_grad.detach().flatten().cpu().tolist()
+                for i, label in enumerate(blend_names):
+                    current = (
+                        float(blend_now[i])
+                        if blend_now is not None and i < len(blend_now)
+                        else float("nan")
+                    )
+                    grad = float(vals[i]) if i < len(vals) else float("nan")
+                    desire = "↑ MORE" if grad < 0 else "↓ LESS" if grad > 0 else "·"
+                    # Gradient descent moves opposite the gradient.
+                    print(
+                        f"  {label:<10} blend={current:>9.6f}  "
+                        f"dL/dw={grad:>+11.6f}  optimiser tendency: {desire}"
+                    )
+
+            char_grad = getattr(self.charBlendWeight, "grad", None)
+            if char_grad is not None:
+                grad = float(char_grad.detach().flatten()[0].item())
+                current = (
+                    float(blend_now[3])
+                    if blend_now is not None and len(blend_now) > 3
+                    else float("nan")
+                )
+                desire = "↑ MORE" if grad < 0 else "↓ LESS" if grad > 0 else "·"
+                print(
+                    f"  {'char':<10} blend={current:>9.6f}  "
+                    f"dL/dw={grad:>+11.6f}  optimiser tendency: {desire}"
+                )
+
+            # C. Small learned controls: automatically discover them rather
+            # than maintaining a brittle hard-coded list.
+            controls = []
+            with torch.no_grad():
+                for name, p in self.named_parameters():
+                    if p.grad is None or p.numel() > 16:
+                        continue
+                    g = p.grad.detach()
+                    if not torch.isfinite(g).all():
+                        norm = float("inf")
+                    else:
+                        norm = float(g.norm().item())
+                    controls.append((norm, name, p.detach(), g))
+
+            controls.sort(key=lambda row: row[0], reverse=True)
+
+            print("\nSMALL / SCALAR CONTROLS")
+            for norm, name, value, grad in controls[:15]:
+                v = value.flatten().cpu().tolist()
+                g = grad.flatten().cpu().tolist()
+                vtxt = ",".join(f"{float(x):+.4g}" for x in v[:8])
+                gtxt = ",".join(f"{float(x):+.4g}" for x in g[:8])
+                if len(v) > 8:
+                    vtxt += ",…"
+                    gtxt += ",…"
+                print(
+                    f"  {name:<42} norm={norm:>9.6f}  "
+                    f"value=[{vtxt}] grad=[{gtxt}]"
+                )
+
+            # D. Which token predictions contributed the largest raw CE to
+            # THIS accumulated optimiser step?
+            print("\nWORST RAW TOKEN CE IN THIS OPTIMISER STEP")
+            records = sorted(
+                list(self._excite_token_losses),
+                key=lambda r: r["ce"],
+                reverse=True,
+            )
+            for rec in records[:12]:
+                tail = " ".join(
+                    self._excite_token_name(t)
+                    for t in rec.get("context_tail", [])
+                )
+                print(
+                    f"  pos={rec['position']:<4} "
+                    f"target={self._excite_token_name(rec['target']):<22} "
+                    f"CE={rec['ce']:>8.4f}"
+                )
+                if tail:
+                    print(f"       context tail: {tail}")
+
+            if records:
+                ces = [r["ce"] for r in records]
+                print(
+                    f"  recorded={len(records)} | "
+                    f"CE mean={sum(ces)/len(ces):.4f} | "
+                    f"max={max(ces):.4f}"
+                )
+
+            # E. What did the world look like while this argument happened?
+            print("\nCURRENT SENSORY STATE")
+            sensory_names = (
+                "global_light",
+                "noise",
+                "time_of_day",
+                "interaction_recency",
+                "training_age",
+                "global_motion",
+                "left_right_bias",
+                "top_bottom_bias",
+                "contrast_intrusion",
+            )
+            sensory = getattr(self, "latest_sensory_vector", None)
+            if sensory is not None:
+                vals = sensory.detach().flatten().cpu().tolist()
+                for name, val in zip(sensory_names, vals):
+                    print(f"  {name:<24} {float(val):.6f}")
+            else:
+                print("  (no current sensory vector)")
+
+            temp = getattr(self, "latest_device_temp_c", None)
+            if temp is not None:
+                try:
+                    print(f"  {'device_temp':<24} {float(temp.detach().item()):.6f}")
+                except Exception:
+                    pass
+
+            print("=" * 74 + "\n")
+
+        except Exception as exc:
+            # A diagnostic must NEVER get to break training.
+            print(f"[BABY EXCITEMENT microscope failed safely: {exc!r}]")
+
     def _sensory_nudge(self, vector, index: int, max_pct: float = 0.02) -> float:
         try:
             if vector is None:
@@ -410,7 +642,13 @@ class BABYLLM(nn.Module):
             return 1.0
 
     @whocalled
-    def forward(self, _inputSeq=None, _pixel=None, _use_lock: bool = True):
+    def forward(
+        self,
+        _inputSeq=None,
+        _pixel=None,
+        _use_lock: bool = True,
+        _arInputSeq=None,
+    ):
         with (
             self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ
         ):  # processes input sequence of tokens (str) to generate logits to predict the next token
@@ -531,6 +769,155 @@ class BABYLLM(nn.Module):
                 if pos_scale != 1.0:
                     posEmbed = posEmbed * pos_scale
 
+                # === AR TEMPORAL TANGLE: rolling CHAR × POSITION ==========
+                self._ar_braid_last = None
+                self._ar_raw_last = None
+                self._ar_applied_last = None
+                ar_applied = None
+
+                # During training Tutor supplies an independent rolling
+                # chronology. During normal generation the ordinary context
+                # already rolls, so use that as the temporal source.
+                ar_source_seq = (
+                    _inputSeq
+                    if _arInputSeq is None
+                    else _arInputSeq
+                )
+
+                if ar_source_seq is not None:
+                    if torch.is_tensor(ar_source_seq):
+                        # Tutor mutates its rolling buffer before chunk backward,
+                        # therefore forward owns an immutable index snapshot.
+                        ar_input = (
+                            ar_source_seq.detach()
+                            .to(
+                                device=tokenEmbed.device,
+                                dtype=torch.long,
+                            )
+                            .flatten()
+                            .clone()
+                        )
+                    else:
+                        ar_input = torch.as_tensor(
+                            ar_source_seq,
+                            device=tokenEmbed.device,
+                            dtype=torch.long,
+                        ).flatten().clone()
+
+                    if ar_input.numel() > 0:
+                        # SAME byte lookup, SAME char embedding,
+                        # SAME char projector as Baby already knows.
+                        ar_padded_bytes = F.embedding(
+                            ar_input,
+                            self.char_lookup_data,
+                        )
+                        ar_byte_mask = F.embedding(
+                            ar_input,
+                            self.char_mask_data,
+                        )
+
+                        ar_embedded_chars = self.char_embed(
+                            ar_padded_bytes
+                        )
+                        ar_embedded_chars = (
+                            ar_embedded_chars
+                            * ar_byte_mask.unsqueeze(-1)
+                        )
+
+                        ar_summed_chars = ar_embedded_chars.sum(dim=1)
+                        ar_real_lengths = (
+                            ar_byte_mask.sum(dim=1, keepdim=True)
+                            .clamp(min=1.0)
+                        )
+                        ar_char_vectors = (
+                            ar_summed_chars / ar_real_lengths
+                        )
+
+                        rollingChar = self.char_projector(
+                            ar_char_vectors
+                        )
+
+                        if char_scale != 1.0:
+                            rollingChar = rollingChar * char_scale
+
+                        ar_len = min(
+                            int(rollingChar.shape[0]),
+                            int(charEmbed.shape[0]),
+                            int(posEmbed.shape[0]),
+                        )
+
+                        if ar_len > 0:
+                            rolling_now = rollingChar[-ar_len:]
+                            static_now = charEmbed[-ar_len:]
+                            ar_pos = posEmbed[-ar_len:]
+
+                            # Two views through ONE shared temporal dialect:
+                            #
+                            # 1. rolling chronology itself
+                            # 2. what chronology knows that frozen Baby does not
+                            #
+                            # In live generation #2 naturally becomes ~zero,
+                            # while #1 remains available.
+                            ar_roll_norm = F.layer_norm(
+                                rolling_now,
+                                (rolling_now.shape[-1],),
+                            )
+
+                            ar_delta = rolling_now - static_now
+                            ar_delta_norm = F.layer_norm(
+                                ar_delta,
+                                (ar_delta.shape[-1],),
+                            )
+
+                            ar_pos_norm = F.layer_norm(
+                                ar_pos,
+                                (ar_pos.shape[-1],),
+                            )
+
+                            # SAME 1024→512 throat for all three.
+                            ar_roll_small = self.ar_throat(
+                                ar_roll_norm
+                            )
+                            ar_delta_small = self.ar_throat(
+                                ar_delta_norm
+                            )
+                            ar_pos_small = self.ar_throat(
+                                ar_pos_norm
+                            )
+
+                            # Direct chronology + divergence,
+                            # then positional multiplicative tangle.
+                            ar_temporal_small = torch.tanh(
+                                ar_roll_small + ar_delta_small
+                            )
+
+                            ar_braid = (
+                                ar_temporal_small
+                                * torch.tanh(ar_pos_small)
+                            ).mean(dim=0, keepdim=True)
+
+                            ar_braid = F.layer_norm(
+                                ar_braid,
+                                (self.ar_width,),
+                            )
+
+                            ar_neurons = self.ar_expand(
+                                ar_braid
+                            )
+
+                            ar_gate = torch.sigmoid(
+                                self.ar_neuron_gate[0]
+                            ).unsqueeze(0)
+
+                            ar_applied = ar_gate * ar_neurons
+
+                            self._ar_braid_last = ar_braid.detach()
+                            self._ar_raw_last = ar_neurons.detach()
+                            self._ar_applied_last = (
+                                ar_applied.detach()
+                            )
+                # === END AR TEMPORAL TANGLE ================================
+
                 all_blend_weights = torch.cat(
                     [self.inputBlend, self.charBlendWeight], dim=0
                 )
@@ -540,6 +927,11 @@ class BABYLLM(nn.Module):
                     blend = blend.clone()
                     blend[2] = blend[2] * noise_scale
                     blend = blend / blend.sum().clamp_min(1e-6)
+
+                # Snapshot current blend for rare excitement reports.
+                # Token position/context belongs to TUTOR, which actually
+                # knows which target this forward pass is predicting.
+                self._excite_last_blend = blend.detach().cpu().tolist()
 
                 if not skipPixels and (_pixel is not None):
                     legacy_rgb_embed = self.embed(_pixel=_pixel)
@@ -595,6 +987,10 @@ class BABYLLM(nn.Module):
                 if True:
                     interneuron_output = self.interneuronNetwork.forward(inputEmbeds)
                     INNOutput = interneuron_output + self.attention2(interneuron_output)
+
+                    # Extra chronology only; established neuron state survives.
+                    if ar_applied is not None:
+                        INNOutput = INNOutput + ar_applied
 
                     # TANGLING STAGE 2: Refine neurons (10k-dim) via attention2
                     if enableTangling:
@@ -721,6 +1117,27 @@ class BABYLLM(nn.Module):
                             # 3. The norm of the mini-layer's *projector weights*
                             "B_charProj_W_norm": self.char_projector.weight.norm().item(),
                         }
+
+                        if self._ar_braid_last is not None:
+                            with torch.no_grad():
+                                _ar_gates = torch.sigmoid(
+                                    self.ar_neuron_gate[0]
+                                )
+                                _ar_values = torch.stack(
+                                    [
+                                        _ar_gates.mean(),
+                                        _ar_gates.max(),
+                                        self._ar_braid_last.norm(),
+                                        self._ar_raw_last.norm(),
+                                        self._ar_applied_last.norm(),
+                                    ]
+                                ).tolist()
+
+                            self.forwardStats["AR_gate_mean"] = _ar_values[0]
+                            self.forwardStats["AR_gate_max"] = _ar_values[1]
+                            self.forwardStats["AR_braid_norm"] = _ar_values[2]
+                            self.forwardStats["AR_raw_neuron_norm"] = _ar_values[3]
+                            self.forwardStats["AR_applied_neuron_norm"] = _ar_values[4]
 
                         self.forwardStats["B_sensory_gate"] = self.sensory_gate_used
                         _fwd_stats = torch.stack(
@@ -1352,7 +1769,9 @@ class BABYLLM(nn.Module):
                             continue
                         
                         group = "other"
-                        if any(k in name for k in control_param_names) or p.numel() == 1:
+                        if name.startswith("ar_"):
+                            group = "AR temporal tangle"
+                        elif any(k in name for k in control_param_names) or p.numel() == 1:
                             group = "scalar/control"
                         elif name.startswith("embed."):
                             group = "embed"
@@ -1554,6 +1973,18 @@ class BABYLLM(nn.Module):
                     min=0.5, max=2.0
                 )  # max was 10.0; back to ~2.0
 
+            # Rare-event excitement microscope.
+            # Measure first, while ALL gradients are still exactly pre-clip.
+            _excite_preclip = self._excite_current_grad_norm()
+            if (
+                math.isfinite(_excite_preclip)
+                and _excite_preclip > self._excite_threshold
+            ):
+                self._print_excitement_report(
+                    _excite_preclip,
+                    clipValue.item(),
+                )
+
             # --- EMBED GRAD DIAGNOSTIC (pre-clip) ---
             for _name, _p in self.embed.named_parameters():
                 if _p.grad is not None:
@@ -1611,6 +2042,10 @@ class BABYLLM(nn.Module):
                     inn.windowFractionality_short.clamp_(-3.0, 3.0)
                     inn.cerebellum_short.clamp_(0.01, 0.99)
             self.optimizer.zero_grad()
+
+            # These token records belong only to the optimiser step that just
+            # completed. Clearing here preserves gradient-accumulation chunks.
+            self._excite_token_losses.clear()
 
             # CRITICAL: Clamp sensory/temperature parameters to prevent explosion
             with torch.no_grad():
@@ -1874,12 +2309,22 @@ class BABYLLM(nn.Module):
                 return responseFromLogits
 
     def forward_and_sample(
-        self, _inputSeq, _pixel=None, _training=False, _totAvgAbsDelta=0.0
+        self,
+        _inputSeq,
+        _pixel=None,
+        _training=False,
+        _totAvgAbsDelta=0.0,
+        _arInputSeq=None,
     ):
         """Run ``forward`` and ``getResponseFromLogits`` while holding the model lock once."""
 
         with self.model_thread_lock:
-            logits = self.forward(_inputSeq, _pixel=_pixel, _use_lock=False)
+            logits = self.forward(
+                _inputSeq,
+                _pixel=_pixel,
+                _use_lock=False,
+                _arInputSeq=_arInputSeq,
+            )
             response = self.getResponseFromLogits(
                 logits,
                 _training=_training,
@@ -3027,8 +3472,103 @@ class BABYLLM(nn.Module):
         the load_state_dict copy can land on CPU when the optimizer was created
         before any tensors moved to the GPU."""
         try:
+            loaded_optim_state = torch.load(
+                optimPath,
+                map_location=self.device,
+            )
+
+            current_optim_state = self.optimizer.state_dict()
+            loaded_groups = loaded_optim_state.get(
+                "param_groups", []
+            )
+            current_groups = current_optim_state.get(
+                "param_groups", []
+            )
+
+            shape_changed = (
+                len(loaded_groups) == len(current_groups)
+                and any(
+                    len(old_group.get("params", []))
+                    != len(new_group.get("params", []))
+                    for old_group, new_group
+                    in zip(loaded_groups, current_groups)
+                )
+            )
+
+            if shape_changed:
+                if any(
+                    len(old_group.get("params", []))
+                    > len(new_group.get("params", []))
+                    for old_group, new_group
+                    in zip(loaded_groups, current_groups)
+                ):
+                    raise RuntimeError(
+                        "Saved optimizer has more parameters "
+                        "than current Baby; refusing unsafe remap."
+                    )
+
+                names = [
+                    name for name, _ in self.named_parameters()
+                ]
+
+                expected_tail = [
+                    "ar_throat.weight",
+                    "ar_expand.weight",
+                    "ar_neuron_gate.0",
+                ]
+
+                added = sum(
+                    len(new_group.get("params", []))
+                    - len(old_group.get("params", []))
+                    for old_group, new_group
+                    in zip(loaded_groups, current_groups)
+                )
+
+                if (
+                    added != 3
+                    or names[-3:] != expected_tail
+                ):
+                    raise RuntimeError(
+                        "Optimizer layout changed for something "
+                        "other than known AR512 append; refusing. "
+                        f"added={added}, tail={names[-6:]}"
+                    )
+
+                old_state = loaded_optim_state.get(
+                    "state", {}
+                )
+                remapped = {}
+
+                for old_group, new_group in zip(
+                    loaded_groups,
+                    current_groups,
+                ):
+                    old_ids = list(
+                        old_group.get("params", [])
+                    )
+                    new_ids = list(
+                        new_group.get("params", [])
+                    )
+
+                    for old_id, new_id in zip(
+                        old_ids,
+                        new_ids[:len(old_ids)],
+                    ):
+                        if old_id in old_state:
+                            remapped[new_id] = old_state[old_id]
+
+                    old_group["params"] = new_ids
+
+                loaded_optim_state["state"] = remapped
+
+                print(
+                    "[AR TANGLE] optimizer checkpoint safely "
+                    "extended by 3 new parameter tensors; "
+                    "all existing optimizer state preserved."
+                )
+
             self.optimizer.load_state_dict(
-                torch.load(optimPath, map_location=self.device)
+                loaded_optim_state
             )
             for state in self.optimizer.state.values():
                 for k, v in state.items():

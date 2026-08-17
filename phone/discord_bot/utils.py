@@ -561,27 +561,55 @@ def embed_to_plain_text(embed) -> str:
     return "\n".join([p for p in parts if p]).strip()
 
 
+def is_escaped(text: str, idx: int) -> bool:
+    """Check if the character at idx is escaped by an odd number of backslashes."""
+    count = 0
+    j = idx - 1
+    while j >= 0 and text[j] == '\\':
+        count += 1
+        j -= 1
+    return count % 2 == 1
+
+
 def get_code_ranges(text: str) -> list[tuple[int, int]]:
     ranges = []
     n = len(text)
     i = 0
     while i < n:
         if text[i:i+3] == '```':
-            end_idx = text.find('```', i + 3)
-            if end_idx != -1:
-                ranges.append((i, end_idx + 3))
-                i = end_idx + 3
-            else:
-                ranges.append((i, n))
-                i = n
+            if is_escaped(text, i):
+                i += 1
+                continue
+            end_idx = i + 3
+            while True:
+                end_idx = text.find('```', end_idx)
+                if end_idx == -1:
+                    ranges.append((i, n))
+                    i = n
+                    break
+                if not is_escaped(text, end_idx):
+                    ranges.append((i, end_idx + 3))
+                    i = end_idx + 3
+                    break
+                else:
+                    end_idx += 3
         elif text[i] == '`':
-            end_idx = text.find('`', i + 1)
-            if end_idx != -1:
-                ranges.append((i, end_idx + 1))
-                i = end_idx + 1
-            else:
-                ranges.append((i, n))
-                i = n
+            if is_escaped(text, i):
+                i += 1
+                continue
+            end_idx = i + 1
+            while True:
+                end_idx = text.find('`', end_idx)
+                if end_idx == -1:
+                    ranges.append((i, n))
+                    i = n
+                    break
+                if not is_escaped(text, end_idx):
+                    ranges.append((i, end_idx + 1))
+                    i = end_idx + 1
+                    break
+                else:
+                    end_idx += 1
         else:
             i += 1
     return ranges
@@ -634,6 +662,9 @@ def get_balanced_pairs(text: str) -> list[dict]:
                 continue
                 
             if text[i:i+d_len] == delim:
+                if is_escaped(text, i):
+                    i += d_len
+                    continue
                 if start_idx == -1:
                     start_idx = i
                 else:
@@ -917,6 +948,18 @@ def split_markdown_message(text: str, max_chunk_len: int = 1950) -> list[str]:
     return chunks
 
 
+async def send_chunks_ordered(
+    bot_instance, destination_id: int, chunks: list[str], send_func
+):
+    """Acquires a lock for destination_id on bot_instance to serialize message sending."""
+    import asyncio
+    if not hasattr(bot_instance, "_channel_send_locks"):
+        bot_instance._channel_send_locks = {}
+    lock = bot_instance._channel_send_locks.setdefault(destination_id, asyncio.Lock())
+    async with lock:
+        return await send_func(chunks)
+
+
 __all__ = [
     "DEFAULT_BBY_TIMEZONE",
     "escape_markdown",
@@ -933,4 +976,5 @@ __all__ = [
     "getTimeRant",
     "embed_to_plain_text",
     "split_markdown_message",
+    "send_chunks_ordered",
 ]

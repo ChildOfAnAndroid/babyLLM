@@ -32,6 +32,7 @@ from utils.wakeupUtils import (
     openingQuestions,
     setStartIndex,
 )
+from utils.mps_trace import mps_trace, cleanup_mps_temp_dirs
 
 sys.excepthook = handle_exception
 warnings.simplefilter("default")  # show all warnings (PyTorch hides some by default)
@@ -52,6 +53,13 @@ def wakeup(
     mode="train",
 ):
     try:
+        cleanup_mps_temp_dirs()
+    except Exception as e:
+        print(f"[WARN] MPSGraph temp directory cleanup failed: {e}")
+
+    mps_trace("WAKEUP_START", f"mode={mode} windowMAX={windowMAX} dataStride={dataStride}")
+    try:
+        import os
         # WAKE UP THE school :)
         counsellor = COUNSELLOR(
             "babyLLM", _debug=debugPrints, _durations=durationLogging
@@ -130,8 +138,10 @@ def wakeup(
                 babyBot_twitch = BABYBOT_TWITCH(
                     babyLLM, tutor, librarian, scribe, calligraphist
                 )
+                mps_trace("LOAD_MODEL_BEFORE", "mode=twitch")
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
+                mps_trace("LOAD_MODEL_AFTER", "mode=twitch")
                 babyBot_twitch.run()
 
             elif mode == "discord":
@@ -169,7 +179,7 @@ def wakeup(
                 # existing process and transport alive.
                 icharis_root = os.environ.get(
                     "ICHARIS2_ROOT",
-                    "/Users/charis/Dropbox/00_Icharis/02_LAB/icharis2",
+                    "/Users/charis/00_Icharis/02_LAB/icharis2",
                 )
                 try:
                     health = subprocess.run(
@@ -306,8 +316,10 @@ def wakeup(
                     # background thread so Discord/Twitch/Web setup overlaps
                     # with optim I/O. Tutor.trainModel calls
                     # babyLLM.wait_for_optimizer_ready() before stepping.
+                    mps_trace("LOAD_MODEL_BEFORE", "mode=unified")
                     babyLLM.loadModel(async_optimizer=True)
                     babyLLM.to(modelDevice)
+                    mps_trace("LOAD_MODEL_AFTER", "mode=unified")
 
                     try:
                         await bot.start(SECRETdiscordTokenSECRET)
@@ -326,7 +338,7 @@ def wakeup(
 
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")
-                if first == True:
+                if first == True and os.getenv("NONINTERACTIVE") != "1":
                     newStartIndex = openingQuestions(
                         _counsellor=counsellor,
                         _librarian=librarian,
@@ -345,15 +357,19 @@ def wakeup(
                 )
 
                 # START THE LESSONS :)
+                mps_trace("LOAD_MODEL_BEFORE", "mode=train")
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
+                mps_trace("LOAD_MODEL_AFTER", "mode=train")
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("starting lessons!")
+                mps_trace("OFFLINE_TRAINING_BEFORE", f"epochs={epochs} pairs={len(trainingDataPairs)}")
                 tutor.trainModel(
                     _trainingDataPairs=trainingDataPairs,
                     _epochs=epochs,
                     _startIndex=newStartIndex,
                 )
+                mps_trace("OFFLINE_TRAINING_AFTER")
 
                 if tokenSpeedTest == True:
                     tokenSpeedTestEnd = time.time()

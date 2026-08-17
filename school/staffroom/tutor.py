@@ -21,6 +21,7 @@ from brain.LAYERS.sensory_bus import SensoryBus
 from config import *
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from utils.helpers import empty_mps_cache, get_grad_stats
+from utils.mps_trace import mps_trace
 
 
 class TUTOR:
@@ -348,6 +349,7 @@ class TUTOR:
 
     @whocalled
     def trainModel(self, _trainingDataPairs, _epochs, _startIndex):  ###
+        mps_trace("TRAINING_PASS_START", f"epochs={_epochs} pairs={len(_trainingDataPairs)}")
         # async with self.training_lock:
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:  ###
             # Barrier for async optimizer load (unified bot mode kicks off
@@ -414,6 +416,7 @@ class TUTOR:
             if debugPrints:
                 ʕっʘ‿ʘʔっ("epoch♥")
             for epoch in range(_epochs):
+                mps_trace("TRAINING_EPOCH_START", f"epoch={epoch+1}/{_epochs}")
                 ʕっʘ‿ʘʔっ(f"--- lesson {epoch + 1}/{_epochs} started ---")
                 print(f"--- lesson {epoch + 1}/{_epochs} started ---")
                 """TRAINING DATA (batches)"""
@@ -433,6 +436,7 @@ class TUTOR:
                             break
                     ʕっʘ‿ʘʔっ("turn start :)")
                     _inputSeq, _targetSeq = trainingPair
+                    mps_trace("TRAINING_TURN_START", f"step={self.trainingStepCounter} input_len={len(_inputSeq)} target_len={len(_targetSeq)}")
                     self.stableFallCount = 0
                     self.averageTriesTotal += self.totalTries
                     self.averageTries = (
@@ -885,6 +889,7 @@ class TUTOR:
 
     @whocalled
     def trainStep(self, _inputTokenIndices, _targetTokenIndexSeq, _BACKWARDwobbleLoss):
+        mps_trace("TRAIN_STEP_START", f"input_len={len(_inputTokenIndices)} target_len={len(_targetTokenIndexSeq)}")
         with self.counsellor.infodump("trainStep") as ʕっʘ‿ʘʔっ:
             # self.trainingStepCounter   += 1
             self.avgPixelDist = 0
@@ -901,10 +906,21 @@ class TUTOR:
             buffer[: len(inputSeqPredictions)] = torch.as_tensor(
                 inputSeqPredictions, device=self.device
             )
+            # Independent real chronology for AR512.
+            # Main `buffer` deliberately remains Baby's horizon view.
+            ar_buffer = buffer[
+                : len(inputSeqPredictions)
+            ].clone()
+
             self.logitSeq = []  # raw output of each prediction
 
             # Zero gradients at the start of the training step
             self.model.optimizer.zero_grad()
+
+            # Excitement token records belong to exactly this optimiser step.
+            # Also protects against stale records after an interrupted/failed step.
+            if hasattr(self.model, "_excite_token_losses"):
+                self.model._excite_token_losses.clear()
 
             # Read configuration chunk size
             chunk_size = globals().get("trainingChunkSize", 32)
@@ -1032,6 +1048,7 @@ class TUTOR:
                                 inputTensor,
                                 _pixel=self.pixelNow,
                                 _training=True,
+                                _arInputSeq=ar_buffer,
                                 _totAvgAbsDelta=self.totalAvgAbsDelta,
                             )
                     else:
@@ -1039,6 +1056,7 @@ class TUTOR:
                             inputTensor,
                             _pixel=self.pixelNow,
                             _training=True,
+                            _arInputSeq=ar_buffer,
                             _totAvgAbsDelta=self.totalAvgAbsDelta,
                         )
                 except RuntimeError as e:
@@ -1177,7 +1195,17 @@ class TUTOR:
 
                 inputSeqPredictions.append(
                     nextTokenInput
-                )  # multi-token autoregressive generation: append next token to your current input — becomes the prompt for the next token
+                )  # bookkeeping; established horizon buffer intentionally frozen
+
+                # Actual training chronology exists through AR512.
+                # Truth enters during teacher forcing.
+                # Baby's own prediction enters during scheduled sampling.
+                if ar_buffer.numel() > 0:
+                    if ar_buffer.numel() > 1:
+                        ar_buffer[:-1].copy_(
+                            ar_buffer[1:].clone()
+                        )
+                    ar_buffer[-1] = int(nextTokenInput)
                 isCorrect = nextTokenInput == predicted_index
                 self.gotIt = isCorrect
                 self.tiktiktik = nextTokenInput
@@ -1204,6 +1232,29 @@ class TUTOR:
                         _learningRateGOAL=self.learningRateGOAL,
                         _perfectTokens=self.perfectTokens,
                     )
+
+                    # Exact excitement attribution.
+                    #
+                    # TUTOR owns the autoregressive token position, target,
+                    # and the literal input tensor used for this prediction.
+                    # Keep the 6-token context on-device; it is converted only
+                    # if the rare-event microscope actually fires.
+                    try:
+                        if hasattr(self.model, "_excite_token_losses"):
+                            self.model._excite_token_losses.append(
+                                {
+                                    "ce": float(self.model.CEloss_used),
+                                    "target": int(_targetTokenIndexSeq[j]),
+                                    "position": int(j),
+                                    "context_tail": (
+                                        inputTensor.detach()
+                                        .flatten()[-6:]
+                                        .clone()
+                                    ),
+                                }
+                            )
+                    except Exception:
+                        pass
 
                     if debugPrints:
                         ʕっʘ‿ʘʔっ("appendStepLoss")
@@ -1346,6 +1397,7 @@ class TUTOR:
                         self.stepLossFloat = BACKWARDloss_val
                         self.stats["loss"] = self.stepLossFloat
                         
+                        mps_trace("BACKWARD_BEFORE", "optimizer=True")
                         try:
                             if profiler:
                                 with torch.profiler.profile(record_shapes=True) as prof:
@@ -1362,6 +1414,7 @@ class TUTOR:
                             self.model.optimizer.zero_grad(set_to_none=True)
                             empty_mps_cache()
                             return [], []
+                        mps_trace("BACKWARD_AFTER", "optimizer=True")
                             
                         if profiler:
                             print(prof.key_averages().table())
@@ -1403,6 +1456,40 @@ class TUTOR:
                         print(f" - token entropy:                           {diag_entropy_mean:.6f}")
                         print(f" - top-1 confidence:                        {diag_confidence_mean:.2%}")
                         print(f" - repetition rate:                         {diag_rep_rate:.2f}%")
+                        if getattr(self.model, "_ar_applied_last", None) is not None:
+                            _ar_gate_now = torch.sigmoid(
+                                self.model.ar_neuron_gate[0]
+                            ).detach()
+
+                            print(
+                                " - AR neuron gate mean / max:              "
+                                f"{_ar_gate_now.mean().item():.4%} / "
+                                f"{_ar_gate_now.max().item():.4%}"
+                            )
+                            print(
+                                " - AR braid / raw / applied norms:         "
+                                f"{self.model._ar_braid_last.norm().item():.4f} / "
+                                f"{self.model._ar_raw_last.norm().item():.4f} / "
+                                f"{self.model._ar_applied_last.norm().item():.4f}"
+                            )
+                        if globals().get("diagnoseLogitHead", False):
+                            logit_stats = self.model.logits.getLogitStats()
+                            print(f" - LOGITS Head Diagnostics:")
+                            print(f"   * Raw pre-LN logitOutput: mean={logit_stats.get('7L_3_rawLogitOutput_mean', 0.0):.6f}, std={logit_stats.get('7L_3_rawLogitOutput_std', 0.0):.6f}, norm={logit_stats.get('7L_3_rawLogitOutput_norm', 0.0):.6f}, min={logit_stats.get('7L_3_rawLogitOutput_min', 0.0):.6f}, max={logit_stats.get('7L_3_rawLogitOutput_max', 0.0):.6f}")
+                            print(f"   * finalLogit:             mean={logit_stats.get('7L_4_finalLogit_mean', 0.0):.6f}, std={logit_stats.get('7L_4_finalLogit_std', 0.0):.6f}, norm={logit_stats.get('7L_4_finalLogit_norm', 0.0):.6f}, min={logit_stats.get('7L_4_finalLogit_min', 0.0):.6f}, max={logit_stats.get('7L_4_finalLogit_max', 0.0):.6f}")
+                            print(f"   * LN crushing ratio:      norm_ratio={logit_stats.get('7L_6_raw_to_final_norm_ratio', 0.0):.2f}x, std_ratio={logit_stats.get('7L_6_raw_to_final_std_ratio', 0.0):.2f}x")
+                            if "7L_5_logitNorm_weight_norm" in logit_stats:
+                                print(f"   * logitNorm weight:       mean={logit_stats.get('7L_5_logitNorm_weight_mean', 0.0):.6f}, std={logit_stats.get('7L_5_logitNorm_weight_std', 0.0):.6f}, norm={logit_stats.get('7L_5_logitNorm_weight_norm', 0.0):.6f}, min={logit_stats.get('7L_5_logitNorm_weight_min', 0.0):.6f}, max={logit_stats.get('7L_5_logitNorm_weight_max', 0.0):.6f}")
+                            if "7L_5_logitNorm_bias_norm" in logit_stats:
+                                print(f"   * logitNorm bias:         mean={logit_stats.get('7L_5_logitNorm_bias_mean', 0.0):.6f}, std={logit_stats.get('7L_5_logitNorm_bias_std', 0.0):.6f}, norm={logit_stats.get('7L_5_logitNorm_bias_norm', 0.0):.6f}, min={logit_stats.get('7L_5_logitNorm_bias_min', 0.0):.6f}, max={logit_stats.get('7L_5_logitNorm_bias_max', 0.0):.6f}")
+                            print(f"   * Grad norms (pre-clip):  l_weights={logit_stats.get('grad_norm_logits.l_weights', 0.0):.6f}, l_bias={logit_stats.get('grad_norm_logits.l_bias', 0.0):.6f}")
+                            if "grad_norm_logits.logitNorm.weight" in logit_stats or "grad_norm_logits.logitNorm.bias" in logit_stats:
+                                print(f"     - logitNorm.weight:     {logit_stats.get('grad_norm_logits.logitNorm.weight', 0.0):.6f}")
+                                print(f"     - logitNorm.bias:       {logit_stats.get('grad_norm_logits.logitNorm.bias', 0.0):.6f}")
+                        if globals().get("diagnoseGradientSources", False) and hasattr(self.model, "gradient_leaderboard"):
+                            print(f" - Top Module Gradient Norms (Pre-Clipping):")
+                            for idx, (group_name, norm_val, pct) in enumerate(self.model.gradient_leaderboard):
+                                print(f"   {idx+1:>2}. {group_name:<35}: {norm_val:.6f} ({pct:.2f}%)")
                         print("=" * 60 + "\n")
                             
                         chunk_loss = None
@@ -1410,6 +1497,7 @@ class TUTOR:
                         if chunk_loss is not None:
                             if debugPrints:
                                 print(f"[CHUNK] intermediate backward chunk at j={j}")
+                            mps_trace("BACKWARD_BEFORE", "optimizer=False")
                             try:
                                 self.model.backward(chunk_loss, self.latestLossDelta, _run_optimizer=False)
                             except RuntimeError as e:
@@ -1417,6 +1505,7 @@ class TUTOR:
                                 self.model.optimizer.zero_grad(set_to_none=True)
                                 empty_mps_cache()
                                 return [], []
+                            mps_trace("BACKWARD_AFTER", "optimizer=False")
                         chunk_loss = None
 
             # Write babyState once per step (was once per token — 269x per step previously)
@@ -1772,6 +1861,7 @@ class TUTOR:
 
     @whocalled
     def saveFreqActions(self):
+        mps_trace("SAVE_MODEL_BEFORE")
         with self.counsellor.infodump(
             "saveFreqActions"
         ) as ʕっʘ‿ʘʔっ:  # SAVE THE MODEL EVERY x STEPS
@@ -1808,6 +1898,7 @@ class TUTOR:
                     print(
                         f"after = {self.calligraphist.S_apply('almostPerfect', f'yes grad: {name} | shape: {shape} | norm: {norm:.4f} | sparsity: {sparsity:.2%} | mean: {mean:.4f} | std: {std:.4f}')}"
                     )
+        mps_trace("SAVE_MODEL_AFTER")
 
     @whocalled
     def printFreqActions(self):
@@ -2044,14 +2135,12 @@ class TUTOR:
                 for idx in self.predictedTokenIndices
             ]
             boldPerfects = []
-            target = torch.tensor(
-                self.targetTokenIndexSeq[: self.numTokensPerStep], device=self.device
-            )
+            target_list = self.targetTokenIndexSeq[: self.numTokensPerStep]
 
             for i, idx in enumerate(self.predictedTokenIndices):
                 idx_int = int(idx)
                 tok = self.librarian.indexToToken.get(idx_int, "<UNK>")
-                isCorrect = (i < len(target)) and (idx_int == target[i].item())
+                isCorrect = (i < len(target_list)) and (idx_int == target_list[i])
 
                 if isCorrect:
                     styled = self.calligraphist.S_apply(
@@ -2102,18 +2191,16 @@ class TUTOR:
                         )  # THIS IS WHERE THE DAMN LIST ERROR WAS LMAOOOONOOO
 
                     self.totalTokenEvaluations = 0
-                    target = torch.tensor(
-                        self.targetTokenIndexSeq[: self.numTokensPerStep],
-                        device=self.device,
+                    correct = sum(
+                        1
+                        for p, t in zip(
+                            self.predictedTokenIndices,
+                            self.targetTokenIndexSeq[: self.numTokensPerStep],
+                        )
+                        if p == t
                     )
-                    predicted = torch.tensor(
-                        self.predictedTokenIndices, device=self.device
-                    )
-                    correct = (
-                        predicted == target
-                    ).sum()  # ~~~ if predicted = target, over whole tensor
-                    self.perfectTokens += correct.item()
-                    self.totalTokenEvaluations += len(target)
+                    self.perfectTokens += correct
+                    self.totalTokenEvaluations += len(self.targetTokenIndexSeq[: self.numTokensPerStep])
 
                 if self.totalTokenEvaluations > 0:
                     self.tokenPerfectRate = (

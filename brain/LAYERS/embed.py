@@ -75,18 +75,68 @@ class EMBED(nn.Module):
                 self.embedVector = self.e_weights[_tokenIndex]
             if debugPrints:
                 ʕっʘ‿ʘʔっ("E1_embedNormed")  # <- E1
-            self.embedNormed = self.embedNorm(self.embedVector)
-            if debugPrints:
-                ʕっʘ‿ʘʔっ("Ex_embedFinal")  # <- E2
-            # self.embedFinal = (self.embedVector * self.weightsScale) + (self.embedNormed * self.normScale)
+            # EXPERIMENT: complementary affine split.
+            # Learned gamma and beta both remain active and trainable, but
+            # never act on the same feature coordinate.
+            _affine_idx = torch.arange(
+                self.embedNorm.weight.numel(),
+                device=self.embedNorm.weight.device,
+            )
+            # EXPERIMENT: shared beta detour.
+            #
+            # Gamma and beta are once again fully shared across ALL
+            # dimensions and BOTH token/RGB invocations.
+            #
+            # Beta no longer enters as LayerNorm's direct additive bias.
+            # Instead it perturbs the representation BEFORE normalization,
+            # forcing its influence through cross-feature mean/variance
+            # geometry before learned gamma acts on the result.
+            _beta_shifted = self.embedVector + self.embedNorm.bias
+
+            self.embedNormed = torch.nn.functional.layer_norm(
+                _beta_shifted,
+                self.embedNorm.normalized_shape,
+                weight=self.embedNorm.weight,
+                bias=None,
+                eps=self.embedNorm.eps,
+            )
+
             combined = (
                 self.embedVector + self.embedNormed
             )  # direct passthrough instead of scaling cause he abuses them lol, -0.005 scale... wtf is that!?
-            # Normalize before scaling to prevent explosion
+            # Final normalization of the residual embedding path.
             normalized = self.finalNorm(combined)
-            self.embedFinal = (
-                self.embedVector + normalized
-            ) * self.scale  # residual: raw + normed, then scale
+
+            # LOOKING GLASS: observe normalization geometry only.
+            # LayerNorm operates across the final feature dimension, so record
+            # per-vector feature std rather than one global sequence std.
+            with torch.no_grad():
+                kind = (
+                    "pixel"
+                    if (not skipPixels and _pixel is not None)
+                    else "token"
+                )
+
+                def _std_profile(tensor):
+                    std = tensor.detach().float().std(dim=-1, unbiased=False)
+                    return {
+                        "min": float(std.min().item()),
+                        "mean": float(std.mean().item()),
+                        "max": float(std.max().item()),
+                    }
+
+                trace = {
+                    "raw": _std_profile(self.embedVector),
+                    "norm1": _std_profile(self.embedNormed),
+                    "combined": _std_profile(combined),
+                    "norm2": _std_profile(normalized),
+                }
+
+                if not hasattr(self, "_looking_glass"):
+                    self._looking_glass = {}
+                self._looking_glass[kind] = trace
+
+            self.embedFinal = self.embedVector + normalized
             self.embedFinal = self.dropout(self.embedFinal)
             clamp_param(self.weightsScale, -10, 10)
             clamp_param(self.normScale, -10, 10)
@@ -99,6 +149,96 @@ class EMBED(nn.Module):
                 ʕっʘ‿ʘʔっ("with torch.no_grad")
             with torch.no_grad():
                 self.stats = {}
+
+                # Latest detached token/pixel normalization geometry.
+                looking_glass = getattr(self, "_looking_glass", {})
+                for kind in ("token", "pixel"):
+                    trace = looking_glass.get(kind)
+                    if trace:
+                        print(
+                            f"[EMBED LOOKING GLASS {kind}] "
+                            f"raw={trace['raw']['mean']:.6g} "
+                            f"norm1={trace['norm1']['mean']:.6g} "
+                            f"combined={trace['combined']['mean']:.6g} "
+                            f"[{trace['combined']['min']:.6g}.."
+                            f"{trace['combined']['max']:.6g}] "
+                            f"norm2={trace['norm2']['mean']:.6g}"
+                        )
+                # DEEP LOOKING GLASS: inspect the learned LayerNorm affine
+                # parameters and estimate their inverse-std amplification.
+                # Telemetry only; detached values do not participate in gradients.
+                def _param_profile(param):
+                    t = param.detach().float()
+                    return {
+                        "mean": float(t.mean().item()),
+                        "std": float(t.std(unbiased=False).item()),
+                        "min": float(t.min().item()),
+                        "max": float(t.max().item()),
+                        "norm": float(t.norm().item()),
+                        "absmean": float(t.abs().mean().item()),
+                        "absmax": float(t.abs().max().item()),
+                    }
+
+                param_glass = {
+                    "embedNorm.weight": _param_profile(self.embedNorm.weight),
+                    "embedNorm.bias": _param_profile(self.embedNorm.bias),
+                    "finalNorm.weight": _param_profile(self.finalNorm.weight),
+                    "finalNorm.bias": _param_profile(self.finalNorm.bias),
+                }
+
+                for name, profile in param_glass.items():
+                    print(
+                        f"[EMBED PARAM GLASS {name}] "
+                        f"mean={profile['mean']:.6g} "
+                        f"std={profile['std']:.6g} "
+                        f"min={profile['min']:.6g} "
+                        f"max={profile['max']:.6g} "
+                        f"norm={profile['norm']:.6g} "
+                        f"absmean={profile['absmean']:.6g} "
+                        f"absmax={profile['absmax']:.6g}"
+                    )
+
+                # Approximate |gamma| / input_std. This is NOT the complete
+                # LayerNorm Jacobian; it is a useful scale diagnostic.
+                embed_gamma = param_glass["embedNorm.weight"]
+                final_gamma = param_glass["finalNorm.weight"]
+
+                for kind in ("token", "pixel"):
+                    trace = looking_glass.get(kind)
+                    if not trace:
+                        continue
+
+                    raw_mean_std = max(trace["raw"]["mean"], 1e-12)
+                    raw_min_std = max(trace["raw"]["min"], 1e-12)
+                    combined_mean_std = max(
+                        trace["combined"]["mean"], 1e-12
+                    )
+                    combined_min_std = max(
+                        trace["combined"]["min"], 1e-12
+                    )
+
+                    print(
+                        f"[EMBED SCALE GLASS {kind}] "
+                        f"raw_std={raw_mean_std:.6g} "
+                        f"embed_gamma_absmean="
+                        f"{embed_gamma['absmean']:.6g} "
+                        f"embed_gamma_absmax="
+                        f"{embed_gamma['absmax']:.6g} "
+                        f"embed_gain~="
+                        f"{embed_gamma['absmean'] / raw_mean_std:.6g} "
+                        f"embed_gain_upper~="
+                        f"{embed_gamma['absmax'] / raw_min_std:.6g} "
+                        f"combined_std={combined_mean_std:.6g} "
+                        f"final_gamma_absmean="
+                        f"{final_gamma['absmean']:.6g} "
+                        f"final_gamma_absmax="
+                        f"{final_gamma['absmax']:.6g} "
+                        f"final_gain~="
+                        f"{final_gamma['absmean'] / combined_mean_std:.6g} "
+                        f"final_gain_upper~="
+                        f"{final_gamma['absmax'] / combined_min_std:.6g}"
+                    )
+
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("embedNorms = torch.norm(self.e_weights, dim = 1)")
                 # embedNorms = torch.norm(self.e_weights, dim = 1)

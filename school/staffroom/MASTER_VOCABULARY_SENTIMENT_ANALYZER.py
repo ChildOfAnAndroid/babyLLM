@@ -657,7 +657,7 @@ if __name__ == "__main__":
             print(f"   {text} ({token_id}): {sentiment:.3f} [{category}]")
 
         # Export the complete mapping
-        export_path = "/Users/charis/Dropbox/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/soul/complete_sentiment_mapping.json"
+        export_path = "/Users/charis/00_Icharis/02_LAB/01_babyLLM/SHKAIRA/soul/complete_sentiment_mapping.json"
         analyser.export_sentiment_map(export_path)
 
         print("\nmaster vocabulary sentiment analyser ready for integration!")

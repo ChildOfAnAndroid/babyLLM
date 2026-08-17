@@ -5,6 +5,7 @@
 
 # === Imports ===
 import datetime as CONFIGDATE
+import os
 
 import torch
 
@@ -12,7 +13,7 @@ import torch
 date = CONFIGDATE.date.today()
 
 # === Messaging / Channels ===
-bby_spam_channel_id = 1440825576884535326
+bby_spam_channel_id = 1519364042760781939
 
 # Public website URL (used by web_adapter to push state changes reactively)
 bby_public_url = "https://www.childofanandroid.co.uk"
@@ -46,14 +47,13 @@ if hasattr(torch, "set_default_device") and modelDevice.type != "mps":
 # === Vision Inputs ===
 # Set vision_device_index to the physical camera index (NDI virtual cams are often 0).
 # Example: vision_device_index = 1
+# Baby uses the Mac's known working camera directly.
+# Do not probe other AVFoundation camera indices: index 1 can wake
+# Continuity Camera / iPhone, while this machine repeatedly confirms
+# index 0 as the working local camera.
 vision_device_index = 0
-vision_probe_indices = [
-    1,
-    2,
-    3,
-    0,
-]  # try physical cams before virtual devices (NDI often at 0)
-vision_skip_indices = []  # e.g. [1] to skip Continuity/phone camera index
+vision_probe_indices = [0]
+vision_skip_indices = []
 vision_backend = None  # e.g. "avfoundation" on macOS
 vision_downsample = 32
 vision_step_interval = 2
@@ -130,9 +130,9 @@ modelBackupFilePath = (
     "SHKAIRA/soul/babyLLM_S.pth"  # where your currently trained saved boi is :)
 )
 
-stepCheckpointFilePath = "SHKAIRA/soul/stepCheckpoint.txt"
-lossCheckpointFilePath = "SHKAIRA/soul/lossCheckpoint.txt"
-lossCheckpointAppendFilePath = "SHKAIRA/soul/lossCheckpointAppend.txt"
+stepCheckpointFilePath = os.getenv("BBY_STEP_CHECKPOINT", "SHKAIRA/soul/stepCheckpoint.txt")
+lossCheckpointFilePath = os.getenv("BBY_LOSS_CHECKPOINT", "SHKAIRA/soul/lossCheckpoint.txt")
+lossCheckpointAppendFilePath = os.getenv("BBY_LOSS_CHECKPOINT_APPEND", "SHKAIRA/soul/lossCheckpointAppend.txt")
 babyStateFilePath = "PHONE/discord_bot/babyState.json"
 topTokensFilePath = "PHONE/discord_bot/topTokens.json"
 tokenSpeedTestFilePath = "SHKAIRA/statistics/LOGS/duration/tokenSpeedTest.txt"
@@ -187,8 +187,8 @@ discordLogPath = f"SHKAIRA/statistics/LOGS/chat/discordLog_{date}.txt"
 trainDuringChat = True
 
 # --- MODEL ---
-numTokensPerStepSTART = 269  # 256 # Number of tokens to predict per step, // 1024 = crash, 512 is POSSIBLE but its the slowest thing in existence.
-maxTokensPerStep = 269
+numTokensPerStepSTART = int(os.getenv("BBY_WINDOW_SIZE", "269"))  # Number of tokens to predict per step
+maxTokensPerStep = int(os.getenv("BBY_MAX_WINDOW_SIZE", str(numTokensPerStepSTART)))
 perfectionistPassRate = 20
 perfectionistPassRateSTART = 80
 perfectionistMaxRetries = 2
@@ -719,6 +719,8 @@ static_collectStats = True
 embed_collectStats = True
 token_collectStats = True
 logit_collectStats = True
+diagnoseLogitHead = True
+diagnoseGradientSources = True
 attention_collectStats = True
 n_collectStats = True
 INN_collectStats = True
@@ -753,12 +755,12 @@ reflectionFreq = 10000
 stableFallThreshold = 1  # min 2 cause loss delta is a turn behind lol
 perfectionistRun = True
 # --- #
-trainingDataPairNumber = 7500  # 169420
+trainingDataPairNumber = int(os.getenv("BBY_PAIR_NUMBER", "7500"))
 trainingWordLength = 10
-percentStride = 0.8
+percentStride = float(os.getenv("BBY_STRIDE_PERCENT", "0.8"))
 trainingDataStride = max(1, round(numTokensPerStepSTART * percentStride))
-trainingStartIndex = 0  # // 'random' (not in babyLLM.py)
-epochs = 1
+trainingStartIndex = int(os.getenv("BBY_START_INDEX", "0"))
+epochs = int(os.getenv("BBY_EPOCHS", "1"))
 tokenSpeedTest = False
 
 from CONFIG_trainingData import rawDataFilepaths
@@ -815,7 +817,7 @@ allWindowSizes_new = [
 # === SHORT-RANGE WINDOW SYSTEM === (50% max context)
 # Parallel window system for finer temporal resolution at shorter ranges
 # These windows cap at ~132 tokens (50% of numTokensPerStepSTART)
-windowShortMAX = numTokensPerStepSTART // 2  # 132 tokens max
+windowShortMAX = int(os.getenv("BBY_SHORT_WINDOW_MAX", str(numTokensPerStepSTART // 2)))
 allWindowSizes_short = [
     1.01,
     2.01,

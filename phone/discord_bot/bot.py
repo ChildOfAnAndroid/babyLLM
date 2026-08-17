@@ -44,7 +44,6 @@ from .logger import logger
 from .live_pressure import (
     configure_generation_queue,
     patch_cog_generation,
-    try_queue_generation,
 )
 from .performance import perf_monitor
 from .platform_integration import PlatformIntegrationMixin
@@ -60,6 +59,7 @@ from .utils import (
     normalise_embed_british_english,
     to_british_english,
     split_markdown_message,
+    send_chunks_ordered,
 )
 
 bby_lounge = 1388782896084422788
@@ -67,7 +67,7 @@ bby_lounge = 1388782896084422788
 try:
     bby_spam = bby_spam_channel_id
 except NameError:
-    bby_spam = 1440825576884535326
+    bby_spam = 1519364042760781939
 bby_debug = 1399818543125495970
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -243,6 +243,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         # lock protects user dictionaries/file saves
         self._user_data_save_lock = asyncio.Lock()
         self._fact_award_lock = asyncio.Lock()
+
+        # locks to serialize message sending per channel/thread
+        self._channel_send_locks = {}
 
         self.world_state_path = os.path.join(SCRIPT_DIR, "world_state.json")
 
@@ -1663,49 +1666,61 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                     sent_message = await target.send(content)
                 return sent_message
 
+            channel_id = getattr(target, "id", None)
+            if channel_id is None:
+                channel_id = id(target) if target else 0
+
             if embed:
-                sent_message = await _send_with_fallback(
-                    embed=embed, allow_reply=is_reply
-                )
-                terminal_debug_str += "              b] EMBED MESSAGE SENT\n"
+                async def _do_send_embed(chks):
+                    nonlocal sent_message, terminal_debug_str
+                    sent_message = await _send_with_fallback(
+                        embed=embed, allow_reply=is_reply
+                    )
+                    terminal_debug_str += "              b] EMBED MESSAGE SENT\n"
+                    return sent_message
+                await send_chunks_ordered(self, channel_id, [], _do_send_embed)
 
             elif message_content:
                 chunks = split_markdown_message(message_content)
-                if dm_overflow and ctx is not None and len(chunks) > 1:
-                    # Send first chunk to channel/reply, rest via DM if possible
-                    terminal_debug_str += (
-                        "              a] SENDING MESSAGE PART 0... (channel)\n"
-                    )
-                    sent_message = await _send_with_fallback(
-                        content=chunks[0], allow_reply=is_reply, tts=tts
-                    )
-                    try:
-                        user_dm = await ctx.author.create_dm()
-                        for i, chunk in enumerate(chunks[1:], start=1):
-                            terminal_debug_str += (
-                                f"              a] SENDING MESSAGE PART {i}... (dm)\n"
-                            )
-                            await user_dm.send(chunk)
-                        # Small notice to channel
-                        notice = "(i sent the rest to your dms)"
-                        orig_sent = sent_message
-                        await _send_with_fallback(content=notice, allow_reply=is_reply)
-                        sent_message = orig_sent
-                    except discord.errors.Forbidden:
-                        # fallback: send everything to channel
-                        for i, chunk in enumerate(chunks[1:], start=1):
-                            terminal_debug_str += f"              a] SENDING MESSAGE PART {i}... (fallback channel)\n"
-                            await target.send(chunk)
-                else:
-                    for i, chunk in enumerate(chunks):
+                async def _do_send_chunks(chks):
+                    nonlocal sent_message, terminal_debug_str
+                    if dm_overflow and ctx is not None and len(chks) > 1:
+                        # Send first chunk to channel/reply, rest via DM if possible
                         terminal_debug_str += (
-                            f"              a] SENDING MESSAGE PART {i}...\n"
+                            "              a] SENDING MESSAGE PART 0... (channel)\n"
                         )
                         sent_message = await _send_with_fallback(
-                            content=chunk,
-                            allow_reply=(is_reply and i == 0),
-                            tts=(tts and i == 0),
+                            content=chks[0], allow_reply=is_reply, tts=tts
                         )
+                        try:
+                            user_dm = await ctx.author.create_dm()
+                            for i, chunk in enumerate(chks[1:], start=1):
+                                terminal_debug_str += (
+                                    f"              a] SENDING MESSAGE PART {i}... (dm)\n"
+                                )
+                                await user_dm.send(chunk)
+                            # Small notice to channel
+                            notice = "(i sent the rest to your dms)"
+                            orig_sent = sent_message
+                            await _send_with_fallback(content=notice, allow_reply=is_reply)
+                            sent_message = orig_sent
+                        except discord.errors.Forbidden:
+                            # fallback: send everything to channel
+                            for i, chunk in enumerate(chks[1:], start=1):
+                                terminal_debug_str += f"              a] SENDING MESSAGE PART {i}... (fallback channel)\n"
+                                await target.send(chunk)
+                    else:
+                        for i, chunk in enumerate(chks):
+                            terminal_debug_str += (
+                                f"              a] SENDING MESSAGE PART {i}...\n"
+                            )
+                            sent_message = await _send_with_fallback(
+                                content=chunk,
+                                allow_reply=(is_reply and i == 0),
+                                tts=(tts and i == 0),
+                            )
+                    return sent_message
+                await send_chunks_ordered(self, channel_id, chunks, _do_send_chunks)
 
             if to_buffer:
                 terminal_debug_str += (
@@ -3339,6 +3354,157 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         else:
             self.nextClockAnnounceAt = now + pyrandom.randint(900, 5400)  # 15m-90m
 
+    def _split_into_sentence_chunks(self, text: str, max_len: int = 2000) -> list[str]:
+        """Split a long string into sentence-ish chunks, each <= max_len.
+
+        Preserves paragraph and sentence boundaries wherever possible.
+        """
+        paragraphs = text.split("\n")
+        chunks = []
+
+        for paragraph in paragraphs:
+            paragraph = paragraph.strip()
+            if not paragraph:
+                continue
+
+            if len(paragraph) <= max_len:
+                chunks.append(paragraph)
+            else:
+                # Split paragraph on sentence boundaries (e.g. . ! ? followed by space)
+                # Keep punctuation with sentences using lookbehind in regex
+                sentences = re.split(r"(?<=[.!?])\s+", paragraph)
+                current_chunk = ""
+
+                for sentence in sentences:
+                    sentence = sentence.strip()
+                    if not sentence:
+                        continue
+
+                    if len(sentence) > max_len:
+                        # Sentence itself is too long, flush current chunk and split sentence
+                        if current_chunk:
+                            chunks.append(current_chunk)
+                            current_chunk = ""
+
+                        # Split sentence by words/spaces
+                        words = [w for w in sentence.split(" ") if w]
+                        sub_chunk = ""
+                        for word in words:
+                            if len(word) > max_len:
+                                # Edge case: a word longer than max_len
+                                if sub_chunk:
+                                    chunks.append(sub_chunk)
+                                    sub_chunk = ""
+                                for i in range(0, len(word), max_len):
+                                    chunks.append(word[i : i + max_len])
+                            else:
+                                needed_space = 1 if sub_chunk else 0
+                                if len(sub_chunk) + needed_space + len(word) > max_len:
+                                    chunks.append(sub_chunk)
+                                    sub_chunk = word
+                                else:
+                                    if sub_chunk:
+                                        sub_chunk += " " + word
+                                    else:
+                                        sub_chunk = word
+                        if sub_chunk:
+                            chunks.append(sub_chunk)
+                    else:
+                        needed_space = 1 if current_chunk else 0
+                        if len(current_chunk) + needed_space + len(sentence) <= max_len:
+                            if current_chunk:
+                                current_chunk += " " + sentence
+                            else:
+                                current_chunk = sentence
+                        else:
+                            if current_chunk:
+                                chunks.append(current_chunk)
+                            current_chunk = sentence
+
+                if current_chunk:
+                    chunks.append(current_chunk)
+
+        return chunks
+
+    def _training_buffer_add_single_chunk(
+        self, chunk: str, *, prefer_keep: bool = False
+    ) -> bool:
+        """Internal helper to process, check quality/dedup, and append a single chunk
+        to the training buffer. Does not trigger save_training_buffer.
+        """
+        chunk = chunk.strip()
+        if not chunk:
+            return False
+
+        # Pattern-level guard: keep only a tiny trickle of known boilerplate templates.
+        template_sig = self._normalise_repetitive_training_signature(chunk)
+        if template_sig:
+            recent = list(self.training_buffer)[-240:]
+            seen = 0
+            for old_line in recent:
+                if (
+                    self._normalise_repetitive_training_signature(old_line)
+                    == template_sig
+                ):
+                    seen += 1
+            # Allow a tiny ongoing trickle so the template is represented
+            # without dominating the buffer.
+            if template_sig == "template:clock_rant":
+                keep_prob = (
+                    0.08
+                    if seen == 0
+                    else 0.03
+                    if seen == 1
+                    else 0.01
+                    if seen <= 3
+                    else 0.0
+                )
+            elif template_sig in (
+                "template:autonomy_gate_check",
+                "template:autonomy_corpus_snippet",
+            ):
+                keep_prob = 0.0  # never let these through
+            else:
+                keep_prob = (
+                    0.30
+                    if seen == 0
+                    else 0.12
+                    if seen == 1
+                    else 0.04
+                    if seen <= 3
+                    else 0.01
+                )
+            if random.random() >= keep_prob:
+                return False
+
+        # quality & dedup
+        recent = list(self.training_buffer)[-30:]
+        if prefer_keep:
+            if self._is_recent_duplicate(chunk, recent, for_training_buffer=True):
+                return False
+        else:
+            if not self._should_accept_line(chunk, recent, for_training_buffer=True):
+                return False
+            repeat_keep_prob = self._repeat_admission_probability(
+                chunk, recent, for_training_buffer=True
+            )
+            if random.random() > repeat_keep_prob:
+                return False
+
+        self.training_buffer.append(chunk)
+        if len(self.training_buffer) > self.training_buffer_size:
+            self.training_buffer.popleft()
+
+        # also feed a small rolling token buffer in the librarian (bounded)
+        try:
+            if hasattr(self, "librarian") and self.librarian:
+                self.librarian.add_training_text(chunk)
+        except Exception:
+            pass
+
+        logger.debug("TRAINING_BUFFER", f"+ {chunk[:60]}...")
+        return True
+
     def _training_buffer_add(
         self, text_to_add: str, *, apply_clean: bool = False, prefer_keep: bool = False
     ) -> bool:
@@ -3366,76 +3532,30 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 return False
             if not self._should_keep_training_buffer_line(line):
                 return False
-            # length clamp
+
             if len(line) > 2000:
-                line = line[:2000]
-
-            # Pattern-level guard: keep only a tiny trickle of known boilerplate templates.
-            template_sig = self._normalise_repetitive_training_signature(line)
-            if template_sig:
-                recent = list(self.training_buffer)[-240:]
-                seen = 0
-                for old_line in recent:
-                    if (
-                        self._normalise_repetitive_training_signature(old_line)
-                        == template_sig
-                    ):
-                        seen += 1
-                # Allow a tiny ongoing trickle so the template is represented
-                # without dominating the buffer.
-                if template_sig == "template:clock_rant":
-                    keep_prob = (
-                        0.08
-                        if seen == 0
-                        else 0.03
-                        if seen == 1
-                        else 0.01
-                        if seen <= 3
-                        else 0.0
-                    )
-                elif template_sig in (
-                    "template:autonomy_gate_check",
-                    "template:autonomy_corpus_snippet",
-                ):
-                    keep_prob = 0.0  # never let these through
-                else:
-                    keep_prob = (
-                        0.30
-                        if seen == 0
-                        else 0.12
-                        if seen == 1
-                        else 0.04
-                        if seen <= 3
-                        else 0.01
-                    )
-                if random.random() >= keep_prob:
-                    return False
-
-            # quality & dedup
-            recent = list(self.training_buffer)[-30:]
-            if prefer_keep:
-                if self._is_recent_duplicate(line, recent, for_training_buffer=True):
-                    return False
-            else:
-                if not self._should_accept_line(line, recent, for_training_buffer=True):
-                    return False
-                repeat_keep_prob = self._repeat_admission_probability(
-                    line, recent, for_training_buffer=True
+                chunks = self._split_into_sentence_chunks(line, 2000)
+                logger.warn(
+                    "TRAINING_BUFFER",
+                    f"Line too long ({len(line)} chars). Split into {len(chunks)} chunks.",
                 )
-                if random.random() > repeat_keep_prob:
-                    return False
-            self.training_buffer.append(line)
-            if len(self.training_buffer) > self.training_buffer_size:
-                self.training_buffer.popleft()
-            self._save_training_buffer()
-            # also feed a small rolling token buffer in the librarian (bounded)
-            try:
-                if hasattr(self, "librarian") and self.librarian:
-                    self.librarian.add_training_text(line)
-            except Exception:
-                pass
-            logger.debug("TRAINING_BUFFER", f"+ {line[:60]}...")
-            return True
+            else:
+                chunks = [line]
+
+            added_any = False
+            for chunk in chunks:
+                if len(chunk) > 2000:
+                    logger.error(
+                        "TRAINING_BUFFER",
+                        f"Pathological chunk exceeds 2000 characters (len={len(chunk)}). Truncating chunk.",
+                    )
+                    chunk = chunk[:2000]
+                if self._training_buffer_add_single_chunk(chunk, prefer_keep=prefer_keep):
+                    added_any = True
+
+            if added_any:
+                self._save_training_buffer()
+            return added_any
         except Exception as e:
             logger.error("TRAINING_BUFFER", f"failed: {e}")
             return False
@@ -3443,7 +3563,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
     # ------------------------------------------------------------------
     # TIME-MATCHED MEMORY — "on this day" echo from previous years
     # ------------------------------------------------------------------
-    _TIME_MEMORY_TIMELINE = Path("/Users/charis/Dropbox/00_Icharis/07_TIMELINE")
+    _TIME_MEMORY_TIMELINE = Path("/Users/charis/00_Icharis/07_TIMELINE")
     _TIME_MEMORY_CATEGORIES = {"discord", "apple_notes", "email", "ios_messages"}
 
     def _tm_build_daily_cache(self) -> None:
