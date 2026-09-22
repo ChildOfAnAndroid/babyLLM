@@ -971,6 +971,8 @@ class BABYLLM(nn.Module):
                     if skipMemory:
                         debug_print("skipping memory layer...")
                         memoryOutput = INNOutput
+                        # Bypass both memory stages cleanly when memory is disabled.
+                        memory2Output = memoryOutput
                     else:
                         memoryOutput = self.memory.forward(INNOutput) + INNOutput
 
