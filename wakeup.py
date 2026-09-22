@@ -58,6 +58,14 @@ def wakeup(
         print(f"[WARN] MPSGraph temp directory cleanup failed: {e}")
 
     mps_trace("WAKEUP_START", f"mode={mode} windowMAX={windowMAX} dataStride={dataStride}")
+
+    # Shutdown-safe sentinels. KeyboardInterrupt can arrive before the model,
+    # tutor, or train-only start index has been constructed.
+    babyLLM = None
+    tutor = None
+    newStartIndex = 0
+    totalAvgLoss = 0.0
+
     try:
         import os
         # WAKE UP THE school :)
@@ -392,6 +400,10 @@ def wakeup(
         print("[RIP ʕっₓᴥₓʔっ]")
         raise
     except KeyboardInterrupt:  # as k
+        if babyLLM is None:
+            print("Interrupted before babyLLM finished initialising; nothing to inspect or save.")
+            return totalAvgLoss
+
         for name, p in babyLLM.named_parameters():
             if p.grad is None:
                 msg = babyLLM.calligraphist.S_apply("emergency", f"NO GRAD: {name}")
@@ -411,7 +423,7 @@ def wakeup(
                 print(f"keyboard interrupt = {msg}")
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("♥keyboardInterrupt")
-        if tutor.trainingStepCounter:
+        if tutor is not None and tutor.trainingStepCounter:
             step = tutor.trainingStepCounter
             totalAvgLoss = tutor.totalAvgLoss
             totalTurnsAwake += tutor.totalTurns
