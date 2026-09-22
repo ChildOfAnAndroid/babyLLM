@@ -353,6 +353,15 @@ class SCRIBE:
             w.strip(".,!?[]/\\!@':;(){}|£$%^&*-+=_><`~±§").lower()
             for w in guessed.split()
         ]
+        nonemptyWords = [word for word in wordList if word]
+        fallbackWord = nonemptyWords[0] if nonemptyWords else "word"
+        topWord = fallbackWord
+        count = 0
+        secondWord = fallbackWord
+        secondCount = 0
+        longestWord = max(nonemptyWords, key=len) if nonemptyWords else fallbackWord
+        shortestWord = min(nonemptyWords, key=len) if nonemptyWords else fallbackWord
+
         for word in wordList:
             if len(word) < 3:
                 continue
@@ -428,10 +437,12 @@ class SCRIBE:
                     f"you're fully like: {spamSample}{spamSample}{spamSample}{spamSample}{spamSample} lmao! xD "
                 ]
             )
-            emojiReflection += [
-                "are you trying to summon a feeling? or just vibing hard rn? ",
-                f"i felt it though. the emote spam has a lot of feelings hidden in it, right? ❤️🫂❤️{spamSample}❤️🫂❤️ ",
-            ]
+            emojiReflection += random.choice(
+                [
+                    "are you trying to summon a feeling? or just vibing hard rn? ",
+                    f"i felt it though. the emote spam has a lot of feelings hidden in it, right? ❤️🫂❤️{spamSample}❤️🫂❤️ ",
+                ]
+            )
 
         emotionWords = {
             "love",
@@ -531,8 +542,10 @@ class SCRIBE:
                 )
 
         leastCommonReflection = None
-        leastCommon = min(wordCounts.items(), key=lambda x: x[1])[0]
-        if wordCounts[leastCommon] == 1:
+        leastCommon = (
+            min(wordCounts.items(), key=lambda x: x[1])[0] if wordCounts else fallbackWord
+        )
+        if wordCounts and wordCounts[leastCommon] == 1:
             leastCommonReflection = f"you only said {leastCommon} once, but it stuck out to me... i wonder if it's more important than it looks. "
             leastCommonReflection += (
                 f"hey, baby! are you listening, comfy? good. :) i wanna teach you about a new type of thought today. it is the thought of a story!\n"
@@ -562,8 +575,8 @@ class SCRIBE:
 
         endingReflection = None
         endings = [w[-3:] for w in wordList if len(w) > 3]
-        mostCommonEnd = max(set(endings), key=endings.count)
-        if endings.count(mostCommonEnd) > 2:
+        mostCommonEnd = max(set(endings), key=endings.count) if endings else ""
+        if mostCommonEnd and endings.count(mostCommonEnd) > 2:
             endingReflection = random.choice(
                 [
                     f"you said a lot of words ending in '{mostCommonEnd}', sounds like you're rhyming with yourself haha ",
@@ -584,7 +597,7 @@ class SCRIBE:
                 ]
             )
 
-        vowelReflection = None
+        vowelReflection = ""
         vowels = set("aeiou")
         vowelCount = sum(1 for c in guessed.lower() if c in vowels)
         consonantCount = sum(
@@ -693,8 +706,9 @@ class SCRIBE:
                 ]
             )
 
-        if guessed.strip().split()[-1].lower() in swearWords:
-            swearReflection += f"okay but the way you ended with '{guessed.strip().split()[-1]}' was kinda iconic. dramaaaa! "
+        guessedWords = guessed.strip().split()
+        if guessedWords and guessedWords[-1].lower() in swearWords:
+            swearReflection += f"okay but the way you ended with '{guessedWords[-1]}' was kinda iconic. dramaaaa! "
 
         # Format single long message
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
