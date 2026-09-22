@@ -1202,7 +1202,10 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 logger.error("HEALTH_MONITOR", f"Health monitoring error: {e}")
                 await asyncio.sleep(60)  # Wait a minute before retrying
 
-    def _json_load(self, path, default_type={}):
+    def _json_load(self, path, default_type=None):
+        # Never share a mutable default dictionary between calls.
+        if default_type is None:
+            default_type = {}
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 try:
