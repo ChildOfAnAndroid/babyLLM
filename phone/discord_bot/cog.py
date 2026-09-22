@@ -1438,6 +1438,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     sentiment_score = analysis_result["final_sentiment"]
                     amplifier_multiplier = analysis_result["amplifier_multiplier"]
                     coverage = analysis_result["coverage_percent"]
+                    pos_count = len(analysis_result["positive_tokens"])
+                    neg_count = len(analysis_result["negative_tokens"])
+                    amp_count = len(analysis_result["amplifier_tokens"])
 
                     # Process if we found sentiment tokens
                     if sentiment_score != 0 or coverage > 0:
@@ -1456,11 +1459,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 0.01, current_value * (1.0 + value_change_percent)
                             )
                             self.bot.bbyfacts[fact_name]["teach_bonus"] = new_value
-
-                            # Create legacy analysis message
-                            pos_count = len(analysis_result["positive_tokens"])
-                            neg_count = len(analysis_result["negative_tokens"])
-                            amp_count = len(analysis_result["amplifier_tokens"])
 
                         token_summary = (
                             f"pos:{pos_count} neg:{neg_count} amp:{amp_count}"
@@ -14070,6 +14068,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 )
                 await self.bot._discord_reply(ctx, reply)
                 return
+
+            reply = ""
 
             if self.enhanced_sentiment:
                 # Get comprehensive analysis
