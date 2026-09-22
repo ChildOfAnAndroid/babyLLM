@@ -153,6 +153,9 @@ class COUNSELLOR:
                             f"♥ finished {self.className}♥{finalTag} in {finalDuration:.4f}s ♥"
                         )
 
+            # Keep this defined even for contexts that did not record a start stamp.
+            # The debug-only fallback branch below must never read an unbound local.
+            totalDuration = 0.0
             if startStamp:
                 totalDuration = time.time() - startStamp
                 self.log(_key or _functionName, totalDuration)
