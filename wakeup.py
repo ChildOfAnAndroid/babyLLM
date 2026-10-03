@@ -173,53 +173,9 @@ def wakeup(
                     os.environ["BBY_PUBLIC_URL"] = "https://childofanandroid.co.uk"
                     print(f"[UNIFIED] Auto-configured BBY_PUBLIC_URL: {os.environ['BBY_PUBLIC_URL']}")
 
-                # Reuse the established reverse-tunnel host for both BabyLLM and
-                # icharis2's focused phone scanner. The scanner remains the
-                # canonical icharis2 app and database; wakeup only keeps its
-                # existing process and transport alive.
-                icharis_root = os.environ.get(
-                    "ICHARIS2_ROOT",
-                    "/Users/charis/00_Icharis/02_LAB/icharis2",
-                )
-                try:
-                    health = subprocess.run(
-                        [
-                            "curl",
-                            "--fail",
-                            "--silent",
-                            "--max-time",
-                            "2",
-                            "http://127.0.0.1:8765/_capture_review_health",
-                        ],
-                        check=False,
-                    )
-                    icharis_running = health.returncode == 0
-                except OSError:
-                    icharis_running = False
-                if not icharis_running and os.path.isdir(icharis_root):
-                    print("[UNIFIED] starting icharis2 art scanner on port 8765...")
-                    subprocess.Popen(
-                        [
-                            sys.executable,
-                            "-m",
-                            "apps.capture_review",
-                            "serve",
-                            "--host",
-                            "127.0.0.1",
-                            "--port",
-                            "8765",
-                        ],
-                        cwd=icharis_root,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        start_new_session=True,
-                    )
-
-                tunnel_specs = (
-                    ("1420:127.0.0.1:4420", "BabyLLM API"),
-                    ("18765:127.0.0.1:8765", "icharis2 art scanner"),
-                )
+                # BabyLLM owns only its API transport. ICHARIS2 launchd owns
+                # Capture Review and the website's authenticated /art tunnel.
+                tunnel_specs = (("1420:127.0.0.1:4420", "BabyLLM API"),)
                 missing_specs = []
                 for reverse_spec, label in tunnel_specs:
                     try:
