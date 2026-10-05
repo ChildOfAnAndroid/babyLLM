@@ -3297,8 +3297,16 @@ class BABYLLM(nn.Module):
             tmpPath = filePath + ".tmp"
             torch.save(self.state_dict(), tmpPath)
             print(f"model temp file created at {tmpPath}...")
-            # save optimizer to a separate file (if present)
-            if hasattr(self, "optimizer") and self.optimizer is not None:
+            # Preserve an untouched deferred checkpoint. If training has crossed
+            # wait_for_optimizer_ready(), deferred path is cleared and the live
+            # optimizer state is saved normally.
+            deferred_optim = getattr(self, "_deferred_optimizer_path", None)
+            if deferred_optim:
+                print(
+                    f"[DEFERRED OPTIM] preserving existing optimizer checkpoint "
+                    f"at {deferred_optim}"
+                )
+            elif hasattr(self, "optimizer") and self.optimizer is not None:
                 optimPath = filePath + ".optim"
                 tmpOptimPath = optimPath + ".tmp"
                 torch.save(self.optimizer.state_dict(), tmpOptimPath)
@@ -3321,18 +3329,25 @@ class BABYLLM(nn.Module):
             print(f"Memory buffers successfully saved to {buffers_path}!")
 
     @whocalled
-    def loadModel(self, filePath=modelFilePath, *, async_optimizer: bool = False):
-        """Load model + optimizer + memory buffers from a checkpoint.
+    def loadModel(
+        self,
+        filePath=modelFilePath,
+        *,
+        async_optimizer: bool = False,
+        defer_optimizer: bool = False,
+    ):
+        """Load model weights and memory buffers from a checkpoint.
 
-        Set ``async_optimizer=True`` to defer optimizer state loading to a
-        background daemon thread. The model is ready as soon as this method
-        returns; the optimizer becomes ready some time later. Any code that
-        needs the optimizer (i.e. before calling ``optimizer.step()`` or
-        anything that mutates optimizer state) must call
-        ``self.wait_for_optimizer_ready()`` first. This is the safe path for
-        bot modes (twitch / discord / unified) where startup latency matters
-        more than first-training-step latency.
+        Optimizer restoration may be synchronous, asynchronous, or deferred.
+        ``defer_optimizer=True`` keeps the optimizer checkpoint off-device
+        until training first calls ``wait_for_optimizer_ready()``. This is
+        the lowest-residency path for long-lived inference/bot modes while
+        preserving the exact learned optimizer state before any training step.
         """
+        if async_optimizer and defer_optimizer:
+            raise ValueError(
+                "async_optimizer and defer_optimizer are mutually exclusive"
+            )
         with self.counsellor.infodump("loadModel") as ʕっʘ‿ʘʔっ:
             try:
                 if debugPrints:
@@ -3349,11 +3364,20 @@ class BABYLLM(nn.Module):
                 state_dict = torch.load(filePath, map_location=self.device)
                 state_dict = self._upgrade_sensory_state_dict(state_dict)
                 self.load_state_dict(state_dict, strict=saveStrict)
-                # try loading optimizer separately
+                # Load optimizer separately. Long-lived inference modes may keep
+                # the large checkpoint off-device until training actually starts.
+                self._deferred_optimizer_path = None
+                self._optimizer_load_error = None
                 if hasattr(self, "optimizer"):
                     optimPath = filePath + ".optim"
                     if os.path.exists(optimPath):
-                        if async_optimizer:
+                        if defer_optimizer:
+                            self._deferred_optimizer_path = optimPath
+                            print(
+                                f"[DEFERRED OPTIM] preserving {optimPath} on disk "
+                                "until the first training step"
+                            )
+                        elif async_optimizer:
                             self._start_async_optimizer_load(optimPath)
                         else:
                             self._load_optimizer_state(optimPath)
@@ -3571,11 +3595,43 @@ class BABYLLM(nn.Module):
         )
 
     def wait_for_optimizer_ready(self, timeout: float | None = None) -> bool:
-        """Block until async optimizer load finishes. Returns True if ready,
-        False if a timeout was hit. Cheap when load was synchronous (the event
-        attribute won't exist) — returns True immediately."""
+        """Ensure the learned optimizer checkpoint is restored before training.
+
+        Deferred inference mode performs no optimizer I/O or device allocation
+        until this barrier is reached. Async mode retains its existing wait
+        semantics.
+        """
+        deferred = getattr(self, "_deferred_optimizer_path", None)
+        if deferred:
+            import threading
+
+            lock = getattr(self, "_deferred_optimizer_lock", None)
+            if lock is None:
+                lock = threading.Lock()
+                self._deferred_optimizer_lock = lock
+            with lock:
+                deferred = getattr(self, "_deferred_optimizer_path", None)
+                if deferred:
+                    try:
+                        self._load_optimizer_state(deferred)
+                    except Exception as exc:
+                        self._optimizer_load_error = exc
+                        self._deferred_optimizer_path = None
+                        raise RuntimeError(
+                            "Optimizer checkpoint restoration failed; training is "
+                            "blocked to protect learned state."
+                        ) from exc
+                    self._deferred_optimizer_path = None
+                    print("[DEFERRED OPTIM] optimizer restored for training")
+            return True
+
         event = getattr(self, "_optimizer_ready_event", None)
         if event is None:
+            if getattr(self, "_optimizer_load_error", None) is not None:
+                raise RuntimeError(
+                    "Optimizer checkpoint restoration failed; training is blocked "
+                    "to protect learned state."
+                ) from self._optimizer_load_error
             return True
         if event.is_set():
             ready = True
