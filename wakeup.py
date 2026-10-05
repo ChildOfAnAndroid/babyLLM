@@ -268,12 +268,11 @@ def wakeup(
                     print("Press Ctrl+C to stop")
                     print("=" * 60)
 
-                    # Load model. The optimizer (5GB on disk) loads in a
-                    # background thread so Discord/Twitch/Web setup overlaps
-                    # with optim I/O. Tutor.trainModel calls
-                    # babyLLM.wait_for_optimizer_ready() before stepping.
+                    # Unified mode is long-lived inference. Keep the ~5 GB
+                    # optimizer checkpoint off-device until Tutor.trainModel
+                    # reaches its existing wait_for_optimizer_ready() barrier.
                     mps_trace("LOAD_MODEL_BEFORE", "mode=unified")
-                    babyLLM.loadModel(async_optimizer=True)
+                    babyLLM.loadModel(defer_optimizer=True)
                     babyLLM.to(modelDevice)
                     mps_trace("LOAD_MODEL_AFTER", "mode=unified")
 
