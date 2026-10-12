@@ -6584,16 +6584,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             prompt_text = ""
 
         hint = "style note: use british english spellings (colour, favourite, authorised, analyse)."
-        line_hint = "style note: line breaks are allowed; split longer replies into short lines when it feels natural."
-        prompt_lower = prompt_text.lower()
-        additions = []
-        if hint not in prompt_lower:
-            additions.append(hint)
-        if line_hint not in prompt_lower:
-            additions.append(line_hint)
-        if not additions:
+        if hint in prompt_text.lower():
             return prompt_text
-        return f"{prompt_text.rstrip()}\n" + "\n".join(additions) + "\n"
+        return f"{prompt_text.rstrip()}\n{hint}\n"
 
     async def _generate_and_reply(
         self, ctx: commands.Context, prompt_text: str, num_tokens_to_gen: int
