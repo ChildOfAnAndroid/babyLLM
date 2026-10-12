@@ -267,10 +267,10 @@ sos_replacement_token_str = None  # e.g. "startstartstartstartstartstartstartsta
 enable_train_prepend_sos = False  # prepend SOS token once per training message
 sos_prepend_probability = 1.0  # probability to prepend SOS (0..1)
 
-# Train-time augmentation: append EOS stochastically per line during training text preparation.
-enable_train_append_eos = True  # teach EOS on line boundaries in queued training text
+# EOS closes complete chat messages, not their internal paragraph newlines.
+enable_train_append_eos = True  # every explicit queued chat entry ends in EOS
 eos_append_probability = (
-    0.72  # base probability per line (adaptive + jitter in bot logic)
+    0.72  # chance to close one unstructured corpus sample; not per line
 )
 
 # Stricter stop: only stop on EOS when a speaker change is detected at line start.

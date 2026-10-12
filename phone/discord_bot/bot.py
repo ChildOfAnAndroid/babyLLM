@@ -4258,47 +4258,75 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         *,
         max_lines: Optional[int] = None,
         max_chars: Optional[int] = None,
-    ) -> str:
-        """Condense chat into a small recent snippet for training seasoning."""
+        as_messages: bool = False,
+    ):
+        """Condense recent chat, optionally keeping real message boundaries.
+
+        Strings retain the legacy line-based view for prompt context. Lists are
+        message entries: a newline inside an entry must not create another EOS.
+        """
         try:
             line_cap = max(
                 1,
-                int(
-                    max_lines if max_lines is not None else training_chat_mix_max_lines
-                ),
+                int(max_lines if max_lines is not None else training_chat_mix_max_lines),
             )
         except Exception:
             line_cap = 12
         try:
             char_cap = max(
                 64,
-                int(
-                    max_chars if max_chars is not None else training_chat_mix_max_chars
-                ),
+                int(max_chars if max_chars is not None else training_chat_mix_max_chars),
             )
         except Exception:
             char_cap = 1200
 
-        source_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
-        source_lines = [line for line in source_text.split("\n") if str(line).strip()]
-        if not source_lines and getattr(self, "buffer", None):
-            source_lines = [
-                line
-                for line in list(self.buffer)
-                if isinstance(line, str) and line.strip()
+        if isinstance(text, (list, tuple)):
+            source_messages = [
+                message
+                for message in text
+                if isinstance(message, str) and message.strip()
+            ]
+        else:
+            source_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+            source_messages = [
+                line for line in source_text.split("\n") if str(line).strip()
+            ]
+        if not source_messages and getattr(self, "buffer", None):
+            source_messages = [
+                message
+                for message in list(self.buffer)
+                if isinstance(message, str) and message.strip()
             ]
 
-        cleaned_lines = []
-        for raw_line in source_lines:
-            line = self._normalise_buffer_ingest_text(str(raw_line))
-            if line:
-                cleaned_lines.append(line)
+        cleaned_messages = []
+        for raw_message in source_messages:
+            message = self._normalise_buffer_ingest_text(str(raw_message))
+            if message:
+                cleaned_messages.append(message)
 
-        if not cleaned_lines:
-            return ""
+        if not cleaned_messages:
+            return [] if as_messages else ""
 
-        snippet = "\n".join(cleaned_lines[-line_cap:])
-        return snippet[-char_cap:]
+        recent = cleaned_messages[-line_cap:]
+        if not as_messages:
+            return "\n".join(recent)[-char_cap:]
+
+        # Keep the most recent complete messages within the character budget.
+        # Only a single oversized message is shortened, never re-split on Ċ.
+        selected = []
+        remaining = char_cap
+        for message in reversed(recent):
+            needed = len(message) + (1 if selected else 0)
+            if needed > remaining:
+                if selected:
+                    break
+                message = message[-remaining:]
+                needed = len(message)
+            selected.append(message)
+            remaining -= needed
+            if remaining <= 0:
+                break
+        return list(reversed(selected))
 
     def build_training_context(
         self,
@@ -6846,7 +6874,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             self.buffer.popleft()
         if self.training_queue.qsize() < 20:
             await self.training_queue.put(
-                {"type": "chat", "text": "\n".join(self.buffer)}
+                {"type": "chat", "text": list(self.buffer)}
             )
 
         # --- Sync Discord activity to the web server (privacy rules)
@@ -7178,7 +7206,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                     f.write(f"\n---\n{buffer_line}")
                 if self.training_queue.qsize() < 20:
                     await self.training_queue.put(
-                        {"type": "chat", "text": "\n".join(self.buffer)}
+                        {"type": "chat", "text": list(self.buffer)}
                     )
         except Exception as e:
             print(f"[on_raw_reaction_add] {e}")
@@ -7460,169 +7488,94 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             # Sleep for 3 hours between decay cycles
             await asyncio.sleep(10690)  # 3 hours in seconds
 
-    def _line_eos_probability(
-        self, line: str, *, base_prob: float, index: int, total: int, prev_had_eos: bool
-    ) -> float:
-        """Adaptive per-line EOS probability so EOS is stochastic and context-sensitive."""
-        text = str(line or "").strip()
-        if not text:
-            return 0.0
+    def _tokenize_training_text(self, text):
+        """Preserve message boundaries independently of internal newlines.
 
-        # Keep config as the primary knob, but avoid hard deterministic behaviour.
-        p = 0.04 + (0.72 * max(0.0, min(1.0, float(base_prob))))
-
-        quality = self._line_quality_score(text)
-        if quality >= 0.80:
-            p += 0.12
-        elif quality >= 0.62:
-            p += 0.06
-        elif quality < 0.35:
-            p -= 0.18
-        elif quality < 0.50:
-            p -= 0.08
-
-        # Natural sentence endings are stronger EOS candidates.
-        if re.search(r"[.!?]['\")\]]?\s*$", text):
-            p += 0.09
-        elif text.endswith((",", ";", ":", "-", "—")):
-            p -= 0.10
-
-        word_count = len(text.split())
-        if word_count <= 2:
-            p -= 0.15
-        elif word_count <= 5:
-            p -= 0.08
-        elif word_count >= 18:
-            p += 0.05
-
-        # Bias slightly toward closing boundaries near the end of the sample.
-        if total > 1 and index == total - 1:
-            p += 0.10
-        elif total > 4 and index >= int(total * 0.85):
-            p += 0.05
-
-        # Avoid long EOS streaks across consecutive lines.
-        if prev_had_eos:
-            p *= 0.62
-
-        # Small stochastic jitter so boundaries are not perfectly predictable.
-        p += pyrandom.uniform(-0.08, 0.08)
-
-        return max(0.02, min(0.90, p))
-
-    def _tokenize_training_text(self, text: str):
-        """Tokenize training text and apply optional SOS/EOS markers with per-line EOS."""
-        text_clean = clean_text(str(text or ""))
-        text_clean = to_british_english(text_clean)
-        try:
-            text_clean = strip_artifact_lines(text_clean)
-        except Exception:
-            pass
-        if not text_clean:
+        A list/tuple is an explicit sequence of messages, each closed with one
+        reserved EOS when enabled. A raw string is one unstructured sample:
+        it may get one EOS at its end, but never at each paragraph newline.
+        """
+        explicit_messages = isinstance(text, (list, tuple))
+        messages = text if explicit_messages else [text]
+        if not messages:
             return []
 
-        lines = [line.strip() for line in text_clean.split("\n") if line.strip()]
-        if not lines:
-            lines = [text_clean.strip()]
-
-        eos_token = None
-        eos_prob = 1.0
-        sos_token = None
-        sos_prob = 1.0
-        try:
-            if enable_train_append_eos and eos_replacement_token_str:
-                if eos_replacement_token_str in getattr(
-                    self.librarian, "tokenToIndex", {}
-                ):
-                    eos_token = eos_replacement_token_str
-                    eos_prob = max(0.0, min(1.0, float(eos_append_probability)))
-        except Exception:
-            eos_token = None
-            eos_prob = 1.0
-        try:
-            if enable_train_prepend_sos and sos_replacement_token_str:
-                if sos_replacement_token_str in getattr(
-                    self.librarian, "tokenToIndex", {}
-                ):
-                    sos_token = sos_replacement_token_str
-                    sos_prob = max(0.0, min(1.0, float(sos_prepend_probability)))
-        except Exception:
-            sos_token = None
-            sos_prob = 1.0
-
+        eos_available = bool(
+            enable_train_append_eos
+            and eos_replacement_token_str
+            and eos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {})
+        )
+        sos_available = bool(
+            enable_train_prepend_sos
+            and sos_replacement_token_str
+            and sos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {})
+        )
+        context_eos_probability = max(
+            0.0, min(1.0, float(eos_append_probability))
+        )
+        sos_probability = max(0.0, min(1.0, float(sos_prepend_probability)))
+        newline_tokens = (
+            self.librarian.tokenizeText("\n")
+            if explicit_messages and not eos_available
+            else []
+        )
         tokens = []
-        newline_tokens = self.librarian.tokenizeText("\n")
+        messages_kept = 0
         eos_count = 0
-        sos_added = False
-        eos_prob_sum = 0.0
-        eos_prob_n = 0
-        prev_had_eos = False
-        for idx, line in enumerate(lines):
-            line_tokens = self.librarian.tokenizeText(line)
-            if not line_tokens:
+
+        for raw_message in messages:
+            message = str(raw_message or "").replace("\r\n", "\n").replace("\r", "\n")
+            cleaned = to_british_english(clean_text(message))
+            try:
+                cleaned = strip_artifact_lines(cleaned)
+            except Exception:
+                pass
+            if not cleaned or not cleaned.strip():
                 continue
 
-            if sos_token and not sos_added and random.random() < sos_prob:
-                line_tokens = [sos_token] + line_tokens
-                sos_added = True
-                snippet = line[:64] if line else text_clean[:64]
-                if len(snippet) == 64:
-                    snippet += "..."
-                print(
-                    f"[SOS][TRAIN] prepended <SOS> at line 1/{len(lines)} "
-                    f"({len(lines)} line(s) total): <SOS> {snippet}"
-                )
-
-            tokens.extend(line_tokens)
-
-            append_eos = False
-            if eos_token:
-                line_prob = self._line_eos_probability(
-                    line,
-                    base_prob=eos_prob,
-                    index=idx,
-                    total=len(lines),
-                    prev_had_eos=prev_had_eos,
-                )
-                eos_prob_sum += line_prob
-                eos_prob_n += 1
-                if random.random() < line_prob:
-                    append_eos = True
-
-            if append_eos:
-                tokens.append(eos_token)
-                eos_count += 1
-                prev_had_eos = True
-            else:
-                prev_had_eos = False
-
-            if idx < len(lines) - 1 and newline_tokens:
-                tokens.extend(newline_tokens)
-
-        if not tokens:
-            return []
-
-        if eos_token and eos_count:
-            tail = lines[-1][:64] if lines else text_clean[:64]
-            if len(tail) == 64:
-                tail += "..."
-            avg_prob = (eos_prob_sum / eos_prob_n) if eos_prob_n else 0.0
-            print(
-                f"[EOS][TRAIN] appended <EOS> on {eos_count}/{len(lines)} line(s) "
-                f"(avg p={avg_prob:.2f}): {tail} <EOS>"
+            # Every known chat message closes at EOS. Corpus strings have no
+            # known internal boundaries, so the old probability only applies
+            # once to the complete sample, not to its newline-delimited lines.
+            append_eos = eos_available and (
+                explicit_messages or random.random() < context_eos_probability
             )
+            message_tokens = self.librarian.tokenize_training_message(
+                cleaned, append_eos=append_eos
+            )
+            if not message_tokens:
+                continue
+            if sos_available and random.random() < sos_probability:
+                message_tokens.insert(0, sos_replacement_token_str)
 
+            if messages_kept and newline_tokens:
+                tokens.extend(newline_tokens)
+            tokens.extend(message_tokens)
+            messages_kept += 1
+            if append_eos:
+                eos_count += 1
+
+        if eos_count:
+            print(
+                f"[EOS][TRAIN] appended <EOS> on {eos_count}/{messages_kept} "
+                f"message(s); internal newlines kept as BPE tokens"
+            )
         return tokens
 
     async def _train_on_item(self, item):
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
-        # Build chat and training sources
         item_type = str(item.get("type", "") or "").lower()
-        chat_text = (
-            "\n".join(item["text"])
-            if isinstance(item.get("text"), list)
-            else item.get("text", "")
-        )
+        original_text = item.get("text", "")
+        if isinstance(original_text, list):
+            chat_messages = [
+                message
+                for message in original_text
+                if isinstance(message, str) and message.strip()
+            ]
+            chat_text = "\n".join(chat_messages)
+        else:
+            chat_text = str(original_text or "")
+            chat_messages = [chat_text] if chat_text.strip() else []
+
         training_tail = (
             list(self.training_buffer)[-self.N :]
             if getattr(self, "training_buffer", None)
@@ -7632,8 +7585,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         used_training_buffer = False
 
         if item_type == "chat":
-            chat_snippet = self._build_chat_training_snippet(chat_text)
-
+            snippet_messages = self._build_chat_training_snippet(
+                chat_messages, as_messages=True
+            )
             try:
                 direct_chat_probability = max(
                     0.0, min(1.0, float(training_direct_chat_probability))
@@ -7641,19 +7595,18 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             except Exception:
                 direct_chat_probability = 0.10
 
-            use_chat_direct = bool(chat_snippet) and (
+            use_chat_direct = bool(snippet_messages) and (
                 not training_tail or random.random() < direct_chat_probability
             )
             used_training_buffer = bool(training_tail) and not use_chat_direct
 
             if used_training_buffer:
-                text = training_text
-                if chat_snippet:
-                    text = f"{text}\n{chat_snippet}"
-                training_source = "training+chat" if chat_snippet else "training"
+                messages = list(training_tail) + list(snippet_messages)
+                training_source = "training+chat" if snippet_messages else "training"
             else:
-                text = chat_snippet or chat_text
+                messages = list(snippet_messages or chat_messages)
                 training_source = "chat"
+            tokensToLibrarian = self._tokenize_training_text(messages)
         else:
             text = chat_text or training_text
             if not text:
@@ -7661,9 +7614,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                     max_chars=training_context_max_chars, include_external=True
                 )
             training_source = item_type or "context"
+            tokensToLibrarian = self._tokenize_training_text(text)
 
         print(f"[TRAINING_SOURCE] {training_source}")
-        tokensToLibrarian = self._tokenize_training_text(text)
         token_count = len(tokensToLibrarian)
         if token_count < self.chatWindowMAX * 2 + 1:
             print(f"\n\nnot enough tokens ({token_count}) for training. skipping.\n\n")
