@@ -574,17 +574,18 @@ class BABYLLM(nn.Module):
 
     def _excite_current_grad_norm(self):
         """Measure current global L2 grad norm WITHOUT modifying gradients."""
-        total_sq = 0.0
         with torch.no_grad():
-            for p in self.parameters():
-                if p.grad is None:
-                    continue
-                g = p.grad.detach()
-                if not torch.isfinite(g).all():
-                    return float("inf")
-                n = float(g.norm(2).item())
-                total_sq += n * n
-        return total_sq ** 0.5
+            norms = [
+                p.grad.detach().norm(2)
+                for p in self.parameters()
+                if p.grad is not None
+            ]
+            if not norms:
+                return 0.0
+            # Reduce on-device, then transfer one scalar. A non-finite element
+            # also makes its norm non-finite, preserving the microscope's guard.
+            total = torch.stack(norms).norm(2).item()
+            return total if math.isfinite(total) else float("inf")
 
     def _print_excitement_report(self, preclip_norm, clip_value):
         """Rare-event microscope. Called BEFORE clip_grad_norm_."""
@@ -1869,17 +1870,18 @@ class BABYLLM(nn.Module):
                 ʕっʘ‿ʘʔっ("loss.backward")
             debug_print(f"windowMAX: {self.numTokensPerStep}")
             _loss.backward()
-            debug_print("Logit weights grad norm:", self.logits.l_weights.grad.norm())
-            debug_print(
-                "LogWindowSizes grad norm:",
-                self.interneuronNetwork.logWindowSizes.grad.norm(),
-            )
-            debug_print(
-                "Cerebellum grad norm:", self.interneuronNetwork.cerebellum.grad.norm()
-            )
-            debug_print(
-                "Repetition penalty grad norm:", self.repetitionPenalty.grad.norm()
-            )
+            if debugPrints:
+                debug_print("Logit weights grad norm:", self.logits.l_weights.grad.norm())
+                debug_print(
+                    "LogWindowSizes grad norm:",
+                    self.interneuronNetwork.logWindowSizes.grad.norm(),
+                )
+                debug_print(
+                    "Cerebellum grad norm:", self.interneuronNetwork.cerebellum.grad.norm()
+                )
+                debug_print(
+                    "Repetition penalty grad norm:", self.repetitionPenalty.grad.norm()
+                )
             # print(next(self.parameters()).grad)
 
             # Early return if we are accumulating gradients and not stepping the optimizer yet
@@ -2156,10 +2158,11 @@ class BABYLLM(nn.Module):
                 )
 
             # --- EMBED GRAD DIAGNOSTIC (pre-clip) ---
-            for _name, _p in self.embed.named_parameters():
-                if _p.grad is not None:
-                    _g = _p.grad.detach()
-                    print(f"EMBED PARAM GRAD {_name}: norm={_g.norm().item():.6f} max={_g.abs().max().item():.6f} mean={_g.abs().mean().item():.6f} nonzero={_g.count_nonzero().item()} numel={_g.numel()}")
+            if debugPrints:
+                for _name, _p in self.embed.named_parameters():
+                    if _p.grad is not None:
+                        _g = _p.grad.detach()
+                        print(f"EMBED PARAM GRAD {_name}: norm={_g.norm().item():.6f} max={_g.abs().max().item():.6f} mean={_g.abs().mean().item():.6f} nonzero={_g.count_nonzero().item()} numel={_g.numel()}")
 
             # Clip gradients BEFORE the lock to prevent NaNs
             total_grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -2169,12 +2172,15 @@ class BABYLLM(nn.Module):
             self.last_grad_norm_before_clip = total_grad_norm.item() if hasattr(total_grad_norm, "item") else float(total_grad_norm)
 
             # Compute gradient norm after clipping
-            total_grad_norm_after = 0.0
-            for p in self.parameters():
-                if p.grad is not None:
-                    param_norm = p.grad.data.norm(2)
-                    total_grad_norm_after += param_norm.item() ** 2
-            self.last_grad_norm_after_clip = total_grad_norm_after ** 0.5
+            with torch.no_grad():
+                grad_norms = [
+                    p.grad.detach().norm(2)
+                    for p in self.parameters()
+                    if p.grad is not None
+                ]
+                self.last_grad_norm_after_clip = (
+                    torch.stack(grad_norms).norm(2).item() if grad_norms else 0.0
+                )
 
             # clip_grad_norm_ returns inf when any gradient contains NaN — it does NOT
             # zero them out.  Check here so Adan never sees NaN inputs (which would corrupt
