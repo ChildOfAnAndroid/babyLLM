@@ -35,7 +35,7 @@ from brain.LAYERS.tangling import MINI_INN_TANGLING
 # from brain.LAYERS.sensoryWobble import WOBBLE
 from config import *
 from secret import *
-from utils.helpers import clamp_param, debug_print, get_grad_stats
+from utils.helpers import clamp_param, debug_print
 
 GRAD_SNAPSHOT_LIMIT = 8
 
@@ -565,7 +565,8 @@ class BABYLLM(nn.Module):
                 rows.append(torch.stack((norm, g.abs().max() if details else norm)))
                 if i < snapshot_limit:
                     snapshots.append(torch.stack((norm, g.mean(), g.std(unbiased=False),
-                        1.0 - g.count_nonzero().to(g.dtype) / g.numel())))
+                        1.0 - g.count_nonzero().to(g.dtype) / g.numel(),
+                        g.abs().mean(), g.count_nonzero().to(g.dtype))))
             values = torch.stack(rows).cpu().tolist()
             norms = {name: row[0] for (name, _), row in zip(parameters, values)}
             maxima = {name: row[1] for (name, _), row in zip(parameters, values)} if details else {}
@@ -573,7 +574,8 @@ class BABYLLM(nn.Module):
             if snapshots:
                 for (name, p), row in zip(parameters, torch.stack(snapshots).cpu().tolist()):
                     snapshot.append((name, {"shape": tuple(p.grad.shape), "norm": row[0],
-                        "mean": row[1], "std": row[2], "sparsity": row[3]}))
+                        "mean": row[1], "std": row[2], "sparsity": row[3],
+                        "abs_mean": row[4], "nonzero": int(row[5]), "numel": p.grad.numel()}))
             total = math.sqrt(sum(n * n for n in norms.values()))
             return {"norms": norms, "maxima": maxima, "snapshot": snapshot,
                     "total": total if math.isfinite(total) else float("inf")}
@@ -1819,6 +1821,13 @@ class BABYLLM(nn.Module):
     def _backward_locked(self, _loss, _lossDelta, _run_optimizer=True):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
 
+            before_stats = {}
+            if debugPrints:
+                before = self._gradient_telemetry(
+                    details=True, snapshot_limit=sum(1 for _ in self.named_parameters())
+                )
+                before_stats = dict(before["snapshot"])
+
             if debugPrints:
                 tensor_snitch(self, "babyllm backward start")
                 tensor_snitch(self.memory, "babyllm backward start")
@@ -1842,7 +1851,7 @@ class BABYLLM(nn.Module):
                     else:
                         if debugPrints:
                             ʕっʘ‿ʘʔっ("set yes grads")
-                        stats = get_grad_stats(p.grad)
+                        stats = before_stats[name]
                         shape = stats["shape"]
                         norm = stats["norm"]
                         sparsity = stats["sparsity"]
@@ -1871,29 +1880,27 @@ class BABYLLM(nn.Module):
                 ʕっʘ‿ʘʔっ("loss.backward")
             debug_print(f"windowMAX: {self.numTokensPerStep}")
             _loss.backward()
+            # Accumulation chunks do not advance optimizer-step report cadence.
+            report_due = self._gradient_report_due() if _run_optimizer else False
+            if _run_optimizer or debugPrints:
+                telemetry = self._gradient_telemetry(
+                    details=report_due or debugPrints,
+                    snapshot_limit=(sum(1 for _ in self.named_parameters()) if debugPrints
+                                    else GRAD_SNAPSHOT_LIMIT if report_due else 0),
+                )
             if debugPrints:
-                debug_print("Logit weights grad norm:", self.logits.l_weights.grad.norm())
-                debug_print(
-                    "LogWindowSizes grad norm:",
-                    self.interneuronNetwork.logWindowSizes.grad.norm(),
-                )
-                debug_print(
-                    "Cerebellum grad norm:", self.interneuronNetwork.cerebellum.grad.norm()
-                )
-                debug_print(
-                    "Repetition penalty grad norm:", self.repetitionPenalty.grad.norm()
-                )
-            # print(next(self.parameters()).grad)
+                for label, name in (
+                    ("Logit weights", "logits.l_weights"),
+                    ("LogWindowSizes", "interneuronNetwork.logWindowSizes"),
+                    ("Cerebellum", "interneuronNetwork.cerebellum"),
+                    ("Repetition penalty", "repetitionPenalty"),
+                ):
+                    debug_print(f"{label} grad norm:", telemetry["norms"].get(name, 0.0))
 
-            # Early return if we are accumulating gradients and not stepping the optimizer yet
             if not _run_optimizer:
                 return True
-
-            report_due = self._gradient_report_due()
             collect_grad_stats = report_due
-            telemetry = self._gradient_telemetry(
-                details=report_due, snapshot_limit=GRAD_SNAPSHOT_LIMIT if report_due else 0
-            )
+            after_stats = dict(telemetry["snapshot"])
 
             if diagnoseLogitHead:
                 def _grad_norm_or_zero(param):
@@ -2037,7 +2044,7 @@ class BABYLLM(nn.Module):
                     else:
                         if debugPrints:
                             ʕっʘ‿ʘʔっ("set yes grads")
-                        stats = get_grad_stats(p.grad)
+                        stats = after_stats[name]
                         shape = stats["shape"]
                         norm = stats["norm"]
                         sparsity = stats["sparsity"]
@@ -2135,8 +2142,8 @@ class BABYLLM(nn.Module):
             if debugPrints:
                 for _name, _p in self.embed.named_parameters():
                     if _p.grad is not None:
-                        _g = _p.grad.detach()
-                        print(f"EMBED PARAM GRAD {_name}: norm={_g.norm().item():.6f} max={_g.abs().max().item():.6f} mean={_g.abs().mean().item():.6f} nonzero={_g.count_nonzero().item()} numel={_g.numel()}")
+                        _stats = after_stats[f"embed.{_name}"]
+                        print(f"EMBED PARAM GRAD {_name}: norm={_stats['norm']:.6f} max={telemetry['maxima'][f'embed.{_name}']:.6f} mean={_stats['abs_mean']:.6f} nonzero={_stats['nonzero']} numel={_stats['numel']}")
 
             # Clip gradients BEFORE the lock to prevent NaNs
             total_grad_norm = torch.nn.utils.clip_grad_norm_(

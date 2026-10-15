@@ -51,7 +51,7 @@ def test_disabled_debug_norms_are_not_evaluated():
                 break
         else:
             raise AssertionError('eager diagnostic norm outside debug guard')
-    assert count == 4
+    assert count == 0  # Debug reports consume shared scalar measurements.
 
 
 def test_microscope_preserves_ranking_and_nonfinite_reporting(capsys):
@@ -112,3 +112,26 @@ def test_reporting_uses_optimizer_step_cadence():
     assert [due(holder) for _ in range(7)] == [True,False,False,True,False,False,True]
     scope['gradientReportInterval'] = 1
     assert all(due(holder) for _ in range(3))
+
+
+def test_debug_statistics_include_absolute_mean_and_exact_count():
+    measure = norm_function(SOURCE.read_text())
+    p = torch.nn.Parameter(torch.zeros(4))
+    p.grad = torch.tensor([-3., 0., 1., 0.])
+    holder = SimpleNamespace(named_parameters=lambda: iter([("embed.test", p)]))
+    stats = dict(measure(holder, details=True, snapshot_limit=1)["snapshot"])["embed.test"]
+    assert stats["abs_mean"] == 1.0
+    assert stats["nonzero"] == 2
+    assert stats["numel"] == 4
+    assert stats["mean"] == -.5
+
+
+def test_backward_debug_consumers_do_not_reduce_gradients_again():
+    tree = ast.parse(SOURCE.read_text())
+    method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+                  and n.name == '_backward_locked')
+    for node in ast.walk(method):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            assert node.func.id != 'get_grad_stats'
+    assert 'stats = before_stats[name]' in SOURCE.read_text()
+    assert 'stats = after_stats[name]' in SOURCE.read_text()
