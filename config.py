@@ -723,6 +723,9 @@ embed_collectStats = True
 token_collectStats = True
 logit_collectStats = True
 diagnoseLogitHead = True
+# Detailed gradient snapshots/microscope: first optimizer step, then every N steps.
+# Set to 1 for the former every-step microscope behavior. Scalar telemetry stays current.
+gradientReportInterval = 100
 diagnoseGradientSources = True
 attention_collectStats = True
 n_collectStats = True

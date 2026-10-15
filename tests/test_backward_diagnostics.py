@@ -11,7 +11,7 @@ SOURCE = Path(__file__).resolve().parents[1] / 'babyLLM.py'
 def norm_function(source):
     tree = ast.parse(source)
     method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
-                  and n.name == '_excite_current_grad_norm')
+                  and n.name == '_gradient_telemetry')
     method.decorator_list = []
     namespace = {'torch': torch, 'math': math}
     exec(compile(ast.Module(body=[method], type_ignores=[]), str(SOURCE), 'exec'), namespace)
@@ -25,9 +25,9 @@ def test_gradient_norm_preserves_values_and_gradients():
                              ([float('inf')], float('inf'))]:
         gradients = [torch.tensor([v]) for v in values]
         before = [g.clone() for g in gradients]
-        holder = SimpleNamespace(parameters=lambda: iter(
-            [SimpleNamespace(grad=g) for g in gradients] + [SimpleNamespace(grad=None)]))
-        assert calculate(holder) == expected
+        holder = SimpleNamespace(named_parameters=lambda: iter(
+            [(str(i), SimpleNamespace(grad=g)) for i,g in enumerate(gradients)] + [("unused", SimpleNamespace(grad=None))]))
+        assert calculate(holder)["total"] == expected
         for a, b in zip(gradients, before):
             torch.testing.assert_close(a, b, equal_nan=True)
 
@@ -68,7 +68,8 @@ def test_microscope_preserves_ranking_and_nonfinite_reporting(capsys):
     holder = SimpleNamespace(named_parameters=lambda: iter(parameters),
         inputBlend=SimpleNamespace(grad=None), charBlendWeight=SimpleNamespace(grad=None),
         _excite_last_blend=None, _excite_token_losses=[])
-    scope[node.name](holder, 5., 1.5)
+    telemetry = norm_function(SOURCE.read_text())(holder, details=True)
+    scope[node.name](holder, 5., 1.5, telemetry)
     output = capsys.readouterr().out
     assert 'failed safely' not in output
     assert 'CURRENT SENSORY STATE' in output
@@ -77,3 +78,37 @@ def test_microscope_preserves_ranking_and_nonfinite_reporting(capsys):
     assert 'unused' not in output
     assert math.isnan(parameters[1][1].grad.item())
     torch.testing.assert_close(parameters[0][1].grad, torch.tensor([3.,4.]))
+
+
+def test_shared_telemetry_matches_snapshot_and_clipping():
+    measure = norm_function(SOURCE.read_text())
+    ps = [torch.nn.Parameter(torch.zeros(4)), torch.nn.Parameter(torch.zeros(3))]
+    ps[0].grad = torch.tensor([1., 2., 0., -4.])
+    ps[1].grad = torch.tensor([3., 0., -2.])
+    holder = SimpleNamespace(named_parameters=lambda: iter(zip(['a','b'], ps)))
+    result = measure(holder, details=True, snapshot_limit=1)
+    assert result['maxima'] == {'a':4., 'b':3.}
+    assert len(result['snapshot']) == 1
+    stats = result['snapshot'][0][1]
+    assert stats['norm'] == result['norms']['a']
+    assert stats['shape'] == (4,)
+    assert stats['sparsity'] == .25
+    assert stats['mean'] == ps[0].grad.mean().item()
+    assert stats['std'] == ps[0].grad.std(unbiased=False).item()
+    norm = torch.nn.utils.clip_grad_norm_(ps, 1.5).item()
+    assert math.isclose(result['total'], norm, rel_tol=1e-6)
+    assert measure(holder)['snapshot'] == []
+    assert measure(holder)['maxima'] == {}
+
+
+def test_reporting_uses_optimizer_step_cadence():
+    tree = ast.parse(SOURCE.read_text())
+    node = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
+                and n.name == '_gradient_report_due')
+    scope = {'gradientReportInterval': 3}
+    exec(compile(ast.Module(body=[node], type_ignores=[]), str(SOURCE), 'exec'), scope)
+    holder = SimpleNamespace()
+    due = scope[node.name]
+    assert [due(holder) for _ in range(7)] == [True,False,False,True,False,False,True]
+    scope['gradientReportInterval'] = 1
+    assert all(due(holder) for _ in range(3))

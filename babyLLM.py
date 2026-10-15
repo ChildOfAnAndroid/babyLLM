@@ -550,20 +550,39 @@ class BABYLLM(nn.Module):
             return owner.call(super().to, *args, **kwargs)
         return super().to(*args, **kwargs)
 
-    def _snapshot_gradients(self, limit: int = GRAD_SNAPSHOT_LIMIT):
-        snapshot = []
-        for name, param in self.named_parameters():
-            grad = getattr(param, "grad", None)
-            if grad is None:
-                continue
-            try:
-                stats = get_grad_stats(grad)
-            except Exception:
-                continue
-            snapshot.append((name, stats))
-            if len(snapshot) >= limit:
-                break
-        return snapshot
+    def _gradient_telemetry(self, details=False, snapshot_limit=0):
+        """One detached pre-clip measurement shared by all gradient reports."""
+        with torch.no_grad():
+            parameters = [(name, p) for name, p in self.named_parameters()
+                          if p.grad is not None]
+            if not parameters:
+                return {"norms": {}, "maxima": {}, "snapshot": [], "total": 0.0}
+            rows = []
+            snapshots = []
+            for i, (name, p) in enumerate(parameters):
+                g = p.grad.detach()
+                norm = g.norm()
+                rows.append(torch.stack((norm, g.abs().max() if details else norm)))
+                if i < snapshot_limit:
+                    snapshots.append(torch.stack((norm, g.mean(), g.std(unbiased=False),
+                        1.0 - g.count_nonzero().to(g.dtype) / g.numel())))
+            values = torch.stack(rows).cpu().tolist()
+            norms = {name: row[0] for (name, _), row in zip(parameters, values)}
+            maxima = {name: row[1] for (name, _), row in zip(parameters, values)} if details else {}
+            snapshot = []
+            if snapshots:
+                for (name, p), row in zip(parameters, torch.stack(snapshots).cpu().tolist()):
+                    snapshot.append((name, {"shape": tuple(p.grad.shape), "norm": row[0],
+                        "mean": row[1], "std": row[2], "sparsity": row[3]}))
+            total = math.sqrt(sum(n * n for n in norms.values()))
+            return {"norms": norms, "maxima": maxima, "snapshot": snapshot,
+                    "total": total if math.isfinite(total) else float("inf")}
+
+    def _gradient_report_due(self):
+        """Detailed reports use optimizer-step cadence, independent of token turns."""
+        self._gradient_report_steps = getattr(self, "_gradient_report_steps", 0) + 1
+        interval = max(1, int(gradientReportInterval))
+        return (self._gradient_report_steps - 1) % interval == 0
 
     def _excite_token_name(self, token_id):
         try:
@@ -572,22 +591,7 @@ class BABYLLM(nn.Module):
         except Exception:
             return repr(f"<{token_id}>")
 
-    def _excite_current_grad_norm(self):
-        """Measure current global L2 grad norm WITHOUT modifying gradients."""
-        with torch.no_grad():
-            norms = [
-                p.grad.detach().norm(2)
-                for p in self.parameters()
-                if p.grad is not None
-            ]
-            if not norms:
-                return 0.0
-            # Reduce on-device, then transfer one scalar. A non-finite element
-            # also makes its norm non-finite, preserving the microscope's guard.
-            total = torch.stack(norms).norm(2).item()
-            return total if math.isfinite(total) else float("inf")
-
-    def _print_excitement_report(self, preclip_norm, clip_value):
+    def _print_excitement_report(self, preclip_norm, clip_value, telemetry):
         """Rare-event microscope. Called BEFORE clip_grad_norm_."""
         try:
             print("\n" + "=" * 74)
@@ -607,10 +611,8 @@ class BABYLLM(nn.Module):
                 if parameters:
                     # Copy one small table, rather than synchronizing for each
                     # parameter's finite check, norm and maximum.
-                    measurements = torch.stack([
-                        torch.stack((p.grad.detach().norm(), p.grad.detach().abs().max()))
-                        for _, p in parameters
-                    ]).cpu().tolist()
+                    measurements = [[telemetry["norms"][name], telemetry["maxima"][name]]
+                                    for name, _ in parameters]
                     for (name, p), (norm, mx) in zip(parameters, measurements):
                         if not math.isfinite(norm) or not math.isfinite(mx):
                             norm = mx = float("inf")
@@ -670,7 +672,7 @@ class BABYLLM(nn.Module):
                 small = [(name, p) for name, p in self.named_parameters()
                          if p.grad is not None and p.numel() <= 16]
                 if small:
-                    norms = torch.stack([p.grad.detach().norm() for _, p in small]).cpu().tolist()
+                    norms = [telemetry["norms"][name] for name, _ in small]
                     for (name, p), norm in zip(small, norms):
                         if not math.isfinite(norm):
                             norm = float("inf")
@@ -1816,8 +1818,6 @@ class BABYLLM(nn.Module):
 
     def _backward_locked(self, _loss, _lossDelta, _run_optimizer=True):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
-            collect_grad_stats = self.totalTurns % 100 == 0
-            grad_snapshot = None
 
             if debugPrints:
                 tensor_snitch(self, "babyllm backward start")
@@ -1889,14 +1889,17 @@ class BABYLLM(nn.Module):
             if not _run_optimizer:
                 return True
 
+            report_due = self._gradient_report_due()
+            collect_grad_stats = report_due
+            telemetry = self._gradient_telemetry(
+                details=report_due, snapshot_limit=GRAD_SNAPSHOT_LIMIT if report_due else 0
+            )
+
             if diagnoseLogitHead:
                 def _grad_norm_or_zero(param):
-                    grad = getattr(param, "grad", None)
-                    if grad is None:
-                        return 0.0
-                    if not torch.isfinite(grad).all():
-                        return float("inf")
-                    return float(grad.detach().norm().item())
+                    name = next((n for n, p in self.named_parameters() if p is param), None)
+                    value = telemetry["norms"].get(name, 0.0)
+                    return value if math.isfinite(value) else float("inf")
 
                 with torch.no_grad():
                     self.logits.grad_stats = {
@@ -1990,7 +1993,7 @@ class BABYLLM(nn.Module):
 
                         if group not in groups:
                             groups[group] = []
-                        groups[group].append(p.grad.data)
+                        groups[group].append(telemetry["norms"][name])
 
                     total_sq_norm = 0.0
                     group_l2_norms = {}
@@ -1999,7 +2002,7 @@ class BABYLLM(nn.Module):
                             continue
                         sq_sum = 0.0
                         for g in grads:
-                            sq_sum += float(g.norm(2).item()) ** 2
+                            sq_sum += g ** 2
                         total_sq_norm += sq_sum
                         group_l2_norms[group_name] = sq_sum ** 0.5
 
@@ -2012,39 +2015,8 @@ class BABYLLM(nn.Module):
                         pct = (norm_val / global_l2_norm * 100.0) if global_l2_norm > 0 else 0.0
                         self.gradient_leaderboard.append((group_name, float(norm_val), float(pct)))
 
-            # --- MOVE GRAD SNAPSHOT/REPORTING HERE (after backward, before zero_grad) ---
-            if collect_grad_stats:
-                grad_snapshot = self._snapshot_gradients()
-                grad_total_norm = None
-                if grad_snapshot:
-                    grad_log_output = ["\n--- Gradient Snapshot (pre-zero_grad) ---"]
-                    for name, stats in grad_snapshot:
-                        norm_val = stats["norm"]
-                        sparsity_val = stats["sparsity"]
-                        mean_val = stats["mean"]
-                        std_val = stats["std"]
-                        norm_style = self.calligraphist.S_getStat(
-                            f"{name}_norm", norm_val
-                        )
-                        sparsity_style = self.calligraphist.S_getStat(
-                            f"{name}_sparsity", sparsity_val
-                        )
-                        mean_style = self.calligraphist.S_getStat(
-                            f"{name}_mean", mean_val
-                        )
-                        std_style = self.calligraphist.S_getStat(f"{name}_std", std_val)
-                        grad_log_output.append(
-                            f"{name:<50} | "
-                            f"norm: {self.calligraphist.S_apply(norm_style, f'{norm_val:.6f}')} | "
-                            f"sparsity: {self.calligraphist.S_apply(sparsity_style, f'{sparsity_val:.6%}')} | "
-                            f"mean: {self.calligraphist.S_apply(mean_style, f'{mean_val:.6f}')} | "
-                            f"std: {self.calligraphist.S_apply(std_style, f'{std_val:.6f}')}"
-                        )
-                    print("\n".join(grad_log_output))
-                else:
-                    print(
-                        "\n--- Gradient Snapshot (pre-zero_grad) ---\n(no gradients recorded)"
-                    )
+            # Retain pre-clip values until the final report, after zero_grad.
+            grad_snapshot = telemetry["snapshot"]
 
             if debugPrints:
                 if debugPrints:
@@ -2148,14 +2120,15 @@ class BABYLLM(nn.Module):
 
             # Rare-event excitement microscope.
             # Measure first, while ALL gradients are still exactly pre-clip.
-            _excite_preclip = self._excite_current_grad_norm()
+            _excite_preclip = telemetry["total"]
             if (
-                math.isfinite(_excite_preclip)
+                report_due and math.isfinite(_excite_preclip)
                 and _excite_preclip > self._excite_threshold
             ):
                 self._print_excitement_report(
                     _excite_preclip,
                     clipValue.item(),
+                    telemetry=telemetry,
                 )
 
             # --- EMBED GRAD DIAGNOSTIC (pre-clip) ---
@@ -2263,7 +2236,6 @@ class BABYLLM(nn.Module):
                 self.temperature_vector.clamp_(-10.0, 10.0)
 
             if collect_grad_stats:
-                grad_snapshot = self._snapshot_gradients()
                 grad_total_norm = float(total_grad_norm)
             else:
                 grad_total_norm = None
