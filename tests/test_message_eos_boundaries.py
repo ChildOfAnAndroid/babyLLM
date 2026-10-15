@@ -182,3 +182,66 @@ def test_english_hint_no_longer_injects_newline_style_instruction():
     prompt = method(SimpleNamespace(), "babyllm:")
     assert "british english" in prompt
     assert "line breaks are allowed" not in prompt
+
+
+def test_hard_eos_stops_before_minimum_and_preserves_partial_reply():
+    source = ast.parse((ROOT / 'phone/discord_bot/cog.py').read_text())
+    block = next(
+        node for node in ast.walk(source)
+        if isinstance(node, ast.If)
+        and ast.unparse(node.test) == 'eos_id is not None and nextTokenID == eos_id'
+    )
+    # Exercise the actual stop branch inside a sampling loop without loading a model.
+    loop = ast.For(
+        target=ast.Name(id='nextTokenID', ctx=ast.Store()),
+        iter=ast.Name(id='samples', ctx=ast.Load()),
+        body=[copy.deepcopy(block), ast.parse('responseSeqId.append(nextTokenID)').body[0]],
+        orelse=[],
+    )
+    code = compile(ast.fix_missing_locations(ast.Module(body=[loop], type_ignores=[])), '<EOS stop>', 'exec')
+    for samples, expected in [([1, 2], []), ([2, 1, 3], [2]), ([2] * 8 + [1, 3], [2] * 8)]:
+        scope = dict(samples=samples, eos_id=1, responseSeqId=[], min_tokens_before_stop=8,
+                     eos_hits_before_min=0, stopped_on_hard_eos=False, stop_reason='budget')
+        with redirect_stdout(io.StringIO()):
+            exec(code, scope)
+        assert scope['responseSeqId'] == expected
+        assert scope['stopped_on_hard_eos'] is True
+        assert scope['stop_reason'] == 'hard_eos'
+
+
+def test_empty_reply_retries_stop_on_success_or_after_ten_retries():
+    import asyncio
+
+    source = ast.parse((ROOT / 'phone/discord_bot/cog.py').read_text())
+    block = next(
+        node for node in ast.walk(source)
+        if isinstance(node, ast.If)
+        and any(isinstance(child, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == 'max_empty_retries'
+            for target in child.targets
+        ) for child in node.body)
+    )
+    function = ast.AsyncFunctionDef(
+        name='retry', args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
+        body=[ast.parse("babyllm_text = ''").body[0], copy.deepcopy(block), ast.parse('return babyllm_text').body[0]],
+        decorator_list=[],
+    )
+    code = compile(ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[])), '<EOS retries>', 'exec')
+
+    class Typing:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return False
+
+    for success_at, expected_calls in [(3, 3), (None, 10)]:
+        calls = []
+        async def generate(*args):
+            calls.append(args)
+            return ('hello' if len(calls) == success_at else '', None)
+        scope = dict(babyllm_text='', self=SimpleNamespace(_generate_response_async=generate),
+                     ctx=SimpleNamespace(typing=Typing), prompt_text='hello', num_tokens_to_gen=20,
+                     discord=SimpleNamespace(errors=SimpleNamespace(DiscordServerError=type('ServerError', (Exception,), {}))))
+        exec(code, scope)
+        with redirect_stdout(io.StringIO()):
+            result = asyncio.run(scope['retry']())
+        assert len(calls) == expected_calls
+        assert result == ('hello' if success_at else '')

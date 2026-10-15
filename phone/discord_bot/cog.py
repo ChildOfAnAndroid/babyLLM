@@ -1092,22 +1092,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             print(f"[_GENERATE_RESPONSE_BLOCKING] {err}")
                             return ("", err)
 
-                        # Hard EOS: reserved token ends the reply only after the
-                        # minimum token threshold. Before that, suppress it so
-                        # early EOS does not become an empty/ultra-short reply.
+                        # EOS always closes the message, including an empty reply.
+                        # The caller retries empty replies with a bounded budget.
                         if eos_id is not None and nextTokenID == eos_id:
                             if len(responseSeqId) < min_tokens_before_stop:
                                 eos_hits_before_min += 1
                                 print(
-                                    f"[EOS][GEN] suppressed early <EOS> at generated token "
+                                    f"[EOS][GEN] early hard stop on <EOS> at generated token "
                                     f"{len(responseSeqId) + 1} (below min {min_tokens_before_stop})"
                                 )
-                                continue
-
-                            print(
-                                f"[EOS][GEN] hard stop on <EOS> at generated token "
-                                f"{len(responseSeqId) + 1} (min {min_tokens_before_stop})"
-                            )
+                            else:
+                                print(
+                                    f"[EOS][GEN] hard stop on <EOS> at generated token "
+                                    f"{len(responseSeqId) + 1} (min {min_tokens_before_stop})"
+                                )
                             stop_reason = "hard_eos"
                             stopped_on_hard_eos = True
                             break
@@ -1227,7 +1225,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             print(
                 f"[GEN_STOP] reason={stop_reason} "
                 f"tokens={len(responseSeqId)}/{numTokensToGen} "
-                f"early_eos_suppressed={eos_hits_before_min}"
+                f"early_eos_stops={eos_hits_before_min}"
             )
             self.bot.performance_monitor.record_metric(
                 "generation_time", generation_time
