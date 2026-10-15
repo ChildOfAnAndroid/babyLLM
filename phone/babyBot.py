@@ -15,7 +15,7 @@ import torch
 from twitchio.ext import commands
 
 from config import *
-from phone.discord_bot.shoutouts import get_shoutout_prompts
+from phone.shoutouts import get_shoutout_prompts
 from secret import *
 from textCleaningTool import *
 
@@ -440,18 +440,21 @@ class BABYBOT_TWITCH(commands.Bot):
                 # generate response
                 for _ in range(numTokensToGen):
                     inputSegIDs = genSeqIDs[-self.numTokensPerStep :]
-                    inputTensor = torch.tensor(
-                        inputSegIDs, dtype=torch.long, device=modelDevice
-                    )
-                    # inputTensor = torch.tensor(inputSegIDs, dtype = torch.long, device = modelDevice).unsqueeze(0)
-
                     totAvgAbsDelta = self.tutor.totalAvgAbsDelta
-                    logits, nextTokenIDTensor = self.babyLLM.forward_and_sample(
-                        inputTensor,
-                        _training=True,
-                        _totAvgAbsDelta=totAvgAbsDelta,
-                    )
-                    nextTokenID = nextTokenIDTensor.item()
+
+                    def _sample_token():
+                        with torch.no_grad():
+                            inputTensor = torch.tensor(
+                                inputSegIDs, dtype=torch.long, device=modelDevice
+                            )
+                            _, nextTokenIDTensor = self.babyLLM.forward_and_sample(
+                                inputTensor,
+                                _training=True,
+                                _totAvgAbsDelta=totAvgAbsDelta,
+                            )
+                            return int(nextTokenIDTensor.item())
+
+                    nextTokenID = self.babyLLM.run_on_mps_owner(_sample_token)
 
                     genSeqIDs.append(nextTokenID)
                     responseSeqId.append(nextTokenID)
@@ -756,13 +759,18 @@ class BABYBOT_TWITCH(commands.Bot):
                 _stride=trainingDataStride,
                 _tokens=tokensToLibrarian,
             )
-            self.babyLLM.train()
-            # runs the slow training in a background thread, avoids blocking chat
+            def _train_lesson():
+                self.babyLLM.train()
+                return self.tutor.trainModel(
+                    _trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1
+                )
+
+            # The MPS owner runs the lesson while the executor keeps the event
+            # loop free; Tutor yields to queued generation between turns.
             await self.loop.run_in_executor(
                 None,
-                lambda: self.tutor.trainModel(
-                    _trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1
-                ),
+                self.babyLLM.run_on_mps_owner,
+                _train_lesson,
             )
             print("finished training on item!")
 

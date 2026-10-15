@@ -17,7 +17,7 @@ from rich.traceback import install
 from babyLLM import BABYLLM
 from config import *
 from phone.babyBot import BABYBOT_TWITCH
-from phone.babyBot_discord import *
+from phone.discord_bot import run_discord_bot
 from school.staffroom.calligraphist import S_OUTPUT
 from school.staffroom.counsellor import COUNSELLOR
 from school.staffroom.HE_IS_SCRIBE import SCRIBE
@@ -38,6 +38,198 @@ sys.excepthook = handle_exception
 warnings.simplefilter("default")  # show all warnings (PyTorch hides some by default)
 install(show_locals=True)
 torch.autograd.set_detect_anomaly(mode=anomalyDetect, check_nan=debugPrints)
+
+
+class AdoptedWebTunnel:
+    """Handle one exact pre-existing SSH process, checking identity before signals."""
+
+    def __init__(self, pid, identity):
+        self.pid = pid
+        self.identity = identity
+
+    def poll(self):
+        import subprocess
+        result = subprocess.run(
+            ["ps", "-p", str(self.pid), "-o", "lstart=", "-o", "command="],
+            capture_output=True, text=True, timeout=3,
+        )
+        if result.returncode not in (0, 1):
+            raise RuntimeError("Cannot verify adopted BabyLLM tunnel identity")
+        return None if result.returncode == 0 and result.stdout.strip() == self.identity else 0
+
+    def _signal(self, value):
+        import os
+        if self.poll() is None:
+            try:
+                os.kill(self.pid, value)
+            except ProcessLookupError:
+                pass
+
+    def terminate(self):
+        import signal
+        self._signal(signal.SIGTERM)
+
+    def kill(self):
+        import signal
+        self._signal(signal.SIGKILL)
+
+    def wait(self, timeout):
+        import subprocess
+        import time
+        deadline = time.monotonic() + timeout
+        while self.poll() is None:
+            if time.monotonic() >= deadline:
+                raise subprocess.TimeoutExpired("adopted BabyLLM tunnel", timeout)
+            time.sleep(0.1)
+        return 0
+
+
+def adopt_web_tunnel():
+    """Adopt only a standalone known BabyLLM tunnel, never a combined session."""
+    import logging
+    import shlex
+    import subprocess
+
+    result = subprocess.run(
+        ["ps", "-axo", "pid=,command="], capture_output=True, text=True,
+        check=True, timeout=3,
+    )
+    matches = []
+    allowed_options = {
+        "BatchMode=yes", "ExitOnForwardFailure=yes", "ServerAliveInterval=30",
+        "ServerAliveCountMax=3", "ConnectTimeout=5",
+    }
+    for line in result.stdout.splitlines():
+        fields = line.strip().split(None, 1)
+        if len(fields) != 2 or not fields[0].isdigit():
+            continue
+        try:
+            args = shlex.split(fields[1])
+        except ValueError:
+            continue
+        if not args or args[0] not in ("ssh", "/usr/bin/ssh"):
+            continue
+        if args[-1] not in ("midgard.loveangel1337.ovh", "charis@midgard.loveangel1337.ovh"):
+            continue
+        tokens = args[1:-1]
+        forward = False
+        no_command = False
+        valid = True
+        while tokens:
+            flag = tokens.pop(0)
+            if flag == "-N" and not no_command:
+                no_command = True
+            elif flag == "-f":
+                continue
+            elif flag == "-o" and tokens and tokens[0] in allowed_options:
+                tokens.pop(0)
+            elif flag == "-R" and tokens and tokens.pop(0) == "1420:127.0.0.1:4420" and not forward:
+                forward = True
+            else:
+                valid = False
+                break
+        if valid and forward and no_command:
+            pid = int(fields[0])
+            identity = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "lstart=", "-o", "command="],
+                capture_output=True, text=True, timeout=3, check=True,
+            ).stdout.strip()
+            # Recheck the command after enumeration so a replaced PID is rejected.
+            identity_fields = identity.split(None, 5)
+            if len(identity_fields) == 6 and identity_fields[5] == fields[1]:
+                matches.append(AdoptedWebTunnel(pid, identity))
+    if len(matches) > 1:
+        raise RuntimeError("Multiple standalone BabyLLM tunnels found; refusing ambiguous adoption")
+    if matches:
+        logging.getLogger(__name__).warning("Adopted existing BabyLLM tunnel: pid=%s remote=1420 local=4420", matches[0].pid)
+        return matches[0]
+    return None
+
+
+async def supervise_web_tunnel(stop):
+    """Keep the existing BabyLLM reverse forwarding usable for unified mode."""
+    import asyncio
+    import logging
+    import subprocess
+
+    logger = logging.getLogger(__name__)
+    failures = 0
+    owned = None
+    try:
+        while not stop.is_set():
+            try:
+                healthy, owned = await asyncio.to_thread(check_web_tunnel, owned)
+                if healthy:
+                    if failures:
+                        logger.warning("BabyLLM tunnel recovered: remote=1420 local=4420 failures=%s", failures)
+                    failures = 0
+                else:
+                    failures += 1
+                    if failures == 1 or failures % 5 == 0:
+                        logger.error("BabyLLM forwarding unavailable: remote=1420 local=4420 failures=%s", failures)
+            except (OSError, RuntimeError, subprocess.SubprocessError):
+                failures += 1
+                logger.exception("BabyLLM tunnel check failed: remote=1420 local=4420 failures=%s", failures)
+            delay = 30 if not failures else min(60, 2 ** min(failures, 6))
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=delay)
+            except asyncio.TimeoutError:
+                continue
+    finally:
+        if owned is not None and owned.poll() is None:
+            owned.terminate()
+            try:
+                await asyncio.to_thread(owned.wait, timeout=5)
+            except subprocess.TimeoutExpired:
+                owned.kill()
+                await asyncio.to_thread(owned.wait, timeout=5)
+
+
+def check_web_tunnel(owned=None):
+    """Probe HTTP through forwarding; never replace another owner's tunnel."""
+    import json
+    import subprocess
+    import urllib.request
+
+    # A stopped brain is not a tunnel failure. Wait without creating SSH loops.
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:4420/api/state", timeout=3) as response:
+            if response.status != 200 or not isinstance(json.load(response), dict):
+                return False, owned
+    except (OSError, ValueError):
+        return False, owned
+
+    if owned is None or owned.poll() is not None:
+        owned = adopt_web_tunnel()
+    host = "midgard.loveangel1337.ovh"
+    probe = subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", host,
+         "curl --fail --silent --max-time 5 http://127.0.0.1:1420/api/state"],
+        capture_output=True, text=True, timeout=12,
+    )
+    if probe.returncode == 0:
+        try:
+            if isinstance(json.loads(probe.stdout), dict):
+                return True, owned
+        except ValueError:
+            pass
+    if owned is not None and owned.poll() is None:
+        # A live SSH process with broken forwarding is not health. Replace only
+        # a created or exactly adopted standalone tunnel, never a shared session.
+        owned.terminate()
+        try:
+            owned.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            owned.kill()
+            owned.wait(timeout=5)
+    process = subprocess.Popen(
+        ["ssh", "-N", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+         "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30",
+         "-o", "ServerAliveCountMax=3", "-R", "1420:127.0.0.1:4420", host],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+    )
+    # The next probe, not the PID, acknowledges successful recovery.
+    return False, process
 
 
 def wakeup(
@@ -130,6 +322,16 @@ def wakeup(
                 _trainingLogFreq_A=log_A,
             )
 
+            if mode == "mps_stress":
+                # Local integration entrypoint: exercise the exact wakeup
+                # construction/load path without connecting any chat service.
+                mps_trace("LOAD_MODEL_BEFORE", "mode=mps_stress")
+                babyLLM.loadModel()
+                babyLLM.to(modelDevice)
+                babyLLM.activate_mps_owner()
+                mps_trace("LOAD_MODEL_AFTER", "mode=mps_stress")
+                return babyLLM, tutor, librarian, scribe, calligraphist
+
             if mode == "twitch":
                 print("--- LAUNCHING TWITCH BOT ---")
                 if debugPrints:
@@ -141,6 +343,7 @@ def wakeup(
                 mps_trace("LOAD_MODEL_BEFORE", "mode=twitch")
                 babyLLM.loadModel()
                 babyLLM.to(modelDevice)
+                babyLLM.activate_mps_owner()
                 mps_trace("LOAD_MODEL_AFTER", "mode=twitch")
                 babyBot_twitch.run()
 
@@ -173,10 +376,9 @@ def wakeup(
                     os.environ["BBY_PUBLIC_URL"] = "https://childofanandroid.co.uk"
                     print(f"[UNIFIED] Auto-configured BBY_PUBLIC_URL: {os.environ['BBY_PUBLIC_URL']}")
 
-                # Reuse the established reverse-tunnel host for both BabyLLM and
-                # icharis2's focused phone scanner. The scanner remains the
-                # canonical icharis2 app and database; wakeup only keeps its
-                # existing process and transport alive.
+                # ICHARIS2 owns the Capture Review process. BabyLLM may reuse an
+                # already-running canonical listener, but must never create a
+                # second hidden startup route for it.
                 icharis_root = os.environ.get(
                     "ICHARIS2_ROOT",
                     "/Users/charis/00_Icharis/02_LAB/icharis2",
@@ -197,67 +399,10 @@ def wakeup(
                 except OSError:
                     icharis_running = False
                 if not icharis_running and os.path.isdir(icharis_root):
-                    print("[UNIFIED] starting icharis2 art scanner on port 8765...")
-                    subprocess.Popen(
-                        [
-                            sys.executable,
-                            "-m",
-                            "apps.capture_review",
-                            "serve",
-                            "--host",
-                            "127.0.0.1",
-                            "--port",
-                            "8765",
-                        ],
-                        cwd=icharis_root,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        start_new_session=True,
+                    print(
+                        "[UNIFIED] icharis2 Capture Review is not running; "
+                        "start it through its canonical ICHARIS2 owner when needed."
                     )
-
-                tunnel_specs = (
-                    ("1420:127.0.0.1:4420", "BabyLLM API"),
-                    ("18765:127.0.0.1:8765", "icharis2 art scanner"),
-                )
-                missing_specs = []
-                for reverse_spec, label in tunnel_specs:
-                    try:
-                        result = subprocess.run(
-                            ["pgrep", "-f", f"ssh.*{reverse_spec}"],
-                            capture_output=True,
-                            text=True,
-                        )
-                        tunnel_exists = bool(result.stdout.strip())
-                    except OSError:
-                        tunnel_exists = False
-                    if tunnel_exists:
-                        print(f"[UNIFIED] ssh tunnel for {label} already established.")
-                    else:
-                        missing_specs.append(reverse_spec)
-
-                if missing_specs:
-                    print("[UNIFIED] establishing missing ssh reverse tunnels...")
-                    command = [
-                        "ssh",
-                        "-f",
-                        "-N",
-                        "-o",
-                        "ExitOnForwardFailure=yes",
-                        "-o",
-                        "ServerAliveInterval=30",
-                        "-o",
-                        "ServerAliveCountMax=3",
-                    ]
-                    for reverse_spec in missing_specs:
-                        command.extend(["-R", reverse_spec])
-                    command.append("midgard.loveangel1337.ovh")
-                    try:
-                        # ssh -f forks into the background, so subprocess.run returns immediately
-                        subprocess.run(command, check=True)
-                        print("[UNIFIED] missing ssh reverse tunnels established successfully.")
-                    except subprocess.CalledProcessError as e:
-                        print(f"[ERROR] Failed to establish ssh reverse tunnels: {e}")
 
                 import asyncio
 
@@ -292,10 +437,14 @@ def wakeup(
                         traceback.print_exc()
                         print("[UNIFIED] Continuing without Twitch...")
 
+                    tunnel_stop = asyncio.Event()
+                    tunnel_task = None
+
                     # Enable Web API
                     print("[UNIFIED] Enabling Web API integration...")
                     try:
                         await bot.enable_web(port=4420)
+                        tunnel_task = asyncio.create_task(supervise_web_tunnel(tunnel_stop))
                         print("[UNIFIED] Web API enabled on http://127.0.0.1:4420")
                     except Exception as e:
                         print(f"[ERROR] Failed to enable Web API: {e}")
@@ -319,6 +468,7 @@ def wakeup(
                     mps_trace("LOAD_MODEL_BEFORE", "mode=unified")
                     babyLLM.loadModel(async_optimizer=True)
                     babyLLM.to(modelDevice)
+                    babyLLM.activate_mps_owner()
                     mps_trace("LOAD_MODEL_AFTER", "mode=unified")
 
                     try:
@@ -326,6 +476,9 @@ def wakeup(
                     except KeyboardInterrupt:
                         print("\n[SHUTDOWN] Stopping unified bot...")
                     finally:
+                        tunnel_stop.set()
+                        if tunnel_task is not None:
+                            await tunnel_task
                         if hasattr(bot, "disable_twitch"):
                             await bot.disable_twitch()
                         if hasattr(bot, "disable_web"):

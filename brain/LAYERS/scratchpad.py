@@ -48,10 +48,14 @@ class SCRATCHPAD(nn.Module):
 
         # The scratch pad buffer (ephemeral - cleared between sessions)
         self.register_buffer(
-            "buffer", torch.zeros(self.num_slots, self.slot_dim, device=self.device)
+            "buffer",
+            torch.zeros(self.num_slots, self.slot_dim, device=self.device),
+            persistent=False,
         )
         self.register_buffer(
-            "slot_usage", torch.zeros(self.num_slots, device=self.device)
+            "slot_usage",
+            torch.zeros(self.num_slots, device=self.device),
+            persistent=False,
         )
 
         # WRITE controller: decides WHAT to write and WHERE (in bottleneck space)
@@ -120,6 +124,42 @@ class SCRATCHPAD(nn.Module):
                     module.weight.fill_(1e-5)
                     if module.bias is not None:
                         module.bias.zero_()
+
+    def resetScratchpad(self):
+        """Clear ephemeral working state without changing learned controllers."""
+        with torch.no_grad():
+            self.buffer.zero_()
+            self.slot_usage.zero_()
+        self.stats = {}
+
+    def _load_from_state_dict(
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
+    ):
+        """Discard scratch contents saved by older checkpoints.
+
+        The controllers are learned model state; the scratch contents belong to
+        one runtime session.  Removing the legacy keys also keeps old
+        checkpoints loadable after making these buffers non-persistent.
+        """
+        state_dict.pop(prefix + "buffer", None)
+        state_dict.pop(prefix + "slot_usage", None)
+        super()._load_from_state_dict(
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        )
+        self.resetScratchpad()
 
     @whocalled
     def forward(self, _input):

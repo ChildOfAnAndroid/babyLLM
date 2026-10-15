@@ -5,10 +5,14 @@
 
 import math
 import os
+import queue
 import threading
 import time
 from collections import deque
-from contextlib import nullcontext
+from concurrent.futures import Future
+from contextlib import contextmanager, nullcontext
+from dataclasses import dataclass
+from typing import Any, Callable
 
 import torch
 import torch.nn as nn
@@ -25,7 +29,7 @@ from brain.LAYERS.interneuronNetwork import INTERNEURON_NETWORK
 from brain.LAYERS.logits import LOGITS
 from brain.LAYERS.memory import MEMORY
 from brain.LAYERS.scratchpad import SCRATCHPAD
-from brain.LAYERS.tangling import MINI_INN_TANGLING, TANGLING
+from brain.LAYERS.tangling import MINI_INN_TANGLING
 
 # Creative modules removed
 # from brain.LAYERS.sensoryWobble import WOBBLE
@@ -34,6 +38,107 @@ from secret import *
 from utils.helpers import clamp_param, debug_print, get_grad_stats
 
 GRAD_SNAPSHOT_LIMIT = 8
+
+
+@dataclass
+class _MPSWork:
+    function: Callable[..., Any]
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
+    future: Future
+
+
+class MPSWorkOwner:
+    """Own all post-startup Apple-MPS execution for a BabyLLM instance."""
+
+    def __init__(self, device: torch.device | str):
+        self.enabled = torch.device(device).type == "mps"
+        self._active = False
+        self._activation = threading.Event()
+        self._queue: queue.Queue[_MPSWork | None] = queue.Queue()
+        self._thread: threading.Thread | None = None
+        self._thread_id: int | None = None
+
+    @property
+    def active(self) -> bool:
+        return self.enabled and self._active
+
+    @property
+    def is_owner_thread(self) -> bool:
+        return self.active and threading.get_ident() == self._thread_id
+
+    @property
+    def pending_count(self) -> int:
+        return self._queue.qsize()
+
+    def activate(self) -> None:
+        """Finish startup work, then hand all further MPS work to the owner."""
+        if not self.enabled or self._active:
+            return
+        if threading.current_thread() is not threading.main_thread():
+            raise RuntimeError("MPS owner activation must happen on the main thread")
+
+        torch.mps.synchronize()
+        self._active = True
+        self._thread = threading.Thread(
+            target=self._worker,
+            name="baby-mps-owner",
+            daemon=True,
+        )
+        self._thread.start()
+        self._activation.set()
+
+    def wait_until_active(self) -> None:
+        if self.enabled:
+            self._activation.wait()
+
+    def call(self, function: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Run ``function`` on the owner, executing inline for safe recursion."""
+        if not self.active or self.is_owner_thread:
+            return function(*args, **kwargs)
+
+        future: Future = Future()
+        self._queue.put(_MPSWork(function, args, kwargs, future))
+        return future.result()
+
+    def serve_pending(self, limit: int | None = None) -> int:
+        """Run queued work at a model-consistent boundary during training."""
+        if not self.is_owner_thread:
+            raise RuntimeError("Only the MPS owner thread may serve queued work")
+
+        served = 0
+        while limit is None or served < limit:
+            try:
+                work = self._queue.get_nowait()
+            except queue.Empty:
+                break
+            if work is None:
+                self._queue.task_done()
+                break
+            self._execute(work)
+            served += 1
+        return served
+
+    def close(self) -> None:
+        if self.active:
+            self._queue.put(None)
+
+    def _execute(self, work: _MPSWork) -> None:
+        if work.future.set_running_or_notify_cancel():
+            try:
+                work.future.set_result(work.function(*work.args, **work.kwargs))
+            except BaseException as error:
+                work.future.set_exception(error)
+        self._queue.task_done()
+
+    def _worker(self) -> None:
+        self._thread_id = threading.get_ident()
+        while True:
+            work = self._queue.get()
+            if work is None:
+                self._queue.task_done()
+                return
+            self._execute(work)
 
 
 def log_param_to_length(log_param):
@@ -67,6 +172,7 @@ class BABYLLM(nn.Module):
         self.scribe = _scribe
         self.librarian = _librarian
         self.model_thread_lock = _model_thread_lock or threading.Lock()
+        self.mps_owner = MPSWorkOwner(self.device)
         self.numTokensPerStep = _numTokensPerStep
         # self.wobble = _wobble
 
@@ -216,20 +322,12 @@ class BABYLLM(nn.Module):
         )
         self.pixelPupil = PIXEL(embedDimension, embedDimension, 3, _device=self.device)
 
-        # Tangling: causal window mixer (MINI_INN_TANGLING) or attention2-reuse (TANGLING)
-        if useMiniINN_Tangling:
-            self.tangling = MINI_INN_TANGLING(
-                _counsellor=self.counsellor,
-                _numTokensPerStep=self.numTokensPerStep,
-                _calligraphist=self.calligraphist,
-                _device=self.device,
-            )
-        else:
-            self.tangling = TANGLING(
-                _counsellor=self.counsellor,
-                _attention2_reference=self.attention2,
-                _device=self.device,
-            )
+        self.tangling = MINI_INN_TANGLING(
+            _counsellor=self.counsellor,
+            _numTokensPerStep=self.numTokensPerStep,
+            _calligraphist=self.calligraphist,
+            _device=self.device,
+        )
         self.scratchpad = SCRATCHPAD(_counsellor=self.counsellor, _device=self.device)
 
         # Creative modules removed
@@ -340,9 +438,17 @@ class BABYLLM(nn.Module):
             ]
         )
 
+        # Learn whether acoustic noise should increase or decrease reliance
+        # on chronology. Zero = exactly neutral at birth. tanh bounds the
+        # learned effect, and +/-2% keeps it a tiny contextual modulation.
+        self.ar_noise_sensitivity = nn.Parameter(
+            torch.tensor(0.0, device=self.device)
+        )
+
         self._ar_braid_last = None
         self._ar_raw_last = None
         self._ar_applied_last = None
+        self._ar_noise_gain_last = None
         # === END AR TEMPORAL TANGLE =====================================
 
         """self.transformer_block = nn.TransformerEncoderLayer(
@@ -414,6 +520,35 @@ class BABYLLM(nn.Module):
             "shortDecay": 0,
             "longDecay": 0,
         }
+
+    def activate_mps_owner(self):
+        """Transfer post-startup MPS command encoding to Baby's owner thread."""
+        self.mps_owner.activate()
+
+    def run_on_mps_owner(self, function, *args, **kwargs):
+        """Run model-affecting work on the canonical MPS owner thread."""
+        return self.mps_owner.call(function, *args, **kwargs)
+
+    def serve_pending_mps_work(self):
+        """Serve chat/diagnostic work at a model-consistent training boundary."""
+        if self.mps_owner.active:
+            return self.mps_owner.serve_pending()
+        return 0
+
+    def train(self, mode: bool = True):
+        self._cached_tau = None
+        self._cached_safe_temp = None
+        self._cached_eff_rep_window = None
+        owner = getattr(self, "mps_owner", None)
+        if owner is not None and owner.active and not owner.is_owner_thread:
+            return owner.call(super().train, mode)
+        return super().train(mode)
+
+    def to(self, *args, **kwargs):
+        owner = getattr(self, "mps_owner", None)
+        if owner is not None and owner.active and not owner.is_owner_thread:
+            return owner.call(super().to, *args, **kwargs)
+        return super().to(*args, **kwargs)
 
     def _snapshot_gradients(self, limit: int = GRAD_SNAPSHOT_LIMIT):
         snapshot = []
@@ -656,6 +791,18 @@ class BABYLLM(nn.Module):
         _use_lock: bool = True,
         _arInputSeq=None,
     ):
+        if (
+            _use_lock
+            and self.mps_owner.active
+            and not self.mps_owner.is_owner_thread
+        ):
+            return self.run_on_mps_owner(
+                self.forward,
+                _inputSeq,
+                _pixel=_pixel,
+                _use_lock=True,
+                _arInputSeq=_arInputSeq,
+            )
         with (
             self.counsellor.infodump("forward") as ʕっʘ‿ʘʔっ
         ):  # processes input sequence of tokens (str) to generate logits to predict the next token
@@ -699,7 +846,7 @@ class BABYLLM(nn.Module):
                     )  # [-10, 10] bounded output
                     gate = torch.sigmoid(self.sensory_gate)
                     self.latest_sensory_vector = sensory_vector.detach()
-                    self.sensory_gate_used = gate.detach().item()
+                    self.sensory_gate_used = gate.detach().item() if self.training else 0.0
                 else:
                     sensory_embed = 0.0
                     gate = 0.0
@@ -742,7 +889,8 @@ class BABYLLM(nn.Module):
                 if char_scale != 1.0:
                     charEmbed = charEmbed * char_scale
 
-                self.charEmbedHistory.append(charEmbed.norm().item())
+                if self.training:
+                    self.charEmbedHistory.append(charEmbed.norm().item())
                 # --- END: SUPER-FAST CHARACTER EMBEDDING LOGIC ---
 
                 # --- 6. BLEND (Same as before) ---
@@ -759,6 +907,7 @@ class BABYLLM(nn.Module):
                 self._ar_braid_last = None
                 self._ar_raw_last = None
                 self._ar_applied_last = None
+                self._ar_noise_gain_last = None
                 ar_applied = None
 
                 # During training Tutor supplies an independent rolling
@@ -865,12 +1014,48 @@ class BABYLLM(nn.Module):
                                 self.ar_neuron_gate[0]
                             ).unsqueeze(0)
 
-                            ar_applied = ar_gate * ar_neurons
+                            # Learn a tiny antisymmetric relationship between
+                            # acoustic change and chronology reliance.
+                            #
+                            # noise_delta 0.5 = recent acoustic baseline.
+                            # Above/below baseline must have opposite effects,
+                            # so this cannot become a one-sided AR power boost.
+                            ar_noise_gain = torch.ones(
+                                (),
+                                device=ar_neurons.device,
+                                dtype=ar_neurons.dtype,
+                            )
+
+                            if sensory_source is not None:
+                                noise_centered = torch.as_tensor(
+                                    sensory_source[1],
+                                    device=ar_neurons.device,
+                                    dtype=ar_neurons.dtype,
+                                )
+                                noise_centered = (
+                                    (noise_centered - 0.5) * 2.0
+                                ).clamp(-1.0, 1.0)
+
+                                ar_noise_gain = (
+                                    1.0
+                                    + 0.02
+                                    * torch.tanh(self.ar_noise_sensitivity)
+                                    * noise_centered
+                                )
+
+                            ar_applied = (
+                                ar_noise_gain
+                                * ar_gate
+                                * ar_neurons
+                            )
 
                             self._ar_braid_last = ar_braid.detach()
                             self._ar_raw_last = ar_neurons.detach()
                             self._ar_applied_last = (
                                 ar_applied.detach()
+                            )
+                            self._ar_noise_gain_last = (
+                                ar_noise_gain.detach()
                             )
                 # === END AR TEMPORAL TANGLE ================================
 
@@ -927,7 +1112,7 @@ class BABYLLM(nn.Module):
 
                 inputEmbeds = self.attention(inputEmbeds)
 
-                # TANGLING STAGE 1: Refine embeddings (1024-dim) via attention2
+                # TANGLING STAGE 1: Refine embeddings (1024-dim)
                 if enableTangling:
                     inputEmbeds = inputEmbeds + self.tangling.refine(
                         inputEmbeds, stage_name="embed"
@@ -948,7 +1133,7 @@ class BABYLLM(nn.Module):
                     if ar_applied is not None:
                         INNOutput = INNOutput + ar_applied
 
-                    # TANGLING STAGE 2: Refine neurons (10k-dim) via attention2
+                    # TANGLING STAGE 2: Refine neurons (10k-dim)
                     if enableTangling:
                         INNOutput = INNOutput + self.tangling.refine(
                             INNOutput, stage_name="neuron"
@@ -974,7 +1159,7 @@ class BABYLLM(nn.Module):
                     else:
                         memoryOutput = self.memory.forward(INNOutput) + INNOutput
 
-                        # TANGLING STAGE 3: Refine memory output (1024-dim) via attention2
+                        # TANGLING STAGE 3: Refine memory output (1024-dim)
                         if enableTangling:
                             memoryOutput = memoryOutput + self.tangling.refine(
                                 memoryOutput, stage_name="memory"
@@ -1050,7 +1235,7 @@ class BABYLLM(nn.Module):
                     self.memory.longTermMemory.requires_grad,
                 )
 
-                if True:
+                if self.training:
                     if debugPrints:
                         ʕっʘ‿ʘʔっ("stats collection!")
 
@@ -1186,26 +1371,32 @@ class BABYLLM(nn.Module):
                     tensor_snitch(self.logits, "babyllm forward end")
 
             # Safety check for numerical stability
-            if not torch.isfinite(FINALlogits).all():
-                self.last_forward_had_nonfinite = True
-                self.nonfinite_forward_count += 1
-                self._recover_after_nonfinite_forward()
-                now = time.time()
-                if (now - self.nonfinite_forward_last_log) >= 2.0:
-                    print(
-                        "⚠️ Non-finite logits detected in forward pass! "
-                        f"(count={self.nonfinite_forward_count}, recoveries={self.nonfinite_recovery_count})"
+            if self.training:
+                if not torch.isfinite(FINALlogits).all():
+                    self.last_forward_had_nonfinite = True
+                    self.nonfinite_forward_count += 1
+                    self._recover_after_nonfinite_forward()
+                    now = time.time()
+                    if (now - self.nonfinite_forward_last_log) >= 2.0:
+                        print(
+                            "⚠️ Non-finite logits detected in forward pass! "
+                            f"(count={self.nonfinite_forward_count}, recoveries={self.nonfinite_recovery_count})"
+                        )
+                        try:
+                            logit_norm = FINALlogits.norm()
+                            print(f"   Logit norm: {logit_norm.item()}")
+                        except Exception:
+                            print("   Logit norm: [unavailable]")
+                        self.nonfinite_forward_last_log = now
+                    FINALlogits = torch.nan_to_num(
+                        FINALlogits, nan=0.0, posinf=80.0, neginf=-80.0
                     )
-                    try:
-                        logit_norm = FINALlogits.norm()
-                        print(f"   Logit norm: {logit_norm.item()}")
-                    except Exception:
-                        print("   Logit norm: [unavailable]")
-                    self.nonfinite_forward_last_log = now
+                else:
+                    self.last_forward_had_nonfinite = False
+            else:
                 FINALlogits = torch.nan_to_num(
                     FINALlogits, nan=0.0, posinf=80.0, neginf=-80.0
                 )
-            else:
                 self.last_forward_had_nonfinite = False
 
             return FINALlogits
@@ -1598,7 +1789,30 @@ class BABYLLM(nn.Module):
     """backpropagation and optimization, computes gradients of the loss and uses the optimizer to update the models weights"""
 
     @whocalled
-    def backward(self, _loss, _lossDelta, _run_optimizer=True):
+    def backward(self, _loss, _lossDelta, _run_optimizer=True, _use_lock=True):
+        """Run backward and its optional optimizer step under the model lock.
+
+        Live MPS callers are first routed to the owner thread. The lock still
+        protects direct/offline callers, while nested owner calls execute
+        inline and never try to reacquire it recursively.
+        """
+        if (
+            _use_lock
+            and self.mps_owner.active
+            and not self.mps_owner.is_owner_thread
+        ):
+            return self.run_on_mps_owner(
+                self.backward,
+                _loss,
+                _lossDelta,
+                _run_optimizer=_run_optimizer,
+                _use_lock=True,
+            )
+        lock_ctx = self.model_thread_lock if _use_lock else nullcontext()
+        with lock_ctx:
+            return self._backward_locked(_loss, _lossDelta, _run_optimizer)
+
+    def _backward_locked(self, _loss, _lossDelta, _run_optimizer=True):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
             collect_grad_stats = self.totalTurns % 100 == 0
             grad_snapshot = None
@@ -1723,7 +1937,7 @@ class BABYLLM(nn.Module):
                     for name, p in self.named_parameters():
                         if p.grad is None:
                             continue
-                        
+
                         group = "other"
                         if name.startswith("ar_"):
                             group = "AR temporal tangle"
@@ -1953,7 +2167,7 @@ class BABYLLM(nn.Module):
             )
             self.gradientClipMaxNorm = clipValue.item()
             self.last_grad_norm_before_clip = total_grad_norm.item() if hasattr(total_grad_norm, "item") else float(total_grad_norm)
-            
+
             # Compute gradient norm after clipping
             total_grad_norm_after = 0.0
             for p in self.parameters():
@@ -1982,21 +2196,23 @@ class BABYLLM(nn.Module):
             if debugPrints:
                 ʕっʘ‿ʘʔっ(
                     "optimizer.step"
-                )  # Acquire the lock only for the weight update step
-            with self.model_thread_lock:
-                self.optimizer.step()
-                with torch.no_grad():
-                    inn = self.interneuronNetwork
+                )
+            self.optimizer.step()
+            self._cached_tau = None
+            self._cached_safe_temp = None
+            self._cached_eff_rep_window = None
+            with torch.no_grad():
+                inn = self.interneuronNetwork
 
-                    # Replaces the old per-token clamps from NEURON/INN forward().
-                    weight_norm = inn.neurons.n_weights.norm(dim=1, keepdim=True)
-                    inn.neurons.n_weights.div_(
-                        weight_norm.clamp(min=1.0, max=100.0)
-                    )
-                    inn.windowFractionality.clamp_(-3.0, 3.0)
-                    inn.cerebellum.clamp_(0.01, 0.99)
-                    inn.windowFractionality_short.clamp_(-3.0, 3.0)
-                    inn.cerebellum_short.clamp_(0.01, 0.99)
+                # Replaces the old per-token clamps from NEURON/INN forward().
+                weight_norm = inn.neurons.n_weights.norm(dim=1, keepdim=True)
+                inn.neurons.n_weights.div_(
+                    weight_norm.clamp(min=1.0, max=100.0)
+                )
+                inn.windowFractionality.clamp_(-3.0, 3.0)
+                inn.cerebellum.clamp_(0.01, 0.99)
+                inn.windowFractionality_short.clamp_(-3.0, 3.0)
+                inn.cerebellum_short.clamp_(0.01, 0.99)
             self.optimizer.zero_grad()
 
             # These token records belong only to the optimiser step that just
@@ -2150,23 +2366,42 @@ class BABYLLM(nn.Module):
     def getResponseFromLogits(
         self, _logits, _training=False, _totAvgAbsDelta=0.0, _use_lock: bool = True
     ):
+        if (
+            _use_lock
+            and self.mps_owner.active
+            and not self.mps_owner.is_owner_thread
+        ):
+            return self.run_on_mps_owner(
+                self.getResponseFromLogits,
+                _logits,
+                _training=_training,
+                _totAvgAbsDelta=_totAvgAbsDelta,
+                _use_lock=True,
+            )
         with self.counsellor.infodump("getResponseFromLogits") as ʕっʘ‿ʘʔっ:
             lock_ctx = self.model_thread_lock if _use_lock else nullcontext()
             with lock_ctx:
                 # Ensure incoming logits are finite
-                if not torch.isfinite(_logits).all():
-                    _logits = torch.nan_to_num(
-                        _logits, nan=0.0, posinf=1e3, neginf=-1e3
-                    )
+                _logits = torch.nan_to_num(
+                    _logits, nan=0.0, posinf=1e3, neginf=-1e3
+                )
 
                 # Clamp temperature to a safe, non-zero range
-                raw_temp = torch.exp(self.logTemp)
-                safe_temp = raw_temp.clamp(min=0.1, max=5.0)
-                temp_scale = getattr(self, "sensory_temp_scale", 1.0)
-                safe_temp = (safe_temp * temp_scale).clamp(min=0.1, max=5.0)
-                # Keep attrs up-to-date for any downstream consumers
-                self.temperature = safe_temp
-                self.interneuronNetwork.temperature = safe_temp
+                tau = getattr(self, "_cached_tau", None)
+                if _training or tau is None:
+                    raw_temp = torch.exp(self.logTemp)
+                    safe_temp = raw_temp.clamp(min=0.1, max=5.0)
+                    temp_scale = getattr(self, "sensory_temp_scale", 1.0)
+                    safe_temp = (safe_temp * temp_scale).clamp(min=0.1, max=5.0)
+                    # Keep attrs up-to-date for any downstream consumers
+                    self.temperature = safe_temp
+                    self.interneuronNetwork.temperature = safe_temp
+                    tau = max(float(safe_temp.detach().item()), 1e-2)
+                    if not _training:
+                        self._cached_tau = tau
+                        self._cached_safe_temp = safe_temp
+                else:
+                    safe_temp = self._cached_safe_temp
 
                 # Scale logits and sanitize again to avoid inf/NaN after division
                 logits_scaled = _logits / safe_temp
@@ -2181,12 +2416,7 @@ class BABYLLM(nn.Module):
 
                 # Gumbel-Softmax (robust to tiny tau)
                 try:
-                    tau = float(safe_temp.detach().cpu().item())
-                    tau = max(tau, 1e-2)
                     base_probs = F.gumbel_softmax(logits_scaled, tau=tau, hard=False)
-                    assert torch.isfinite(base_probs).all(), (
-                        "gumbelProbs has NaN or Inf!"
-                    )
                 except Exception as e:
                     self.gumBellend += 1
                     debug_print(f"Gumbel softmax failed: {e}. Falling back to softmax.")
@@ -2247,21 +2477,28 @@ class BABYLLM(nn.Module):
                     # take the argmax from the *augmented* distribution - can still influence the training choice
                     responseFromLogits = augmented_probs.argmax(dim=1, keepdim=True)
                 else:
-                    if torch.sum(augmented_probs) > 0:
+                    try:
                         responseFromLogits = torch.multinomial(
                             augmented_probs, num_samples=1
                         )
-                    else:
+                    except RuntimeError:
                         responseFromLogits = torch.topk(base_probs, 1).indices
 
-                repWindow = torch.exp(self.logRepetitionWindow).item()
-                effective_repWindow = repWindow / (
-                    1 + repWindow / self.numTokensPerStep
-                )
-                self.recentGeneratedTokens.append(responseFromLogits.item())
-                if len(self.recentGeneratedTokens) > int(effective_repWindow):
+                eff_rep_window = getattr(self, "_cached_eff_rep_window", None)
+                if _training or eff_rep_window is None:
+                    repWindow = float(torch.exp(self.logRepetitionWindow).item())
+                    eff_rep_window = int(
+                        repWindow / (1 + repWindow / self.numTokensPerStep)
+                    )
+                    if not _training:
+                        self._cached_eff_rep_window = eff_rep_window
+
+                next_token_id = int(responseFromLogits.item())
+                self.recentGeneratedTokens.append(next_token_id)
+                if len(self.recentGeneratedTokens) > eff_rep_window:
                     self.recentGeneratedTokens.pop(0)
 
+                responseFromLogits._cached_token_id = next_token_id
                 return responseFromLogits
 
     def forward_and_sample(
@@ -2271,10 +2508,27 @@ class BABYLLM(nn.Module):
         _training=False,
         _totAvgAbsDelta=0.0,
         _arInputSeq=None,
+        _use_lock=True,
     ):
         """Run ``forward`` and ``getResponseFromLogits`` while holding the model lock once."""
 
-        with self.model_thread_lock:
+        if (
+            _use_lock
+            and self.mps_owner.active
+            and not self.mps_owner.is_owner_thread
+        ):
+            return self.run_on_mps_owner(
+                self.forward_and_sample,
+                _inputSeq,
+                _pixel=_pixel,
+                _training=_training,
+                _totAvgAbsDelta=_totAvgAbsDelta,
+                _arInputSeq=_arInputSeq,
+                _use_lock=True,
+            )
+
+        lock_ctx = self.model_thread_lock if _use_lock else nullcontext()
+        with lock_ctx:
             logits = self.forward(
                 _inputSeq,
                 _pixel=_pixel,
@@ -2400,6 +2654,129 @@ class BABYLLM(nn.Module):
             for name, value in state.get("attrs", {}).items():
                 setattr(module, name, self._trace_clone_value(value))
 
+    @contextmanager
+    def preserve_training_state_for_generation(self):
+        """Isolate inference mutations while yielding inside a training turn.
+
+        Baby's forward pass intentionally records histories and candidate memory
+        writes.  A mid-turn reply must not replace the training values that the
+        rest of ``trainStep`` will consume or commit.
+        """
+        model_history_names = [
+            "inputEmbedsHistory",
+            "INNOutputHistory",
+            "memoryOutputHistory",
+            "memory2OutputHistory",
+            "penalisedOutputHistory",
+            "FINALlogitsHistory",
+            "normalisedHistory",
+            "charEmbedHistory",
+        ]
+        model_snapshot = {
+            "stats": dict(self.stats or {}),
+            "forwardStats": dict(getattr(self, "forwardStats", {}) or {}),
+            "histories": self._trace_snapshot_histories(self, model_history_names),
+            "attrs": {
+                name: self._trace_clone_value(getattr(self, name, None))
+                for name in [
+                    "prevSensoryPredEmbed_raw",
+                    "nextSensoryPredEmbed_raw",
+                    "latestTokenEmbed_raw",
+                    "latestTokenEmbed",
+                    "predSensory",
+                    "targetSensory",
+                    "latest_sensory_vector",
+                    "latest_device_temp_c",
+                    "sensory_gate_used",
+                    "sensory_temp_scale",
+                    "temperature",
+                    "last_forward_had_nonfinite",
+                ]
+            },
+        }
+        module_snapshots = [
+            (
+                self.embed,
+                self._trace_snapshot_module_state(
+                    self.embed,
+                    attr_names=["embedVector", "embedNormed", "embedFinal"],
+                ),
+            ),
+            (self.attention, self._trace_snapshot_module_state(self.attention, attr_names=["gate_nudge"])),
+            (self.attention2, self._trace_snapshot_module_state(self.attention2, attr_names=["gate_nudge"])),
+            (
+                self.interneuronNetwork,
+                self._trace_snapshot_module_state(
+                    self.interneuronNetwork,
+                    attr_names=[
+                        "temperature", "entropyBonus", "windowTensor_used",
+                        "floatWindowSizes_used", "windowTensor_short_used",
+                        "floatWindowSizes_short_used", "short_gate_used",
+                        "softmax_temp_used", "softmax_temp_short_used",
+                        "cerebellumSoft", "cerebellumSoft_short",
+                        "windowSizeEntropy", "windowEntropy", "rangePenalty",
+                        "meanPenalty", "windowWeightSpread",
+                    ],
+                ),
+            ),
+            (self.interneuronNetwork.neurons, self._trace_snapshot_module_state(self.interneuronNetwork.neurons)),
+            (
+                self.memory,
+                self._trace_snapshot_module_state(
+                    self.memory,
+                    buffer_names=["shortTermMemory", "longTermMemory"],
+                    attr_names=[
+                        "newShort", "newLong", "activationsTensor", "gatedMemory",
+                        "FINALmemory", "short_used", "long_used", "act_used",
+                        "mem_used", "shortDecay_used", "longDecay_used",
+                    ],
+                ),
+            ),
+            (
+                self.memory2,
+                self._trace_snapshot_module_state(
+                    self.memory2,
+                    buffer_names=["shortTermMemory", "longTermMemory"],
+                    attr_names=[
+                        "newShort", "newLong", "activationsTensor", "gatedMemory",
+                        "FINALmemory", "short_used", "long_used", "act_used",
+                        "mem_used", "shortDecay_used", "longDecay_used",
+                    ],
+                ),
+            ),
+            (self.scratchpad, self._trace_snapshot_module_state(self.scratchpad, buffer_names=["buffer", "slot_usage"])),
+            (self.tangling, self._trace_snapshot_module_state(self.tangling, attr_names=["current_stage", "floatWindowSizes_used", "windowTensor_used"])),
+            (self.logits, self._trace_snapshot_module_state(self.logits)),
+        ]
+        was_training = self.training
+        try:
+            yield
+        finally:
+            # Repetition history and non-finite counters belong to inference;
+            # preserve them while restoring training's in-progress state.
+            generated_tokens = list(self.recentGeneratedTokens)
+            nonfinite_values = (
+                self.last_forward_had_nonfinite,
+                self.nonfinite_forward_count,
+                self.nonfinite_forward_last_log,
+                self.nonfinite_recovery_count,
+            )
+            self.stats = model_snapshot["stats"]
+            self.forwardStats = model_snapshot["forwardStats"]
+            self._trace_restore_histories(self, model_snapshot["histories"])
+            for name, value in model_snapshot["attrs"].items():
+                setattr(self, name, self._trace_clone_value(value))
+            for module, snapshot in module_snapshots:
+                self._trace_restore_module_state(module, snapshot)
+            self.recentGeneratedTokens = generated_tokens
+            (
+                self.last_forward_had_nonfinite,
+                self.nonfinite_forward_count,
+                self.nonfinite_forward_last_log,
+                self.nonfinite_recovery_count,
+            ) = nonfinite_values
+            self.train(was_training)
+
     def trace_forward(
         self,
         _inputSeq,
@@ -2409,6 +2786,16 @@ class BABYLLM(nn.Module):
         include_vectors: bool = False,
     ):
         """Run a no-grad forward trace and restore mutable state afterwards."""
+
+        if self.mps_owner.active and not self.mps_owner.is_owner_thread:
+            return self.run_on_mps_owner(
+                self.trace_forward,
+                _inputSeq,
+                _pixel=_pixel,
+                top_k=top_k,
+                include_distribution=include_distribution,
+                include_vectors=include_vectors,
+            )
 
         if _inputSeq is None:
             raise ValueError("trace_forward needs input token ids")
@@ -3246,7 +3633,18 @@ class BABYLLM(nn.Module):
         _first,
         filePath=modelFilePath,
         _newStartIndex=trainingStartIndex,
+        _includeOptimizer=True,
     ):
+        if self.mps_owner.active and not self.mps_owner.is_owner_thread:
+            return self.run_on_mps_owner(
+                self.saveModel,
+                _trainingStepCounter,
+                _totalAvgLoss,
+                _first,
+                filePath=filePath,
+                _newStartIndex=_newStartIndex,
+                _includeOptimizer=_includeOptimizer,
+            )
         with self.counsellor.infodump("saveModel") as ʕっʘ‿ʘʔっ:
             # Refuse to save if any parameter OR memory buffer contains NaN/Inf.
             # A corrupted checkpoint is worse than no save — it would overwrite the last clean one.
@@ -3298,12 +3696,18 @@ class BABYLLM(nn.Module):
             torch.save(self.state_dict(), tmpPath)
             print(f"model temp file created at {tmpPath}...")
             # save optimizer to a separate file (if present)
-            if hasattr(self, "optimizer") and self.optimizer is not None:
+            if (
+                _includeOptimizer
+                and hasattr(self, "optimizer")
+                and self.optimizer is not None
+            ):
                 optimPath = filePath + ".optim"
                 tmpOptimPath = optimPath + ".tmp"
                 torch.save(self.optimizer.state_dict(), tmpOptimPath)
                 print(f"optimizer saved to {optimPath}")
                 os.replace(tmpOptimPath, optimPath)
+            elif not _includeOptimizer:
+                print("optimizer save skipped for this autosave (previous .optim kept)")
             os.replace(tmpPath, filePath)
             print(f"model successfully saved to {filePath}!")
             # (existing model and optimizer saving)
@@ -3333,6 +3737,12 @@ class BABYLLM(nn.Module):
         bot modes (twitch / discord / unified) where startup latency matters
         more than first-training-step latency.
         """
+        if self.mps_owner.active and not self.mps_owner.is_owner_thread:
+            return self.run_on_mps_owner(
+                self.loadModel,
+                filePath,
+                async_optimizer=async_optimizer,
+            )
         with self.counsellor.infodump("loadModel") as ʕっʘ‿ʘʔっ:
             try:
                 if debugPrints:
@@ -3422,16 +3832,18 @@ class BABYLLM(nn.Module):
             except FileNotFoundError:
                 print("no saved model found")
 
-    def _load_optimizer_state(self, optimPath):
+    def _load_optimizer_state(self, optimPath, _loaded_optim_state=None):
         """Synchronous optimizer load. Re-uploads tensors to self.device because
         torch.load(..., map_location=device) drops them on the right device but
         the load_state_dict copy can land on CPU when the optimizer was created
         before any tensors moved to the GPU."""
         try:
-            loaded_optim_state = torch.load(
-                optimPath,
-                map_location=self.device,
-            )
+            loaded_optim_state = _loaded_optim_state
+            if loaded_optim_state is None:
+                loaded_optim_state = torch.load(
+                    optimPath,
+                    map_location=self.device,
+                )
 
             current_optim_state = self.optimizer.state_dict()
             loaded_groups = loaded_optim_state.get(
@@ -3463,16 +3875,6 @@ class BABYLLM(nn.Module):
                         "than current Baby; refusing unsafe remap."
                     )
 
-                names = [
-                    name for name, _ in self.named_parameters()
-                ]
-
-                expected_tail = [
-                    "ar_throat.weight",
-                    "ar_expand.weight",
-                    "ar_neuron_gate.0",
-                ]
-
                 added = sum(
                     len(new_group.get("params", []))
                     - len(old_group.get("params", []))
@@ -3480,13 +3882,50 @@ class BABYLLM(nn.Module):
                     in zip(loaded_groups, current_groups)
                 )
 
+                known_extensions = {
+                    1: {"ar_noise_sensitivity"},
+                    3: {
+                        "ar_throat.weight",
+                        "ar_expand.weight",
+                        "ar_neuron_gate.0",
+                    },
+                    4: {
+                        "ar_throat.weight",
+                        "ar_expand.weight",
+                        "ar_neuron_gate.0",
+                        "ar_noise_sensitivity",
+                    },
+                }
+                expected_new_names = known_extensions.get(added)
+                name_by_param_id = {
+                    id(param): name
+                    for name, param in self.named_parameters()
+                }
+                current_group_names = [
+                    [
+                        name_by_param_id.get(id(param))
+                        for param in live_group["params"]
+                    ]
+                    for live_group in self.optimizer.param_groups
+                ]
+                found_new_names = {
+                    name
+                    for group_names in current_group_names
+                    for name in group_names
+                    if (
+                        expected_new_names is not None
+                        and name in expected_new_names
+                    )
+                }
+
                 if (
-                    added != 3
-                    or names[-3:] != expected_tail
+                    expected_new_names is None
+                    or found_new_names != expected_new_names
                 ):
+                    names = list(name_by_param_id.values())
                     raise RuntimeError(
                         "Optimizer layout changed for something "
-                        "other than known AR512 append; refusing. "
+                        "other than a known AR extension; refusing. "
                         f"added={added}, tail={names[-6:]}"
                     )
 
@@ -3495,9 +3934,8 @@ class BABYLLM(nn.Module):
                 )
                 remapped = {}
 
-                for old_group, new_group in zip(
-                    loaded_groups,
-                    current_groups,
+                for group_index, (old_group, new_group) in enumerate(
+                    zip(loaded_groups, current_groups)
                 ):
                     old_ids = list(
                         old_group.get("params", [])
@@ -3505,10 +3943,25 @@ class BABYLLM(nn.Module):
                     new_ids = list(
                         new_group.get("params", [])
                     )
+                    group_names = current_group_names[group_index]
+                    retained_new_ids = [
+                        new_id
+                        for new_id, name in zip(
+                            new_ids, group_names
+                        )
+                        if name not in expected_new_names
+                    ]
+
+                    if len(old_ids) != len(retained_new_ids):
+                        raise RuntimeError(
+                            "Known AR parameters were not added in "
+                            "the optimizer groups expected from the "
+                            "checkpoint; refusing unsafe remap."
+                        )
 
                     for old_id, new_id in zip(
                         old_ids,
-                        new_ids[:len(old_ids)],
+                        retained_new_ids,
                     ):
                         if old_id in old_state:
                             remapped[new_id] = old_state[old_id]
@@ -3519,7 +3972,8 @@ class BABYLLM(nn.Module):
 
                 print(
                     "[AR TANGLE] optimizer checkpoint safely "
-                    "extended by 3 new parameter tensors; "
+                    f"extended by {added} known parameter "
+                    f"tensor{'s' if added != 1 else ''}; "
                     "all existing optimizer state preserved."
                 )
 
@@ -3554,7 +4008,16 @@ class BABYLLM(nn.Module):
 
         def _worker():
             try:
-                self._load_optimizer_state(optimPath)
+                # Disk I/O and deserialisation stay asynchronous, but no tensor
+                # is uploaded to MPS from this worker.  Applying optimizer state
+                # is queued to the same owner as training and generation.
+                loaded_optim_state = torch.load(optimPath, map_location="cpu")
+                self.mps_owner.wait_until_active()
+                self.run_on_mps_owner(
+                    self._load_optimizer_state,
+                    optimPath,
+                    _loaded_optim_state=loaded_optim_state,
+                )
             except Exception as exc:
                 self._optimizer_load_error = exc
                 print(f"[ASYNC OPTIM] load failed: {exc}")
@@ -3579,6 +4042,22 @@ class BABYLLM(nn.Module):
             return True
         if event.is_set():
             ready = True
+        elif self.mps_owner.is_owner_thread:
+            # A live lesson can reach this barrier before the asynchronous CPU
+            # checkpoint read finishes.  The state-application job itself must
+            # run on this owner, so do not block the owner waiting for a job it
+            # needs to execute.  Chat generation may also be served meanwhile.
+            import time
+
+            t0 = time.perf_counter()
+            deadline = None if timeout is None else t0 + timeout
+            while not event.is_set():
+                self.mps_owner.serve_pending(limit=1)
+                if event.wait(timeout=0.05):
+                    break
+                if deadline is not None and time.perf_counter() >= deadline:
+                    break
+            ready = event.is_set()
         else:
             import time
 
@@ -3638,6 +4117,8 @@ class BABYLLM(nn.Module):
 
     @whocalled
     def resetMemory(self, context="inference"):
+        if self.mps_owner.active and not self.mps_owner.is_owner_thread:
+            return self.run_on_mps_owner(self.resetMemory, context=context)
         with self.counsellor.infodump("resetMemory") as ʕっʘ‿ʘʔっ:
             """Reset memory depending on the context: inference always resets, training resets every n turns"""
             self.memoryLength = torch.sigmoid(
@@ -3679,8 +4160,6 @@ class BABYLLM(nn.Module):
                     self.memory2.resetMemory(_memoryLength=self.memory2Length)
                     self.stepsSinceMemory2Reset = 0
 
-
-
     @whocalled
     def print_rgb_block(self, rgb_tensor, label="RGB"):
         # rgb_tensor = rgb_tensor.detach().cpu().clamp(0, 1).numpy()
@@ -3705,8 +4184,6 @@ class BABYLLM(nn.Module):
         return {
             self.librarian.indexToToken[int(i)]: float(counts[int(i)]) for i in non_zero
         }
-
-
 
     """def log_all_learnable_params(self, prefix="PARAM_"):
         Logs all learnable scalar parameters and basic stats for tensors in self.stats dict.

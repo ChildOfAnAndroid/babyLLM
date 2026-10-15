@@ -10,10 +10,7 @@ import random
 import re
 import time
 from collections import Counter
-from glob import glob
 from typing import List
-
-from config import trainingFilePath_dict_weighted, trainingFilePathCLEANED
 
 
 class AutonomyPlanner:
@@ -29,9 +26,6 @@ class AutonomyPlanner:
         self.bot = bot
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.state_path = state_path or os.path.join(base_dir, "autonomy.json")
-        self._candidate_paths_cache: list[str] = []
-        self._candidate_paths_cached_at = 0.0
-        self._candidate_paths_cache_ttl = 900.0
         self.state = {
             "enabled": True,
             "last_tick": 0.0,
@@ -444,133 +438,6 @@ class AutonomyPlanner:
             pass
         return top[:k]
 
-    def _candidate_training_paths(self) -> List[str]:
-        """Legacy local text candidates as a fallback when weighted sources fail."""
-        now = time.time()
-        if (
-            self._candidate_paths_cache
-            and (now - self._candidate_paths_cached_at)
-            < self._candidate_paths_cache_ttl
-        ):
-            return list(self._candidate_paths_cache)
-
-        paths = []
-        try:
-            # primary cleaned training corpus
-            if os.path.exists(trainingFilePathCLEANED):
-                paths.append(trainingFilePathCLEANED)
-            # nearby library files in repo
-            base_dir = os.path.dirname(trainingFilePathCLEANED)
-            for p in glob(os.path.join(base_dir, "**", "*.txt"), recursive=True):
-                # keep it small; skip the main file (already included)
-                try:
-                    if p != trainingFilePathCLEANED and os.path.getsize(p) < 2_000_000:
-                        paths.append(p)
-                except Exception:
-                    continue
-            # de-dup, keep order
-            seen = set()
-            uniq = []
-            for p in paths:
-                if p not in seen:
-                    seen.add(p)
-                    uniq.append(p)
-            cached = uniq[:15]
-            self._candidate_paths_cache = list(cached)
-            self._candidate_paths_cached_at = now
-            return cached
-        except Exception:
-            fallback = paths[:1]
-            self._candidate_paths_cache = list(fallback)
-            self._candidate_paths_cached_at = now
-            return fallback
-
-    def _sample_weighted_sources(self, k: int = 3) -> List[dict]:
-        """Sample up to k entries from trainingFilePath_dict_weighted by weight."""
-        try:
-            pop = [
-                e for e in (trainingFilePath_dict_weighted or []) if isinstance(e, dict)
-            ]
-            if not pop:
-                return []
-            weights = [max(0.0, float(e.get("weight", 1.0) or 1.0)) for e in pop]
-            total = sum(weights) or 1.0
-            probs = [w / total for w in weights]
-            # draw with replacement then de-dup to keep distribution simple
-            picks: list[dict] = []
-            tries = 0
-            while len(picks) < k and tries < k * 4:
-                tries += 1
-                idx = random.choices(range(len(pop)), weights=probs, k=1)[0]
-                entry = pop[idx]
-                if entry not in picks:
-                    picks.append(entry)
-            return picks
-        except Exception:
-            return []
-
-    def _load_source_text(
-        self, entry: dict, max_chars: int = 150_000, retries: int = 5
-    ) -> str:
-        """Load text from a weighted training entry using librarian when available.
-
-        On failure, retries with different random entries (up to `retries`).
-        Supports 'text' type locally; other types best-effort via librarian if it
-        exposes 'loadSingleFile(path, type, max_chars=...)'. Returns lowercase.
-        """
-
-        def _try_load(ent: dict) -> str:
-            try:
-                typ = str(ent.get("type", "text") or "text").lower()
-                path = ent.get("in")
-                if not path:
-                    return ""
-                lib = getattr(self.bot, "librarian", None)
-                if lib and hasattr(lib, "loadSingleFile"):
-                    strat = (
-                        "random"
-                        if typ in ("text", "discord_txt", "discord_json", "json")
-                        else "head"
-                    )
-                    try:
-                        txt = lib.loadSingleFile(
-                            path, typ, max_chars=max_chars, strategy=strat
-                        )
-                        if txt:
-                            return txt.strip().lower()
-                    except Exception:
-                        pass
-                if typ == "text" and os.path.exists(path):
-                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                        txt = f.read(max_chars).strip().lower()
-                        return txt
-            except Exception:
-                return ""
-            return ""
-
-        tried_paths = set()
-        txt = _try_load(entry)
-        if txt:
-            return txt
-        tried_paths.add(entry.get("in"))
-
-        pool = [
-            e for e in (trainingFilePath_dict_weighted or []) if isinstance(e, dict)
-        ]
-        attempts = 1
-        while attempts < max(1, retries) and pool:
-            candidate = random.choice(pool)
-            path = candidate.get("in")
-            if path in tried_paths:
-                attempts += 1
-                continue
-            tried_paths.add(path)
-            txt = _try_load(candidate)
-            attempts += 1
-            if txt:
-                return txt
-        return ""
-
     def _is_useful_related_snippet(self, line: str) -> bool:
         text = re.sub(r"\s+", " ", str(line or "").strip().lower())
         if len(text) < 20 or len(text) > 240:
@@ -617,10 +484,12 @@ class AutonomyPlanner:
             return []
 
         choices: list[tuple[float, str]] = []
-        # First try weighted sources from config
-        weighted = self._sample_weighted_sources(k=3)
+        librarian = getattr(self.bot, "librarian", None)
+        if librarian is None:
+            return []
+        weighted = librarian.sampleTrainingSources(3)
         for ent in weighted:
-            txt = self._load_source_text(ent, max_chars=120_000)
+            txt = librarian.loadTrainingSource(ent, max_chars=120_000)
             if not txt:
                 continue
             for line in txt.splitlines():
@@ -632,23 +501,6 @@ class AutonomyPlanner:
                     continue
                 score = hit / (1.0 + 0.002 * len(s))
                 choices.append((score, line.strip()))
-
-        # Fallback to local library files
-        if not choices:
-            for path in self._candidate_training_paths():
-                try:
-                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                        for line in f:
-                            s = line.strip().lower()
-                            if not self._is_useful_related_snippet(line):
-                                continue
-                            hit = sum(1 for k in keys if k in s)
-                            if hit <= 0:
-                                continue
-                            score = hit / (1.0 + 0.002 * len(s))
-                            choices.append((score, line.strip()))
-                except Exception:
-                    continue
 
         if not choices:
             return []

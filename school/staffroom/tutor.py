@@ -776,11 +776,18 @@ class TUTOR:
                             ʕっʘ‿ʘʔっ("♥END TURN♥")  # END OF ONE TURN
                         self.latestLossDelta = self.endTurnActions()
 
+                        # A complete turn is Baby's existing consistency
+                        # boundary: backward/optimizer, memory commits, stats,
+                        # and resets are finished.  Let queued generation run
+                        # here on this same MPS-owning thread, then continue the
+                        # lesson with the next turn.
+                        self.model.serve_pending_mps_work()
+
                         if tokenSpeedTest == True:
                             if self.totalTurns % 250 == 0 and self.totalTurns > 0:
                                 print("HELLO I'M THIS CUTE!!!")
                                 self.saveFreqActions()
-                                empty_mps_cache()
+                                empty_mps_cache(self.model)
                                 return (
                                     self.totalLoss / self.totalTurns,
                                     self.totalTurns,
@@ -1075,7 +1082,9 @@ class TUTOR:
 
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("getResponseFromLogits")
-                predy = int(predictedTokenIndex.item())
+                predy = getattr(predictedTokenIndex, "_cached_token_id", None)
+                if predy is None:
+                    predy = int(predictedTokenIndex.item())
                 if debugPrints:
                     print("nextToken: ")
                     print(predy, end="")
@@ -1328,8 +1337,24 @@ class TUTOR:
                 except Exception as e:
                     print(f"could not write live token state: {e}")
 
-                # Backpropagate in chunks
-                if L > 0 and (j < L) and ((j + 1) % chunk_size == 0 or j == L - 1):
+                # Backpropagate in chunks. If live model work is waiting, close
+                # the current partial chunk at the next token boundary rather
+                # than making a reply wait for the rest of a fixed 32-token
+                # chunk. Each token loss is already scaled by L and gradients
+                # still accumulate until the one final optimizer step, so this
+                # changes scheduling without changing the lesson's loss.
+                owner = getattr(self.model, "mps_owner", None)
+                live_work_waiting = bool(
+                    chunk_loss is not None
+                    and owner is not None
+                    and owner.is_owner_thread
+                    and owner.pending_count
+                )
+                if L > 0 and (j < L) and (
+                    (j + 1) % chunk_size == 0
+                    or j == L - 1
+                    or live_work_waiting
+                ):
                     is_last_loss_token = (j == L - 1)
                     if is_last_loss_token:
                         if debugPrints:
@@ -1457,20 +1482,136 @@ class TUTOR:
                         print(f" - top-1 confidence:                        {diag_confidence_mean:.2%}")
                         print(f" - repetition rate:                         {diag_rep_rate:.2f}%")
                         if getattr(self.model, "_ar_applied_last", None) is not None:
-                            _ar_gate_now = torch.sigmoid(
-                                self.model.ar_neuron_gate[0]
-                            ).detach()
+                            # AR GATE MICROSCOPE
+                            #
+                            # Pure detached telemetry. Copy the tiny 10k gate
+                            # vector to CPU once, then do all distribution work
+                            # there so diagnostics do not cause repeated MPS syncs.
+                            _ar_gate_cpu = (
+                                torch.sigmoid(self.model.ar_neuron_gate[0])
+                                .detach()
+                                .float()
+                                .cpu()
+                            )
+
+                            _ar_birth = float(
+                                torch.sigmoid(torch.tensor(-4.5)).item()
+                            )
+                            _ar_delta = _ar_gate_cpu - _ar_birth
+
+                            _ar_quantiles = torch.quantile(
+                                _ar_gate_cpu,
+                                torch.tensor(
+                                    [0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99]
+                                ),
+                            ).tolist()
+
+                            (
+                                _ar_p10,
+                                _ar_p25,
+                                _ar_p50,
+                                _ar_p75,
+                                _ar_p90,
+                                _ar_p95,
+                                _ar_p99,
+                            ) = _ar_quantiles
+
+                            _ar_gate_mean = _ar_gate_cpu.mean().item()
+                            _ar_gate_std = _ar_gate_cpu.std().item()
+                            _ar_gate_min = _ar_gate_cpu.min().item()
+                            _ar_gate_max = _ar_gate_cpu.max().item()
+
+                            _ar_delta_mean = _ar_delta.mean().item()
+                            _ar_delta_std = _ar_delta.std().item()
+
+                            _ar_gt_111 = int(
+                                (_ar_gate_cpu > 0.0111).sum().item()
+                            )
+                            _ar_gt_112 = int(
+                                (_ar_gate_cpu > 0.0112).sum().item()
+                            )
+                            _ar_gt_113 = int(
+                                (_ar_gate_cpu > 0.0113).sum().item()
+                            )
+
+                            _ar_top_vals, _ar_top_idx = torch.topk(
+                                _ar_gate_cpu,
+                                k=min(20, _ar_gate_cpu.numel()),
+                            )
+                            _ar_bottom_vals, _ar_bottom_idx = torch.topk(
+                                _ar_gate_cpu,
+                                k=min(20, _ar_gate_cpu.numel()),
+                                largest=False,
+                            )
+
+                            def _ar_neuron_list(indices, values):
+                                return "  ".join(
+                                    f"{int(idx)}:{float(val):.4%}"
+                                    f"({(float(val) - _ar_birth) * 100:+.4f}pp)"
+                                    for idx, val in zip(
+                                        indices.tolist(),
+                                        values.tolist(),
+                                    )
+                                )
 
                             print(
                                 " - AR neuron gate mean / max:              "
-                                f"{_ar_gate_now.mean().item():.4%} / "
-                                f"{_ar_gate_now.max().item():.4%}"
+                                f"{_ar_gate_mean:.4%} / "
+                                f"{_ar_gate_max:.4%}"
                             )
                             print(
                                 " - AR braid / raw / applied norms:         "
                                 f"{self.model._ar_braid_last.norm().item():.4f} / "
                                 f"{self.model._ar_raw_last.norm().item():.4f} / "
                                 f"{self.model._ar_applied_last.norm().item():.4f}"
+                            )
+
+                            print(" - AR GATE MICROSCOPE:")
+                            print(
+                                "   * birth / mean / std:                    "
+                                f"{_ar_birth:.4%} / "
+                                f"{_ar_gate_mean:.4%} / "
+                                f"{_ar_gate_std:.6%}"
+                            )
+                            print(
+                                "   * min / p10 / p25 / median:              "
+                                f"{_ar_gate_min:.4%} / "
+                                f"{_ar_p10:.4%} / "
+                                f"{_ar_p25:.4%} / "
+                                f"{_ar_p50:.4%}"
+                            )
+                            print(
+                                "   * p75 / p90 / p95 / p99 / max:          "
+                                f"{_ar_p75:.4%} / "
+                                f"{_ar_p90:.4%} / "
+                                f"{_ar_p95:.4%} / "
+                                f"{_ar_p99:.4%} / "
+                                f"{_ar_gate_max:.4%}"
+                            )
+                            print(
+                                "   * delta from birth mean / std:           "
+                                f"{_ar_delta_mean * 100:+.6f}pp / "
+                                f"{_ar_delta_std * 100:.6f}pp"
+                            )
+                            print(
+                                "   * count >1.11% / >1.12% / >1.13%:       "
+                                f"{_ar_gt_111} / "
+                                f"{_ar_gt_112} / "
+                                f"{_ar_gt_113}"
+                            )
+                            print(
+                                "   * top 20 chronology neurons:             "
+                                + _ar_neuron_list(
+                                    _ar_top_idx,
+                                    _ar_top_vals,
+                                )
+                            )
+                            print(
+                                "   * bottom 20 chronology neurons:          "
+                                + _ar_neuron_list(
+                                    _ar_bottom_idx,
+                                    _ar_bottom_vals,
+                                )
                             )
                         if diagnoseLogitHead:
                             logit_stats = self.model.logits.getLogitStats()
@@ -1506,6 +1647,12 @@ class TUTOR:
                                 empty_mps_cache()
                                 return [], []
                             mps_trace("BACKWARD_AFTER", "optimizer=False")
+                            if self.model.mps_owner.pending_count:
+                                # The chunk graph has been consumed, but the
+                                # turn's candidate memories and diagnostics must
+                                # survive inference unchanged until final commit.
+                                with self.model.preserve_training_state_for_generation():
+                                    self.model.serve_pending_mps_work()
                         chunk_loss = None
 
             # Write babyState once per step (was once per token — 269x per step previously)
@@ -1867,11 +2014,16 @@ class TUTOR:
         ) as ʕっʘ‿ʘʔっ:  # SAVE THE MODEL EVERY x STEPS
             print(self.calligraphist.S_apply("dim", "autosaving..."))
             saveCounter = self.trainingStepCounter * self.dataStride
+            autosaveCount = getattr(self, "_autosaveCount", 0)
+            self._autosaveCount = autosaveCount + 1
             self.model.saveModel(
                 _newStartIndex=self.startIndex,
                 _trainingStepCounter=saveCounter,
                 _totalAvgLoss=self.totalAvgLoss,
                 _first=self.first,
+                _includeOptimizer=(
+                    autosaveCount % max(1, int(saveOptimizerEveryNAutosaves)) == 0
+                ),
             )
             p = self.trainingStepCounter + saveModelFreq
             print(
@@ -2348,7 +2500,7 @@ class TUTOR:
                     )
                     self._merge_stats_dict(INN_stats)
                     self._merge_stats_dict(self.model.getBabyStats())
-                    # Append MINI_INN_TANGLING cerebellum display (present when useMiniINN_Tangling=True)
+                    # Append MINI_INN_TANGLING cerebellum display.
                     if hasattr(self.model.tangling, "getMiniTangleCerebellumStr"):
                         if debugPrints:
                             ʕっʘ‿ʘʔっ("♥MINI_TANGLE_cerebellumStr")

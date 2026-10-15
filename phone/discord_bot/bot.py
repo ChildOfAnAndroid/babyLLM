@@ -12,17 +12,19 @@ import asyncio
 import calendar
 import difflib
 import hashlib
+import inspect
 import json
 import math
 import random
 import random as pyrandom
 import re
+import shlex
 import time
 import traceback
 from collections import Counter, defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
 import aiohttp
@@ -45,13 +47,21 @@ from .live_pressure import (
     configure_generation_queue,
     patch_cog_generation,
 )
-from .performance import perf_monitor
-from .platform_integration import PlatformIntegrationMixin
-from .safety import safety
+from .performance import PerformanceMonitor
+from .platforms import (
+    DiscordAdapter,
+    PlatformAdapter,
+    PlatformContext,
+    PlatformMessage,
+    TwitchAdapter,
+    WebAdapter,
+)
+from .safety import SafetyValidator
 from .utils import (
     clean_baby_output,
     escape_markdown,
     format_bby_amount,
+    embed_to_plain_text,
     get_bby_now,
     getTimeRant,
     is_similar,
@@ -193,7 +203,7 @@ TRAINING_METADATA_LABELS = {
 }
 
 
-class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
+class BABYBOT_DISCORD(commands.Bot):
     async def _generation_worker(self):
         """Background task to process generation requests one at a time, globally."""
         while True:
@@ -697,7 +707,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         self.opt_in_token_usage = Counter()  # opted-in user token usage stats
         self.wtf_threshold = 30
         self.wtf_reacts = ["💡", "😳", "💀", "🤔", "😂", "🙀"]
-        self.next_translate_time = time.time() + random.uniform(24 * 3690, 168 * 3690)
+        self.next_translate_time = time.time() + random.uniform(
+            24 * 3690 * 50, 168 * 3690 * 50
+        )
 
         # --- favourite token tracking ---
         self.babyFaveToken = ""
@@ -779,7 +791,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         )
 
         if os.path.exists(self.user_data_path):
-            logger.info("INIT", f"{self.user_data_path} LOADING FROM PATH...")
+            logger.info('[%s] %s', "INIT", f"{self.user_data_path} LOADING FROM PATH...")
             self.userMemory = defaultdict(get_default_user_memory)
             self._load_user_data()
         else:
@@ -802,7 +814,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         self.prune_non_opt_user_memory(reason="init")
 
         self.bbyfacts = self._json_load(self.bbyfacts_path)
-        logger.info("INIT", f"LOADED {len(self.bbyfacts)} FACTS")
+        logger.info('[%s] %s', "INIT", f"LOADED {len(self.bbyfacts)} FACTS")
 
         self.lastInteraction = time.time()
         self.idle_task = self.training_worker = None
@@ -823,7 +835,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         try:
             self._load_training_buffer()
         except Exception as e:
-            logger.error("INIT", f"Training buffer load failed: {e}")
+            logger.error('[%s] %s', "INIT", f"Training buffer load failed: {e}")
 
         self.autonomy = AutonomyPlanner(self)  # planner for idle periods
 
@@ -835,25 +847,28 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             "bbycraft_recipes", self.save_bbycraft_recipes
         )
         data_manager.register_save_callback("command_stats", self._save_command_stats)
-        logger.info("INIT", "Data manager initialised with batched save system")
+        logger.info('[%s] %s', "INIT", "Data manager initialised with batched save system")
 
         # Initialize multi-platform support
         self.init_platforms()
-        logger.info("INIT", "Multi-platform support initialized")
+        logger.info('[%s] %s', "INIT", "Multi-platform support initialized")
 
         # health checks
-        perf_monitor.add_health_check(
+        self.performance_monitor = PerformanceMonitor()
+        self.performance_monitor.add_health_check(
             "neural_network",
             lambda: hasattr(self, "babyLLM") and self.babyLLM is not None,
             critical=True,
         )
-        perf_monitor.add_health_check("user_memory", lambda: len(self.userMemory) > 0)
-        perf_monitor.add_health_check(
+        self.performance_monitor.add_health_check(
+            "user_memory", lambda: len(self.userMemory) > 0
+        )
+        self.performance_monitor.add_health_check(
             "librarian",
             lambda: hasattr(self, "librarian") and self.librarian is not None,
             critical=True,
         )
-        logger.info("INIT", "Performance monitoring system initialised")
+        logger.info('[%s] %s', "INIT", "Performance monitoring system initialised")
 
     async def setup_bot(self):
         from .cog import babyBot_DISCORD_COG
@@ -925,7 +940,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 for base, strength in zip(base_values, strengths)
             ]
         except Exception as e:
-            logger.error("RANDOMS", f"brain random refresh failed: {e}")
+            logger.error('[%s] %s', "RANDOMS", f"brain random refresh failed: {e}")
             traceback.print_exc()
             influenced = [pyrandom.random() for _ in range(4)]
 
@@ -948,11 +963,11 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
     def _handle_random_task_exit(self, task: asyncio.Task):
         try:
             task.result()
-            logger.warn("RANDOMS", "random tick loop exited without error; restarting")
+            logger.warning('[%s] %s', "RANDOMS", "random tick loop exited without error; restarting")
         except asyncio.CancelledError:
-            logger.info("RANDOMS", "random tick loop cancelled")
+            logger.info('[%s] %s', "RANDOMS", "random tick loop cancelled")
         except Exception as e:
-            logger.error("RANDOMS", f"random tick loop crashed: {e}")
+            logger.error('[%s] %s', "RANDOMS", f"random tick loop crashed: {e}")
             traceback.print_exc()
         finally:
             self.random_task = None
@@ -1016,15 +1031,15 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 if applied:
                     self._icharis2_pipeline_ready = True
                     logger.info(
-                        "INGEST",
+                        '[%s] %s', "INGEST",
                         f"icharis2 pipeline exports loaded: {len(entries)} files",
                     )
             else:
                 logger.info(
-                    "INGEST", "icharis2 pipeline exports found no usable entries"
+                    '[%s] %s', "INGEST", "icharis2 pipeline exports found no usable entries"
                 )
         except Exception as e:
-            logger.error("INGEST", f"icharis2 pipeline export failed: {e}")
+            logger.error('[%s] %s', "INGEST", f"icharis2 pipeline export failed: {e}")
             traceback.print_exc()
 
     def _run_icharis2_pipeline_export_sync(self):
@@ -1033,10 +1048,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         except Exception:
             return []
         return build_pipeline_monthly_entries(
-            pipeline_dir=ctd.icharis2_pipeline_export_dir,
+            manifest_path=ctd.icharis2_pipeline_manifest_path,
             export_dir=ctd.icharis2_export_dir,
             weight=ctd.icharis2_user_text_weight,
-            require_allow_keyword=not ctd.icharis2_allow_without_keyword,
             months_limit=ctd.icharis2_export_months_limit,
             limit=ctd.icharis2_pipeline_limit,
         )
@@ -1164,32 +1178,33 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 await asyncio.sleep(420)  # Check every 5 minutes
 
                 # Run health checks
-                health_results = await perf_monitor.run_health_checks()
+                health_results = await self.performance_monitor.run_health_checks()
 
                 # Get system stats
-                system_stats = perf_monitor.get_system_stats()
+                system_stats = self.performance_monitor.get_system_stats()
 
                 # Check for performance degradation
-                warnings = perf_monitor.check_performance_degradation()
+                warnings = self.performance_monitor.check_performance_degradation()
                 for warning in warnings:
-                    logger.warn("PERFORMANCE", warning)
+                    logger.warning('[%s] %s', "PERFORMANCE", warning)
 
                 # Log critical failures
                 failed_critical = [
                     name
                     for name, result in health_results.items()
-                    if not result and perf_monitor.health_checks[name]["critical"]
+                    if not result
+                    and self.performance_monitor.health_checks[name]["critical"]
                 ]
                 if failed_critical:
-                    logger.emergency(
-                        "HEALTH", f"Critical systems failing: {failed_critical}"
+                    logger.critical(
+                        '[%s] 🚨 EMERGENCY: %s', "HEALTH", f"Critical systems failing: {failed_critical}"
                     )
 
                 # Periodic system stats logging (every 30 minutes)
                 if hasattr(self, "_last_stats_log"):
                     if time.time() - self._last_stats_log > 1690:
                         logger.info(
-                            "SYSTEM_STATS",
+                            '[%s] %s', "SYSTEM_STATS",
                             f"Memory: {system_stats.get('memory_mb', 0):.1f}MB, "
                             f"CPU: {system_stats.get('cpu_percent', 0):.1f}%, "
                             f"Uptime: {system_stats.get('uptime_hours', 0):.1f}h",
@@ -1199,7 +1214,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                     self._last_stats_log = time.time()
 
             except Exception as e:
-                logger.error("HEALTH_MONITOR", f"Health monitoring error: {e}")
+                logger.error('[%s] %s', "HEALTH_MONITOR", f"Health monitoring error: {e}")
                 await asyncio.sleep(60)  # Wait a minute before retrying
 
     def _json_load(self, path, default_type={}):
@@ -1213,16 +1228,16 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         return default_type
 
     def _save_json(self, path, data, label, **dump_kwargs):
-        logger.debug("SAVE", f"saving {label}...")
+        logger.debug('[%s] %s', "SAVE", f"saving {label}...")
         if isinstance(data, deque):
             serialisable = list(data)
         else:
             serialisable = data
         written = save_json_if_changed(path, serialisable, **dump_kwargs)
         if written:
-            logger.info("SAVE", f"{label} saved!")
+            logger.info('[%s] %s', "SAVE", f"{label} saved!")
         else:
-            logger.debug("SAVE", f"no changes detected for {label}; skipped")
+            logger.debug('[%s] %s', "SAVE", f"no changes detected for {label}; skipped")
 
     def _load_baby_state(self):
         if os.path.exists(self.baby_state_path):
@@ -3026,7 +3041,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         self.buffer.append(text_to_add)
         if len(self.buffer) > self.rollingContextSize:
             self.buffer.popleft()
-        logger.debug("BUFFER_ADD", f'added: "{text_to_add[:50]}..."')
+        logger.debug('[%s] %s', "BUFFER_ADD", f'added: "{text_to_add[:50]}..."')
         # also mirror a cleaned line into the separate training buffer for augmentation
         try:
             if mirror_to_training is None:
@@ -3502,7 +3517,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         except Exception:
             pass
 
-        logger.debug("TRAINING_BUFFER", f"+ {chunk[:60]}...")
+        logger.debug('[%s] %s', "TRAINING_BUFFER", f"+ {chunk[:60]}...")
         return True
 
     def _training_buffer_add(
@@ -3535,8 +3550,8 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
 
             if len(line) > 2000:
                 chunks = self._split_into_sentence_chunks(line, 2000)
-                logger.warn(
-                    "TRAINING_BUFFER",
+                logger.warning(
+                    '[%s] %s', "TRAINING_BUFFER",
                     f"Line too long ({len(line)} chars). Split into {len(chunks)} chunks.",
                 )
             else:
@@ -3546,7 +3561,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             for chunk in chunks:
                 if len(chunk) > 2000:
                     logger.error(
-                        "TRAINING_BUFFER",
+                        '[%s] %s', "TRAINING_BUFFER",
                         f"Pathological chunk exceeds 2000 characters (len={len(chunk)}). Truncating chunk.",
                     )
                     chunk = chunk[:2000]
@@ -3557,7 +3572,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 self._save_training_buffer()
             return added_any
         except Exception as e:
-            logger.error("TRAINING_BUFFER", f"failed: {e}")
+            logger.error('[%s] %s', "TRAINING_BUFFER", f"failed: {e}")
             return False
 
     # ------------------------------------------------------------------
@@ -3615,7 +3630,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         ]
         total = sum(len(v) for v in cache.values())
         logger.info(
-            "TIME_MEMORY",
+            '[%s] %s', "TIME_MEMORY",
             f"cached {total} SENT entries across {len(cache)} distinct minutes for {today_md}",
         )
 
@@ -3654,9 +3669,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 lines.append("")
 
             out_path.write_text("\n".join(lines), encoding="utf-8")
-            logger.info("TIME_MEMORY", f"wrote schedule: {out_path}")
+            logger.info('[%s] %s', "TIME_MEMORY", f"wrote schedule: {out_path}")
         except Exception as e:
-            logger.error("TIME_MEMORY", f"failed to write schedule md: {e}")
+            logger.error('[%s] %s', "TIME_MEMORY", f"failed to write schedule md: {e}")
 
     def _normalise_timeline_participant(self, raw_label: str) -> str:
         label = self._clean_dialogue_label(raw_label)
@@ -3798,7 +3813,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 if added:
                     years_ago = now.year - year
                     logger.info(
-                        "TIME_MEMORY",
+                        '[%s] %s', "TIME_MEMORY",
                         f"injected {years_ago}y-old memory from {hhmm} ({fpath.parent.name}): {body[:80]}...",
                     )
                     # also push to training queue so it trains on it right away
@@ -3807,7 +3822,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                             {"type": "time_memory", "text": body[:10000]}
                         )
             except Exception as e:
-                logger.error("TIME_MEMORY", f"failed to read {fpath}: {e}")
+                logger.error('[%s] %s', "TIME_MEMORY", f"failed to read {fpath}: {e}")
 
     def _similarity_bucket_keys(self, line: str):
         """
@@ -4258,47 +4273,75 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         *,
         max_lines: Optional[int] = None,
         max_chars: Optional[int] = None,
-    ) -> str:
-        """Condense chat into a small recent snippet for training seasoning."""
+        as_messages: bool = False,
+    ):
+        """Condense recent chat, optionally keeping real message boundaries.
+
+        Strings retain the legacy line-based view for prompt context. Lists are
+        message entries: a newline inside an entry must not create another EOS.
+        """
         try:
             line_cap = max(
                 1,
-                int(
-                    max_lines if max_lines is not None else training_chat_mix_max_lines
-                ),
+                int(max_lines if max_lines is not None else training_chat_mix_max_lines),
             )
         except Exception:
             line_cap = 12
         try:
             char_cap = max(
                 64,
-                int(
-                    max_chars if max_chars is not None else training_chat_mix_max_chars
-                ),
+                int(max_chars if max_chars is not None else training_chat_mix_max_chars),
             )
         except Exception:
             char_cap = 1200
 
-        source_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
-        source_lines = [line for line in source_text.split("\n") if str(line).strip()]
-        if not source_lines and getattr(self, "buffer", None):
-            source_lines = [
-                line
-                for line in list(self.buffer)
-                if isinstance(line, str) and line.strip()
+        if isinstance(text, (list, tuple)):
+            source_messages = [
+                message
+                for message in text
+                if isinstance(message, str) and message.strip()
+            ]
+        else:
+            source_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+            source_messages = [
+                line for line in source_text.split("\n") if str(line).strip()
+            ]
+        if not source_messages and getattr(self, "buffer", None):
+            source_messages = [
+                message
+                for message in list(self.buffer)
+                if isinstance(message, str) and message.strip()
             ]
 
-        cleaned_lines = []
-        for raw_line in source_lines:
-            line = self._normalise_buffer_ingest_text(str(raw_line))
-            if line:
-                cleaned_lines.append(line)
+        cleaned_messages = []
+        for raw_message in source_messages:
+            message = self._normalise_buffer_ingest_text(str(raw_message))
+            if message:
+                cleaned_messages.append(message)
 
-        if not cleaned_lines:
-            return ""
+        if not cleaned_messages:
+            return [] if as_messages else ""
 
-        snippet = "\n".join(cleaned_lines[-line_cap:])
-        return snippet[-char_cap:]
+        recent = cleaned_messages[-line_cap:]
+        if not as_messages:
+            return "\n".join(recent)[-char_cap:]
+
+        # Keep the most recent complete messages within the character budget.
+        # Only a single oversized message is shortened, never re-split on Ċ.
+        selected = []
+        remaining = char_cap
+        for message in reversed(recent):
+            needed = len(message) + (1 if selected else 0)
+            if needed > remaining:
+                if selected:
+                    break
+                message = message[-remaining:]
+                needed = len(message)
+            selected.append(message)
+            remaining -= needed
+            if remaining <= 0:
+                break
+        return list(reversed(selected))
 
     def build_training_context(
         self,
@@ -4331,14 +4374,14 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         self, max_chars: int = training_context_max_chars
     ) -> str:
         """Read a small amount of weighted corpus text for idle training off-loop."""
-        if not (hasattr(self, "autonomy") and self.autonomy):
+        if not getattr(self, "librarian", None):
             return ""
 
         corpus_text = ""
         try:
-            sources = self.autonomy._sample_weighted_sources(k=2)
+            sources = self.librarian.sampleTrainingSources(2)
             for src in sources:
-                chunk = self.autonomy._load_source_text(src, max_chars=max_chars)
+                chunk = self.librarian.loadTrainingSource(src, max_chars=max_chars)
                 if chunk:
                     corpus_text = (corpus_text + "\n" + chunk).strip()
                     if len(corpus_text) >= max_chars:
@@ -4351,7 +4394,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         self, label: str, elapsed: float, *, threshold: float = 1.0
     ) -> None:
         if float(elapsed) >= float(threshold):
-            logger.warn("IDLE", f"slow {label}: {elapsed:.2f}s")
+            logger.warning('[%s] %s', "IDLE", f"slow {label}: {elapsed:.2f}s")
 
     def getSpamLevel(self, author):
         return self.userMemory.get(str(author).lower(), {}).get("spamMax", 0.8)
@@ -4482,7 +4525,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             suffix = "..." if len(removed_users) > 5 else ""
             reason_part = f" ({reason})" if reason else ""
             logger.info(
-                "PRIVACY",
+                '[%s] %s', "PRIVACY",
                 f"pruned {len(removed_users)} non-opt user entries{reason_part}: {preview}{suffix}",
             )
         return len(removed_users)
@@ -4645,8 +4688,8 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         raw_author = str(author or "").strip().lower()
         author = self.normalise_user_identity(raw_author)
         if not author:
-            logger.warn(
-                "UPDATEBBY",
+            logger.warning(
+                '[%s] %s', "UPDATEBBY",
                 f"skipping BBY update for invalid recipient: {author!r} (raw={raw_author!r})",
             )
             return
@@ -4654,7 +4697,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             # Don't retain per-user economy for non-opted identities.
             return
         try:
-            validated_bby = safety.validate_bby_transaction(
+            validated_bby = SafetyValidator.validate_bby_transaction(
                 BBY, f"updateBBY for {author}", allow_large_negative=is_decay
             )
             if validated_bby is None:
@@ -4662,7 +4705,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
 
             if author in self.temp_not_opt and author not in self.AIoptInUsers:
                 logger.info(
-                    "UPDATEBBY",
+                    '[%s] %s', "UPDATEBBY",
                     f"deleted user {author} cause not opted in and charis still hasn't found a better way",
                 )
                 self.userMemory.pop(author, None)
@@ -4674,15 +4717,15 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 old_bby = mem.get("BBY", 0.0)
                 new_bby = old_bby + validated_bby
                 # Safety validation for total BBY using centralized system
-                if not safety.is_safe_number(new_bby):
-                    logger.emergency(
-                        "UPDATEBBY", f"NaN/Inf detected for {author}, resetting to 0"
+                if not SafetyValidator.is_safe_number(new_bby):
+                    logger.critical(
+                        '[%s] 🚨 EMERGENCY: %s', "UPDATEBBY", f"NaN/Inf detected for {author}, resetting to 0"
                     )
                     new_bby = 0.0
                 mem["BBY"] = round(new_bby, 2)
             data_manager.request_save("user_data")
         except Exception as e:
-            logger.error("UPDATEBBY", f"error in updateBBY: {e}")
+            logger.error('[%s] %s', "UPDATEBBY", f"error in updateBBY: {e}")
             # Emergency reset if something goes really wrong
             if author in self.userMemory:
                 self.userMemory[author]["BBY"] = 0.0
@@ -4969,8 +5012,8 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         )
         safe_random = self.random if self.random and self.random > 0.001 else 0.001
         if safe_random != self.random:
-            logger.warn(
-                "DECAY",
+            logger.warning(
+                '[%s] %s', "DECAY",
                 f"random factor too small ({self.random}); clamping to {safe_random}",
             )
         DECAY_FLOOR = (
@@ -5166,12 +5209,13 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
 
             # --- NEW: Lurker Poke (Idea A) ---
             ONE_WEEK_SECONDS = 604800
-            # Check for lurkers who haven't been seen in a week
+            # Check for lurkers who haven't been seen in a week (100x less often)
             if (
                 self.cog
                 and time_since_last_seen > ONE_WEEK_SECONDS
-                and self.get_varied_random() > 0.95
-            ):  # 5% chance
+                and (now - memory.get("last_bored_poke", 0)) > ONE_WEEK_SECONDS
+                and self.get_varied_random() > 0.9995
+            ):  # 0.05% chance (100x less often than 5%)
                 inventory = memory.get("inventory", {})
                 favourites = memory.get("favourites", [])
                 spendable_items = [
@@ -5228,6 +5272,8 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                             f"from {format_bby_amount(current_value)} to {format_bby_amount(new_value)}! {emote}"
                         )
                         asyncio.create_task(self._discord_spam(lurker_msg))
+                        memory["last_bored_poke"] = now
+                        data_manager.request_save("user_data")
 
             # --- Store for later sorting ---
             decay_logs.append(
@@ -5605,7 +5651,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         # --- process/system ---
         system_stats = {}
         try:
-            system_stats = perf_monitor.get_system_stats()
+            system_stats = self.performance_monitor.get_system_stats()
         except Exception:
             system_stats = {}
 
@@ -6209,7 +6255,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             await self.update_avatar_from_snapshots()
             self._last_avatar_refresh_at = time.time()
         else:
-            logger.info("READY", "recent reconnect detected; skipping avatar refresh")
+            logger.info('[%s] %s', "READY", "recent reconnect detected; skipping avatar refresh")
 
         # Keep BBY as one canonical entity even if display names/nicks change.
         self.register_bot_alias(self.babyName)
@@ -6260,16 +6306,16 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             self._ready_hello_sent = True
             await self._discord_spam(helloMessage)
         else:
-            logger.warn(
-                "READY",
+            logger.warning(
+                '[%s] %s', "READY",
                 "discord reconnect detected; suppressing duplicate hello message",
             )
 
     async def on_disconnect(self):
-        logger.warn("DISCORD", "gateway disconnected")
+        logger.warning('[%s] %s', "DISCORD", "gateway disconnected")
 
     async def on_resumed(self):
-        logger.info("DISCORD", "gateway session resumed")
+        logger.info('[%s] %s', "DISCORD", "gateway session resumed")
 
     async def on_message(self, message):
         self.check_year_boundary()
@@ -6357,7 +6403,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             mem = self._get_default_user_memory()
 
         # Validate and repair user memory using centralized safety system
-        mem = safety.validate_user_memory(mem, author)
+        mem = SafetyValidator.validate_user_memory(mem, author)
         smink_token_banned = self.is_smink_token_holder_banned(author)
         if smink_token_banned:
             inventory = mem.setdefault("inventory", {})
@@ -6747,17 +6793,19 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                         )
 
         # Final safety validation after all calculations
-        mem = safety.validate_user_memory(mem, author)
+        mem = SafetyValidator.validate_user_memory(mem, author)
         if persist_user_state:
             self.userMemory[author] = mem
 
         # Record message processing performance
         processing_time = time.time() - message_start_time
-        perf_monitor.record_metric("message_processing_time", processing_time)
-        perf_monitor.record_metric("messages_processed", 1)
+        self.performance_monitor.record_metric(
+            "message_processing_time", processing_time
+        )
+        self.performance_monitor.record_metric("messages_processed", 1)
         if processing_time > 0.1:  # Log slow message processing
-            logger.warn(
-                "PERFORMANCE",
+            logger.warning(
+                '[%s] %s', "PERFORMANCE",
                 f"Slow message processing: {processing_time:.3f}s for {author}",
             )
 
@@ -6846,7 +6894,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             self.buffer.popleft()
         if self.training_queue.qsize() < 20:
             await self.training_queue.put(
-                {"type": "chat", "text": "\n".join(self.buffer)}
+                {"type": "chat", "text": list(self.buffer)}
             )
 
         # --- Sync Discord activity to the web server (privacy rules)
@@ -6992,7 +7040,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                     print(
                         f"[RESET_TOP5] failed to post debug digest: {reset_log_error}"
                     )
-                await self._discord_spam(
+                await self._discord_debug(
                     f"👑 {self.getNickname(author)}... you are the first to return after the holy 4:20 reset! 👑 (double sminks for you today!!)"
                 )
             else:
@@ -7178,7 +7226,7 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                     f.write(f"\n---\n{buffer_line}")
                 if self.training_queue.qsize() < 20:
                     await self.training_queue.put(
-                        {"type": "chat", "text": "\n".join(self.buffer)}
+                        {"type": "chat", "text": list(self.buffer)}
                     )
         except Exception as e:
             print(f"[on_raw_reaction_add] {e}")
@@ -7460,169 +7508,94 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             # Sleep for 3 hours between decay cycles
             await asyncio.sleep(10690)  # 3 hours in seconds
 
-    def _line_eos_probability(
-        self, line: str, *, base_prob: float, index: int, total: int, prev_had_eos: bool
-    ) -> float:
-        """Adaptive per-line EOS probability so EOS is stochastic and context-sensitive."""
-        text = str(line or "").strip()
-        if not text:
-            return 0.0
+    def _tokenize_training_text(self, text):
+        """Preserve message boundaries independently of internal newlines.
 
-        # Keep config as the primary knob, but avoid hard deterministic behaviour.
-        p = 0.04 + (0.72 * max(0.0, min(1.0, float(base_prob))))
-
-        quality = self._line_quality_score(text)
-        if quality >= 0.80:
-            p += 0.12
-        elif quality >= 0.62:
-            p += 0.06
-        elif quality < 0.35:
-            p -= 0.18
-        elif quality < 0.50:
-            p -= 0.08
-
-        # Natural sentence endings are stronger EOS candidates.
-        if re.search(r"[.!?]['\")\]]?\s*$", text):
-            p += 0.09
-        elif text.endswith((",", ";", ":", "-", "—")):
-            p -= 0.10
-
-        word_count = len(text.split())
-        if word_count <= 2:
-            p -= 0.15
-        elif word_count <= 5:
-            p -= 0.08
-        elif word_count >= 18:
-            p += 0.05
-
-        # Bias slightly toward closing boundaries near the end of the sample.
-        if total > 1 and index == total - 1:
-            p += 0.10
-        elif total > 4 and index >= int(total * 0.85):
-            p += 0.05
-
-        # Avoid long EOS streaks across consecutive lines.
-        if prev_had_eos:
-            p *= 0.62
-
-        # Small stochastic jitter so boundaries are not perfectly predictable.
-        p += pyrandom.uniform(-0.08, 0.08)
-
-        return max(0.02, min(0.90, p))
-
-    def _tokenize_training_text(self, text: str):
-        """Tokenize training text and apply optional SOS/EOS markers with per-line EOS."""
-        text_clean = clean_text(str(text or ""))
-        text_clean = to_british_english(text_clean)
-        try:
-            text_clean = strip_artifact_lines(text_clean)
-        except Exception:
-            pass
-        if not text_clean:
+        A list/tuple is an explicit sequence of messages, each closed with one
+        reserved EOS when enabled. A raw string is one unstructured sample:
+        it may get one EOS at its end, but never at each paragraph newline.
+        """
+        explicit_messages = isinstance(text, (list, tuple))
+        messages = text if explicit_messages else [text]
+        if not messages:
             return []
 
-        lines = [line.strip() for line in text_clean.split("\n") if line.strip()]
-        if not lines:
-            lines = [text_clean.strip()]
-
-        eos_token = None
-        eos_prob = 1.0
-        sos_token = None
-        sos_prob = 1.0
-        try:
-            if enable_train_append_eos and eos_replacement_token_str:
-                if eos_replacement_token_str in getattr(
-                    self.librarian, "tokenToIndex", {}
-                ):
-                    eos_token = eos_replacement_token_str
-                    eos_prob = max(0.0, min(1.0, float(eos_append_probability)))
-        except Exception:
-            eos_token = None
-            eos_prob = 1.0
-        try:
-            if enable_train_prepend_sos and sos_replacement_token_str:
-                if sos_replacement_token_str in getattr(
-                    self.librarian, "tokenToIndex", {}
-                ):
-                    sos_token = sos_replacement_token_str
-                    sos_prob = max(0.0, min(1.0, float(sos_prepend_probability)))
-        except Exception:
-            sos_token = None
-            sos_prob = 1.0
-
+        eos_available = bool(
+            enable_train_append_eos
+            and eos_replacement_token_str
+            and eos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {})
+        )
+        sos_available = bool(
+            enable_train_prepend_sos
+            and sos_replacement_token_str
+            and sos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {})
+        )
+        context_eos_probability = max(
+            0.0, min(1.0, float(eos_append_probability))
+        )
+        sos_probability = max(0.0, min(1.0, float(sos_prepend_probability)))
+        newline_tokens = (
+            self.librarian.tokenizeText("\n")
+            if explicit_messages and not eos_available
+            else []
+        )
         tokens = []
-        newline_tokens = self.librarian.tokenizeText("\n")
+        messages_kept = 0
         eos_count = 0
-        sos_added = False
-        eos_prob_sum = 0.0
-        eos_prob_n = 0
-        prev_had_eos = False
-        for idx, line in enumerate(lines):
-            line_tokens = self.librarian.tokenizeText(line)
-            if not line_tokens:
+
+        for raw_message in messages:
+            message = str(raw_message or "").replace("\r\n", "\n").replace("\r", "\n")
+            cleaned = to_british_english(clean_text(message))
+            try:
+                cleaned = strip_artifact_lines(cleaned)
+            except Exception:
+                pass
+            if not cleaned or not cleaned.strip():
                 continue
 
-            if sos_token and not sos_added and random.random() < sos_prob:
-                line_tokens = [sos_token] + line_tokens
-                sos_added = True
-                snippet = line[:64] if line else text_clean[:64]
-                if len(snippet) == 64:
-                    snippet += "..."
-                print(
-                    f"[SOS][TRAIN] prepended <SOS> at line 1/{len(lines)} "
-                    f"({len(lines)} line(s) total): <SOS> {snippet}"
-                )
-
-            tokens.extend(line_tokens)
-
-            append_eos = False
-            if eos_token:
-                line_prob = self._line_eos_probability(
-                    line,
-                    base_prob=eos_prob,
-                    index=idx,
-                    total=len(lines),
-                    prev_had_eos=prev_had_eos,
-                )
-                eos_prob_sum += line_prob
-                eos_prob_n += 1
-                if random.random() < line_prob:
-                    append_eos = True
-
-            if append_eos:
-                tokens.append(eos_token)
-                eos_count += 1
-                prev_had_eos = True
-            else:
-                prev_had_eos = False
-
-            if idx < len(lines) - 1 and newline_tokens:
-                tokens.extend(newline_tokens)
-
-        if not tokens:
-            return []
-
-        if eos_token and eos_count:
-            tail = lines[-1][:64] if lines else text_clean[:64]
-            if len(tail) == 64:
-                tail += "..."
-            avg_prob = (eos_prob_sum / eos_prob_n) if eos_prob_n else 0.0
-            print(
-                f"[EOS][TRAIN] appended <EOS> on {eos_count}/{len(lines)} line(s) "
-                f"(avg p={avg_prob:.2f}): {tail} <EOS>"
+            # Every known chat message closes at EOS. Corpus strings have no
+            # known internal boundaries, so the old probability only applies
+            # once to the complete sample, not to its newline-delimited lines.
+            append_eos = eos_available and (
+                explicit_messages or random.random() < context_eos_probability
             )
+            message_tokens = self.librarian.tokenize_training_message(
+                cleaned, append_eos=append_eos
+            )
+            if not message_tokens:
+                continue
+            if sos_available and random.random() < sos_probability:
+                message_tokens.insert(0, sos_replacement_token_str)
 
+            if messages_kept and newline_tokens:
+                tokens.extend(newline_tokens)
+            tokens.extend(message_tokens)
+            messages_kept += 1
+            if append_eos:
+                eos_count += 1
+
+        if eos_count:
+            print(
+                f"[EOS][TRAIN] appended <EOS> on {eos_count}/{messages_kept} "
+                f"message(s); internal newlines kept as BPE tokens"
+            )
         return tokens
 
     async def _train_on_item(self, item):
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
-        # Build chat and training sources
         item_type = str(item.get("type", "") or "").lower()
-        chat_text = (
-            "\n".join(item["text"])
-            if isinstance(item.get("text"), list)
-            else item.get("text", "")
-        )
+        original_text = item.get("text", "")
+        if isinstance(original_text, list):
+            chat_messages = [
+                message
+                for message in original_text
+                if isinstance(message, str) and message.strip()
+            ]
+            chat_text = "\n".join(chat_messages)
+        else:
+            chat_text = str(original_text or "")
+            chat_messages = [chat_text] if chat_text.strip() else []
+
         training_tail = (
             list(self.training_buffer)[-self.N :]
             if getattr(self, "training_buffer", None)
@@ -7632,8 +7605,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
         used_training_buffer = False
 
         if item_type == "chat":
-            chat_snippet = self._build_chat_training_snippet(chat_text)
-
+            snippet_messages = self._build_chat_training_snippet(
+                chat_messages, as_messages=True
+            )
             try:
                 direct_chat_probability = max(
                     0.0, min(1.0, float(training_direct_chat_probability))
@@ -7641,19 +7615,18 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             except Exception:
                 direct_chat_probability = 0.10
 
-            use_chat_direct = bool(chat_snippet) and (
+            use_chat_direct = bool(snippet_messages) and (
                 not training_tail or random.random() < direct_chat_probability
             )
             used_training_buffer = bool(training_tail) and not use_chat_direct
 
             if used_training_buffer:
-                text = training_text
-                if chat_snippet:
-                    text = f"{text}\n{chat_snippet}"
-                training_source = "training+chat" if chat_snippet else "training"
+                messages = list(training_tail) + list(snippet_messages)
+                training_source = "training+chat" if snippet_messages else "training"
             else:
-                text = chat_snippet or chat_text
+                messages = list(snippet_messages or chat_messages)
                 training_source = "chat"
+            tokensToLibrarian = self._tokenize_training_text(messages)
         else:
             text = chat_text or training_text
             if not text:
@@ -7661,9 +7634,9 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                     max_chars=training_context_max_chars, include_external=True
                 )
             training_source = item_type or "context"
+            tokensToLibrarian = self._tokenize_training_text(text)
 
         print(f"[TRAINING_SOURCE] {training_source}")
-        tokensToLibrarian = self._tokenize_training_text(text)
         token_count = len(tokensToLibrarian)
         if token_count < self.chatWindowMAX * 2 + 1:
             print(f"\n\nnot enough tokens ({token_count}) for training. skipping.\n\n")
@@ -7684,13 +7657,16 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             _stride=trainingDataStride,
             _tokens=tokensToLibrarian,
         )
-        self.babyLLM.train()
+        def _train_lesson():
+            self.babyLLM.train()
+            return self.tutor.trainModel(
+                _trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1
+            )
 
         await self.loop.run_in_executor(
             None,
-            lambda: self.tutor.trainModel(
-                _trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1
-            ),
+            self.babyLLM.run_on_mps_owner,
+            _train_lesson,
         )
 
         # If we trained from the training buffer, drop the oldest entry
@@ -7719,25 +7695,25 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
             try:
                 await self._tm_check_and_inject()
             except Exception as e:
-                logger.error("TIME_MEMORY", f"check_and_inject raised: {e}")
+                logger.error('[%s] %s', "TIME_MEMORY", f"check_and_inject raised: {e}")
 
             if time.time() >= self.next_translate_time and self.cog:
                 # Only auto-start if no active translate sessions exist anywhere
                 any_active_translate = any(
                     s.get("mode") == "translate" for s in self.lex_sessions.values()
                 )
+                self.next_translate_time = time.time() + random.uniform(
+                    24 * 3690 * 50, 168 * 3690 * 50
+                )
                 if not any_active_translate:
                     channel = self.get_channel(self.discordChannel)
                     if channel:
                         await self.cog.trigger_bbytranslate_auto(channel)
-                        self.next_translate_time = time.time() + random.uniform(
-                            24 * 3690, 168 * 3690
-                        )
 
             try:
                 await self.decay_BBY()
             except Exception as e:
-                logger.error("DECAY_LOOP", f"decay_BBY raised: {e}")
+                logger.error('[%s] %s', "DECAY_LOOP", f"decay_BBY raised: {e}")
                 print(traceback.format_exc())
                 continue
             print("decayed bby")
@@ -8003,3 +7979,418 @@ class BABYBOT_DISCORD(PlatformIntegrationMixin, commands.Bot):
                 await self._http_session.close()
         finally:
             await super().close()
+
+    """Mixin to add multi-platform support to BABYBOT_DISCORD"""
+
+    _TWITCH_COMMAND_ALIASES = {
+        "b": "babyllm",
+        "ai": "babyllm",
+        "aioptin": "bbyoptin",
+        "aioptout": "bbyoptout",
+        "aioptcheck": "bbyoptcheck",
+        "babylim": "babyllm",
+        "bbylim": "babyllm",
+        "bbyskunk": "babyllm",
+        "bbysmink": "bbysminks",
+        "sminks": "bbysminks",
+        "bsmink": "bbysminks",
+        "bbycheers": "bbysminks",
+        "sminkboard": "bbysminkboard",
+        "bsminkboard": "bbysminkboard",
+    }
+
+    def init_platforms(self):
+        """Initialize platform adapters - call this in bot __init__"""
+        self.platforms: Dict[str, PlatformAdapter] = {}
+        self.platform_message_queue = asyncio.Queue()
+
+        # Discord is always active (it's the main bot)
+        self.platforms["discord"] = DiscordAdapter(self)
+
+        print("[PlatformIntegration] Multi-platform support initialized")
+
+    def has_explicit_web_opt_out(self, author_id: str) -> bool:
+        """Return True only when the user has explicitly opted out on web."""
+        author_key = str(author_id or "").strip().lower()
+        if not author_key:
+            return False
+        mem = self.userMemory.get(author_key, {})
+        if not isinstance(mem, dict):
+            return False
+        return bool(mem.get("web_explicit_opt_out", False))
+
+    async def enable_twitch(self, channels=None):
+        """Enable Twitch integration
+
+        Args:
+            channels: str (single channel) or list of channel names
+        """
+        if "twitch" in self.platforms:
+            print("[PlatformIntegration] Twitch already enabled")
+            return
+
+        # Support both single channel and list
+        if channels is None:
+            from config import twitch_channels
+
+            channels = twitch_channels
+        elif isinstance(channels, str):
+            channels = [channels]
+
+        print(f"[PlatformIntegration] Enabling Twitch for channels: {channels}")
+        twitch_adapter = TwitchAdapter(self, channels)
+        self.platforms["twitch"] = twitch_adapter
+        await twitch_adapter.start()
+        print("[PlatformIntegration] Twitch enabled successfully")
+
+    async def disable_twitch(self):
+        """Disable Twitch integration"""
+        if "twitch" not in self.platforms:
+            return
+
+        await self.platforms["twitch"].stop()
+        del self.platforms["twitch"]
+        print("[PlatformIntegration] Twitch disabled")
+
+    async def enable_web(self, port: int = 4420):
+        """Enable Web API integration (replaces standalone bbyLocal)"""
+        if "web" in self.platforms:
+            print("[PlatformIntegration] Web API already enabled")
+            return
+
+        print(f"[PlatformIntegration] Enabling Web API on port {port}")
+        web_adapter = WebAdapter(self, port=port)
+        self.platforms["web"] = web_adapter
+        await web_adapter.start()
+        print("[PlatformIntegration] Web API enabled successfully")
+
+    async def disable_web(self):
+        """Disable Web API integration"""
+        if "web" not in self.platforms:
+            return
+
+        await self.platforms["web"].stop()
+        del self.platforms["web"]
+        print("[PlatformIntegration] Web API disabled")
+
+    async def handle_platform_message(self, platform_msg: PlatformMessage):
+        """Handle incoming message from any platform"""
+        author_id = str(platform_msg.author_id or "").strip().lower()
+        if not author_id:
+            return
+        platform_msg.author_id = author_id
+
+        # Skip bot messages
+        if platform_msg.is_bot:
+            return
+
+        # Update user memory
+        if author_id not in self.userMemory:
+
+            def get_default():
+                return {
+                    "nickname": None,
+                    "display_name": None,
+                    "timezone": "Europe/London",
+                    "BBY": 0.0,
+                    "spamMax": 0.3,
+                    "bbybook": [],
+                    "wins": 0.0,
+                    "losses": 0.0,
+                    "draws": 0.0,
+                    "last_seen": platform_msg.timestamp,
+                    "message_count": 0.0,
+                    "loyalty": 1,
+                    "last_message_words": set(),
+                    "creative_combo": 1,
+                    "spammer": 1,
+                    "inventory": {},
+                    "favourites": [],
+                    "next_talk_milestone": 50,
+                    "translate_wins": 0,
+                    "translate_losses": 0,
+                    "fave_token_usage": 0,
+                    "command_usage": {},
+                    "opt_in": False,
+                    "last_fact_time": 0,
+                    "web_explicit_opt_out": False,
+                }
+
+            self.userMemory[author_id] = get_default()
+
+        mem = self.userMemory[author_id]
+        mem["display_name"] = platform_msg.author_display_name
+        mem["last_seen"] = platform_msg.timestamp
+        mem["message_count"] = mem.get("message_count", 0) + 1
+
+        # Add to buffer - privacy checks already done by platform adapters
+        # Web users are TREATED as opted in by default
+        # BUT: If a web user has explicitly opted out (!bbyoptout), respect that
+        is_web_user = platform_msg.platform == "web"
+        is_opted_in = author_id in self.AIoptInUsers
+
+        # Explicit opt-out is persisted separately so "never opted in" isn't treated as opt-out.
+        has_explicitly_opted_out = is_web_user and self.has_explicit_web_opt_out(
+            author_id
+        )
+
+        # Web users: treated as opted in UNLESS they've explicitly opted out
+        if is_opted_in or (is_web_user and not has_explicitly_opted_out):
+            # Format message for buffer
+            adapter = self.platforms.get(platform_msg.platform)
+            if adapter:
+                formatted = adapter.format_message(author_id, platform_msg.content)
+                if self._buffer_add(formatted, speaker_hint=author_id):
+                    # Queue for training
+                    if hasattr(self, "training_queue") and self.training_queue.qsize() < 20:
+                        await self.training_queue.put(
+                            {
+                                "type": "chat",
+                                "text": formatted,
+                                "platform": platform_msg.platform,
+                            }
+                        )
+
+    async def handle_platform_command(self, platform_ctx: PlatformContext):
+        """Handle command from any platform"""
+        command_name = platform_ctx.command
+        platform = platform_ctx.message.platform
+
+        # Get adapter
+        adapter = self.platforms.get(platform)
+        if not adapter:
+            print(f"[PlatformIntegration] No adapter for platform: {platform}")
+            return
+
+        # Check if command is allowed on this platform
+        if not adapter.is_command_allowed(command_name):
+            await platform_ctx.reply(
+                f"sorry! !{command_name} is too complex for {platform}. try it on discord! :)"
+            )
+            return
+
+        if not self.cog:
+            await platform_ctx.reply("oops! command system is not ready yet")
+            return
+
+        try:
+            resolved_name, callback = self._resolve_platform_command(
+                command_name, platform
+            )
+            if callback is None:
+                await platform_ctx.reply(
+                    f"sorry! !{command_name} isn't available right now"
+                )
+                return
+
+            if platform == "twitch":
+                source_command = (command_name or "").lower()
+                message_content_for_ctx = platform_ctx.message.content
+                if source_command == "bbyskunk":
+                    legacy_arg_text = self._extract_command_arg_text(
+                        platform_ctx.message.content
+                    )
+                    if legacy_arg_text:
+                        message_content_for_ctx = (
+                            f"!babyllm $skunkllm {legacy_arg_text}"
+                        )
+                    else:
+                        message_content_for_ctx = "!babyllm $skunkllm"
+                reply_budget = {"sent": 0, "notice_sent": False}
+
+                async def twitch_reply_sink(content="", embed=None, **kwargs):
+                    async def _send_twitch_text(text: str):
+                        if not text:
+                            return
+                        text = to_british_english(text)
+                        # Keep Twitch responses concise: long command dumps should move to Discord.
+                        if reply_budget["sent"] >= 3:
+                            if not reply_budget["notice_sent"]:
+                                reply_budget["notice_sent"] = True
+                                notice = "…this command is long; use Discord for the full output."
+                                reply_method = getattr(
+                                    platform_ctx.platform_ctx, "reply", None
+                                )
+                                if callable(reply_method):
+                                    await reply_method(notice)
+                                else:
+                                    await platform_ctx.platform_ctx.send(notice)
+                            return
+
+                        text = text[:499]
+                        reply_budget["sent"] += 1
+                        reply_method = getattr(platform_ctx.platform_ctx, "reply", None)
+                        if callable(reply_method):
+                            await reply_method(text)
+                        else:
+                            await platform_ctx.platform_ctx.send(text)
+
+                    # Twitch doesn't support Discord embeds directly; send plain text fallback.
+                    if embed is not None:
+                        fallback = embed_to_plain_text(embed)
+                        if fallback:
+                            await _send_twitch_text(fallback)
+                    elif content:
+                        await _send_twitch_text(str(content))
+
+                raw_message = platform_ctx.message.raw_message
+                message_id = (
+                    str(
+                        getattr(raw_message, "id", None)
+                        or getattr(raw_message, "message_id", None)
+                        or ""
+                    )
+                    or None
+                )
+
+                fake_ctx = create_platform_command_context(
+                    bot=self,
+                    platform="twitch",
+                    author_id=platform_ctx.message.author_id,
+                    author_name=platform_ctx.message.author_display_name,
+                    channel_id=platform_ctx.message.channel_id,
+                    message_content=message_content_for_ctx,
+                    command_name=resolved_name,
+                    message_id=message_id,
+                    reply_sink=twitch_reply_sink,
+                    send_sink=twitch_reply_sink,
+                    is_mod=platform_ctx.message.is_mod,
+                )
+
+                arg_text = self._extract_command_arg_text(platform_ctx.message.content)
+                positional_args, keyword_args = self._parse_command_arguments(
+                    callback, arg_text
+                )
+                await self._invoke_platform_callback(
+                    callback, fake_ctx, positional_args, keyword_args
+                )
+            else:
+                # Keep Discord path straightforward.
+                if inspect.ismethod(callback):
+                    await callback(platform_ctx.platform_ctx)
+                else:
+                    await callback(self.cog, platform_ctx.platform_ctx)
+
+        except Exception as e:
+            print(f"[PlatformIntegration] Error executing command {command_name}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            await platform_ctx.reply(f"oops! something broke: {str(e)[:100]}")
+
+    def _resolve_platform_command(self, command_name: str, platform: str):
+        """Resolve a platform command to an executable callback."""
+        normalized_name = command_name.lower()
+        if platform == "twitch":
+            normalized_name = self._TWITCH_COMMAND_ALIASES.get(
+                normalized_name, normalized_name
+            )
+
+        # Prefer Discord's command registry (handles aliases).
+        if hasattr(self, "get_command"):
+            cmd = self.get_command(normalized_name)
+            if cmd is not None:
+                return normalized_name, cmd.callback
+
+        # Fallback for direct method names.
+        if hasattr(self.cog, normalized_name):
+            return normalized_name, getattr(self.cog, normalized_name)
+
+        suffixed = f"{normalized_name}_command"
+        if hasattr(self.cog, suffixed):
+            return normalized_name, getattr(self.cog, suffixed)
+
+        return normalized_name, None
+
+    def _extract_command_arg_text(self, content: str) -> str:
+        if not content:
+            return ""
+        stripped = content.strip()
+        if not stripped.startswith("!"):
+            return ""
+        parts = stripped.split(maxsplit=1)
+        return parts[1] if len(parts) > 1 else ""
+
+    def _coerce_argument(self, raw_value: str, annotation: Any):
+        if annotation in (inspect._empty, str, None):
+            return raw_value
+        if annotation is int:
+            return int(raw_value)
+        if annotation is float:
+            return float(raw_value)
+        if annotation is bool:
+            lowered = raw_value.strip().lower()
+            if lowered in {"1", "true", "yes", "y", "on"}:
+                return True
+            if lowered in {"0", "false", "no", "n", "off"}:
+                return False
+            raise ValueError(f"could not parse boolean value: {raw_value}")
+        return raw_value
+
+    def _parse_command_arguments(self, callback, arg_text: str):
+        try:
+            tokens = shlex.split(arg_text) if arg_text else []
+        except ValueError:
+            tokens = arg_text.split() if arg_text else []
+
+        signature = inspect.signature(callback)
+        params = list(signature.parameters.values())
+        if inspect.ismethod(callback):
+            # Bound method: first param is ctx.
+            command_params = params[1:]
+        else:
+            # Unbound callback: first two params are self, ctx.
+            command_params = params[2:]
+
+        positional_args = []
+        keyword_args = {}
+
+        for param in command_params:
+            if param.kind in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ):
+                if tokens:
+                    raw_value = tokens.pop(0)
+                    positional_args.append(
+                        self._coerce_argument(raw_value, param.annotation)
+                    )
+                elif param.default is inspect._empty:
+                    raise ValueError(f"missing required argument: {param.name}")
+            elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+                for raw_value in tokens:
+                    positional_args.append(self._coerce_argument(raw_value, str))
+                tokens = []
+            elif param.kind == inspect.Parameter.KEYWORD_ONLY:
+                if tokens:
+                    raw_rest = " ".join(tokens)
+                    tokens = []
+                    keyword_args[param.name] = self._coerce_argument(
+                        raw_rest, param.annotation
+                    )
+                elif param.default is inspect._empty:
+                    raise ValueError(f"missing required argument: {param.name}")
+
+        return positional_args, keyword_args
+
+    async def _invoke_platform_callback(
+        self, callback, fake_ctx, positional_args, keyword_args
+    ):
+        if inspect.ismethod(callback):
+            await callback(fake_ctx, *positional_args, **keyword_args)
+            return
+        await callback(self.cog, fake_ctx, *positional_args, **keyword_args)
+
+    async def platform_send_message(self, platform: str, channel_id: str, content: str):
+        """Send message to a specific platform"""
+        adapter = self.platforms.get(platform)
+        if adapter:
+            await adapter.send_message(channel_id, content)
+
+    async def platform_reply_message(
+        self, platform: str, message: PlatformMessage, content: str
+    ):
+        """Reply to a message on a specific platform"""
+        adapter = self.platforms.get(platform)
+        if adapter:
+            await adapter.reply_message(message, content)

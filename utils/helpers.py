@@ -12,6 +12,7 @@ import hashlib
 from collections import OrderedDict, deque
 import gc
 import threading
+from contextlib import nullcontext
 from typing import Iterable, Tuple, Callable, Any
 
 try:
@@ -94,8 +95,9 @@ def save_json_if_changed(path: str, data: Any, *, indent: int = 2, sort_keys: bo
         _json_cache_store(path, new_fp)
         return True
 
+
 # --- mps utilities ---
-def empty_mps_cache() -> None:
+def empty_mps_cache(model=None) -> None:
     """Work around delayed memory release on Apple MPS backend.
 
     ``torch.mps.empty_cache`` alone may not promptly free memory because
@@ -106,13 +108,25 @@ def empty_mps_cache() -> None:
     from a worker thread (for example, a ``ThreadPoolExecutor`` used for
     background generation) it can trigger a Metal assertion:
     ``-[_MTLCommandBuffer addScheduledHandler:]: failed assertion 'Scheduled handler provided after commit call'``.
-    To avoid crashes we only call ``synchronise`` on the main thread.
+    To avoid crashes we only call ``synchronize`` on the main thread.  Once a
+    live MPS owner is active, ``empty_cache`` is dispatched to that owner but
+    worker-thread synchronization remains forbidden.
     """
-    if torch.backends.mps.is_available():
-        gc.collect()
-        if threading.current_thread() is threading.main_thread():
-            torch.mps.synchronize()
-        torch.mps.empty_cache()
+    def _clear():
+        if torch.backends.mps.is_available():
+            gc.collect()
+            if threading.current_thread() is threading.main_thread():
+                torch.mps.synchronize()
+            torch.mps.empty_cache()
+
+    owner_call = getattr(model, "run_on_mps_owner", None)
+    if owner_call is not None:
+        owner_call(_clear)
+        return
+
+    lock_ctx = model if model is not None else nullcontext()
+    with lock_ctx:
+        _clear()
 
 # --- history buffer helpers ---
 def init_history_buffers(module: Any, attrs: Iterable[str], num_tokens: int) -> None:

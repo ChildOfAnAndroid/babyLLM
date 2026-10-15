@@ -54,15 +54,15 @@ class SafetyValidator:
         """Safely clamp a value to a range with fallback for invalid values"""
         if not SafetyValidator.is_safe_number(value):
             if context:
-                logger.warn(
-                    "SAFETY_CLAMP",
+                logger.warning(
+                    '[%s] %s', "SAFETY_CLAMP",
                     f"Invalid value {value} in {context}, using fallback {fallback}",
                 )
             return fallback
 
         clamped = max(min_val, min(max_val, float(value)))
         if clamped != value and context:
-            logger.debug("SAFETY_CLAMP", f"Clamped {value} to {clamped} in {context}")
+            logger.debug('[%s] %s', "SAFETY_CLAMP", f"Clamped {value} to {clamped} in {context}")
 
         return clamped
 
@@ -99,16 +99,16 @@ class SafetyValidator:
                 mem[key] = default_value
                 repaired = True
             elif key in numeric_fields and not SafetyValidator.is_safe_number(mem[key]):
-                logger.emergency(
-                    "MEMORY_REPAIR",
+                logger.critical(
+                    '[%s] 🚨 EMERGENCY: %s', "MEMORY_REPAIR",
                     f"Corrupted {key}={mem[key]} for user {user_id}, resetting to {default_value}",
                 )
                 mem[key] = default_value
                 repaired = True
                 repair_notes.append(f"{key}=invalid")
             elif key in string_fields and not isinstance(mem[key], str):
-                logger.emergency(
-                    "MEMORY_REPAIR",
+                logger.critical(
+                    '[%s] 🚨 EMERGENCY: %s', "MEMORY_REPAIR",
                     f"Corrupted {key}={mem[key]} for user {user_id}, resetting to '{default_value}'",
                 )
                 mem[key] = default_value
@@ -117,8 +117,8 @@ class SafetyValidator:
 
         # Apply specific safety ranges only for critical corruption, not normal high values
         if not SafetyValidator.is_safe_number(mem["creative_combo"]):
-            logger.emergency(
-                "MEMORY_REPAIR",
+            logger.critical(
+                '[%s] 🚨 EMERGENCY: %s', "MEMORY_REPAIR",
                 f"Corrupted creative_combo={mem['creative_combo']} for user {user_id}, resetting to 1",
             )
             mem["creative_combo"] = 1
@@ -130,8 +130,8 @@ class SafetyValidator:
             repair_notes.append("creative_combo=clamped")
 
         if not SafetyValidator.is_safe_number(mem["spammer"]):
-            logger.emergency(
-                "MEMORY_REPAIR",
+            logger.critical(
+                '[%s] 🚨 EMERGENCY: %s', "MEMORY_REPAIR",
                 f"Corrupted spammer={mem['spammer']} for user {user_id}, resetting to 1",
             )
             mem["spammer"] = 1
@@ -148,8 +148,8 @@ class SafetyValidator:
 
         # Validate and fix inventory item counts - ensure dict with integer counts
         if "inventory" in mem and not isinstance(mem["inventory"], dict):
-            logger.emergency(
-                "MEMORY_REPAIR",
+            logger.critical(
+                '[%s] 🚨 EMERGENCY: %s', "MEMORY_REPAIR",
                 f"Corrupted inventory type for user {user_id}, resetting inventory to empty dict",
             )
             mem["inventory"] = {}
@@ -161,8 +161,8 @@ class SafetyValidator:
             inventory_change_count = 0
             for item_name, count in list(mem["inventory"].items()):
                 if not SafetyValidator.is_safe_number(count):
-                    logger.emergency(
-                        "MEMORY_REPAIR",
+                    logger.critical(
+                        '[%s] 🚨 EMERGENCY: %s', "MEMORY_REPAIR",
                         f"Corrupted inventory count {item_name}={count} for user {user_id}, removing item",
                     )
                     del mem["inventory"][item_name]
@@ -176,7 +176,7 @@ class SafetyValidator:
                         # Remove items with 0 or negative count
                         del mem["inventory"][item_name]
                         logger.info(
-                            "MEMORY_REPAIR",
+                            '[%s] %s', "MEMORY_REPAIR",
                             f"Removed item {item_name} with count {count} for user {user_id}",
                         )
                     else:
@@ -185,7 +185,7 @@ class SafetyValidator:
                             abs(count - fixed_count) > 0.001
                         ):  # Only log if there was a significant change
                             logger.info(
-                                "MEMORY_REPAIR",
+                                '[%s] %s', "MEMORY_REPAIR",
                                 f"Rounded inventory count {item_name}: {count} -> {fixed_count} for user {user_id}",
                             )
                     inventory_repaired = True
@@ -195,7 +195,7 @@ class SafetyValidator:
                     # Remove items with non-positive counts
                     del mem["inventory"][item_name]
                     logger.info(
-                        "MEMORY_REPAIR",
+                        '[%s] %s', "MEMORY_REPAIR",
                         f"Removed item {item_name} with non-positive count {count} for user {user_id}",
                     )
                     inventory_repaired = True
@@ -204,12 +204,12 @@ class SafetyValidator:
 
             if inventory_repaired:
                 logger.info(
-                    "MEMORY_REPAIR", f"Fixed inventory items for user {user_id}"
+                    '[%s] %s', "MEMORY_REPAIR", f"Fixed inventory items for user {user_id}"
                 )
                 repair_notes.append(f"inventory=items_fixed({inventory_change_count})")
 
         if repaired:
-            logger.info("MEMORY_REPAIR", f"Repaired user memory for {user_id}")
+            logger.info('[%s] %s', "MEMORY_REPAIR", f"Repaired user memory for {user_id}")
             if repair_notes:
                 _emit_safety_debug(
                     f"[SAFETY_REPAIR] {user_id}: {', '.join(repair_notes)}"
@@ -223,7 +223,7 @@ class SafetyValidator:
     ) -> Optional[float]:
         """Validate BBY transaction amount"""
         if not SafetyValidator.is_safe_number(amount):
-            logger.warn("BBY_SAFETY", f"Invalid BBY amount {amount} in {context}")
+            logger.warning('[%s] %s', "BBY_SAFETY", f"Invalid BBY amount {amount} in {context}")
             return None
 
         # Different limits based on context - allow larger negative amounts for decay system
@@ -239,15 +239,11 @@ class SafetyValidator:
     def validate_brain_sentiment(sentiment: Any) -> float:
         """Safely validate brain sentiment value"""
         if not SafetyValidator.is_safe_number(sentiment):
-            logger.warn(
-                "BRAIN_SENTIMENT_SAFETY",
+            logger.warning(
+                '[%s] %s', "BRAIN_SENTIMENT_SAFETY",
                 f"Corrupted brain sentiment: {sentiment}, using 0.0",
             )
             return 0.0
 
         # Clamp to safe sentiment range
         return SafetyValidator.clamp_value(sentiment, -1.0, 1.0, 0.0, "brain sentiment")
-
-
-# Global validator instance
-safety = SafetyValidator()

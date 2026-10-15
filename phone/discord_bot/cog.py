@@ -34,13 +34,9 @@ from utils.mps_trace import mps_trace
 
 from .data_manager import data_manager
 from .logger import logger
-from .performance import perf_monitor
-from .safety import safety
+from .safety import SafetyValidator
 from .live_pressure import try_queue_generation
-from .shoutouts import get_shoutout_prompts
-from .ULTIMATE_MASTER_token_sentiment_map import (
-    get_master_analyser,
-)
+from phone.shoutouts import get_shoutout_prompts
 from .utils import (
     clean_baby_output,
     escape_markdown,
@@ -53,15 +49,10 @@ from .utils import (
     style_loss,
 )
 
-# Import the new comprehensive sentiment system
+# Import the comprehensive sentiment system
 try:
-    import os
-    import sys
-
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    from school.staffroom.VOCABULARY_SENTIMENT_INTEGRATION import (
-        BabyNeuralSentimentIntegration,
-        analyse_message_sentiment_enhanced,
+    from school.staffroom.MASTER_VOCABULARY_SENTIMENT_ANALYZER import (
+        MasterVocabularySentimentanalyser,
     )
 
     ENHANCED_SENTIMENT_AVAILABLE = True
@@ -434,7 +425,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         # Initialise enhanced sentiment analysis system
         if ENHANCED_SENTIMENT_AVAILABLE:
             try:
-                self.enhanced_sentiment = BabyNeuralSentimentIntegration(bot)  # type: ignore
+                self.enhanced_sentiment = MasterVocabularySentimentanalyser(bot)  # type: ignore
                 print("enhanced sentiment system initialised in discord cog!")
             except Exception as e:
                 print(f"failed to initialise enhanced sentiment: {e}")
@@ -1006,7 +997,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         if len(promptTokenIDs) > MAXwindow:
             promptTokenIDs = promptTokenIDs[-MAXwindow:]
         logger.info(
-            "GENERATE",
+            '[%s] %s', "GENERATE",
             f"Prompt text length: {len(prompt_text)}, {len(promptTokenIDs)} tokens, generating {numTokensToGen} tokens",
         )
         genSeqIDs = list(promptTokenIDs)
@@ -1063,7 +1054,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 self.bot.babyLLM.eval()
                 self.bot.numTokensPerStep = MAXwindow
                 logger.debug(
-                    "GENERATE",
+                    '[%s] %s', "GENERATE",
                     f"Model loaded, window size: {self.bot.numTokensPerStep}",
                 )
                 strip_trailing_tag = False
@@ -1089,13 +1080,11 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 "ERROR: unstable logits detected in forward pass "
                                 "(non-finite repeated). Generation stopped."
                             )
-                            logger.error("GENERATE", msg)
+                            logger.error('[%s] %s', "GENERATE", msg)
                             return ("", msg)
-                        if torch.isnan(logits).any() or torch.isinf(logits).any():
-                            msg = "ERROR: NaN/Inf detected in logits. Generation stopped to protect model."
-                            logger.emergency("GENERATE", msg)
-                            return ("", msg)
-                        nextTokenID = nextTokenIDTensor.item()
+                        nextTokenID = getattr(nextTokenIDTensor, "_cached_token_id", None)
+                        if nextTokenID is None:
+                            nextTokenID = nextTokenIDTensor.item()
                         if nextTokenID < 0 or nextTokenID >= len(
                             self.bot.librarian.indexToToken
                         ):
@@ -1168,7 +1157,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as mem_error:
                         if "out of memory" in str(mem_error).lower():
                             logger.error(
-                                "GENERATE",
+                                '[%s] %s', "GENERATE",
                                 f"Out of Memory at token {i + 1}. Salvaging partial response.",
                             )
                             print(
@@ -1240,20 +1229,26 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 f"tokens={len(responseSeqId)}/{numTokensToGen} "
                 f"early_eos_suppressed={eos_hits_before_min}"
             )
-            perf_monitor.record_metric("generation_time", generation_time)
-            perf_monitor.record_metric("tokens_generated", len(responseSeqId))
-            perf_monitor.record_metric(
+            self.bot.performance_monitor.record_metric(
+                "generation_time", generation_time
+            )
+            self.bot.performance_monitor.record_metric(
+                "tokens_generated", len(responseSeqId)
+            )
+            self.bot.performance_monitor.record_metric(
                 "tokens_per_second",
                 len(responseSeqId) / generation_time if generation_time > 0 else 0,
             )
             if oom_error_message:
-                perf_monitor.record_metric("generation_oom_errors", 1)
+                self.bot.performance_monitor.record_metric(
+                    "generation_oom_errors", 1
+                )
             mps_trace("GENERATION_END", f"generated_tokens={len(responseSeqId)} time={generation_time:.2f}s success=True")
             return (babyllm_text, oom_error_message)
         except Exception as e:
             generation_time = time.time() - start_time
-            perf_monitor.record_metric("generation_errors", 1)
-            logger.error("GENERATE", f"error during generation: {e}")
+            self.bot.performance_monitor.record_metric("generation_errors", 1)
+            logger.error('[%s] %s', "GENERATE", f"error during generation: {e}")
             traceback.print_exc()
             mps_trace("GENERATION_END", f"time={generation_time:.2f}s success=False error={e}")
             return ("", f"ERROR: {e}")
@@ -1301,8 +1296,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         async with self._generation_lock:
             self._active_generations += 1
             try:
+                model = self.bot.babyLLM
+
+                def _owned_generation():
+                    was_training = model.training
+                    try:
+                        return self._generate_response_blocking(
+                            prompt_text, numTokensToGen
+                        )
+                    finally:
+                        model.train(was_training)
+
                 result = await loop.run_in_executor(
-                    None, self._generate_response_blocking, prompt_text, numTokensToGen
+                    None,
+                    model.run_on_mps_owner,
+                    _owned_generation,
                 )
                 print("[_GENERATE_RESPONSE_ASYNC] generation completed successfully.")
                 return result
@@ -1391,7 +1399,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     def _get_safe_brain_sentiment(self):
         """Safely get brain sentiment with corruption protection"""
         if hasattr(self.bot, "brain") and hasattr(self.bot.brain, "sentiment"):
-            return safety.validate_brain_sentiment(self.bot.brain.sentiment)
+            return SafetyValidator.validate_brain_sentiment(
+                self.bot.brain.sentiment
+            )
         return 0.0
 
     def _neural_token_sentiment_analysis(self, fact_name: str):
@@ -1419,72 +1429,6 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     "analysis": analysis["analysis"],
                     "system": "enhanced_complete",
                 }, brain_influenced_sentiment
-
-            else:
-                # Fallback to legacy system
-                # Tokenize using baby's actual tokenizer
-                if hasattr(self.bot, "librarian") and self.bot.librarian:
-                    item_token_ids = self.bot.librarian.tokenizeText(fact_name.lower())
-                else:
-                    return None, 0.0
-
-                # Get brain sentiment influence
-                brain_sentiment = self._get_safe_brain_sentiment()
-
-                # Use legacy sentiment analysis
-                if item_token_ids:
-                    analyser = get_master_analyser()
-                    analysis_result = analyser.analyse_token_sequence(item_token_ids)
-                    sentiment_score = analysis_result["final_sentiment"]
-                    amplifier_multiplier = analysis_result["amplifier_multiplier"]
-                    coverage = analysis_result["coverage_percent"]
-
-                    # Process if we found sentiment tokens
-                    if sentiment_score != 0 or coverage > 0:
-                        # Apply brain influence to legacy sentiment
-                        brain_multiplier = 1.0 + (brain_sentiment * 0.3)
-                        final_sentiment = sentiment_score * brain_multiplier
-
-                        # Convert to subtle value change (BBY economy operates in billions)
-                        value_change_percent = final_sentiment * 0.0002
-
-                        if fact_name in self.bot.bbyfacts:
-                            current_value = self.bot.bbyfacts[fact_name].get(
-                                "teach_bonus", 420.0
-                            )
-                            new_value = max(
-                                0.01, current_value * (1.0 + value_change_percent)
-                            )
-                            self.bot.bbyfacts[fact_name]["teach_bonus"] = new_value
-
-                            # Create legacy analysis message
-                            pos_count = len(analysis_result["positive_tokens"])
-                            neg_count = len(analysis_result["negative_tokens"])
-                            amp_count = len(analysis_result["amplifier_tokens"])
-
-                        token_summary = (
-                            f"pos:{pos_count} neg:{neg_count} amp:{amp_count}"
-                        )
-                        print(
-                            f"[NEURAL_ULTIMATE] '{fact_name}' {token_summary} base:{analysis_result['base_sentiment']:.3f} final:{sentiment_score:.3f} -> {value_change_percent:+.6f}% (brain×{brain_multiplier:.2f})"
-                        )
-
-                        # Only announce significant changes
-                        if abs(value_change_percent) > 0.001:
-                            direction = (
-                                "gained neural value"
-                                if value_change_percent > 0
-                                else "lost neural value"
-                            )
-                            amplifier_text = (
-                                f" (amplified {amplifier_multiplier:.1f}x)"
-                                if amplifier_multiplier != 1.0
-                                else ""
-                            )
-                            return (
-                                f"ultimate token analysis: {fact_name} {direction}{amplifier_text}",
-                                value_change_percent,
-                            )
 
         except Exception as e:
             print(f"[NEURAL_ULTIMATE] Error: {e}")
@@ -2492,6 +2436,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         return pairs[: max(1, int(top_n))]
 
     def _neuron_stack_for_token(self, scaled_acts, token_id: int, top_n: int = 4):
+        model = self.bot.babyLLM
+        if model.mps_owner.active and not model.mps_owner.is_owner_thread:
+            return model.run_on_mps_owner(
+                self._neuron_stack_for_token,
+                scaled_acts,
+                token_id,
+                top_n=top_n,
+            )
         if not torch.is_tensor(scaled_acts):
             return {"positive": [], "negative": []}
         token_id = int(token_id)
@@ -2571,6 +2523,14 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
     def _get_brain_connections(
         self, text: str, top_k: int = 10, combo_only: bool = False
     ):
+        model = self.bot.babyLLM
+        if model.mps_owner.active and not model.mps_owner.is_owner_thread:
+            return model.run_on_mps_owner(
+                self._get_brain_connections,
+                text,
+                top_k=top_k,
+                combo_only=combo_only,
+            )
         text = (text or "").strip().lower()
         if not text:
             return ""
@@ -2811,6 +2771,15 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         top_k: int,
         with_scores: bool = False,
     ):
+        model = self.bot.babyLLM
+        if model.mps_owner.active and not model.mps_owner.is_owner_thread:
+            return model.run_on_mps_owner(
+                self._get_similar_tokens,
+                vec,
+                exclude_ids,
+                top_k,
+                with_scores=with_scores,
+            )
         embed = self.bot.babyLLM.embed.e_weights
         with torch.no_grad():
             sims = torch.nn.functional.cosine_similarity(embed, vec.unsqueeze(0), dim=1)
@@ -2837,6 +2806,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
     def _brain_similar_words(self, text: str, top_k: int = 5) -> list[str]:
         """Return a few tokens the model associates with ``text``."""
+        model = self.bot.babyLLM
+        if model.mps_owner.active and not model.mps_owner.is_owner_thread:
+            return model.run_on_mps_owner(
+                self._brain_similar_words,
+                text,
+                top_k=top_k,
+            )
         text = (text or "").strip().lower()
         if not text:
             return []
@@ -2889,6 +2865,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         self.bot._buffer_add(buffer_entry)
 
     def _blend_guess(self, word: str, top_k: int = 10) -> str:
+        model = self.bot.babyLLM
+        if model.mps_owner.active and not model.mps_owner.is_owner_thread:
+            return model.run_on_mps_owner(
+                self._blend_guess,
+                word,
+                top_k=top_k,
+            )
         token_ids = self.bot.librarian.tokenizer.encode(word.lower())
         unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
         valid_ids = [tid for tid in token_ids if tid != unk_id]
@@ -2911,6 +2894,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         similarity matrix. Each entry is a tuple ``(word1, word2, score)``
         sorted by descending strength.
         """
+        model = self.bot.babyLLM
+        if model.mps_owner.active and not model.mps_owner.is_owner_thread:
+            return model.run_on_mps_owner(
+                self._get_top_strong_pairs,
+                top_n=top_n,
+            )
         cache = getattr(self, "_cached_top_pairs", None)
         if cache and len(cache) >= top_n:
             return cache[:top_n]
@@ -2959,6 +2948,13 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             Newly minted token assembled from parts of similar tokens. If no
             suitable blend is found, the original ``word`` is returned.
         """
+        model = self.bot.babyLLM
+        if model.mps_owner.active and not model.mps_owner.is_owner_thread:
+            return model.run_on_mps_owner(
+                self.createFakeWordFromVector,
+                word,
+                top_n=top_n,
+            )
 
         # Encode the input word and grab its embedding vector
         unk_id = self.bot.librarian.tokenToIndex.get(self.bot.librarian.unkToken)
@@ -4826,7 +4822,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 cropped = True
 
             input_tensor = torch.tensor(
-                prompt_token_ids, dtype=torch.long, device=modelDevice
+                prompt_token_ids, dtype=torch.long
             )
             trace = self.bot.babyLLM.trace_forward(input_tensor, top_k=5)
 
@@ -4994,7 +4990,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 cropped = True
 
             input_tensor = torch.tensor(
-                prompt_token_ids, dtype=torch.long, device=modelDevice
+                prompt_token_ids, dtype=torch.long
             )
             trace = self.bot.babyLLM.trace_forward(
                 input_tensor,
@@ -5065,7 +5061,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                     if not reduced_ids:
                         continue
                     alt_tensor = torch.tensor(
-                        reduced_ids, dtype=torch.long, device=modelDevice
+                        reduced_ids, dtype=torch.long
                     )
                     alt_trace = self.bot.babyLLM.trace_forward(
                         alt_tensor,
@@ -5265,7 +5261,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 cropped = True
 
             input_tensor = torch.tensor(
-                prompt_token_ids, dtype=torch.long, device=modelDevice
+                prompt_token_ids, dtype=torch.long
             )
             trace = self.bot.babyLLM.trace_forward(
                 input_tensor,
@@ -5351,7 +5347,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 if not reduced_ids:
                     continue
                 alt_tensor = torch.tensor(
-                    reduced_ids, dtype=torch.long, device=modelDevice
+                    reduced_ids, dtype=torch.long
                 )
                 alt_trace = self.bot.babyLLM.trace_forward(
                     alt_tensor,
@@ -6584,16 +6580,9 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             prompt_text = ""
 
         hint = "style note: use british english spellings (colour, favourite, authorised, analyse)."
-        line_hint = "style note: line breaks are allowed; split longer replies into short lines when it feels natural."
-        prompt_lower = prompt_text.lower()
-        additions = []
-        if hint not in prompt_lower:
-            additions.append(hint)
-        if line_hint not in prompt_lower:
-            additions.append(line_hint)
-        if not additions:
+        if hint in prompt_text.lower():
             return prompt_text
-        return f"{prompt_text.rstrip()}\n" + "\n".join(additions) + "\n"
+        return f"{prompt_text.rstrip()}\n{hint}\n"
 
     async def _generate_and_reply(
         self, ctx: commands.Context, prompt_text: str, num_tokens_to_gen: int
@@ -7803,7 +7792,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         trace_label: str = "",
     ):
         if trace_label:
-            logger.info("PROMPT_WAIT", f"{trace_label}: sending countdown prompt")
+            logger.info('[%s] %s', "PROMPT_WAIT", f"{trace_label}: sending countdown prompt")
         _, countdown_stop, countdown_task = await self._start_live_countdown_reply(
             ctx,
             duration_seconds=timeout_seconds,
@@ -7812,7 +7801,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         )
         if trace_label:
             logger.info(
-                "PROMPT_WAIT",
+                '[%s] %s', "PROMPT_WAIT",
                 f"{trace_label}: prompt sent; waiting {float(timeout_seconds):.1f}s",
             )
         user_msg = None
@@ -7825,20 +7814,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             )
             if trace_label:
                 logger.info(
-                    "PROMPT_WAIT",
+                    '[%s] %s', "PROMPT_WAIT",
                     f"{trace_label}: received reply from {getattr(getattr(user_msg, 'author', None), 'name', '?')}",
                 )
         except asyncio.TimeoutError:
             timed_out = True
             if trace_label:
-                logger.warn(
-                    "PROMPT_WAIT",
+                logger.warning(
+                    '[%s] %s', "PROMPT_WAIT",
                     f"{trace_label}: timed out after {float(timeout_seconds):.1f}s",
                 )
         finally:
             await self._stop_live_countdown_reply(countdown_stop, countdown_task)
             if trace_label:
-                logger.info("PROMPT_WAIT", f"{trace_label}: countdown stopped")
+                logger.info('[%s] %s', "PROMPT_WAIT", f"{trace_label}: countdown stopped")
         return user_msg, timed_out
 
     async def _run_maths_level_test(self, maths_range: int):
@@ -9103,7 +9092,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         author = ctx.author.name.lower()
         if hasattr(self.bot, "normalise_user_identity"):
             author = self.bot.normalise_user_identity(author)
-        logger.info("BBYMATHS", f"{author}: command entered")
+        logger.info('[%s] %s', "BBYMATHS", f"{author}: command entered")
         persist_player_state = self._should_persist_duel_state(author)
         self._track_hidden_stat(author, "knowledge", 1.0)
 
@@ -9147,7 +9136,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
         question_line = self._format_maths_question_line(expr)
         timeout, _ = self._maths_timeout_for_level(player_level)
         logger.info(
-            "BBYMATHS",
+            '[%s] %s', "BBYMATHS",
             f"{author}: question ready '{question_line}' player={player_level} baby={baby_level} timeout={timeout:.1f}s",
         )
 
@@ -9190,20 +9179,20 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             user_guess = self._extract_numeric_answer(user_msg.content)
             user_correct = user_guess == expected
             logger.info(
-                "BBYMATHS",
+                '[%s] %s', "BBYMATHS",
                 f"{author}: parsed user guess={user_guess!r} correct={user_correct}",
             )
         elif user_timed_out:
-            logger.warn("BBYMATHS", f"{author}: user timed out on '{question_line}'")
+            logger.warning('[%s] %s', "BBYMATHS", f"{author}: user timed out on '{question_line}'")
 
-        logger.info("BBYMATHS", f"{author}: evaluating baby answer")
+        logger.info('[%s] %s', "BBYMATHS", f"{author}: evaluating baby answer")
         (
             baby_correct,
             baby_guess,
             baby_response_text,
         ) = await self._evaluate_baby_maths_answer(expr, expected)
         logger.info(
-            "BBYMATHS",
+            '[%s] %s', "BBYMATHS",
             f"{author}: baby answer complete guess={baby_guess!r} correct={baby_correct}",
         )
 
@@ -13371,13 +13360,21 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             ids2 = [x for x in ids2 if x != unk_id]
 
             if ids1 and ids2:
-                with torch.no_grad():
-                    embed = self.bot.babyLLM.embed.e_weights
-                    vec1 = embed[ids1].mean(dim=0).unsqueeze(0)
-                    vec2 = embed[ids2].mean(dim=0).unsqueeze(0)
-                    compatibility = torch.nn.functional.cosine_similarity(
-                        vec1, vec2
-                    ).item()
+                model = self.bot.babyLLM
+
+                def _compatibility():
+                    with torch.no_grad():
+                        embed = model.embed.e_weights
+                        vec1 = embed[ids1].mean(dim=0).unsqueeze(0)
+                        vec2 = embed[ids2].mean(dim=0).unsqueeze(0)
+                        return torch.nn.functional.cosine_similarity(
+                            vec1, vec2
+                        ).item()
+
+                compatibility = await asyncio.to_thread(
+                    model.run_on_mps_owner,
+                    _compatibility,
+                )
             else:
                 fallback_note = "idk why and idk why idk why"
                 compatibility = 0.0
@@ -14101,12 +14098,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                             reply += f"  • '{token['token']}': {token['sentiment']:+.2f} ({sentiment_desc})\n"
 
             else:
-                # Fallback using legacy system if available
-                try:
-                    fallback_analysis = analyse_message_sentiment_enhanced(text)
-                    reply += f"{fallback_analysis['discord_summary']}\n\n"
-                except:
-                    reply = "sentiment analysis not available - missing required components!"
+                reply = "sentiment analysis not available - missing required components!"
 
             await self.bot._discord_reply(ctx, reply)
 
@@ -14164,7 +14156,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
 
                 else:
                     # Show complete system overview
-                    stats = self.enhanced_sentiment.sentiment_analyser.get_sentiment_statistics()
+                    stats = self.enhanced_sentiment.get_sentiment_statistics()
 
                     reply = "enhanced vocabulary sentiment system:\n"
                     reply += f"total tokens mapped: {stats['total_tokens']}/4200 (100% coverage!)\n"
@@ -14197,9 +14189,8 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             else:
                 reply = "🧠💫 **ENHANCED SENTIMENT SYSTEM NOT AVAILABLE**\n\n"
                 reply += "The complete vocabulary sentiment system needs:\n"
-                reply += "• MASTER_VOCABULARY_SENTIMENT_ANALYSER.py\n"
-                reply += "• VOCABULARY_SENTIMENT_INTEGRATION.py\n"
-                reply += "• COMPLETE_MASTER_VOCABULARY_MAP.py\n\n"
+                reply += "• MASTER_VOCABULARY_SENTIMENT_ANALYZER.py\n"
+                reply += "\n"
                 reply += "This provides 100% token coverage (all 4200 tokens) with:\n"
                 reply += "• 93 vocabulary categories\n"
                 reply += "• Advanced amplification & negation handling\n"

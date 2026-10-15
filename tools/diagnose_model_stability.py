@@ -1,50 +1,94 @@
 #!/usr/bin/env python3
-# Standalone diagnostic that loads the model like wakeup.py does
+"""Inspect the current BabyLLM checkpoint for numerical instability.
 
+This uses the canonical ``wakeup`` construction and checkpoint-loading path,
+but does not train, save, or connect any chat service. Use
+``--checkpoint-only`` for a cheap CPU-only attention-weight inspection.
+"""
+
+import argparse
+import math
+import sys
+from pathlib import Path
 
 import torch
 
-from babyLLM import BABYLLM
-from config import *
-from school.staffroom.calligraphist import S_OUTPUT
-from school.staffroom.counsellor import COUNSELLOR
-from school.staffroom.HE_IS_SCRIBE import SCRIBE
-from school.staffroom.librarian import LIBRARIAN
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-print("=" * 80)
-print("ATTENTION2 EXPLOSION DIAGNOSTIC")
-print("=" * 80)
-
-# Initialize components like wakeup.py does
-print("\n[1/5] Initializing counsellor...")
-counsellor = COUNSELLOR("diagnostic", _debug=False, _durations=False)
-
-print("[2/5] Initializing librarian...")
-librarian = LIBRARIAN(
-    _counsellor=counsellor, _baseTokenizerPath=None, _forceRetrain=False
+from config import (
+    learningRateGOAL,
+    modelFilePath,
+    modelDevice,
+    numTokensPerStepSTART,
+    perfectionistPassRateSTART,
+    trainingDataPairNumber,
+    trainingDataStride,
+    trainingLogFreq_A,
 )
 
-print("[3/5] Initializing calligraphist...")
-calligraphist = S_OUTPUT(_counsellor=counsellor)
 
-print("[4/5] Initializing scribe...")
-scribe = SCRIBE(
-    _counsellor=counsellor,
-    _calligraphist=calligraphist,
-    _librarian=librarian,
-    _numTokensPerStep=264,
+def diagnose_checkpoint_attention() -> bool:
+    """Inspect attention tensors directly from the checkpoint on CPU."""
+    checkpoint = torch.load(modelFilePath, map_location="cpu", weights_only=False)
+    state_dict = checkpoint.get("model_state_dict", checkpoint)
+    attention = {
+        name: tensor
+        for name, tensor in state_dict.items()
+        if isinstance(tensor, torch.Tensor)
+        and ("attention." in name or "attention2." in name)
+        and tensor.dtype != torch.bool
+    }
+
+    print(f"Loaded checkpoint: {modelFilePath}")
+    print(f"Attention tensors: {len(attention)}")
+    unstable = False
+    for name, tensor in attention.items():
+        has_nan = bool(torch.isnan(tensor).any().item())
+        has_inf = bool(torch.isinf(tensor).any().item())
+        norm = tensor.norm().item()
+        maximum = tensor.abs().max().item() if tensor.numel() else 0.0
+        rms = norm / math.sqrt(tensor.numel()) if tensor.numel() else 0.0
+        unstable = unstable or has_nan or has_inf or norm > 1e6
+        print(
+            f"{name}: shape={tuple(tensor.shape)} norm={norm:.3e} "
+            f"rms={rms:.3e} max={maximum:.3e} nan={has_nan} inf={has_inf}"
+        )
+
+    if not attention:
+        print("No attention tensors found in the checkpoint.")
+        return True
+    print("EXPLOSION SIGNAL DETECTED" if unstable else "Attention weights look finite.")
+    return unstable
+
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    "--checkpoint-only",
+    action="store_true",
+    help="Inspect attention weights on CPU without constructing BabyLLM.",
 )
+args = parser.parse_args()
 
-print("[5/5] Loading babyLLM...")
-model = BABYLLM(
-    _counsellor=counsellor,
-    _calligraphist=calligraphist,
-    _scribe=scribe,
-    _librarian=librarian,
-    _device=modelDevice,
-    _numTokensPerStep=264,
-    _first=True,
-    _learningRateGOAL=learningRateGOAL,
+if args.checkpoint_only:
+    raise SystemExit(1 if diagnose_checkpoint_attention() else 0)
+
+from wakeup import wakeup
+
+print("=" * 80)
+print("CURRENT CHECKPOINT STABILITY DIAGNOSTIC")
+print("=" * 80)
+
+print("\nLoading the current checkpoint through wakeup...")
+model, tutor, librarian, scribe, calligraphist = wakeup(
+    windowMAX=numTokensPerStepSTART,
+    dataStride=trainingDataStride,
+    passRateSTART=perfectionistPassRateSTART,
+    lrGoal=learningRateGOAL,
+    trainingDataPairNum=trainingDataPairNumber,
+    log_A=trainingLogFreq_A,
+    mode="mps_stress",
 )
 
 print("\n" + "=" * 80)
@@ -78,17 +122,11 @@ for name, param in model.attention2.attn.named_parameters():
 # ============================================================================
 # DIAGNOSTIC 2: Check expansion weights
 # ============================================================================
-print("\n2. Checking EXPANSION module weights...")
-if hasattr(model.tangling, "project_up"):
-    print(f"   Tangling.project_up norm: {model.tangling.project_up.weight.norm().item():.2e}")
-    print(f"   Tangling.project_down norm: {model.tangling.project_down.weight.norm().item():.2e}")
-    print(f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_tangle_gate).item():.6f}")
-    print(f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_tangle_gate).item():.6f}")
-else:
-    print(f"   Tangling.embed_proj_up norm: {model.tangling.embed_proj_up.weight.norm().item():.2e}")
-    print(f"   Tangling.embed_proj_down norm: {model.tangling.embed_proj_down.weight.norm().item():.2e}")
-    print(f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_gate).item():.6f}")
-    print(f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_gate).item():.6f}")
+print("\n2. Checking TANGLING and SCRATCHPAD weights...")
+print(f"   Tangling.embed_proj_up norm: {model.tangling.embed_proj_up.weight.norm().item():.2e}")
+print(f"   Tangling.embed_proj_down norm: {model.tangling.embed_proj_down.weight.norm().item():.2e}")
+print(f"   Tangling.embed_gate: {torch.sigmoid(model.tangling.embed_gate).item():.6f}")
+print(f"   Tangling.memory_gate: {torch.sigmoid(model.tangling.memory_gate).item():.6f}")
 print(
     f"   Scratchpad.write_strength: {torch.sigmoid(model.scratchpad.write_strength).item():.6f}"
 )
@@ -128,8 +166,8 @@ with torch.no_grad():
 print("\n4. Testing with EXPANSION DISABLED...")
 with torch.no_grad():
     # Save original values
-    embed_gate = model.tangling.embed_tangle_gate if hasattr(model.tangling, "embed_tangle_gate") else model.tangling.embed_gate
-    memory_gate = model.tangling.memory_tangle_gate if hasattr(model.tangling, "memory_tangle_gate") else model.tangling.memory_gate
+    embed_gate = model.tangling.embed_gate
+    memory_gate = model.tangling.memory_gate
     orig_embed = embed_gate.clone()
     orig_memory = memory_gate.clone()
     orig_write = model.scratchpad.write_strength.clone()

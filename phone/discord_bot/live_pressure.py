@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import gc
 import inspect
 import os
@@ -65,6 +66,55 @@ def current_rss_gb() -> float:
         return 0.0
 
 
+class _DarwinRusageInfoV0(ctypes.Structure):
+    _fields_ = [
+        ("ri_uuid", ctypes.c_uint8 * 16),
+        ("ri_user_time", ctypes.c_uint64),
+        ("ri_system_time", ctypes.c_uint64),
+        ("ri_pkg_idle_wkups", ctypes.c_uint64),
+        ("ri_interrupt_wkups", ctypes.c_uint64),
+        ("ri_pageins", ctypes.c_uint64),
+        ("ri_wired_size", ctypes.c_uint64),
+        ("ri_resident_size", ctypes.c_uint64),
+        ("ri_phys_footprint", ctypes.c_uint64),
+        ("ri_proc_start_abstime", ctypes.c_uint64),
+        ("ri_proc_exit_abstime", ctypes.c_uint64),
+    ]
+
+
+def current_phys_footprint_gb() -> float:
+    """Return macOS's current physical-footprint charge for this process.
+
+    RSS excludes pages macOS has compressed or swapped and therefore badly
+    understates pressure for long-lived MPS processes. ``proc_pid_rusage`` is
+    the same current kernel accounting used by Activity Monitor/footprint. On
+    other platforms, or if the kernel query fails, RSS remains the fallback.
+    """
+    if sys.platform != "darwin":
+        return current_rss_gb()
+
+    try:
+        info = _DarwinRusageInfoV0()
+        libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+        proc_pid_rusage = libproc.proc_pid_rusage
+        proc_pid_rusage.argtypes = (
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(_DarwinRusageInfoV0),
+        )
+        proc_pid_rusage.restype = ctypes.c_int
+        if proc_pid_rusage(os.getpid(), 0, ctypes.byref(info)) == 0:
+            return float(info.ri_phys_footprint) / (1024 ** 3)
+    except Exception:
+        pass
+    return current_rss_gb()
+
+
+def current_pressure_gb() -> float:
+    """Return the current value that should drive admission control."""
+    return max(current_rss_gb(), current_phys_footprint_gb())
+
+
 @dataclass
 class LivePressureGuard:
     max_queue: int = field(default_factory=lambda: _env_int("BBY_MAX_GENERATION_QUEUE", 500, 1))
@@ -87,12 +137,15 @@ class LivePressureGuard:
         return self
 
     def should_hard_reject(self) -> tuple[bool, str]:
-        rss = current_rss_gb()
-        if rss >= self.hard_rss_gb:
-            return True, f"rss {rss:.1f} GiB is over hard limit {self.hard_rss_gb:.1f} GiB"
+        pressure = current_pressure_gb()
+        if pressure >= self.hard_rss_gb:
+            return True, (
+                f"memory footprint {pressure:.1f} GiB is over hard limit "
+                f"{self.hard_rss_gb:.1f} GiB"
+            )
         return False, ""
 
-    def cleanup(self) -> None:
+    def cleanup(self, model=None) -> None:
         if not self.gc_after_generation:
             return
         try:
@@ -101,8 +154,15 @@ class LivePressureGuard:
             pass
         if torch is not None:
             try:
-                if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache"):
-                    torch.mps.empty_cache()
+                def _empty_mps_cache():
+                    if hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache"):
+                        torch.mps.empty_cache()
+
+                owner_call = getattr(model, "run_on_mps_owner", None)
+                if owner_call is not None:
+                    owner_call(_empty_mps_cache)
+                else:
+                    _empty_mps_cache()
             except Exception:
                 pass
             try:
@@ -243,7 +303,7 @@ async def try_queue_generation(bot: Any, item: Any) -> bool:
         guard.rejected_generations += 1
         guard.last_reject_reason = reason
         await _notify_queue_callback(item, _pressure_reply(reason))
-        guard.cleanup()
+        guard.cleanup(getattr(bot, "babyLLM", None))
         return False
 
     try:
@@ -369,13 +429,13 @@ async def run_generation_call(bot: Any, original: Callable[..., Any], *args: Any
             guard.completed_generations += 1
             guard.last_generation_finished_at = time.time()
 
-            rss = current_rss_gb()
-            if rss >= guard.soft_rss_gb:
+            pressure = current_pressure_gb()
+            if pressure >= guard.soft_rss_gb:
                 print(
-                    "[LIVE_PRESSURE] soft RSS pressure after generation: "
-                    f"{rss:.1f} GiB >= {guard.soft_rss_gb:.1f} GiB; cleaning caches"
+                    "[LIVE_PRESSURE] soft memory pressure after generation: "
+                    f"{pressure:.1f} GiB >= {guard.soft_rss_gb:.1f} GiB; cleaning caches"
                 )
-            guard.cleanup()
+            guard.cleanup(getattr(bot, "babyLLM", None))
 
 
 def patch_cog_generation(bot: Any) -> bool:
@@ -408,6 +468,8 @@ def pressure_snapshot(bot: Any) -> dict[str, Any]:
     queue = getattr(bot, "generation_queue", None)
     return {
         "rss_gb": round(current_rss_gb(), 3),
+        "phys_footprint_gb": round(current_phys_footprint_gb(), 3),
+        "pressure_gb": round(current_pressure_gb(), 3),
         "soft_rss_gb": guard.soft_rss_gb,
         "hard_rss_gb": guard.hard_rss_gb,
         "max_queue": guard.max_queue,

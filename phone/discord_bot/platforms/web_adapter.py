@@ -52,6 +52,78 @@ class WebAdapter(PlatformAdapter):
         # Set up Flask routes
         self._setup_routes()
 
+    def trigger_animation(self, animation: str, duration: float = 3.0) -> bool:
+        """Trigger a temporary animation on the web avatar."""
+        animation = animation.lower()
+
+        if animation == "jump":
+            self.bot._web_jumping = True
+
+            def stop_jumping():
+                time.sleep(duration)
+                self.bot._web_jumping = False
+
+            threading.Thread(target=stop_jumping, daemon=True).start()
+
+        elif animation == "blush":
+            self.bot._web_cheeks = True
+
+            def stop_blushing():
+                time.sleep(duration)
+                self.bot._web_cheeks = False
+
+            threading.Thread(target=stop_blushing, daemon=True).start()
+
+        elif animation == "cry":
+            self.bot._web_tears = True
+
+            def stop_crying():
+                time.sleep(duration)
+                self.bot._web_tears = False
+
+            threading.Thread(target=stop_crying, daemon=True).start()
+
+        elif animation == "celebrate":
+            original_colour = (
+                self.bot._web_R,
+                self.bot._web_G,
+                self.bot._web_B,
+            )
+            self.bot._web_jumping = True
+            self.bot._web_cheeks = True
+
+            def celebrate():
+                colours = [
+                    (255, 0, 0),
+                    (255, 127, 0),
+                    (255, 255, 0),
+                    (0, 255, 0),
+                    (0, 0, 255),
+                    (75, 0, 130),
+                    (148, 0, 211),
+                ]
+                end_time = time.time() + duration
+                while time.time() < end_time:
+                    for red, green, blue in colours:
+                        self.bot._web_R = red
+                        self.bot._web_G = green
+                        self.bot._web_B = blue
+                        time.sleep(0.3)
+                        if time.time() >= end_time:
+                            break
+
+                self.bot._web_R, self.bot._web_G, self.bot._web_B = original_colour
+                self.bot._web_jumping = False
+                self.bot._web_cheeks = False
+
+            threading.Thread(target=celebrate, daemon=True).start()
+
+        else:
+            return False
+
+        print(f"[WebAdapter] {animation} animation for {duration}s")
+        return True
+
     @staticmethod
     def _extract_generation_text(result) -> str:
         """Normalise mixed generation return values to response text."""

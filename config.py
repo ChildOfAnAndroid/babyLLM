@@ -121,7 +121,12 @@ extraNames = {"kevin", "froggy", "pete", "ace", "elodie"}
 
 # --- DATA & FILEPATHS ---
 # --- MODEL ---
-saveModelFreq = 50  # // 500 // 5000 // 10000 // saves the model every x number of turns
+saveModelFreq = 500  # // 50 // 5000 // 10000 // saves the model every x number of turns
+# Each full save rewrites ~7.6 GB (weights 2.5 GB + optimizer 5.0 GB). Repeated multi-GB
+# writes onto a nearly-full APFS volume stalled the filesystem long enough for macOS's
+# 120 s userspace watchdog (logd) to panic the machine. Autosaves now write the optimizer
+# only every Nth autosave; explicit/shutdown/bot saves always write everything.
+saveOptimizerEveryNAutosaves = 5
 
 modelFilePath = (
     "SHKAIRA/soul/babyllm_S_4200.pth"  # where your currently trained saved boi is :)
@@ -267,10 +272,10 @@ sos_replacement_token_str = None  # e.g. "startstartstartstartstartstartstartsta
 enable_train_prepend_sos = False  # prepend SOS token once per training message
 sos_prepend_probability = 1.0  # probability to prepend SOS (0..1)
 
-# Train-time augmentation: append EOS stochastically per line during training text preparation.
-enable_train_append_eos = True  # teach EOS on line boundaries in queued training text
+# EOS closes complete chat messages, not their internal paragraph newlines.
+enable_train_append_eos = True  # every explicit queued chat entry ends in EOS
 eos_append_probability = (
-    0.72  # base probability per line (adaptive + jitter in bot logic)
+    0.72  # chance to close one unstructured corpus sample; not per line
 )
 
 # Stricter stop: only stop on EOS when a speaker change is detected at line start.
@@ -332,7 +337,7 @@ mostImportantStats = [
     "4A_1_1_gated_norm",
     "4A_1_x_final_norm",
     "4A_1_gateScale",
-    # === TANGLING STATS === (reuses attention2 at multiple stages)
+    # === TANGLING STATS ===
     "TANGLE_embed_gate",  # Gate strength for embed tangling (~0.01 initially)
     "TANGLE_embed_refinement_norm",  # Norm of refinement applied to embeddings
     "TANGLE_neuron_gate",  # Gate strength for neuron tangling (~0.01 initially)
@@ -777,12 +782,8 @@ saveStrict = False  # // False //~allow reconstruction of missing files // True 
 embedDimension = 1024  # dimensionality of token embeddings
 numNeurons = 10000  # number of neurons in the parallel neuron layer
 
-# === TANGLING FLAGS ===
-# useMiniINN_Tangling: use lightwight causal window mixer (MINI_INN_TANGLING v2.0)
-#   True  → ~1M params, per-position window means, no attention2 needed  ← recommended
-#   False → original TANGLING: borrows attention2, ~20M params, O(seq²) compute
+# === TANGLING FLAG ===
 # enableTangling: master switch (False = zero-cost skip of all tangling stages)
-useMiniINN_Tangling = True  # MINI_INN_TANGLING: causal windows, no quadratic compute
 enableTangling = True  # Re-enabled: MINI_INN_TANGLING does not borrow attention2
 
 # windows

@@ -423,10 +423,9 @@ class TwitchBot(twitch_commands.Bot):
         await self.platform_adapter.notify_raid(raider_name, viewer_count, channel_name)
 
         # Celebrate on web!
-        if hasattr(self.platform_adapter.bot, "_web_jumping"):
-            from ..web_effects import trigger_web_animation
-
-            trigger_web_animation(self.platform_adapter.bot, "celebrate", duration=10.0)
+        web_adapter = getattr(self.platform_adapter.bot, "platforms", {}).get("web")
+        if web_adapter is not None:
+            web_adapter.trigger_animation("celebrate", duration=10.0)
 
     async def event_channel_raid(self, data):
         """Backward-compatible alias."""

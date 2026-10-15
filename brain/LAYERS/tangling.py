@@ -1,8 +1,7 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # DIMENSION-ADAPTIVE TANGLING LAYER // brain/LAYERS/tangling.py
-# v1.0  — TANGLING: reuses attention2 weights at multiple pipeline stages
-# v2.0  — MINI_INN_TANGLING: lightweight causal window mixer, no attention2 needed
+# MINI_INN_TANGLING: lightweight causal window mixer
 
 import math
 from collections import deque
@@ -15,137 +14,7 @@ from config import *
 from utils.helpers import init_history_buffers
 
 """
-Dimension-Adaptive Tangling: Reuses attention2's 400M params throughout the network
-- Projects any representation to 10k-dim
-- Applies shared attention2 refinement
-- Projects back to original dimension
-- Residual connection preserves gradients
-"""
-
-
-class TANGLING(nn.Module):
-    def __init__(self, _counsellor, _attention2_reference, _device=modelDevice):
-        super().__init__()
-        self.counsellor = _counsellor
-        self.device = _device
-        self.stats = {}
-
-        # Reference to existing attention2 (NO new params here - we reuse!)
-        self.attention2 = _attention2_reference
-
-        # Shared projection layers (used at all tangling points)
-        self.project_up = nn.Linear(
-            embedDimension, numNeurons, device=self.device
-        )  # 1024 → 10000
-        self.project_down = nn.Linear(
-            numNeurons, embedDimension, device=self.device
-        )  # 10000 → 1024
-
-        # Learnable gates to control how much tangling to apply at each stage
-        # Initialize very small (sigmoid ≈ 0.01) so he learns whether to use it
-        gate_init = math.log(0.01 / 0.99)  # logit for 0.01
-        self.embed_tangle_gate = nn.Parameter(
-            torch.tensor(gate_init, device=self.device)
-        )
-        self.neuron_tangle_gate = nn.Parameter(
-            torch.tensor(gate_init, device=self.device)
-        )  # Now learnable!
-        self.memory_tangle_gate = nn.Parameter(
-            torch.tensor(gate_init, device=self.device)
-        )
-
-        # Initialize projection weights very small so minimal impact initially
-        with torch.no_grad():
-            self.project_up.weight.fill_(1e-5)
-            self.project_up.bias.zero_()
-            self.project_down.weight.fill_(1e-5)
-            self.project_down.bias.zero_()
-
-        # Track which stage we're at for stats
-        self.current_stage = "unknown"
-
-    @whocalled
-    def refine(self, _input, stage_name="unknown"):
-        """
-        Refine any representation by projecting to 10k-dim and applying attention2
-
-        Args:
-            _input: Input tensor (any dimension)
-            stage_name: "embed", "neuron", or "memory" for stats tracking
-
-        Returns:
-            Gated refinement (caller should add to input as residual)
-        """
-        with self.counsellor.infodump("refine") as ʕっʘ‿ʘʔっ:
-            self.current_stage = stage_name
-            original = _input
-            original_dim = _input.shape[-1]
-
-            # Project to 10k-dim if needed
-            if original_dim == numNeurons:
-                # Already 10k-dim (neurons/INN output)
-                x_10k = _input
-                if debugPrints:
-                    ʕっʘ‿ʘʔっ(f"tangling {stage_name}: already 10k-dim")
-            else:
-                # Need to project up (embeddings or memory)
-                x_10k = self.project_up(_input)
-                if debugPrints:
-                    ʕっʘ‿ʘʔっ(
-                        f"tangling {stage_name}: projected {original_dim} → {numNeurons}"
-                    )
-
-            # Apply attention2 refinement (REUSING existing weights!)
-            refined_10k = self.attention2(x_10k)
-            if debugPrints:
-                ʕっʘ‿ʘʔっ(f"tangling {stage_name}: attention2 refinement applied")
-
-            # Project back to original dimension if needed
-            if original_dim == numNeurons:
-                refined = refined_10k
-            else:
-                refined = self.project_down(refined_10k)
-                if debugPrints:
-                    ʕっʘ‿ʘʔっ(
-                        f"tangling {stage_name}: projected {numNeurons} → {original_dim}"
-                    )
-
-            # Apply stage-specific gating
-            if stage_name == "embed":
-                gate = torch.sigmoid(self.embed_tangle_gate)
-            elif stage_name == "memory":
-                gate = torch.sigmoid(self.memory_tangle_gate)
-            else:
-                gate = torch.sigmoid(
-                    self.neuron_tangle_gate
-                )  # Now gated like the others!
-
-            gated_refinement = refined * gate
-
-            # Collect stats
-            try:
-                with torch.no_grad():
-                    self.stats[f"TANGLE_{stage_name}_gate"] = gate.item()
-                    self.stats[f"TANGLE_{stage_name}_refinement_norm"] = (
-                        gated_refinement.norm().item()
-                    )
-            except:
-                pass
-
-            # Return just the refinement (caller will add residual)
-            return gated_refinement
-
-    @whocalled
-    def getTanglingStats(self):
-        with self.counsellor.infodump("getTanglingStats") as ʕっʘ‿ʘʔっ:
-            return self.stats
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# MINI_INN_TANGLING  v1.0
-# ─────────────────────────────────────────────────────────────────────────────
-"""
-Lightweight Temporal-Window Tangling — a drop-in replacement for TANGLING.
+Lightweight Temporal-Window Tangling.
 
 Philosophy: Instead of borrowing attention2 (O(seq²) compute, 400M param module),
 each stage gets its own small architecture tailored to its dimension:

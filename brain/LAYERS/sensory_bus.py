@@ -1,15 +1,329 @@
+import json
 import math
+import os
 import random
 import re
 import struct
 import subprocess
 import time
 from datetime import datetime
+from pathlib import Path
 from shutil import which
 
 import torch
 
-from brain.LAYERS.vision_bus import VisionBus
+try:
+    import numpy as np
+except Exception:  # pragma: no cover - optional dependency
+    np = None
+
+
+_PROBE_CACHE_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "SHKAIRA"
+    / "soul"
+    / ".vision_probe_cache.json"
+)
+_PROBE_CACHE_TTL_SECONDS = 3600.0
+
+
+def _read_probe_cache() -> "dict | None":
+    if os.environ.get("BBY_VISION_CACHE_DISABLE", "").strip() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return None
+    try:
+        if not _PROBE_CACHE_PATH.exists():
+            return None
+        payload = json.loads(_PROBE_CACHE_PATH.read_text())
+        timestamp = float(payload.get("timestamp") or 0)
+        if (time.time() - timestamp) > _PROBE_CACHE_TTL_SECONDS:
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def _write_probe_cache(payload: dict) -> None:
+    try:
+        _PROBE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PROBE_CACHE_PATH.write_text(
+            json.dumps({**payload, "timestamp": time.time()})
+        )
+    except Exception:
+        pass
+
+
+class VisionBus:
+    """Internal camera adapter for the model-facing sensory bus."""
+
+    def __init__(
+        self,
+        *,
+        downsample: int = 32,
+        use_dream_noise: bool = False,
+        dream_noise_scale: float = 0.02,
+        device_index=None,
+        backend=None,
+        probe_indices=None,
+        skip_indices=None,
+    ):
+        self.downsample = max(8, int(downsample))
+        self.use_dream_noise = use_dream_noise
+        self.dream_noise_scale = float(dream_noise_scale)
+        self.device_index = device_index
+        self.backend = backend
+        self.probe_indices = probe_indices
+        self.skip_indices = skip_indices
+        self.has_camera = False
+        self._cv2 = None
+        self.camera = None
+        self.last_frame = None
+        self._missed_reads = 0
+        self._last_reopen = 0.0
+        self._reopen_cooldown = 2.0
+
+        if os.environ.get("BBY_VISION_DISABLE", "").strip() in {
+            "1",
+            "true",
+            "yes",
+        }:
+            print("[VisionBus] Camera disabled via BBY_VISION_DISABLE.")
+            return
+
+        cached = _read_probe_cache()
+        if cached and not cached.get("has_camera", False):
+            print(
+                "[VisionBus] Camera sensor unavailable (cached; clear "
+                f"{_PROBE_CACHE_PATH.name} or unset BBY_VISION_CACHE_DISABLE to re-probe)."
+            )
+            return
+
+        try:
+            import cv2 as _cv2
+
+            self._cv2 = _cv2
+            self._open_camera()
+        except Exception:
+            print("[VisionBus] Camera sensor unavailable.")
+            _write_probe_cache({"has_camera": False, "reason": "import_error"})
+
+        _write_probe_cache(
+            {
+                "has_camera": bool(self.has_camera),
+                "device_index": self.device_index if self.has_camera else None,
+            }
+        )
+
+    def step(self):
+        frame = self._read_frame()
+        if frame is None:
+            self._on_frame_fail()
+            return self._fallback_values()
+
+        height, width = frame.shape
+        if height == 0 or width == 0:
+            return self._fallback_values()
+
+        global_light = self._safe_float(frame.mean(), 0.0)
+        if self.last_frame is None or self.last_frame.shape != frame.shape:
+            global_motion = 0.0
+        else:
+            global_motion = self._safe_float(
+                np.abs(frame - self.last_frame).mean(), 0.0
+            )
+
+        left = frame[:, : width // 2]
+        right = frame[:, width // 2 :]
+        top = frame[: height // 2, :]
+        bottom = frame[height // 2 :, :]
+        left_right_bias = 0.0
+        top_bottom_bias = 0.0
+        if left.size and right.size:
+            left_right_bias = self._safe_float(left.mean() - right.mean(), 0.0)
+        if top.size and bottom.size:
+            top_bottom_bias = self._safe_float(top.mean() - bottom.mean(), 0.0)
+
+        contrast = self._safe_float(frame.max() - frame.min(), 0.0)
+        contrast_intrusion = contrast * global_motion
+        self.last_frame = frame.copy()
+        self._missed_reads = 0
+
+        return {
+            "global_light": self._clamp(global_light, 0.0, 1.0),
+            "global_motion": self._clamp(global_motion, 0.0, 1.0),
+            "left_right_bias": self._clamp(left_right_bias, -1.0, 1.0),
+            "top_bottom_bias": self._clamp(top_bottom_bias, -1.0, 1.0),
+            "contrast_intrusion": self._clamp(contrast_intrusion, 0.0, 1.0),
+        }
+
+    def cleanup(self):
+        if self.camera is not None:
+            try:
+                self.camera.release()
+            except Exception:
+                pass
+            self.camera = None
+            self.has_camera = False
+
+    def _open_camera(self):
+        if self._cv2 is None:
+            return
+        backend_id = self._resolve_backend(self.backend)
+        indices = self.probe_indices
+        if indices is None:
+            indices = [0 if self.device_index is None else self.device_index]
+        else:
+            indices = list(indices)
+            if self.device_index is not None and self.device_index not in indices:
+                indices = [self.device_index] + indices
+        skip = {int(index) for index in (self.skip_indices or []) if index is not None}
+        if skip:
+            indices = [index for index in indices if int(index) not in skip]
+        if not indices:
+            print("[VisionBus] Camera sensor unavailable (all indices skipped).")
+            return
+
+        fallback_camera = None
+        fallback_index = None
+        for index in indices:
+            try:
+                if backend_id is None:
+                    camera = self._cv2.VideoCapture(int(index))
+                else:
+                    camera = self._cv2.VideoCapture(int(index), backend_id)
+            except Exception:
+                camera = None
+            if camera is not None and camera.isOpened():
+                try:
+                    camera.set(self._cv2.CAP_PROP_BUFFERSIZE, 1)
+                except Exception:
+                    pass
+                if fallback_camera is None:
+                    fallback_camera = camera
+                    fallback_index = int(index)
+                frame = self._read_frame_from(camera)
+                if frame is None or not self._frame_has_signal(frame):
+                    try:
+                        camera.release()
+                    except Exception:
+                        pass
+                    if fallback_camera is camera:
+                        fallback_camera = None
+                        fallback_index = None
+                    continue
+                self.camera = camera
+                self.has_camera = True
+                self.device_index = int(index)
+                print(f"[VisionBus] Camera sensor active (index {self.device_index}).")
+                return
+            if camera is not None:
+                try:
+                    camera.release()
+                except Exception:
+                    pass
+        if fallback_camera is not None:
+            self.camera = fallback_camera
+            self.has_camera = True
+            self.device_index = fallback_index
+            try:
+                fallback_camera.set(self._cv2.CAP_PROP_BUFFERSIZE, 1)
+            except Exception:
+                pass
+            print(
+                f"[VisionBus] Camera sensor active (index {self.device_index}, probe fallback)."
+            )
+            return
+        print("[VisionBus] Camera sensor unavailable.")
+
+    def _on_frame_fail(self):
+        self._missed_reads += 1
+        now = time.time()
+        if self._missed_reads < 5 or (now - self._last_reopen) < self._reopen_cooldown:
+            return
+        self._last_reopen = now
+        self.cleanup()
+        self._open_camera()
+        self._missed_reads = 0
+
+    def _resolve_backend(self, backend):
+        if backend is None or self._cv2 is None:
+            return None
+        if isinstance(backend, int):
+            return backend
+        try:
+            name = str(backend).upper()
+            if not name.startswith("CAP_"):
+                name = f"CAP_{name}"
+            return getattr(self._cv2, name, None)
+        except Exception:
+            return None
+
+    def _read_frame(self):
+        if (
+            not self.has_camera
+            or self.camera is None
+            or self._cv2 is None
+            or np is None
+        ):
+            return None
+        return self._read_frame_from(self.camera)
+
+    def _read_frame_from(self, camera):
+        if camera is None or self._cv2 is None or np is None:
+            return None
+        try:
+            ok, frame = camera.read()
+            if not ok or frame is None:
+                return None
+            gray = self._cv2.cvtColor(frame, self._cv2.COLOR_BGR2GRAY)
+            small = self._cv2.resize(
+                gray,
+                (self.downsample, self.downsample),
+                interpolation=self._cv2.INTER_AREA,
+            )
+            return small.astype("float32") / 255.0
+        except Exception:
+            return None
+
+    def _frame_has_signal(self, frame):
+        try:
+            mean = float(frame.mean())
+            std = float(frame.std())
+            dynamic = float(frame.max() - frame.min())
+        except Exception:
+            return False
+        if not all(math.isfinite(value) for value in (mean, std, dynamic)):
+            return False
+        return not (dynamic < 0.02 and std < 0.01)
+
+    def _fallback_values(self):
+        return {
+            "global_light": self._dream_value(0.5, 0.0, 1.0),
+            "global_motion": self._dream_value(0.0, 0.0, 1.0),
+            "left_right_bias": self._dream_value(0.0, -1.0, 1.0),
+            "top_bottom_bias": self._dream_value(0.0, -1.0, 1.0),
+            "contrast_intrusion": self._dream_value(0.0, 0.0, 1.0),
+        }
+
+    def _dream_value(self, base: float, min_val: float, max_val: float) -> float:
+        if not self.use_dream_noise:
+            return float(base)
+        value = float(base + random.gauss(0.0, self.dream_noise_scale))
+        return self._clamp(value, min_val, max_val)
+
+    def _clamp(self, value: float, min_val: float, max_val: float) -> float:
+        return max(min_val, min(max_val, float(value)))
+
+    def _safe_float(self, value, fallback: float) -> float:
+        try:
+            if value is None or not math.isfinite(value):
+                return float(fallback)
+            return float(value)
+        except Exception:
+            return float(fallback)
 
 
 class SensoryBus:

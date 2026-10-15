@@ -712,6 +712,68 @@ class LIBRARIAN:
             # Fallback: minimal clean
             return re.sub(r"[ \t]+", " ", raw).strip().lower()
 
+    def sampleTrainingSources(self, count: int = 3) -> list[dict]:
+        """Sample configured training sources according to their weights."""
+        sources = [
+            entry
+            for entry in (trainingFilePath_dict_weighted or [])
+            if isinstance(entry, dict) and entry.get("in")
+        ]
+        if not sources or count <= 0:
+            return []
+        weights = [max(0.0, float(entry.get("weight", 1.0) or 1.0)) for entry in sources]
+        if not any(weights):
+            weights = [1.0] * len(sources)
+
+        sampled: list[dict] = []
+        remaining_sources = list(sources)
+        remaining_weights = list(weights)
+        while remaining_sources and len(sampled) < count:
+            index = random.choices(
+                range(len(remaining_sources)), weights=remaining_weights, k=1
+            )[0]
+            sampled.append(remaining_sources.pop(index))
+            remaining_weights.pop(index)
+        return sampled
+
+    def loadTrainingSource(
+        self, entry: dict, *, max_chars: int = 150_000, retries: int = 5
+    ) -> str:
+        """Load one configured source, retrying through other canonical sources."""
+        candidates = [entry]
+        candidates.extend(
+            candidate
+            for candidate in self.sampleTrainingSources(
+                len(trainingFilePath_dict_weighted or [])
+            )
+            if candidate != entry
+        )
+        seen_paths = set()
+        attempts = 0
+        for candidate in candidates:
+            path = candidate.get("in") if isinstance(candidate, dict) else None
+            if not path or path in seen_paths:
+                continue
+            seen_paths.add(path)
+            attempts += 1
+            if attempts > max(1, retries):
+                break
+            source_type = str(candidate.get("type", "text") or "text").lower()
+            strategy = (
+                "random"
+                if source_type in ("text", "discord_txt", "discord_json", "json")
+                else "head"
+            )
+            text = self.loadSingleFile(
+                path,
+                source_type,
+                max_chars=max_chars,
+                strategy=strategy,
+            )
+            if text:
+                return text.strip().lower()
+        return ""
+
     def _reflow_to_lines(
         self, text: str, max_chars: int, max_line_len: int = 240, min_line_len: int = 20
     ) -> str:
@@ -901,39 +963,40 @@ class LIBRARIAN:
             sample = sample[0]
         return isinstance(sample, (int, np.integer))
 
-    def add_training_text(self, text):
-        """Append new training text into a bounded internal token buffer.
+    def tokenize_training_message(self, text, *, append_eos=True):
+        """Tokenize one complete message, preserving its internal BPE newlines.
 
-        Accepts either a raw string (will tokenize) or an iterable of token
-        strings. Keeps a lightweight rolling window to avoid memory growth.
+        The reserved EOS token belongs at the message boundary, never at a
+        paragraph break. Callers handling non-message corpora can opt out.
         """
+        tokens = self.tokenizeText(text) if isinstance(text, str) else list(text)
+        if not tokens:
+            return []
+        if append_eos:
+            from config import eos_replacement_token_str
+
+            if (
+                eos_replacement_token_str
+                and eos_replacement_token_str in self.tokenToIndex
+                and tokens[-1] != eos_replacement_token_str
+            ):
+                tokens.append(eos_replacement_token_str)
+        return tokens
+
+    def add_training_text(self, text):
+        """Append a bounded token window; each string represents one message."""
         try:
             if isinstance(text, str):
-                toks = self.tokenizeText(text)
+                from config import enable_train_append_eos
+
+                toks = self.tokenize_training_message(
+                    text, append_eos=bool(enable_train_append_eos)
+                )
             else:
+                # Explicit token sequences have their own boundary policy.
                 toks = list(text)
             if not toks:
                 return 0
-            # Optional: append EOS token at the end of a chat line to teach end-of-sequence behavior
-            try:
-                from config import (
-                    enable_train_append_eos,
-                    eos_append_probability,
-                    eos_replacement_token_str,
-                )
-
-                if (
-                    enable_train_append_eos
-                    and eos_replacement_token_str
-                    and isinstance(text, str)
-                ):
-                    import random as _r
-
-                    if _r.random() < float(eos_append_probability):
-                        if not toks or toks[-1] != eos_replacement_token_str:
-                            toks = list(toks) + [eos_replacement_token_str]
-            except Exception:
-                pass
             self._dynamic_tokens.extend(toks)
             added = len(toks)
             if self._training_token_count_estimate is not None:

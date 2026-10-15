@@ -84,19 +84,19 @@ class PerformanceMonitor:
                 self.record_metric(f"health_check_{name}_time", check_time)
 
                 if not result:
-                    logger.warn("HEALTH_CHECK", f"Health check '{name}' failed")
+                    logger.warning('[%s] %s', "HEALTH_CHECK", f"Health check '{name}' failed")
                     if check["critical"]:
                         critical_failures.append(name)
 
             except Exception as e:
-                logger.error("HEALTH_CHECK", f"Health check '{name}' crashed: {e}")
+                logger.error('[%s] %s', "HEALTH_CHECK", f"Health check '{name}' crashed: {e}")
                 results[name] = False
                 if check["critical"]:
                     critical_failures.append(name)
 
         if critical_failures:
-            logger.emergency(
-                "HEALTH_CHECK", f"Critical health checks failed: {critical_failures}"
+            logger.critical(
+                '[%s] 🚨 EMERGENCY: %s', "HEALTH_CHECK", f"Critical health checks failed: {critical_failures}"
             )
 
         return results
@@ -119,7 +119,7 @@ class PerformanceMonitor:
 
             return stats
         except Exception as e:
-            logger.error("SYSTEM_STATS", f"Failed to get system stats: {e}")
+            logger.error('[%s] %s', "SYSTEM_STATS", f"Failed to get system stats: {e}")
             return {}
 
     def check_performance_degradation(self) -> List[str]:
@@ -143,7 +143,3 @@ class PerformanceMonitor:
             warnings.append("High CPU usage detected")
 
         return warnings
-
-
-# Global performance monitor
-perf_monitor = PerformanceMonitor()

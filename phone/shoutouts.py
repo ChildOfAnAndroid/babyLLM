@@ -1,6 +1,6 @@
 # CHARIS CAT 2025
 # --- ʕっʘ‿ʘʔっ ---
-# BABYLLM // phone/discord_bot/shoutouts.py
+# BABYLLM // phone/shoutouts.py
 # v1.2
 
 SHOUTOUT_PROMPTS = [

@@ -42,120 +42,25 @@ def create_fake_context(
     user_text: str = None,
     reply_sink=None,
 ):
-    """
-    Create a fake context for testing or cross-platform command routing
-
-    Args:
-        bot: Bot instance (optional, for platform-aware routing)
-        author_id: User ID
-        author_name: Display name
-        channel_id: Channel ID
-        message_content: Full message content
-        platform: Platform name ('discord', 'twitch', 'web')
-        user_text: Legacy parameter, same as message_content
-    """
-    # Support legacy signature
-    if user_text is not None:
+    """Compatibility signature for the canonical platform context factory."""
+    legacy_return = user_text is not None
+    if legacy_return:
         message_content = user_text
         author_id = author_id or author_name
 
-    captured_reply = ""
-
-    async def fake_reply_func(content="", embed=None, **kwargs):
-        nonlocal captured_reply
-        if content:
-            # Ensure we always capture as string, never as object
-            if hasattr(content, "content"):
-                captured_reply = str(
-                    content.content
-                )  # Extract content from message objects
-            else:
-                captured_reply = str(content)
-        elif embed is not None:
-            captured_reply = str(
-                getattr(embed, "description", "") or getattr(embed, "title", "") or ""
-            )
-
-        # Optional sink for cross-platform adapters (e.g., Twitch) to actually send replies.
-        if reply_sink is not None:
-            sink_result = reply_sink(content=content, embed=embed)
-            if inspect.isawaitable(sink_result):
-                await sink_result
-        return FakeMessage(captured_reply, SimpleNamespace(name="babyLLM"))
-
-    async def fake_send_func(content="", embed=None, **kwargs):
-        # Mirror Discord's ctx.send/content+embed shape for cross-platform calls.
-        return await fake_reply_func(content=content, embed=embed, **kwargs)
-
-    fake_channel = SimpleNamespace(
-        name=f"{platform}_channel",
-        id=channel_id,
-        send=fake_send_func,
-    )
-
-    async def _fake_fetch_member(_member_id):
-        """Return ``None`` for guild member fetches in fake contexts.
-
-        The real :meth:`discord.Guild.fetch_member` coroutine is awaited in
-        several places throughout the bot.  The previous synchronous lambda
-        caused ``TypeError: object NoneType can't be used in 'await'
-        expression`` when the fake context (used for web interactions) hit
-        those code paths.  Providing an async stub keeps behaviour aligned with
-        the real API and prevents the crash while still signalling that the
-        member doesn't exist.
-        """
-
-        return None
-
-    fake_guild = SimpleNamespace(
-        id=0,
-        members=[],
-        get_member=lambda member_id: None,
-        fetch_member=_fake_fetch_member,
-    )
-    fake_author = SimpleNamespace(
-        name=author_id or author_name,
-        id=author_id or 0,
-        display_name=author_name,
-        bot=False,
-        is_mod=False,
-    )
-    fake_message = FakeMessage(
-        message_content,
-        fake_author,
-        channel=fake_channel,
-        guild=fake_guild,
-        mentions=[],
-    )
-
-    # Extract command name from message if it starts with !
-    command_name = "babyllm"
-    if message_content.startswith("!"):
-        command_name = (
-            message_content.split()[0][1:]
-            if " " in message_content
-            else message_content[1:]
-        )
-
-    fake_command = SimpleNamespace(name=command_name)
-
-    fake_context = SimpleNamespace(
-        author=fake_author,
-        message=fake_message,
-        guild=fake_guild,
-        reply=fake_reply_func,
-        send=fake_send_func,
-        typing=lambda: FakeTyping(),
-        channel=fake_channel,
-        command=fake_command,
+    context = create_platform_command_context(
         bot=bot,
-        platform=platform,  # Add platform attribute
+        platform=platform,
+        author_id=author_id or author_name,
+        author_name=author_name,
+        channel_id=channel_id,
+        message_content=message_content,
+        reply_sink=reply_sink,
+        send_sink=reply_sink,
     )
-
-    # Support legacy return format
-    if user_text is not None:
-        return fake_context, lambda: captured_reply
-    return fake_context
+    if legacy_return:
+        return context, context.get_captured_reply
+    return context
 
 
 def create_platform_command_context(
@@ -284,6 +189,7 @@ def create_platform_command_context(
         command=fake_command,
         bot=bot,
         platform=platform,
+        get_captured_reply=lambda: captured_reply,
     )
 
 

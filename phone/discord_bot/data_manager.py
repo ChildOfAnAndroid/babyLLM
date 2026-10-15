@@ -50,7 +50,7 @@ class DataManager:
                 self._immediate_save(data_type)
 
             logger.info(
-                "DATA_BATCH", f"Completed batched save of {save_count} data types"
+                '[%s] %s', "DATA_BATCH", f"Completed batched save of {save_count} data types"
             )
 
         self.pending_saves.clear()
@@ -58,14 +58,14 @@ class DataManager:
     async def _run_sync_callback(self, data_type: str, callback) -> None:
         try:
             await asyncio.to_thread(callback)
-            logger.debug("DATA_SAVE", f"Completed {data_type}")
+            logger.debug('[%s] %s', "DATA_SAVE", f"Completed {data_type}")
         except Exception as e:
-            logger.error("DATA_SAVE", f"Failed to save {data_type}: {e}")
+            logger.error('[%s] %s', "DATA_SAVE", f"Failed to save {data_type}: {e}")
 
     def _immediate_save(self, data_type: str) -> bool:
         """Perform immediate save operation"""
         if data_type not in self._save_callbacks:
-            logger.error("DATA_SAVE", f"Unknown data type: {data_type}")
+            logger.error('[%s] %s', "DATA_SAVE", f"Unknown data type: {data_type}")
             return False
 
         try:
@@ -85,10 +85,10 @@ class DataManager:
                     if inspect.iscoroutine(result):
                         asyncio.run(result)
             self.last_save_times[data_type] = time.time()
-            logger.debug("DATA_SAVE", f"Queued {data_type}")
+            logger.debug('[%s] %s', "DATA_SAVE", f"Queued {data_type}")
             return True
         except Exception as e:
-            logger.error("DATA_SAVE", f"Failed to save {data_type}: {e}")
+            logger.error('[%s] %s', "DATA_SAVE", f"Failed to save {data_type}: {e}")
             return False
 
 
