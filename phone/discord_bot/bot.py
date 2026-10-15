@@ -34,6 +34,7 @@ from discord.ext import commands
 
 import config as config_mod
 from config import *
+from utils.text_rendering import render_token_text
 from secret import *
 from textCleaningTool import *
 from utils.helpers import save_json_if_changed
@@ -1487,15 +1488,11 @@ class BABYBOT_DISCORD(commands.Bot):
 
     def _terminal_render_text(self, text) -> str:
         """Render text for terminal logs only; keep outgoing message content unchanged."""
-        rendered = str(text or "")
-        try:
-            if eos_replacement_token_str:
-                rendered = rendered.replace(eos_replacement_token_str, eos_token_str)
-            if sos_replacement_token_str:
-                rendered = rendered.replace(sos_replacement_token_str, sos_token_str)
-        except Exception:
-            pass
-        return rendered
+        return render_token_text(
+            text or "",
+            replacements=((eos_replacement_token_str, eos_token_str),
+                          (sos_replacement_token_str, sos_token_str)),
+        )
 
     async def _discord_debug_event(
         self,

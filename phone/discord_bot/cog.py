@@ -4,6 +4,7 @@
 # v1.3
 
 import asyncio
+from utils.text_rendering import decode_bpe_whitespace, render_token_text
 import calendar
 import contextlib
 import functools
@@ -1131,10 +1132,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                                 )
                                 # normalise whitespace artifacts from byte-level BPE
                                 tail_text_norm = (
-                                    tail_text.replace("Ġ", " ")
-                                    .replace("▁", " ")
-                                    .replace("Ċ", "\n")
-                                    .replace("ĉ", "\t")
+decode_bpe_whitespace(tail_text)
                                 )
                                 # Match a speaker tag at end of text: start-of-line + name + ": "
                                 import re as _re
@@ -1170,10 +1168,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 [int(idx) for idx in responseSeqId]
             )
             decoded_generated_text = (
-                decoded_generated_text.replace("Ġ", " ")
-                .replace("▁", " ")
-                .replace("Ċ", "\n")
-                .replace("ĉ", "\t")
+decode_bpe_whitespace(decoded_generated_text)
             )
             if eos_replacement_token_str:
                 eos_preview_text = decoded_generated_text.replace(
@@ -1198,7 +1193,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                 or eos_hits_before_min > 0
                 or eos_token_str in eos_preview_text
             ):
-                preview = eos_preview_text.replace("\n", "Ċ").replace("\t", "ĉ")
+                preview = render_token_text(eos_preview_text, token_view=True)
                 if len(preview) > 320:
                     preview = preview[:320] + "..."
                 print(f"[EOS][GEN] pre-clean output: {preview}")

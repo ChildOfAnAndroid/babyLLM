@@ -13,6 +13,7 @@ from datetime import datetime
 import torch
 
 from config import *
+from utils.text_rendering import render_token_text
 
 
 class S_OUTPUT:
@@ -421,16 +422,12 @@ class S_OUTPUT:
     @whocalled
     def S_renderTerminalText(self, _text, *, token_view=True):
         with self.counsellor.infodump("S_renderTerminalText") as ʕっʘ‿ʘʔっ:
-            rendered = "" if _text is None else str(_text)
-            # Keep token-style markers visible in tutor bars.
-            # If real control whitespace appears, map it back to canonical BPE markers.
-            if token_view:
-                rendered = rendered.replace("\r", "").replace("\n", "Ċ").replace("\t", "ĉ")
-            if eos_replacement_token_str and eos_token_str:
-                rendered = rendered.replace(eos_replacement_token_str, eos_token_str)
-            if sos_replacement_token_str and sos_token_str:
-                rendered = rendered.replace(sos_replacement_token_str, sos_token_str)
-            return rendered
+            return render_token_text(
+                _text,
+                token_view=token_view,
+                replacements=((eos_replacement_token_str, eos_token_str),
+                              (sos_replacement_token_str, sos_token_str)),
+            )
 
     @whocalled
     def S_stripForLogging(self, _text):

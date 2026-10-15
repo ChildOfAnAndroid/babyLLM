@@ -22,6 +22,7 @@ from config import *
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from utils.helpers import empty_mps_cache, get_grad_stats
 from utils.mps_trace import mps_trace
+from utils.text_rendering import decode_bpe_whitespace
 
 
 class TUTOR:
@@ -1104,7 +1105,7 @@ class TUTOR:
                 if eos_id is not None and predy == int(eos_id):
                     token_for_terminal = eos_token_str
                 else:
-                    token_for_terminal = nextyToky.replace("Ġ", " ")
+                    token_for_terminal = decode_bpe_whitespace(nextyToky, markers="Ġ")
                 self.toktoktok = self.calligraphist.S_renderTerminalText(
                     token_for_terminal
                 )
@@ -2082,7 +2083,7 @@ class TUTOR:
             )
 
     def tidy_token(self, tok):
-        return tok.replace("Ġ", " ").replace("Ċ", "\n")
+        return decode_bpe_whitespace(tok, markers="ĠĊ")
 
     def update_top_tokens(self):
         delimiter = self.calligraphist.S_apply("dim", ", ")

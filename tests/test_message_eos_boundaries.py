@@ -17,6 +17,8 @@ from types import MethodType, ModuleType, SimpleNamespace
 from typing import Optional
 from unittest.mock import patch
 
+from utils.text_rendering import decode_bpe_whitespace, render_token_text
+
 ROOT = Path(__file__).resolve().parents[1]
 EOS = "reserved_eos_for_tests"
 
@@ -37,6 +39,7 @@ def method_from_source(relative_path: str, method_name: str, namespace: dict):
     method_node.decorator_list = []
     module = ast.fix_missing_locations(ast.Module(body=[method_node], type_ignores=[]))
     scope = dict(namespace)
+    scope.update(render_token_text=render_token_text, decode_bpe_whitespace=decode_bpe_whitespace)
     exec(compile(module, str(source_path), "exec"), scope)
     return scope[method_name]
 
@@ -166,8 +169,9 @@ def test_tutor_terminal_uses_visible_bpe_markers_not_literal_newlines():
 
 def test_chat_response_decodes_bpe_newline_while_trace_keeps_marker():
     source = (ROOT / "phone/discord_bot/cog.py").read_text(encoding="utf-8")
-    assert '.replace("Ċ", "\\n")' in source
-    assert '.replace("\\n", "Ċ")' in source
+    assert 'decode_bpe_whitespace(decoded_generated_text)' in source
+    assert 'render_token_text(eos_preview_text, token_view=True)' in source
+    assert decode_bpe_whitespace("helloĊthereĉ_literal_") == "hello\nthere\t_literal_"
     assert '"text": list(self.buffer)' in (
         ROOT / "phone/discord_bot/bot.py"
     ).read_text(encoding="utf-8")
@@ -257,3 +261,12 @@ def test_saved_logs_preserve_whitespace_and_strip_ansi():
     strip = method_from_source('school/staffroom/calligraphist.py', 'S_stripForLogging', namespace)
     assert strip(holder, f'\033[31mfirst\nsecond\t{EOS}\033[0m') == 'first\nsecond\t<EOS>'
     assert holder.S_renderTerminalText('first\nsecond') == 'firstĊsecond'
+
+
+def test_shared_renderer_preserves_caller_specific_token_markers():
+    assert decode_bpe_whitespace('ĠaĊbĉ_▁', markers='ĠĊ') == ' a\nbĉ_▁'
+    assert render_token_text('Ċ_▁\n\t', token_view=True) == 'Ċ_▁Ċĉ'
+    renderer = method_from_source('phone/discord_bot/bot.py', '_terminal_render_text',
+        dict(eos_replacement_token_str=EOS, eos_token_str='<EOS>',
+             sos_replacement_token_str=None, sos_token_str='<SOS>'))
+    assert renderer(SimpleNamespace(), f'hello\nthere {EOS}') == 'hello\nthere <EOS>'
