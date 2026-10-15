@@ -1,0 +1,46 @@
+Unused, truncated JavaScript scaffold fragment recovered during river repair.
+  function buildInnScaffold(L, THREE) {{
+    const g = new THREE.Group();
+    const mat = new THREE.LineBasicMaterial({{
+      color: hexColor(L.color),
+      transparent: true,
+      opacity: 0.11,
+      depthTest: false
+    }});
+
+    // A sparse rectilinear cage inside the chamber so INN feels populated.
+    const cols = 5;
+    const rows = 5;
+    const x0 = -L.w * 0.34;
+    const x1 =  L.w * 0.34;
+    const y0 = -L.h * 0.34;
+    const y1 =  L.h * 0.34;
+    const z0 =  L.z - L.d * 0.34;
+    const z1 =  L.z + L.d * 0.34;
+
+    const pts = [];
+
+    // vertical rails
+    for (let ix = 0; ix < cols; ix++) {{
+      const tx = cols === 1 ? 0 : ix / (cols - 1);
+      const x = x0 + (x1 - x0) * tx;
+      pts.push(new THREE.Vector3(x, y0, z0), new THREE.Vector3(x, y1, z0));
+      pts.push(new THREE.Vector3(x, y0, z1), new THREE.Vector3(x, y1, z1));
+      pts.push(new THREE.Vector3(x, y0, z0), new THREE.Vector3(x, y0, z1));
+      pts.push(new THREE.Vector3(x, y1, z0), new THREE.Vector3(x, y1, z1));
+    }}
+
+    // horizontal rails
+    for (let iy = 0; iy < rows; iy++) {{
+      const ty = rows === 1 ? 0 : iy / (rows - 1);
+      const y = y0 + (y1 - y0) * ty;
+      pts.push(new THREE.Vector3(x0, y, z0), new THREE.Vector3(x1, y, z0));
+      pts.push(new THREE.Vector3(x0, y, z1), new THREE.Vector3(x1, y, z1));
+      pts.push(new THREE.Vector3(x0, y, z0), new THREE.Vector3(x0, y, z1));
+      pts.push(new THREE.Vector3(x1, y, z0), new THREE.Vector3(x1, y, z1));
+    }}
+
+    // middle cross braces
+    pts.push(new THREE.Vector3(x0, 0, L.z), new THREE.Vector3(x1, 0, L.z));
+    pts.push(new THREE
+
