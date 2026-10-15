@@ -404,6 +404,48 @@ def wakeup(
                         "start it through its canonical ICHARIS2 owner when needed."
                     )
 
+                # BabyLLM owns only its API transport. ICHARIS2 launchd owns
+                # Capture Review and the website's authenticated /art tunnel.
+                tunnel_specs = (("1420:127.0.0.1:4420", "BabyLLM API"),)
+                missing_specs = []
+                for reverse_spec, label in tunnel_specs:
+                    try:
+                        result = subprocess.run(
+                            ["pgrep", "-f", f"ssh.*{reverse_spec}"],
+                            capture_output=True,
+                            text=True,
+                        )
+                        tunnel_exists = bool(result.stdout.strip())
+                    except OSError:
+                        tunnel_exists = False
+                    if tunnel_exists:
+                        print(f"[UNIFIED] ssh tunnel for {label} already established.")
+                    else:
+                        missing_specs.append(reverse_spec)
+
+                if missing_specs:
+                    print("[UNIFIED] establishing missing ssh reverse tunnels...")
+                    command = [
+                        "ssh",
+                        "-f",
+                        "-N",
+                        "-o",
+                        "ExitOnForwardFailure=yes",
+                        "-o",
+                        "ServerAliveInterval=30",
+                        "-o",
+                        "ServerAliveCountMax=3",
+                    ]
+                    for reverse_spec in missing_specs:
+                        command.extend(["-R", reverse_spec])
+                    command.append("midgard.loveangel1337.ovh")
+                    try:
+                        # ssh -f forks into the background, so subprocess.run returns immediately
+                        subprocess.run(command, check=True)
+                        print("[UNIFIED] missing ssh reverse tunnels established successfully.")
+                    except subprocess.CalledProcessError as e:
+                        print(f"[ERROR] Failed to establish ssh reverse tunnels: {e}")
+
                 import asyncio
 
                 from phone.discord_bot.bot import BABYBOT_DISCORD
@@ -461,12 +503,11 @@ def wakeup(
                     print("Press Ctrl+C to stop")
                     print("=" * 60)
 
-                    # Load model. The optimizer (5GB on disk) loads in a
-                    # background thread so Discord/Twitch/Web setup overlaps
-                    # with optim I/O. Tutor.trainModel calls
-                    # babyLLM.wait_for_optimizer_ready() before stepping.
+                    # Unified mode is long-lived inference. Keep the ~5 GB
+                    # optimizer checkpoint off-device until Tutor.trainModel
+                    # reaches its existing wait_for_optimizer_ready() barrier.
                     mps_trace("LOAD_MODEL_BEFORE", "mode=unified")
-                    babyLLM.loadModel(async_optimizer=True)
+                    babyLLM.loadModel(defer_optimizer=True)
                     babyLLM.to(modelDevice)
                     babyLLM.activate_mps_owner()
                     mps_trace("LOAD_MODEL_AFTER", "mode=unified")
