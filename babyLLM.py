@@ -602,17 +602,19 @@ class BABYLLM(nn.Module):
             # A. WHO IS SHOUTING? — top individual trainable parameters.
             param_rows = []
             with torch.no_grad():
-                for name, p in self.named_parameters():
-                    if p.grad is None:
-                        continue
-                    g = p.grad.detach()
-                    if not torch.isfinite(g).all():
-                        norm = float("inf")
-                        mx = float("inf")
-                    else:
-                        norm = float(g.norm().item())
-                        mx = float(g.abs().max().item())
-                    param_rows.append((norm, mx, name, p.numel()))
+                parameters = [(name, p) for name, p in self.named_parameters()
+                              if p.grad is not None]
+                if parameters:
+                    # Copy one small table, rather than synchronizing for each
+                    # parameter's finite check, norm and maximum.
+                    measurements = torch.stack([
+                        torch.stack((p.grad.detach().norm(), p.grad.detach().abs().max()))
+                        for _, p in parameters
+                    ]).cpu().tolist()
+                    for (name, p), (norm, mx) in zip(parameters, measurements):
+                        if not math.isfinite(norm) or not math.isfinite(mx):
+                            norm = mx = float("inf")
+                        param_rows.append((norm, mx, name, p.numel()))
 
             param_rows.sort(key=lambda row: row[0], reverse=True)
 
@@ -665,15 +667,14 @@ class BABYLLM(nn.Module):
             # than maintaining a brittle hard-coded list.
             controls = []
             with torch.no_grad():
-                for name, p in self.named_parameters():
-                    if p.grad is None or p.numel() > 16:
-                        continue
-                    g = p.grad.detach()
-                    if not torch.isfinite(g).all():
-                        norm = float("inf")
-                    else:
-                        norm = float(g.norm().item())
-                    controls.append((norm, name, p.detach(), g))
+                small = [(name, p) for name, p in self.named_parameters()
+                         if p.grad is not None and p.numel() <= 16]
+                if small:
+                    norms = torch.stack([p.grad.detach().norm() for _, p in small]).cpu().tolist()
+                    for (name, p), norm in zip(small, norms):
+                        if not math.isfinite(norm):
+                            norm = float("inf")
+                        controls.append((norm, name, p.detach(), p.grad.detach()))
 
             controls.sort(key=lambda row: row[0], reverse=True)
 
