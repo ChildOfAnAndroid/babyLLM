@@ -60,10 +60,7 @@ spamLevel.json
 userNicknames.json
 chatHistory.json
 bbybook.json
-bby_request.json
 autonomy.json
-babyState.json
-bby_request.json
 command_stats.json
 smink_*.json
 
@@ -76,7 +73,6 @@ archive/
 archive*/
 **/archive/
 ARCHIVE_*/
-utils/
 
 # System Generated
 school/library/*
@@ -96,10 +92,8 @@ SHKAIRA/vocabCache/
 *.log
 logs/
 
-# Temporary Scripts
+# Temporary Scripts (source helpers and tests remain visible)
 temp_*.py
-test_*.py
-*_test.py
 
 # SECRETS - NEVER COMMIT!
 secret.py
@@ -115,19 +109,17 @@ credentials.json
 .LSOverride
 Icon?
 PHONE/discord_bot/babyState.json
-utils/icharis2_ingest.py
-.probe_cache/probe_seq_cats.npz
-.probe_cache/probe_seq_hello.npz
-.probe_cache/probe_w269.npz
 
 .probe_cache/
 
-.probe_cache/
 CLAUDE.md
 
 # Local recovery copies and model checkpoints; Git history retains source snapshots.
 *.pre-mps-crash-fix
-*.pth*
 # Local Twitch credentials.
 elo-bot/config.toml
 elo-bot/prod.toml
+
+# Downloaded frontend dependencies and test caches.
+utils/_vendor/
+.pytest_cache/
