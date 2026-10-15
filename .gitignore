@@ -37,8 +37,7 @@ pip-delete-this-directory.txt
 *~
 
 # Training & Model Files
-*.pth
-*.pth.*
+*.pth*
 *.pt
 *.ckpt
 *.safetensors
@@ -125,3 +124,10 @@ utils/icharis2_ingest.py
 
 .probe_cache/
 CLAUDE.md
+
+# Local recovery copies and model checkpoints; Git history retains source snapshots.
+*.pre-mps-crash-fix
+*.pth*
+# Local Twitch credentials.
+elo-bot/config.toml
+elo-bot/prod.toml

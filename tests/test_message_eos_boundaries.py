@@ -245,3 +245,15 @@ def test_empty_reply_retries_stop_on_success_or_after_ten_retries():
             result = asyncio.run(scope['retry']())
         assert len(calls) == expected_calls
         assert result == ('hello' if success_at else '')
+
+
+def test_saved_logs_preserve_whitespace_and_strip_ansi():
+    import re
+    namespace = dict(eos_replacement_token_str=EOS, eos_token_str='<EOS>',
+                     sos_replacement_token_str=None, sos_token_str='<SOS>', re=re)
+    holder = SimpleNamespace(counsellor=SimpleNamespace(infodump=lambda _: nullcontext()))
+    holder.S_renderTerminalText = MethodType(method_from_source(
+        'school/staffroom/calligraphist.py', 'S_renderTerminalText', namespace), holder)
+    strip = method_from_source('school/staffroom/calligraphist.py', 'S_stripForLogging', namespace)
+    assert strip(holder, f'\033[31mfirst\nsecond\t{EOS}\033[0m') == 'first\nsecond\t<EOS>'
+    assert holder.S_renderTerminalText('first\nsecond') == 'firstĊsecond'

@@ -260,9 +260,11 @@ eos_token_str = "<EOS>"  # symbolic label; not added to tokenizer
 eos_replacement_token_str = (
     "usingusingusingusingusingusingusingusing"  # reserved as <EOS>
 )
-eos_min_tokens_absolute = 8  # minimum tokens before allowing early stop
+# These thresholds apply to optional newline/speaker-tag stops only.
+# Hard EOS always stops immediately, including on the first generated token.
+eos_min_tokens_absolute = 8
 eos_min_tokens_fraction = (
-    0.25  # also require this fraction of requested tokens before stop
+    0.25  # minimum fraction before optional newline/speaker-tag stops
 )
 
 # Optional SOS support (disabled by default):
@@ -277,10 +279,6 @@ enable_train_append_eos = True  # every explicit queued chat entry ends in EOS
 eos_append_probability = (
     0.72  # chance to close one unstructured corpus sample; not per line
 )
-
-# Stricter stop: only stop on EOS when a speaker change is detected at line start.
-# When True, EOS alone won’t stop unless a speaker tag like "name: " is formed.
-eos_require_speaker_change = True
 
 # Conversational reply budgeting for live chat generation.
 # This is the target generation budget before EOS decides to stop earlier.
