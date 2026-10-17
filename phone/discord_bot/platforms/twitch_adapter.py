@@ -827,7 +827,7 @@ class TwitchAdapter(PlatformAdapter):
         except Exception as e:
             print(f"[TwitchAdapter] Warning: couldn't load twitch auth cache: {e}")
 
-    def _save_runtime_auth_state(self):
+    async def _save_runtime_auth_state(self):
         try:
             payload = {
                 "access_token": self._runtime_access_token,
@@ -837,8 +837,12 @@ class TwitchAdapter(PlatformAdapter):
                 "updated_at": datetime.now().isoformat(),
             }
             path = self._get_auth_state_file()
-            with open(path, "w") as f:
-                json.dump(payload, f, indent=2)
+
+            def write_file():
+                with open(path, "w") as f:
+                    json.dump(payload, f, indent=2)
+
+            await asyncio.to_thread(write_file)
         except Exception as e:
             print(f"[TwitchAdapter] Warning: couldn't save twitch auth cache: {e}")
 
@@ -1040,7 +1044,7 @@ class TwitchAdapter(PlatformAdapter):
             self._runtime_refresh_token = new_refresh
             self._runtime_scopes = scopes
             self._runtime_token_expires_at = time.time() + max(0, expires_in - 60)
-            self._save_runtime_auth_state()
+            await self._save_runtime_auth_state()
             return True, "token refreshed"
         except Exception as e:
             return False, f"refresh exception: {e}"
