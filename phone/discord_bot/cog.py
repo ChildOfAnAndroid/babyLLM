@@ -8,6 +8,7 @@ from utils.text_rendering import decode_bpe_whitespace, render_token_text
 import calendar
 import contextlib
 import functools
+import heapq
 import inspect
 import json
 import math
@@ -2101,15 +2102,13 @@ decode_bpe_whitespace(decoded_generated_text)
     
     def _get_top_hoarders(self, fact=None, limit=3):
         """Get top N hoarders of a specific item"""
-        hoarder_counts = []
-        for user_id in self.bot.userMemory:
-            count = self._get_fact_total_user(user=user_id, fact=fact)
-            if count > 0:
-                hoarder_counts.append((user_id, count))
+        def get_valid_counts():
+            for user_id in self.bot.userMemory:
+                count = self._get_fact_total_user(user=user_id, fact=fact)
+                if count > 0:
+                    yield (user_id, count)
 
-        # Sort by count descending
-        hoarder_counts.sort(key=lambda x: x[1], reverse=True)
-        top_hoarders = hoarder_counts[:limit]
+        top_hoarders = heapq.nlargest(limit, get_valid_counts(), key=lambda x: x[1])
 
         if not top_hoarders:
             return "no one... yet!"
@@ -2122,14 +2121,13 @@ decode_bpe_whitespace(decoded_generated_text)
 
     def _get_top_hoarders_narrative(self, fact=None, limit=3):
         """Get top hoarders as a natural phrase for buffer/training text."""
-        hoarder_counts = []
-        for user_id in self.bot.userMemory:
-            count = self._get_fact_total_user(user=user_id, fact=fact)
-            if count > 0:
-                hoarder_counts.append((user_id, count))
+        def get_valid_counts():
+            for user_id in self.bot.userMemory:
+                count = self._get_fact_total_user(user=user_id, fact=fact)
+                if count > 0:
+                    yield (user_id, count)
 
-        hoarder_counts.sort(key=lambda x: x[1], reverse=True)
-        top_hoarders = hoarder_counts[:limit]
+        top_hoarders = heapq.nlargest(limit, get_valid_counts(), key=lambda x: x[1])
         if not top_hoarders:
             return "no one... yet!", 0
 
