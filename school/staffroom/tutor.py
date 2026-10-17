@@ -196,6 +196,7 @@ class TUTOR:
         #       almost always holds the default. Fix: write currentColour back into liveState,
         #       and re-read only when mtime changes significantly (external process wrote it).
         self._ext_col_cache = {"R": 128, "G": 128, "B": 128}
+        self._ext_col_mtime = 0.0
         # Persistent token buffer — reused across steps to avoid per-step MPS alloc.
         # Resized lazily if numTokensPerStep grows.
         self._token_buffer = torch.zeros(
@@ -956,11 +957,14 @@ class TUTOR:
             # currentColour is set by the web/Discord frontend to blend bby's colour
             # with the live sprite. We cache it here; getPixelForStep uses self._ext_col_cache.
             try:
-                with open(babyStateFilePath, "r") as f:
-                    _step_state = json.load(f)
-                if "currentColour" in _step_state:
-                    self._ext_col_cache = _step_state["currentColour"]
-            except (FileNotFoundError, json.JSONDecodeError, IOError):
+                mtime = os.path.getmtime(babyStateFilePath)
+                if mtime > self._ext_col_mtime:
+                    with open(babyStateFilePath, "r") as f:
+                        _step_state = json.load(f)
+                    if "currentColour" in _step_state:
+                        self._ext_col_cache = _step_state["currentColour"]
+                    self._ext_col_mtime = mtime
+            except (FileNotFoundError, json.JSONDecodeError, IOError, OSError):
                 pass
 
             self.rgbPredictionBar = ""
@@ -1671,11 +1675,13 @@ class TUTOR:
                         "correct": JSONtokenCorrect,
                         "token_event": token_event,
                         "token_events": self.token_event_history,
+                        "currentColour": self._ext_col_cache,
                     }
                     temp_path = babyStateFilePath + ".tmp"
                     with open(temp_path, "w") as f:
                         json.dump(babyState, f, indent=2)
                     os.replace(temp_path, babyStateFilePath)
+                    self._ext_col_mtime = os.path.getmtime(babyStateFilePath)
             except Exception as e:
                 print(f"could not write to {babyStateFilePath}: {e}")
 
