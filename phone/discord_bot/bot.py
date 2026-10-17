@@ -1327,17 +1327,29 @@ class BABYBOT_DISCORD(commands.Bot):
     async def bby_web_watcher(self):
         print("[BBY_WEB_WATCHER] bby brain alert...")
         last_processed_id = None
+        last_mtime_ns = 0
+
+        def _read_json():
+            with open(REQUEST_FILE_PATH, "r") as f:
+                return json.load(f)
 
         while True:
             await asyncio.sleep(0.2)
             try:
-                if not (
-                    os.path.exists(REQUEST_FILE_PATH)
-                    and os.path.getsize(REQUEST_FILE_PATH) > 0
-                ):
+                try:
+                    stat_res = os.stat(REQUEST_FILE_PATH)
+                    if stat_res.st_size == 0:
+                        continue
+                    current_mtime = stat_res.st_mtime_ns
+                except FileNotFoundError:
                     continue
-                with open(REQUEST_FILE_PATH, "r") as f:
-                    data = json.load(f)
+
+                if current_mtime == last_mtime_ns:
+                    continue
+
+                last_mtime_ns = current_mtime
+
+                data = await asyncio.to_thread(_read_json)
                 request_id = data.get("id")
 
                 if request_id and request_id != last_processed_id:
@@ -1416,6 +1428,7 @@ class BABYBOT_DISCORD(commands.Bot):
 
             except (json.JSONDecodeError, FileNotFoundError):
                 last_processed_id = None
+                last_mtime_ns = 0
                 pass
             except Exception:
                 print(
