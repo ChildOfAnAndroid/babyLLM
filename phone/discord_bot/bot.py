@@ -4893,7 +4893,6 @@ class BABYBOT_DISCORD(commands.Bot):
             chaos_nudge = cerebral * influence_strength * (pyrandom.random() - 0.5)
 
             # Memory flux adds another, separate random nudge
-            # FIX: Replaced time.time() with a random call for per-call flux
             flux_nudge = (
                 memory_flux * influence_strength * 0.5 * (pyrandom.random() - 0.5)
             )
