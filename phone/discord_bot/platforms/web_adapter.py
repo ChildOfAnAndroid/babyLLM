@@ -59,29 +59,29 @@ class WebAdapter(PlatformAdapter):
         if animation == "jump":
             self.bot._web_jumping = True
 
-            def stop_jumping():
-                time.sleep(duration)
+            async def stop_jumping():
+                await asyncio.sleep(duration)
                 self.bot._web_jumping = False
 
-            threading.Thread(target=stop_jumping, daemon=True).start()
+            asyncio.run_coroutine_threadsafe(stop_jumping(), self.bot.loop)
 
         elif animation == "blush":
             self.bot._web_cheeks = True
 
-            def stop_blushing():
-                time.sleep(duration)
+            async def stop_blushing():
+                await asyncio.sleep(duration)
                 self.bot._web_cheeks = False
 
-            threading.Thread(target=stop_blushing, daemon=True).start()
+            asyncio.run_coroutine_threadsafe(stop_blushing(), self.bot.loop)
 
         elif animation == "cry":
             self.bot._web_tears = True
 
-            def stop_crying():
-                time.sleep(duration)
+            async def stop_crying():
+                await asyncio.sleep(duration)
                 self.bot._web_tears = False
 
-            threading.Thread(target=stop_crying, daemon=True).start()
+            asyncio.run_coroutine_threadsafe(stop_crying(), self.bot.loop)
 
         elif animation == "celebrate":
             original_colour = (
@@ -92,7 +92,7 @@ class WebAdapter(PlatformAdapter):
             self.bot._web_jumping = True
             self.bot._web_cheeks = True
 
-            def celebrate():
+            async def celebrate():
                 colours = [
                     (255, 0, 0),
                     (255, 127, 0),
@@ -108,7 +108,7 @@ class WebAdapter(PlatformAdapter):
                         self.bot._web_R = red
                         self.bot._web_G = green
                         self.bot._web_B = blue
-                        time.sleep(0.3)
+                        await asyncio.sleep(0.3)
                         if time.time() >= end_time:
                             break
 
@@ -116,7 +116,7 @@ class WebAdapter(PlatformAdapter):
                 self.bot._web_jumping = False
                 self.bot._web_cheeks = False
 
-            threading.Thread(target=celebrate, daemon=True).start()
+            asyncio.run_coroutine_threadsafe(celebrate(), self.bot.loop)
 
         else:
             return False
@@ -369,13 +369,13 @@ class WebAdapter(PlatformAdapter):
                     self.bot._web_speech_text = reply
 
                 # Auto-stop speaking after 10s
-                def stop_speaking():
-                    time.sleep(10)
+                async def stop_speaking():
+                    await asyncio.sleep(10)
                     with self.state_lock:
                         self.bot._web_speaking = False
                         self.bot._web_speech_text = ""
 
-                threading.Thread(target=stop_speaking, daemon=True).start()
+                asyncio.run_coroutine_threadsafe(stop_speaking(), self.bot.loop)
                 return jsonify(status="ok", reply=reply)
 
             except concurrent.futures.TimeoutError:
