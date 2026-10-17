@@ -6253,14 +6253,12 @@ decode_bpe_whitespace(decoded_generated_text)
 
         # --- THIS IS YOUR NEW LOGIC, BUT FIXED ---
         if r < 0.60:  # 60%
-            # FIX: Call .choice() on the function result
             chosen_band = self.get_varied_choice().choice([band_small, band_med])
             requested_awards = 1 + int(
                 (self.get_varied_random() * chosen_band)
                 * ((0.1 + self.get_varied_random()) / 2)
             )
         elif r < 0.90:  # 30%
-            # FIX: Call .choice() on the function result
             chosen_band = self.get_varied_choice().choice(
                 [band_small, band_med, band_large]
             )
@@ -6269,7 +6267,6 @@ decode_bpe_whitespace(decoded_generated_text)
                 * ((0.4 + self.get_varied_random()) / 2)
             )
         elif r < 0.985:  # 8.5%
-            # FIX: Call .choice() on the function result
             chosen_band = self.get_varied_choice().choice(
                 [band_small, band_med, band_large, band_huge]
             )
@@ -6278,7 +6275,6 @@ decode_bpe_whitespace(decoded_generated_text)
                 * ((0.6 + self.get_varied_random()) / 2)
             )
         elif r < 0.998:  # 1.3%
-            # FIX: Call .choice() on the function result
             chosen_band = self.get_varied_choice().choice(
                 [band_med, band_large, band_huge]
             )
@@ -6287,7 +6283,6 @@ decode_bpe_whitespace(decoded_generated_text)
                 * ((0.8 + self.get_varied_random()) / 2)
             )
         else:  # 0.2%
-            # FIX: Call .choice() on the function result
             chosen_band = self.get_varied_choice().choice([band_large, band_huge])
             requested_awards = 50 + int(
                 (self.get_varied_random() * chosen_band)
