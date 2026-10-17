@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
+import aiofiles
 import aiohttp
 import discord
 import pytz
@@ -6885,8 +6886,8 @@ class BABYBOT_DISCORD(commands.Bot):
         self.last_logged_author = author
         print(f"\n[Message] From {author}: {content}")
 
-        with open(discordLogPath, "a", encoding="utf-8") as f:
-            f.write(f"\n---\n{userMessage}")
+        async with aiofiles.open(discordLogPath, "a", encoding="utf-8") as f:
+            await f.write(f"\n---\n{userMessage}")
         if len(self.buffer) > self.rollingContextSize:
             self.buffer.popleft()
         if self.training_queue.qsize() < 20:
@@ -7219,8 +7220,8 @@ class BABYBOT_DISCORD(commands.Bot):
             )
             if self._buffer_add(buffer_line, speaker_hint=author_key):
                 self.last_logged_author = author_key
-                with open(discordLogPath, "a", encoding="utf-8") as f:
-                    f.write(f"\n---\n{buffer_line}")
+                async with aiofiles.open(discordLogPath, "a", encoding="utf-8") as f:
+                    await f.write(f"\n---\n{buffer_line}")
                 if self.training_queue.qsize() < 20:
                     await self.training_queue.put(
                         {"type": "chat", "text": list(self.buffer)}
