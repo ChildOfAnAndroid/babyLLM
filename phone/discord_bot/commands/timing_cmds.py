@@ -4,6 +4,7 @@
 
 import time
 from datetime import datetime, timedelta
+from datetime import time as datetime_time
 
 import discord
 import pytz
@@ -19,6 +20,9 @@ from ..utils import (
     style_gain,
 )
 from .base import MainCogCommandCog, setup_main_cog_child
+
+# Pre-calculate peak times for optimization
+SMINK_PEAK_TIMES = [datetime_time(h, 20, s) for h in (0, 4, 16) for s in (0, 20)]
 
 
 class TimingCog(MainCogCommandCog, name="Timing"):
@@ -99,14 +103,15 @@ class TimingCog(MainCogCommandCog, name="Timing"):
         now = datetime.now(tz)
         is_rival = author == self.bot.current_rival
         effective_now = now + timedelta(hours=3) if is_rival else now
-        peak_targets = []
-        for day_offset in (-1, 0, 1):
-            day = effective_now + timedelta(days=day_offset)
-            for hour in (0, 4, 16):
-                for sec in (0, 20):
-                    peak_targets.append(
-                        day.replace(hour=hour, minute=20, second=sec, microsecond=0)
-                    )
+
+        dates = [(effective_now + timedelta(days=d)).date() for d in (-1, 0, 1)]
+        tzinfo = effective_now.tzinfo
+        peak_targets = [
+            datetime.combine(d, t, tzinfo=tzinfo)
+            for d in dates
+            for t in SMINK_PEAK_TIMES
+        ]
+
         nearest_peak = min(
             peak_targets, key=lambda t: abs((effective_now - t).total_seconds())
         )
@@ -359,14 +364,14 @@ class TimingCog(MainCogCommandCog, name="Timing"):
         time_str = f"{h}h {m}m {s}s" if h else f"{m}m {s}s"
         note = " (rival-shifted window)" if nature == "rival-shifted" else ""
 
-        peak_targets = []
-        for day_offset in (-1, 0, 1):
-            day = effective_now + timedelta(days=day_offset)
-            for hour in (0, 4, 16):
-                for sec in (0, 20):
-                    peak_targets.append(
-                        day.replace(hour=hour, minute=20, second=sec, microsecond=0)
-                    )
+        dates = [(effective_now + timedelta(days=d)).date() for d in (-1, 0, 1)]
+        tzinfo = effective_now.tzinfo
+        peak_targets = [
+            datetime.combine(d, t, tzinfo=tzinfo)
+            for d in dates
+            for t in SMINK_PEAK_TIMES
+        ]
+
         nearest_peak = min(
             peak_targets, key=lambda t: abs((effective_now - t).total_seconds())
         )

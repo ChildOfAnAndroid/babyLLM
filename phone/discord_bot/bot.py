@@ -23,6 +23,7 @@ import time
 import traceback
 from collections import Counter, defaultdict, deque
 from datetime import datetime, timedelta, timezone
+from datetime import time as datetime_time
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import urljoin
@@ -72,6 +73,10 @@ from .utils import (
     split_markdown_message,
     send_chunks_ordered,
 )
+
+# Pre-calculate peak times for optimization
+SMINK_PEAK_TIMES = [datetime_time(h, 20, s) for h in (0, 4, 16) for s in (0, 20)]
+SMINK_TROUGH_TIMES = [datetime_time(h, 20, s) for h in (2, 10, 20) for s in (0, 20)]
 
 bby_lounge = 1388782896084422788
 # Respect config-provided channel IDs so BabyLLM listens in the correct room.
@@ -5426,23 +5431,18 @@ class BABYBOT_DISCORD(commands.Bot):
 
         effective_now = now + timedelta(hours=3) if is_rival else now
 
-        all_peaks = []
-        all_troughs = []
-        peak_hours = (0, 4, 16)
-        trough_hours = (2, 10, 20)
-        peak_seconds = (0, 20)
-        for day_offset in [-1, 0, 1]:
-            day = effective_now + timedelta(days=day_offset)
-            for h in peak_hours:
-                for sec in peak_seconds:
-                    all_peaks.append(
-                        day.replace(hour=h, minute=20, second=sec, microsecond=0)
-                    )
-            for h in trough_hours:
-                for sec in peak_seconds:
-                    all_troughs.append(
-                        day.replace(hour=h, minute=20, second=sec, microsecond=0)
-                    )
+        dates = [(effective_now + timedelta(days=d)).date() for d in (-1, 0, 1)]
+        tzinfo = effective_now.tzinfo
+        all_peaks = [
+            datetime.combine(d, t, tzinfo=tzinfo)
+            for d in dates
+            for t in SMINK_PEAK_TIMES
+        ]
+        all_troughs = [
+            datetime.combine(d, t, tzinfo=tzinfo)
+            for d in dates
+            for t in SMINK_TROUGH_TIMES
+        ]
 
         diff_to_peak = min(
             [abs((t - effective_now).total_seconds()) for t in all_peaks]
