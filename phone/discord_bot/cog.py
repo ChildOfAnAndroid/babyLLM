@@ -2357,19 +2357,20 @@ decode_bpe_whitespace(decoded_generated_text)
         raw = str(token or "")
         if not raw:
             return "<EMPTY>"
+
+        # Fast path for basic replacements
+        raw = raw.replace("Ġ", " ").replace("Ċ", "Ċ").replace("\n", "Ċ")\
+                 .replace("ĉ", "ĉ").replace("\t", "ĉ").replace("▁", "_")\
+                 .replace("\ufffd", "<U+FFFD>")
+
+        # Most tokens won't have unprintable characters after basic replace
+        if raw.isprintable():
+            return raw
+
+        # If there are unprintables, replace them
         out = []
         for ch in raw:
-            if ch == "Ġ":
-                out.append(" ")
-            elif ch == "Ċ" or ch == "\n":
-                out.append("Ċ")
-            elif ch == "ĉ" or ch == "\t":
-                out.append("ĉ")
-            elif ch == "▁":
-                out.append("_")
-            elif ch == "�":
-                out.append("<U+FFFD>")
-            elif ch.isprintable():
+            if ch.isprintable():
                 out.append(ch)
             else:
                 out.append(f"<U+{ord(ch):04X}>")
