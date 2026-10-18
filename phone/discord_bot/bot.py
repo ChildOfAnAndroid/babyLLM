@@ -314,6 +314,7 @@ class BABYBOT_DISCORD(commands.Bot):
         self.userMemory = defaultdict(dict)
         self.AIoptInUsers = []
         self.bbyfacts = {}
+        self._bbyfact_max_id = 0
         self.command_stats = {}
         self.bbycraft_recipes = {}
 
@@ -815,6 +816,7 @@ class BABYBOT_DISCORD(commands.Bot):
         self.prune_non_opt_user_memory(reason="init")
 
         self.bbyfacts = self._json_load(self.bbyfacts_path)
+        self._bbyfact_max_id = max((fact.get("id", 0) for fact in self.bbyfacts.values() if isinstance(fact, dict) and isinstance(fact.get("id"), int)), default=0)
         logger.info('[%s] %s', "INIT", f"LOADED {len(self.bbyfacts)} FACTS")
 
         self.lastInteraction = time.time()

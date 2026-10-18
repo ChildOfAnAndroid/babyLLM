@@ -2318,14 +2318,8 @@ decode_bpe_whitespace(decoded_generated_text)
         return fact_title, fact_data
 
     def _get_next_bbyfact_id(self):
-        existing_ids = []
-        for fact in self.bot.bbyfacts.values():
-            if not isinstance(fact, dict):
-                continue
-            raw_id = fact.get("id")
-            if isinstance(raw_id, int) and raw_id > 0:
-                existing_ids.append(raw_id)
-        return max(existing_ids, default=0) + 1
+        self.bot._bbyfact_max_id += 1
+        return self.bot._bbyfact_max_id
 
     def _trace_raw_token(self, tid: int) -> str:
         token = ""
