@@ -196,6 +196,8 @@ class TUTOR:
         #       almost always holds the default. Fix: write currentColour back into liveState,
         #       and re-read only when mtime changes significantly (external process wrote it).
         self._ext_col_cache = {"R": 128, "G": 128, "B": 128}
+        self.predicted_stream_rgb = None
+        self._stream_colour_input = None
         # Persistent token buffer — reused across steps to avoid per-step MPS alloc.
         # Resized lazily if numTokensPerStep grows.
         self._token_buffer = torch.zeros(
@@ -349,8 +351,16 @@ class TUTOR:
     """this iterates through training data, performing forward passes, loss computation, backpropagation, and optimization for each step."""
 
     @whocalled
-    def trainModel(self, _trainingDataPairs, _epochs, _startIndex):  ###
+    def trainModel(self, _trainingDataPairs, _epochs, _startIndex, *, stop_after_batch=None):
         mps_trace("TRAINING_PASS_START", f"epochs={_epochs} pairs={len(_trainingDataPairs)}")
+
+        def stop_at_batch_boundary():
+            if stop_after_batch is None or not stop_after_batch():
+                return False
+            if self.sensory_bus is not None:
+                self.sensory_bus.cleanup()
+            return True
+
         # async with self.training_lock:
         with self.counsellor.infodump("trainModel") as ʕっʘ‿ʘʔっ:  ###
             # Barrier for async optimizer load (unified bot mode kicks off
@@ -430,6 +440,8 @@ class TUTOR:
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("entering training loop")
                 while True:
+                    if stop_at_batch_boundary():
+                        return False
                     if trainingPair is None:
                         try:
                             trainingPair = next(trainIter)
@@ -783,6 +795,10 @@ class TUTOR:
                         # here on this same MPS-owning thread, then continue the
                         # lesson with the next turn.
                         self.model.serve_pending_mps_work()
+
+                        if stop_at_batch_boundary():
+                            self.totalAvgLoss = self.totalLoss / max(1, self.totalTurns)
+                            return False
 
                         if tokenSpeedTest == True:
                             if self.totalTurns % 250 == 0 and self.totalTurns > 0:
@@ -1138,6 +1154,7 @@ class TUTOR:
                     gp = int(_prev_pixel_rgb[1] * 255)
                     bp = int(_prev_pixel_rgb[2] * 255)
                     r, g, b = (predictedRGB * 255).int().tolist()
+                    self.predicted_stream_rgb = tuple(max(0, min(255, value)) for value in (r, g, b))
                     rt = int(self._pixel_float_rgb[0] * 255)
                     gt = int(self._pixel_float_rgb[1] * 255)
                     bt = int(self._pixel_float_rgb[2] * 255)
@@ -1482,7 +1499,7 @@ class TUTOR:
                         print(f" - token entropy:                           {diag_entropy_mean:.6f}")
                         print(f" - top-1 confidence:                        {diag_confidence_mean:.2%}")
                         print(f" - repetition rate:                         {diag_rep_rate:.2f}%")
-                        if getattr(self.model, "_ar_applied_last", None) is not None:
+                        if getattr(self.model, "_ar_gated_neurons_last", None) is not None:
                             # AR GATE MICROSCOPE
                             #
                             # Pure detached telemetry. Copy the tiny 10k gate
@@ -1561,10 +1578,10 @@ class TUTOR:
                                 f"{_ar_gate_max:.4%}"
                             )
                             print(
-                                " - AR braid / raw / applied norms:         "
+                                " - AR braid / raw / gated norms:           "
                                 f"{self.model._ar_braid_last.norm().item():.4f} / "
                                 f"{self.model._ar_raw_last.norm().item():.4f} / "
-                                f"{self.model._ar_applied_last.norm().item():.4f}"
+                                f"{self.model._ar_gated_neurons_last.norm().item():.4f}"
                             )
 
                             print(" - AR GATE MICROSCOPE:")
@@ -1629,9 +1646,18 @@ class TUTOR:
                                 print(f"     - logitNorm.weight:     {logit_stats.get('grad_norm_logits.logitNorm.weight', 0.0):.6f}")
                                 print(f"     - logitNorm.bias:       {logit_stats.get('grad_norm_logits.logitNorm.bias', 0.0):.6f}")
                         if diagnoseGradientSources and hasattr(self.model, "gradient_leaderboard"):
-                            print(f" - Top Module Gradient Norms (Pre-Clipping):")
+                            movement = getattr(self.model, "relative_weight_movement", {})
+                            print(" - Top Module Gradient Norms (Pre-Clipping):")
+                            if movement:
+                                print("   Weight movement is |after - before| / |before|, including parameter clamps.")
                             for idx, (group_name, norm_val, pct) in enumerate(self.model.gradient_leaderboard):
-                                print(f"   {idx+1:>2}. {group_name:<35}: {norm_val:.6f} ({pct:.2f}%)")
+                                relative = movement.get(group_name)
+                                change = ""
+                                if relative is not None:
+                                    change = f" | weights moved {relative:.4%}"
+                                elif group_name in movement:
+                                    change = " | starting weight norm is zero"
+                                print(f"   {idx+1:>2}. {group_name:<35}: {norm_val:.6f} ({pct:.2f}%){change}")
                         print("=" * 60 + "\n")
                             
                         chunk_loss = None
@@ -1737,6 +1763,17 @@ class TUTOR:
 
             return self.predictedTokenIndices, self.logitSeq
 
+    def set_stream_colour(self, rgb):
+        self._stream_colour_input = (rgb, time.monotonic())
+
+    def stream_colour(self):
+        sample = self._stream_colour_input
+        if sample is None:
+            return None
+        rgb, updated = sample
+        remaining = max(0.0, 1.0 - (time.monotonic() - updated) / 12.0)
+        return {"rgb": rgb, "strength": .25 * remaining**2} if remaining else None
+
     @whocalled
     def getPixelForStep(self, j):
         # External colour is read once per step in trainStep and cached in self._ext_col_cache.
@@ -1817,6 +1854,14 @@ class TUTOR:
             red = red * (1 - blend_factor) + ext_r * blend_factor
             green = green * (1 - blend_factor) + ext_g * blend_factor
             blue = blue * (1 - blend_factor) + ext_b * blend_factor
+
+        stream_tint = self.stream_colour()
+        if stream_tint is not None:
+            strength = stream_tint["strength"]
+            ext_r, ext_g, ext_b = stream_tint["rgb"]
+            red += (ext_r / 255.0 - red) * strength
+            green += (ext_g / 255.0 - green) * strength
+            blue += (ext_b / 255.0 - blue) * strength
 
         if self.sensory_bus is not None:
             light_delta = self.sensory_bus.state.get("global_light_delta")

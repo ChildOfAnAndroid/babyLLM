@@ -647,7 +647,7 @@ def strip_artifact_lines(text, min_chars=3):
     return "\n".join(deduped).strip()
 
 
-def clean_text(text):
+def clean_text(text, *, random_variations=True):
     before = len(text)
     text = unescape(text).strip(" \t")
     text = re.sub(r"(?:<END>)", "", text)  # placeholder
@@ -657,7 +657,8 @@ def clean_text(text):
     text = normalize_bracketed_handles(text)
     text = strip_artifact_lines(text)
 
-    text = apply_random_variations(text)
+    if random_variations:
+        text = apply_random_variations(text)
 
     text = re.sub(r"[‘’]", "'", text)
     text = EMAIL.sub(" emailaddress ", text)

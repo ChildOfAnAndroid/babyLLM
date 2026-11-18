@@ -6,8 +6,7 @@ from pathlib import Path
 
 from utils.icharis2_ingest import (
     MANIFEST_CONTRACT,
-    build_pipeline_monthly_entries,
-    load_training_manifest,
+    read_training_manifest,
 )
 
 
@@ -55,7 +54,7 @@ def test_manifest_validation_fails_closed(tmp_path: Path) -> None:
     ]
     _write_manifest(manifest, items)
 
-    loaded = load_training_manifest(manifest)
+    loaded = read_training_manifest(manifest)["items"]
 
     assert [item["note_path"] for item in loaded] == ["valid.md"]
 
@@ -65,24 +64,11 @@ def test_invalid_selection_contract_is_rejected(tmp_path: Path) -> None:
     text = "This is a sufficiently long self-authored message for training."
     _write_manifest(manifest, [_item("valid.md", text)], evidence_ok=False)
 
-    assert load_training_manifest(manifest) == []
+    assert read_training_manifest(manifest) is None
 
 
-def test_monthly_exports_come_only_from_manifest(tmp_path: Path) -> None:
+def test_manifest_keeps_record_boundaries(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
-    text = (
-        "This is a deliberately long self-authored paragraph that remains useful "
-        "after BabyLLM applies its model-specific text cleaning rules."
-    )
-    _write_manifest(manifest, [_item("valid.md", text)])
-
-    entries = build_pipeline_monthly_entries(
-        str(manifest),
-        str(tmp_path / "compiled"),
-        weight=0.2,
-    )
-
-    assert entries == [("text", str(tmp_path / "compiled/icharis2_2026-10.txt"), 0.2)]
-    compiled = (tmp_path / "compiled/icharis2_2026-10.txt").read_text()
-    assert "deliberately long self-authored paragraph" in compiled
-    assert "unmanifested" not in compiled
+    messages = ["first paragraph\nsecond paragraph", "another record"]
+    _write_manifest(manifest, [_item(f"{i}.md", text) for i, text in enumerate(messages)])
+    assert [row["text"] for row in read_training_manifest(manifest)["items"]] == messages

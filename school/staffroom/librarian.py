@@ -10,6 +10,11 @@ import json
 import os
 import random
 import re
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from time import monotonic
 from collections import defaultdict, deque
 from typing import Callable, Iterator, Sequence
 
@@ -28,6 +33,9 @@ from transformers import PreTrainedTokenizerFast
 from config import *
 from SHKAIRA.notebook.tools.genBoi import *
 from textCleaningTool import clean_text
+from utils.text_rendering import to_british_english
+from utils.icharis2_ingest import read_training_manifest
+import CONFIG_trainingData as curriculum
 
 _BRACKETED_CHILD_HANDLE = re.compile(
     r"\[\[\s*(?:childofagamingdroid|child of an android|childofanandroid|childo|coaa)\s*\]\]",
@@ -35,6 +43,13 @@ _BRACKETED_CHILD_HANDLE = re.compile(
 )
 _BRACKETED_SIMPLE_LABEL = re.compile(
     r"\[\[\s*([a-z0-9 _.'-]{1,48})\s*\]\]", re.IGNORECASE
+)
+
+
+# Keep authored email above the explicit quoted/forwarded thread boundary.
+_EMAIL_THREAD = re.compile(
+    r"(?im)^\s*(?:on [^\n]{1,200} wrote:|[- ]*forwarded message[- ]*|"
+    r"[- ]+original message[- ]*|from:[^\n]+\n(?:sent|date):)"
 )
 
 
@@ -218,6 +233,12 @@ class LIBRARIAN:
         self._tokens_are_indices = False
         self._token_stream_factories: list[Callable[[], Iterator]] = []
         self._training_token_count_estimate: int | None = None
+        self._icharis2_snapshot = None
+        self._icharis2_version = None
+        self._icharis2_publish_after = 0.0
+        self._icharis2_sampled = set()
+        self._icharis2_anniversary_seen = set()
+        self._icharis2_anniversary_day = None
 
         with self.v_counsellor.infodump("__init__") as ʕっʘ‿ʘʔっ:
             shouldTrain = (
@@ -963,6 +984,173 @@ class LIBRARIAN:
             sample = sample[0]
         return isinstance(sample, (int, np.integer))
 
+    @staticmethod
+    def prepare_training_message(text, *, source_type=None):
+        if source_type == "email_parser":
+            text = _EMAIL_THREAD.split(text, maxsplit=1)[0]
+            text = "\n".join(line for line in text.split("\n") if not line.lstrip().startswith(">"))
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        return to_british_english(clean_text(text, random_variations=False)).strip()
+
+    def refresh_icharis2_training(self):
+        """Request the canonical export periodically and adopt atomic changes."""
+        if not curriculum.icharis2_user_text:
+            return
+        path = Path(curriculum.icharis2_pipeline_manifest_path).expanduser().absolute()
+        now = monotonic()
+        if now >= self._icharis2_publish_after:
+            self._icharis2_publish_after = now + curriculum.icharis2_refresh_seconds
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "icharis2.scripts.reports.export_babyllm_training_manifest",
+                     "--output", str(path), "--limit", str(curriculum.icharis2_pipeline_limit)],
+                    cwd=curriculum.icharis2_repository,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True,
+                    timeout=30,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                detail = getattr(exc, "stderr", None)
+                reason = detail.strip().splitlines()[-1] if detail and detail.strip() else str(exc)
+                print(f"[TRAINING][ICHARIS2] Export refresh failed: {reason}")
+        try:
+            stat = path.stat()
+        except OSError:
+            return
+        version = (stat.st_ino, stat.st_mtime_ns, stat.st_size)
+        if version == self._icharis2_version:
+            return
+        snapshot = read_training_manifest(path, limit=curriculum.icharis2_pipeline_limit)
+        if snapshot is None:
+            return
+
+        for key in ("items", "anniversary_items"):
+            records = []
+            seen = set()
+            for record in snapshot[key]:
+                if key == "items" and record.get("timestamp", "")[:10] > datetime.now(timezone.utc).date().isoformat():
+                    continue
+                text = self.prepare_training_message(record["text"], source_type=record.get("source_type"))
+                if not text or text in seen:
+                    continue
+                seen.add(text)
+                records.append({**record, "text": text})
+            snapshot[key] = records
+        self._icharis2_snapshot = snapshot
+        self._icharis2_version = version
+        self._icharis2_sampled.intersection_update(record["content_sha256"] for record in snapshot["items"])
+        counts = defaultdict(int)
+        for record in snapshot["items"]:
+            counts[record.get("source_type", "unknown")] += 1
+        print(f"[TRAINING][ICHARIS2] Adopted {snapshot['generated_at']}: {dict(counts)}")
+
+    def has_fresh_icharis2_training(self, *, max_chars):
+        records = self._icharis2_snapshot["items"] if self._icharis2_snapshot else []
+        source_count = len({record.get("source_type") for record in records})
+        budget = max_chars // max(1, source_count)
+        return any(
+            len(record["text"]) <= budget
+            and record["content_sha256"] not in self._icharis2_sampled
+            for record in records
+        )
+
+    def sample_archive_training_text(self, *, max_chars):
+        """Sample the separately configured archive corpora for one lesson."""
+        chunks = []
+        remaining = max_chars
+        for source in self.sampleTrainingSources(2):
+            text = self.loadTrainingSource(source, max_chars=remaining)
+            if text:
+                chunks.append(text)
+                remaining -= len(text) + 1
+            if remaining <= 0:
+                break
+        return "\n".join(chunks)
+
+    def sample_icharis2_training(self, *, max_chars):
+        """Choose whole records across sources, prioritizing unsampled content."""
+        snapshot = self._icharis2_snapshot
+        if not snapshot or max_chars <= 0:
+            return []
+        by_source = defaultdict(list)
+        for record in snapshot["items"]:
+            by_source[record.get("source_type", "unknown")].append(record)
+        groups = list(by_source.values())
+        random.shuffle(groups)
+        for records in groups:
+            random.shuffle(records)
+            records.sort(key=lambda record: record["content_sha256"] in self._icharis2_sampled)
+
+        messages = []
+        source_budgets = [max_chars // len(groups) for _ in groups]
+        for group in itertools.zip_longest(*groups):
+            for index, record in enumerate(group):
+                if record is None:
+                    continue
+                text = record["text"]
+                if len(text) > source_budgets[index]:
+                    continue
+                messages.append(text)
+                self._icharis2_sampled.add(record["content_sha256"])
+                source_budgets[index] -= len(text)
+        return messages
+
+    def due_icharis2_memories(self, now, *, limit):
+        snapshot = self._icharis2_snapshot
+        if not snapshot or limit <= 0:
+            return []
+        day = now.date().isoformat()
+        if snapshot["anniversary_day"] != day:
+            return []
+        if self._icharis2_anniversary_day != day:
+            self._icharis2_anniversary_day = day
+            self._icharis2_anniversary_seen.clear()
+        now_minute = now.hour * 60 + now.minute
+        messages = []
+        for record in snapshot["anniversary_items"]:
+            key = record["content_sha256"]
+            if key in self._icharis2_anniversary_seen:
+                continue
+            try:
+                timestamp = datetime.fromisoformat(record["timestamp"]).astimezone(now.tzinfo)
+            except (KeyError, TypeError, ValueError):
+                continue
+            minute = timestamp.hour * 60 + timestamp.minute
+            if not 0 <= now_minute - minute <= 5:
+                continue
+            if len(record["text"]) > 5000:
+                continue
+            self._icharis2_anniversary_seen.add(key)
+            messages.append(record["text"])
+            if len(messages) >= limit:
+                break
+        return messages
+
+    def tokenize_training_text(self, text, *, prepared=False):
+        explicit = isinstance(text, (list, tuple))
+        messages = text if explicit else [text]
+        eos_available = enable_train_append_eos and eos_replacement_token_str in self.tokenToIndex
+        sos_available = enable_train_prepend_sos and sos_replacement_token_str in self.tokenToIndex
+        tokens = []
+        seen = set()
+        for message in messages:
+            cleaned = message if prepared else self.prepare_training_message(str(message or ""))
+            if not cleaned or cleaned in seen:
+                continue
+            seen.add(cleaned)
+            append_eos = eos_available and (explicit or random.random() < eos_append_probability)
+            message_tokens = self.tokenize_training_message(cleaned, append_eos=append_eos)
+            if not message_tokens:
+                continue
+            if tokens and explicit and not eos_available:
+                tokens.extend(self.tokenizeText("\n"))
+            if sos_available and random.random() < sos_prepend_probability:
+                tokens.append(sos_replacement_token_str)
+            tokens.extend(message_tokens)
+        return tokens
+
     def tokenize_training_message(self, text, *, append_eos=True):
         """Tokenize one complete message, preserving its internal BPE newlines.
 
@@ -987,11 +1175,7 @@ class LIBRARIAN:
         """Append a bounded token window; each string represents one message."""
         try:
             if isinstance(text, str):
-                from config import enable_train_append_eos
-
-                toks = self.tokenize_training_message(
-                    text, append_eos=bool(enable_train_append_eos)
-                )
+                toks = self.tokenize_training_text([text])
             else:
                 # Explicit token sequences have their own boundary policy.
                 toks = list(text)

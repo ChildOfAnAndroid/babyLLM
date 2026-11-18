@@ -116,16 +116,16 @@ notesNum = 0.1
 
 # --- icharis2 (personal authored only) ---
 icharis2_user_text = True
-icharis2_user_text_weight = 0.2
 icharis2_pipeline_limit = 500
 icharis2_pipeline_manifest_path = os.getenv(
     "ICHARIS2_BABYLLM_TRAINING_MANIFEST",
     "/Users/charis/00_Icharis/02_LAB/icharis2-data/exports/consumers/babyllm/training_manifest.json",
 )
-icharis2_export_months_limit = 12
-icharis2_export_dir = "school/library/icharis2_by_month"
-icharis2_use_pipeline_exports = True
-icharis2_defer_ingest = True  # defer heavy scans/exports to bot idle
+icharis2_refresh_seconds = 300
+icharis2_repository = os.getenv(
+    "ICHARIS2_REPO_ROOT",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icharis2"),
+)
 
 # --- babyBot chat logs ---
 babyBot_twitch = True
@@ -148,35 +148,6 @@ code = False
 codeNum = 0.1
 
 rawDataFilepaths: List[Tuple[str, str, float]] = []
-icharis2_monthly_entries: List[Tuple[str, str, float]] = []
-
-try:
-    from utils.icharis2_ingest import build_pipeline_monthly_entries
-
-    if icharis2_user_text and not icharis2_defer_ingest:
-        try:
-            icharis2_monthly_entries = build_pipeline_monthly_entries(
-                manifest_path=icharis2_pipeline_manifest_path,
-                export_dir=icharis2_export_dir,
-                weight=icharis2_user_text_weight,
-                months_limit=icharis2_export_months_limit,
-                limit=icharis2_pipeline_limit,
-            )
-            if icharis2_monthly_entries:
-                print(
-                    f"[EXPORT] icharis2 manifest: {len(icharis2_monthly_entries)} monthly files -> {icharis2_export_dir}"
-                )
-            else:
-                print(
-                    f"[WARN] no valid ICHARIS2 BabyLLM manifest entries at {icharis2_pipeline_manifest_path}"
-                )
-        except Exception as e:
-            print(f"[WARN] icharis2 manifest compilation failed: {e}")
-    elif icharis2_user_text and icharis2_defer_ingest:
-        print("[INFO] icharis2 manifest compilation deferred; will refresh during bot idle.")
-except Exception as e:
-    print(f"[WARN] icharis2 manifest consumer unavailable: {e}")
-
 
 def add_data(
     CTD_enabled: bool,
@@ -471,11 +442,6 @@ if limit:
     rawDataFilepaths = rawDataFilepaths[:fileLimit]
     if shuffle:
         random.shuffle(rawDataFilepaths)
-
-# Always keep personal icharis2 content, even when limiting/shuffling others
-# Prefer tiny monthly aggregates; avoid adding huge per-file lists.
-if icharis2_monthly_entries:
-    rawDataFilepaths = icharis2_monthly_entries + rawDataFilepaths
 
 # for textCleaningTool.py examples (disabled)
 # rawDataFilepaths = [

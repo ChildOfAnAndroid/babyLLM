@@ -2,10 +2,54 @@
 # --- ʕっʘ‿ʘʔ⊃ -*- babyllm -*- ⊂ʕʘ‿ʘ૮ʔ ---
 # v1.12
 
+import os
+import signal
+import sys
+
+UNIFIED_MODES = ("unified", "u", "all")
+UNIFIED_WORKER_ARG = "--unified-worker"
+UNIFIED_RESTART_STATUS = 75
+
+
+def supervise_unified(args):
+    """Replace the model process after it has saved and fully exited."""
+    import subprocess
+
+    worker = None
+
+    def forward(signum, _frame):
+        if worker is not None:
+            try:
+                os.kill(worker.pid, signum)
+            except ProcessLookupError:
+                pass
+
+    signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+    previous = {signum: signal.signal(signum, forward) for signum in signals}
+    try:
+        while True:
+            worker = subprocess.Popen([sys.executable, *args, UNIFIED_WORKER_ARG])
+            status = worker.wait()
+            if status != UNIFIED_RESTART_STATUS:
+                return status if status >= 0 else 128 - status
+            print("[SHUTDOWN] Restarting BabyLLM", flush=True)
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+
+
+if (
+    __name__ == "__main__"
+    and len(sys.argv) > 1
+    and sys.argv[1].lower() in UNIFIED_MODES
+    and UNIFIED_WORKER_ARG not in sys.argv
+):
+    raise SystemExit(supervise_unified(sys.orig_argv[1:]))
+
+
 import random
 
 # from torch.profiler import profile, record_function, ProfilerActivity
-import sys
 import threading
 import time
 import warnings
@@ -230,6 +274,51 @@ def check_web_tunnel(owned=None):
     )
     # The next probe, not the PID, acknowledges successful recovery.
     return False, process
+
+
+async def run_with_shutdown_signals(run_bot):
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    shutdown = loop.create_future()
+    signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
+    def request_shutdown(signum):
+        if not shutdown.done():
+            shutdown.set_result(signum)
+
+    for signum in signals:
+        loop.add_signal_handler(signum, request_shutdown, signum)
+    try:
+        return await run_bot(shutdown)
+    finally:
+        for signum in signals:
+            loop.remove_signal_handler(signum)
+
+
+async def serve_unified_bot(bot, token, shutdown, save_checkpoint):
+    import asyncio
+
+    connection = asyncio.create_task(bot.start(token))
+    try:
+        await asyncio.wait((connection, shutdown), return_when=asyncio.FIRST_COMPLETED)
+        await bot.finish_training()
+        if not shutdown.done():
+            await connection
+        else:
+            await bot.close()
+            if not await asyncio.to_thread(save_checkpoint):
+                raise RuntimeError("BabyLLM shutdown checkpoint was refused")
+            print("[SHUTDOWN] Checkpoint saved")
+            return shutdown.result() == signal.SIGHUP
+    finally:
+        try:
+            if not bot.is_closed():
+                await bot.close()
+        finally:
+            connection.cancel()
+            await asyncio.gather(connection, return_exceptions=True)
+    return False
 
 
 def wakeup(
@@ -461,7 +550,7 @@ def wakeup(
                     discordChannel=bby_spam_channel_id,
                 )
 
-                async def run_unified():
+                async def run_unified(shutdown):
                     # Set up bot
                     await bot.setup_bot()
 
@@ -500,7 +589,7 @@ def wakeup(
                     print("=" * 60)
                     print("UNIFIED MULTI-PLATFORM BOT IS NOW RUNNING")
                     print("Platforms: Discord + Twitch + Web API")
-                    print("Press Ctrl+C to stop")
+                    print(f"Ctrl+C saves and stops. Send SIGHUP to PID {os.getpid()} to save and restart.")
                     print("=" * 60)
 
                     # Unified mode is long-lived inference. Keep the ~5 GB
@@ -512,23 +601,26 @@ def wakeup(
                     babyLLM.activate_mps_owner()
                     mps_trace("LOAD_MODEL_AFTER", "mode=unified")
 
+                    def save_checkpoint():
+                        return babyLLM.saveModel(
+                            _newStartIndex=tutor.startIndex,
+                            _trainingStepCounter=tutor.trainingStepCounter * tutor.dataStride,
+                            _totalAvgLoss=tutor.totalAvgLoss,
+                            _first=first,
+                        )
+
                     try:
-                        await bot.start(SECRETdiscordTokenSECRET)
-                    except KeyboardInterrupt:
-                        print("\n[SHUTDOWN] Stopping unified bot...")
+                        return await serve_unified_bot(bot, SECRETdiscordTokenSECRET, shutdown, save_checkpoint)
                     finally:
                         tunnel_stop.set()
                         if tunnel_task is not None:
                             await tunnel_task
-                        if hasattr(bot, "disable_twitch"):
-                            await bot.disable_twitch()
-                        if hasattr(bot, "disable_web"):
-                            await bot.disable_web()
-                        await bot.close()
                         print("[SHUTDOWN] Unified bot stopped")
 
-                # Run the unified bot
-                asyncio.run(run_unified())
+                try:
+                    return asyncio.run(run_with_shutdown_signals(run_unified))
+                finally:
+                    babyLLM.mps_owner.close()
 
             elif mode == "train":
                 print("--- STARTING OFFLINE TRAINING ---")
@@ -685,7 +777,7 @@ def main():
         arg = sys.argv[1].lower()
         if arg == "bot":
             run_mode = "twitch"
-        elif arg in ("unified", "u", "all"):
+        elif arg in UNIFIED_MODES:
             run_mode = "unified"
         elif arg in ("discord", "d"):
             run_mode = "discord"
@@ -710,19 +802,25 @@ def main():
         print(f"Choice {choice} run_mode => {run_mode}")
 
     if run_mode in ["twitch", "discord", "unified"]:
+        if run_mode == "unified" and UNIFIED_WORKER_ARG not in sys.argv:
+            return supervise_unified([*sys.orig_argv[1:], "unified"])
         # Bot startup should use the real target pass-rate baseline, not the fresh-training bootstrap value. 
         # Otherwise daily eval output can look fake-good immediately after startup.
         botPassRateStart = perfectionistPassRate
-        wakeup(windowMAX            = windowMAX,
-                dataStride          = dataStride,
-                totalTurnsAwake     = totalTurnsAwake,
-                totalRuns           = totalRuns,
-                first               = False,
-                passRateSTART       = botPassRateStart,
-                log_A               = logFreq_A,
-                lrGoal              = learnRateGoal,
-                trainingDataPairNum = MAINPairNumber,
-                mode                = run_mode,)
+        restart = wakeup(
+            windowMAX=windowMAX,
+            dataStride=dataStride,
+            totalTurnsAwake=totalTurnsAwake,
+            totalRuns=totalRuns,
+            first=False,
+            passRateSTART=botPassRateStart,
+            log_A=logFreq_A,
+            lrGoal=learnRateGoal,
+            trainingDataPairNum=MAINPairNumber,
+            mode=run_mode,
+        )
+        if run_mode == "unified" and restart:
+            return UNIFIED_RESTART_STATUS
     else:
         lastRunLoss = checkLossCheckpoint()
         # lastRunLoss         = 420
@@ -916,4 +1014,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

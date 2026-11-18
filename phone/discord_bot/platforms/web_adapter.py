@@ -10,14 +10,17 @@ Runs Flask in background threads while sharing bot state in memory.
 
 import asyncio
 import concurrent.futures
+import hmac
 import inspect
 import logging
 import os
+import stat
 import threading
 import time
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from werkzeug.serving import make_server
 
 from ..context import create_platform_command_context
 from ..live_pressure import patch_cog_generation, pressure_snapshot, try_queue_generation
@@ -288,6 +291,29 @@ class WebAdapter(PlatformAdapter):
 
                 return jsonify(state)
 
+        @self.app.get("/api/stream_art")
+        def stream_art():
+            """Loopback stream telemetry and IDs of confirmed public model replies."""
+            if request.remote_addr not in {"127.0.0.1", "::1"}:
+                return jsonify(error="local only"), 403
+            twitch = self.bot.platforms.get("twitch")
+            attention = getattr(self.bot.babyLLM, "attention2", None)
+            stats = getattr(attention, "stats", {})
+            ids = getattr(twitch, "stream_generated_ids", None)
+            stages = getattr(twitch, "stream_reply_stages", None)
+            voice = getattr(twitch, "stream_voice", None)
+            tutor = getattr(self.bot, "tutor", None)
+            colour_input = getattr(tutor, "stream_colour", None)
+            return jsonify(
+                predicted_rgb=getattr(tutor, "predicted_stream_rgb", None),
+                colour_leak=colour_input() if colour_input else None,
+                generated_ids=list(ids.copy()) if ids is not None else [],
+                reply_stages=list(stages.copy()) if stages is not None else [],
+                voice=list(voice.copy()) if voice is not None else [],
+                attention_norm=stats.get("4A_1_0_attnOut_norm"),
+                attention_gate=stats.get("4A_1_gateScale"),
+            )
+
         @self.app.post("/api/state")
         def set_state():
             """Update baby's state (for website controls)"""
@@ -389,6 +415,43 @@ class WebAdapter(PlatformAdapter):
                 traceback.print_exc()
                 return jsonify(status="error", reply=f"oops! {str(e)[:100]}"), 500
 
+        @self.app.post("/api/private/say")
+        def private_say():
+            """Optional authenticated local chat, without public avatar speech."""
+            path = os.environ.get("BBY_PRIVATE_CHAT_TOKEN_FILE", "SHKAIRA/soul/private-chat-token")
+            if not path or not os.path.exists(path):
+                return jsonify(status="unavailable"), 404
+            try:
+                fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                try:
+                    info = os.fstat(fd)
+                    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
+                        raise ValueError("unsafe token file")
+                    token = os.read(fd, 129).decode("ascii").strip()
+                finally:
+                    os.close(fd)
+                supplied = request.headers.get("Authorization", "")
+                if len(token) < 32 or len(token) > 128 or not hmac.compare_digest(supplied, "Bearer " + token):
+                    return jsonify(status="unauthorized"), 401
+            except (OSError, UnicodeError, ValueError):
+                return jsonify(status="unavailable"), 503
+            if request.remote_addr not in {"127.0.0.1", "::1"}:
+                return jsonify(status="unauthorized"), 403
+            data = request.get_json(silent=True) or {}
+            text = data.get("text") if isinstance(data, dict) else None
+            if not isinstance(text, str) or not text.strip() or len(text) > 4096 or text.lstrip().startswith("!"):
+                return jsonify(status="invalid"), 400
+            author = "private_bridge"
+            if hasattr(self.bot, "has_explicit_web_opt_out") and self.bot.has_explicit_web_opt_out(author):
+                return jsonify(status="opted_out"), 403
+            try:
+                reply = self._run_on_bot_loop(self._handle_web_chat_async(author=author, text=text.strip(), raw_data={}), timeout=185)
+                return jsonify(status="ok", reply=reply)
+            except concurrent.futures.TimeoutError:
+                return jsonify(status="unavailable"), 504
+            except Exception:
+                return jsonify(status="unavailable"), 503
+
         @self.app.get("/api/bbybook")
         def get_bbybook():
             """Get facts database"""
@@ -474,13 +537,11 @@ class WebAdapter(PlatformAdapter):
             with self.request_lock:
                 self.request_counts[endpoint] = self.request_counts.get(endpoint, 0) + 1
 
-        # Start Flask in background thread
-        def run_flask():
-            self.app.run(
-                host="127.0.0.1", port=self.port, debug=False, use_reloader=False
-            )
-
-        self.flask_thread = threading.Thread(target=run_flask, daemon=True)
+        try:
+            self.server = make_server("127.0.0.1", self.port, self.app, threaded=True)
+        except SystemExit as exc:
+            raise OSError(f"Could not bind BabyLLM web API on port {self.port}") from exc
+        self.flask_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.flask_thread.start()
 
         # Start animation loops
@@ -491,7 +552,12 @@ class WebAdapter(PlatformAdapter):
     async def stop(self):
         """Stop Flask server"""
         print("[WebAdapter] Stopping web API...")
-        # Flask thread will stop when main process exits (daemon=True)
+        server = getattr(self, "server", None)
+        if server is not None:
+            await asyncio.to_thread(server.shutdown)
+            server.server_close()
+            self.flask_thread.join()
+            self.server = None
 
     def _init_web_state(self):
         """Initialize web-specific state on bot"""

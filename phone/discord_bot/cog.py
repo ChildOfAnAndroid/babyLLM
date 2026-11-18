@@ -980,7 +980,7 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
             return (True, num_to_award, "SUCCESS")  # Success!
 
     # --*- FACT HELPERS -*--
-    def _generate_response_blocking(self, prompt_text, numTokensToGen):
+    def _generate_response_blocking(self, prompt_text, numTokensToGen, sample_trace=None):
         """
         Synchronous generation method.
         Generates a response based on the received message length, not the full buffer.
@@ -1121,6 +1121,12 @@ class babyBot_DISCORD_COG(commands.Cog, name="BBYCOG"):
                         # Otherwise accept the token
                         genSeqIDs.append(nextTokenID)
                         responseSeqId.append(nextTokenID)
+                        if sample_trace is not None:
+                            scores = self.bot.babyLLM.lastSoftSample
+                            distribution = scores.reshape(-1, scores.shape[-1])[-1].float()
+                            entropy = -(distribution * distribution.clamp_min(1e-8).log()).sum()
+                            probability, uncertainty = torch.stack((distribution[nextTokenID], entropy)).tolist()
+                            sample_trace.append((int(nextTokenID), probability, uncertainty))
 
                         # Stricter stop: break when a speaker tag is formed at line start
                         if len(responseSeqId) >= min_tokens_before_stop:
@@ -1283,7 +1289,7 @@ decode_bpe_whitespace(decoded_generated_text)
         ceiling = max(floor, min(upper, max_budget))
         return random.randint(floor, ceiling)
 
-    async def _generate_response_async(self, prompt_text, numTokensToGen):
+    async def _generate_response_async(self, prompt_text, numTokensToGen, *, sample_trace=None):
         """Asynchronous wrapper that runs generation in an executor to prevent blocking"""
         loop = asyncio.get_running_loop()
         async with self._generation_lock:
@@ -1294,9 +1300,9 @@ decode_bpe_whitespace(decoded_generated_text)
                 def _owned_generation():
                     was_training = model.training
                     try:
-                        return self._generate_response_blocking(
-                            prompt_text, numTokensToGen
-                        )
+                        if sample_trace is None:
+                            return self._generate_response_blocking(prompt_text, numTokensToGen)
+                        return self._generate_response_blocking(prompt_text, numTokensToGen, sample_trace)
                     finally:
                         model.train(was_training)
 
@@ -6589,6 +6595,17 @@ decode_bpe_whitespace(decoded_generated_text)
         author = ctx.author.name.lower()
         babyllm_message = None
 
+        capture = (
+            getattr(ctx, "platform", None) == "twitch"
+            and str(getattr(getattr(ctx, "channel", None), "name", "")).lower() == "babyllm"
+        )
+
+        async def generate(prompt, budget):
+            if not capture:
+                return await self._generate_response_async(prompt, budget)
+            ctx.stream_voice_trace = []
+            return await self._generate_response_async(prompt, budget, sample_trace=ctx.stream_voice_trace)
+
         # --- Asynchronous Generation Call ---
         # The low-level function now returns a tuple: (text, error_message)
 
@@ -6601,7 +6618,7 @@ decode_bpe_whitespace(decoded_generated_text)
             )
             try:
                 async with ctx.typing():
-                    babyllm_text, generation_error = await self._generate_response_async(
+                    babyllm_text, generation_error = await generate(
                         prompt_text, num_tokens_to_gen
                     )
             except discord.errors.DiscordServerError as typing_err:
@@ -6614,7 +6631,7 @@ decode_bpe_whitespace(decoded_generated_text)
                     f"[_generate_and_reply] ctx.typing() failed ({typing_err}); "
                     f"generating without typing indicator."
                 )
-                babyllm_text, generation_error = await self._generate_response_async(
+                babyllm_text, generation_error = await generate(
                     prompt_text, num_tokens_to_gen
                 )
         except Exception as e:
@@ -6664,11 +6681,11 @@ decode_bpe_whitespace(decoded_generated_text)
                     )
                     try:
                         async with ctx.typing():
-                            retry_text, retry_error = await self._generate_response_async(
+                            retry_text, retry_error = await generate(
                                 prompt_text, num_tokens_to_gen
                             )
                     except discord.errors.DiscordServerError:
-                        retry_text, retry_error = await self._generate_response_async(
+                        retry_text, retry_error = await generate(
                             prompt_text, num_tokens_to_gen
                         )
                     if retry_error:

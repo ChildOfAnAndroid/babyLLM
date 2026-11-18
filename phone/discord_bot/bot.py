@@ -32,13 +32,11 @@ import discord
 import pytz
 from discord.ext import commands
 
-import config as config_mod
 from config import *
 from utils.text_rendering import render_token_text
 from secret import *
 from textCleaningTool import *
 from utils.helpers import save_json_if_changed
-from utils.icharis2_ingest import build_pipeline_monthly_entries
 
 from .autonomy import AutonomyPlanner
 from .context import create_platform_command_context
@@ -826,10 +824,9 @@ class BABYBOT_DISCORD(commands.Bot):
         self._health_task = None
         self._ready_hello_sent = False
         self._last_avatar_refresh_at = 0.0
-        self._icharis2_pipeline_task = None
-        self._icharis2_pipeline_last_attempt = 0.0
-        self._icharis2_pipeline_ready = False
         self.training_queue = asyncio.Queue()
+        self._training_stopping = False
+        self._training_in_progress = False
         self._refresh_brain_randoms()
         self._load_baby_state()
         # preload training buffer
@@ -975,137 +972,6 @@ class BABYBOT_DISCORD(commands.Bot):
             # Keep the loop alive unless we were cancelled intentionally
             if not task.cancelled():
                 self._ensure_random_task()
-
-    def _get_icharis2_pipeline_config(self):
-        try:
-            import CONFIG_trainingData as ctd
-        except Exception:
-            return None
-        if not getattr(ctd, "icharis2_user_text", False):
-            return None
-        if not getattr(ctd, "icharis2_use_pipeline_exports", False):
-            return None
-        if not getattr(ctd, "icharis2_defer_ingest", False):
-            return None
-        return ctd
-
-    def _maybe_refresh_icharis2_pipeline_exports(self, now: float) -> None:
-        ctd = self._get_icharis2_pipeline_config()
-        if ctd is None:
-            return
-        if self._icharis2_pipeline_ready:
-            return
-        if (
-            self._icharis2_pipeline_task is not None
-            and not self._icharis2_pipeline_task.done()
-        ):
-            return
-        idle_for = now - self.lastInteraction
-        if idle_for < self.idleTrainSeconds:
-            return
-        throttle = max(120.0, self.idleTrainSeconds * 2)
-        if (now - self._icharis2_pipeline_last_attempt) < throttle:
-            return
-        self._icharis2_pipeline_last_attempt = now
-        if hasattr(self, "loop"):
-            self._icharis2_pipeline_task = self.loop.create_task(
-                self._refresh_icharis2_pipeline_exports()
-            )
-        else:
-            self._icharis2_pipeline_task = asyncio.create_task(
-                self._refresh_icharis2_pipeline_exports()
-            )
-
-    async def _refresh_icharis2_pipeline_exports(self) -> None:
-        ctd = self._get_icharis2_pipeline_config()
-        if ctd is None:
-            return
-        try:
-            loop = asyncio.get_running_loop()
-            entries = await loop.run_in_executor(
-                None, self._run_icharis2_pipeline_export_sync
-            )
-            if entries:
-                applied = self._apply_icharis2_pipeline_entries(
-                    entries, ctd.icharis2_export_dir
-                )
-                if applied:
-                    self._icharis2_pipeline_ready = True
-                    logger.info(
-                        '[%s] %s', "INGEST",
-                        f"icharis2 pipeline exports loaded: {len(entries)} files",
-                    )
-            else:
-                logger.info(
-                    '[%s] %s', "INGEST", "icharis2 pipeline exports found no usable entries"
-                )
-        except Exception as e:
-            logger.error('[%s] %s', "INGEST", f"icharis2 pipeline export failed: {e}")
-            traceback.print_exc()
-
-    def _run_icharis2_pipeline_export_sync(self):
-        try:
-            import CONFIG_trainingData as ctd
-        except Exception:
-            return []
-        return build_pipeline_monthly_entries(
-            manifest_path=ctd.icharis2_pipeline_manifest_path,
-            export_dir=ctd.icharis2_export_dir,
-            weight=ctd.icharis2_user_text_weight,
-            months_limit=ctd.icharis2_export_months_limit,
-            limit=ctd.icharis2_pipeline_limit,
-        )
-
-    def _apply_icharis2_pipeline_entries(self, entries, export_dir: str | None) -> bool:
-        if not entries:
-            return False
-
-        new_paths = {path for _, path, _ in entries}
-        raw_entries = config_mod.rawDataFilepaths
-        filtered = []
-        export_root = None
-        if export_dir:
-            try:
-                export_root = Path(export_dir).expanduser().resolve()
-            except Exception:
-                export_root = None
-
-        for entry in raw_entries:
-            if len(entry) < 2:
-                continue
-            path = entry[1]
-            if path in new_paths:
-                continue
-            if export_root:
-                try:
-                    Path(path).expanduser().resolve().relative_to(export_root)
-                    continue
-                except Exception:
-                    pass
-            filtered.append(entry)
-
-        raw_entries[:] = entries + filtered
-        training_dict = config_mod.trainingFilePath_dict
-        training_dict[:] = [
-            {
-                "type": ftype,
-                "in": fname,
-                "weight": weight,
-                "out": config_mod.trainingFilePath,
-            }
-            for ftype, fname, weight in raw_entries
-        ]
-        weighted = config_mod.trainingFilePath_dict_weighted
-        weighted[:] = []
-        for entry in training_dict:
-            weight = entry.get("weight", 1)
-            if weight != 0:
-                entry["out"] = "trainingData.txt"
-                weighted.append(entry)
-        config_mod.trainingFileWeightTotal = sum(
-            [entry[2] for entry in raw_entries if len(entry) == 3]
-        )
-        return True
 
     class _VariedRNG:
         def __init__(self, seed: int):
@@ -3575,101 +3441,6 @@ class BABYBOT_DISCORD(commands.Bot):
     # ------------------------------------------------------------------
     # TIME-MATCHED MEMORY — "on this day" echo from previous years
     # ------------------------------------------------------------------
-    _TIME_MEMORY_TIMELINE = Path("/Users/charis/00_Icharis/07_TIMELINE")
-    _TIME_MEMORY_CATEGORIES = {"discord", "apple_notes", "email", "ios_messages"}
-
-    def _tm_build_daily_cache(self) -> None:
-        """Scan TIMELINE for _SENT.md files whose month-day matches today
-        across all previous years.  Stores a dict keyed by HH:MM -> list of
-        (filepath, year) so the idle loop can do instant lookups."""
-        now = get_bby_now()
-        today_md = f"{now.month:02d}-{now.day:02d}"
-        cache: dict[str, list[tuple[Path, int]]] = {}
-
-        for year_dir in sorted(self._TIME_MEMORY_TIMELINE.iterdir()):
-            if not year_dir.is_dir():
-                continue
-            try:
-                year_int = int(year_dir.name)
-            except ValueError:
-                continue
-            if year_int >= now.year:
-                continue  # only past years
-
-            # YYYY/YYYY-MM/YYYY-MM-DD/
-            month_dir = year_dir / f"{year_int}-{today_md[:2]}"
-            if not month_dir.is_dir():
-                continue
-            day_dir = month_dir / f"{year_int}-{today_md}"
-            if not day_dir.is_dir():
-                continue
-
-            for cat_dir in day_dir.iterdir():
-                if not cat_dir.is_dir():
-                    continue
-                if cat_dir.name not in self._TIME_MEMORY_CATEGORIES:
-                    continue
-                for f in cat_dir.iterdir():
-                    if not f.name.endswith("_SENT.md"):
-                        continue
-                    # filename starts with YYYY-MM-DDTHH-MM-SSZ
-                    m = re.match(r"\d{4}-\d{2}-\d{2}T(\d{2})-(\d{2})-\d{2}Z", f.name)
-                    if m:
-                        hhmm = f"{m.group(1)}:{m.group(2)}"
-                        cache.setdefault(hhmm, []).append((f, year_int))
-
-        self._tm_cache = cache
-        self._tm_cache_date = today_md
-        self._tm_injected: set[str] = getattr(self, "_tm_injected", set())
-        # flat list of all matched file paths for corpus injection
-        self._tm_corpus_paths: list[Path] = [
-            fpath for entries in cache.values() for fpath, _ in entries
-        ]
-        total = sum(len(v) for v in cache.values())
-        logger.info(
-            '[%s] %s', "TIME_MEMORY",
-            f"cached {total} SENT entries across {len(cache)} distinct minutes for {today_md}",
-        )
-
-        # write daily schedule as .md for human review
-        self._tm_write_schedule_md(cache, today_md, now.year)
-
-    def _tm_write_schedule_md(self, cache: dict, today_md: str, year: int) -> None:
-        """Write today's time-matched memory schedule to a .md in the TIMELINE."""
-        try:
-            out_dir = self._TIME_MEMORY_TIMELINE / "icharis2" / "time_memory"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            out_path = out_dir / f"time_memory_{year}-{today_md}.md"
-
-            lines = [
-                f"# Time-Matched Memories for {year}-{today_md}",
-                f"*{sum(len(v) for v in cache.values())} entries across {len(cache)} distinct minutes*\n",
-            ]
-
-            for hhmm in sorted(cache.keys()):
-                entries = cache[hhmm]
-                lines.append(f"## {hhmm}")
-                for fpath, src_year in entries:
-                    years_ago = year - src_year
-                    cat = fpath.parent.name
-                    try:
-                        raw = fpath.read_text(encoding="utf-8", errors="replace")
-                        body = self._tm_extract_body(raw)
-                        preview = (
-                            body[:200].replace("\n", " ").strip() if body else "(empty)"
-                        )
-                    except Exception:
-                        preview = "(unreadable)"
-                    lines.append(
-                        f"- **{src_year}** ({years_ago}y ago) `{cat}` — {preview}"
-                    )
-                lines.append("")
-
-            out_path.write_text("\n".join(lines), encoding="utf-8")
-            logger.info('[%s] %s', "TIME_MEMORY", f"wrote schedule: {out_path}")
-        except Exception as e:
-            logger.error('[%s] %s', "TIME_MEMORY", f"failed to write schedule md: {e}")
-
     def _normalise_timeline_participant(self, raw_label: str) -> str:
         label = self._clean_dialogue_label(raw_label)
         if not label:
@@ -3680,146 +3451,22 @@ class BABYBOT_DISCORD(commands.Bot):
 
         return label
 
-    def _tm_extract_body(self, content: str) -> str:
-        """Extract chat text from timeline markdown and preserve speaker identity."""
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            return ""
-        body = parts[2].strip()
-
-        # Preferred path for discord-like markdown exports:
-        # **From:** [[name]]
-        # ### Message
-        # <message>
-        from_match = re.search(r"(?im)^\s*\*\*from:\*\*\s*(.+?)\s*$", body)
-        message_split = re.split(r"(?im)^\s*###\s*message\s*$", body, maxsplit=1)
-        if len(message_split) == 2:
-            message_lines = []
-            for ln in message_split[1].splitlines():
-                stripped = ln.strip()
-                if not stripped:
-                    if message_lines and message_lines[-1] != "":
-                        message_lines.append("")
-                    continue
-                if re.match(
-                    r"(?i)^(?:###\s*)?(reactions?|attachments?)\s*:?\s*$", stripped
-                ):
-                    break
-                if self._is_training_metadata_line(stripped):
-                    continue
-                message_lines.append(stripped)
-            message = "\n".join(message_lines).strip()
-            if message:
-                if from_match:
-                    speaker_raw = from_match.group(1)
-                    if self._is_self_dialogue_label(speaker_raw):
-                        return self._sanitise_training_buffer_text(message)
-                    speaker = self._normalise_timeline_participant(speaker_raw)
-                    return self._sanitise_training_buffer_text(f"{speaker}: {message}")
-                return self._sanitise_training_buffer_text(message)
-
-        # cut ingest warnings section
-        for marker in ("### Ingest warnings", "### ingest warnings"):
-            idx = body.find(marker)
-            if idx != -1:
-                body = body[:idx].strip()
-
-        # Fallback path: keep only body-like lines and unwrap bracketed labels.
-        lines = []
-        current_speaker = None
-        for ln in body.splitlines():
-            stripped = ln.strip()
-            if stripped.startswith("#"):
-                continue  # skip header lines
-            if not stripped:
-                continue
-
-            from_line = re.match(r"(?i)^\s*\*\*from:\*\*\s*(.+?)\s*$", stripped)
-            if from_line:
-                speaker_raw = from_line.group(1)
-                current_speaker = (
-                    None
-                    if self._is_self_dialogue_label(speaker_raw)
-                    else self._normalise_timeline_participant(speaker_raw)
-                )
-                continue
-
-            corr_line = re.match(
-                r"(?i)^\s*correspondent_label\s*:\s*(.+?)\s*$", stripped
-            )
-            if corr_line:
-                speaker_raw = corr_line.group(1)
-                current_speaker = (
-                    None
-                    if self._is_self_dialogue_label(speaker_raw)
-                    else self._normalise_timeline_participant(speaker_raw)
-                )
-                continue
-
-            if re.match(
-                r"(?i)^(?:###\s*)?(reactions?|attachments?)\s*:?\s*$", stripped
-            ):
-                break
-
-            stripped = re.sub(r"\[\[\s*([^\[\]\n]{1,80})\s*\]\]", r"\1", stripped)
-            if self._is_training_metadata_line(stripped):
-                continue
-            if current_speaker:
-                lines.append(f"{current_speaker}: {stripped}")
-            else:
-                lines.append(stripped)
-
-        body = "\n".join(lines).strip()
-        return self._sanitise_training_buffer_text(body)
-
-    async def _tm_check_and_inject(self) -> None:
-        """Called each idle tick.  If current HH:MM matches a cached SENT
-        entry, extract the body and push it to the training buffer."""
-        now = get_bby_now()
-        today_md = f"{now.month:02d}-{now.day:02d}"
-
-        # rebuild cache at midnight / first call / date change
-        if (
-            not hasattr(self, "_tm_cache")
-            or getattr(self, "_tm_cache_date", "") != today_md
-        ):
-            self._tm_build_daily_cache()
-
-        hhmm = f"{now.hour:02d}:{now.minute:02d}"
-        entries = self._tm_cache.get(hhmm, [])
-        if not entries:
+    async def _tm_check_and_inject(self):
+        if not self.librarian or self.training_queue.qsize() >= 15:
             return
-
-        for fpath, year in entries:
-            key = str(fpath)
-            if key in self._tm_injected:
-                continue
-            self._tm_injected.add(key)
-
-            try:
-                raw = fpath.read_text(encoding="utf-8", errors="replace")
-                body = self._tm_extract_body(raw)
-                if not body or len(body) < 20:
-                    continue
-                # clean up for training: collapse whitespace, cap length
-                body = re.sub(r"\n{3,}", "\n\n", body).strip()
-                if len(body) > 5000:
-                    body = body[:5000]
-
-                added = self._training_buffer_add(body, apply_clean=True)
-                if added:
-                    years_ago = now.year - year
-                    logger.info(
-                        '[%s] %s', "TIME_MEMORY",
-                        f"injected {years_ago}y-old memory from {hhmm} ({fpath.parent.name}): {body[:80]}...",
-                    )
-                    # also push to training queue so it trains on it right away
-                    if self.training_queue.qsize() < 15:
-                        await self.training_queue.put(
-                            {"type": "time_memory", "text": body[:10000]}
-                        )
-            except Exception as e:
-                logger.error('[%s] %s', "TIME_MEMORY", f"failed to read {fpath}: {e}")
+        messages = self.librarian.due_icharis2_memories(get_bby_now(), limit=8)
+        if messages:
+            # A short anniversary message still needs enough context for Tutor.
+            context = [
+                self.librarian.prepare_training_message(message)
+                for message in list(self.training_buffer)[-self.N :]
+            ]
+            await self.training_queue.put({
+                "type": "time_memory",
+                "text": context + messages,
+                "prepared": True,
+            })
+            logger.info("[TIME_MEMORY] Queued %d ICHARIS2 anniversary memories", len(messages))
 
     def _similarity_bucket_keys(self, line: str):
         """
@@ -4345,47 +3992,46 @@ class BABYBOT_DISCORD(commands.Bot):
         *,
         max_chars: int = training_context_max_chars,
         include_external: bool = True,
-    ) -> str:
-        """Assemble training context with training buffer as the main source."""
-        parts = []
-        if (
-            include_external
-            and hasattr(self, "training_buffer")
-            and self.training_buffer
-        ):
-            parts.extend(list(self.training_buffer))
-
-        chat_snippet = self._build_chat_training_snippet(
+        as_messages: bool = False,
+    ):
+        """Assemble recent admitted examples and a small live chat sample."""
+        parts = list(self.training_buffer) if include_external else []
+        parts.extend(self._build_chat_training_snippet(
             max_lines=training_chat_mix_max_lines,
             max_chars=min(max_chars, training_chat_mix_max_chars),
-        )
-        if chat_snippet:
-            parts.append(chat_snippet)
-        elif not parts:
-            parts.extend(list(self.buffer)[-max(1, int(training_chat_mix_max_lines)) :])
+            as_messages=True,
+        ))
+        if not parts:
+            parts = list(self.buffer)[-max(1, int(training_chat_mix_max_lines)):]
+        if not as_messages:
+            return "\n".join(parts)[-max_chars:]
+        selected = []
+        remaining = max_chars
+        for message in reversed(parts):
+            if len(message) <= remaining:
+                selected.append(message)
+                remaining -= len(message)
+        return list(reversed(selected))
 
-        context = "\n".join(parts)
-        return context[-max_chars:]
-
-    def _sample_idle_training_corpus_text(
-        self, max_chars: int = training_context_max_chars
-    ) -> str:
-        """Read a small amount of weighted corpus text for idle training off-loop."""
-        if not getattr(self, "librarian", None):
-            return ""
-
-        corpus_text = ""
-        try:
-            sources = self.librarian.sampleTrainingSources(2)
-            for src in sources:
-                chunk = self.librarian.loadTrainingSource(src, max_chars=max_chars)
-                if chunk:
-                    corpus_text = (corpus_text + "\n" + chunk).strip()
-                    if len(corpus_text) >= max_chars:
-                        break
-        except Exception:
-            return ""
-        return corpus_text[:max_chars]
+    async def _select_idle_training_item(self):
+        if self.librarian is not None:
+            use_corpus = pyrandom.random() < 0.5
+            if use_corpus or self.librarian.has_fresh_icharis2_training(max_chars=training_context_max_chars):
+                if not getattr(self, "_last_idle_corpus_was_icharis2", False):
+                    messages = self.librarian.sample_icharis2_training(
+                        max_chars=training_context_max_chars
+                    )
+                    if messages:
+                        self._last_idle_corpus_was_icharis2 = True
+                        return {"type": "icharis2", "text": messages, "prepared": True}
+                self._last_idle_corpus_was_icharis2 = False
+                archive = await asyncio.to_thread(
+                    self.librarian.sample_archive_training_text,
+                    max_chars=training_context_max_chars,
+                )
+                if archive:
+                    return {"type": "context", "text": archive}
+        return {"type": "context", "text": self.build_training_context(as_messages=True)}
 
     def _log_slow_idle_step(
         self, label: str, elapsed: float, *, threshold: float = 1.0
@@ -7230,20 +6876,38 @@ class BABYBOT_DISCORD(commands.Bot):
 
     async def background_training_loop(self):
         print("\n\nTraining worker started!\n\n")
-        while True:
+        while not self._training_stopping:
+            queue = self.training_queue
+            item = await queue.get()
             try:
-                item = await self.training_queue.get()
-                try:
-                    await self._train_on_item(item)
-                except Exception as e:
-                    print(
-                        f"exception in background training worker: {e}\n{traceback.format_exc()}"
-                    )
-                finally:
-                    self.training_queue.task_done()
+                self._training_in_progress = True
+                await self._train_on_item(item)
             except Exception as e:
-                print(f"exception getting from training queue: {e}")
+                print(
+                    f"exception in background training worker: {e}\n{traceback.format_exc()}"
+                )
+            finally:
+                self._training_in_progress = False
+                queue.task_done()
             await asyncio.sleep(0.05)
+
+    async def finish_training(self):
+        """Stop taking lessons and let the active batch reach its commit point."""
+        self._training_stopping = True
+        worker = self.training_worker
+        active = self._training_in_progress
+        if worker is not None and not active:
+            worker.cancel()
+        if self.idle_task is not None:
+            self.idle_task.cancel()
+            await asyncio.gather(self.idle_task, return_exceptions=True)
+        if worker is not None:
+            print(f"[SHUTDOWN] Waiting for training worker (active={active})")
+            if active:
+                await worker
+            else:
+                await asyncio.gather(worker, return_exceptions=True)
+        print("[SHUTDOWN] Training worker stopped")
 
     async def randoms_tick_loop(self):
         """
@@ -7505,78 +7169,8 @@ class BABYBOT_DISCORD(commands.Bot):
             # Sleep for 3 hours between decay cycles
             await asyncio.sleep(10690)  # 3 hours in seconds
 
-    def _tokenize_training_text(self, text):
-        """Preserve message boundaries independently of internal newlines.
-
-        A list/tuple is an explicit sequence of messages, each closed with one
-        reserved EOS when enabled. A raw string is one unstructured sample:
-        it may get one EOS at its end, but never at each paragraph newline.
-        """
-        explicit_messages = isinstance(text, (list, tuple))
-        messages = text if explicit_messages else [text]
-        if not messages:
-            return []
-
-        eos_available = bool(
-            enable_train_append_eos
-            and eos_replacement_token_str
-            and eos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {})
-        )
-        sos_available = bool(
-            enable_train_prepend_sos
-            and sos_replacement_token_str
-            and sos_replacement_token_str in getattr(self.librarian, "tokenToIndex", {})
-        )
-        context_eos_probability = max(
-            0.0, min(1.0, float(eos_append_probability))
-        )
-        sos_probability = max(0.0, min(1.0, float(sos_prepend_probability)))
-        newline_tokens = (
-            self.librarian.tokenizeText("\n")
-            if explicit_messages and not eos_available
-            else []
-        )
-        tokens = []
-        messages_kept = 0
-        eos_count = 0
-
-        for raw_message in messages:
-            message = str(raw_message or "").replace("\r\n", "\n").replace("\r", "\n")
-            cleaned = to_british_english(clean_text(message))
-            try:
-                cleaned = strip_artifact_lines(cleaned)
-            except Exception:
-                pass
-            if not cleaned or not cleaned.strip():
-                continue
-
-            # Every known chat message closes at EOS. Corpus strings have no
-            # known internal boundaries, so the old probability only applies
-            # once to the complete sample, not to its newline-delimited lines.
-            append_eos = eos_available and (
-                explicit_messages or random.random() < context_eos_probability
-            )
-            message_tokens = self.librarian.tokenize_training_message(
-                cleaned, append_eos=append_eos
-            )
-            if not message_tokens:
-                continue
-            if sos_available and random.random() < sos_probability:
-                message_tokens.insert(0, sos_replacement_token_str)
-
-            if messages_kept and newline_tokens:
-                tokens.extend(newline_tokens)
-            tokens.extend(message_tokens)
-            messages_kept += 1
-            if append_eos:
-                eos_count += 1
-
-        if eos_count:
-            print(
-                f"[EOS][TRAIN] appended <EOS> on {eos_count}/{messages_kept} "
-                f"message(s); internal newlines kept as BPE tokens"
-            )
-        return tokens
+    def _tokenize_training_text(self, text, *, prepared=False):
+        return self.librarian.tokenize_training_text(text, prepared=prepared)
 
     async def _train_on_item(self, item):
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
@@ -7625,13 +7219,15 @@ class BABYBOT_DISCORD(commands.Bot):
                 training_source = "chat"
             tokensToLibrarian = self._tokenize_training_text(messages)
         else:
-            text = chat_text or training_text
+            text = original_text if isinstance(original_text, list) else chat_text or training_text
             if not text:
                 text = self.build_training_context(
-                    max_chars=training_context_max_chars, include_external=True
+                    max_chars=training_context_max_chars, include_external=True, as_messages=True
                 )
             training_source = item_type or "context"
-            tokensToLibrarian = self._tokenize_training_text(text)
+            tokensToLibrarian = self._tokenize_training_text(
+                text, prepared=bool(item.get("prepared"))
+            )
 
         print(f"[TRAINING_SOURCE] {training_source}")
         token_count = len(tokensToLibrarian)
@@ -7654,17 +7250,24 @@ class BABYBOT_DISCORD(commands.Bot):
             _stride=trainingDataStride,
             _tokens=tokensToLibrarian,
         )
+
         def _train_lesson():
             self.babyLLM.train()
             return self.tutor.trainModel(
-                _trainingDataPairs=trainingDataPairs, _epochs=1, _startIndex=1
+                _trainingDataPairs=trainingDataPairs,
+                _epochs=1,
+                _startIndex=1,
+                stop_after_batch=lambda: self._training_stopping,
             )
 
-        await self.loop.run_in_executor(
+        completed = await self.loop.run_in_executor(
             None,
             self.babyLLM.run_on_mps_owner,
             _train_lesson,
         )
+        if completed is False:
+            print("[SHUTDOWN] Training yielded at a batch boundary")
+            return
 
         # If we trained from the training buffer, drop the oldest entry
         try:
@@ -7681,12 +7284,13 @@ class BABYBOT_DISCORD(commands.Bot):
     async def idleTrainChecker(self):
         old_bestie = self.current_bestie
         old_rival = self.current_rival
-        while trainDuringChat:
+        while trainDuringChat and not self._training_stopping:
             await asyncio.sleep(self.idleTrainSeconds)
             now = time.time()
             # Apply brain influence to randoms here too
             self._refresh_brain_randoms()
-            self._maybe_refresh_icharis2_pipeline_exports(now)
+            if self.librarian is not None:
+                await asyncio.to_thread(self.librarian.refresh_icharis2_training)
 
             # --- TIME-MATCHED MEMORY: inject "on this day" echoes ---
             try:
@@ -7881,34 +7485,9 @@ class BABYBOT_DISCORD(commands.Bot):
                         )
 
                     if self.training_queue.qsize() < 10:
-                        # Prefer cleaned training context with only a small recent chat snippet.
-                        aug_context = self.build_training_context(
-                            max_chars=training_context_max_chars, include_external=True
-                        )
-                        # Sample fresh text from weighted corpus sources via autonomy planner
-                        corpus_text = ""
-                        if hasattr(self, "autonomy") and self.autonomy:
-                            try:
-                                corpus_started = time.perf_counter()
-                                corpus_text = await asyncio.to_thread(
-                                    self._sample_idle_training_corpus_text,
-                                    training_context_max_chars,
-                                )
-                                self._log_slow_idle_step(
-                                    "idle_corpus_load",
-                                    time.perf_counter() - corpus_started,
-                                )
-                            except Exception:
-                                pass
-                        fullContext = pyrandom.choice(
-                            [aug_context, corpus_text or aug_context]
-                        )
-                        await self.training_queue.put(
-                            {
-                                "type": "context",
-                                "text": fullContext[:training_context_max_chars],
-                            }
-                        )
+                        item = await self._select_idle_training_item()
+                        if item["text"]:
+                            await self.training_queue.put(item)
 
                 # opportunistic, stats-guided autonomous micro‑training
                 if hasattr(self, "autonomy") and self.autonomy:
@@ -8159,14 +7738,22 @@ class BABYBOT_DISCORD(commands.Bot):
             print(f"[PlatformIntegration] No adapter for platform: {platform}")
             return
 
+        quiet_stream = platform == "twitch" and adapter.is_baby_stream_channel(
+            platform_ctx.message.channel_id
+        )
+
         # Check if command is allowed on this platform
         if not adapter.is_command_allowed(command_name):
+            if quiet_stream:
+                return
             await platform_ctx.reply(
                 f"sorry! !{command_name} is too complex for {platform}. try it on discord! :)"
             )
             return
 
         if not self.cog:
+            if quiet_stream:
+                return
             await platform_ctx.reply("oops! command system is not ready yet")
             return
 
@@ -8175,6 +7762,8 @@ class BABYBOT_DISCORD(commands.Bot):
                 command_name, platform
             )
             if callback is None:
+                if quiet_stream:
+                    return
                 await platform_ctx.reply(
                     f"sorry! !{command_name} isn't available right now"
                 )
@@ -8194,10 +7783,17 @@ class BABYBOT_DISCORD(commands.Bot):
                     else:
                         message_content_for_ctx = "!babyllm $skunkllm"
                 reply_budget = {"sent": 0, "notice_sent": False}
+                generated_only = quiet_stream and resolved_name in {"babyllm", "tts"}
+                silent_reply = quiet_stream and resolved_name == "bbycolour"
 
                 async def twitch_reply_sink(content="", embed=None, **kwargs):
+                    if generated_only:
+                        return
+
                     async def _send_twitch_text(text: str):
-                        if not text:
+                        if not text or silent_reply:
+                            return
+                        if quiet_stream and reply_budget["sent"] >= 1:
                             return
                         text = to_british_english(text)
                         # Keep Twitch responses concise: long command dumps should move to Discord.
@@ -8258,9 +7854,17 @@ class BABYBOT_DISCORD(commands.Bot):
                 positional_args, keyword_args = self._parse_command_arguments(
                     callback, arg_text
                 )
-                await self._invoke_platform_callback(
+                result = await self._invoke_platform_callback(
                     callback, fake_ctx, positional_args, keyword_args
                 )
+                if generated_only and isinstance(result, tuple) and len(result) == 2 and result[0] is not None:
+                    generated_text = result[1]
+                    if isinstance(generated_text, str) and generated_text.strip():
+                        await adapter._send_to_channel(
+                            platform_ctx.message.channel_id, generated_text,
+                            reply_to_message_id=message_id, generated=True,
+                            sample_trace=getattr(fake_ctx, "stream_voice_trace", ()),
+                        )
             else:
                 # Keep Discord path straightforward.
                 if inspect.ismethod(callback):
@@ -8273,7 +7877,8 @@ class BABYBOT_DISCORD(commands.Bot):
             import traceback
 
             traceback.print_exc()
-            await platform_ctx.reply(f"oops! something broke: {str(e)[:100]}")
+            if not quiet_stream:
+                await platform_ctx.reply(f"oops! something broke: {str(e)[:100]}")
 
     def _resolve_platform_command(self, command_name: str, platform: str):
         """Resolve a platform command to an executable callback."""
@@ -8374,9 +7979,8 @@ class BABYBOT_DISCORD(commands.Bot):
         self, callback, fake_ctx, positional_args, keyword_args
     ):
         if inspect.ismethod(callback):
-            await callback(fake_ctx, *positional_args, **keyword_args)
-            return
-        await callback(self.cog, fake_ctx, *positional_args, **keyword_args)
+            return await callback(fake_ctx, *positional_args, **keyword_args)
+        return await callback(self.cog, fake_ctx, *positional_args, **keyword_args)
 
     async def platform_send_message(self, platform: str, channel_id: str, content: str):
         """Send message to a specific platform"""

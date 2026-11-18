@@ -8,7 +8,9 @@ import json
 import os
 import re
 import time
+from collections import deque
 from datetime import datetime
+from difflib import SequenceMatcher
 
 import aiohttp
 from twitchio import eventsub
@@ -89,6 +91,14 @@ def _colourise_twitch_command_log(message: str) -> str:
     if os.getenv("NO_COLOR"):
         return message
     return f"{ANSI_TWITCH_PURPLE}{message}{ANSI_RESET}"
+
+
+BABY_STREAM_CHANNEL = "babyllm"
+BABY_STREAM_ANIMATIONS = {
+    "!bbyjump": "jump",
+    "!bbyblush": "blush",
+    "!bbycry": "cry",
+}
 
 
 # Twitch command whitelist - only simple, short commands
@@ -371,6 +381,11 @@ class TwitchBot(twitch_commands.Bot):
             f"[TwitchBot] RAID! {raider_name} brought {viewer_count} viewers to {channel_name}!"
         )
 
+        if self.platform_adapter.is_baby_stream_channel(channel_name):
+            self.platform_adapter.handle_stream_animation("!bbyjump")
+            await self.platform_adapter.notify_raid(raider_name, viewer_count, channel_name)
+            return
+
         # Generate AI shoutout for the raider
         try:
             from ..context import create_platform_command_context
@@ -433,22 +448,21 @@ class TwitchBot(twitch_commands.Bot):
 
     async def event_message(self, message):
         """Handle incoming Twitch messages"""
-        # CRITICAL DEBUG: Confirm this fires
-        print("[Twitch] EVENT_MESSAGE FIRED")
-
         author_obj = getattr(message, "author", None) or getattr(
             message, "chatter", None
         )
         if author_obj is None:
             return
 
-        if str(getattr(author_obj, "id", "")) == str(self.bot_id):
-            return
-
-        if getattr(message, "source_broadcaster", None) is not None:
+        broadcaster = getattr(message, "broadcaster", None)
+        source = getattr(message, "source_broadcaster", None)
+        if source is not None and str(source.id) != str(getattr(broadcaster, "id", "")):
             return
 
         tags = getattr(message, "tags", {}) or {}
+        colour = getattr(getattr(message, "colour", None), "html", None) or tags.get("color")
+        if not isinstance(colour, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", colour) is None:
+            colour = None
         content = (
             getattr(message, "content", None) or getattr(message, "text", None) or ""
         ).strip()
@@ -475,20 +489,34 @@ class TwitchBot(twitch_commands.Bot):
             or "unknown"
         )
 
-        # Debug: Log all incoming messages
-        print(f"[Twitch] Message from {author_id}: {content}")
-
-        # Extra guard: ignore any echo/self-identity messages even if Twitch ID checks miss.
-        if hasattr(
-            self.platform_adapter.bot, "is_bot_identity"
-        ) and self.platform_adapter.bot.is_bot_identity(author_id):
+        baby_stream = self.platform_adapter.is_baby_stream_channel(channel_name)
+        if baby_stream:
+            self.platform_adapter.record_stream_stage("received")
+            if self.platform_adapter.handle_stream_animation(content):
+                return
+        from_broadcaster = str(getattr(author_obj, "id", "")) == str(self.bot_id)
+        if from_broadcaster:
+            # Baby's output is always threaded in this room. Accept an
+            # operator's top-level chat from the shared broadcaster account.
+            if not baby_stream or getattr(message, "reply", None) is not None:
+                return
+            command = content.casefold().split(maxsplit=1)
+            if command and command[0].startswith("!"):
+                if command[0] in {"!bbycolour", "!bbycolor", "!bby", "!babyllm", "!bbyllm"}:
+                    await self.process_commands(message)
+                return
+        elif hasattr(self.platform_adapter.bot, "is_bot_identity") and (
+            self.platform_adapter.bot.is_bot_identity(author_id)
+        ):
             return
 
         # Track chat intensity for web emotions (OK for all messages - just counting)
         self.platform_adapter.track_message(content)
 
         # Check if message is a command or mention
-        is_command = content.strip().startswith("!")
+        is_command = content.startswith("!")
+        if baby_stream and content and not is_command and colour is not None:
+            self.platform_adapter.apply_stream_colour(colour)
         # TwitchIO v3+ uses self.user.name instead of self.nick
         bot_name = (
             self.user.name.lower() if hasattr(self, "user") and self.user else "babyllm"
@@ -534,44 +562,24 @@ class TwitchBot(twitch_commands.Bot):
             }
         else:
             mem["display_name"] = author_display
-            mem["colour"] = tags.get("color", mem.get("colour", "#007bff"))
+            if colour is not None and not from_broadcaster:
+                mem["colour"] = colour
             mem["last_seen"] = time.time()
 
         # Check if user is opted in
         is_opted_in = author_id in self.platform_adapter.bot.AIoptInUsers
 
-        # PRIVACY POLICY FOR TWITCH:
-        # - Commands: ALWAYS RECORDED (opted in or not)
-        # - @mentions from non-opted: "gotta opt in first!" response (NOT recorded)
-        # - @mentions from opted: RESPONDS + RECORDED
-        # - Regular chat from opted: RECORDED (no response)
-        # - Regular chat from non-opted: IGNORED (not recorded)
-
-        should_record = False
-        should_generate_response = False
-
-        if is_command:
-            # Commands are ALWAYS recorded (even non-opted users)
-            # Commands handled by TwitchIO decorators, so don't generate additional response
-            should_record = True
-            should_generate_response = False
-        elif is_mention and not is_opted_in:
-            # Non-opted user @mention: Tell them to opt in (NOT recorded)
+        # Generation in Baby's room uses the current turn. Retention still
+        # follows the existing opt-in rule for ordinary chat.
+        should_record = is_command or is_opted_in
+        should_generate_response = bool(content) and not is_command and (
+            baby_stream or (is_mention and is_opted_in)
+        )
+        if is_mention and not is_opted_in and not baby_stream and not is_command:
             await self.platform_adapter.send_message(
                 channel_name,
                 f"@{author_id} hey! gotta opt in first with !bbyoptin if you want me to chat! commands still work tho ʕ·ᴥ·ʔ",
             )
-            return
-        elif is_mention and is_opted_in:
-            # Opted user @mention (not a command): RECORD + RESPOND
-            should_record = True
-            should_generate_response = True
-        elif is_opted_in:
-            # Regular chat from opted user: RECORDED (no response)
-            should_record = True
-            should_generate_response = False
-        else:
-            # Regular chat from non-opted user: IGNORED
             return
 
         if should_record:
@@ -586,7 +594,7 @@ class TwitchBot(twitch_commands.Bot):
                 if hasattr(message, "timestamp")
                 else time.time(),
                 raw_message=message,
-                author_colour=tags.get("color"),
+                author_colour=colour,
                 is_bot=False,
                 is_mod=self._is_moderator_user(author_obj),
             )
@@ -608,6 +616,8 @@ class TwitchBot(twitch_commands.Bot):
             )
 
             async def mention_reply_sink(content="", embed=None, **kwargs):
+                if baby_stream:
+                    return
                 if embed is not None:
                     text = str(
                         getattr(embed, "description", "")
@@ -654,10 +664,26 @@ class TwitchBot(twitch_commands.Bot):
             # Generate response
             if hasattr(self.platform_adapter.bot, "cog"):
                 try:
-                    # Use babyllm command to generate response
-                    await self.platform_adapter.bot.cog.babyllm_command(fake_ctx)
+                    if baby_stream:
+                        self.platform_adapter.record_stream_stage("generation_requested")
+                    result = await self.platform_adapter.bot.cog._babyllm_chat_command(fake_ctx)
+                    if baby_stream:
+                        self.platform_adapter.record_stream_stage(
+                            "generation_returned" if isinstance(result, tuple) and result[0] is not None
+                            else "generation_without_output"
+                        )
+                    if baby_stream and isinstance(result, tuple) and len(result) == 2:
+                        generated_message, generated_text = result
+                        if generated_message is not None and isinstance(generated_text, str) and generated_text.strip():
+                            await self.platform_adapter._send_to_channel(
+                                channel_name, generated_text, reply_to_message_id=reply_to_id or None,
+                                generated=True, sample_trace=getattr(fake_ctx, "stream_voice_trace", ()),
+                            )
                 except Exception as e:
                     print(f"[Twitch] Error generating @mention response: {e}")
+                    if baby_stream:
+                        self.platform_adapter.record_stream_stage("reply_error", type(e).__name__)
+                        return
                     reply_to_id = str(
                         getattr(message, "id", None)
                         or getattr(message, "message_id", None)
@@ -787,6 +813,10 @@ class TwitchAdapter(PlatformAdapter):
         self.recent_messages = []  # Timestamps of recent messages
         self.recent_hugs = []  # Track !bbyhug usage
         self.intensity_update_task = None
+        self._stream_animation_until = 0.0
+        self.stream_generated_ids = deque(maxlen=32)
+        self.stream_voice = deque(maxlen=8)
+        self.stream_reply_stages = deque(maxlen=24)
 
         # Runtime auth (supports refresh-token rotation and persistence)
         self._runtime_access_token = self._normalise_access_token(
@@ -1830,6 +1860,30 @@ class TwitchAdapter(PlatformAdapter):
         )
         return False, "Error saving channel list"
 
+    def record_stream_stage(self, stage: str, error: str | None = None):
+        self.stream_reply_stages.append({"stage": stage, "at": time.time(), "error": error})
+
+    def apply_stream_colour(self, colour: str) -> None:
+        tutor = getattr(self.bot, "tutor", None)
+        if tutor is not None:
+            tutor.set_stream_colour(tuple(int(colour[offset:offset + 2], 16) for offset in (1, 3, 5)))
+
+    def is_baby_stream_channel(self, channel: str) -> bool:
+        return self._normalize_channel_name(channel) == BABY_STREAM_CHANNEL
+
+    def handle_stream_animation(self, content: str) -> bool:
+        """Consume exact visual commands in Baby's room without a chat reply."""
+        animation = BABY_STREAM_ANIMATIONS.get(content.casefold())
+        if animation is None:
+            return False
+        now = time.monotonic()
+        web = getattr(self.bot, "platforms", {}).get("web")
+        if web is not None and now >= self._stream_animation_until:
+            duration = 3.0
+            if web.trigger_animation(animation, duration=duration):
+                self._stream_animation_until = now + duration
+        return True
+
     async def send_message(self, channel_id: str, content: str):
         """Send a message to Twitch channel (queued for rate limiting)"""
         await self.message_queue.put(("send", channel_id, content[:499]))
@@ -1868,26 +1922,62 @@ class TwitchAdapter(PlatformAdapter):
             print(f"[TwitchAdapter] Could not resolve Twitch channel login: {login}")
             return None
 
-        user = users[0]
-        sender = self.twitch_bot.create_partialuser(user.id, user.login)
+        # TwitchIO 3's User is already a PartialUser with send_message().
+        sender = users[0]
         self._channel_sender_cache[login] = sender
         return sender
 
     async def _send_to_channel(
-        self, channel_name: str, content: str, reply_to_message_id: str | None = None
+        self, channel_name: str, content: str, reply_to_message_id: str | None = None,
+        *, generated: bool = False, sample_trace=(),
     ):
         content = to_british_english(str(content or ""))
         login = self._normalize_channel_name(channel_name)
+        if self.is_baby_stream_channel(login) and (
+            content.lstrip().startswith("!") or (generated and not reply_to_message_id)
+        ):
+            # Never emit a broadcaster command or an unthreaded generated reply.
+            return
         sender = await self._get_channel_sender(channel_name)
         if sender is None:
             return
 
-        if reply_to_message_id:
-            await sender.send_message(
-                content[:499],
-                sender=str(SECRETtwitchBotIdSECRET),
-                reply_to_message_id=str(reply_to_message_id),
+        if reply_to_message_id or generated:
+            bot_id = str(SECRETtwitchBotIdSECRET)
+            receipt = await sender.send_message(
+                content[:499], sender=bot_id, token_for=bot_id,
+                reply_to_message_id=reply_to_message_id,
             )
+            if generated and self.is_baby_stream_channel(login):
+                self.record_stream_stage("published" if receipt.sent else "rejected")
+                if receipt.sent:
+                    self.stream_generated_ids.append(receipt.id)
+                    # Use the rendered reply, preserving musical punctuation and newlines
+                    # that Twitch's chat transport may flatten.
+                    try:
+                        spoken_text = content[:499]
+                        encoding = self.bot.librarian.tokenizer.backend_tokenizer.encode(
+                            spoken_text, add_special_tokens=False
+                        )
+                        token_ids = encoding.ids
+                        confidence = [None] * len(token_ids)
+                        entropy = [None] * len(token_ids)
+                        sampled_ids = [sample[0] for sample in sample_trace]
+                        matching = SequenceMatcher(None, sampled_ids, token_ids, autojunk=False)
+                        for source, target, length in matching.get_matching_blocks():
+                            for offset in range(length):
+                                _, probability, uncertainty = sample_trace[source + offset]
+                                if 0.0 <= probability <= 1.0:
+                                    confidence[target + offset] = probability
+                                if 0.0 <= uncertainty < float("inf"):
+                                    entropy[target + offset] = uncertainty
+                        self.stream_voice.append({
+                            "id": receipt.id, "tokens": token_ids, "text": spoken_text,
+                            "offsets": encoding.offsets, "confidence": confidence,
+                            "entropy": entropy, "at": time.time(),
+                        })
+                    except Exception as exc:
+                        self.record_stream_stage("voice_error", type(exc).__name__)
             return
 
         live_channel = self._live_channel_cache.get(login)
@@ -2032,6 +2122,8 @@ class TwitchAdapter(PlatformAdapter):
 
             # Check if command is allowed
             if not self.is_command_allowed(command_name):
+                if self._normalize_channel_name(channel_name_for_log) == BABY_STREAM_CHANNEL:
+                    return
                 # Prefer threaded reply when available; fall back to plain send.
                 await _reply_or_send(
                     to_british_english(
