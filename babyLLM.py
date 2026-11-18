@@ -122,6 +122,8 @@ class MPSWorkOwner:
     def close(self) -> None:
         if self.active:
             self._queue.put(None)
+            self._thread.join()
+            self._active = False
 
     def _execute(self, work: _MPSWork) -> None:
         if work.future.set_running_or_notify_cancel():
@@ -411,7 +413,7 @@ class BABYLLM(nn.Module):
         #
         # Rolling chronology enters through the EXISTING character language,
         # tangles with EXISTING position, compresses through a shared 512-D
-        # dialect, then fans into individually gated existing neurons.
+        # dialect, then modulates the interneuron state before the second attention.
         self.ar_width = 512
 
         self.ar_throat = nn.Linear(
@@ -447,8 +449,7 @@ class BABYLLM(nn.Module):
 
         self._ar_braid_last = None
         self._ar_raw_last = None
-        self._ar_applied_last = None
-        self._ar_noise_gain_last = None
+        self._ar_gated_neurons_last = None
         # === END AR TEMPORAL TANGLE =====================================
 
         """self.transformer_block = nn.TransformerEncoderLayer(
@@ -579,6 +580,54 @@ class BABYLLM(nn.Module):
             total = math.sqrt(sum(n * n for n in norms.values()))
             return {"norms": norms, "maxima": maxima, "snapshot": snapshot,
                     "total": total if math.isfinite(total) else float("inf")}
+
+    def _report_gradient_groups(self, telemetry):
+        control_names = (
+            "logLR", "logGradClip", "scheduledSamplingRate", "temperature",
+            "repetitionPenalty", "logMemoryLength", "logMemory2Length",
+            "logRepetitionWindow", "sensory_scale", "sensory_bias", "temp_scale",
+            "temp_bias", "logWindowSizes", "windowFractionality", "cerebellum",
+        )
+        parameters = {}
+        grad_squared = {}
+        for name, parameter in self.named_parameters():
+            if name.startswith("ar_"):
+                group = "AR temporal tangle"
+            elif parameter.numel() == 1 or any(key in name for key in control_names):
+                group = "scalar/control"
+            elif name.startswith(("interneuronNetwork.neurons.", "interneuronNetwork.refinement2.")):
+                group = ".".join(name.split(".", 2)[:2])
+            elif name.startswith("interneuronNetwork."):
+                group = "interneuronNetwork.window/cerebellum"
+            else:
+                group = name.partition(".")[0]
+            parameters.setdefault(group, []).append(parameter)
+            if name in telemetry["norms"]:
+                grad_squared[group] = grad_squared.get(group, 0.0) + telemetry["norms"][name] ** 2
+
+        ranked = sorted(grad_squared, key=grad_squared.get, reverse=True)[:20]
+        total = telemetry["total"]
+        self.gradient_leaderboard = []
+        for group in ranked:
+            norm = math.sqrt(grad_squared[group])
+            share = norm / total * 100.0 if total else 0.0
+            self.gradient_leaderboard.append((group, norm, share))
+        return {group: parameters[group] for group in ranked}
+
+    @staticmethod
+    @torch.no_grad()
+    def _measure_weight_movement(snapshot):
+        """Measure each group's L2 update against its L2 size before the step."""
+        movement = {}
+        for group, parameters in snapshot.items():
+            norms = []
+            for parameter, before in parameters:
+                size = before.norm()
+                before.sub_(parameter.detach().cpu())
+                norms.append(torch.stack((size, before.norm())))
+            size, change = torch.stack(norms).norm(dim=0).tolist()
+            movement[group] = change / size if size else None
+        return movement
 
     def _gradient_report_due(self):
         """Detailed reports use optimizer-step cadence, independent of token turns."""
@@ -789,6 +838,49 @@ class BABYLLM(nn.Module):
         ).clamp(min=1.0)
         return self.char_projector(char_vectors)
 
+    def _ar_neuron_modulation(
+        self, rolling_seq, char_embed, pos_embed, char_scale, sensory
+    ):
+        self._ar_braid_last = None
+        self._ar_raw_last = None
+        self._ar_gated_neurons_last = None
+        if rolling_seq is None:
+            # Generation already rolls its ordinary context.
+            rolling_char = char_embed
+        else:
+            # Tutor advances this buffer before chunk backward. Save its indices.
+            rolling_ids = torch.as_tensor(
+                rolling_seq, device=char_embed.device, dtype=torch.long
+            ).flatten().clone()
+            if rolling_ids.numel() == 0:
+                return 0.0
+            rolling_char = self._encode_char_tokens(rolling_ids)
+            if char_scale != 1.0:
+                rolling_char = rolling_char * char_scale
+
+        length = min(rolling_char.shape[0], char_embed.shape[0], pos_embed.shape[0])
+        if not length:
+            return 0.0
+        rolling = rolling_char[-length:]
+        delta = rolling - char_embed[-length:]
+        # Keep the rolling signal and the change signal in separate nonlinear paths.
+        temporal = torch.tanh(self.ar_throat(rolling)) + torch.tanh(
+            self.ar_throat(delta)
+        )
+        position = torch.tanh(self.ar_throat(pos_embed[-length:]))
+        braid = (temporal * position).mean(dim=0, keepdim=True)
+        neurons = self.ar_expand(braid)
+        gated = neurons * torch.sigmoid(self.ar_neuron_gate[0])
+        if sensory is not None:
+            noise = ((sensory[1] - 0.5) * 2.0).clamp(-1.0, 1.0)
+            gated = gated * (1.0 + 0.02 * torch.tanh(self.ar_noise_sensitivity) * noise)
+
+        self._ar_braid_last = braid.detach()
+        self._ar_raw_last = neurons.detach()
+        self._ar_gated_neurons_last = gated.detach()
+        # Each gate changes the gain of its corresponding active neuron.
+        return torch.tanh(gated)
+
     @whocalled
     def forward(
         self,
@@ -909,162 +1001,6 @@ class BABYLLM(nn.Module):
                 if pos_scale != 1.0:
                     posEmbed = posEmbed * pos_scale
 
-                # === AR TEMPORAL TANGLE: rolling CHAR × POSITION ==========
-                self._ar_braid_last = None
-                self._ar_raw_last = None
-                self._ar_applied_last = None
-                self._ar_noise_gain_last = None
-                ar_applied = None
-
-                # During training Tutor supplies an independent rolling
-                # chronology. During normal generation the ordinary context
-                # already rolls, so use that as the temporal source.
-                ar_source_seq = (
-                    _inputSeq
-                    if _arInputSeq is None
-                    else _arInputSeq
-                )
-
-                if ar_source_seq is not None:
-                    if torch.is_tensor(ar_source_seq):
-                        # Tutor mutates its rolling buffer before chunk backward,
-                        # therefore forward owns an immutable index snapshot.
-                        ar_input = (
-                            ar_source_seq.detach()
-                            .to(
-                                device=tokenEmbed.device,
-                                dtype=torch.long,
-                            )
-                            .flatten()
-                            .clone()
-                        )
-                    else:
-                        ar_input = torch.as_tensor(
-                            ar_source_seq,
-                            device=tokenEmbed.device,
-                            dtype=torch.long,
-                        ).flatten().clone()
-
-                    if ar_input.numel() > 0:
-                        rollingChar = self._encode_char_tokens(ar_input)
-
-                        if char_scale != 1.0:
-                            rollingChar = rollingChar * char_scale
-
-                        ar_len = min(
-                            int(rollingChar.shape[0]),
-                            int(charEmbed.shape[0]),
-                            int(posEmbed.shape[0]),
-                        )
-
-                        if ar_len > 0:
-                            rolling_now = rollingChar[-ar_len:]
-                            static_now = charEmbed[-ar_len:]
-                            ar_pos = posEmbed[-ar_len:]
-
-                            # Two views through ONE shared temporal dialect:
-                            #
-                            # 1. rolling chronology itself
-                            # 2. what chronology knows that frozen Baby does not
-                            #
-                            # In live generation #2 naturally becomes ~zero,
-                            # while #1 remains available.
-                            ar_roll_norm = F.layer_norm(
-                                rolling_now,
-                                (rolling_now.shape[-1],),
-                            )
-
-                            ar_delta = rolling_now - static_now
-                            ar_delta_norm = F.layer_norm(
-                                ar_delta,
-                                (ar_delta.shape[-1],),
-                            )
-
-                            ar_pos_norm = F.layer_norm(
-                                ar_pos,
-                                (ar_pos.shape[-1],),
-                            )
-
-                            # SAME 1024→512 throat for all three.
-                            ar_roll_small = self.ar_throat(
-                                ar_roll_norm
-                            )
-                            ar_delta_small = self.ar_throat(
-                                ar_delta_norm
-                            )
-                            ar_pos_small = self.ar_throat(
-                                ar_pos_norm
-                            )
-
-                            # Direct chronology + divergence,
-                            # then positional multiplicative tangle.
-                            ar_temporal_small = torch.tanh(
-                                ar_roll_small + ar_delta_small
-                            )
-
-                            ar_braid = (
-                                ar_temporal_small
-                                * torch.tanh(ar_pos_small)
-                            ).mean(dim=0, keepdim=True)
-
-                            ar_braid = F.layer_norm(
-                                ar_braid,
-                                (self.ar_width,),
-                            )
-
-                            ar_neurons = self.ar_expand(
-                                ar_braid
-                            )
-
-                            ar_gate = torch.sigmoid(
-                                self.ar_neuron_gate[0]
-                            ).unsqueeze(0)
-
-                            # Learn a tiny antisymmetric relationship between
-                            # acoustic change and chronology reliance.
-                            #
-                            # noise_delta 0.5 = recent acoustic baseline.
-                            # Above/below baseline must have opposite effects,
-                            # so this cannot become a one-sided AR power boost.
-                            ar_noise_gain = torch.ones(
-                                (),
-                                device=ar_neurons.device,
-                                dtype=ar_neurons.dtype,
-                            )
-
-                            if sensory_source is not None:
-                                noise_centered = torch.as_tensor(
-                                    sensory_source[1],
-                                    device=ar_neurons.device,
-                                    dtype=ar_neurons.dtype,
-                                )
-                                noise_centered = (
-                                    (noise_centered - 0.5) * 2.0
-                                ).clamp(-1.0, 1.0)
-
-                                ar_noise_gain = (
-                                    1.0
-                                    + 0.02
-                                    * torch.tanh(self.ar_noise_sensitivity)
-                                    * noise_centered
-                                )
-
-                            ar_applied = (
-                                ar_noise_gain
-                                * ar_gate
-                                * ar_neurons
-                            )
-
-                            self._ar_braid_last = ar_braid.detach()
-                            self._ar_raw_last = ar_neurons.detach()
-                            self._ar_applied_last = (
-                                ar_applied.detach()
-                            )
-                            self._ar_noise_gain_last = (
-                                ar_noise_gain.detach()
-                            )
-                # === END AR TEMPORAL TANGLE ================================
-
                 all_blend_weights = torch.cat(
                     [self.inputBlend, self.charBlendWeight], dim=0
                 )
@@ -1133,11 +1069,16 @@ class BABYLLM(nn.Module):
 
                 if True:
                     interneuron_output = self.interneuronNetwork.forward(inputEmbeds)
+                    ar_modulation = self._ar_neuron_modulation(
+                        _arInputSeq, charEmbed, posEmbed, char_scale, sensory_source
+                    )
+                    if enableTangling:
+                        interneuron_output = self.tangling.mix_chronology(
+                            interneuron_output, ar_modulation
+                        )
+                    else:
+                        interneuron_output = interneuron_output * (1.0 + ar_modulation)
                     INNOutput = interneuron_output + self.attention2(interneuron_output)
-
-                    # Extra chronology only; established neuron state survives.
-                    if ar_applied is not None:
-                        INNOutput = INNOutput + ar_applied
 
                     # TANGLING STAGE 2: Refine neurons (10k-dim)
                     if enableTangling:
@@ -1276,7 +1217,7 @@ class BABYLLM(nn.Module):
                                         _ar_gates.max(),
                                         self._ar_braid_last.norm(),
                                         self._ar_raw_last.norm(),
-                                        self._ar_applied_last.norm(),
+                                        self._ar_gated_neurons_last.norm(),
                                     ]
                                 ).tolist()
 
@@ -1284,7 +1225,7 @@ class BABYLLM(nn.Module):
                             self.forwardStats["AR_gate_max"] = _ar_values[1]
                             self.forwardStats["AR_braid_norm"] = _ar_values[2]
                             self.forwardStats["AR_raw_neuron_norm"] = _ar_values[3]
-                            self.forwardStats["AR_applied_neuron_norm"] = _ar_values[4]
+                            self.forwardStats["AR_gated_neuron_norm"] = _ar_values[4]
 
                         self.forwardStats["B_sensory_gate"] = self.sensory_gate_used
                         _fwd_stats = torch.stack(
@@ -1820,6 +1761,9 @@ class BABYLLM(nn.Module):
 
     def _backward_locked(self, _loss, _lossDelta, _run_optimizer=True):
         with self.counsellor.infodump("backward") as ʕっʘ‿ʘʔっ:
+            if _run_optimizer and diagnoseGradientSources:
+                self.gradient_leaderboard = []
+                self.relative_weight_movement = {}
 
             before_stats = {}
             if debugPrints:
@@ -1919,108 +1863,9 @@ class BABYLLM(nn.Module):
                         if hasattr(self.logits.logitNorm, "bias") and self.logits.logitNorm.bias is not None:
                             self.logits.grad_stats["grad_norm_logits.logitNorm.bias"] = _grad_norm_or_zero(self.logits.logitNorm.bias)
 
+            report_parameters = {}
             if diagnoseGradientSources:
-                with torch.no_grad():
-                    groups = {
-                        "embed": [],
-                        "attention": [],
-                        "attention2": [],
-                        "interneuronNetwork.neurons": [],
-                        "interneuronNetwork.refinement2": [],
-                        "interneuronNetwork.window/cerebellum": [],
-                        "memory": [],
-                        "memory2": [],
-                        "scratchpad": [],
-                        "tangling": [],
-                        "logits": [],
-                        "pixelPupil": [],
-                        "sensoryPupil": [],
-                        "sensoryEmbed": [],
-                        "scalar/control": [],
-                        "other": []
-                    }
-
-                    control_param_names = {
-                        "logLR", "logGradClip", "scheduledSamplingRate", "temperature", "repetitionPenalty",
-                        "logMemoryLength", "logMemory2Length", "logRepetitionWindow", "sensory_scale", "sensory_bias",
-                        "temp_scale", "temp_bias", "logWindowSizes", "windowFractionality", "cerebellum",
-                        "windowFractionality_short", "cerebellum_short"
-                    }
-
-                    for name, p in self.named_parameters():
-                        if p.grad is None:
-                            continue
-
-                        group = "other"
-                        if name.startswith("ar_"):
-                            group = "AR temporal tangle"
-                        elif any(k in name for k in control_param_names) or p.numel() == 1:
-                            group = "scalar/control"
-                        elif name.startswith("embed."):
-                            group = "embed"
-                        elif name.startswith("attention2."):
-                            group = "attention2"
-                        elif name.startswith("attention."):
-                            group = "attention"
-                        elif name.startswith("interneuronNetwork.neurons."):
-                            group = "interneuronNetwork.neurons"
-                        elif name.startswith("interneuronNetwork.refinement2."):
-                            group = "interneuronNetwork.refinement2"
-                        elif name.startswith("interneuronNetwork.") and any(x in name for x in ["window", "cerebellum", "Window", "Cerebellum"]):
-                            group = "interneuronNetwork.window/cerebellum"
-                        elif name.startswith("interneuronNetwork."):
-                            if "neurons" in name:
-                                group = "interneuronNetwork.neurons"
-                            elif "refinement2" in name:
-                                group = "interneuronNetwork.refinement2"
-                            else:
-                                group = "interneuronNetwork.window/cerebellum"
-                        elif name.startswith("memory2."):
-                            group = "memory2"
-                        elif name.startswith("memory."):
-                            group = "memory"
-                        elif name.startswith("scratchpad."):
-                            group = "scratchpad"
-                        elif name.startswith("tangling."):
-                            group = "tangling"
-                        elif name.startswith("logits."):
-                            group = "logits"
-                        elif name.startswith("pixelPupil."):
-                            group = "pixelPupil"
-                        elif name.startswith("sensoryPupil."):
-                            group = "sensoryPupil"
-                        elif name.startswith("sensoryEmbed."):
-                            group = "sensoryEmbed"
-                        else:
-                            parts = name.split(".")
-                            if parts:
-                                group = parts[0]
-                            else:
-                                group = "other"
-
-                        if group not in groups:
-                            groups[group] = []
-                        groups[group].append(telemetry["norms"][name])
-
-                    total_sq_norm = 0.0
-                    group_l2_norms = {}
-                    for group_name, grads in groups.items():
-                        if not grads:
-                            continue
-                        sq_sum = 0.0
-                        for g in grads:
-                            sq_sum += g ** 2
-                        total_sq_norm += sq_sum
-                        group_l2_norms[group_name] = sq_sum ** 0.5
-
-                    global_l2_norm = total_sq_norm ** 0.5
-
-                    sorted_groups = sorted(group_l2_norms.items(), key=lambda x: x[1], reverse=True)
-
-                    self.gradient_leaderboard = []
-                    for group_name, norm_val in sorted_groups[:20]:
-                        pct = (norm_val / global_l2_norm * 100.0) if global_l2_norm > 0 else 0.0
-                        self.gradient_leaderboard.append((group_name, float(norm_val), float(pct)))
+                report_parameters = self._report_gradient_groups(telemetry)
 
             # Retain pre-clip values until the final report, after zero_grad.
             grad_snapshot = telemetry["snapshot"]
@@ -2184,6 +2029,14 @@ class BABYLLM(nn.Module):
                 ʕっʘ‿ʘʔっ(
                     "optimizer.step"
                 )
+            # Snapshot on the detailed report cadence. CPU copies leave room
+            # for the optimizer to run on the accelerator.
+            weight_snapshot = {}
+            if report_due:
+                weight_snapshot = {
+                    group: [(p, p.detach().to(device="cpu", copy=True)) for p in parameters]
+                    for group, parameters in report_parameters.items()
+                }
             self.optimizer.step()
             self._cached_tau = None
             self._cached_safe_temp = None
@@ -2241,6 +2094,10 @@ class BABYLLM(nn.Module):
                 self.temperature_scale.clamp_(-10.0, 10.0)
                 self.temperature_bias.clamp_(-10.0, 10.0)
                 self.temperature_vector.clamp_(-10.0, 10.0)
+
+            if weight_snapshot:
+                self.relative_weight_movement = self._measure_weight_movement(weight_snapshot)
+                weight_snapshot.clear()
 
             if collect_grad_stats:
                 grad_total_norm = float(total_grad_norm)
@@ -2675,6 +2532,9 @@ class BABYLLM(nn.Module):
                     "latest_device_temp_c",
                     "sensory_gate_used",
                     "sensory_temp_scale",
+                    "_ar_braid_last",
+                    "_ar_raw_last",
+                    "_ar_gated_neurons_last",
                     "temperature",
                     "last_forward_had_nonfinite",
                 ]
@@ -2823,6 +2683,9 @@ class BABYLLM(nn.Module):
                             "latest_device_temp_c",
                             "sensory_gate_used",
                             "sensory_temp_scale",
+                            "_ar_braid_last",
+                            "_ar_raw_last",
+                            "_ar_gated_neurons_last",
                             "temperature",
                             "last_forward_had_nonfinite",
                             "nonfinite_forward_count",
@@ -2961,16 +2824,7 @@ class BABYLLM(nn.Module):
                     tokenEmbed = self.embed(_tokenIndex=input_seq)
                     seq_len = int(tokenEmbed.shape[0])
 
-                    padded_byte_tensor = F.embedding(input_seq, self.char_lookup_data)
-                    attention_mask = F.embedding(input_seq, self.char_mask_data)
-                    embedded_chars = self.char_embed(padded_byte_tensor)
-                    embedded_chars = embedded_chars * attention_mask.unsqueeze(-1)
-                    summed_vectors = embedded_chars.sum(dim=1)
-                    real_lengths = attention_mask.sum(dim=1, keepdim=True).clamp(
-                        min=1.0
-                    )
-                    char_vector_batch = summed_vectors / real_lengths
-                    charEmbed = self.char_projector(char_vector_batch)
+                    charEmbed = self._encode_char_tokens(input_seq)
                     if char_scale != 1.0:
                         charEmbed = charEmbed * char_scale
 
@@ -3023,8 +2877,15 @@ class BABYLLM(nn.Module):
                         post_embed = attention1Output
 
                     inn_core = self.interneuronNetwork.forward(post_embed)
-                    attention2_add = self.attention2(inn_core)
-                    inn_after_attention2 = inn_core + attention2_add
+                    ar_modulation = self._ar_neuron_modulation(
+                        None, charEmbed, posEmbed, char_scale, sensory_source
+                    )
+                    if enableTangling:
+                        modulated_inn = self.tangling.mix_chronology(inn_core, ar_modulation)
+                    else:
+                        modulated_inn = inn_core * (1.0 + ar_modulation)
+                    attention2_add = self.attention2(modulated_inn)
+                    inn_after_attention2 = modulated_inn + attention2_add
 
                     if enableTangling:
                         tangle_neuron = self.tangling.refine(
@@ -3644,7 +3505,7 @@ class BABYLLM(nn.Module):
                     f"⚠️ [SAVE BLOCKED] {len(nan_params)} NaN/Inf parameter(s) detected — refusing to overwrite checkpoint!"
                 )
                 print(f"   First offenders: {[n for n, _ in nan_params[:5]]}")
-                return
+                return False
             # Also check memory buffers (these are not nn.Parameter so named_parameters() misses them)
             mem_bufs = {
                 "memory.shortTermMemory": self.memory.shortTermMemory,
@@ -3657,7 +3518,7 @@ class BABYLLM(nn.Module):
                 print(
                     f"⚠️ [SAVE BLOCKED] NaN/Inf in memory buffers {nan_bufs} — refusing to overwrite checkpoint!"
                 )
-                return
+                return False
             with open(stepCheckpointFilePath, "w") as f:
                 if debugPrints or True:
                     print(
@@ -3679,7 +3540,11 @@ class BABYLLM(nn.Module):
                     )
                 f.write(str(_totalAvgLoss))
             tmpPath = filePath + ".tmp"
-            torch.save(self.state_dict(), tmpPath)
+            model_state = self.state_dict()
+            tangle_repairs = getattr(self, "_tangle_repair_versions", {})
+            if tangle_repairs:
+                model_state._metadata[""]["tangle_repair_versions"] = tangle_repairs
+            torch.save(model_state, tmpPath)
             print(f"model temp file created at {tmpPath}...")
             # Preserve the deferred optimizer checkpoint until training loads it.
             deferred_optim = getattr(self, "_deferred_optimizer_path", None)
@@ -3695,7 +3560,10 @@ class BABYLLM(nn.Module):
             ):
                 optimPath = filePath + ".optim"
                 tmpOptimPath = optimPath + ".tmp"
-                torch.save(self.optimizer.state_dict(), tmpOptimPath)
+                optimizer_state = self.optimizer.state_dict()
+                if tangle_repairs:
+                    optimizer_state["tangle_repair_versions"] = tangle_repairs
+                torch.save(optimizer_state, tmpOptimPath)
                 print(f"optimizer saved to {optimPath}")
                 os.replace(tmpOptimPath, optimPath)
             elif not _includeOptimizer:
@@ -3715,6 +3583,7 @@ class BABYLLM(nn.Module):
             print(f"Memory buffers temp file created at {tmp_buffers_path}...")
             os.replace(tmp_buffers_path, buffers_path)
             print(f"Memory buffers successfully saved to {buffers_path}!")
+            return True
 
     @whocalled
     def loadModel(
@@ -3757,8 +3626,20 @@ class BABYLLM(nn.Module):
                 self.interneuronNetwork.temperature = self.temperature
                 print(f"loading model from path: {filePath}")
                 state_dict = torch.load(filePath, map_location=self.device)
+                repair_versions = dict(getattr(state_dict, "_metadata", {}).get("", {}).get(
+                    "tangle_repair_versions", {}
+                ))
                 state_dict = self._upgrade_sensory_state_dict(state_dict)
                 self.load_state_dict(state_dict, strict=saveStrict)
+                repaired = self.tangling.repair_collapsed_projections()
+                for stage in repaired:
+                    repair_versions[stage] = repair_versions.get(stage, 0) + 1
+                self._tangle_repair_versions = repair_versions
+                if repaired:
+                    print(
+                        "[MINI TANGLING] Restored independent channels in "
+                        + ", ".join(sorted(repaired))
+                    )
                 # Load optimizer separately. Long-lived inference modes may keep
                 # the large checkpoint off-device until training actually starts.
                 self._deferred_optimizer_path = None
@@ -3986,9 +3867,23 @@ class BABYLLM(nn.Module):
                     "all existing optimizer state preserved."
                 )
 
-            self.optimizer.load_state_dict(
-                loaded_optim_state
-            )
+            # A weight-only save can leave the optimizer from before a repair.
+            saved_repairs = loaded_optim_state.get("tangle_repair_versions", {})
+            reset_stages = [
+                stage
+                for stage, version in getattr(self, "_tangle_repair_versions", {}).items()
+                if saved_repairs.get(stage) != version
+            ]
+            self.optimizer.load_state_dict(loaded_optim_state)
+            for stage in reset_stages:
+                for suffix in ("proj_down.weight", "proj_up.weight", "norm.bias"):
+                    parameter = self.tangling.get_parameter(f"{stage}_{suffix}")
+                    self.optimizer.state.pop(parameter, None)
+            if reset_stages:
+                print(
+                    "[MINI TANGLING] Reset stale optimizer moments for "
+                    + ", ".join(sorted(reset_stages))
+                )
             for state in self.optimizer.state.values():
                 for k, v in state.items():
                     if isinstance(v, torch.Tensor):

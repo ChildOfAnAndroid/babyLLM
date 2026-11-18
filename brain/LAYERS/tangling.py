@@ -136,12 +136,6 @@ class MINI_INN_TANGLING(nn.Module):
         ]
         init_history_buffers(self, self._history_attrs, self.numTokensPerStep)
 
-        # ── Initialise projections very small so initial impact is negligible ──
-        with torch.no_grad():
-            for stage in ("embed", "neuron", "memory"):
-                getattr(self, f"{stage}_proj_down").weight.fill_(1e-4)
-                getattr(self, f"{stage}_proj_up").weight.fill_(1e-4)
-
         if debugPrints:
             print(
                 f"[MINI_INN_TANGLING] init: mn={mn}, mn_large={mn_large}, "
@@ -242,6 +236,37 @@ class MINI_INN_TANGLING(nn.Module):
         return means
 
     # ── Public interface (mirrors TANGLING.refine exactly) ────────────────────
+
+    @torch.no_grad()
+    def repair_collapsed_projections(self):
+        """Revive checkpoint stages that lost most of their independent channels."""
+        repaired = set()
+        generator = torch.Generator(device="cpu").manual_seed(7201)
+        for stage in ("embed", "neuron", "memory"):
+            down = getattr(self, f"{stage}_proj_down")
+            up = getattr(self, f"{stage}_proj_up")
+            width = down.out_features
+            down_channels = torch.unique(down.weight.detach().cpu(), dim=0).shape[0]
+            up_channels = torch.unique(up.weight.detach().cpu().T.contiguous(), dim=0).shape[0]
+            if min(down_channels, up_channels) * 2 >= width:
+                continue
+            for projection in (down, up):
+                bound = 1 / math.sqrt(projection.in_features)
+                weights = torch.empty(projection.weight.shape, dtype=projection.weight.dtype)
+                weights.uniform_(-bound, bound, generator=generator)
+                projection.weight.copy_(weights)
+            # The old input bias pushed the collapsed GELU channels below zero.
+            getattr(self, f"{stage}_norm").bias.zero_()
+            repaired.add(stage)
+        return repaired
+
+    def mix_chronology(self, neurons, modulation):
+        """Mix ordinary activity with the change requested by chronology."""
+        if not torch.is_tensor(modulation):
+            return neurons
+        ordinary = torch.tanh(self.neuron_proj_down(neurons))
+        temporal = torch.tanh(self.neuron_proj_down(neurons * modulation))
+        return neurons + self.neuron_proj_up(ordinary * temporal)
 
     @whocalled
     def refine(self, _input, stage_name="unknown"):

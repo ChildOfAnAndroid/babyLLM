@@ -65,6 +65,13 @@ class FakeLibrarian:
             self,
         )
 
+    def tokenize_training_text(self, messages):
+        return [
+            token
+            for message in messages
+            for token in self.tokenize_training_message(message)
+        ]
+
     def tokenizeText(self, text):
         # A deterministic stand-in for the byte-level BPE newline marker.
         return ["Ċ" if character == "\n" else character for character in text]
@@ -72,22 +79,24 @@ class FakeLibrarian:
 
 def tokenize_bot_messages(text, *, context_eos_probability=1.0):
     librarian = FakeLibrarian()
-    method = method_from_source(
-        "phone/discord_bot/bot.py",
-        "_tokenize_training_text",
-        {
-            "enable_train_append_eos": True,
-            "eos_replacement_token_str": EOS,
-            "eos_append_probability": context_eos_probability,
-            "enable_train_prepend_sos": False,
-            "sos_replacement_token_str": None,
-            "sos_prepend_probability": 1.0,
-            "clean_text": lambda value: value,
-            "to_british_english": lambda value: value,
-            "strip_artifact_lines": lambda value: value,
-            "random": random,
-        },
+    librarian.prepare_training_message = lambda value: value
+    librarian.tokenize_training_text = MethodType(
+        method_from_source(
+            "school/staffroom/librarian.py",
+            "tokenize_training_text",
+            {
+                "enable_train_append_eos": True,
+                "eos_replacement_token_str": EOS,
+                "eos_append_probability": context_eos_probability,
+                "enable_train_prepend_sos": False,
+                "sos_replacement_token_str": None,
+                "sos_prepend_probability": 1.0,
+                "random": random,
+            },
+        ),
+        librarian,
     )
+    method = method_from_source("phone/discord_bot/bot.py", "_tokenize_training_text", {})
     with patch.dict(sys.modules, {"config": fake_config()}):
         with redirect_stdout(io.StringIO()):
             return method(SimpleNamespace(librarian=librarian), text)
@@ -225,9 +234,18 @@ def test_empty_reply_retries_stop_on_success_or_after_ten_retries():
             for target in child.targets
         ) for child in node.body)
     )
+    generate_helper = next(
+        node for node in ast.walk(source)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == 'generate'
+    )
     function = ast.AsyncFunctionDef(
         name='retry', args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
-        body=[ast.parse("babyllm_text = ''").body[0], copy.deepcopy(block), ast.parse('return babyllm_text').body[0]],
+        body=[
+            copy.deepcopy(generate_helper),
+            ast.parse("babyllm_text = ''").body[0],
+            copy.deepcopy(block),
+            ast.parse('return babyllm_text').body[0],
+        ],
         decorator_list=[],
     )
     code = compile(ast.fix_missing_locations(ast.Module(body=[function], type_ignores=[])), '<EOS retries>', 'exec')
@@ -241,7 +259,7 @@ def test_empty_reply_retries_stop_on_success_or_after_ten_retries():
         async def generate(*args):
             calls.append(args)
             return ('hello' if len(calls) == success_at else '', None)
-        scope = dict(babyllm_text='', self=SimpleNamespace(_generate_response_async=generate),
+        scope = dict(capture=False, self=SimpleNamespace(_generate_response_async=generate),
                      ctx=SimpleNamespace(typing=Typing), prompt_text='hello', num_tokens_to_gen=20,
                      discord=SimpleNamespace(errors=SimpleNamespace(DiscordServerError=type('ServerError', (Exception,), {}))))
         exec(code, scope)
