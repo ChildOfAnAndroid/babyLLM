@@ -6717,7 +6717,7 @@ decode_bpe_whitespace(decoded_generated_text)
         try:
             force_tts = bool(getattr(ctx, "force_tts_reply", False))
             babyllm_message = await self.bot._discord_reply(
-                ctx, babyllm_text, tts=force_tts
+                ctx, babyllm_text, to_buffer=True, tts=force_tts
             )
             terminal_baby_text = (
                 self.bot._terminal_render_text(babyllm_text)

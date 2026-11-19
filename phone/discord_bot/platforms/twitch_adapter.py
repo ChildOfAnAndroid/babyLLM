@@ -566,16 +566,36 @@ class TwitchBot(twitch_commands.Bot):
                 mem["colour"] = colour
             mem["last_seen"] = time.time()
 
-        # Check if user is opted in
-        is_opted_in = author_id in self.platform_adapter.bot.AIoptInUsers
-
-        # Generation in Baby's room uses the current turn. Retention still
-        # follows the existing opt-in rule for ordinary chat.
-        should_record = is_command or is_opted_in
-        should_generate_response = bool(content) and not is_command and (
-            baby_stream or (is_mention and is_opted_in)
+        # Check unified consent policy
+        bot = self.platform_adapter.bot
+        has_opted_out = (
+            bot.has_explicit_opt_out(author_id)
+            if hasattr(bot, "has_explicit_opt_out")
+            else (
+                bot.has_explicit_web_opt_out(author_id)
+                if hasattr(bot, "has_explicit_web_opt_out")
+                else bool(mem.get("web_explicit_opt_out", False))
+            )
         )
-        if is_mention and not is_opted_in and not baby_stream and not is_command:
+        is_opted_in = author_id in bot.AIoptInUsers
+
+        can_retain = (
+            bot.can_user_retain(author_id, platform="twitch", is_command=is_command)
+            if hasattr(bot, "can_user_retain")
+            else ((is_command or is_opted_in) and not has_opted_out)
+        )
+        can_respond = (
+            bot.can_user_respond(author_id, platform="twitch", is_mention=is_mention, is_command=is_command)
+            if hasattr(bot, "can_user_respond")
+            else (is_opted_in and not has_opted_out)
+        )
+
+        should_record = can_retain
+        # In Baby's stream room, respond if non-command content present and user hasn't opted out.
+        should_generate_response = bool(content) and not is_command and not has_opted_out and (
+            baby_stream or (is_mention and can_respond)
+        )
+        if is_mention and not can_respond and not baby_stream and not is_command:
             await self.platform_adapter.send_message(
                 channel_name,
                 f"@{author_id} hey! gotta opt in first with !bbyoptin if you want me to chat! commands still work tho ʕ·ᴥ·ʔ",
@@ -1978,6 +1998,12 @@ class TwitchAdapter(PlatformAdapter):
                         })
                     except Exception as exc:
                         self.record_stream_stage("voice_error", type(exc).__name__)
+                # Keep conversation context intact: admit Baby's outgoing reply to the buffer
+                try:
+                    formatted_reply = self.format_message(self.bot.babyName, content[:499])
+                    self.bot._buffer_add(formatted_reply, speaker_hint=self.bot.babyName)
+                except Exception:
+                    pass
             return
 
         live_channel = self._live_channel_cache.get(login)

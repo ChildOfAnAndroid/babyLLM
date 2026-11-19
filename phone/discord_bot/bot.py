@@ -1655,6 +1655,13 @@ class BABYBOT_DISCORD(commands.Bot):
         alpha_chars = sum(1 for char in text_content if char.isalpha())
         alpha_ratio = (alpha_chars / num_chars) if num_chars > 0 else 0.0
 
+        # Conversational usefulness exemption: brief natural responses ("y", "n", "yes", "no", "ok", "cool")
+        # are valid dialogue and shouldn't be penalized by prose length heuristics.
+        if lower_content in {"y", "n", "yes", "no", "ok", "k", "sure", "cool", "nope", "yep", "idk", "why", "what", "true", "false", "thanks", "ty", "np"}:
+            return 0.85
+        if self._is_brief_conversational_line(text_content):
+            return 0.80
+
         word_score = min(1.0, num_words / 12.0)
         char_score = min(1.0, num_chars / 80.0)
         alpha_score = min(1.0, alpha_ratio / 0.7) if num_chars > 0 else 0.0
@@ -1910,12 +1917,10 @@ class BABYBOT_DISCORD(commands.Bot):
             if not normalised:
                 continue
 
-            # Strip duplicate speaker prefix when the same speaker continues
+            # Preserve structured authorship on every turn so context and training
+            # models never lose speaker attribution across consecutive messages.
             final_speaker, final_body = self._split_buffer_speaker_body(normalised)
-            if final_speaker and final_speaker == last_speaker and final_body:
-                normalised = final_body
-                changed = True
-            elif final_speaker:
+            if final_speaker:
                 last_speaker = final_speaker
 
             cleaned_entries.append(normalised)
@@ -2907,22 +2912,25 @@ class BABYBOT_DISCORD(commands.Bot):
         logger.debug('[%s] %s', "BUFFER_ADD", f'added: "{text_to_add[:50]}..."')
         # also mirror a cleaned line into the separate training buffer for augmentation
         try:
-            if mirror_to_training is None:
-                # Keep bot-self voice in training as a tiny trickle to avoid
-                # overwhelming the buffer with self-generated phrasing.
-                bot_self_line = False
-                speaker_match = re.match(r"^\s*([^:\n]{1,64})\s*:\s*(.+)$", text_to_add)
-                if speaker_match:
-                    speaker = str(speaker_match.group(1) or "").strip().lower()
-                    bot_self_line = self.is_bot_identity(speaker)
-                if bot_self_line:
-                    mirror_chance = 0.01
-                else:
-                    low_quality = self._line_quality_score(text_to_add) < 0.65
-                    mirror_chance = 0.35 if low_quality else 1.0
+            bot_self_line = False
+            speaker_match = re.match(r"^\s*([^:\n]{1,64})\s*:\s*(.+)$", text_to_add)
+            if speaker_match:
+                speaker = str(speaker_match.group(1) or "").strip().lower()
+                bot_self_line = self.is_bot_identity(speaker)
+            elif speaker_hint:
+                bot_self_line = self.is_bot_identity(speaker_hint)
+
+            if bot_self_line:
+                # Bot-self output strictly obeys the 1% ceiling across all entry paths
+                # to prevent overwhelming the training buffer with self-generated phrasing.
+                should_mirror = (random.random() < 0.01) if mirror_to_training is not False else False
+            elif mirror_to_training is None:
+                low_quality = self._line_quality_score(text_to_add) < 0.65
+                mirror_chance = 0.35 if low_quality else 1.0
                 should_mirror = random.random() < mirror_chance
             else:
                 should_mirror = bool(mirror_to_training)
+
             if should_mirror:
                 tb_entry = clean_text(text_to_add.lower().strip())
                 self._training_buffer_add(tb_entry)
@@ -3961,6 +3969,11 @@ class BABYBOT_DISCORD(commands.Bot):
         for raw_message in source_messages:
             message = self._normalise_buffer_ingest_text(str(raw_message))
             if message:
+                # Terminal consent check: exclude messages from opted-out users
+                if hasattr(self, "_split_buffer_speaker_body") and hasattr(self, "has_explicit_opt_out"):
+                    speaker, _ = self._split_buffer_speaker_body(message)
+                    if speaker and self.has_explicit_opt_out(speaker):
+                        continue
                 cleaned_messages.append(message)
 
         if not cleaned_messages:
@@ -3994,13 +4007,19 @@ class BABYBOT_DISCORD(commands.Bot):
         include_external: bool = True,
         as_messages: bool = False,
     ):
-        """Assemble recent admitted examples and a small live chat sample."""
+        """Assemble recent admitted examples and a small live chat sample without duplicate exposure."""
         parts = list(self.training_buffer) if include_external else []
-        parts.extend(self._build_chat_training_snippet(
+        chat_snippet = self._build_chat_training_snippet(
             max_lines=training_chat_mix_max_lines,
             max_chars=min(max_chars, training_chat_mix_max_chars),
             as_messages=True,
-        ))
+        )
+        seen_entries = set(parts)
+        for msg in chat_snippet:
+            if msg not in seen_entries:
+                parts.append(msg)
+                seen_entries.add(msg)
+
         if not parts:
             parts = list(self.buffer)[-max(1, int(training_chat_mix_max_lines)):]
         if not as_messages:
@@ -5995,24 +6014,18 @@ class BABYBOT_DISCORD(commands.Bot):
 
         # Only non-bot messages continue from here
 
-        # PRIVACY: Check opt-in status and spam room
-        is_opted_in = author in self.AIoptInUsers
+        # PRIVACY: Unified consent check across retention and response
         is_spam_room = message.channel.id == bby_spam
         is_mention = self.user in message.mentions
+        can_retain = self.can_user_retain(
+            author, platform="discord", is_spam_room=is_spam_room, is_command=is_command
+        )
+        can_respond = self.can_user_respond(
+            author, platform="discord", is_spam_room=is_spam_room, is_mention=is_mention, is_command=is_command
+        )
 
-        # Determine if message should be recorded
-        should_record = False
-        if is_spam_room:
-            # Spam room: everyone's messages are recorded
-            should_record = True
-        elif is_opted_in:
-            # Opted user in normal room: record everything
-            should_record = True
-        elif is_command:
-            # Commands are always recorded (even non-opted users)
-            should_record = True
-        elif is_mention and not is_opted_in:
-            # Non-opted user @mentioned baby: tell them to opt in (DON'T record)
+        if is_mention and not can_respond and not is_command:
+            # Non-opted or opted-out user @mentioned baby: tell them to opt in (DON'T record)
             try:
                 await message.reply(
                     to_british_english(
@@ -6022,10 +6035,9 @@ class BABYBOT_DISCORD(commands.Bot):
             except:
                 pass
             return  # Don't process further
-        # else: non-opted user regular chat in normal room - don't record
 
         # Record message if allowed
-        if should_record:
+        if can_retain:
             if author == self.last_logged_author:
                 message_for_buffer = content
             else:
@@ -7204,8 +7216,10 @@ class BABYBOT_DISCORD(commands.Bot):
                     0.0, min(1.0, float(training_direct_chat_probability))
                 )
             except Exception:
-                direct_chat_probability = 0.10
+                direct_chat_probability = 0.50
 
+            # When a chat interaction was specifically queued, prioritize training on the
+            # conversational pair so queued interactions are reliably learned.
             use_chat_direct = bool(snippet_messages) and (
                 not training_tail or random.random() < direct_chat_probability
             )
@@ -7586,7 +7600,7 @@ class BABYBOT_DISCORD(commands.Bot):
         print("[PlatformIntegration] Multi-platform support initialized")
 
     def has_explicit_web_opt_out(self, author_id: str) -> bool:
-        """Return True only when the user has explicitly opted out on web."""
+        """Return True only when the user has explicitly opted out on web (or globally)."""
         author_key = str(author_id or "").strip().lower()
         if not author_key:
             return False
@@ -7594,6 +7608,62 @@ class BABYBOT_DISCORD(commands.Bot):
         if not isinstance(mem, dict):
             return False
         return bool(mem.get("web_explicit_opt_out", False))
+
+    def has_explicit_opt_out(self, author_id: str) -> bool:
+        """Return True if user has explicitly opted out across platforms."""
+        return self.has_explicit_web_opt_out(author_id)
+
+    def can_user_respond(self, author_id: str, *, platform: str = "discord", is_spam_room: bool = False, is_mention: bool = False, is_command: bool = False) -> bool:
+        """Evaluate consent to interact/generate response."""
+        author_key = str(author_id or "").strip().lower()
+        if not author_key:
+            return False
+        if self.has_explicit_opt_out(author_key):
+            return False
+        if is_command:
+            return True
+        norm_platform = (platform or "discord").strip().lower()
+        if norm_platform == "web":
+            return True
+        is_opted_in = author_key in self.AIoptInUsers
+        if is_opted_in:
+            return True
+        if norm_platform == "twitch":
+            return False
+        if norm_platform == "discord" and is_spam_room:
+            return True
+        return False
+
+    def can_user_retain(self, author_id: str, *, platform: str = "discord", is_spam_room: bool = False, is_command: bool = False) -> bool:
+        """Evaluate consent to store message in chat/short-term buffer."""
+        author_key = str(author_id or "").strip().lower()
+        if not author_key:
+            return False
+        if self.has_explicit_opt_out(author_key):
+            return False
+        if is_command:
+            return True
+        norm_platform = (platform or "discord").strip().lower()
+        if norm_platform == "web":
+            return True
+        is_opted_in = author_key in self.AIoptInUsers
+        if is_opted_in:
+            return True
+        if norm_platform == "discord" and is_spam_room:
+            return True
+        return False
+
+    def can_user_train(self, author_id: str, *, platform: str = "discord") -> bool:
+        """Evaluate consent to admit messages into gradient training."""
+        author_key = str(author_id or "").strip().lower()
+        if not author_key:
+            return False
+        if self.has_explicit_opt_out(author_key):
+            return False
+        norm_platform = (platform or "discord").strip().lower()
+        if norm_platform == "web":
+            return True
+        return author_key in self.AIoptInUsers
 
     async def enable_twitch(self, channels=None):
         """Enable Twitch integration
@@ -7699,26 +7769,17 @@ class BABYBOT_DISCORD(commands.Bot):
         mem["last_seen"] = platform_msg.timestamp
         mem["message_count"] = mem.get("message_count", 0) + 1
 
-        # Add to buffer - privacy checks already done by platform adapters
-        # Web users are TREATED as opted in by default
-        # BUT: If a web user has explicitly opted out (!bbyoptout), respect that
-        is_web_user = platform_msg.platform == "web"
-        is_opted_in = author_id in self.AIoptInUsers
+        # Add to buffer and queue for training using unified consent policy
+        can_retain = self.can_user_retain(author_id, platform=platform_msg.platform)
+        can_train = self.can_user_train(author_id, platform=platform_msg.platform)
 
-        # Explicit opt-out is persisted separately so "never opted in" isn't treated as opt-out.
-        has_explicitly_opted_out = is_web_user and self.has_explicit_web_opt_out(
-            author_id
-        )
-
-        # Web users: treated as opted in UNLESS they've explicitly opted out
-        if is_opted_in or (is_web_user and not has_explicitly_opted_out):
-            # Format message for buffer
+        if can_retain:
             adapter = self.platforms.get(platform_msg.platform)
             if adapter:
                 formatted = adapter.format_message(author_id, platform_msg.content)
                 if self._buffer_add(formatted, speaker_hint=author_id):
-                    # Queue for training
-                    if hasattr(self, "training_queue") and self.training_queue.qsize() < 20:
+                    # Queue for training only if user consented to training
+                    if can_train and hasattr(self, "training_queue") and self.training_queue.qsize() < 20:
                         await self.training_queue.put(
                             {
                                 "type": "chat",

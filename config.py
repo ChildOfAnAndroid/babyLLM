@@ -289,7 +289,9 @@ chat_reply_short_prompt_max_tokens = 72
 
 # Background training should mostly learn from the cleaned training buffer.
 # Live chat is allowed as a small recency signal, not the main corpus.
-training_direct_chat_probability = 0.10
+# Probability of training directly on an interaction when a chat item is popped
+# Raised from 0.10 to 0.50 so queued interactions are reliably trained on.
+training_direct_chat_probability = 0.50
 training_chat_mix_max_lines = 12
 training_chat_mix_max_chars = 1200
 # Keep assembled training context proportional to the rolling buffer instead

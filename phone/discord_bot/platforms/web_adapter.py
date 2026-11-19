@@ -312,6 +312,12 @@ class WebAdapter(PlatformAdapter):
                 voice=list(voice.copy()) if voice is not None else [],
                 attention_norm=stats.get("4A_1_0_attnOut_norm"),
                 attention_gate=stats.get("4A_1_gateScale"),
+                sensory_sample=getattr(getattr(tutor, "sensory_bus", None), "stream_sample", None),
+                stream_learning={
+                    "available": hasattr(self.bot.babyLLM, "stream_feedback"),
+                    "training_active": bool(getattr(self.bot, "_training_in_progress", False)),
+                    "last_update": getattr(self.bot.babyLLM, "stream_feedback_receipt", None),
+                },
             )
 
         @self.app.post("/api/state")

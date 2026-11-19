@@ -348,6 +348,7 @@ class SensoryBus:
         temp_step_interval: int = 1,
     ):
         self.t = 0
+        self.stream_sample = None
         self.use_dream_noise = use_dream_noise
         self.dream_noise_scale = dream_noise_scale
         self.audio_device_index = audio_device_index
@@ -531,6 +532,7 @@ class SensoryBus:
             self.state["training_age_delta"] = neutral
             self.state["device_temp_c_delta"] = neutral
             self._ema_initialized = True
+            self.stream_sample = {"at": time.time(), "deltas": dict(self.state)}
             return
 
         K = {
@@ -591,6 +593,7 @@ class SensoryBus:
             delta_key = delta_keys.get(key)
             if delta_key is not None:
                 self.state[delta_key] = delta_pos
+        self.stream_sample = {"at": time.time(), "deltas": dict(self.state)}
 
     def get_tensor(self, device):
         return torch.tensor(

@@ -726,6 +726,24 @@ class LIBRARIAN:
 
         if not raw:
             return ""
+
+        # Provenance guard for archive/log files: downweight bot-self output to 1%
+        # so historical logs don't re-enter and dominate without the live 1% rule.
+        is_chat_log = "discordlog" in str(path).lower() or "twitchlog" in str(path).lower()
+        if is_chat_log and raw:
+            filtered_lines = []
+            for line in raw.splitlines():
+                line_str = str(line or "").strip()
+                match = re.match(r"^\s*([^:\n]{1,64})\s*:\s*(.+)$", line_str)
+                if match:
+                    speaker = match.group(1).strip().lower()
+                    if "(babyllm" in speaker or speaker in {"babyllm", "baby", "skunkllm"}:
+                        if random.random() < 0.01:
+                            filtered_lines.append(line_str)
+                        continue
+                filtered_lines.append(line_str)
+            raw = "\n".join(filtered_lines)
+
         raw = raw[:max_chars]
         try:
             return clean_text(raw)

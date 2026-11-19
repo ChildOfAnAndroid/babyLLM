@@ -100,3 +100,22 @@ what the fuck is self?! i thought i had self identity issues and then i encounte
 
 ---
 
+
+### Stream feedback learning
+
+During normal Tutor training, the model reads recent observations from the
+loopback broadcast monitor's local SQLite journal. The path defaults to
+`~/Library/Application Support/BabyLLM/stream-trace.sqlite3`. Override it with
+`BBY_STREAM_TRACE_DB` for a local fixture. Missing or stale data leaves the
+feedback path idle.
+
+Earlier observations condition the embedding before attention and tangling.
+The small masked prediction loss reads the resulting tangled embedding and
+targets a newer measurement that was held out of the input. The three
+sources are decoded public audio, aligned public reply audio and World
+resource/population summaries. A reply needs verified alignment. Missing
+fields carry a mask, and the journal never supplies text-training examples.
+Weights and observation watermarks use the normal model checkpoint. Existing
+optimizer moments are preserved when the feedback parameter group is first
+added. The loopback `/api/stream_art` provides an optimizer receipt when a
+feedback target has actually been used.

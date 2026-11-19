@@ -30,6 +30,8 @@ from brain.LAYERS.logits import LOGITS
 from brain.LAYERS.memory import MEMORY
 from brain.LAYERS.scratchpad import SCRATCHPAD
 from brain.LAYERS.tangling import MINI_INN_TANGLING
+from brain.LAYERS.stream_feedback import LOSS_WEIGHT, MAX_AGE, SOURCES, StreamFeedback
+from brain.LAYERS.self_voice_trust import SelfVoiceTrust, FeedbackSignal
 
 # Creative modules removed
 # from brain.LAYERS.sensoryWobble import WOBBLE
@@ -501,6 +503,21 @@ class BABYLLM(nn.Module):
             except TypeError:
                 optimizer_kwargs.pop("fused", None)
                 self.optimizer = optimizerClass(self.parameters(), **optimizer_kwargs)
+        # Independent optimizer group keeps the previous checkpoint's parameter
+        # order and moments intact when this sensory branch is first attached.
+        self.stream_feedback = StreamFeedback(embedDimension, self.device)
+        self.optimizer.add_param_group({"params": self.stream_feedback.parameters()})
+        self._stream_context = None
+        self._stream_context_until = 0.0
+        self._stream_target = None
+        self._stream_loss = None
+        self._stream_pending = None
+        self.stream_feedback_receipt = None
+
+        # Self-voice trust evaluator for learnable conversational valuation
+        self.self_voice_trust = SelfVoiceTrust(embedDimension, self.device)
+        self.optimizer.add_param_group({"params": self.self_voice_trust.parameters()})
+        self.last_computed_trust = 1.0
         # print("!!! RUNNING WITH SGD OPTIMIZER !!!")
         # self.optimizer = optim.SGD(self.parameters(), lr=learningRate, momentum=0.9)
 
@@ -521,6 +538,37 @@ class BABYLLM(nn.Module):
             "shortDecay": 0,
             "longDecay": 0,
         }
+
+    def prepare_stream_feedback(self, reader):
+        self._stream_loss = None
+        self._stream_pending = None
+        self._stream_target = None
+        now = time.time()
+        feedback = reader.read(self.stream_feedback.watermarks.tolist(), now=now)
+        self._stream_context = (
+            torch.tensor(feedback.context, device=self.device) if feedback.context is not None else None
+        )
+        self._stream_context_until = now + MAX_AGE
+        self._stream_target = feedback.target
+
+    def take_stream_feedback_loss(self):
+        result = self._stream_loss
+        self._stream_loss = None
+        if result is None or self._stream_target is None:
+            return None
+        target, self._stream_target = self._stream_target, None
+        if not torch.isfinite(result):
+            return None
+        self._stream_pending = (target, float(result.detach()))
+        return result
+
+    def _append_stream_optimizer_group(self, saved, current):
+        if len(saved) >= len(current):
+            return
+        # Append missing groups at the end (e.g. stream_feedback and self_voice_trust)
+        diff = len(current) - len(saved)
+        for i in range(len(current) - diff, len(current)):
+            saved.append(current[i].copy())
 
     def activate_mps_owner(self):
         """Transfer post-startup MPS command encoding to Baby's owner thread."""
@@ -1052,6 +1100,11 @@ class BABYLLM(nn.Module):
                         f"[DEBUG] latestTokenEmbed is 1D with shape {self.latestTokenEmbed.shape}"
                     )
 
+                if self._stream_context is not None and (
+                    self.training or time.time() < self._stream_context_until
+                ):
+                    inputEmbeds = self.stream_feedback.condition(inputEmbeds, self._stream_context)
+
                 inputEmbeds = self.attention(inputEmbeds)
 
                 # TANGLING STAGE 1: Refine embeddings (1024-dim)
@@ -1059,6 +1112,9 @@ class BABYLLM(nn.Module):
                     inputEmbeds = inputEmbeds + self.tangling.refine(
                         inputEmbeds, stage_name="embed"
                     )
+
+                if self.training and self._stream_target is not None and torch.is_grad_enabled():
+                    self._stream_loss = self.stream_feedback.loss(inputEmbeds, self._stream_target)
 
                 debug_print(
                     f"Debug BABYLLM.forward: inputEmbeds requires_grad: {inputEmbeds.requires_grad} [EXPECTED: TRUE]"
@@ -1394,6 +1450,8 @@ class BABYLLM(nn.Module):
         _learningRateGOAL=learningRateGOAL,
         _perfectTokens=0,
         _training=False,
+        _token_loss_weight=1.0,
+        _feedback_signal=None,
     ):
         with self.counsellor.infodump("computeLoss") as ʕっʘ‿ʘʔっ:
             self.perfectTokens = _perfectTokens
@@ -1716,6 +1774,21 @@ class BABYLLM(nn.Module):
                     AUXloss = torch.tensor(0.0, device=self.device)
                 FINALloss += AUXloss
                 debug_print(f"{FINALloss} aux ({AUXloss}) + final")
+
+            # Apply token loss weighting (e.g. self-token trust weighting or masking)
+            if _token_loss_weight is not None and _token_loss_weight != 1.0:
+                FINALloss = FINALloss * float(_token_loss_weight)
+
+            # Learnable self-voice feedback calibration objective
+            if _feedback_signal is not None and hasattr(self, "self_voice_trust"):
+                embed_to_calibrate = getattr(self, "latestTokenEmbed", None)
+                if embed_to_calibrate is not None:
+                    trust_calib_loss = self.self_voice_trust.compute_feedback_loss(
+                        embed_to_calibrate, _feedback_signal
+                    )
+                    FINALloss = FINALloss + trust_calib_loss
+                    self.trust_loss_used = trust_calib_loss.detach().item()
+
             debug_print(
                 f"[LOSS DEBUG] requires_grad: {loss.requires_grad} | value: {loss.detach().cpu().item():.4f}"
             )
@@ -2038,6 +2111,15 @@ class BABYLLM(nn.Module):
                     for group, parameters in report_parameters.items()
                 }
             self.optimizer.step()
+            if self._stream_pending is not None:
+                target, auxiliary_loss = self._stream_pending
+                self.stream_feedback.watermarks[target.source] = target.at_ms
+                self.stream_feedback_receipt = {
+                    "source": SOURCES[target.source], "observed_at": target.at_ms / 1000,
+                    "optimized_at": time.time(), "auxiliary_loss": auxiliary_loss,
+                    "mean_squared_error": auxiliary_loss / LOSS_WEIGHT,
+                }
+                self._stream_pending = None
             self._cached_tau = None
             self._cached_safe_temp = None
             self._cached_eff_rep_window = None
@@ -3630,6 +3712,25 @@ class BABYLLM(nn.Module):
                     "tangle_repair_versions", {}
                 ))
                 state_dict = self._upgrade_sensory_state_dict(state_dict)
+                expected_stream = {
+                    f"stream_feedback.{name}": tensor
+                    for name, tensor in self.stream_feedback.state_dict().items()
+                }
+                expected_trust = {
+                    f"self_voice_trust.{name}": tensor
+                    for name, tensor in self.self_voice_trust.state_dict().items()
+                }
+                existing_stream = expected_stream.keys() & state_dict.keys()
+                if existing_stream and existing_stream != expected_stream.keys():
+                    raise RuntimeError("Incomplete stream feedback state in model checkpoint")
+                if not existing_stream:
+                    state_dict.update(expected_stream)
+
+                existing_trust = expected_trust.keys() & state_dict.keys()
+                if existing_trust and existing_trust != expected_trust.keys():
+                    raise RuntimeError("Incomplete self voice trust state in model checkpoint")
+                if not existing_trust:
+                    state_dict.update(expected_trust)
                 self.load_state_dict(state_dict, strict=saveStrict)
                 repaired = self.tangling.repair_collapsed_projections()
                 for stage in repaired:
@@ -3743,6 +3844,7 @@ class BABYLLM(nn.Module):
                 "param_groups", []
             )
 
+            self._append_stream_optimizer_group(loaded_groups, current_groups)
             shape_changed = (
                 len(loaded_groups) == len(current_groups)
                 and any(

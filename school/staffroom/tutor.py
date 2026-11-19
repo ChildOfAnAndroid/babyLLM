@@ -18,6 +18,8 @@ import numpy as np
 import torch
 
 from brain.LAYERS.sensory_bus import SensoryBus
+from brain.LAYERS.stream_feedback import StreamFeedbackReader
+from brain.LAYERS.self_voice_trust import FeedbackSignal, classify_human_feedback
 from config import *
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from utils.helpers import empty_mps_cache, get_grad_stats
@@ -57,6 +59,7 @@ class TUTOR:
         self.librarian = _librarian
         self.device = _device
         self.model = _model
+        self.stream_feedback_reader = StreamFeedbackReader()
         self.sensory_bus = SensoryBus(
             vision_device_index=vision_device_index,
             vision_backend=vision_backend,
@@ -1005,6 +1008,7 @@ class TUTOR:
             JSONtokenCorrect = False
             token_event = None
 
+            self.model.prepare_stream_feedback(self.stream_feedback_reader)
             if self.sensory_bus is not None:
                 self.sensory_bus.step(self.totalTurns)
                 self.model.cached_sensory = self.sensory_bus.get_tensor(self.device)
@@ -1252,12 +1256,48 @@ class TUTOR:
 
                     if debugPrints:
                         ʕっʘ‿ʘʔっ("computeLoss")
+
+                    # Self-Voice Trust & Authorship Valuation:
+                    # In dialogue/chat streams, determine if the target token is authored by Baby
+                    # or if this token is part of a human conversational response to Baby.
+                    token_loss_weight = 1.0
+                    feedback_signal = None
+                    try:
+                        all_ctx_ids = [int(t) for t in inputTensor[-32:]] + [int(_targetTokenIndexSeq[j])]
+                        eos_tok = getattr(self.librarian, "eosReplacementToken", "usingusingusingusingusingusingusingusing")
+                        ctx_text = self.librarian.decodeIDs(all_ctx_ids).replace(eos_tok, "\n")
+                        ctx_lines = [l.strip() for l in ctx_text.split("\n") if l.strip()]
+                        if ctx_lines:
+                            last_line = ctx_lines[-1]
+                            spk = last_line.split(":")[0].strip().lower().lstrip("Ġ") if ":" in last_line else ""
+                            target_is_bot = any(b in spk for b in ("babyllm", "baby", "skunkllm"))
+                            if target_is_bot:
+                                # When Baby speaks, scale imitation loss by detached trust tau
+                                if hasattr(self.model, "self_voice_trust") and hasattr(self.model, "latestTokenEmbed"):
+                                    tau = self.model.self_voice_trust.compute_trust(self.model.latestTokenEmbed)
+                                    token_loss_weight = float(tau.detach().item())
+                                    self.model.last_computed_trust = token_loss_weight
+                                else:
+                                    token_loss_weight = 0.01  # fallback to conservative trickle
+                            elif len(ctx_lines) >= 2:
+                                prev_line = ctx_lines[-2]
+                                prev_spk = prev_line.split(":")[0].strip().lower().lstrip("Ġ") if ":" in prev_line else ""
+                                if any(b in prev_spk for b in ("babyllm", "baby", "skunkllm")):
+                                    h_resp = last_line.split(":", 1)[1] if ":" in last_line else last_line
+                                    b_utt = prev_line.split(":", 1)[1] if ":" in prev_line else prev_line
+                                    feedback_signal = classify_human_feedback(h_resp, b_utt)
+                    except Exception:
+                        token_loss_weight = 1.0
+                        feedback_signal = None
+
                     stepLoss = self.model.computeLoss(
                         _logits=logits,
                         _targetTokenIndex=_targetTokenIndexSeq[j],
                         _totalAvgAbsDelta=self.totalAvgAbsDelta,
                         _learningRateGOAL=self.learningRateGOAL,
                         _perfectTokens=self.perfectTokens,
+                        _token_loss_weight=token_loss_weight,
+                        _feedback_signal=feedback_signal,
                     )
 
                     # Exact excitement attribution.
@@ -1302,6 +1342,9 @@ class TUTOR:
                         diag_top1_confidences.append(confidence)
                     
                     scaled_loss = stepLoss * scale_factor
+                    feedback_loss = self.model.take_stream_feedback_loss()
+                    if feedback_loss is not None:
+                        scaled_loss = scaled_loss + feedback_loss
                     chunk_loss = scaled_loss if chunk_loss is None else chunk_loss + scaled_loss
                     if debugPrints:
                         print(f"self.tokenLevelLosses = {self.tokenLevelLosses}")
