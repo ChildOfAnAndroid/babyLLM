@@ -7075,7 +7075,7 @@ decode_bpe_whitespace(decoded_generated_text)
         if self.bot.training_queue.qsize() >= 20:
             _ = self.bot.training_queue.get_nowait()
         fullContext = self.bot.build_training_context(
-            max_chars=10000, include_external=True
+            max_chars=10000, include_external=True, as_messages=True
         )
         await self.bot.training_queue.put({"type": "context", "text": fullContext})
         await self.bot._discord_debug(
