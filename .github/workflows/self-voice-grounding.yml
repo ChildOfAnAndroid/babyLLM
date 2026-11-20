@@ -1,8 +1,12 @@
 name: Self-voice grounding (isolated tests)
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
+      - main
       - fix/self-voice-grounding-20261119
   workflow_dispatch:
 
