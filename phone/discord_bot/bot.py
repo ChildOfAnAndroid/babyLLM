@@ -7326,6 +7326,11 @@ class BABYBOT_DISCORD(commands.Bot):
                 chat_messages, as_messages=True, platform=item_platform,
                 for_training=True, preserve_gaps=True,
             )
+            if None in snippet_messages:
+                # A consent-filtered speaker ends that conversational episode.
+                # Never teach a fabricated transition across an omitted turn.
+                last_gap = len(snippet_messages) - 1 - snippet_messages[::-1].index(None)
+                snippet_messages = snippet_messages[last_gap + 1:]
             try:
                 direct_chat_probability = max(
                     0.0, min(1.0, float(training_direct_chat_probability))
@@ -7371,8 +7376,32 @@ class BABYBOT_DISCORD(commands.Bot):
 
         print(f"[TRAINING_SOURCE] {training_source}")
         token_count = len(tokensToLibrarian)
-        if token_count < self.chatWindowMAX * 2 + 1:
-            print(f"\n\nnot enough tokens ({token_count}) for training. skipping.\n\n")
+        minimum_full_lesson = self.chatWindowMAX * 2 + 1
+        if item_type == "chat" and used_training_buffer and token_count < minimum_full_lesson:
+            # The older corpus stays available to the idle curriculum. For a
+            # small live turn, train the actual contiguous dialogue instead
+            # of concatenating unrelated history to fill Baby's token window.
+            tokensToLibrarian, token_provenance = self._tokenize_conversation_training(
+                [(msg, item_platform) for msg in snippet_messages]
+            )
+            used_training_buffer = False
+            training_source = "chat-short"
+            token_count = len(tokensToLibrarian)
+
+        is_short_dialogue = False
+        if item_type == "chat" and token_provenance and token_count >= 8:
+            # A short episode should have both Baby's words and a subsequent
+            # consented human reply. Isolated utterances can be learnt through
+            # the existing ordinary corpus route instead.
+            seen_self = False
+            for is_self, _feedback in token_provenance:
+                if is_self:
+                    seen_self = True
+                elif seen_self:
+                    is_short_dialogue = True
+                    break
+        if token_count < minimum_full_lesson and not is_short_dialogue:
+            print(f"\n\nnot enough conversational evidence ({token_count} tokens) for training. skipping.\n\n")
             return
 
         # update favourite token based on this training batch
@@ -7390,6 +7419,7 @@ class BABYBOT_DISCORD(commands.Bot):
             _stride=trainingDataStride,
             _tokens=tokensToLibrarian,
             _token_provenance=token_provenance,
+            _allow_short=is_short_dialogue,
         )
 
         def _train_lesson():
