@@ -564,3 +564,74 @@ def test_training_snippet_marks_consent_filtered_turn_as_content_free_gap():
     )
     assert result == ["babyllm: n", None, "charis: I AGREE BBY N"]
     assert not any("PRIVATE" in str(t) for t in result)
+
+
+def test_generated_twitch_reply_needs_both_publish_receipt_and_training_consent():
+    import time
+    from difflib import SequenceMatcher
+
+    send = source_method(
+        "phone/discord_bot/platforms/twitch_adapter.py",
+        "TwitchAdapter", "_send_to_channel",
+        dict(
+            to_british_english=lambda text: text,
+            SECRETtwitchBotIdSECRET="offline-bot",
+            SequenceMatcher=SequenceMatcher,
+            time=time,
+        ),
+    )
+    async def attempt(sent, consent):
+        buffered = []
+        stages = []
+        async def publisher(content, **kwargs):
+            return SimpleNamespace(sent=sent, id="test-reply-id")
+        async def channel_sender(name):
+            return SimpleNamespace(send_message=publisher)
+        encoder = SimpleNamespace(
+            encode=lambda text, add_special_tokens=False:
+                SimpleNamespace(ids=[1, 2], offsets=[(0, 1), (1, 2)])
+        )
+        bot = SimpleNamespace(
+            babyName="babyllm",
+            librarian=SimpleNamespace(
+                tokenizer=SimpleNamespace(backend_tokenizer=encoder)
+            ),
+            _buffer_add=lambda text, **kwargs: buffered.append(text),
+        )
+        self = SimpleNamespace(
+            bot=bot,
+            _normalize_channel_name=lambda channel: channel.lower(),
+            is_baby_stream_channel=lambda channel: channel == "babyllm",
+            _get_channel_sender=channel_sender,
+            record_stream_stage=lambda *args: stages.append(args),
+            stream_generated_ids=deque(maxlen=32),
+            stream_voice=deque(maxlen=32),
+            format_message=lambda who, text: f"{who}: {text}",
+        )
+        await send(
+            self, "babyllm", "n", reply_to_message_id="human-origin",
+            generated=True, retain_generated_context=consent
+        )
+        return buffered, stages, list(self.stream_voice)
+
+    unconsented, stages, voice = asyncio.run(attempt(True, False))
+    assert unconsented == []
+    assert ("published",) in stages
+    assert len(voice) == 1  # Still speaks publicly, without training on it.
+
+    rejected, stages, voice = asyncio.run(attempt(False, True))
+    assert rejected == []
+    assert ("rejected",) in stages
+    assert voice == []
+
+    consented, stages, voice = asyncio.run(attempt(True, True))
+    assert consented == ["babyllm: n"]
+    assert ("published",) in stages
+    assert len(voice) == 1
+
+
+def test_twitch_uses_publication_handoff_not_fake_discord_buffer():
+    source = (ROOT / "phone/discord_bot/cog.py").read_text(encoding="utf-8")
+    assert 'to_buffer=not is_twitch_reply' in source
+    adapter = (ROOT / "phone/discord_bot/platforms/twitch_adapter.py").read_text(encoding="utf-8")
+    assert 'retain_generated_context=bool(' in adapter
