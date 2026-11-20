@@ -6720,8 +6720,12 @@ decode_bpe_whitespace(decoded_generated_text)
         # === Case 3: Full Success! All original logic now executes. ===
         try:
             force_tts = bool(getattr(ctx, "force_tts_reply", False))
+            # Twitch has a separate publish-receipt/consent-aware buffer
+            # handoff. Do not record the provisional fake Discord reply,
+            # which could include non-consenting prompt text or be rejected.
+            is_twitch_reply = getattr(ctx, "platform", None) == "twitch"
             babyllm_message = await self.bot._discord_reply(
-                ctx, babyllm_text, to_buffer=True, tts=force_tts
+                ctx, babyllm_text, to_buffer=not is_twitch_reply, tts=force_tts
             )
             terminal_baby_text = (
                 self.bot._terminal_render_text(babyllm_text)
