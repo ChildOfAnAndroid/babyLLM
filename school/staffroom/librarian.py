@@ -1187,9 +1187,14 @@ class LIBRARIAN:
         seen = set()
         for message_index, message in enumerate(messages):
             cleaned = message if prepared else self.prepare_training_message(str(message or ""))
-            if not cleaned or cleaned in seen:
+            if not cleaned:
                 continue
-            seen.add(cleaned)
+            if provenance is None:
+                # Legacy corpus deduplication remains unchanged, but genuine
+                # conversational turns must keep repeated identical messages.
+                if cleaned in seen:
+                    continue
+                seen.add(cleaned)
             append_eos = eos_available and (explicit or random.random() < eos_append_probability)
             message_tokens = self.tokenize_training_message(cleaned, append_eos=append_eos)
             if not message_tokens:
