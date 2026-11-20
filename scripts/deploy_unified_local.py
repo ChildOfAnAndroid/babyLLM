@@ -315,6 +315,124 @@ def wait_for_new_worker(root: Path, parent: int, old_worker: int,
     )
 
 
+def diagnose(root: Path, *, previous_supervisor: int | None = None,
+             previous_worker: int | None = None) -> None:
+    """Read-only post-SIGHUP snapshot. Never signal, fetch, save or restart.
+
+    If --apply already sent SIGHUP, use this instead of trying --apply again.
+    The snapshot distinguishes observable process, TCP, API and file states;
+    it does not claim a completed restart without evidence.
+    """
+    import socket
+    import urllib.error
+
+    root = root.expanduser().resolve()
+    print("BABYLLM POST-RESTART DIAGNOSTIC (READ ONLY)")
+    print("NO SIGNAL SENT; NO CHECKPOINT WRITES; NO GIT FETCH OR MERGE")
+    print(f"Checkout: {root}")
+    if not (root / "wakeup.py").is_file():
+        print("Checkout: missing wakeup.py; check --repo path")
+        return
+    try:
+        print(f"Checkout HEAD: {git(root, 'rev-parse', 'HEAD')}")
+        print(f"Checkout branch: {git(root, 'branch', '--show-current') or '(detached)'}")
+        dirty = git(root, "status", "--porcelain", "--untracked-files=no")
+        print(f"Tracked changes: {'present' if dirty else 'none'}")
+    except DeploymentBlocked as exc:
+        print(f"Git inspection unavailable: {type(exc).__name__}")
+
+    try:
+        free = shutil.disk_usage(root).free
+        print(f"Disk free: {free / (1024 ** 3):.2f} GiB")
+    except OSError as exc:
+        print(f"Disk status unavailable: {type(exc).__name__}")
+
+    try:
+        process = command(["ps", "-ww", "-axo", "pid=,ppid=,command="],
+                          cwd=root, check=False)
+        if process.returncode:
+            print(f"Process listing unavailable (exit {process.returncode})")
+        else:
+            rows = parse_processes(process.stdout, include_other_modes=True)
+            print(f"Recognised BabyLLM Python processes: {len(rows)}")
+            for pid, ppid, tokens in rows[:12]:
+                is_worker = "--unified-worker" in tokens
+                mode = next((token for token in tokens if token in
+                             ("unified", "u", "all", "twitch", "t", "discord", "d", "bot", "train")),
+                            "(interactive/no mode argument)")
+                role = "worker" if is_worker else "supervisor/standalone"
+                marker = (
+                    " SAME_AS_PREVIOUS_WORKER" if pid == previous_worker else
+                    " SAME_AS_PREVIOUS_SUPERVISOR" if pid == previous_supervisor else ""
+                )
+                print(f"  pid={pid} ppid={ppid} role={role} mode={mode}{marker}")
+            if len(rows) > 12:
+                print(f"  {len(rows) - 12} additional BabyLLM process(es) omitted")
+            try:
+                supervisor, worker = find_supervisor(root)
+                print(f"Verified unified supervisor: {supervisor}")
+                print(f"Verified unified worker: {worker}")
+                if previous_supervisor is not None:
+                    print(f"Supervisor unchanged: {supervisor == previous_supervisor}")
+                if previous_worker is not None:
+                    print(f"Worker changed: {worker != previous_worker}")
+            except DeploymentBlocked as exc:
+                print(f"Unified supervisor verification: UNVERIFIED ({exc})")
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(f"Process inspection unavailable: {type(exc).__name__}")
+
+    try:
+        with socket.create_connection(("127.0.0.1", 4420), timeout=2):
+            print("Loopback TCP 4420: listening")
+    except OSError as exc:
+        print(f"Loopback TCP 4420: unavailable ({type(exc).__name__})")
+
+    try:
+        with urllib.request.urlopen(HEALTH_URL, timeout=3) as response:
+            body = json.load(response)
+            print(f"/api/state: HTTP {response.status}, "
+                  f"JSON object={isinstance(body, dict)}")
+    except urllib.error.HTTPError as exc:
+        print(f"/api/state: HTTP {exc.code}")
+    except (OSError, ValueError, TimeoutError) as exc:
+        print(f"/api/state: unavailable ({type(exc).__name__})")
+
+    soul = root / "SHKAIRA" / "soul"
+    for name in (*REQUIRED_CHECKPOINTS, "babyllm_S_4200.pth.tmp",
+                 "babyllm_S_4200.pth.optim.tmp", "babyllm_S_4200.pth.membuff.tmp"):
+        target = soul / name
+        try:
+            if target.is_file():
+                state = target.stat()
+                when = dt.datetime.fromtimestamp(
+                    state.st_mtime, tz=dt.timezone.utc
+                ).isoformat(timespec="seconds")
+                print(f"Checkpoint file: {name} | {state.st_size} bytes | mtime {when}")
+            else:
+                print(f"Checkpoint file: {name} | absent")
+        except OSError as exc:
+            print(f"Checkpoint file: {name} | unavailable ({type(exc).__name__})")
+
+    backups = soul / "deploy_backups"
+    if backups.is_dir():
+        try:
+            recent = sorted(
+                (entry for entry in backups.iterdir() if entry.is_dir()),
+                key=lambda entry: entry.stat().st_mtime,
+                reverse=True,
+            )
+            print(f"Recovery clone folders: {len(recent)}")
+            if recent:
+                print(f"Latest recovery clone: {recent[0]}")
+                print(f"Manifest present: {(recent[0] / 'manifest.json').is_file()}")
+        except OSError as exc:
+            print(f"Recovery clone inspection unavailable: {type(exc).__name__}")
+    else:
+        print("Recovery clone folder not found")
+
+    print("DIAGNOSIS ONLY. Do not resend SIGHUP or rerun --apply on an unverified restart.")
+
+
 def deploy(root: Path, *, apply: bool) -> None:
     if sys.platform != "darwin":
         raise DeploymentBlocked("This deployment command must run on Baby's Mac.")
@@ -368,6 +486,9 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--check", action="store_true", help="Read-only local deployment preflight")
     group.add_argument("--apply", action="store_true", help="Clone checkpoint, fast-forward, and request one restart")
+    group.add_argument("--diagnose", action="store_true", help="Read-only post-restart process/API/checkpoint snapshot; never signal")
+    parser.add_argument("--previous-supervisor", type=int, default=None, help="Old supervisor PID for diagnosis only")
+    parser.add_argument("--previous-worker", type=int, default=None, help="Old worker PID for diagnosis only")
     parser.add_argument(
         "--repo", type=Path,
         default=Path(__file__).resolve().parents[1],
@@ -375,7 +496,11 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        deploy(args.repo, apply=args.apply)
+        if args.diagnose:
+            diagnose(args.repo, previous_supervisor=args.previous_supervisor,
+                     previous_worker=args.previous_worker)
+        else:
+            deploy(args.repo, apply=args.apply)
     except (DeploymentBlocked, OSError, subprocess.SubprocessError) as exc:
         print(f"DEPLOY_BLOCKED: {exc}", file=sys.stderr)
         return 2
