@@ -181,6 +181,71 @@ def test_bot_turns_have_speaker_metadata_and_filter_nonconsenting_people():
     assert self_signals == [int(FeedbackSignal.AFFIRMATIVE)]
 
 
+
+def test_repeated_identical_chat_turns_retain_two_distinct_training_events():
+    lib = fake_librarian()
+    conversation = [
+        "babyllm: n", "charis: I AGREE BBY, N",
+        "babyllm: n", "charis: I AGREE BBY, N",
+    ]
+    origins = [(True, int(FeedbackSignal.AFFIRMATIVE)), (False, None)] * 2
+    tokens, metadata = lib.tokenize_training_text(
+        conversation, provenance=origins
+    )
+    assert tokens.count(EOS) == 4
+    assert sum(signal is not None for _, signal in metadata) == 2
+    # Standalone historical corpora retain the original deduplication behaviour.
+    assert lib.tokenize_training_text(["duplicate", "duplicate"]).count(EOS) == 1
+
+
+def test_filtered_nonconsenting_turn_breaks_feedback_adjacency():
+    method = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
+        "_tokenize_conversation_training"
+    )
+    bot = SimpleNamespace(
+        librarian=fake_librarian(),
+        _split_buffer_speaker_body=lambda text:
+            tuple(text.split(":", 1)) if ":" in text else ("", text),
+        is_bot_identity=lambda speaker: speaker.lower() == "babyllm",
+        can_user_train=lambda speaker, platform="discord":
+            speaker.lower() == "charis",
+    )
+    tokens, metadata = method(bot, [
+        ("babyllm: n", "twitch"),
+        ("nonopt: please don't train this", "twitch"),
+        ("charis: I AGREE BBY, N", "twitch"),
+    ])
+    assert "nonopt" not in "".join(str(token) for token in tokens)
+    assert not any(feedback is not None for is_self, feedback in metadata)
+    _, other_platform = method(bot, [
+        ("babyllm: n", "twitch"),
+        ("charis: I AGREE BBY, N", "discord"),
+    ])
+    assert not any(feedback is not None for is_self, feedback in other_platform)
+
+
+def test_unlabelled_buffer_is_not_treated_as_provenanced_corpus():
+    method = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
+        "_tokenize_conversation_training"
+    )
+    bot = SimpleNamespace(
+        librarian=fake_librarian(),
+        _split_buffer_speaker_body=lambda text:
+            tuple(text.split(":", 1)) if ":" in text else ("", text),
+        is_bot_identity=lambda speaker: speaker.lower() == "babyllm",
+        can_user_train=lambda speaker, platform="discord":
+            speaker.lower() == "charis",
+    )
+    tokens, metadata = method(bot, [
+        ("an unknown person's words with no speaker label", "buffer"),
+        ("charis: known consented message", "twitch"),
+    ])
+    assert "unknown" not in "".join(str(token) for token in tokens)
+    assert len(tokens) == len(metadata)
+
+
 def test_chat_snippet_final_consent_filter_blocks_unopted_and_untagged():
     method = source_method(
         "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
