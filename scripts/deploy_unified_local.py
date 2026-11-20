@@ -128,6 +128,10 @@ def parse_processes(output: str) -> list[tuple[int, int, list[str]]]:
             tokens = shlex.split(match.group(3))
         except ValueError:
             continue
+        # A grep/search process that mentions wakeup.py is not Baby's
+        # Python supervisor. Require a Python interpreter in the command.
+        if not any("python" in Path(token).name.lower() for token in tokens[:2]):
+            continue
         if not any(Path(token).name == "wakeup.py" for token in tokens):
             continue
         if not any(token in ("unified", "u", "all") for token in tokens):
