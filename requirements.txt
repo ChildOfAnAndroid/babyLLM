@@ -10,4 +10,4 @@ flask_cors
 sophia-optimizer
 pillow
 discord.py
-psutil
+psutilaiofiles==24.1.0
