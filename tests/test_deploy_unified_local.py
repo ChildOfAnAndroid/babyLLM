@@ -286,3 +286,106 @@ def test_apply_does_not_signal_after_failed_fastforward(tmp_path, monkeypatch):
                         pytest.fail("Signal attempted despite divergent Git history"))
     with pytest.raises(deployment.DeploymentBlocked, match="diverged"):
         deployment.deploy(tmp_path, apply=True)
+
+
+def test_post_sighup_diagnose_reports_worker_and_api_without_writing(tmp_path, monkeypatch, capsys):
+    import io
+    import socket
+    from contextlib import nullcontext
+
+    (tmp_path / "wakeup.py").write_text("# Baby")
+    soul = tmp_path / "SHKAIRA" / "soul"
+    soul.mkdir(parents=True)
+    for name in deployment.REQUIRED_CHECKPOINTS:
+        (soul / name).write_bytes(b"data" * 300)
+    backup = soul / "deploy_backups" / "20261120T220544Z-aa09e8e7364d"
+    backup.mkdir(parents=True)
+    (backup / "manifest.json").write_text("{}")
+    observed = ("73228 1 python3 wakeup.py\n"
+                "84220 73228 python3 wakeup.py unified --unified-worker\n")
+
+    def fake_command(argv, *, cwd, check=True):
+        assert argv[0] == "ps", f"Unexpected subprocess: {argv!r}"
+        return subprocess.CompletedProcess(argv, 0, stdout=observed, stderr="")
+
+    monkeypatch.setattr(deployment, "command", fake_command)
+    monkeypatch.setattr(deployment, "git", lambda root, *args:
+                        {"HEAD": "f2cf840b78d725434d3389bcba886214e0c312c0",
+                         "main": "", "clean": ""}.get(
+                            args[-1], "main"
+                        ))
+    monkeypatch.setattr(deployment, "find_supervisor", lambda root: (73228, 84220))
+    monkeypatch.setattr(deployment.os, "kill", lambda *args:
+                        pytest.fail("Diagnosis must not signal Baby"))
+    monkeypatch.setattr(deployment, "backup_checkpoint_set", lambda *args:
+                        pytest.fail("Diagnosis must not copy checkpoint"))
+    monkeypatch.setattr(socket, "create_connection", lambda *args, **kw:
+                        nullcontext(object()))
+
+    def fake_urlopen(*args, **kwargs):
+        response = io.BytesIO(b"{}")
+        response.status = 200
+        return response
+
+    monkeypatch.setattr(deployment.urllib.request, "urlopen", fake_urlopen)
+    deployment.diagnose(
+        tmp_path, previous_supervisor=73228, previous_worker=73229
+    )
+    output = capsys.readouterr().out
+    assert "READ ONLY" in output
+    assert "NO SIGNAL SENT" in output
+    assert "Worker changed: True" in output
+    assert "Loopback TCP 4420: listening" in output
+    assert "/api/state: HTTP 200, JSON object=True" in output
+    assert "Recovery clone folders: 1" in output
+
+
+def test_post_sighup_diagnose_survives_dead_api_and_stale_partial_save(
+    tmp_path, monkeypatch, capsys
+):
+    import socket
+
+    (tmp_path / "wakeup.py").write_text("# Baby")
+    soul = tmp_path / "SHKAIRA" / "soul"
+    soul.mkdir(parents=True)
+    (soul / "babyllm_S_4200.pth.tmp").write_bytes(b"unfinished")
+    monkeypatch.setattr(deployment, "git", lambda *args, **kwargs: "main")
+    monkeypatch.setattr(
+        deployment, "command",
+        lambda argv, **kwargs:
+        subprocess.CompletedProcess(argv, 0, stdout="", stderr=""),
+    )
+    monkeypatch.setattr(deployment.os, "kill", lambda *args:
+                        pytest.fail("Never signal during diagnosis"))
+    monkeypatch.setattr(
+        socket, "create_connection",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ConnectionRefusedError()),
+    )
+    monkeypatch.setattr(
+        deployment.urllib.request, "urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("no listener")),
+    )
+    deployment.diagnose(tmp_path, previous_worker=73229)
+    text = capsys.readouterr().out
+    assert "Recognised BabyLLM Python processes: 0" in text
+    assert "Loopback TCP 4420: unavailable" in text
+    assert "/api/state: unavailable" in text
+    assert "babyllm_S_4200.pth.tmp | 10 bytes" in text
+    assert "Do not resend SIGHUP" in text
+
+
+def test_cli_diagnose_never_routes_through_apply(monkeypatch):
+    monkeypatch.setattr(deployment.sys, "argv", [
+        "deploy_unified_local.py", "--diagnose", "--repo", "/tmp/baby",
+        "--previous-supervisor", "73228", "--previous-worker", "73229",
+    ])
+    observed = []
+    monkeypatch.setattr(deployment, "diagnose", lambda root, **kw:
+                        observed.append((root, kw)))
+    monkeypatch.setattr(deployment, "deploy", lambda *args, **kwargs:
+                        pytest.fail("Diagnose called deployment"))
+    assert deployment.main() == 0
+    assert observed == [
+        (Path("/tmp/baby"), {"previous_supervisor": 73228,
+                              "previous_worker": 73229})
+    ]
