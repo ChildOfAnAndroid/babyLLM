@@ -489,6 +489,20 @@ class TwitchBot(twitch_commands.Bot):
             or "unknown"
         )
 
+        # Respect opt-out before any stream animation, audience counting,
+        # user-memory update or response dispatch. Only explicit consent
+        # management commands may reach the command handler afterwards.
+        bot = self.platform_adapter.bot
+        if hasattr(bot, "has_explicit_opt_out") and bot.has_explicit_opt_out(author_id):
+            command_word = content.casefold().split(maxsplit=1)
+            allowed_consent_commands = {
+                "!bbyoptin", "!boptin", "!optin", "!aioptin",
+                "!bbyoptout", "!boptout", "!optout", "!aioptout",
+                "!bbyoptcheck", "!boptcheck", "!optcheck", "!aioptcheck",
+            }
+            if not command_word or command_word[0] not in allowed_consent_commands:
+                return
+
         baby_stream = self.platform_adapter.is_baby_stream_channel(channel_name)
         if baby_stream:
             self.platform_adapter.record_stream_stage("received")
