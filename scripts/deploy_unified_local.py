@@ -182,7 +182,7 @@ def validate_process_cwd(root: Path, pid: int, tokens: list[str]) -> None:
         for line in process.stdout.splitlines() if line.startswith("n/")
     ]
     if process.returncode or observed != [root.resolve()]:
-        raise DeploymentBlocked("Cannot prove that the running unified supervisor uses this checkout.")
+        raise DeploymentBlocked("Cannot prove that the running unified supervisor's working directory matches this checkout.")
 
 
 def find_supervisor(root: Path) -> tuple[int, int]:
