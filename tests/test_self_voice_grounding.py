@@ -441,7 +441,7 @@ def test_short_provenanced_dialogue_pair_preserves_real_targets_and_feedback():
     gen = source_method(
         "school/staffroom/librarian.py", "LIBRARIAN", "genTrainingData",
         dict(
-            torch=torch, random=random,
+            torch=torch, random=random, Iterator=Iterator,
             numTokensPerStepSTART=8,
             trainingStartIndex=1,
             trainingDataStride=1,
