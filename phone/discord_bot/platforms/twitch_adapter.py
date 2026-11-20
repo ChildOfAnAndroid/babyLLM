@@ -712,6 +712,14 @@ class TwitchBot(twitch_commands.Bot):
                             await self.platform_adapter._send_to_channel(
                                 channel_name, generated_text, reply_to_message_id=reply_to_id or None,
                                 generated=True, sample_trace=getattr(fake_ctx, "stream_voice_trace", ()),
+                                # Baby can still reply publicly to a non-opted-in
+                                # chatter; his reply must not teach him from
+                                # that person's unconsented prompt.
+                                retain_generated_context=bool(
+                                    can_retain
+                                    and hasattr(bot, "can_user_train")
+                                    and bot.can_user_train(author_id, platform="twitch")
+                                ),
                             )
                 except Exception as e:
                     print(f"[Twitch] Error generating @mention response: {e}")
@@ -1964,6 +1972,7 @@ class TwitchAdapter(PlatformAdapter):
     async def _send_to_channel(
         self, channel_name: str, content: str, reply_to_message_id: str | None = None,
         *, generated: bool = False, sample_trace=(),
+        retain_generated_context: bool = False,
     ):
         content = to_british_english(str(content or ""))
         login = self._normalize_channel_name(channel_name)
@@ -2012,12 +2021,17 @@ class TwitchAdapter(PlatformAdapter):
                         })
                     except Exception as exc:
                         self.record_stream_stage("voice_error", type(exc).__name__)
-                # Keep conversation context intact: admit Baby's outgoing reply to the buffer
-                try:
-                    formatted_reply = self.format_message(self.bot.babyName, content[:499])
-                    self.bot._buffer_add(formatted_reply, speaker_hint=self.bot.babyName)
-                except Exception:
-                    pass
+                    # Preserve only a successfully sent, consent-eligible reply.
+                    # A rejected send or a non-consented prompt must never
+                    # become a synthetic training example.
+                    if retain_generated_context:
+                        try:
+                            formatted_reply = self.format_message(self.bot.babyName, content[:499])
+                            self.bot._buffer_add(
+                                formatted_reply, speaker_hint=self.bot.babyName
+                            )
+                        except Exception:
+                            pass
             return
 
         live_channel = self._live_channel_cache.get(login)
