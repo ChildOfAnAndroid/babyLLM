@@ -6720,12 +6720,18 @@ decode_bpe_whitespace(decoded_generated_text)
         # === Case 3: Full Success! All original logic now executes. ===
         try:
             force_tts = bool(getattr(ctx, "force_tts_reply", False))
-            # Twitch has a separate publish-receipt/consent-aware buffer
-            # handoff. Do not record the provisional fake Discord reply,
-            # which could include non-consenting prompt text or be rejected.
-            is_twitch_reply = getattr(ctx, "platform", None) == "twitch"
+            # Twitch uses its own publish-receipt/consent handoff; Discord
+            # and Web must also respect gradient-training consent. Otherwise
+            # the model could teach itself from a public reply to someone
+            # who only requested a one-off answer, without opting in.
+            reply_platform = str(getattr(ctx, "platform", None) or "discord").lower()
+            can_train_author = (
+                self.bot.can_user_train(author, platform=reply_platform)
+                if hasattr(self.bot, "can_user_train") else True
+            )
+            retain_reply = reply_platform != "twitch" and can_train_author
             babyllm_message = await self.bot._discord_reply(
-                ctx, babyllm_text, to_buffer=not is_twitch_reply, tts=force_tts
+                ctx, babyllm_text, to_buffer=retain_reply, tts=force_tts
             )
             terminal_baby_text = (
                 self.bot._terminal_render_text(babyllm_text)
