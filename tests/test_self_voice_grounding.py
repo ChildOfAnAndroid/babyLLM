@@ -430,3 +430,137 @@ def test_optin_persists_restored_explicit_consent_even_if_list_is_stale():
     assert bot.userMemory["charis"]["web_explicit_opt_out"] is False
     assert saved and saved[0] is True
     assert "welcome back" in saved[1]
+
+
+def test_short_provenanced_dialogue_pair_preserves_real_targets_and_feedback():
+    pair_type = source_class("school/staffroom/librarian.py", "ProvenancedTrainingPair")
+    stream_type = source_class(
+        "school/staffroom/librarian.py", "_TrainingPairStream",
+        dict(Callable=Callable, Iterator=Iterator),
+    )
+    gen = source_method(
+        "school/staffroom/librarian.py", "LIBRARIAN", "genTrainingData",
+        dict(
+            torch=torch, random=random,
+            numTokensPerStepSTART=8,
+            trainingStartIndex=1,
+            trainingDataStride=1,
+            ProvenancedTrainingPair=pair_type,
+            _TrainingPairStream=stream_type,
+        ),
+    )
+    lib = SimpleNamespace(
+        v_counsellor=SimpleNamespace(infodump=lambda label: nullcontext()),
+        _tokens_are_indices=True,
+        tokenToIndex={},
+    )
+    tokens = list(range(10))
+    meta = [(False, None)] * 3 + [(True, int(FeedbackSignal.AFFIRMATIVE))] + [(False, None)] * 6
+    pair_stream = gen(
+        lib, _windowMAX=8, _tokens=tokens,
+        _token_provenance=meta, _allow_short=True,
+    )
+    input_ids, target_ids = next(iter(pair_stream))
+    assert input_ids == [0, 1, 2]
+    assert target_ids == [3, 4, 5, 6, 7, 8, 9]
+    assert len(target_ids) < 8
+    assert next(iter(pair_stream)).target_provenance[0] == meta[3]
+    assert len(pair_stream) == 1
+    assert len(tokens) == len(input_ids) + len(target_ids)
+    assert not any(t not in tokens for t in input_ids + target_ids)
+
+
+def test_short_chat_reaches_tutor_without_padding_or_pulling_unrelated_corpus():
+    from collections import Counter
+    tokenizer = fake_librarian()
+    observed = []
+    async def run():
+        fake = SimpleNamespace(
+            training_buffer=deque(["someone: unrelated training material"]),
+            N=1,
+            buffer=deque(),
+            chatWindowMAX=40,
+            idles=0,
+            _training_stopping=False,
+            _save_baby_state=lambda: None,
+            loop=asyncio.get_running_loop(),
+            tutor=SimpleNamespace(
+                trainModel=lambda **kwargs: observed.append(
+                    (kwargs["_trainingDataPairs"], kwargs["_startIndex"])
+                ),
+                makeStatsPrompt=lambda: "done",
+            ),
+            babyLLM=SimpleNamespace(train=lambda: None, run_on_mps_owner=lambda fn: fn()),
+        )
+        fake._build_chat_training_snippet = lambda messages, **kwargs: list(messages)
+        fake._split_buffer_speaker_body = lambda text: (
+            tuple(text.split(":", 1)) if ":" in text else ("", text)
+        )
+        fake.is_bot_identity = lambda speaker: speaker.lower() == "babyllm"
+        fake.can_user_train = lambda speaker, platform="discord": speaker == "charis"
+        tokenize = source_method(
+            "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
+            "_tokenize_conversation_training",
+        )
+        fake._tokenize_conversation_training = lambda entries: tokenize(fake, entries)
+        fake.librarian = tokenizer
+        fake.librarian.decodeIDs = lambda tokens: str(tokens[:1])
+        def fake_pairs(**kwargs):
+            assert kwargs["_allow_short"] is True
+            assert kwargs["_token_provenance"] is not None
+            text = "".join(str(t) for t in kwargs["_tokens"])
+            assert "unrelated training material" not in text
+            assert "babyllm" in text
+            midpoint = len(kwargs["_tokens"]) // 2
+            return [(
+                kwargs["_tokens"][:midpoint],
+                kwargs["_tokens"][midpoint:],
+            )]
+        fake.librarian.genTrainingData = fake_pairs
+        train = source_method(
+            "phone/discord_bot/bot.py", "BABYBOT_DISCORD", "_train_on_item",
+            dict(
+                asyncio=asyncio, Counter=Counter, random=random, pyrandom=random,
+                windowMAXSTART=40, trainingDataStride=1,
+                training_direct_chat_probability=0.0,
+                training_context_max_chars=42000,
+            ),
+        )
+        await train(fake, {
+            "type": "chat", "platform": "twitch",
+            "text": ["charis: are you okay?", "babyllm: n", "charis: I AGREE BBY, N"]
+        })
+    asyncio.run(run())
+    assert len(observed) == 1
+
+
+def test_short_tutor_keeps_input_horizon_frozen_and_uses_real_target_length():
+    source = (ROOT / "school/staffroom/tutor.py").read_text(encoding="utf-8")
+    assert "for j in range(min(self.numTokensPerStep, L)):" in source
+    assert "inputTensor = buffer[\n                    : len(_inputTokenIndices)\n                ]" in source
+    assert "self.avgPixelDist = self.avgPixelDist / max(1, L)" in source
+
+
+def test_training_snippet_marks_consent_filtered_turn_as_content_free_gap():
+    method = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
+        "_build_chat_training_snippet",
+        dict(Optional=Optional, training_chat_mix_max_lines=12,
+             training_chat_mix_max_chars=1200),
+    )
+    bot = SimpleNamespace(
+        buffer=deque(),
+        _normalise_buffer_ingest_text=lambda text: str(text).strip(),
+        _split_buffer_speaker_body=lambda text: tuple(text.split(":", 1))
+        if ":" in text else ("", text),
+        is_bot_identity=lambda speaker: speaker == "babyllm",
+        can_user_train=lambda speaker, platform="discord": speaker == "charis",
+    )
+    result = method(
+        bot,
+        ["babyllm: n", "nonopt: PRIVATE", "charis: I AGREE BBY N"],
+        platform="twitch", as_messages=True, for_training=True,
+        preserve_gaps=True,
+    )
+    assert result == ["babyllm: n", None, "charis: I AGREE BBY N"]
+    assert not any("PRIVATE" in str(t) for t in result)
