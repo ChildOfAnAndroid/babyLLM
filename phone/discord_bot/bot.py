@@ -3928,6 +3928,7 @@ class BABYBOT_DISCORD(commands.Bot):
         as_messages: bool = False,
         platform: str = "discord",
         for_training: bool = False,
+        preserve_gaps: bool = False,
     ):
         """Condense recent chat, optionally keeping real message boundaries.
 
@@ -3974,11 +3975,14 @@ class BABYBOT_DISCORD(commands.Bot):
                 if for_training:
                     # Missing author labels cannot safely establish live-chat consent.
                     speaker, _ = self._split_buffer_speaker_body(message)
-                    if not speaker:
-                        continue
-                    if not self.is_bot_identity(speaker) and not self.can_user_train(
-                        speaker, platform=platform
+                    if not speaker or (
+                        not self.is_bot_identity(speaker)
+                        and not self.can_user_train(speaker, platform=platform)
                     ):
+                        # Keep a content-free boundary so a filtered message
+                        # never fabricates adjacency between the other speakers.
+                        if preserve_gaps:
+                            cleaned_messages.append(None)
                         continue
                 elif hasattr(self, "_split_buffer_speaker_body") and hasattr(self, "has_explicit_opt_out"):
                     speaker, _ = self._split_buffer_speaker_body(message)
@@ -3991,13 +3995,17 @@ class BABYBOT_DISCORD(commands.Bot):
 
         recent = cleaned_messages[-line_cap:]
         if not as_messages:
-            return "\n".join(recent)[-char_cap:]
+            return "\n".join(entry for entry in recent if entry is not None)[-char_cap:]
 
         # Keep the most recent complete messages within the character budget.
         # Only a single oversized message is shortened, never re-split on Ċ.
         selected = []
         remaining = char_cap
         for message in reversed(recent):
+            if message is None:
+                if preserve_gaps:
+                    selected.append(None)
+                continue
             needed = len(message) + (1 if selected else 0)
             if needed > remaining:
                 if selected:
@@ -7316,7 +7324,7 @@ class BABYBOT_DISCORD(commands.Bot):
             item_platform = str(item.get("platform") or "discord").lower()
             snippet_messages = self._build_chat_training_snippet(
                 chat_messages, as_messages=True, platform=item_platform,
-                for_training=True,
+                for_training=True, preserve_gaps=True,
             )
             try:
                 direct_chat_probability = max(
