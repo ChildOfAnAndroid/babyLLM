@@ -1262,6 +1262,7 @@ class LIBRARIAN:
         _stride=trainingDataStride,
         _tokens=None,
         _token_provenance=None,
+        _allow_short=False,
     ):
         if _token_provenance is not None:
             if _tokens is None or len(_tokens) != len(_token_provenance):
@@ -1345,6 +1346,40 @@ class LIBRARIAN:
                     start_index = int(start_index)
                 except Exception:
                     start_index = 0
+
+            # Opt-in only: conversational episodes shorter than the ordinary
+            # 2*window curriculum still have valid, real next-token examples.
+            # Preserve Baby's configured horizon and compound loss; the Tutor
+            # simply predicts a shorter target sequence for this one lesson.
+            # Historical corpus lessons retain their original full-window path.
+            if _allow_short and _tokens is not None and 2 <= len(_tokens) < 2 * window:
+                total = len(_tokens)
+                input_length = min(window, max(1, total // 2))
+                if _token_provenance is not None:
+                    # Put the first explicitly grounded human feedback marker
+                    # on the supervised side whenever the remaining target
+                    # would still fit within Baby's full normal horizon.
+                    feedback_indices = [
+                        i for i, origin in enumerate(_token_provenance)
+                        if origin[1] is not None
+                    ]
+                    if feedback_indices:
+                        first_feedback = feedback_indices[0]
+                        if 0 < first_feedback < input_length and total - first_feedback <= window:
+                            input_length = first_feedback
+                target_length = min(window, total - input_length)
+                input_seq = list(_tokens[:input_length])
+                target_seq = list(_tokens[input_length:input_length + target_length])
+                if _token_provenance is None:
+                    pair = (input_seq, target_seq)
+                else:
+                    pair = ProvenancedTrainingPair(
+                        input_seq, target_seq,
+                        _token_provenance[input_length:input_length + target_length]
+                    )
+                return _TrainingPairStream(
+                    lambda: iter((pair,)), 1, description="short-dialogue"
+                )
 
             token_lookup = self.tokenToIndex
 
