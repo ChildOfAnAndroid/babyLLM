@@ -4156,9 +4156,12 @@ class BABYBOT_DISCORD(commands.Bot):
         if key in self.AIoptInUsers:
             return True
 
-        # Check if user has active economy/game state
+        # A negative consent decision must survive save/prune/restart even
+        # when the person has no active game or economy state.
         mem = self.userMemory.get(key)
         if isinstance(mem, dict):
+            if mem.get("web_explicit_opt_out", False):
+                return True
             if abs(mem.get("BBY", 0.0)) > 0.001:
                 return True
             for field in [
@@ -4235,6 +4238,15 @@ class BABYBOT_DISCORD(commands.Bot):
         command_name = (
             stripped.split()[0][len(self.command_prefix) :].lower() if stripped else ""
         )
+        # Intentional consent management remains available after opting out;
+        # every other command, including the fast LLM shortcut, is silent.
+        consent_commands = {
+            "bbyoptin", "boptin", "optin", "aioptin",
+            "bbyoptout", "boptout", "optout", "aioptout",
+            "bbyoptcheck", "boptcheck", "optcheck", "aioptcheck",
+        }
+        if self.has_explicit_opt_out(author) and command_name not in consent_commands:
+            return True
         main_llm_aliases = {"babyllm", "bby", "bbyllm", "bb", "bllm", "b"}
         ctx = await self.get_context(message)
 
@@ -6018,6 +6030,8 @@ class BABYBOT_DISCORD(commands.Bot):
         print(f"\n[Message] From {author}: {content}")
         is_opted_in = False
         is_command = raw_content.strip().startswith(self.command_prefix)
+        if self.has_explicit_opt_out(author) and not is_command:
+            return  # No passive opt-out replies, including @mention prompts.
         temp_blocked_user = author in self.temp_not_opt
         if message.author != self.user and not getattr(message.author, "bot", False):
             if hasattr(self, "tutor") and getattr(self.tutor, "sensory_bus", None):
