@@ -120,6 +120,46 @@ def test_unified_supervisor_diagnostics_distinguish_stopped_and_other_modes(
     )
 
 
+def test_interactive_u_selection_is_detected_by_supervised_child(tmp_path, monkeypatch):
+    """The user can run wakeup.py then select u at the prompt."""
+    script = tmp_path / "wakeup.py"
+    script.write_text("")
+    observations = (
+        f"800 1 /opt/homebrew/bin/python3.14 {script}\n"
+        f"801 800 /opt/homebrew/bin/python3.14 {script} unified --unified-worker\n"
+    )
+    monkeypatch.setattr(
+        deployment, "command",
+        lambda argv, **kwargs: subprocess.CompletedProcess(
+            argv, 0, stdout=observations, stderr=""
+        ),
+    )
+    assert deployment.parse_processes(observations) == [
+        (801, 800, ["/opt/homebrew/bin/python3.14", str(script),
+                    "unified", "--unified-worker"])
+    ]
+    assert deployment.find_supervisor(tmp_path) == (800, 801)
+
+
+def test_interactive_parent_without_verified_unified_child_is_never_signalled(
+    tmp_path, monkeypatch
+):
+    script = tmp_path / "wakeup.py"
+    script.write_text("")
+    observations = (
+        f"800 1 python3 {script}\n"
+        f"801 800 python3 {script} twitch --unified-worker\n"
+    )
+    monkeypatch.setattr(
+        deployment, "command",
+        lambda argv, **kwargs: subprocess.CompletedProcess(
+            argv, 0, stdout=observations, stderr=""
+        ),
+    )
+    with pytest.raises(deployment.DeploymentBlocked, match="found 0"):
+        deployment.find_supervisor(tmp_path)
+
+
 def test_repository_verification_rejects_wrong_remote_or_dirty_main(tmp_path, monkeypatch):
     (tmp_path / "wakeup.py").write_text("")
     (tmp_path / "babyLLM.py").write_text("")
