@@ -304,6 +304,105 @@ def test_tutor_uses_target_metadata_not_heuristic_gpu_decoding():
     assert "all_ctx_ids = [int(t) for t in inputTensor[-32:]]" not in source
 
 
+def test_optout_record_survives_memory_prune_with_no_economy_state():
+    policy = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD", "should_persist_user_state"
+    )
+    prune = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
+        "prune_non_opt_user_memory", dict(
+            logger=SimpleNamespace(info=lambda *args: None)
+        )
+    )
+    bot = SimpleNamespace(
+        normalise_user_identity=lambda who: who,
+        is_bot_identity=lambda who: who == "babyllm",
+        AIoptInUsers=[],
+        userMemory={
+            "optedout": {"web_explicit_opt_out": True},
+            "anonymous": {"web_explicit_opt_out": False, "BBY": 0.0},
+        },
+    )
+    bot.should_persist_user_state = lambda who: policy(bot, who)
+    assert policy(bot, "optedout")
+    assert prune(bot, reason="save") == 1
+    assert bot.userMemory == {"optedout": {"web_explicit_opt_out": True}}
+
+
+def test_discord_optedout_fast_llm_command_is_silent_but_optin_allowed():
+    fast = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
+        "_dispatch_prefix_command_fast"
+    )
+    invoked = []
+    async def context(message):
+        invoked.append("get_context")
+        return SimpleNamespace(command=None)
+    async def invoke(ctx):
+        invoked.append("invoke")
+    bot = SimpleNamespace(
+        command_prefix="!",
+        trusted_bot_names=set(),
+        has_explicit_opt_out=lambda who: who == "optedout",
+        get_context=context,
+        invoke=invoke,
+        prune_non_opt_user_memory=lambda reason="": 0,
+    )
+    def msg(content):
+        return SimpleNamespace(
+            content=content,
+            author=SimpleNamespace(bot=False),
+            channel=SimpleNamespace(name="test-room"),
+        )
+    assert asyncio.run(fast(bot, msg("!babyllm hi"), author="optedout")) is True
+    assert invoked == []
+    assert asyncio.run(fast(bot, msg("!bbyoptin"), author="optedout")) is True
+    assert invoked == ["get_context", "invoke"]
+
+
+def test_discord_passive_optedout_mention_is_silent():
+    method = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD", "on_message",
+        dict(time=__import__("time"))
+    )
+    bot = SimpleNamespace(
+        check_year_boundary=lambda: None,
+        normalise_user_identity=lambda text: text,
+        has_explicit_opt_out=lambda author: author == "optedout",
+        command_prefix="!",
+    )
+    message = SimpleNamespace(
+        content="@babyllm say hi",
+        clean_content="@babyllm say hi",
+        author=SimpleNamespace(name="optedout"),
+    )
+    assert asyncio.run(method(bot, message)) is None
+
+
+def test_twitch_optedout_message_stops_before_any_tracking_or_reply():
+    method = source_method(
+        "phone/discord_bot/platforms/twitch_adapter.py", "TwitchBot",
+        "event_message", dict(re=__import__("re"))
+    )
+    tracked = []
+    adapter = SimpleNamespace(
+        bot=SimpleNamespace(
+            normalise_user_identity=lambda text: text,
+            has_explicit_opt_out=lambda who: who == "optedout",
+        ),
+        remember_live_channel=lambda channel: None,
+        track_message=lambda content: tracked.append(content),
+    )
+    bot = SimpleNamespace(platform_adapter=adapter)
+    message = SimpleNamespace(
+        author=SimpleNamespace(name="optedout", id="42"),
+        channel=SimpleNamespace(name="babyllm"),
+        content="hello baby",
+    )
+    assert asyncio.run(method(bot, message)) is None
+    assert tracked == []
+
+
 def test_optin_persists_restored_explicit_consent_even_if_list_is_stale():
     method = source_method(
         "phone/discord_bot/cog.py", "babyBot_DISCORD_COG", "bbyoptin_command",
