@@ -373,13 +373,16 @@ class BABYBOT_TWITCH(commands.Bot):
 
         await self.handle_commands(message)
 
+    def _save_optin_users_sync(self, users_copy):
+        with open(optInUsersPath, "w", encoding="utf-8") as f:
+            json.dump(users_copy, f, indent=2)
+
     # --- babyllm bot commands ---
     @commands.command(name="aioptin")
     async def aioptin_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
         self.AIoptInUsers.append(author)
-        with open(optInUsersPath, "w", encoding="utf-8") as f:
-            json.dump(self.AIoptInUsers, f)
+        await asyncio.to_thread(self._save_optin_users_sync, self.AIoptInUsers.copy())
         optInMessage = f"hey {author}, thanks for telling me i can read your messages! now, all your messages in channels where i'm online (probably just this one tbh) will be included in the my context, helping me to learn more about how text works (i was gonna say the english language... but i don't expect anything except terrifying memes from you lot LMAO), but i won't respond unless you use !babyllm :) get ready for me to sound even more insane!"
         await ctx.reply(optInMessage)
         self.buffer.append(self.formatMessage(babyName, optInMessage))
@@ -388,8 +391,7 @@ class BABYBOT_TWITCH(commands.Bot):
     async def aioptout_command(self, ctx: commands.Context):
         author = ctx.author.name.lower()
         self.AIoptInUsers.remove(author)
-        with open(optInUsersPath, "w", encoding="utf-8") as f:
-            json.dump(self.AIoptInUsers, f, indent=2)
+        await asyncio.to_thread(self._save_optin_users_sync, self.AIoptInUsers.copy())
         optOutMessage = f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO."
         await ctx.reply(optOutMessage)
         self.buffer.append(self.formatMessage(babyName, optOutMessage))
