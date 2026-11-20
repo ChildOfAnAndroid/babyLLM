@@ -113,6 +113,18 @@ def test_librarian_provenance_is_token_aligned_and_eos_feedback_is_once():
     assert lib.tokenize_training_text(messages) == tokens
 
 
+def test_repeated_speaker_messages_keep_their_own_labels():
+    import re
+    method = source_method(
+        "phone/discord_bot/bot.py", "BABYBOT_DISCORD",
+        "_format_for_training_buffer", dict(re=re)
+    )
+    bot = SimpleNamespace(
+        _is_plausible_training_speaker_label=lambda speaker, body: True
+    )
+    assert method(bot, "charis: one\ncharis: two") == "charis: one\ncharis: two"
+
+
 def test_training_pair_preserves_legacy_tuple_contract_and_target_origins():
     pair_type = source_class("school/staffroom/librarian.py", "ProvenancedTrainingPair")
     factory_method = source_method(
