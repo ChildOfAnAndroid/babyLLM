@@ -28,44 +28,48 @@ class FeedbackSignal(enum.IntEnum):
     DISMISSIVE = 3       # e.g., spam, nonsense, confused reaction
 
 
-# Heuristic patterns for conversational grounding / feedback calibration
+# These are high-precision *signals*, not a general sentiment or intent detector.
+# Single words like "no", "don't", "stop" and "actually" are not evidence
+# that the human is correcting Baby: they may be agreeing, playing along or
+# answering a question. Ambiguous conversational uptake abstains from training.
 AFFIRMATIVE_PATTERNS = [
-    r"\bi agree\b", r"\byes\b", r"\byep\b", r"\byeah\b", r"\bexactly\b",
-    r"\bright\b", r"\bcorrect\b", r"\btrue\b", r"\bgood boy\b", r"\bnice\b",
-    r"\bthanks\b", r"\bthank you\b", r"\bbased\b", r"\bvalid\b", r"\bperfect\b",
-    r"\bwell said\b", r"\bi see\b", r"\bmakes sense\b"
+    r"\bi agree\b", r"\byes(?: exactly)?\b", r"\byep\b", r"\bexactly\b",
+    r"\bthat's right\b", r"\byou(?:'re| are) right\b",
+    r"\bwell said\b", r"\bthat makes sense\b", r"\bmakes sense\b",
+    r"\bthank you\b", r"\bgood (?:answer|point)\b",
 ]
 
 CORRECTIVE_PATTERNS = [
-    r"\bdont\b", r"\bdon't\b", r"\bdo not\b", r"\bno\b", r"\bnope\b",
-    r"\bwrong\b", r"\bstop\b", r"\bactually\b", r"\binstead\b",
-    r"\bnever\b", r"\bnot quite\b", r"\bnot really\b"
+    r"\b(?:no|nope|nah)[,!.\s]+not (?:that|what)\b",
+    r"\b(?:that's|that is|you're|you are) (?:wrong|incorrect)\b",
+    r"\b(?:that's|that is) not (?:what|right)\b",
+    r"\b(?:i meant|what i meant|not what i (?:asked|said))\b",
+    r"\b(?:wrong|incorrect) answer\b",
+    r"\b(?:don't|do not|stop) (?:say|saying|calling|repeating|using) (?:that|me|it|this)\b",
+]
+
+DISMISSIVE_PATTERNS = [
+    r"\b(?:this|that) (?:is|was) (?:nonsense|gibberish|spam)\b",
+    r"\bstop spamming\b", r"\bdoesn't make (?:any )?sense\b",
 ]
 
 
 def classify_human_feedback(response_text: str, self_utterance: str = "") -> FeedbackSignal:
-    """Classify the human conversational response to Baby's utterance."""
+    """Only return a supervised signal when the response gives clear evidence.
+
+    An echo/continuation of Baby's words is often successful conversational
+    uptake, NOT necessarily praise or correction. Keep it in the dialogue, but
+    abstain from calibrating trust without stronger evidence.
+    """
     text = str(response_text or "").strip().lower()
-    self_utt = str(self_utterance or "").strip().lower()
     if not text:
         return FeedbackSignal.NEUTRAL
-
-    # Check for direct affirmation
-    for pat in AFFIRMATIVE_PATTERNS:
-        if re.search(pat, text):
-            return FeedbackSignal.AFFIRMATIVE
-
-    # Check for correction / repair
-    for pat in CORRECTIVE_PATTERNS:
-        if re.search(pat, text):
-            return FeedbackSignal.CORRECTIVE
-
-    # Repetition / expansion of Baby's word (e.g. Baby: "n", Human: "N" or "... N")
-    if self_utt and len(self_utt) >= 1:
-        tokens = re.findall(r"\b\w+\b", text)
-        if self_utt in tokens:
-            return FeedbackSignal.AFFIRMATIVE
-
+    if any(re.search(pattern, text) for pattern in CORRECTIVE_PATTERNS):
+        return FeedbackSignal.CORRECTIVE
+    if any(re.search(pattern, text) for pattern in DISMISSIVE_PATTERNS):
+        return FeedbackSignal.DISMISSIVE
+    if any(re.search(pattern, text) for pattern in AFFIRMATIVE_PATTERNS):
+        return FeedbackSignal.AFFIRMATIVE
     return FeedbackSignal.NEUTRAL
 
 
@@ -132,6 +136,10 @@ class SelfVoiceTrust(nn.Module):
         and align trust with reception (affirmative -> high trust, corrective -> low trust).
         Uses BCEWithLogitsLoss directly on trust_head to prevent vanishing gradients.
         """
+        # An unclassified reaction is not a negative or neutral-trust label.
+        if feedback_signal == FeedbackSignal.NEUTRAL:
+            return embedding.new_zeros(())
+
         if embedding.dim() > 2:
             embedding = embedding.reshape(-1, embedding.shape[-1])
         if embedding.dim() == 2:

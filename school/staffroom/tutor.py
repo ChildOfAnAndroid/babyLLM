@@ -19,7 +19,7 @@ import torch
 
 from brain.LAYERS.sensory_bus import SensoryBus
 from brain.LAYERS.stream_feedback import StreamFeedbackReader
-from brain.LAYERS.self_voice_trust import FeedbackSignal, classify_human_feedback
+from brain.LAYERS.self_voice_trust import FeedbackSignal
 from config import *
 from SHKAIRA.notebook.tools.genBoi import makeSafeBoi
 from utils.helpers import empty_mps_cache, get_grad_stats
@@ -516,6 +516,12 @@ class TUTOR:
                                 ʕっʘ‿ʘʔっ("_trainingDataPairs")
                             _inputSeq, _targetSeq = trainingPair
                             turnsNotReflecting += 1
+                        # Reflection/scribe pairs are not the original dialogue targets.
+                        # Carry provenance only from the pair actually being trained.
+                        active_pair = currentReflection if currentReflection is not None else trainingPair
+                        self._active_target_provenance = getattr(
+                            active_pair, "target_provenance", None
+                        )
                         self.inputTokenIndices, self.targetTokenIndexSeq = (
                             self.startTurnActions(
                                 _inputSeq=_inputSeq,
@@ -1024,9 +1030,10 @@ class TUTOR:
                 if self.pixelNext is None:
                     self.pixelNext = self.getPixelForStep(0)
 
-            for j in range(
-                self.numTokensPerStep
-            ):  # predict multiple tokens in a sequence, one at a time
+            # Full-window lessons are unchanged. Short, explicitly provenanced
+            # conversations can supervise only their real target tokens; no
+            # invented padding or extra unsupervised forward steps are needed.
+            for j in range(min(self.numTokensPerStep, L)):  # one real target at a time
                 self.currentTokenIndex = j
                 stepLoss = None
                 if not skipPixels:
@@ -1066,9 +1073,12 @@ class TUTOR:
                     self.pixelNow = None
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("FORWARD")
+                # The model's main horizon view is deliberately frozen; AR512
+                # receives teacher-forced chronology separately. In a short
+                # lesson, never expose the uninitialised tail of _token_buffer.
                 inputTensor = buffer[
-                    : len(inputSeqPredictions)
-                ]  # slices input to only keep relevant part
+                    : len(_inputTokenIndices)
+                ]
                 try:
                     if forwardProfiler:
                         with torch.profiler.profile(record_shapes=True) as prof:
@@ -1257,38 +1267,26 @@ class TUTOR:
                     if debugPrints:
                         ʕっʘ‿ʘʔっ("computeLoss")
 
-                    # Self-Voice Trust & Authorship Valuation:
-                    # In dialogue/chat streams, determine if the target token is authored by Baby
-                    # or if this token is part of a human conversational response to Baby.
+                    # Token-aligned provenance comes from the Librarian, not
+                    # unreliable decoding of the frozen/partial inputTensor.
                     token_loss_weight = 1.0
                     feedback_signal = None
-                    try:
-                        all_ctx_ids = [int(t) for t in inputTensor[-32:]] + [int(_targetTokenIndexSeq[j])]
-                        eos_tok = getattr(self.librarian, "eosReplacementToken", "usingusingusingusingusingusingusingusing")
-                        ctx_text = self.librarian.decodeIDs(all_ctx_ids).replace(eos_tok, "\n")
-                        ctx_lines = [l.strip() for l in ctx_text.split("\n") if l.strip()]
-                        if ctx_lines:
-                            last_line = ctx_lines[-1]
-                            spk = last_line.split(":")[0].strip().lower().lstrip("Ġ") if ":" in last_line else ""
-                            target_is_bot = any(b in spk for b in ("babyllm", "baby", "skunkllm"))
-                            if target_is_bot:
-                                # When Baby speaks, scale imitation loss by detached trust tau
-                                if hasattr(self.model, "self_voice_trust") and hasattr(self.model, "latestTokenEmbed"):
-                                    tau = self.model.self_voice_trust.compute_trust(self.model.latestTokenEmbed)
-                                    token_loss_weight = float(tau.detach().item())
-                                    self.model.last_computed_trust = token_loss_weight
-                                else:
-                                    token_loss_weight = 0.01  # fallback to conservative trickle
-                            elif len(ctx_lines) >= 2:
-                                prev_line = ctx_lines[-2]
-                                prev_spk = prev_line.split(":")[0].strip().lower().lstrip("Ġ") if ":" in prev_line else ""
-                                if any(b in prev_spk for b in ("babyllm", "baby", "skunkllm")):
-                                    h_resp = last_line.split(":", 1)[1] if ":" in last_line else last_line
-                                    b_utt = prev_line.split(":", 1)[1] if ":" in prev_line else prev_line
-                                    feedback_signal = classify_human_feedback(h_resp, b_utt)
-                    except Exception:
-                        token_loss_weight = 1.0
-                        feedback_signal = None
+                    origins = getattr(self, "_active_target_provenance", None)
+                    if origins is not None and j < len(origins):
+                        is_self, feedback = origins[j]
+                        if is_self:
+                            embedding = getattr(self.model, "latestTokenEmbed", None)
+                            evaluator = getattr(self.model, "self_voice_trust", None)
+                            if embedding is not None and evaluator is not None:
+                                tau = evaluator.compute_trust(embedding)
+                                token_loss_weight = float(tau.detach().item())
+                            else:
+                                token_loss_weight = 0.01
+                            self.model.last_computed_trust = token_loss_weight
+                        if feedback is not None and is_self:
+                            # Attached once to the Baby turn-ending token,
+                            # with a consented later human response as evidence.
+                            feedback_signal = FeedbackSignal(int(feedback))
 
                     stepLoss = self.model.computeLoss(
                         _logits=logits,
@@ -1422,7 +1420,7 @@ class TUTOR:
                             print(f"[CHUNK] final backward at j={j}/{L-1}")
                         
                         # Compute pixelDistLoss at the end
-                        self.avgPixelDist = self.avgPixelDist / self.numTokensPerStep
+                        self.avgPixelDist = self.avgPixelDist / max(1, L)
                         pixelDistLoss = min(1.5, self.avgPixelDist * 0.001)
                         self.pixelDistLoss_used = pixelDistLoss
                         

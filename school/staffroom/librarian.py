@@ -142,6 +142,19 @@ class _MemmapTokenSequence:
 
 
 
+class ProvenancedTrainingPair(tuple):
+    """Two-item training pair retaining target-token provenance out of band.
+
+    Existing readers can still unpack (input_seq, target_seq) unchanged.
+    The metadata describes TARGET positions, not decoded text or model guesses.
+    """
+
+    def __new__(cls, input_seq, target_seq, target_provenance):
+        pair = super().__new__(cls, (input_seq, target_seq))
+        pair.target_provenance = tuple(target_provenance)
+        return pair
+
+
 class _TrainingPairStream:
     """Re-iterable wrapper around a streaming training pair generator."""
 
@@ -564,9 +577,19 @@ class LIBRARIAN:
         tokens_are_indices: bool,
         token_lookup: dict,
         start: int,
+        token_provenance: Sequence | None = None,
     ) -> Callable[[], Iterator[tuple[list, list]]]:
         window = max(1, int(window))
         stride = max(1, int(stride))
+
+        def make_pair(input_seq, target_seq, position):
+            if token_provenance is None:
+                return (input_seq, target_seq)
+            first_target = start + position * stride + window
+            metadata = token_provenance[first_target : first_target + window]
+            if len(metadata) != len(target_seq):
+                raise ValueError("Training token provenance is not aligned to targets")
+            return ProvenancedTrainingPair(input_seq, target_seq, metadata)
 
         def factory() -> Iterator[tuple[list, list]]:
             iterator = token_iterator_factory()
@@ -586,12 +609,12 @@ class LIBRARIAN:
                     if tokens_are_indices or (
                         input_seq and isinstance(input_seq[0], (int, np.integer))
                     ):
-                        yield (input_seq, target_seq)
+                        yield make_pair(input_seq, target_seq, produced)
                     elif all(
                         t in token_lookup
                         for t in itertools.chain(input_seq, target_seq)
                     ):
-                        yield (input_seq, target_seq)
+                        yield make_pair(input_seq, target_seq, produced)
                     else:
                         print(
                             f"skipping <UNK> - inputSeq sample: {input_seq[:4]}, target sample: {target_seq[:4]}"
@@ -1146,28 +1169,52 @@ class LIBRARIAN:
                 break
         return messages
 
-    def tokenize_training_text(self, text, *, prepared=False):
+    def tokenize_training_text(self, text, *, prepared=False, provenance=None):
+        """Tokenize complete messages, optionally returning token-aligned origins.
+
+        provenance contains one (is_self, feedback_signal_or_None) entry per
+        source message. Feedback labels attach to the self-message ending token,
+        so calibration uses Baby's own representation, not the human's reply.
+        """
         explicit = isinstance(text, (list, tuple))
         messages = text if explicit else [text]
         eos_available = enable_train_append_eos and eos_replacement_token_str in self.tokenToIndex
         sos_available = enable_train_prepend_sos and sos_replacement_token_str in self.tokenToIndex
+        if provenance is not None and (not explicit or len(provenance) != len(messages)):
+            raise ValueError("Message provenance must match the explicit message list")
         tokens = []
+        token_origins = [] if provenance is not None else None
         seen = set()
-        for message in messages:
+        for message_index, message in enumerate(messages):
             cleaned = message if prepared else self.prepare_training_message(str(message or ""))
-            if not cleaned or cleaned in seen:
+            if not cleaned:
                 continue
-            seen.add(cleaned)
+            if provenance is None:
+                # Legacy corpus deduplication remains unchanged, but genuine
+                # conversational turns must keep repeated identical messages.
+                if cleaned in seen:
+                    continue
+                seen.add(cleaned)
             append_eos = eos_available and (explicit or random.random() < eos_append_probability)
             message_tokens = self.tokenize_training_message(cleaned, append_eos=append_eos)
             if not message_tokens:
                 continue
             if tokens and explicit and not eos_available:
-                tokens.extend(self.tokenizeText("\n"))
+                newline = self.tokenizeText("\n")
+                tokens.extend(newline)
+                if token_origins is not None:
+                    token_origins.extend([(False, None)] * len(newline))
             if sos_available and random.random() < sos_prepend_probability:
                 tokens.append(sos_replacement_token_str)
+                if token_origins is not None:
+                    token_origins.append((bool(provenance[message_index][0]), None))
             tokens.extend(message_tokens)
-        return tokens
+            if token_origins is not None:
+                is_self, feedback = provenance[message_index]
+                token_origins.extend([(bool(is_self), None)] * len(message_tokens))
+                if is_self and feedback is not None:
+                    token_origins[-1] = (True, int(feedback))
+        return (tokens, token_origins) if token_origins is not None else tokens
 
     def tokenize_training_message(self, text, *, append_eos=True):
         """Tokenize one complete message, preserving its internal BPE newlines.
@@ -1214,7 +1261,12 @@ class LIBRARIAN:
         _trainingDataPairNumber=1,
         _stride=trainingDataStride,
         _tokens=None,
+        _token_provenance=None,
+        _allow_short=False,
     ):
+        if _token_provenance is not None:
+            if _tokens is None or len(_tokens) != len(_token_provenance):
+                raise ValueError("Training-token provenance must match explicit tokens")
         with self.v_counsellor.infodump("genTrainingData") as ʕっʘ‿ʘʔっ:
             if isinstance(_windowMAX, torch.Tensor):
                 _windowMAX = int(_windowMAX.item())
@@ -1295,6 +1347,40 @@ class LIBRARIAN:
                 except Exception:
                     start_index = 0
 
+            # Opt-in only: conversational episodes shorter than the ordinary
+            # 2*window curriculum still have valid, real next-token examples.
+            # Preserve Baby's configured horizon and compound loss; the Tutor
+            # simply predicts a shorter target sequence for this one lesson.
+            # Historical corpus lessons retain their original full-window path.
+            if _allow_short and _tokens is not None and 2 <= len(_tokens) < 2 * window:
+                total = len(_tokens)
+                input_length = min(window, max(1, total // 2))
+                if _token_provenance is not None:
+                    # Put the first explicitly grounded human feedback marker
+                    # on the supervised side whenever the remaining target
+                    # would still fit within Baby's full normal horizon.
+                    feedback_indices = [
+                        i for i, origin in enumerate(_token_provenance)
+                        if origin[1] is not None
+                    ]
+                    if feedback_indices:
+                        first_feedback = feedback_indices[0]
+                        if 0 < first_feedback < input_length and total - first_feedback <= window:
+                            input_length = first_feedback
+                target_length = min(window, total - input_length)
+                input_seq = list(_tokens[:input_length])
+                target_seq = list(_tokens[input_length:input_length + target_length])
+                if _token_provenance is None:
+                    pair = (input_seq, target_seq)
+                else:
+                    pair = ProvenancedTrainingPair(
+                        input_seq, target_seq,
+                        _token_provenance[input_length:input_length + target_length]
+                    )
+                return _TrainingPairStream(
+                    lambda: iter((pair,)), 1, description="short-dialogue"
+                )
+
             token_lookup = self.tokenToIndex
 
             def token_iterator_factory() -> Iterator:
@@ -1315,6 +1401,7 @@ class LIBRARIAN:
                 tokens_are_indices=tokens_are_indices,
                 token_lookup=token_lookup,
                 start=start_index,
+                token_provenance=_token_provenance,
             )
 
             estimated_pairs = self._estimate_pair_count(

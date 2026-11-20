@@ -6481,16 +6481,20 @@ decode_bpe_whitespace(decoded_generated_text)
         )
         # Track administration: privacy settings
         self._track_hidden_stat(author, "administration", 1.0)
+        was_opted_out = bool(mem.get("web_explicit_opt_out", False))
         mem["web_explicit_opt_out"] = False
         if author not in self.bot.AIoptInUsers:
             self._apply_economy_delta(author, 1420.0)
             self.bot.AIoptInUsers.append(author)
             self.bot.save_opt_in_users()
-            await self.bot._save_user_data()
             optInMessage = f"hey {author}, thanks for opting in! i can now use your messages to learn, which helps a lot! get ready for me to sound even more insane!"
+        elif was_opted_out:
+            optInMessage = f"welcome back {author}! your opt-out has been cleared and you can chat and teach me again."
         else:
             optInMessage = f"uhhh, {author}... you're already opted in, but thanks for the vote of confidence?"
             self._apply_economy_delta(author, -0.5)
+        # Persist consent restoration even when an existing opt-in list was stale.
+        await self.bot._save_user_data()
         await self.bot._discord_reply(ctx, optInMessage)
 
     @commands.command(name="bbyoptout", aliases=["boptout", "optout"])
@@ -6509,7 +6513,7 @@ decode_bpe_whitespace(decoded_generated_text)
             )  # 5M BBY penalty for abandoning baby!
             self.bot.AIoptInUsers.remove(author)
             self.bot.save_opt_in_users()
-            optOutMessage = f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and you can still message me in the default way through !babyllm. anyone else reading, don't worry, i don't read anything without your permission, feel free to either message me using !babyllm or type !aioptin if you want me to use your words to learn english. i am here to have my soul corrupted LMAO."
+            optOutMessage = f"hey {author}, thanks for letting me know that you don't want me to read your messages anymore. if you want me to be able to in future, you can use !aioptin, and until then i won't retain or train on your messages or send conversational replies. anyone else reading, you can opt in with !bbyoptin to let me learn from your words. i am here to have my soul corrupted LMAO."
         else:
             optOutMessage = f"lol you're not even in the list, {author}!"
             self._apply_economy_delta(author, -0.1)
@@ -6716,8 +6720,18 @@ decode_bpe_whitespace(decoded_generated_text)
         # === Case 3: Full Success! All original logic now executes. ===
         try:
             force_tts = bool(getattr(ctx, "force_tts_reply", False))
+            # Twitch uses its own publish-receipt/consent handoff; Discord
+            # and Web must also respect gradient-training consent. Otherwise
+            # the model could teach itself from a public reply to someone
+            # who only requested a one-off answer, without opting in.
+            reply_platform = str(getattr(ctx, "platform", None) or "discord").lower()
+            can_train_author = (
+                self.bot.can_user_train(author, platform=reply_platform)
+                if hasattr(self.bot, "can_user_train") else True
+            )
+            retain_reply = reply_platform != "twitch" and can_train_author
             babyllm_message = await self.bot._discord_reply(
-                ctx, babyllm_text, to_buffer=True, tts=force_tts
+                ctx, babyllm_text, to_buffer=retain_reply, tts=force_tts
             )
             terminal_baby_text = (
                 self.bot._terminal_render_text(babyllm_text)
@@ -7071,7 +7085,7 @@ decode_bpe_whitespace(decoded_generated_text)
         if self.bot.training_queue.qsize() >= 20:
             _ = self.bot.training_queue.get_nowait()
         fullContext = self.bot.build_training_context(
-            max_chars=10000, include_external=True
+            max_chars=10000, include_external=True, as_messages=True
         )
         await self.bot.training_queue.put({"type": "context", "text": fullContext})
         await self.bot._discord_debug(

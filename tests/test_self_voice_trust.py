@@ -19,7 +19,8 @@ def test_classify_human_feedback_nuances():
     assert classify_human_feedback("makes sense to me", "nop") == FeedbackSignal.AFFIRMATIVE
 
     # Corrective / Repair
-    assert classify_human_feedback("DONT MESS WITH THE VOID", "nop mess me void") == FeedbackSignal.CORRECTIVE
+    # Playful uptake of Baby's words is NOT a negative correction.
+    assert classify_human_feedback("DONT MESS WITH THE VOID", "nop mess me void") == FeedbackSignal.NEUTRAL
     assert classify_human_feedback("no, not that", "cat") == FeedbackSignal.CORRECTIVE
     assert classify_human_feedback("wrong answer", "dog") == FeedbackSignal.CORRECTIVE
 

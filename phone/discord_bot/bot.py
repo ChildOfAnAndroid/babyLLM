@@ -3124,10 +3124,10 @@ class BABYBOT_DISCORD(commands.Bot):
                 if not msg:
                     continue
 
-                if last_tagged_speaker and name == last_tagged_speaker:
-                    formatted_lines.append(msg)
-                else:
-                    formatted_lines.append(f"{name}: {msg}")
+                # Speaker labels are provenance, not redundant presentation.
+                # Retain them for EVERY turn so later consent and loss weighting
+                # never inherit a previous speaker by guessing.
+                formatted_lines.append(f"{name}: {msg}")
                 last_tagged_speaker = name
 
             return "\n".join(formatted_lines).strip()
@@ -3926,6 +3926,9 @@ class BABYBOT_DISCORD(commands.Bot):
         max_lines: Optional[int] = None,
         max_chars: Optional[int] = None,
         as_messages: bool = False,
+        platform: str = "discord",
+        for_training: bool = False,
+        preserve_gaps: bool = False,
     ):
         """Condense recent chat, optionally keeping real message boundaries.
 
@@ -3969,8 +3972,19 @@ class BABYBOT_DISCORD(commands.Bot):
         for raw_message in source_messages:
             message = self._normalise_buffer_ingest_text(str(raw_message))
             if message:
-                # Terminal consent check: exclude messages from opted-out users
-                if hasattr(self, "_split_buffer_speaker_body") and hasattr(self, "has_explicit_opt_out"):
+                if for_training:
+                    # Missing author labels cannot safely establish live-chat consent.
+                    speaker, _ = self._split_buffer_speaker_body(message)
+                    if not speaker or (
+                        not self.is_bot_identity(speaker)
+                        and not self.can_user_train(speaker, platform=platform)
+                    ):
+                        # Keep a content-free boundary so a filtered message
+                        # never fabricates adjacency between the other speakers.
+                        if preserve_gaps:
+                            cleaned_messages.append(None)
+                        continue
+                elif hasattr(self, "_split_buffer_speaker_body") and hasattr(self, "has_explicit_opt_out"):
                     speaker, _ = self._split_buffer_speaker_body(message)
                     if speaker and self.has_explicit_opt_out(speaker):
                         continue
@@ -3981,17 +3995,25 @@ class BABYBOT_DISCORD(commands.Bot):
 
         recent = cleaned_messages[-line_cap:]
         if not as_messages:
-            return "\n".join(recent)[-char_cap:]
+            return "\n".join(entry for entry in recent if entry is not None)[-char_cap:]
 
         # Keep the most recent complete messages within the character budget.
         # Only a single oversized message is shortened, never re-split on Ċ.
         selected = []
         remaining = char_cap
         for message in reversed(recent):
+            if message is None:
+                if preserve_gaps:
+                    selected.append(None)
+                continue
             needed = len(message) + (1 if selected else 0)
             if needed > remaining:
                 if selected:
                     break
+                if for_training:
+                    # Truncating the beginning removes the speaker identity.
+                    # Prefer an older complete message to unattributable text.
+                    continue
                 message = message[-remaining:]
                 needed = len(message)
             selected.append(message)
@@ -4008,11 +4030,22 @@ class BABYBOT_DISCORD(commands.Bot):
         as_messages: bool = False,
     ):
         """Assemble recent admitted examples and a small live chat sample without duplicate exposure."""
-        parts = list(self.training_buffer) if include_external else []
+        # Historical corpus may contain unlabelled prose. For labelled chat,
+        # require present-day training consent before final batch assembly.
+        parts = []
+        if include_external:
+            for entry in self.training_buffer:
+                speaker, _ = self._split_buffer_speaker_body(entry)
+                if speaker and not self.is_bot_identity(speaker) and not self.can_user_train(
+                    speaker, platform="discord"
+                ):
+                    continue
+                parts.append(entry)
         chat_snippet = self._build_chat_training_snippet(
             max_lines=training_chat_mix_max_lines,
             max_chars=min(max_chars, training_chat_mix_max_chars),
             as_messages=True,
+            for_training=True,
         )
         seen_entries = set(parts)
         for msg in chat_snippet:
@@ -4021,7 +4054,12 @@ class BABYBOT_DISCORD(commands.Bot):
                 seen_entries.add(msg)
 
         if not parts:
-            parts = list(self.buffer)[-max(1, int(training_chat_mix_max_lines)):]
+            parts = self._build_chat_training_snippet(
+                max_lines=training_chat_mix_max_lines,
+                max_chars=max_chars,
+                as_messages=True,
+                for_training=True,
+            )
         if not as_messages:
             return "\n".join(parts)[-max_chars:]
         selected = []
@@ -4126,9 +4164,12 @@ class BABYBOT_DISCORD(commands.Bot):
         if key in self.AIoptInUsers:
             return True
 
-        # Check if user has active economy/game state
+        # A negative consent decision must survive save/prune/restart even
+        # when the person has no active game or economy state.
         mem = self.userMemory.get(key)
         if isinstance(mem, dict):
+            if mem.get("web_explicit_opt_out", False):
+                return True
             if abs(mem.get("BBY", 0.0)) > 0.001:
                 return True
             for field in [
@@ -4205,6 +4246,15 @@ class BABYBOT_DISCORD(commands.Bot):
         command_name = (
             stripped.split()[0][len(self.command_prefix) :].lower() if stripped else ""
         )
+        # Intentional consent management remains available after opting out;
+        # every other command, including the fast LLM shortcut, is silent.
+        consent_commands = {
+            "bbyoptin", "boptin", "optin", "aioptin",
+            "bbyoptout", "boptout", "optout", "aioptout",
+            "bbyoptcheck", "boptcheck", "optcheck", "aioptcheck",
+        }
+        if self.has_explicit_opt_out(author) and command_name not in consent_commands:
+            return True
         main_llm_aliases = {"babyllm", "bby", "bbyllm", "bb", "bllm", "b"}
         ctx = await self.get_context(message)
 
@@ -5988,6 +6038,8 @@ class BABYBOT_DISCORD(commands.Bot):
         print(f"\n[Message] From {author}: {content}")
         is_opted_in = False
         is_command = raw_content.strip().startswith(self.command_prefix)
+        if self.has_explicit_opt_out(author) and not is_command:
+            return  # No passive opt-out replies, including @mention prompts.
         temp_blocked_user = author in self.temp_not_opt
         if message.author != self.user and not getattr(message.author, "bot", False):
             if hasattr(self, "tutor") and getattr(self.tutor, "sensory_bus", None):
@@ -6025,7 +6077,9 @@ class BABYBOT_DISCORD(commands.Bot):
         )
 
         if is_mention and not can_respond and not is_command:
-            # Non-opted or opted-out user @mentioned baby: tell them to opt in (DON'T record)
+            if self.has_explicit_opt_out(author):
+                return  # Opt-out means no reply, including a consent nag.
+            # Non-opted user @mentioned baby: tell them to opt in (DON'T record)
             try:
                 await message.reply(
                     to_british_english(
@@ -6038,11 +6092,14 @@ class BABYBOT_DISCORD(commands.Bot):
 
         # Record message if allowed
         if can_retain:
-            if author == self.last_logged_author:
-                message_for_buffer = content
-            else:
-                message_for_buffer = self.formatMessage(author, content)
-            if self._buffer_add(message_for_buffer):
+            # Every live human message needs its own speaker label. Otherwise
+            # consecutive messages become un-attributable during training.
+            message_for_buffer = self.formatMessage(author, content)
+            can_train = self.can_user_train(author, platform="discord")
+            if self._buffer_add(
+                message_for_buffer, speaker_hint=author,
+                mirror_to_training=None if can_train else False,
+            ):
                 self.last_logged_author = author
 
         used_fave_token = bool(
@@ -7184,6 +7241,61 @@ class BABYBOT_DISCORD(commands.Bot):
     def _tokenize_training_text(self, text, *, prepared=False):
         return self.librarian.tokenize_training_text(text, prepared=prepared)
 
+    def _tokenize_conversation_training(self, entries):
+        """Build a consent-filtered lesson with token-aligned self authorship.
+
+        Each entry is (text, platform). 'corpus' marks an older, already
+        admitted prose source. Chat text without a reliable speaker is dropped.
+        Feedback is attached exactly once to Baby's utterance-ending token,
+        before the Librarian makes sliding windows. No tutor-side text decoding.
+        """
+        from brain.LAYERS.self_voice_trust import FeedbackSignal, classify_human_feedback
+
+        accepted = []
+        for source_position, (raw, platform) in enumerate(entries):
+            message = str(raw or "").strip()
+            if not message:
+                continue
+            speaker, body = self._split_buffer_speaker_body(message)
+            if speaker and self.is_bot_identity(speaker):
+                role = "self"
+            elif speaker:
+                check_platform = "discord" if platform == "corpus" else platform
+                if not self.can_user_train(speaker, platform=check_platform):
+                    continue
+                role = "human"
+            elif platform == "corpus":
+                # Corpus is an explicitly configured external source, not live
+                # conversation. It can be unlabelled; no feedback is inferred.
+                role = "corpus"
+            else:
+                # In particular, legacy training_buffer entries without
+                # authorship are NOT silently promoted into consented speech.
+                continue
+            accepted.append((source_position, message, role, body, platform))
+
+        messages = []
+        provenance = []
+        for index, (position, message, role, body, platform) in enumerate(accepted):
+            signal = None
+            if role == "self" and index + 1 < len(accepted):
+                next_position, _, next_role, next_body, next_platform = accepted[index + 1]
+                # Filtering a non-consenting speaker must create a turn boundary,
+                # not manufacture adjacency. Nor may unrelated archive and live
+                # snippets be joined into a false reply chain.
+                if (
+                    next_role == "human"
+                    and next_position == position + 1
+                    and next_platform == platform
+                    and platform in {"discord", "twitch", "web"}
+                ):
+                    reception = classify_human_feedback(next_body, body)
+                    if reception != FeedbackSignal.NEUTRAL:
+                        signal = int(reception)
+            messages.append(message)
+            provenance.append((role == "self", signal))
+        return self.librarian.tokenize_training_text(messages, provenance=provenance)
+
     async def _train_on_item(self, item):
         print(f"\n\ntraining on item: {item['type']} ...\n\n")
         item_type = str(item.get("type", "") or "").lower()
@@ -7206,11 +7318,37 @@ class BABYBOT_DISCORD(commands.Bot):
         )
         training_text = "\n".join(training_tail)
         used_training_buffer = False
+        token_provenance = None
 
         if item_type == "chat":
+            item_platform = str(item.get("platform") or "discord").lower()
             snippet_messages = self._build_chat_training_snippet(
-                chat_messages, as_messages=True
+                chat_messages, as_messages=True, platform=item_platform,
+                for_training=True, preserve_gaps=True,
             )
+            if None in snippet_messages:
+                # A consent-filtered speaker ends that conversational episode.
+                # Never teach a fabricated transition across an omitted turn.
+                last_gap = len(snippet_messages) - 1 - snippet_messages[::-1].index(None)
+                snippet_messages = snippet_messages[last_gap + 1:]
+            # Build the isolated live dialogue first. A complete short
+            # Baby-and-human exchange has valuable contextual feedback even
+            # before it reaches the full fixed-size curriculum window.
+            live_entries = [(message, item_platform) for message in snippet_messages]
+            live_tokens, live_origins = self._tokenize_conversation_training(live_entries)
+            seen_baby = False
+            complete_short_exchange = False
+            for is_self, _feedback in live_origins:
+                if is_self:
+                    seen_baby = True
+                elif seen_baby:
+                    complete_short_exchange = True
+                    break
+            complete_short_exchange = (
+                complete_short_exchange
+                and 8 <= len(live_tokens) < self.chatWindowMAX * 2 + 1
+            )
+
             try:
                 direct_chat_probability = max(
                     0.0, min(1.0, float(training_direct_chat_probability))
@@ -7218,10 +7356,13 @@ class BABYBOT_DISCORD(commands.Bot):
             except Exception:
                 direct_chat_probability = 0.50
 
-            # When a chat interaction was specifically queued, prioritize training on the
-            # conversational pair so queued interactions are reliably learned.
+            # Short completed exchanges deserve their own training example,
+            # rather than being displaced by unrelated corpus text. The
+            # existing 50/50 curriculum choice remains for other chat items.
             use_chat_direct = bool(snippet_messages) and (
-                not training_tail or random.random() < direct_chat_probability
+                complete_short_exchange
+                or not training_tail
+                or random.random() < direct_chat_probability
             )
             used_training_buffer = bool(training_tail) and not use_chat_direct
 
@@ -7231,7 +7372,11 @@ class BABYBOT_DISCORD(commands.Bot):
             else:
                 messages = list(snippet_messages or chat_messages)
                 training_source = "chat"
-            tokensToLibrarian = self._tokenize_training_text(messages)
+            if used_training_buffer:
+                entries = [(message, "buffer") for message in training_tail] + live_entries
+                tokensToLibrarian, token_provenance = self._tokenize_conversation_training(entries)
+            else:
+                tokensToLibrarian, token_provenance = live_tokens, live_origins
         else:
             text = original_text if isinstance(original_text, list) else chat_text or training_text
             if not text:
@@ -7239,14 +7384,45 @@ class BABYBOT_DISCORD(commands.Bot):
                     max_chars=training_context_max_chars, include_external=True, as_messages=True
                 )
             training_source = item_type or "context"
-            tokensToLibrarian = self._tokenize_training_text(
-                text, prepared=bool(item.get("prepared"))
-            )
+            if item_type == "context" and isinstance(text, list) and not item.get("prepared"):
+                # Idle/live context lists can contain Baby's replies as targets;
+                # give them the same provenance and consent checks as direct chat.
+                tokensToLibrarian, token_provenance = self._tokenize_conversation_training(
+                    [(entry, "corpus") for entry in text]
+                )
+            else:
+                tokensToLibrarian = self._tokenize_training_text(
+                    text, prepared=bool(item.get("prepared"))
+                )
 
         print(f"[TRAINING_SOURCE] {training_source}")
         token_count = len(tokensToLibrarian)
-        if token_count < self.chatWindowMAX * 2 + 1:
-            print(f"\n\nnot enough tokens ({token_count}) for training. skipping.\n\n")
+        minimum_full_lesson = self.chatWindowMAX * 2 + 1
+        if item_type == "chat" and used_training_buffer and token_count < minimum_full_lesson:
+            # The older corpus stays available to the idle curriculum. For a
+            # small live turn, train the actual contiguous dialogue instead
+            # of concatenating unrelated history to fill Baby's token window.
+            tokensToLibrarian, token_provenance = self._tokenize_conversation_training(
+                [(msg, item_platform) for msg in snippet_messages]
+            )
+            used_training_buffer = False
+            training_source = "chat-short"
+            token_count = len(tokensToLibrarian)
+
+        is_short_dialogue = False
+        if item_type == "chat" and token_provenance and token_count >= 8:
+            # A short episode should have both Baby's words and a subsequent
+            # consented human reply. Isolated utterances can be learnt through
+            # the existing ordinary corpus route instead.
+            seen_self = False
+            for is_self, _feedback in token_provenance:
+                if is_self:
+                    seen_self = True
+                elif seen_self:
+                    is_short_dialogue = True
+                    break
+        if token_count < minimum_full_lesson and not is_short_dialogue:
+            print(f"\n\nnot enough conversational evidence ({token_count} tokens) for training. skipping.\n\n")
             return
 
         # update favourite token based on this training batch
@@ -7263,6 +7439,8 @@ class BABYBOT_DISCORD(commands.Bot):
             _trainingDataPairNumber=trainingNum,
             _stride=trainingDataStride,
             _tokens=tokensToLibrarian,
+            _token_provenance=token_provenance,
+            _allow_short=is_short_dialogue,
         )
 
         def _train_lesson():
@@ -7777,13 +7955,21 @@ class BABYBOT_DISCORD(commands.Bot):
             adapter = self.platforms.get(platform_msg.platform)
             if adapter:
                 formatted = adapter.format_message(author_id, platform_msg.content)
-                if self._buffer_add(formatted, speaker_hint=author_id):
+                if self._buffer_add(
+                    formatted, speaker_hint=author_id,
+                    mirror_to_training=None if can_train else False,
+                ):
                     # Queue for training only if user consented to training
                     if can_train and hasattr(self, "training_queue") and self.training_queue.qsize() < 20:
                         await self.training_queue.put(
                             {
                                 "type": "chat",
-                                "text": formatted,
+                                # Twitch can train on the real, recent dialogue;
+                                # web keeps its one explicitly attributed turn.
+                                "text": (
+                                    list(self.buffer)[-max(1, training_chat_mix_max_lines):]
+                                    if platform_msg.platform == "twitch" else formatted
+                                ),
                                 "platform": platform_msg.platform,
                             }
                         )
