@@ -7331,6 +7331,24 @@ class BABYBOT_DISCORD(commands.Bot):
                 # Never teach a fabricated transition across an omitted turn.
                 last_gap = len(snippet_messages) - 1 - snippet_messages[::-1].index(None)
                 snippet_messages = snippet_messages[last_gap + 1:]
+            # Build the isolated live dialogue first. A complete short
+            # Baby-and-human exchange has valuable contextual feedback even
+            # before it reaches the full fixed-size curriculum window.
+            live_entries = [(message, item_platform) for message in snippet_messages]
+            live_tokens, live_origins = self._tokenize_conversation_training(live_entries)
+            seen_baby = False
+            complete_short_exchange = False
+            for is_self, _feedback in live_origins:
+                if is_self:
+                    seen_baby = True
+                elif seen_baby:
+                    complete_short_exchange = True
+                    break
+            complete_short_exchange = (
+                complete_short_exchange
+                and 8 <= len(live_tokens) < self.chatWindowMAX * 2 + 1
+            )
+
             try:
                 direct_chat_probability = max(
                     0.0, min(1.0, float(training_direct_chat_probability))
@@ -7338,10 +7356,13 @@ class BABYBOT_DISCORD(commands.Bot):
             except Exception:
                 direct_chat_probability = 0.50
 
-            # When a chat interaction was specifically queued, prioritize training on the
-            # conversational pair so queued interactions are reliably learned.
+            # Short completed exchanges deserve their own training example,
+            # rather than being displaced by unrelated corpus text. The
+            # existing 50/50 curriculum choice remains for other chat items.
             use_chat_direct = bool(snippet_messages) and (
-                not training_tail or random.random() < direct_chat_probability
+                complete_short_exchange
+                or not training_tail
+                or random.random() < direct_chat_probability
             )
             used_training_buffer = bool(training_tail) and not use_chat_direct
 
@@ -7351,11 +7372,11 @@ class BABYBOT_DISCORD(commands.Bot):
             else:
                 messages = list(snippet_messages or chat_messages)
                 training_source = "chat"
-            entries = (
-                [(message, "buffer") for message in training_tail]
-                if used_training_buffer else []
-            ) + [(message, item_platform) for message in (snippet_messages or chat_messages)]
-            tokensToLibrarian, token_provenance = self._tokenize_conversation_training(entries)
+            if used_training_buffer:
+                entries = [(message, "buffer") for message in training_tail] + live_entries
+                tokensToLibrarian, token_provenance = self._tokenize_conversation_training(entries)
+            else:
+                tokensToLibrarian, token_provenance = live_tokens, live_origins
         else:
             text = original_text if isinstance(original_text, list) else chat_text or training_text
             if not text:
