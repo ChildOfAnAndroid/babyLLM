@@ -3124,10 +3124,10 @@ class BABYBOT_DISCORD(commands.Bot):
                 if not msg:
                     continue
 
-                if last_tagged_speaker and name == last_tagged_speaker:
-                    formatted_lines.append(msg)
-                else:
-                    formatted_lines.append(f"{name}: {msg}")
+                # Speaker labels are provenance, not redundant presentation.
+                # Retain them for EVERY turn so later consent and loss weighting
+                # never inherit a previous speaker by guessing.
+                formatted_lines.append(f"{name}: {msg}")
                 last_tagged_speaker = name
 
             return "\n".join(formatted_lines).strip()
@@ -4002,6 +4002,10 @@ class BABYBOT_DISCORD(commands.Bot):
             if needed > remaining:
                 if selected:
                     break
+                if for_training:
+                    # Truncating the beginning removes the speaker identity.
+                    # Prefer an older complete message to unattributable text.
+                    continue
                 message = message[-remaining:]
                 needed = len(message)
             selected.append(message)
