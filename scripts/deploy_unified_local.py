@@ -187,9 +187,27 @@ def validate_process_cwd(root: Path, pid: int, tokens: list[str]) -> None:
 
 def find_supervisor(root: Path) -> tuple[int, int]:
     ps = command(["ps", "-ww", "-axo", "pid=,ppid=,command="], cwd=root)
-    rows = parse_processes(ps.stdout)
-    parents = [(pid, tokens) for pid, _, tokens in rows
-               if "--unified-worker" not in tokens]
+    # An interactive "python wakeup.py" launch can select "u" at the prompt.
+    # Its *supervisor* argv then has no mode, but its supervised child has
+    # "unified --unified-worker". Recognise this verified parent-child pair
+    # rather than inferring that no bot is running from the parent's argv.
+    all_rows = parse_processes(ps.stdout, include_other_modes=True)
+    unified_workers = [
+        (pid, ppid, tokens) for pid, ppid, tokens in all_rows
+        if "--unified-worker" in tokens
+        and any(mode in ("unified", "u", "all") for mode in tokens)
+    ]
+    worker_parent_pids = {ppid for _, ppid, _ in unified_workers}
+    parents = [
+        (pid, tokens) for pid, _, tokens in all_rows
+        if "--unified-worker" not in tokens
+        and (
+            any(mode in ("unified", "u", "all") for mode in tokens)
+            or pid in worker_parent_pids
+        )
+        and not any(mode in ("train", "discord", "d", "twitch", "t", "bot")
+                    for mode in tokens)
+    ]
     if len(parents) != 1:
         others = parse_processes(ps.stdout, include_other_modes=True)
         if not parents and others:
@@ -217,8 +235,8 @@ def find_supervisor(root: Path) -> tuple[int, int]:
             + explanation
         )
     parent_pid, parent_tokens = parents[0]
-    children = [pid for pid, ppid, tokens in rows
-                if ppid == parent_pid and "--unified-worker" in tokens]
+    children = [pid for pid, ppid, tokens in unified_workers
+                if ppid == parent_pid]
     if len(children) != 1:
         raise DeploymentBlocked(
             f"Expected exactly one unified worker for PID {parent_pid}, found {len(children)}."
