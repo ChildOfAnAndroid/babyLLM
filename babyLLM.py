@@ -1477,6 +1477,10 @@ class BABYLLM(nn.Module):
             if debugPrints:
                 ʕっʘ‿ʘʔっ("cross Entropy Loss")
             loss = F.cross_entropy(_logits, targetTensor)
+            # Keep a separate reference before the original in-place additions
+            # of regulation and auxiliary objectives. Only target-dependent
+            # linguistic imitation is affected by self-voice supervision.
+            language_ce_loss = loss.clone()
             loss_value = loss.detach().item()
             self.CEloss_used = loss_value
 
@@ -1775,16 +1779,25 @@ class BABYLLM(nn.Module):
                 FINALloss += AUXloss
                 debug_print(f"{FINALloss} aux ({AUXloss}) + final")
 
-            # Apply token loss weighting (e.g. self-token trust weighting or masking)
+            # Weight the supervised target-dependent language objectives only.
+            # Keep sensory/pixel, repetition, memory and parameter regulation
+            # active even when an unverified Baby target is not to be imitated.
             if _token_loss_weight is not None and _token_loss_weight != 1.0:
-                FINALloss = FINALloss * float(_token_loss_weight)
+                weight = max(0.0, min(1.0, float(_token_loss_weight)))
+                language_target_loss = language_ce_loss
+                if soft_sample is not None and not skipAuxLoss:
+                    language_target_loss = language_target_loss + AUXloss
+                FINALloss = FINALloss - (1.0 - weight) * language_target_loss
 
             # Learnable self-voice feedback calibration objective
+            self.trust_loss_used = 0.0
             if _feedback_signal is not None and hasattr(self, "self_voice_trust"):
                 embed_to_calibrate = getattr(self, "latestTokenEmbed", None)
                 if embed_to_calibrate is not None:
+                    # Heuristically classified human feedback supervises the
+                    # trust heads, not Baby's entire representation backbone.
                     trust_calib_loss = self.self_voice_trust.compute_feedback_loss(
-                        embed_to_calibrate, _feedback_signal
+                        embed_to_calibrate.detach(), _feedback_signal
                     )
                     FINALloss = FINALloss + trust_calib_loss
                     self.trust_loss_used = trust_calib_loss.detach().item()
