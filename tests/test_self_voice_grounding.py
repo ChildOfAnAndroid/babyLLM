@@ -632,6 +632,7 @@ def test_generated_twitch_reply_needs_both_publish_receipt_and_training_consent(
 
 def test_twitch_uses_publication_handoff_not_fake_discord_buffer():
     source = (ROOT / "phone/discord_bot/cog.py").read_text(encoding="utf-8")
-    assert 'to_buffer=not is_twitch_reply' in source
+    assert 'to_buffer=retain_reply' in source
+    assert 'reply_platform != "twitch" and can_train_author' in source
     adapter = (ROOT / "phone/discord_bot/platforms/twitch_adapter.py").read_text(encoding="utf-8")
     assert 'retain_generated_context=bool(' in adapter
