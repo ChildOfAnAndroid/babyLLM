@@ -28,6 +28,17 @@ def test_parse_processes_matches_only_actual_unified_wakeup_commands():
         (800, 1, ["/opt/homebrew/bin/python3", "/Users/charis/babyLLM/wakeup.py", "unified"]),
         (801, 800, ["/opt/homebrew/bin/python3", "/Users/charis/babyLLM/wakeup.py", "unified", "--unified-worker"]),
     ]
+    # -m wakeup is the same supervised entrypoint: sys.orig_argv preserves it.
+    module_launch = (
+        "900 1 /opt/homebrew/bin/python3 -m wakeup unified\n"
+        "901 900 /opt/homebrew/bin/python3 -m wakeup unified --unified-worker\n"
+        "902 1 /bin/sh -c 'python3 -m wakeup unified'\n"
+        "903 1 /usr/bin/python3 -m something_else unified\n"
+    )
+    assert deployment.parse_processes(module_launch) == [
+        (900, 1, ["/opt/homebrew/bin/python3", "-m", "wakeup", "unified"]),
+        (901, 900, ["/opt/homebrew/bin/python3", "-m", "wakeup", "unified", "--unified-worker"]),
+    ]
 
 
 def test_find_supervisor_fails_closed_when_worker_or_parent_ambiguous(tmp_path, monkeypatch):
@@ -48,6 +59,104 @@ def test_find_supervisor_fails_closed_when_worker_or_parent_ambiguous(tmp_path, 
         return result
     monkeypatch.setattr(deployment, "command", duplicate_workers)
     with pytest.raises(deployment.DeploymentBlocked, match="exactly one unified worker"):
+        deployment.find_supervisor(tmp_path)
+
+
+def test_module_launch_requires_verified_working_directory(tmp_path, monkeypatch):
+    """A -m wakeup command has no script path; lsof must tie it to this tree."""
+    (tmp_path / "wakeup.py").write_text("")
+    monkeypatch.setattr(deployment.shutil, "which", lambda exe: "/usr/sbin/lsof")
+    calls = []
+
+    def fake_command(argv, *, cwd, check=True):
+        calls.append(argv[0])
+        if argv[0] == "ps":
+            return subprocess.CompletedProcess(argv, 0, stdout=(
+                "900 1 /opt/homebrew/bin/python3 -m wakeup unified\n"
+                "901 900 /opt/homebrew/bin/python3 -m wakeup unified --unified-worker\n"
+            ), stderr="")
+        if argv[0] == "/usr/sbin/lsof":
+            return subprocess.CompletedProcess(
+                argv, 0, stdout=f"p900\nfcwd\nn{tmp_path}\n", stderr=""
+            )
+        raise AssertionError(argv)
+
+    monkeypatch.setattr(deployment, "command", fake_command)
+    assert deployment.find_supervisor(tmp_path) == (900, 901)
+    assert "/usr/sbin/lsof" in calls
+
+    def wrong_cwd(argv, *, cwd, check=True):
+        if argv[0] == "/usr/sbin/lsof":
+            return subprocess.CompletedProcess(
+                argv, 0, stdout="p900\nfcwd\nn/tmp/not-babyllm\n", stderr=""
+            )
+        return fake_command(argv, cwd=cwd, check=check)
+
+    monkeypatch.setattr(deployment, "command", wrong_cwd)
+    with pytest.raises(deployment.DeploymentBlocked, match="working directory"):
+        deployment.find_supervisor(tmp_path)
+
+
+def test_unified_supervisor_diagnostics_distinguish_stopped_and_other_modes(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "wakeup.py").write_text("")
+
+    def run_ps(text):
+        monkeypatch.setattr(
+            deployment, "command", lambda argv, **kwargs:
+            subprocess.CompletedProcess(argv, 0, stdout=text, stderr="")
+        )
+        with pytest.raises(deployment.DeploymentBlocked) as exc:
+            deployment.find_supervisor(tmp_path)
+        return str(exc.value)
+
+    assert "No Python wakeup.py" in run_ps("822 1 grep wakeup.py unified\n")
+    assert "modes: discord" in run_ps(
+        "800 1 /opt/homebrew/bin/python3 wakeup.py discord\n"
+    )
+    assert "worker without supervisor" in run_ps(
+        "801 1 /opt/homebrew/bin/python3 -m wakeup unified --unified-worker\n"
+    )
+
+
+def test_interactive_u_selection_is_detected_by_supervised_child(tmp_path, monkeypatch):
+    """The user can run wakeup.py then select u at the prompt."""
+    script = tmp_path / "wakeup.py"
+    script.write_text("")
+    observations = (
+        f"800 1 /opt/homebrew/bin/python3.14 {script}\n"
+        f"801 800 /opt/homebrew/bin/python3.14 {script} unified --unified-worker\n"
+    )
+    monkeypatch.setattr(
+        deployment, "command",
+        lambda argv, **kwargs: subprocess.CompletedProcess(
+            argv, 0, stdout=observations, stderr=""
+        ),
+    )
+    assert deployment.parse_processes(observations) == [
+        (801, 800, ["/opt/homebrew/bin/python3.14", str(script),
+                    "unified", "--unified-worker"])
+    ]
+    assert deployment.find_supervisor(tmp_path) == (800, 801)
+
+
+def test_interactive_parent_without_verified_unified_child_is_never_signalled(
+    tmp_path, monkeypatch
+):
+    script = tmp_path / "wakeup.py"
+    script.write_text("")
+    observations = (
+        f"800 1 python3 {script}\n"
+        f"801 800 python3 {script} twitch --unified-worker\n"
+    )
+    monkeypatch.setattr(
+        deployment, "command",
+        lambda argv, **kwargs: subprocess.CompletedProcess(
+            argv, 0, stdout=observations, stderr=""
+        ),
+    )
+    with pytest.raises(deployment.DeploymentBlocked, match="found 0"):
         deployment.find_supervisor(tmp_path)
 
 

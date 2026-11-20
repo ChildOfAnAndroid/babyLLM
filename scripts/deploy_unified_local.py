@@ -115,8 +115,24 @@ def available_space(root: Path) -> int:
     return free
 
 
-def parse_processes(output: str) -> list[tuple[int, int, list[str]]]:
-    """Parse macOS ps's pid/ppid/command columns without matching grep itself."""
+def _is_python_wakeup(tokens: list[str]) -> bool:
+    """Recognise both supported Python launch forms, without matching grep."""
+    if not tokens or "python" not in Path(tokens[0]).name.lower():
+        return False
+    # Running "python wakeup.py unified" and "python -m wakeup unified"
+    # are equivalent. sys.orig_argv retains the -m form in supervisor workers.
+    has_script = any(Path(token).name == "wakeup.py" for token in tokens[1:])
+    has_module = any(
+        tokens[index] == "-m" and tokens[index + 1] == "wakeup"
+        for index in range(1, len(tokens) - 1)
+    )
+    return has_script or has_module
+
+
+def parse_processes(
+    output: str, *, include_other_modes: bool = False
+) -> list[tuple[int, int, list[str]]]:
+    """Parse macOS ps output; never treat grep or an unrelated bot as Baby."""
     import shlex
 
     found = []
@@ -128,13 +144,11 @@ def parse_processes(output: str) -> list[tuple[int, int, list[str]]]:
             tokens = shlex.split(match.group(3))
         except ValueError:
             continue
-        # A grep/search process that mentions wakeup.py is not Baby's
-        # Python supervisor. Require a Python interpreter in the command.
-        if not any("python" in Path(token).name.lower() for token in tokens[:2]):
+        if not _is_python_wakeup(tokens):
             continue
-        if not any(Path(token).name == "wakeup.py" for token in tokens):
-            continue
-        if not any(token in ("unified", "u", "all") for token in tokens):
+        if not include_other_modes and not any(
+            token in ("unified", "u", "all") for token in tokens
+        ):
             continue
         found.append((int(match.group(1)), int(match.group(2)), tokens))
     return found
@@ -142,13 +156,22 @@ def parse_processes(output: str) -> list[tuple[int, int, list[str]]]:
 
 def validate_process_cwd(root: Path, pid: int, tokens: list[str]) -> None:
     script_tokens = [token for token in tokens if Path(token).name == "wakeup.py"]
-    if len(script_tokens) != 1:
+    module_used = any(
+        tokens[i] == "-m" and tokens[i + 1] == "wakeup"
+        for i in range(1, len(tokens) - 1)
+    )
+    if (len(script_tokens) != 1 and not module_used) or (
+        script_tokens and module_used
+    ):
         raise DeploymentBlocked("Could not uniquely identify the running wakeup.py.")
-    script = Path(script_tokens[0])
-    if script.is_absolute():
-        if script.resolve() != (root / "wakeup.py").resolve():
-            raise DeploymentBlocked("Running bot belongs to a different checkout.")
-        return
+    if script_tokens:
+        script = Path(script_tokens[0])
+        if script.is_absolute():
+            if script.resolve() != (root / "wakeup.py").resolve():
+                raise DeploymentBlocked("Running bot belongs to a different checkout.")
+            return
+    # A -m wakeup invocation does not contain a script pathname. Prove its
+    # working directory is exactly the requested checkout before any signal.
     lsof = shutil.which("lsof")
     if not lsof:
         raise DeploymentBlocked("Cannot verify the running bot's working directory (lsof unavailable).")
@@ -159,21 +182,61 @@ def validate_process_cwd(root: Path, pid: int, tokens: list[str]) -> None:
         for line in process.stdout.splitlines() if line.startswith("n/")
     ]
     if process.returncode or observed != [root.resolve()]:
-        raise DeploymentBlocked("Cannot prove that the running unified supervisor uses this checkout.")
+        raise DeploymentBlocked("Cannot prove that the running unified supervisor's working directory matches this checkout.")
 
 
 def find_supervisor(root: Path) -> tuple[int, int]:
     ps = command(["ps", "-ww", "-axo", "pid=,ppid=,command="], cwd=root)
-    rows = parse_processes(ps.stdout)
-    parents = [(pid, tokens) for pid, _, tokens in rows
-               if "--unified-worker" not in tokens]
+    # An interactive "python wakeup.py" launch can select "u" at the prompt.
+    # Its *supervisor* argv then has no mode, but its supervised child has
+    # "unified --unified-worker". Recognise this verified parent-child pair
+    # rather than inferring that no bot is running from the parent's argv.
+    all_rows = parse_processes(ps.stdout, include_other_modes=True)
+    unified_workers = [
+        (pid, ppid, tokens) for pid, ppid, tokens in all_rows
+        if "--unified-worker" in tokens
+        and any(mode in ("unified", "u", "all") for mode in tokens)
+    ]
+    worker_parent_pids = {ppid for _, ppid, _ in unified_workers}
+    parents = [
+        (pid, tokens) for pid, _, tokens in all_rows
+        if "--unified-worker" not in tokens
+        and (
+            any(mode in ("unified", "u", "all") for mode in tokens)
+            or pid in worker_parent_pids
+        )
+        and not any(mode in ("train", "discord", "d", "twitch", "t", "bot")
+                    for mode in tokens)
+    ]
     if len(parents) != 1:
+        others = parse_processes(ps.stdout, include_other_modes=True)
+        if not parents and others:
+            modes = [
+                ("worker without supervisor" if "--unified-worker" in tokens
+                 else next((t for t in tokens if t in
+                           ("train", "discord", "d", "twitch", "t", "bot", "unified", "u", "all")),
+                           "unknown mode"))
+                for _, _, tokens in others
+            ]
+            explanation = (
+                f"Detected {len(others)} BabyLLM wakeup process(es) in modes: "
+                + ", ".join(modes) + "."
+            )
+        elif not parents:
+            explanation = (
+                "No Python wakeup.py or python -m wakeup process is visible. "
+                "Baby may be stopped, or launched under an unsupported wrapper. "
+                "Inspect the process list and listener before starting anything."
+            )
+        else:
+            explanation = "Multiple supervisors detected; do not signal any of them."
         raise DeploymentBlocked(
-            f"Expected exactly one unified supervisor, found {len(parents)}."
+            f"Expected exactly one unified supervisor, found {len(parents)}. "
+            + explanation
         )
     parent_pid, parent_tokens = parents[0]
-    children = [pid for pid, ppid, tokens in rows
-                if ppid == parent_pid and "--unified-worker" in tokens]
+    children = [pid for pid, ppid, tokens in unified_workers
+                if ppid == parent_pid]
     if len(children) != 1:
         raise DeploymentBlocked(
             f"Expected exactly one unified worker for PID {parent_pid}, found {len(children)}."
