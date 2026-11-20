@@ -1030,9 +1030,10 @@ class TUTOR:
                 if self.pixelNext is None:
                     self.pixelNext = self.getPixelForStep(0)
 
-            for j in range(
-                self.numTokensPerStep
-            ):  # predict multiple tokens in a sequence, one at a time
+            # Full-window lessons are unchanged. Short, explicitly provenanced
+            # conversations can supervise only their real target tokens; no
+            # invented padding or extra unsupervised forward steps are needed.
+            for j in range(min(self.numTokensPerStep, L)):  # one real target at a time
                 self.currentTokenIndex = j
                 stepLoss = None
                 if not skipPixels:
@@ -1072,9 +1073,12 @@ class TUTOR:
                     self.pixelNow = None
                 if debugPrints:
                     ʕっʘ‿ʘʔっ("FORWARD")
+                # The model's main horizon view is deliberately frozen; AR512
+                # receives teacher-forced chronology separately. In a short
+                # lesson, never expose the uninitialised tail of _token_buffer.
                 inputTensor = buffer[
-                    : len(inputSeqPredictions)
-                ]  # slices input to only keep relevant part
+                    : len(_inputTokenIndices)
+                ]
                 try:
                     if forwardProfiler:
                         with torch.profiler.profile(record_shapes=True) as prof:
@@ -1416,7 +1420,7 @@ class TUTOR:
                             print(f"[CHUNK] final backward at j={j}/{L-1}")
                         
                         # Compute pixelDistLoss at the end
-                        self.avgPixelDist = self.avgPixelDist / self.numTokensPerStep
+                        self.avgPixelDist = self.avgPixelDist / max(1, L)
                         pixelDistLoss = min(1.5, self.avgPixelDist * 0.001)
                         self.pixelDistLoss_used = pixelDistLoss
                         
