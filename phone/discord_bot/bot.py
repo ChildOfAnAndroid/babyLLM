@@ -7320,9 +7320,16 @@ class BABYBOT_DISCORD(commands.Bot):
                     max_chars=training_context_max_chars, include_external=True, as_messages=True
                 )
             training_source = item_type or "context"
-            tokensToLibrarian = self._tokenize_training_text(
-                text, prepared=bool(item.get("prepared"))
-            )
+            if item_type == "context" and isinstance(text, list) and not item.get("prepared"):
+                # Idle/live context lists can contain Baby's replies as targets;
+                # give them the same provenance and consent checks as direct chat.
+                tokensToLibrarian, token_provenance = self._tokenize_conversation_training(
+                    [(entry, "corpus") for entry in text]
+                )
+            else:
+                tokensToLibrarian = self._tokenize_training_text(
+                    text, prepared=bool(item.get("prepared"))
+                )
 
         print(f"[TRAINING_SOURCE] {training_source}")
         token_count = len(tokensToLibrarian)
