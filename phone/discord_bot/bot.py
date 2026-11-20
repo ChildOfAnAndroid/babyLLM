@@ -7230,7 +7230,7 @@ class BABYBOT_DISCORD(commands.Bot):
         from brain.LAYERS.self_voice_trust import FeedbackSignal, classify_human_feedback
 
         accepted = []
-        for raw, platform in entries:
+        for source_position, (raw, platform) in enumerate(entries):
             message = str(raw or "").strip()
             if not message:
                 continue
@@ -7243,18 +7243,30 @@ class BABYBOT_DISCORD(commands.Bot):
                     continue
                 role = "human"
             elif platform == "corpus":
+                # Corpus is an explicitly configured external source, not live
+                # conversation. It can be unlabelled; no feedback is inferred.
                 role = "corpus"
             else:
+                # In particular, legacy training_buffer entries without
+                # authorship are NOT silently promoted into consented speech.
                 continue
-            accepted.append((message, role, body))
+            accepted.append((source_position, message, role, body, platform))
 
         messages = []
         provenance = []
-        for index, (message, role, body) in enumerate(accepted):
+        for index, (position, message, role, body, platform) in enumerate(accepted):
             signal = None
             if role == "self" and index + 1 < len(accepted):
-                _, next_role, next_body = accepted[index + 1]
-                if next_role == "human":
+                next_position, _, next_role, next_body, next_platform = accepted[index + 1]
+                # Filtering a non-consenting speaker must create a turn boundary,
+                # not manufacture adjacency. Nor may unrelated archive and live
+                # snippets be joined into a false reply chain.
+                if (
+                    next_role == "human"
+                    and next_position == position + 1
+                    and next_platform == platform
+                    and platform in {"discord", "twitch", "web"}
+                ):
                     reception = classify_human_feedback(next_body, body)
                     if reception != FeedbackSignal.NEUTRAL:
                         signal = int(reception)
@@ -7313,7 +7325,7 @@ class BABYBOT_DISCORD(commands.Bot):
                 messages = list(snippet_messages or chat_messages)
                 training_source = "chat"
             entries = (
-                [(message, "corpus") for message in training_tail]
+                [(message, "buffer") for message in training_tail]
                 if used_training_buffer else []
             ) + [(message, item_platform) for message in (snippet_messages or chat_messages)]
             tokensToLibrarian, token_provenance = self._tokenize_conversation_training(entries)
