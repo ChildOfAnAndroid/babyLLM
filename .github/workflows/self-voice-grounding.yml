@@ -39,5 +39,38 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r requirements.txt pytest transformers pytz
+      - name: Prepare offline-only test credentials and Sophia package import
+        run: |
+          python - <<'PY'
+          import importlib.metadata
+          from pathlib import Path
+          import re
+
+          # No real tokens are read from the runner. The temporary file is
+          # generated only in this ephemeral CI checkout and is never committed.
+          symbols = set()
+          for source in Path(".").rglob("*.py"):
+              if ".git" in source.parts:
+                  continue
+              symbols.update(re.findall(r"\bSECRET[A-Za-z0-9_]*\b", source.read_text(errors="ignore")))
+          values = {
+              name: ("123456789" if "BotId" in name or name.endswith("IdSECRET") else "offline-ci-placeholder")
+              for name in symbols
+          }
+          Path("secret.py").write_text(
+              "# GENERATED FOR OFFLINE CI ONLY - no credentials\n" +
+              "".join(f"{name} = {value!r}\n" for name, value in sorted(values.items()))
+          )
+          # The current published sophia-optimizer wheel imports an absent
+          # lowercase 'sophiag' symbol from its package initializer. Leave
+          # the real SophiaG implementation untouched; repair only the
+          # ephemeral site-package initializer for import-based tests.
+          package = Path(importlib.metadata.distribution("sophia-optimizer").locate_file("sophia/__init__.py"))
+          initializer = package.read_text()
+          broken = "from sophia.sophia import SophiaG, sophiag"
+          if broken in initializer:
+              package.write_text(initializer.replace(broken, "from sophia.sophia import SophiaG"))
+          print(f"CI import setup complete: {len(values)} dummy symbol(s)")
+          PY
       - name: Run full offline test suite
         run: python -m pytest -q tests
