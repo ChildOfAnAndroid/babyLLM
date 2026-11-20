@@ -12,7 +12,7 @@ from collections import deque
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
+from typing import Callable, Iterator, Optional, Sequence
 
 import numpy as np
 import pytest
@@ -118,7 +118,8 @@ def test_training_pair_preserves_legacy_tuple_contract_and_target_origins():
     factory_method = source_method(
         "school/staffroom/librarian.py", "LIBRARIAN",
         "_make_pair_iterator_factory",
-        dict(ProvenancedTrainingPair=pair_type, itertools=itertools, deque=deque, np=np),
+        dict(ProvenancedTrainingPair=pair_type, itertools=itertools, deque=deque, np=np,
+             Callable=Callable, Iterator=Iterator, Sequence=Sequence),
     )
     make_pairs = factory_method(
         SimpleNamespace(), lambda: iter(range(14)), window=3, stride=1,
